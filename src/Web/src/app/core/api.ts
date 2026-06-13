@@ -2,7 +2,7 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import {
-  GroupBy, ModelStat, PagedResult, Pricing, ProjectDto,
+  GroupBy, IngestionSource, ModelStat, PagedResult, Pricing, ProjectDto,
   Settings, SummaryResponse, SyncResult, UsageFilter, UsageRecord,
 } from './models';
 
@@ -17,6 +17,7 @@ export class Api {
     if (f.to) p = p.set('to', f.to);
     for (const id of f.projectIds) p = p.append('projectId', id);
     for (const m of f.models) p = p.append('model', m);
+    for (const s of f.sources) p = p.append('source', s);
     p = p.set('includeSidechain', f.includeSidechain);
     return p;
   }
@@ -51,6 +52,14 @@ export class Api {
 
   recompute(): Observable<{ modelsUpdated: number; rowsUpdated: number }> {
     return this.http.post<{ modelsUpdated: number; rowsUpdated: number }>(`${this.base}/pricing/recompute`, {});
+  }
+
+  sources(): Observable<IngestionSource[]> {
+    return this.http.get<IngestionSource[]>(`${this.base}/sources`);
+  }
+
+  updateSource(id: number, dto: IngestionSource): Observable<unknown> {
+    return this.http.put(`${this.base}/sources/${id}`, dto);
   }
 
   settings(): Observable<Settings> {

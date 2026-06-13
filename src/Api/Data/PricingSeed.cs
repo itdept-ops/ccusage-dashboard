@@ -25,5 +25,17 @@ public static class PricingSeed
         // Catch-all fallback for any unpriced/unknown model (incl. <synthetic>): $0 until you price it.
         new() { Id = 5, ModelPattern = "*", DisplayName = "Unpriced fallback",
             InputPerMTok = 0m, OutputPerMTok = 0m, CacheWrite5mPerMTok = 0m, CacheWrite1hPerMTok = 0m, CacheReadPerMTok = 0m, IsPlaceholder = true },
+
+        // --- OpenAI / Codex (placeholder estimates; no cache-write tier — cached input maps to cache-read) ---
+        new() { Id = 6, ModelPattern = "gpt-5.5", DisplayName = "GPT-5.5 (placeholder)",
+            InputPerMTok = 1.25m, OutputPerMTok = 10.00m, CacheWrite5mPerMTok = 0m, CacheWrite1hPerMTok = 0m, CacheReadPerMTok = 0.125m, IsPlaceholder = true },
+        new() { Id = 7, ModelPattern = "gpt-5.4", DisplayName = "GPT-5.4 (placeholder)",
+            InputPerMTok = 1.25m, OutputPerMTok = 10.00m, CacheWrite5mPerMTok = 0m, CacheWrite1hPerMTok = 0m, CacheReadPerMTok = 0.125m, IsPlaceholder = true },
+        // Prefix matches gpt-5.3-codex-spark and other 5.3 codex variants.
+        new() { Id = 8, ModelPattern = "gpt-5.3-codex", DisplayName = "GPT-5.3 Codex (placeholder)",
+            InputPerMTok = 0.50m, OutputPerMTok = 4.00m, CacheWrite5mPerMTok = 0m, CacheWrite1hPerMTok = 0m, CacheReadPerMTok = 0.05m, IsPlaceholder = true },
+        // Catch-all for any other GPT model.
+        new() { Id = 9, ModelPattern = "gpt-", DisplayName = "Other GPT (placeholder)",
+            InputPerMTok = 1.25m, OutputPerMTok = 10.00m, CacheWrite5mPerMTok = 0m, CacheWrite1hPerMTok = 0m, CacheReadPerMTok = 0.125m, IsPlaceholder = true },
     ];
 }

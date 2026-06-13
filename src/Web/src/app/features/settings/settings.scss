@@ -13,6 +13,34 @@
   .actions { display: flex; gap: 10px; margin-top: 10px; }
 }
 
+.source-row {
+  padding: 10px 0;
+  border-bottom: 1px solid var(--mat-sys-outline-variant);
+  &:last-child { border-bottom: none; }
+
+  .source-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 6px;
+    .src-name { font-weight: 600; }
+    .src-kind {
+      font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.05em;
+      padding: 1px 7px; border-radius: 9px;
+      background: color-mix(in srgb, var(--mat-sys-primary) 16%, transparent);
+    }
+    .src-count { font-size: 0.8rem; opacity: 0.6; }
+    .grow { flex: 1 1 auto; }
+  }
+
+  .source-edit {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    .full { flex: 1 1 auto; }
+  }
+}
+
 .result {
   .kv {
     display: flex;

@@ -34,14 +34,16 @@ services:
     environment:
       ConnectionStrings__Default: "Host=db;Port=5432;Database=${POSTGRES_DB:-ccusage};Username=${POSTGRES_USER:-ccusage};Password=${POSTGRES_PASSWORD:-ccusage_dev_pw}"
       Ingestion__ClaudeProjectsPath: "/data/claude"
+      Ingestion__CodexPath: "/data/codex"
       Ingestion__DisplayTimeZone: "${Ingestion__DisplayTimeZone:-America/New_York}"
       Cors__AllowedOrigin: "http://localhost:${WEB_PORT:-4200}"
       ASPNETCORE_URLS: "http://+:8080"
     ports:
       - "${API_PORT:-5180}:8080"
     volumes:
-      # Read-only mount of your Claude Code logs so the containerized API can ingest them.
+      # Read-only mounts of your local agent logs so the containerized API can ingest them.
       - "${CLAUDE_PROJECTS_PATH:-${HOME}/.claude/projects}:/data/claude:ro"
+      - "${CODEX_PATH:-${HOME}/.codex}:/data/codex:ro"
 
   web:
     profiles: ["full"]

@@ -1,5 +1,4 @@
 using System.Diagnostics;
-using System.Text.Json;
 using Ccusage.Api.Data;
 using Ccusage.Api.Data.Entities;
 using Microsoft.EntityFrameworkCore;
@@ -7,41 +6,32 @@ using Microsoft.EntityFrameworkCore;
 namespace Ccusage.Api.Ingestion;
 
 /// <summary>
-/// Walks the Claude Code projects directory, parses every <c>*.jsonl</c> transcript,
-/// keeps one row per <c>(message.id, requestId)</c>, prices it, and stores it. Unchanged
-/// files (same size + mtime) are skipped; changed files are reparsed and de-dup makes
-/// re-ingestion idempotent.
+/// Walks every enabled <see cref="IngestionSource"/>, delegates per-file parsing to the
+/// matching <see cref="ISourceParser"/>, keeps one row per <see cref="ParsedUsage.DedupKey"/>,
+/// prices it, and stores it. Unchanged files (same size + mtime) are skipped; changed files
+/// are reparsed and de-dup makes re-ingestion idempotent.
 /// </summary>
 public sealed class JsonlIngestionService(UsageDbContext db, ILogger<JsonlIngestionService> logger)
 {
     private const int BatchSize = 2000;
 
-    private static readonly JsonSerializerOptions JsonOpts = new()
-    {
-        PropertyNameCaseInsensitive = false,
-        NumberHandling = System.Text.Json.Serialization.JsonNumberHandling.AllowReadingFromString,
-    };
+    private static readonly string[] SkipSegments = [@"\.tmp\", @"\node_modules\", "plugins-backup"];
+
+    private readonly Dictionary<string, ISourceParser> _parsers =
+        new[] { (ISourceParser)new ClaudeParser(), new CodexParser() }
+            .ToDictionary(p => p.Kind, StringComparer.OrdinalIgnoreCase);
 
     public async Task<SyncResult> SyncAsync(CancellationToken ct = default)
     {
         var sw = Stopwatch.StartNew();
         var cfg = await db.AppConfigs.AsNoTracking().FirstAsync(ct);
-        var result = new SyncResult { ProjectsPath = cfg.ClaudeProjectsPath, TimeZone = cfg.DisplayTimeZone };
-
-        if (!Directory.Exists(cfg.ClaudeProjectsPath))
-        {
-            result.Error = $"Claude projects path not found: {cfg.ClaudeProjectsPath}";
-            result.DurationMs = sw.ElapsedMilliseconds;
-            return result;
-        }
+        var result = new SyncResult { TimeZone = cfg.DisplayTimeZone };
 
         var tz = ResolveTimeZone(cfg.DisplayTimeZone, result);
         var pricing = new PricingMatcher(await db.ModelPricings.AsNoTracking().ToListAsync(ct));
 
-        // All de-dup keys already stored (so re-syncing a changed file inserts nothing twice).
         var seen = new HashSet<string>(
             await db.UsageRecords.Select(r => r.DedupKey).ToListAsync(ct), StringComparer.Ordinal);
-
         var projectIdByRoot = (await db.Projects.AsNoTracking().ToListAsync(ct))
             .ToDictionary(p => p.RepoRoot, p => p.Id, StringComparer.OrdinalIgnoreCase);
         var fileByPath = (await db.IngestedFiles.AsNoTracking().ToListAsync(ct))
@@ -49,51 +39,64 @@ public sealed class JsonlIngestionService(UsageDbContext db, ILogger<JsonlIngest
 
         db.ChangeTracker.AutoDetectChangesEnabled = false;
 
+        var sources = await db.IngestionSources.AsNoTracking().Where(s => s.Enabled).ToListAsync(ct);
         var pending = new List<UsageRecord>(BatchSize);
 
-        foreach (var path in Directory.EnumerateFiles(cfg.ClaudeProjectsPath, "*.jsonl", SearchOption.AllDirectories))
+        foreach (var source in sources)
         {
-            ct.ThrowIfCancellationRequested();
-            result.FilesScanned++;
-
-            FileInfo info;
-            try { info = new FileInfo(path); }
-            catch (Exception ex) { logger.LogWarning(ex, "stat failed: {Path}", path); continue; }
-
-            var size = info.Length;
-            var mtime = info.LastWriteTimeUtc;
-
-            if (fileByPath.TryGetValue(path, out var tracked)
-                && tracked.SizeBytes == size
-                && Math.Abs((tracked.LastModifiedUtc - mtime).TotalSeconds) < 2)
+            if (!_parsers.TryGetValue(source.Kind, out var parser))
             {
-                result.FilesSkipped++;
+                logger.LogWarning("No parser for source kind '{Kind}'", source.Kind);
+                continue;
+            }
+            if (!Directory.Exists(source.RootPath))
+            {
+                result.SourceWarnings.Add($"{source.Name}: path not found ({source.RootPath})");
                 continue;
             }
 
-            result.FilesParsed++;
-
-            // Ensure a row exists so we have an Id for the FK.
-            if (tracked is null)
+            foreach (var path in Directory.EnumerateFiles(source.RootPath, "*.jsonl", SearchOption.AllDirectories))
             {
-                tracked = new IngestedFile { Path = path, LastSyncUtc = DateTime.UtcNow };
-                db.IngestedFiles.Add(tracked);
-                await db.SaveChangesAsync(ct);
-                db.ChangeTracker.Clear();
-                fileByPath[path] = tracked;
+                ct.ThrowIfCancellationRequested();
+                if (ShouldSkip(path) || !parser.MatchesFile(Path.GetFileName(path))) continue;
+
+                result.FilesScanned++;
+
+                FileInfo info;
+                try { info = new FileInfo(path); }
+                catch (Exception ex) { logger.LogWarning(ex, "stat failed: {Path}", path); continue; }
+
+                var size = info.Length;
+                var mtime = info.LastWriteTimeUtc;
+
+                if (fileByPath.TryGetValue(path, out var tracked)
+                    && tracked.SizeBytes == size
+                    && Math.Abs((tracked.LastModifiedUtc - mtime).TotalSeconds) < 2)
+                {
+                    result.FilesSkipped++;
+                    continue;
+                }
+
+                result.FilesParsed++;
+
+                if (tracked is null)
+                {
+                    tracked = new IngestedFile { Path = path, LastSyncUtc = DateTime.UtcNow };
+                    db.IngestedFiles.Add(tracked);
+                    await db.SaveChangesAsync(ct);
+                    db.ChangeTracker.Clear();
+                    fileByPath[path] = tracked;
+                }
+
+                var rows = await ProcessFileAsync(path, source, parser, tracked.Id, tz, pricing,
+                    seen, projectIdByRoot, pending, result, ct);
+
+                await db.IngestedFiles.Where(f => f.Id == tracked.Id).ExecuteUpdateAsync(s => s
+                    .SetProperty(f => f.SizeBytes, size)
+                    .SetProperty(f => f.LastModifiedUtc, mtime)
+                    .SetProperty(f => f.LinesIngested, rows)
+                    .SetProperty(f => f.LastSyncUtc, DateTime.UtcNow), ct);
             }
-
-            var lines = await ParseFileAsync(path, tracked.Id, tz, pricing, seen, projectIdByRoot,
-                cfg.ClaudeProjectsPath, pending, result, ct);
-
-            // Persist updated file watermark (direct SQL — no tracking needed).
-            await db.IngestedFiles.Where(f => f.Id == tracked.Id).ExecuteUpdateAsync(s => s
-                .SetProperty(f => f.SizeBytes, size)
-                .SetProperty(f => f.LastModifiedUtc, mtime)
-                .SetProperty(f => f.LinesIngested, lines)
-                .SetProperty(f => f.LastSyncUtc, DateTime.UtcNow), ct);
-
-            result.TotalLines += lines;
         }
 
         await FlushAsync(pending, result, ct);
@@ -105,47 +108,26 @@ public sealed class JsonlIngestionService(UsageDbContext db, ILogger<JsonlIngest
         return result;
     }
 
-    private async Task<int> ParseFileAsync(
-        string path, int fileId, TimeZoneInfo tz, PricingMatcher pricing, HashSet<string> seen,
-        Dictionary<string, int> projectIdByRoot, string root, List<UsageRecord> pending,
-        SyncResult result, CancellationToken ct)
+    private async Task<int> ProcessFileAsync(
+        string path, IngestionSource source, ISourceParser parser, int fileId, TimeZoneInfo tz,
+        PricingMatcher pricing, HashSet<string> seen, Dictionary<string, int> projectIdByRoot,
+        List<UsageRecord> pending, SyncResult result, CancellationToken ct)
     {
-        var lines = 0;
-        // FileShare.ReadWrite so we can read the live session file being appended to.
+        var rows = 0;
+        var fileName = Path.GetFileName(path);
         using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
         using var reader = new StreamReader(stream);
 
-        string? line;
-        while ((line = await reader.ReadLineAsync(ct)) is not null)
+        foreach (var pu in parser.Parse(reader, fileName))
         {
-            lines++;
-            if (line.Length == 0) continue;
+            rows++;
+            if (!seen.Add(pu.DedupKey)) continue;
 
-            JsonlLine? rec;
-            try { rec = JsonSerializer.Deserialize<JsonlLine>(line, JsonOpts); }
-            catch { result.MalformedLines++; continue; }
-
-            var msg = rec?.Message;
-            var usage = msg?.Usage;
-            if (rec?.Type != "assistant" || usage is null || string.IsNullOrEmpty(msg!.Id))
-                continue;
-
-            var dedup = msg.Id + "|" + (rec.RequestId ?? "");
-            if (!seen.Add(dedup)) continue; // already stored or seen this run
-
-            var input = ToInt(usage.InputTokens);
-            var output = ToInt(usage.OutputTokens);
-            var read = usage.CacheReadInputTokens ?? 0;
-            var write5m = usage.CacheCreation?.Ephemeral5m ?? 0;
-            var write1h = usage.CacheCreation?.Ephemeral1h ?? 0;
-            if (usage.CacheCreation is null && usage.CacheCreationInputTokens is { } flat)
-                write5m = flat; // older shape: treat the flat field as 5m writes
-
-            var cwd = rec.Cwd ?? "(unknown)";
+            var cwd = pu.Cwd ?? "(unknown)";
             var (repoRoot, name) = ProjectResolver.Resolve(cwd);
             if (!projectIdByRoot.TryGetValue(repoRoot, out var projectId))
             {
-                var proj = new Project { RepoRoot = repoRoot, Name = name, FolderName = ProjectResolver.TopFolder(path, root) };
+                var proj = new Project { RepoRoot = repoRoot, Name = name, FolderName = ProjectResolver.TopFolder(path, source.RootPath) };
                 db.Projects.Add(proj);
                 await db.SaveChangesAsync(ct);
                 db.ChangeTracker.Clear();
@@ -153,37 +135,37 @@ public sealed class JsonlIngestionService(UsageDbContext db, ILogger<JsonlIngest
                 projectIdByRoot[repoRoot] = projectId;
             }
 
-            var tsUtc = (rec.Timestamp ?? DateTimeOffset.UnixEpoch).UtcDateTime;
-            var model = string.IsNullOrEmpty(msg.Model) ? "(unknown)" : msg.Model!;
-
+            var tsUtc = DateTime.SpecifyKind(pu.TimestampUtc, DateTimeKind.Utc);
             pending.Add(new UsageRecord
             {
-                MessageId = msg.Id!,
-                RequestId = rec.RequestId,
-                DedupKey = dedup,
-                TimestampUtc = DateTime.SpecifyKind(tsUtc, DateTimeKind.Utc),
+                Source = source.Name,
+                MessageId = pu.DedupKey.Length > 128 ? pu.DedupKey[..128] : pu.DedupKey,
+                RequestId = null,
+                DedupKey = pu.DedupKey,
+                TimestampUtc = tsUtc,
                 LocalDate = DateOnly.FromDateTime(TimeZoneInfo.ConvertTimeFromUtc(tsUtc, tz)),
-                Model = model,
-                InputTokens = input,
-                OutputTokens = output,
-                CacheReadTokens = read,
-                CacheCreation5mTokens = ToInt(write5m),
-                CacheCreation1hTokens = ToInt(write1h),
-                SessionId = rec.SessionId ?? "",
+                Model = pu.Model,
+                InputTokens = ToInt(pu.Input),
+                OutputTokens = ToInt(pu.Output),
+                CacheReadTokens = pu.CacheRead,
+                CacheCreation5mTokens = ToInt(pu.Cache5m),
+                CacheCreation1hTokens = ToInt(pu.Cache1h),
+                SessionId = pu.SessionId,
                 ProjectId = projectId,
                 Cwd = cwd,
-                GitBranch = rec.GitBranch,
-                IsSidechain = rec.IsSidechain ?? false,
-                AgentId = rec.AgentId,
-                Version = rec.Version,
-                CostUsd = pricing.Cost(model, input, output, read, write5m, write1h),
+                GitBranch = pu.GitBranch,
+                IsSidechain = pu.IsSidechain,
+                AgentId = pu.AgentId,
+                Version = pu.Version,
+                CostUsd = pricing.Cost(pu.Model, pu.Input, pu.Output, pu.CacheRead, pu.Cache5m, pu.Cache1h),
                 IngestedFileId = fileId,
             });
+            result.NewRecordsBySource[source.Name] = result.NewRecordsBySource.GetValueOrDefault(source.Name) + 1;
 
             if (pending.Count >= BatchSize) await FlushAsync(pending, result, ct);
         }
 
-        return lines;
+        return rows;
     }
 
     private async Task FlushAsync(List<UsageRecord> pending, SyncResult result, CancellationToken ct)
@@ -196,7 +178,10 @@ public sealed class JsonlIngestionService(UsageDbContext db, ILogger<JsonlIngest
         pending.Clear();
     }
 
-    private static int ToInt(long? v) => v is null ? 0 : (int)Math.Clamp(v.Value, 0, int.MaxValue);
+    private static bool ShouldSkip(string path) =>
+        SkipSegments.Any(seg => path.Contains(seg, StringComparison.OrdinalIgnoreCase));
+
+    private static int ToInt(long v) => (int)Math.Clamp(v, 0, int.MaxValue);
 
     private TimeZoneInfo ResolveTimeZone(string id, SyncResult result)
     {

@@ -82,3 +82,12 @@ td.num { font-variant-numeric: tabular-nums; }
 }
 .tag.main { background: color-mix(in srgb, var(--mat-sys-primary) 16%, transparent); }
 .tag.sub { background: color-mix(in srgb, var(--mat-sys-tertiary) 22%, transparent); }
+
+.src-tag {
+  font-size: 0.72rem;
+  padding: 2px 8px;
+  border-radius: 10px;
+  white-space: nowrap;
+  background: color-mix(in srgb, var(--mat-sys-primary) 14%, transparent);
+  &.codex { background: color-mix(in srgb, #10a37f 26%, transparent); }
+}

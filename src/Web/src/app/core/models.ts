@@ -21,6 +21,7 @@ export interface SummaryResponse {
 
 export interface UsageRecord {
   id: number;
+  source: string;
   timestampUtc: string;
   localDate: string;
   model: string;
@@ -77,15 +78,23 @@ export interface Settings {
   claudeProjectsPath: string;
 }
 
+export interface IngestionSource {
+  id: number;
+  name: string;
+  kind: string;
+  rootPath: string;
+  enabled: boolean;
+  records: number;
+}
+
 export interface SyncResult {
-  projectsPath: string;
   timeZone: string;
   filesScanned: number;
   filesParsed: number;
   filesSkipped: number;
-  totalLines: number;
-  malformedLines: number;
   newRecords: number;
+  newRecordsBySource: Record<string, number>;
+  sourceWarnings: string[];
   unpricedModels: string[];
   durationMs: number;
   error: string | null;
@@ -98,7 +107,8 @@ export interface UsageFilter {
   to: string | null;
   projectIds: number[];
   models: string[];
+  sources: string[];
   includeSidechain: boolean;
 }
 
-export type GroupBy = 'day' | 'month' | 'project' | 'model' | 'session';
+export type GroupBy = 'day' | 'month' | 'project' | 'model' | 'session' | 'source';

@@ -16,6 +16,7 @@ public sealed class UsageQueries(UsageDbContext db)
         if (f.to is { } to) q = q.Where(r => r.LocalDate <= to);
         if (f.projectId is { Length: > 0 } pids) q = q.Where(r => pids.Contains(r.ProjectId));
         if (f.model is { Length: > 0 } models) q = q.Where(r => models.Contains(r.Model));
+        if (f.source is { Length: > 0 } sources) q = q.Where(r => sources.Contains(r.Source));
         if (f.includeSidechain == false) q = q.Where(r => !r.IsSidechain);
         return q;
     }
@@ -72,6 +73,17 @@ public sealed class UsageQueries(UsageDbContext db)
             case "project":
             {
                 var rows = await q.GroupBy(r => r.Project!.Name).Select(g => new Agg(
+                    g.Key,
+                    g.Sum(x => (long)x.InputTokens), g.Sum(x => (long)x.OutputTokens),
+                    g.Sum(x => x.CacheReadTokens),
+                    g.Sum(x => (long)x.CacheCreation5mTokens), g.Sum(x => (long)x.CacheCreation1hTokens),
+                    g.Sum(x => x.CostUsd), g.Count())).ToListAsync(ct);
+                buckets = rows.Select(ToBucket).OrderByDescending(b => b.CostUsd).ToList();
+                break;
+            }
+            case "source":
+            {
+                var rows = await q.GroupBy(r => r.Source).Select(g => new Agg(
                     g.Key,
                     g.Sum(x => (long)x.InputTokens), g.Sum(x => (long)x.OutputTokens),
                     g.Sum(x => x.CacheReadTokens),
@@ -145,6 +157,7 @@ public sealed class UsageQueries(UsageDbContext db)
             .Select(r => new UsageRecordDto
             {
                 Id = r.Id,
+                Source = r.Source,
                 TimestampUtc = r.TimestampUtc,
                 LocalDate = r.LocalDate,
                 Model = r.Model,

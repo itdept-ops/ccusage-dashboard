@@ -11,14 +11,16 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 
+import { MatSlideToggleModule } from '@angular/material/slide-toggle';
+
 import { Api } from '../../core/api';
-import { Settings as SettingsModel, SyncResult } from '../../core/models';
+import { IngestionSource, Settings as SettingsModel, SyncResult } from '../../core/models';
 
 @Component({
   selector: 'app-settings',
   imports: [
     CommonModule, FormsModule, MatCardModule, MatFormFieldModule, MatInputModule, MatSelectModule,
-    MatButtonModule, MatIconModule, MatProgressBarModule, MatSnackBarModule,
+    MatButtonModule, MatIconModule, MatProgressBarModule, MatSnackBarModule, MatSlideToggleModule,
   ],
   templateUrl: './settings.html',
   styleUrl: './settings.scss',
@@ -28,10 +30,15 @@ export class Settings {
   private snack = inject(MatSnackBar);
 
   readonly model = signal<SettingsModel | null>(null);
+  readonly sources = signal<IngestionSource[]>([]);
   readonly loading = signal(true);
   readonly saving = signal(false);
+  readonly savingSourceId = signal<number | null>(null);
   readonly syncing = signal(false);
   readonly lastSync = signal<SyncResult | null>(null);
+
+  /** newRecordsBySource as [name, count] pairs for the template. */
+  readonly lastSyncBySource = computed(() => Object.entries(this.lastSync()?.newRecordsBySource ?? {}));
 
   private readonly commonZones = [
     'America/New_York', 'America/Chicago', 'America/Denver', 'America/Phoenix', 'America/Los_Angeles',
@@ -52,6 +59,15 @@ export class Settings {
       next: s => { this.model.set(s); this.loading.set(false); },
       error: () => { this.loading.set(false); this.snack.open('Failed to load settings', 'Dismiss', { duration: 4000 }); },
     });
+    this.api.sources().subscribe(s => this.sources.set(s));
+  }
+
+  saveSource(s: IngestionSource): void {
+    this.savingSourceId.set(s.id);
+    this.api.updateSource(s.id, s).subscribe({
+      next: () => { this.savingSourceId.set(null); this.snack.open(`Saved source "${s.name}"`, 'OK', { duration: 2500 }); },
+      error: () => { this.savingSourceId.set(null); this.snack.open('Save failed', 'Dismiss', { duration: 4000 }); },
+    });
   }
 
   save(): void {
@@ -70,6 +86,7 @@ export class Settings {
       next: r => {
         this.syncing.set(false);
         this.lastSync.set(r);
+        this.api.sources().subscribe(s => this.sources.set(s));
         this.snack.open(r.error ? `Sync error: ${r.error}` : `Synced +${r.newRecords.toLocaleString()} rows`, 'OK', { duration: 5000 });
       },
       error: () => { this.syncing.set(false); this.snack.open('Sync failed', 'Dismiss', { duration: 4000 }); },

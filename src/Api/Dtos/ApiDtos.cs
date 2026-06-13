@@ -6,6 +6,7 @@ public readonly record struct UsageFilterQuery(
     DateOnly? to,
     int[]? projectId,
     string[]? model,
+    string[]? source,
     bool? includeSidechain);
 
 public class TokenTotals
@@ -36,6 +37,7 @@ public sealed class SummaryResponse
 public sealed class UsageRecordDto
 {
     public long Id { get; set; }
+    public string Source { get; set; } = "";
     public DateTime TimestampUtc { get; set; }
     public DateOnly LocalDate { get; set; }
     public string Model { get; set; } = "";
@@ -95,4 +97,14 @@ public sealed class SettingsDto
 {
     public string DisplayTimeZone { get; set; } = "";
     public string ClaudeProjectsPath { get; set; } = "";
+}
+
+public sealed class SourceDto
+{
+    public int Id { get; set; }
+    public string Name { get; set; } = "";
+    public string Kind { get; set; } = "";
+    public string RootPath { get; set; } = "";
+    public bool Enabled { get; set; }
+    public int Records { get; set; }
 }

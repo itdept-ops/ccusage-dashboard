@@ -10,6 +10,7 @@ public class UsageDbContext(DbContextOptions<UsageDbContext> options) : DbContex
     public DbSet<ModelPricing> ModelPricings => Set<ModelPricing>();
     public DbSet<IngestedFile> IngestedFiles => Set<IngestedFile>();
     public DbSet<AppConfig> AppConfigs => Set<AppConfig>();
+    public DbSet<IngestionSource> IngestionSources => Set<IngestionSource>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -17,6 +18,7 @@ public class UsageDbContext(DbContextOptions<UsageDbContext> options) : DbContex
         {
             e.Property(x => x.TimestampUtc).HasColumnType("timestamp with time zone");
             e.Property(x => x.CostUsd).HasPrecision(18, 8);
+            e.Property(x => x.Source).HasMaxLength(32).HasDefaultValue("claude-code");
             e.Property(x => x.MessageId).HasMaxLength(128);
             e.Property(x => x.RequestId).HasMaxLength(128);
             e.Property(x => x.DedupKey).HasMaxLength(300);
@@ -32,6 +34,7 @@ public class UsageDbContext(DbContextOptions<UsageDbContext> options) : DbContex
             e.HasIndex(x => x.Model);
             e.HasIndex(x => x.SessionId);
             e.HasIndex(x => x.IsSidechain);
+            e.HasIndex(x => x.Source);
 
             e.HasOne(x => x.Project).WithMany(p => p.Records)
                 .HasForeignKey(x => x.ProjectId).OnDelete(DeleteBehavior.Cascade);
@@ -72,6 +75,14 @@ public class UsageDbContext(DbContextOptions<UsageDbContext> options) : DbContex
         {
             e.Property(x => x.DisplayTimeZone).HasMaxLength(64);
             e.Property(x => x.ClaudeProjectsPath).HasMaxLength(1024);
+        });
+
+        b.Entity<IngestionSource>(e =>
+        {
+            e.Property(x => x.Name).HasMaxLength(32);
+            e.Property(x => x.Kind).HasMaxLength(32);
+            e.Property(x => x.RootPath).HasMaxLength(1024);
+            e.HasIndex(x => x.Name).IsUnique();
         });
     }
 }

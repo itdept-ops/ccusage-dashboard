@@ -81,6 +81,30 @@ public static class ApiEndpoints
         api.MapPost("/pricing/recompute", async (CostRecomputeService svc, CancellationToken ct) =>
             Results.Ok(await svc.RecomputeCostsAsync(ct)));
 
+        // ---- Sources ----
+        api.MapGet("/sources", async (UsageDbContext db, CancellationToken ct) =>
+        {
+            var counts = await db.UsageRecords.GroupBy(r => r.Source)
+                .Select(g => new { Source = g.Key, Count = g.Count() })
+                .ToDictionaryAsync(x => x.Source, x => x.Count, ct);
+            var sources = await db.IngestionSources.AsNoTracking().OrderBy(s => s.Name).ToListAsync(ct);
+            return Results.Ok(sources.Select(s => new SourceDto
+            {
+                Id = s.Id, Name = s.Name, Kind = s.Kind, RootPath = s.RootPath, Enabled = s.Enabled,
+                Records = counts.GetValueOrDefault(s.Name),
+            }));
+        });
+
+        api.MapPut("/sources/{id:int}", async (int id, SourceDto dto, UsageDbContext db, CancellationToken ct) =>
+        {
+            var s = await db.IngestionSources.FindAsync([id], ct);
+            if (s is null) return Results.NotFound();
+            s.RootPath = dto.RootPath?.Trim() ?? s.RootPath;
+            s.Enabled = dto.Enabled;
+            await db.SaveChangesAsync(ct);
+            return Results.Ok(dto);
+        });
+
         // ---- Settings ----
         api.MapGet("/settings", async (UsageDbContext db, CancellationToken ct) =>
         {

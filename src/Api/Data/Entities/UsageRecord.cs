@@ -10,6 +10,9 @@ public class UsageRecord
     public long Id { get; set; }
 
     /// <summary>The <c>message.id</c> (e.g. <c>msg_…</c>).</summary>
+    /// <summary>Which tool produced this usage, e.g. <c>claude-code</c> or <c>codex</c>.</summary>
+    public string Source { get; set; } = "claude-code";
+
     public string MessageId { get; set; } = "";
 
     /// <summary>The top-level <c>requestId</c> (e.g. <c>req_…</c>); null for some synthetic rows.</summary>

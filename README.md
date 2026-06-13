@@ -1,6 +1,6 @@
 # ccusage-dashboard
 
-A self-hosted dashboard for **filtering and visualizing your Claude Code token usage** — your "ccusage", with charts, cost, and drill-down. It reads Claude Code's local `*.jsonl` transcripts directly, de-duplicates and prices every message, stores it in **PostgreSQL**, and serves a filterable **Angular** dashboard from a **.NET 9** API.
+A self-hosted dashboard for **filtering and visualizing your AI coding-agent token usage** — your "ccusage", across **multiple tools** (Claude Code + OpenAI Codex), with charts, cost, and drill-down. It reads each tool's local `*.jsonl` logs directly, de-duplicates and prices every message, stores it in **PostgreSQL**, and serves a filterable **Angular** dashboard from a **.NET 9** API.
 
 [![CI](https://github.com/itdept-ops/ccusage-dashboard/actions/workflows/ci.yml/badge.svg)](https://github.com/itdept-ops/ccusage-dashboard/actions/workflows/ci.yml)
 
@@ -14,10 +14,21 @@ Claude Code writes a JSONL transcript for every session under `~/.claude/project
 
 It mirrors how the [`ccusage`](https://github.com/ryoppippi/ccusage) CLI computes usage, but as a persistent, queryable web app — no npm dependency, and a pricing table you can edit.
 
+## Sources
+
+Pluggable per-tool parsers (add more by implementing `ISourceParser`):
+
+| Source | Reads | Notes |
+| --- | --- | --- |
+| **Claude Code** | `~/.claude/projects/**/*.jsonl` | De-dups on `message.id + requestId`; 5m/1h cache-write + cache-read tiers. |
+| **Codex** (OpenAI) | `~/.codex/**/rollout-*.jsonl` | One row per `token_count` event using the per-turn `last_token_usage` delta; `cached_input_tokens` → cache-read, reasoning folded into output. |
+
+Each source is enable/disable-able with an editable path on the **Settings** page.
+
 ## Features
 
-- **Filter** by date range, project, model, and main-vs-subagent (sidechain) usage.
-- **Group** the time series by day, month, project, model, or session.
+- **Filter** by date range, project, model, **source**, and main-vs-subagent (sidechain) usage.
+- **Group** the time series by day, month, project, model, source, or session.
 - **Cost in USD** from an **editable per-model pricing table** (5m / 1h cache-write and cache-read tiers priced separately).
 - **Charts**: usage-over-time (cost + tokens), top-N by dimension, and a cost-by-model donut (ECharts).
 - **Sortable, paged message table** with project, model, token breakdown, and cost.
@@ -95,7 +106,8 @@ The API container mounts `${CLAUDE_PROJECTS_PATH}` (from `.env`) read-only at `/
 | `POST` | `/api/sync` | Ingest new/changed JSONL files; returns counts + timing. |
 | `GET` | `/api/usage/summary` | Aggregates; params: `from,to,projectId[],model[],includeSidechain,groupBy`. |
 | `GET` | `/api/usage/records` | Paged, sortable messages (same filters). |
-| `GET` | `/api/projects`, `/api/models` | Filter options with totals. |
+| `GET` | `/api/projects`, `/api/models`, `/api/sources` | Filter options with totals. |
+| `PUT` | `/api/sources/{id}` | Edit a source's path / enabled flag. |
 | `GET` / `PUT` | `/api/pricing`, `/api/pricing/{id}` | View / edit per-model rates. |
 | `POST` | `/api/pricing/recompute` | Re-price stored rows from current rates (no file re-read). |
 | `GET` / `PUT` | `/api/settings` | Display timezone + projects path. |
@@ -107,7 +119,8 @@ Set via `.env`, environment variables, or `src/Api/appsettings.json`:
 | Key | Default | Meaning |
 | --- | --- | --- |
 | `ConnectionStrings__Default` | `Host=localhost;Port=5433;…` | Postgres connection. |
-| `Ingestion__ClaudeProjectsPath` | `<UserProfile>/.claude/projects` | Source of JSONL logs (editable in Settings). |
+| `Ingestion__ClaudeProjectsPath` | `<UserProfile>/.claude/projects` | Claude Code logs (editable in Settings). |
+| `Ingestion__CodexPath` | `<UserProfile>/.codex` | Codex logs (editable in Settings). |
 | `Ingestion__DisplayTimeZone` | `America/New_York` | IANA zone for day/month bucketing. |
 | `Cors__AllowedOrigin` | `http://localhost:4200` | Angular dev origin. |
 

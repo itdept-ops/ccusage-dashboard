@@ -21,7 +21,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 
 import { Api } from '../../core/api';
-import { GroupBy, ModelStat, PagedResult, ProjectDto, SummaryResponse, UsageFilter, UsageRecord } from '../../core/models';
+import { GroupBy, IngestionSource, ModelStat, PagedResult, ProjectDto, SummaryResponse, UsageFilter, UsageRecord } from '../../core/models';
 import { ChartComponent } from '../../shared/chart';
 import { CompactPipe } from '../../shared/format';
 
@@ -42,11 +42,12 @@ export class Dashboard {
   private snack = inject(MatSnackBar);
 
   // ---- filter + view state ----
-  readonly filter = signal<UsageFilter>({ from: null, to: null, projectIds: [], models: [], includeSidechain: true });
+  readonly filter = signal<UsageFilter>({ from: null, to: null, projectIds: [], models: [], sources: [], includeSidechain: true });
   readonly groupBy = signal<GroupBy>('day');
 
   readonly projects = signal<ProjectDto[]>([]);
   readonly modelStats = signal<ModelStat[]>([]);
+  readonly sources = signal<IngestionSource[]>([]);
   readonly summary = signal<SummaryResponse | null>(null);
   readonly records = signal<PagedResult<UsageRecord> | null>(null);
 
@@ -59,7 +60,7 @@ export class Dashboard {
   readonly sort = signal('timestamp');
   readonly desc = signal(true);
 
-  readonly displayedColumns = ['localDate', 'model', 'projectName', 'sidechain', 'inputTokens', 'outputTokens', 'cacheReadTokens', 'totalTokens', 'costUsd'];
+  readonly displayedColumns = ['localDate', 'source', 'model', 'projectName', 'sidechain', 'inputTokens', 'outputTokens', 'cacheReadTokens', 'totalTokens', 'costUsd'];
 
   constructor() {
     this.loadOptions();
@@ -69,6 +70,7 @@ export class Dashboard {
   private loadOptions(): void {
     this.api.projects().subscribe(p => this.projects.set(p));
     this.api.models().subscribe(m => this.modelStats.set(m));
+    this.api.sources().subscribe(s => this.sources.set(s));
   }
 
   // mutate filter helpers (immutability for signal change detection)
@@ -82,7 +84,7 @@ export class Dashboard {
   }
 
   resetFilters(): void {
-    this.filter.set({ from: null, to: null, projectIds: [], models: [], includeSidechain: true });
+    this.filter.set({ from: null, to: null, projectIds: [], models: [], sources: [], includeSidechain: true });
     this.page.set(1);
     this.reloadAll();
   }

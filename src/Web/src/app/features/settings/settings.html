@@ -31,16 +31,46 @@
     </div>
   </mat-card>
 
+  <mat-card appearance="outlined" class="panel">
+    <h3>Sources</h3>
+    <p class="hint">Each source is a tool whose JSONL logs are scanned. Toggle one off to exclude it from the next sync;
+      edit its path if your logs live elsewhere.</p>
+
+    @for (s of sources(); track s.id) {
+      <div class="source-row">
+        <div class="source-head">
+          <span class="src-name">{{ s.name }}</span>
+          <span class="src-kind">{{ s.kind }}</span>
+          <span class="src-count">{{ s.records | number }} rows</span>
+          <span class="grow"></span>
+          <mat-slide-toggle [(ngModel)]="s.enabled">Enabled</mat-slide-toggle>
+        </div>
+        <div class="source-edit">
+          <mat-form-field appearance="outline" class="full" subscriptSizing="dynamic">
+            <mat-label>Root path</mat-label>
+            <input matInput [(ngModel)]="s.rootPath" />
+          </mat-form-field>
+          <button mat-stroked-button [disabled]="savingSourceId() === s.id" (click)="saveSource(s)">
+            <mat-icon>save</mat-icon> Save
+          </button>
+        </div>
+      </div>
+    }
+  </mat-card>
+
   @if (lastSync(); as r) {
     <mat-card appearance="outlined" class="panel result">
       <h3>Last sync</h3>
       <div class="kv"><span>Files parsed / scanned</span><b>{{ r.filesParsed | number }} / {{ r.filesScanned | number }}</b></div>
-      <div class="kv"><span>Lines read</span><b>{{ r.totalLines | number }}</b></div>
       <div class="kv"><span>New rows</span><b>{{ r.newRecords | number }}</b></div>
+      @for (pair of lastSyncBySource(); track pair[0]) {
+        <div class="kv"><span>&nbsp;&nbsp;↳ {{ pair[0] }}</span><b>+{{ pair[1] | number }}</b></div>
+      }
       <div class="kv"><span>Duration</span><b>{{ (r.durationMs / 1000).toFixed(1) }}s</b></div>
       @if (r.unpricedModels.length) {
         <div class="kv warn"><span>Unpriced models</span><b>{{ r.unpricedModels.join(', ') }}</b></div>
       }
+      @for (w of r.sourceWarnings; track w) { <div class="kv warn"><span>Source</span><b>{{ w }}</b></div> }
       @if (r.warning) { <div class="kv warn"><span>Warning</span><b>{{ r.warning }}</b></div> }
     </mat-card>
   }

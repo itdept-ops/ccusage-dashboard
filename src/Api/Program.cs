@@ -30,28 +30,40 @@ using (var scope = app.Services.CreateScope())
     var db = scope.ServiceProvider.GetRequiredService<UsageDbContext>();
     await db.Database.MigrateAsync();
 
-    var configuredPath = builder.Configuration["Ingestion:ClaudeProjectsPath"];
+    var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+    var claudePath = builder.Configuration["Ingestion:ClaudeProjectsPath"];
+    var codexPath = builder.Configuration["Ingestion:CodexPath"];
+
     var appConfig = await db.AppConfigs.FirstOrDefaultAsync();
     if (appConfig is null)
     {
-        var path = string.IsNullOrWhiteSpace(configuredPath)
-            ? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".claude", "projects")
-            : configuredPath;
-
         db.AppConfigs.Add(new AppConfig
         {
             Id = 1,
             DisplayTimeZone = builder.Configuration["Ingestion:DisplayTimeZone"] ?? "America/New_York",
-            ClaudeProjectsPath = path,
+            ClaudeProjectsPath = string.IsNullOrWhiteSpace(claudePath) ? Path.Combine(home, ".claude", "projects") : claudePath,
         });
         await db.SaveChangesAsync();
     }
-    else if (!string.IsNullOrWhiteSpace(configuredPath) && appConfig.ClaudeProjectsPath != configuredPath)
+
+    // Seed the ingestion sources once; thereafter they're editable in Settings.
+    if (!await db.IngestionSources.AnyAsync())
     {
-        // An explicit configured/env path (e.g. the container's /data/claude mount) takes precedence.
-        appConfig.ClaudeProjectsPath = configuredPath;
+        db.IngestionSources.AddRange(
+            new IngestionSource { Name = "claude-code", Kind = "claude", Enabled = true,
+                RootPath = string.IsNullOrWhiteSpace(claudePath) ? Path.Combine(home, ".claude", "projects") : claudePath },
+            new IngestionSource { Name = "codex", Kind = "codex", Enabled = true,
+                RootPath = string.IsNullOrWhiteSpace(codexPath) ? Path.Combine(home, ".codex") : codexPath });
         await db.SaveChangesAsync();
     }
+
+    // An explicit configured/env path (e.g. a container's read-only mount) overrides the stored path.
+    if (!string.IsNullOrWhiteSpace(claudePath))
+        await db.IngestionSources.Where(s => s.Kind == "claude" && s.RootPath != claudePath)
+            .ExecuteUpdateAsync(s => s.SetProperty(x => x.RootPath, claudePath));
+    if (!string.IsNullOrWhiteSpace(codexPath))
+        await db.IngestionSources.Where(s => s.Kind == "codex" && s.RootPath != codexPath)
+            .ExecuteUpdateAsync(s => s.SetProperty(x => x.RootPath, codexPath));
 }
 
 app.UseSwagger();
