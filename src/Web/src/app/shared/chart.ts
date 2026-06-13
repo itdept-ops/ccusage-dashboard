@@ -14,12 +14,18 @@ export class ChartComponent implements OnDestroy {
   private host = viewChild.required<ElementRef<HTMLDivElement>>('host');
   private chart?: echarts.ECharts;
   private ro?: ResizeObserver;
+  private rafId = 0;
 
   constructor() {
     afterNextRender(() => {
       this.chart = echarts.init(this.host().nativeElement, undefined, { renderer: 'canvas' });
       this.chart.setOption(this.option());
-      this.ro = new ResizeObserver(() => this.chart?.resize());
+      // Defer resize to the next frame so echarts' own layout change doesn't
+      // re-trigger the observer synchronously ("ResizeObserver loop" errors).
+      this.ro = new ResizeObserver(() => {
+        if (this.rafId) cancelAnimationFrame(this.rafId);
+        this.rafId = requestAnimationFrame(() => this.chart?.resize());
+      });
       this.ro.observe(this.host().nativeElement);
     });
 
@@ -30,6 +36,7 @@ export class ChartComponent implements OnDestroy {
   }
 
   ngOnDestroy(): void {
+    if (this.rafId) cancelAnimationFrame(this.rafId);
     this.ro?.disconnect();
     this.chart?.dispose();
   }
