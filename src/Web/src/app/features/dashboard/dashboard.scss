@@ -25,9 +25,7 @@ mat-progress-bar {
     display: flex;
     flex-wrap: nowrap;
     align-items: center;
-    gap: 12px;
-    overflow-x: auto;
-    padding-bottom: 2px;
+    gap: 10px;
   }
 
   /* grouped clusters with an overline label */
@@ -45,6 +43,12 @@ mat-progress-bar {
     }
   }
 
+  /* The scope cluster (Projects/Models/Sources) absorbs slack so the row fits without scrolling. */
+  .filter-cluster.scopes {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
   .cluster-label {
     flex: 0 0 auto;
     color: var(--tech-text-tertiary);
@@ -52,8 +56,8 @@ mat-progress-bar {
 
   /* collapse the Material subscript space so controls align tightly */
   mat-form-field { margin-bottom: -1.25em; }
-  .f-date { width: 120px; flex: 0 0 auto; }
-  .f-multi { width: 150px; flex: 0 0 auto; }
+  .f-date { width: 116px; flex: 0 0 auto; }
+  .f-multi { flex: 1 1 0; min-width: 0; }
 
   .f-toggle {
     flex: 0 0 auto;
@@ -64,7 +68,7 @@ mat-progress-bar {
     font-size: var(--tech-fs-body);
   }
 
-  .grow { flex: 1 1 auto; }
+  .grow { display: none; }
 
   .filter-actions {
     display: flex;
