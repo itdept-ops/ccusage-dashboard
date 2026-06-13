@@ -30,11 +30,13 @@ using (var scope = app.Services.CreateScope())
     var db = scope.ServiceProvider.GetRequiredService<UsageDbContext>();
     await db.Database.MigrateAsync();
 
-    if (!await db.AppConfigs.AnyAsync())
+    var configuredPath = builder.Configuration["Ingestion:ClaudeProjectsPath"];
+    var appConfig = await db.AppConfigs.FirstOrDefaultAsync();
+    if (appConfig is null)
     {
-        var path = builder.Configuration["Ingestion:ClaudeProjectsPath"];
-        if (string.IsNullOrWhiteSpace(path))
-            path = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".claude", "projects");
+        var path = string.IsNullOrWhiteSpace(configuredPath)
+            ? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".claude", "projects")
+            : configuredPath;
 
         db.AppConfigs.Add(new AppConfig
         {
@@ -42,6 +44,12 @@ using (var scope = app.Services.CreateScope())
             DisplayTimeZone = builder.Configuration["Ingestion:DisplayTimeZone"] ?? "America/New_York",
             ClaudeProjectsPath = path,
         });
+        await db.SaveChangesAsync();
+    }
+    else if (!string.IsNullOrWhiteSpace(configuredPath) && appConfig.ClaudeProjectsPath != configuredPath)
+    {
+        // An explicit configured/env path (e.g. the container's /data/claude mount) takes precedence.
+        appConfig.ClaudeProjectsPath = configuredPath;
         await db.SaveChangesAsync();
     }
 }
