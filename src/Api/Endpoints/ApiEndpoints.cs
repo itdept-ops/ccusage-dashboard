@@ -53,6 +53,14 @@ public static class ApiEndpoints
             Results.Ok(await q.RecordsAsync(filter, page ?? 1, pageSize ?? 50, sort ?? "timestamp", desc ?? true, ct)))
             .RequirePermission(Permissions.DashboardView);
 
+        api.MapGet("/usage/records.csv", async (
+            [AsParameters] UsageFilterQuery filter, HttpContext http, UsageQueries q, CancellationToken ct) =>
+        {
+            http.Response.ContentType = "text/csv; charset=utf-8";
+            http.Response.Headers.ContentDisposition = "attachment; filename=\"usage-iq-records.csv\"";
+            await q.WriteRecordsCsvAsync(filter, http.Response.Body, ct);
+        }).RequirePermission(Permissions.DashboardView);
+
         // ---- Filter options ----
         api.MapGet("/projects", async (UsageQueries q, CancellationToken ct) =>
             Results.Ok(await q.ProjectsAsync(ct)))

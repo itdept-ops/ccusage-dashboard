@@ -47,6 +47,12 @@ export class Dashboard {
   // ---- filter + view state ----
   readonly filter = signal<UsageFilter>({ from: null, to: null, projectIds: [], models: [], sources: [], includeSidechain: true });
   readonly groupBy = signal<GroupBy>('day');
+  readonly activePreset = signal<string>('all');
+  readonly presets = [
+    { key: '7d', label: '7d' }, { key: '30d', label: '30d' }, { key: '90d', label: '90d' },
+    { key: 'mtd', label: 'Month' }, { key: 'all', label: 'All' },
+  ] as const;
+  readonly exporting = signal(false);
 
   readonly projects = signal<ProjectDto[]>([]);
   readonly modelStats = signal<ModelStat[]>([]);
@@ -84,6 +90,40 @@ export class Dashboard {
   applyFilters(): void {
     this.page.set(1);
     this.reloadAll();
+  }
+
+  setDatePreset(kind: string): void {
+    const fmt = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    const today = new Date();
+    let from: string | null = null;
+    if (kind === 'mtd') {
+      from = fmt(new Date(today.getFullYear(), today.getMonth(), 1));
+    } else if (kind !== 'all') {
+      const days = kind === '7d' ? 6 : kind === '30d' ? 29 : 89;
+      const d = new Date(today);
+      d.setDate(d.getDate() - days);
+      from = fmt(d);
+    }
+    const to = kind === 'all' ? null : fmt(today);
+    this.activePreset.set(kind);
+    this.filter.update(f => ({ ...f, from, to }));
+    this.applyFilters();
+  }
+
+  exportCsv(): void {
+    this.exporting.set(true);
+    this.api.recordsCsv(this.filter()).subscribe({
+      next: blob => {
+        this.exporting.set(false);
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `usage-iq-records-${new Date().toISOString().slice(0, 10)}.csv`;
+        a.click();
+        URL.revokeObjectURL(url);
+      },
+      error: () => { this.exporting.set(false); this.snack.open('Export failed', 'Dismiss', { duration: 4000 }); },
+    });
   }
 
   resetFilters(): void {

@@ -14,6 +14,7 @@ public class UsageDbContext(DbContextOptions<UsageDbContext> options) : DbContex
     public DbSet<SyncStatus> SyncStatuses => Set<SyncStatus>();
     public DbSet<AppUser> Users => Set<AppUser>();
     public DbSet<UserPermission> UserPermissions => Set<UserPermission>();
+    public DbSet<AuditEntry> AuditEntries => Set<AuditEntry>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -112,6 +113,16 @@ public class UsageDbContext(DbContextOptions<UsageDbContext> options) : DbContex
         {
             e.Property(x => x.Permission).HasMaxLength(64);
             e.HasIndex(x => new { x.UserId, x.Permission }).IsUnique();
+        });
+
+        b.Entity<AuditEntry>(e =>
+        {
+            e.Property(x => x.WhenUtc).HasColumnType("timestamp with time zone");
+            e.Property(x => x.ActorEmail).HasMaxLength(256);
+            e.Property(x => x.Action).HasMaxLength(64);
+            e.Property(x => x.TargetEmail).HasMaxLength(256);
+            e.Property(x => x.Detail).HasMaxLength(1024);
+            e.HasIndex(x => x.WhenUtc);
         });
     }
 }

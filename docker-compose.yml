@@ -44,6 +44,12 @@ services:
       # Read-only mounts of your local agent logs so the containerized API can ingest them.
       - "${CLAUDE_PROJECTS_PATH:-${HOME}/.claude/projects}:/data/claude:ro"
       - "${CODEX_PATH:-${HOME}/.codex}:/data/codex:ro"
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8080/api/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
 
   web:
     profiles: ["full"]
@@ -52,7 +58,8 @@ services:
     container_name: ccusage-web
     restart: unless-stopped
     depends_on:
-      - api
+      api:
+        condition: service_healthy
     ports:
       - "${WEB_PORT:-4200}:80"
 

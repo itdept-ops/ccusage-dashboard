@@ -110,6 +110,43 @@ mat-progress-bar {
 /* ═══════════════════════════════════════════════════════════════
    KPI summary cards — opaque panels, mono hero numbers, accent glow
    ═══════════════════════════════════════════════════════════════ */
+.quick-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: var(--tech-space-4);
+
+  .qr-label { color: var(--tech-text-tertiary); margin-right: 8px; }
+  .qr-grow { flex: 1 1 auto; }
+
+  .qr-chip.mat-mdc-button {
+    min-width: 0;
+    height: 30px;
+    padding: 0 12px;
+    border-radius: var(--tech-r-pill, 999px);
+    font-size: var(--tech-fs-label, 12px);
+    font-weight: 500;
+    color: var(--tech-text-secondary);
+    border: 1px solid var(--tech-border-subtle);
+
+    &.active {
+      color: var(--tech-text-on-accent, #06090e);
+      background: var(--tech-accent, #3d8bff);
+      border-color: transparent;
+    }
+    &:hover:not(.active) { color: var(--tech-text); border-color: var(--tech-border-strong); }
+  }
+
+  .qr-export {
+    height: 32px;
+    border-radius: var(--tech-r-control, 8px);
+    color: var(--tech-text-secondary);
+    --mdc-outlined-button-outline-color: var(--tech-border-strong);
+    mat-icon { font-size: 17px; width: 17px; height: 17px; margin-right: 2px; }
+    &:hover:not([disabled]) { color: var(--tech-accent); box-shadow: var(--tech-glow-blue); }
+  }
+}
+
 .cards {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));

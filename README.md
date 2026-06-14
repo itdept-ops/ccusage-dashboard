@@ -39,12 +39,15 @@ Each source is enable/disable-able with an editable path on the **Settings** pag
 ## Features
 
 - **Filter** by date range, project, model, **source**, and main-vs-subagent (sidechain) usage.
+- **Quick date presets** — last 7 / 30 / 90 days, month-to-date, or all-time — alongside explicit from/to.
 - **Group** the time series by day, month, project, model, source, or session.
 - **Cost in USD** from an **editable per-model pricing table** (5m / 1h cache-write and cache-read tiers priced separately).
 - **Charts**: usage-over-time (cost + tokens), top-N by dimension, and a cost-by-model donut (ECharts).
 - **Sortable, paged message table** with project, model, token breakdown, and cost.
+- **CSV export** of the currently-filtered rows, streamed from the server (no in-memory buffering).
 - **One-click Sync** that incrementally re-reads only changed files.
 - **Background auto-sync** on a timer (a .NET hosted service) + a live **"Synced Xm ago"** status in the command bar.
+- **Audit log** of every user-management change — who did what, to whom, and when — on the Users page.
 
 ## How it handles the data correctly
 
@@ -70,6 +73,13 @@ Permission catalog: `dashboard.view`, `sync.run`, `pricing.manage`, `settings.ma
 
 > Google setup: in the OAuth client (Web application), add your origin (e.g. `http://localhost:4200`) to **Authorized JavaScript origins**, and make sure each user is allowed by the consent screen (test users / internal).
 
+## Reliability & testing
+
+- **Automated test suite** (`tests/Ccusage.Api.Tests`, run by CI): fast **unit tests** for the parsers, project resolver, pricing matcher, and permission catalog, plus **integration tests** that boot the real API against a throwaway PostgreSQL (**Testcontainers**) and assert the genuine auth/permission pipeline end-to-end — including *"disabling a user revokes access on the next request"*, last-admin-lockout, CSV-export gating, and audit-log writes. `dotnet test` runs everything.
+- **Per-request authorization** — the JWT only proves identity; permissions are re-read from the DB on every call (see above).
+- **Hardening**: a global exception handler (RFC 7807 problem-details, no stack traces leaked), a fixed-window **rate limiter** on the Google sign-in endpoint, **transient-fault retries** on the database connection (Npgsql resiliency; the transactional user-management paths run inside the execution strategy), and **liveness/readiness health checks** at `/api/health` and `/health/ready`.
+- **Web tier**: nginx adds security headers (`X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy`, `Permissions-Policy`), gzip, and immutable caching of fingerprinted assets. The API image ships a container `HEALTHCHECK`, and Compose gates the web service on the API being healthy.
+
 ## Architecture
 
 ```
@@ -88,6 +98,7 @@ Permission catalog: `dashboard.view`, `sync.run`, `pricing.manage`, `settings.ma
 ## Prerequisites
 
 - .NET SDK 9, Node 20+ / Angular CLI, Docker Desktop. (`dotnet ef` tool for migrations: `dotnet tool install --global dotnet-ef`.)
+- Tests: `dotnet test` (the integration tests need a running Docker daemon for Testcontainers).
 
 ## Quick start (dev)
 
@@ -132,7 +143,10 @@ The API container mounts `${CLAUDE_PROJECTS_PATH}` (from `.env`) read-only at `/
 | `GET` | `/api/sync/status` | Last-sync time + counts, whether a sync is running, and the auto-sync cadence. |
 | `GET` | `/api/usage/summary` | Aggregates; params: `from,to,projectId[],model[],includeSidechain,groupBy`. |
 | `GET` | `/api/usage/records` | Paged, sortable messages (same filters). |
+| `GET` | `/api/usage/records.csv` | Streamed CSV of the filtered rows (requires `dashboard.view`). |
+| `GET` | `/api/audit` | Recent user-management audit entries (requires `users.manage`). |
 | `GET` | `/api/projects`, `/api/models`, `/api/sources` | Filter options with totals. |
+| `GET` | `/api/health`, `/health/ready` | Liveness (anonymous) and readiness (DB connectivity) probes. |
 | `PUT` | `/api/sources/{id}` | Edit a source's path / enabled flag. |
 | `GET` / `PUT` | `/api/pricing`, `/api/pricing/{id}` | View / edit per-model rates. |
 | `POST` | `/api/pricing/recompute` | Re-price stored rows from current rates (no file re-read). |
@@ -161,15 +175,19 @@ Set via `.env`, environment variables, or `src/Api/appsettings.json`:
 ```
 usage-iq/
 ├─ docker-compose.yml        # db (default) + api/web (--profile full)
-├─ .github/workflows/ci.yml  # build API + Angular
+├─ .github/workflows/ci.yml  # build API + Angular, run dotnet test
+├─ tests/
+│  └─ Ccusage.Api.Tests/     # xUnit: unit + Testcontainers integration tests
 └─ src/
    ├─ Api/                   # .NET 9 minimal API
    │  ├─ Data/               # EF entities, DbContext, pricing seed
    │  ├─ Ingestion/          # JSONL parse, dedup, cost, project/timezone resolve
-   │  ├─ Services/           # queries + recompute
+   │  ├─ Services/           # queries, recompute, sync coordinator, audit
+   │  ├─ Auth/               # JWT, per-request permission filter
+   │  ├─ Infrastructure/     # global exception handler
    │  └─ Endpoints/          # API surface
    └─ Web/                   # Angular 21 (standalone + signals, ECharts)
-      └─ src/app/{features/dashboard,features/pricing,features/settings,core,shared}
+      └─ src/app/{features/{dashboard,pricing,settings,users,login},core,shared}
 ```
 
 ## License

@@ -1,24 +1,33 @@
 using System.Text;
+using System.Threading.RateLimiting;
 using Ccusage.Api.Auth;
 using Ccusage.Api.Data;
 using Ccusage.Api.Data.Entities;
 using Ccusage.Api.Endpoints;
+using Ccusage.Api.Infrastructure;
 using Ccusage.Api.Ingestion;
 using Ccusage.Api.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Secrets (Google client id/secret, JWT signing key, email allowlist) live in this
-// git-ignored file (baked into the Docker image at build time).
-builder.Configuration.AddJsonFile("appsettings.Local.json", optional: true, reloadOnChange: true);
+// git-ignored file (baked into the Docker image at build time). Integration tests set
+// SkipLocalSettings=true (env var) and inject config via environment variables instead,
+// so this real secrets file never shadows the test config.
+if (!builder.Configuration.GetValue("SkipLocalSettings", false))
+    builder.Configuration.AddJsonFile("appsettings.Local.json", optional: true, reloadOnChange: true);
 
 var conn = builder.Configuration.GetConnectionString("Default")
            ?? "Host=localhost;Port=5433;Database=ccusage;Username=ccusage;Password=ccusage_dev_pw";
 
-builder.Services.AddDbContext<UsageDbContext>(o => o.UseNpgsql(conn));
+builder.Services.AddDbContext<UsageDbContext>(o => o.UseNpgsql(conn, npgsql =>
+    // Resilience against transient DB blips (failover, connection drops). The two endpoints
+    // that open user-initiated transactions wrap them in the execution strategy accordingly.
+    npgsql.EnableRetryOnFailure(maxRetryCount: 5, maxRetryDelay: TimeSpan.FromSeconds(10), errorCodesToAdd: null)));
 builder.Services.AddScoped<JsonlIngestionService>();
 builder.Services.AddScoped<CostRecomputeService>();
 builder.Services.AddScoped<UsageQueries>();
@@ -61,6 +70,18 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         };
     });
 builder.Services.AddAuthorization();
+
+builder.Services.AddScoped<AuditLogger>();
+builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
+builder.Services.AddProblemDetails();
+builder.Services.AddHealthChecks().AddDbContextCheck<UsageDbContext>("database");
+builder.Services.AddRateLimiter(o =>
+{
+    o.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    o.AddPolicy("auth", http => RateLimitPartition.GetFixedWindowLimiter(
+        partitionKey: http.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+        factory: _ => new FixedWindowRateLimiterOptions { Window = TimeSpan.FromMinutes(1), PermitLimit = 20, QueueLimit = 0 }));
+});
 
 var app = builder.Build();
 
@@ -143,6 +164,8 @@ using (var scope = app.Services.CreateScope())
     }
 }
 
+app.UseExceptionHandler();
+
 // Swagger (full API schema) is dev-only — don't expose the API surface to anonymous callers in prod.
 if (app.Environment.IsDevelopment())
 {
@@ -152,6 +175,9 @@ if (app.Environment.IsDevelopment())
 app.UseCors();
 app.UseAuthentication();
 app.UseAuthorization();
+app.UseRateLimiter();
+
+app.MapHealthChecks("/health/ready");
 app.MapAuthEndpoints();
 app.MapUsersEndpoints();
 app.MapApiEndpoints();
@@ -160,3 +186,6 @@ app.MapGet("/", () => app.Environment.IsDevelopment()
     : Results.Ok(new { service = "Usage IQ API" }));
 
 app.Run();
+
+// Exposed so integration tests can spin up the app via WebApplicationFactory<Program>.
+public partial class Program { }

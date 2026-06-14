@@ -129,6 +129,15 @@ export interface PermissionItem {
   description: string;
 }
 
+export interface AuditEntry {
+  id: number;
+  whenUtc: string;
+  actorEmail: string;
+  action: string;
+  targetEmail: string | null;
+  detail: string | null;
+}
+
 /** Canonical permission keys (mirror of the backend catalog). */
 export const PERM = {
   dashboardView: 'dashboard.view',

@@ -88,3 +88,24 @@
     </table>
   </div>
 </mat-card>
+
+<!-- Audit log -->
+@if (audit().length) {
+  <mat-card appearance="outlined" class="panel audit-card">
+    <div class="panel-header">Recent changes</div>
+    <div class="audit-list">
+      @for (a of audit(); track a.id) {
+        <div class="audit-row">
+          <span class="audit-when mono-num">{{ a.whenUtc | date: 'MMM d, HH:mm' }}</span>
+          <span class="audit-action pill">{{ a.action }}</span>
+          <span class="audit-actor mono-num">{{ a.actorEmail }}</span>
+          @if (a.targetEmail) {
+            <mat-icon class="audit-arrow">arrow_forward</mat-icon>
+            <span class="audit-target mono-num">{{ a.targetEmail }}</span>
+          }
+          @if (a.detail) { <span class="audit-detail">{{ a.detail }}</span> }
+        </div>
+      }
+    </div>
+  </mat-card>
+}

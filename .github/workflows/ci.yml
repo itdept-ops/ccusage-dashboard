@@ -21,6 +21,19 @@ jobs:
       - run: dotnet restore
       - run: dotnet build --no-restore -c Release
 
+  test:
+    name: Test .NET API
+    runs-on: ubuntu-latest
+    # ubuntu-latest ships a running Docker daemon, which Testcontainers uses to
+    # spin up a throwaway PostgreSQL for the integration tests.
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
+      - name: Run unit + integration tests
+        run: dotnet test tests/Ccusage.Api.Tests/Ccusage.Api.Tests.csproj -c Release --logger "console;verbosity=normal"
+
   web:
     name: Build Angular app
     runs-on: ubuntu-latest

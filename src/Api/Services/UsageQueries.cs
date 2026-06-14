@@ -177,6 +177,33 @@ public sealed class UsageQueries(UsageDbContext db)
         return new PagedResult<UsageRecordDto> { Items = items, Total = total, Page = page, PageSize = pageSize };
     }
 
+    /// <summary>Streams the filtered records as CSV (ordered oldest-first) without buffering them all.</summary>
+    public async Task WriteRecordsCsvAsync(UsageFilterQuery f, Stream output, CancellationToken ct)
+    {
+        await using var w = new StreamWriter(output, leaveOpen: true);
+        await w.WriteLineAsync("date,source,model,project,type,input,output,cache_read,cache_5m,cache_1h,total,cost_usd");
+
+        var rows = Filtered(f).OrderBy(r => r.TimestampUtc).Select(r => new
+        {
+            r.LocalDate, r.Source, r.Model, Project = r.Project!.Name, r.IsSidechain,
+            r.InputTokens, r.OutputTokens, r.CacheReadTokens, r.CacheCreation5mTokens, r.CacheCreation1hTokens, r.CostUsd,
+        }).AsAsyncEnumerable();
+
+        await foreach (var r in rows.WithCancellation(ct))
+        {
+            var total = (long)r.InputTokens + r.OutputTokens + r.CacheReadTokens + r.CacheCreation5mTokens + r.CacheCreation1hTokens;
+            await w.WriteLineAsync(string.Join(',',
+                r.LocalDate.ToString("yyyy-MM-dd"), Csv(r.Source), Csv(r.Model), Csv(r.Project),
+                r.IsSidechain ? "subagent" : "main",
+                r.InputTokens, r.OutputTokens, r.CacheReadTokens, r.CacheCreation5mTokens, r.CacheCreation1hTokens,
+                total, r.CostUsd.ToString(System.Globalization.CultureInfo.InvariantCulture)));
+        }
+        await w.FlushAsync(ct);
+    }
+
+    private static string Csv(string s) =>
+        s.Contains(',') || s.Contains('"') || s.Contains('\n') ? "\"" + s.Replace("\"", "\"\"") + "\"" : s;
+
     public async Task<List<ProjectDto>> ProjectsAsync(CancellationToken ct) =>
         await db.UsageRecords.AsNoTracking()
             .GroupBy(r => new { r.ProjectId, r.Project!.Name, r.Project.RepoRoot })

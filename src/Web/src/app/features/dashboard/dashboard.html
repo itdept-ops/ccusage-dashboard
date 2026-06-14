@@ -68,6 +68,18 @@
   </div>
 </section>
 
+<!-- ───────────────────────── Quick range + export ───────────────────────── -->
+<div class="quick-row">
+  <span class="micro-label qr-label">Quick range</span>
+  @for (p of presets; track p.key) {
+    <button mat-button class="qr-chip" [class.active]="activePreset() === p.key" (click)="setDatePreset(p.key)">{{ p.label }}</button>
+  }
+  <span class="qr-grow"></span>
+  <button mat-stroked-button class="qr-export" [disabled]="exporting()" (click)="exportCsv()">
+    <mat-icon>download</mat-icon> {{ exporting() ? 'Exporting…' : 'Export CSV' }}
+  </button>
+</div>
+
 <!-- ───────────────────────── Summary cards ───────────────────────── -->
 @if (summary(); as s) {
   <div class="cards">

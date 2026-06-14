@@ -30,7 +30,7 @@ public static class AuthEndpoints
                     statusCode: StatusCodes.Status403Forbidden),
                 _ => Results.Unauthorized(),
             };
-        }).AllowAnonymous();
+        }).AllowAnonymous().RequireRateLimiting("auth");
 
         // Authorized: current user + live permissions (re-read from the DB).
         auth.MapGet("/me", async (CurrentUserAccessor accessor, CancellationToken ct) =>

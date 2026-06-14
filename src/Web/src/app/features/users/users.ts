@@ -16,7 +16,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 
 import { Api } from '../../core/api';
-import { ManagedUser, PermissionItem, PERM } from '../../core/models';
+import { AuditEntry, ManagedUser, PermissionItem, PERM } from '../../core/models';
 
 @Component({
   selector: 'app-users',
@@ -33,6 +33,7 @@ export class Users {
 
   readonly perms = signal<PermissionItem[]>([]);
   readonly users = signal<ManagedUser[]>([]);
+  readonly audit = signal<AuditEntry[]>([]);
   readonly loading = signal(true);
   readonly savingId = signal<number | null>(null);
 
@@ -50,6 +51,11 @@ export class Users {
       next: r => { this.perms.set(r.perms); this.users.set(r.users); this.loading.set(false); },
       error: () => { this.loading.set(false); this.snack.open('Failed to load users', 'Dismiss', { duration: 4000 }); },
     });
+    this.loadAudit();
+  }
+
+  private loadAudit(): void {
+    this.api.auditLog().subscribe({ next: a => this.audit.set(a), error: () => { /* non-critical */ } });
   }
 
   hasPerm(u: ManagedUser, key: string): boolean { return u.permissions.includes(key); }
@@ -66,6 +72,7 @@ export class Users {
       next: updated => {
         this.savingId.set(null);
         this.users.update(list => list.map(x => x.id === updated.id ? updated : x));
+        this.loadAudit();
         this.snack.open(`Saved ${u.email}`, 'OK', { duration: 2500 });
       },
       error: (err: HttpErrorResponse) => {
@@ -81,6 +88,7 @@ export class Users {
     this.api.deleteUser(u.id).subscribe({
       next: () => {
         this.users.update(list => list.filter(x => x.id !== u.id));
+        this.loadAudit();
         this.snack.open(`Removed ${u.email}`, 'OK', { duration: 2500 });
       },
       error: (err: HttpErrorResponse) => this.snack.open(err.error?.message ?? 'Delete failed', 'Dismiss', { duration: 5000 }),
@@ -106,6 +114,7 @@ export class Users {
         this.newEmail.set('');
         this.newEnabled.set(true);
         this.newPerms.set(new Set([PERM.dashboardView]));
+        this.loadAudit();
         this.snack.open(`Added ${u.email}`, 'OK', { duration: 2500 });
       },
       error: (err: HttpErrorResponse) => {

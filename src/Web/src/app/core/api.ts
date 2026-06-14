@@ -2,7 +2,7 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import {
-  GroupBy, IngestionSource, ManagedUser, ModelStat, PagedResult, PermissionItem, Pricing, ProjectDto,
+  AuditEntry, GroupBy, IngestionSource, ManagedUser, ModelStat, PagedResult, PermissionItem, Pricing, ProjectDto,
   Settings, SummaryResponse, SyncResult, SyncStatus, UsageFilter, UsageRecord,
 } from './models';
 
@@ -32,6 +32,14 @@ export class Api {
     const params = this.filterParams(f)
       .set('page', page).set('pageSize', pageSize).set('sort', sort).set('desc', desc);
     return this.http.get<PagedResult<UsageRecord>>(`${this.base}/usage/records`, { params });
+  }
+
+  recordsCsv(f: UsageFilter): Observable<Blob> {
+    return this.http.get(`${this.base}/usage/records.csv`, { params: this.filterParams(f), responseType: 'blob' });
+  }
+
+  auditLog(): Observable<AuditEntry[]> {
+    return this.http.get<AuditEntry[]>(`${this.base}/audit`);
   }
 
   projects(): Observable<ProjectDto[]> {

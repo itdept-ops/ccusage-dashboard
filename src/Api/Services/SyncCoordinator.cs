@@ -33,6 +33,13 @@ public sealed class SyncCoordinator(IServiceScopeFactory scopeFactory, ILogger<S
 
             var result = await ingestion.SyncAsync(ct);
 
+            if (result.Error is { Length: > 0 })
+                logger.LogWarning("Sync completed with error: {Error}", result.Error);
+            else
+                logger.LogInformation(
+                    "Sync done: {New} new records from {Parsed}/{Scanned} files in {Ms}ms",
+                    result.NewRecords, result.FilesParsed, result.FilesScanned, result.DurationMs);
+
             await db.SyncStatuses.Where(s => s.Id == 1).ExecuteUpdateAsync(s => s
                 .SetProperty(x => x.LastSyncUtc, DateTime.UtcNow)
                 .SetProperty(x => x.LastNewRecords, result.NewRecords)

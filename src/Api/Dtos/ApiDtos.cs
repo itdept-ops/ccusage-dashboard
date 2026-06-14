@@ -167,6 +167,16 @@ public sealed class PermissionItemDto
     public string Description { get; set; } = "";
 }
 
+public sealed class AuditEntryDto
+{
+    public long Id { get; set; }
+    public DateTime WhenUtc { get; set; }
+    public string ActorEmail { get; set; } = "";
+    public string Action { get; set; } = "";
+    public string? TargetEmail { get; set; }
+    public string? Detail { get; set; }
+}
+
 public sealed class SyncStatusDto
 {
     public DateTime? LastSyncUtc { get; set; }

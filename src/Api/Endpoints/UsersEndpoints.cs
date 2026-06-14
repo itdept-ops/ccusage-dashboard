@@ -2,6 +2,7 @@ using Ccusage.Api.Auth;
 using Ccusage.Api.Data;
 using Ccusage.Api.Data.Entities;
 using Ccusage.Api.Dtos;
+using Ccusage.Api.Services;
 using Microsoft.EntityFrameworkCore;
 
 namespace Ccusage.Api.Endpoints;
@@ -15,6 +16,17 @@ public static class UsersEndpoints
                 .Select(p => new PermissionItemDto { Key = p.Key, Label = p.Label, Description = p.Description })))
             .RequireAuthorization().RequirePermission(Permissions.UsersManage);
 
+        // Recent audit entries (who changed what).
+        app.MapGet("/api/audit", async (UsageDbContext db, CancellationToken ct) =>
+                Results.Ok(await db.AuditEntries.AsNoTracking()
+                    .OrderByDescending(a => a.WhenUtc).Take(200)
+                    .Select(a => new AuditEntryDto
+                    {
+                        Id = a.Id, WhenUtc = a.WhenUtc, ActorEmail = a.ActorEmail,
+                        Action = a.Action, TargetEmail = a.TargetEmail, Detail = a.Detail,
+                    }).ToListAsync(ct)))
+            .RequireAuthorization().RequirePermission(Permissions.UsersManage);
+
         var users = app.MapGroup("/api/users")
             .RequireAuthorization()
             .RequirePermission(Permissions.UsersManage);
@@ -23,7 +35,7 @@ public static class UsersEndpoints
             Results.Ok((await db.Users.AsNoTracking().Include(u => u.Permissions)
                 .OrderBy(u => u.Email).ToListAsync(ct)).Select(ToDto)));
 
-        users.MapPost("/", async (UserUpsertRequest req, UsageDbContext db, CancellationToken ct) =>
+        users.MapPost("/", async (UserUpsertRequest req, UsageDbContext db, AuditLogger audit, CancellationToken ct) =>
         {
             var email = (req.Email ?? "").Trim().ToLowerInvariant();
             if (email.Length == 0 || !email.Contains('@'))
@@ -41,44 +53,62 @@ public static class UsersEndpoints
             };
             db.Users.Add(user);
             await db.SaveChangesAsync(ct);
+            await audit.LogAsync("user.created", email,
+                $"enabled={user.IsEnabled}; permissions=[{string.Join(", ", user.Permissions.Select(p => p.Permission))}]", ct);
             return Results.Created($"/api/users/{user.Id}", ToDto(user));
         });
 
-        users.MapPut("/{id:int}", async (int id, UserUpsertRequest req, UsageDbContext db, CancellationToken ct) =>
+        users.MapPut("/{id:int}", async (int id, UserUpsertRequest req, UsageDbContext db, AuditLogger audit, CancellationToken ct) =>
         {
             // Serializable so the last-admin check and the write can't be raced by a concurrent edit.
-            await using var tx = await db.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable, ct);
+            // Run inside the execution strategy: connection-resiliency retries forbid user-initiated
+            // transactions otherwise, and ChangeTracker.Clear keeps each retry attempt clean.
+            var strategy = db.Database.CreateExecutionStrategy();
+            return await strategy.ExecuteAsync(async () =>
+            {
+                db.ChangeTracker.Clear();
+                await using var tx = await db.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable, ct);
 
-            var user = await db.Users.Include(u => u.Permissions).FirstOrDefaultAsync(u => u.Id == id, ct);
-            if (user is null) return Results.NotFound();
+                var user = await db.Users.Include(u => u.Permissions).FirstOrDefaultAsync(u => u.Id == id, ct);
+                if (user is null) return Results.NotFound();
 
-            var newPerms = ValidPermissions(req.Permissions);
-            var staysAdmin = req.IsEnabled && newPerms.Contains(Permissions.UsersManage);
-            if (!staysAdmin && await IsLastAdmin(db, user.Id, ct))
-                return Results.BadRequest(new { message = "You can't remove or disable the last administrator." });
+                var newPerms = ValidPermissions(req.Permissions);
+                var staysAdmin = req.IsEnabled && newPerms.Contains(Permissions.UsersManage);
+                if (!staysAdmin && await IsLastAdmin(db, user.Id, ct))
+                    return Results.BadRequest(new { message = "You can't remove or disable the last administrator." });
 
-            if (req.Name is not null) user.Name = req.Name.Trim();
-            user.IsEnabled = req.IsEnabled;
-            db.UserPermissions.RemoveRange(user.Permissions);
-            user.Permissions = newPerms.Select(p => new UserPermission { Permission = p }).ToList();
-            await db.SaveChangesAsync(ct);
-            await tx.CommitAsync(ct);
-            return Results.Ok(ToDto(user));
+                if (req.Name is not null) user.Name = req.Name.Trim();
+                user.IsEnabled = req.IsEnabled;
+                db.UserPermissions.RemoveRange(user.Permissions);
+                user.Permissions = newPerms.Select(p => new UserPermission { Permission = p }).ToList();
+                await db.SaveChangesAsync(ct);
+                await tx.CommitAsync(ct);
+                await audit.LogAsync("user.updated", user.Email,
+                    $"enabled={user.IsEnabled}; permissions=[{string.Join(", ", user.Permissions.Select(p => p.Permission))}]", ct);
+                return Results.Ok(ToDto(user));
+            });
         });
 
-        users.MapDelete("/{id:int}", async (int id, UsageDbContext db, CancellationToken ct) =>
+        users.MapDelete("/{id:int}", async (int id, UsageDbContext db, AuditLogger audit, CancellationToken ct) =>
         {
-            await using var tx = await db.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable, ct);
+            var strategy = db.Database.CreateExecutionStrategy();
+            return await strategy.ExecuteAsync(async () =>
+            {
+                db.ChangeTracker.Clear();
+                await using var tx = await db.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable, ct);
 
-            var user = await db.Users.Include(u => u.Permissions).FirstOrDefaultAsync(u => u.Id == id, ct);
-            if (user is null) return Results.NotFound();
-            if (await IsLastAdmin(db, user.Id, ct))
-                return Results.BadRequest(new { message = "You can't delete the last administrator." });
+                var user = await db.Users.Include(u => u.Permissions).FirstOrDefaultAsync(u => u.Id == id, ct);
+                if (user is null) return Results.NotFound();
+                if (await IsLastAdmin(db, user.Id, ct))
+                    return Results.BadRequest(new { message = "You can't delete the last administrator." });
 
-            db.Users.Remove(user);
-            await db.SaveChangesAsync(ct);
-            await tx.CommitAsync(ct);
-            return Results.NoContent();
+                var removedEmail = user.Email;
+                db.Users.Remove(user);
+                await db.SaveChangesAsync(ct);
+                await tx.CommitAsync(ct);
+                await audit.LogAsync("user.deleted", removedEmail, null, ct);
+                return Results.NoContent();
+            });
         });
     }
 
