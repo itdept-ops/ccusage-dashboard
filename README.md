@@ -65,7 +65,7 @@ These are the traps the ingestion pipeline is built around (validated against a 
 
 ## Authentication & access control
 
-Sign-in is **Google** (Google Identity Services, with the "Continue as…" One-Tap). Authorization is a **per-user permission set**, enforced **on every request**: the app JWT only proves *who* you are; the server re-loads your user row from the DB on each call and checks `IsEnabled` + the required permission. Disabling a user or removing a permission takes effect on their **next request** — no waiting for a token to expire.
+Sign-in is **Google** (Google Identity Services, with the "Continue as…" One-Tap). The server validates the Google ID token's signature, audience (your client id), issuer, and expiry, requires a **verified email**, and **pins each account to its Google subject id** (`sub`) — bound on first login, so a later login with the same email but a different Google account is rejected (a recycled address can't inherit access). Authorization is a **per-user permission set**, enforced **on every request**: the app JWT only proves *who* you are; the server re-loads your user row from the DB on each call and checks `IsEnabled` + the required permission. Disabling a user or removing a permission takes effect on their **next request** — no waiting for a token to expire.
 
 Permission catalog: `dashboard.view`, `sync.run`, `pricing.manage`, `settings.manage`, `users.manage`. Admins manage everyone from the **Users** page (a user × permission matrix, enable toggles, add/remove) — gated by `users.manage`, with last-admin lockout protection.
 

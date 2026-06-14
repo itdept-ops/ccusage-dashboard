@@ -18,7 +18,8 @@ public sealed record SignInResult(SignInStatus Status, AuthResultDto? Auth, stri
 /// records the login, and issues an app JWT. Authorization (permissions) is NOT baked into the
 /// JWT — it is re-checked against the DB on every request.
 /// </summary>
-public sealed class GoogleAuthService(UsageDbContext db, IConfiguration config, ILogger<GoogleAuthService> logger)
+public sealed class GoogleAuthService(
+    UsageDbContext db, IGoogleTokenValidator validator, IConfiguration config, ILogger<GoogleAuthService> logger)
 {
     public async Task<SignInResult> SignInAsync(string idToken, CancellationToken ct)
     {
@@ -32,10 +33,7 @@ public sealed class GoogleAuthService(UsageDbContext db, IConfiguration config, 
         GoogleJsonWebSignature.Payload payload;
         try
         {
-            payload = await GoogleJsonWebSignature.ValidateAsync(idToken, new GoogleJsonWebSignature.ValidationSettings
-            {
-                Audience = new[] { clientId },
-            });
+            payload = await validator.ValidateAsync(idToken, clientId, ct);
         }
         catch (Exception ex)
         {
@@ -43,7 +41,8 @@ public sealed class GoogleAuthService(UsageDbContext db, IConfiguration config, 
             return new SignInResult(SignInStatus.Invalid, null, null, null);
         }
 
-        if (string.IsNullOrEmpty(payload.Email) || !payload.EmailVerified)
+        // A validated token must carry a verified email and a stable Google subject id.
+        if (string.IsNullOrEmpty(payload.Email) || !payload.EmailVerified || string.IsNullOrEmpty(payload.Subject))
             return new SignInResult(SignInStatus.Forbidden, null, payload.Email, payload.Name);
 
         var email = payload.Email.Trim().ToLowerInvariant();
@@ -51,6 +50,20 @@ public sealed class GoogleAuthService(UsageDbContext db, IConfiguration config, 
         if (user is null || !user.IsEnabled)
         {
             logger.LogWarning("Sign-in denied for {Email} (not provisioned or disabled).", email);
+            return new SignInResult(SignInStatus.Forbidden, null, email, payload.Name);
+        }
+
+        // Pin the account to its Google id: bind on first login, reject if a later login presents
+        // the same email under a different Google account (e.g. a recycled/reassigned address).
+        if (string.IsNullOrEmpty(user.GoogleSubject))
+        {
+            user.GoogleSubject = payload.Subject;
+            logger.LogInformation("Bound {Email} to Google subject {Subject} on first sign-in.", email, payload.Subject);
+        }
+        else if (!string.Equals(user.GoogleSubject, payload.Subject, StringComparison.Ordinal))
+        {
+            logger.LogWarning(
+                "Sign-in denied for {Email}: Google subject mismatch (account is bound to a different Google id).", email);
             return new SignInResult(SignInStatus.Forbidden, null, email, payload.Name);
         }
 

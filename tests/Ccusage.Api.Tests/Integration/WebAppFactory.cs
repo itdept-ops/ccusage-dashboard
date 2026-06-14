@@ -1,4 +1,9 @@
+using Ccusage.Api.Services;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.TestHost;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Testcontainers.PostgreSql;
 
 namespace Ccusage.Api.Tests.Integration;
@@ -49,5 +54,15 @@ public sealed class WebAppFactory : WebApplicationFactory<Program>, IAsyncLifeti
             Environment.SetEnvironmentVariable(v, null);
         await base.DisposeAsync();
         await _pg.DisposeAsync();
+    }
+
+    protected override void ConfigureWebHost(IWebHostBuilder builder)
+    {
+        // Swap Google's real token validation for a fake the tests can drive (see FakeGoogleTokenValidator).
+        builder.ConfigureTestServices(services =>
+        {
+            services.RemoveAll<IGoogleTokenValidator>();
+            services.AddSingleton<IGoogleTokenValidator, FakeGoogleTokenValidator>();
+        });
     }
 }

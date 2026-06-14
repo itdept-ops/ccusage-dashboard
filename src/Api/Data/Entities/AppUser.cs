@@ -8,6 +8,13 @@ public class AppUser
     /// <summary>Google account email, stored lower-cased; the identity key.</summary>
     public string Email { get; set; } = "";
 
+    /// <summary>
+    /// The Google account's immutable subject id (<c>sub</c> claim). Bound on first successful
+    /// sign-in; thereafter a login whose email matches but whose Google id differs is rejected,
+    /// so a recycled/reassigned email can't inherit another person's access. Null until first login.
+    /// </summary>
+    public string? GoogleSubject { get; set; }
+
     public string Name { get; set; } = "";
     public string? Picture { get; set; }
 

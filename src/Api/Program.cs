@@ -10,6 +10,7 @@ using Ccusage.Api.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.IdentityModel.Tokens;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -24,13 +25,20 @@ if (!builder.Configuration.GetValue("SkipLocalSettings", false))
 var conn = builder.Configuration.GetConnectionString("Default")
            ?? "Host=localhost;Port=5433;Database=ccusage;Username=ccusage;Password=ccusage_dev_pw";
 
-builder.Services.AddDbContext<UsageDbContext>(o => o.UseNpgsql(conn, npgsql =>
-    // Resilience against transient DB blips (failover, connection drops). The two endpoints
-    // that open user-initiated transactions wrap them in the execution strategy accordingly.
-    npgsql.EnableRetryOnFailure(maxRetryCount: 5, maxRetryDelay: TimeSpan.FromSeconds(10), errorCodesToAdd: null)));
+builder.Services.AddDbContext<UsageDbContext>(o => o
+    .UseNpgsql(conn, npgsql =>
+        // Resilience against transient DB blips (failover, connection drops). The two endpoints
+        // that open user-initiated transactions wrap them in the execution strategy accordingly.
+        npgsql.EnableRetryOnFailure(maxRetryCount: 5, maxRetryDelay: TimeSpan.FromSeconds(10), errorCodesToAdd: null))
+    // Every First/FirstOrDefault in the app filters by a unique key, so these warnings are false
+    // positives here — silence them to keep the logs clean.
+    .ConfigureWarnings(w => w.Ignore(
+        CoreEventId.FirstWithoutOrderByAndFilterWarning,
+        CoreEventId.RowLimitingOperationWithoutOrderByWarning)));
 builder.Services.AddScoped<JsonlIngestionService>();
 builder.Services.AddScoped<CostRecomputeService>();
 builder.Services.AddScoped<UsageQueries>();
+builder.Services.AddSingleton<IGoogleTokenValidator, GoogleTokenValidator>();
 builder.Services.AddScoped<GoogleAuthService>();
 builder.Services.AddScoped<CurrentUserAccessor>();
 builder.Services.AddHttpContextAccessor();

@@ -100,11 +100,14 @@ public class UsageDbContext(DbContextOptions<UsageDbContext> options) : DbContex
         b.Entity<AppUser>(e =>
         {
             e.Property(x => x.Email).HasMaxLength(256);
+            e.Property(x => x.GoogleSubject).HasMaxLength(64);
             e.Property(x => x.Name).HasMaxLength(256);
             e.Property(x => x.Picture).HasMaxLength(1024);
             e.Property(x => x.CreatedUtc).HasColumnType("timestamp with time zone");
             e.Property(x => x.LastLoginUtc).HasColumnType("timestamp with time zone");
             e.HasIndex(x => x.Email).IsUnique();
+            // One Google account maps to at most one user row (nulls allowed for not-yet-logged-in users).
+            e.HasIndex(x => x.GoogleSubject).IsUnique().HasFilter("\"GoogleSubject\" IS NOT NULL");
             e.HasMany(x => x.Permissions).WithOne(p => p.User!)
                 .HasForeignKey(p => p.UserId).OnDelete(DeleteBehavior.Cascade);
         });
