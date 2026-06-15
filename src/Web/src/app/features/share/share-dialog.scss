@@ -59,5 +59,26 @@
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
   .sd-item-meta { font-size: 11px; color: var(--tech-text-secondary); white-space: nowrap; flex: 0 0 auto; }
+  .sd-views {
+    flex: 0 0 auto; font-size: 11px; color: var(--tech-text-secondary); min-width: 0; padding: 0 6px;
+    mat-icon { font-size: 16px; width: 16px; height: 16px; vertical-align: middle; }
+  }
   .sd-revoke { color: var(--tech-text-tertiary); flex: 0 0 auto; &:hover { color: var(--tech-error, #ff5c6c); } }
+}
+
+.sd-views-detail {
+  margin: 0 0 8px 4px;
+  padding: 6px 10px;
+  border-left: 2px solid var(--tech-border-strong, #33425a);
+  background: color-mix(in srgb, var(--tech-panel-raised) 50%, transparent);
+  border-radius: 0 8px 8px 0;
+  max-height: 180px;
+  overflow-y: auto;
+
+  .sd-view-row {
+    display: flex; justify-content: space-between; gap: 12px;
+    padding: 3px 0; font-size: 11px; color: var(--tech-text-secondary);
+    .sd-view-ip { color: var(--tech-text); }
+  }
+  .sd-view-empty { padding: 6px 0; font-size: 11px; color: var(--tech-text-tertiary); }
 }

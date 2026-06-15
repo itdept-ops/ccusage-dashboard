@@ -51,6 +51,11 @@ export interface ShareListItem {
   scope: string;
 }
 
+export interface ShareAccessItem {
+  whenUtc: string;
+  ip: string | null;
+}
+
 export interface PublicShare {
   label: string | null;
   generatedAtUtc: string;

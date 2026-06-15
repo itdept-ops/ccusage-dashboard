@@ -479,6 +479,21 @@ public class AuthIntegrationTests(WebAppFactory factory) : IClassFixture<WebAppF
     }
 
     [Fact]
+    public async Task Share_views_are_recorded_with_timestamp()
+    {
+        var admin = Client(WebAppFactory.AdminEmail);
+        var created = await (await admin.PostAsJsonAsync("/api/shares", ShareReq())).Content.ReadFromJsonAsync<JsonElement>();
+        var token = created.GetProperty("token").GetString()!;
+        var id = created.GetProperty("id").GetInt32();
+
+        await Client().GetAsync($"/api/share/{token}"); // anonymous view → recorded
+
+        var accesses = await (await admin.GetAsync($"/api/shares/{id}/accesses")).Content.ReadFromJsonAsync<JsonElement>();
+        accesses.GetArrayLength().Should().BeGreaterThanOrEqualTo(1);
+        accesses[0].TryGetProperty("whenUtc", out _).Should().BeTrue();
+    }
+
+    [Fact]
     public async Task Expired_share_is_404()
     {
         var admin = Client(WebAppFactory.AdminEmail);

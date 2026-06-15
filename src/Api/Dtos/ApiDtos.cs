@@ -76,6 +76,13 @@ public sealed class ShareDto
     public string Scope { get; set; } = "";
 }
 
+/// <summary>One recorded view of a share link.</summary>
+public sealed class ShareAccessDto
+{
+    public DateTime WhenUtc { get; set; }
+    public string? Ip { get; set; }
+}
+
 /// <summary>The read-only payload served to an anonymous viewer of a valid share link.</summary>
 public sealed class PublicShareDto
 {

@@ -45,13 +45,31 @@
             <span class="sd-item-label">{{ s.label || 'Untitled' }}</span>
             <span class="sd-item-scope">{{ s.scope }}</span>
           </div>
-          <span class="sd-item-meta mono">
-            {{ s.expired ? 'expired' : 'expires ' + (s.expiresUtc | date: 'MMM d') }} · {{ s.accessCount }} views
-          </span>
+          <span class="sd-item-meta mono">{{ s.expired ? 'expired' : 'expires ' + (s.expiresUtc | date: 'MMM d') }}</span>
+          <button mat-button class="sd-views" (click)="toggleViews(s)" [disabled]="!s.accessCount"
+                  matTooltip="Show who viewed this link">
+            <mat-icon>{{ expandedId() === s.id ? 'expand_less' : 'expand_more' }}</mat-icon>{{ s.accessCount }} views
+          </button>
           <button mat-icon-button class="sd-revoke" (click)="revoke(s)" matTooltip="Revoke link">
             <mat-icon>delete_outline</mat-icon>
           </button>
         </div>
+        @if (expandedId() === s.id) {
+          <div class="sd-views-detail">
+            @if (loadingAccesses()) {
+              <div class="sd-view-empty">Loading…</div>
+            } @else if (!accesses().length) {
+              <div class="sd-view-empty">No views recorded yet.</div>
+            } @else {
+              @for (a of accesses(); track $index) {
+                <div class="sd-view-row mono">
+                  <span class="sd-view-when">{{ a.whenUtc | date: 'MMM d, y · HH:mm:ss' }}</span>
+                  <span class="sd-view-ip">{{ a.ip || 'unknown' }}</span>
+                </div>
+              }
+            }
+          </div>
+        }
       }
     </div>
   }

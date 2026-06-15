@@ -4,7 +4,7 @@ import { Observable } from 'rxjs';
 import {
   AuditEntry, CalendarDay, CreateShareRequest, GroupBy, IngestionSource, ManagedUser, ModelStat, NotificationSettings,
   NotificationUpdate, PagedResult, PermissionItem, Pricing, ProjectDto, PublicShare, RequestLogEntry, Settings,
-  ShareCreated, ShareListItem, SummaryResponse, SyncResult, SyncStatus, UsageFilter, UsageRecord,
+  ShareAccessItem, ShareCreated, ShareListItem, SummaryResponse, SyncResult, SyncStatus, UsageFilter, UsageRecord,
 } from './models';
 
 @Injectable({ providedIn: 'root' })
@@ -50,6 +50,10 @@ export class Api {
 
   deleteShare(id: number): Observable<unknown> {
     return this.http.delete(`${this.base}/shares/${id}`);
+  }
+
+  shareAccesses(id: number): Observable<ShareAccessItem[]> {
+    return this.http.get<ShareAccessItem[]>(`${this.base}/shares/${id}/accesses`);
   }
 
   /** Anonymous read of a public share by token. */

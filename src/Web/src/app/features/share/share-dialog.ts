@@ -13,7 +13,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatSnackBar } from '@angular/material/snack-bar';
 
 import { Api } from '../../core/api';
-import { CreateShareRequest, GroupBy, ShareCreated, ShareListItem, UsageFilter } from '../../core/models';
+import { CreateShareRequest, GroupBy, ShareAccessItem, ShareCreated, ShareListItem, UsageFilter } from '../../core/models';
 
 @Component({
   selector: 'app-share-dialog',
@@ -38,7 +38,23 @@ export class ShareDialog {
   readonly created = signal<ShareCreated | null>(null);
   readonly shares = signal<ShareListItem[]>([]);
 
+  // Per-view detail (expanded link)
+  readonly expandedId = signal<number | null>(null);
+  readonly accesses = signal<ShareAccessItem[]>([]);
+  readonly loadingAccesses = signal(false);
+
   constructor() { this.loadShares(); }
+
+  toggleViews(s: ShareListItem): void {
+    if (this.expandedId() === s.id) { this.expandedId.set(null); return; }
+    this.expandedId.set(s.id);
+    this.accesses.set([]);
+    this.loadingAccesses.set(true);
+    this.api.shareAccesses(s.id).subscribe({
+      next: a => { this.accesses.set(a); this.loadingAccesses.set(false); },
+      error: () => this.loadingAccesses.set(false),
+    });
+  }
 
   private loadShares(): void {
     this.api.listShares().subscribe({ next: s => this.shares.set(s), error: () => { /* non-critical */ } });

@@ -25,7 +25,7 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { Api } from '../../core/api';
 import { ShareDialog } from '../share/share-dialog';
 import { AuthService } from '../../core/auth';
-import { GroupBy, IngestionSource, ModelStat, PagedResult, ProjectDto, SummaryResponse, UsageFilter, UsageRecord, PERM } from '../../core/models';
+import { CalendarDay, GroupBy, IngestionSource, ModelStat, PagedResult, ProjectDto, SummaryResponse, UsageFilter, UsageRecord, PERM } from '../../core/models';
 import { ChartComponent } from '../../shared/chart';
 import { CompactPipe } from '../../shared/format';
 
@@ -77,9 +77,9 @@ export class Dashboard {
 
   readonly displayedColumns = ['localDate', 'source', 'model', 'projectName', 'sidechain', 'inputTokens', 'outputTokens', 'totalTokens', 'costUsd'];
 
-  // Estimated active engagement time (gap-based) for the current filter, summed from the calendar.
-  readonly activeMinutes = signal(0);
-  readonly activeHours = computed(() => this.activeMinutes() / 60);
+  // Estimated active engagement time (gap-based) for the current filter — per-day, from the calendar.
+  readonly calendarDays = signal<CalendarDay[]>([]);
+  readonly activeHours = computed(() => this.calendarDays().reduce((a, d) => a + d.activeMinutes, 0) / 60);
 
   constructor() {
     this.hydrateFromUrl();
@@ -136,15 +136,6 @@ export class Dashboard {
     });
   }
 
-  copyShareLink(): void {
-    this.syncUrl();
-    const tree = this.router.createUrlTree([], { relativeTo: this.route, queryParams: this.shareParams() });
-    const url = window.location.origin + this.router.serializeUrl(tree);
-    navigator.clipboard?.writeText(url).then(
-      () => this.snack.open('Shareable link copied to clipboard', 'OK', { duration: 3000 }),
-      () => this.snack.open('Could not copy link', 'Dismiss', { duration: 3000 }),
-    );
-  }
 
   private loadOptions(): void {
     this.api.projects().subscribe(p => this.projects.set(p));
@@ -221,7 +212,7 @@ export class Dashboard {
       next: r => {
         this.summary.set(r.summary);
         this.records.set(r.records);
-        this.activeMinutes.set(r.calendar.reduce((a, d) => a + d.activeMinutes, 0));
+        this.calendarDays.set(r.calendar);
         this.loading.set(false);
       },
       error: () => { this.loading.set(false); this.snack.open('Failed to load data — is the API running?', 'Dismiss', { duration: 5000 }); },
@@ -278,18 +269,30 @@ export class Dashboard {
     const isTime = s.groupBy === 'day' || s.groupBy === 'month';
     if (isTime) {
       const keys = s.buckets.map(b => b.key);
+      // Active hours per bucket, from the calendar data (exact day, or summed across the month).
+      const cal = this.calendarDays();
+      const dayMins = new Map(cal.map(d => [d.date, d.activeMinutes]));
+      const hours = keys.map(k => {
+        const mins = s.groupBy === 'day'
+          ? (dayMins.get(k) ?? 0)
+          : cal.reduce((a, d) => a + (d.date.startsWith(k) ? d.activeMinutes : 0), 0);
+        return +(mins / 60).toFixed(1);
+      });
+
       return {
         tooltip: { trigger: 'axis' },
-        legend: { data: ['Cost (USD)', 'Tokens'], top: 0 },
-        grid: { left: 56, right: 60, top: 34, bottom: 48 },
+        legend: { data: ['Cost (USD)', 'Tokens', 'Active hours'], top: 0 },
+        grid: { left: 56, right: 104, top: 34, bottom: 48 },
         xAxis: { type: 'category', data: keys, axisLabel: { rotate: keys.length > 14 ? 45 : 0 } },
         yAxis: [
-          { type: 'value', name: 'USD', axisLabel: { formatter: '${value}' } },
-          { type: 'value', name: 'Tokens', axisLabel: { formatter: (v: number) => this.shortNum(v) } },
+          { type: 'value', name: 'USD', position: 'left', axisLabel: { formatter: '${value}' } },
+          { type: 'value', name: 'Tokens', position: 'right', axisLabel: { formatter: (v: number) => this.shortNum(v) } },
+          { type: 'value', name: 'Hours', position: 'right', offset: 52, splitLine: { show: false }, axisLabel: { formatter: '{value}h' } },
         ],
         series: [
           { name: 'Cost (USD)', type: 'bar', data: s.buckets.map(b => +b.costUsd.toFixed(2)), itemStyle: { color: '#f472b6', borderRadius: [4, 4, 0, 0] } },
           { name: 'Tokens', type: 'line', yAxisIndex: 1, smooth: true, symbol: 'none', data: s.buckets.map(b => b.totalTokens), itemStyle: { color: '#3fd8d0' }, lineStyle: { width: 2, color: '#3fd8d0', shadowColor: 'rgba(63,216,208,0.4)', shadowBlur: 10 } },
+          { name: 'Active hours', type: 'line', yAxisIndex: 2, smooth: true, symbol: 'none', data: hours, itemStyle: { color: '#f2b340' }, lineStyle: { width: 2, color: '#f2b340', type: 'dashed' } },
         ],
       };
     }

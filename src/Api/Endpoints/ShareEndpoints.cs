@@ -55,8 +55,16 @@ public static class ShareEndpoints
             await db.ShareLinks.Where(s => s.Id == id).ExecuteDeleteAsync(ct) > 0
                 ? Results.NoContent() : Results.NotFound());
 
+        // Per-view detail: who (IP) viewed a link and when (most recent first).
+        shares.MapGet("/{id:int}/accesses", async (int id, UsageDbContext db, CancellationToken ct) =>
+            Results.Ok(await db.ShareAccesses.AsNoTracking()
+                .Where(a => a.ShareLinkId == id)
+                .OrderByDescending(a => a.Id).Take(100)
+                .Select(a => new ShareAccessDto { WhenUtc = a.WhenUtc, Ip = a.Ip })
+                .ToListAsync(ct)));
+
         // ---- Public, anonymous, rate-limited read of a valid (non-expired) link ----
-        app.MapGet("/api/share/{token}", async (string token, UsageDbContext db, UsageQueries q, ILoggerFactory lf, CancellationToken ct) =>
+        app.MapGet("/api/share/{token}", async (string token, HttpContext http, UsageDbContext db, UsageQueries q, ILoggerFactory lf, CancellationToken ct) =>
         {
             var share = await db.ShareLinks.AsNoTracking().FirstOrDefaultAsync(s => s.TokenHash == Hash(token), ct);
             if (share is null || share.ExpiresUtc <= DateTime.UtcNow)
@@ -81,13 +89,21 @@ public static class ShareEndpoints
                 Models = await q.SummaryAsync(filter, "model", ct),
             };
 
-            // Best-effort, atomic access counter — a concurrent revoke (0 rows) or any write error must
-            // never turn a valid read into a 500.
+            // Best-effort access recording — the counter (for the list) plus a per-view row (IP + time).
+            // A concurrent revoke (0 rows / FK gone) or any write error must never 500 a valid read.
             try
             {
                 await db.ShareLinks.Where(s => s.Id == share.Id).ExecuteUpdateAsync(u => u
                     .SetProperty(x => x.AccessCount, x => x.AccessCount + 1)
                     .SetProperty(x => x.LastAccessedUtc, _ => DateTime.UtcNow), ct);
+
+                db.ShareAccesses.Add(new ShareAccess
+                {
+                    ShareLinkId = share.Id,
+                    WhenUtc = DateTime.UtcNow,
+                    Ip = http.Connection.RemoteIpAddress?.ToString(),
+                });
+                await db.SaveChangesAsync(ct);
             }
             catch (Exception ex)
             {

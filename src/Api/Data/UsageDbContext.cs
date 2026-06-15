@@ -18,6 +18,7 @@ public class UsageDbContext(DbContextOptions<UsageDbContext> options) : DbContex
     public DbSet<RequestLog> RequestLogs => Set<RequestLog>();
     public DbSet<NotificationSetting> NotificationSettings => Set<NotificationSetting>();
     public DbSet<ShareLink> ShareLinks => Set<ShareLink>();
+    public DbSet<ShareAccess> ShareAccesses => Set<ShareAccess>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -161,6 +162,15 @@ public class UsageDbContext(DbContextOptions<UsageDbContext> options) : DbContex
             e.Property(x => x.ExpiresUtc).HasColumnType("timestamp with time zone");
             e.Property(x => x.LastAccessedUtc).HasColumnType("timestamp with time zone");
             e.HasIndex(x => x.TokenHash).IsUnique();
+        });
+
+        b.Entity<ShareAccess>(e =>
+        {
+            e.Property(x => x.WhenUtc).HasColumnType("timestamp with time zone");
+            e.Property(x => x.Ip).HasMaxLength(64);
+            e.HasIndex(x => new { x.ShareLinkId, x.WhenUtc });
+            e.HasOne(x => x.ShareLink).WithMany()
+                .HasForeignKey(x => x.ShareLinkId).OnDelete(DeleteBehavior.Cascade);
         });
     }
 }
