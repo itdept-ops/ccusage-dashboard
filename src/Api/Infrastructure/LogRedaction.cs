@@ -26,8 +26,9 @@ public static partial class LogRedaction
 
     /// <summary>True for paths whose request/response carry a secret and must never be stored verbatim.</summary>
     public static bool IsSensitivePath(string path) =>
-        path.StartsWith("/api/auth", StringComparison.OrdinalIgnoreCase)          // Google token in, JWT out
-        || path.StartsWith("/api/notifications", StringComparison.OrdinalIgnoreCase); // Discord webhook URL
+        path.StartsWith("/api/auth", StringComparison.OrdinalIgnoreCase)            // Google token in, JWT out
+        || path.StartsWith("/api/notifications", StringComparison.OrdinalIgnoreCase) // Discord webhook URL
+        || path.StartsWith("/api/shares", StringComparison.OrdinalIgnoreCase);       // share tokens travel in create/list bodies
 
     /// <summary>Redact a captured request/response body (JSON or urlencoded), then truncate.</summary>
     public static string? Redact(string? body, string path)

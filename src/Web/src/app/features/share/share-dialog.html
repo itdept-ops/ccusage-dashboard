@@ -48,12 +48,37 @@
           <span class="sd-item-meta mono">{{ s.expired ? 'expired' : 'expires ' + (s.expiresUtc | date: 'MMM d') }}</span>
           <button mat-button class="sd-views" (click)="toggleViews(s)" [disabled]="!s.accessCount"
                   matTooltip="Show who viewed this link">
-            <mat-icon>{{ expandedId() === s.id ? 'expand_less' : 'expand_more' }}</mat-icon>{{ s.accessCount }} views
+            <mat-icon>{{ expandedId() === s.id ? 'expand_less' : 'expand_more' }}</mat-icon>{{ s.accessCount }}
+          </button>
+          <button mat-icon-button (click)="copyExisting(s)" [disabled]="!s.path" matTooltip="Copy link">
+            <mat-icon>content_copy</mat-icon>
+          </button>
+          <button mat-icon-button (click)="startEdit(s)" matTooltip="Edit expiry / label">
+            <mat-icon>edit</mat-icon>
           </button>
           <button mat-icon-button class="sd-revoke" (click)="revoke(s)" matTooltip="Revoke link">
             <mat-icon>delete_outline</mat-icon>
           </button>
         </div>
+
+        @if (editingId() === s.id) {
+          <div class="sd-edit">
+            <mat-form-field appearance="outline" subscriptSizing="dynamic" class="sd-edit-label">
+              <mat-label>Label</mat-label>
+              <input matInput maxlength="120" [ngModel]="editLabel()" (ngModelChange)="editLabel.set($event)" />
+            </mat-form-field>
+            <mat-form-field appearance="outline" subscriptSizing="dynamic" class="sd-edit-expiry">
+              <mat-label>Reset expiry to</mat-label>
+              <mat-select [ngModel]="editExpiry()" (ngModelChange)="editExpiry.set($event)">
+                @for (o of expiryOptions; track o.h) { <mat-option [value]="o.h">{{ o.l }}</mat-option> }
+              </mat-select>
+            </mat-form-field>
+            <button mat-flat-button color="primary" [disabled]="savingEdit()" (click)="saveEdit(s)">
+              <mat-icon>check</mat-icon> Save
+            </button>
+            <button mat-button (click)="cancelEdit()">Cancel</button>
+          </div>
+        }
         @if (expandedId() === s.id) {
           <div class="sd-views-detail">
             @if (loadingAccesses()) {

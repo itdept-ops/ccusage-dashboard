@@ -48,6 +48,10 @@ export class Api {
     return this.http.get<ShareListItem[]>(`${this.base}/shares`);
   }
 
+  updateShare(id: number, body: { expiresInHours: number; label?: string | null }): Observable<ShareListItem> {
+    return this.http.put<ShareListItem>(`${this.base}/shares/${id}`, body);
+  }
+
   deleteShare(id: number): Observable<unknown> {
     return this.http.delete(`${this.base}/shares/${id}`);
   }

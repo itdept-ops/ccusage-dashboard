@@ -43,7 +43,44 @@ export class ShareDialog {
   readonly accesses = signal<ShareAccessItem[]>([]);
   readonly loadingAccesses = signal(false);
 
+  // Inline edit (expiry / label)
+  readonly editingId = signal<number | null>(null);
+  readonly editExpiry = signal(168);
+  readonly editLabel = signal('');
+  readonly savingEdit = signal(false);
+
   constructor() { this.loadShares(); }
+
+  copyExisting(s: ShareListItem): void {
+    if (!s.path) {
+      this.snack.open('This older link can’t be re-copied — create a new one.', 'OK', { duration: 4000 });
+      return;
+    }
+    navigator.clipboard?.writeText(this.fullUrl(s.path)).then(
+      () => this.snack.open('Public link copied', 'OK', { duration: 3000 }),
+      () => this.snack.open('Could not copy link', 'Dismiss', { duration: 3000 }));
+  }
+
+  startEdit(s: ShareListItem): void {
+    this.editingId.set(s.id);
+    this.editLabel.set(s.label ?? '');
+    this.editExpiry.set(168);
+  }
+
+  cancelEdit(): void { this.editingId.set(null); }
+
+  saveEdit(s: ShareListItem): void {
+    this.savingEdit.set(true);
+    this.api.updateShare(s.id, { expiresInHours: this.editExpiry(), label: this.editLabel().trim() || null }).subscribe({
+      next: updated => {
+        this.savingEdit.set(false);
+        this.editingId.set(null);
+        this.shares.update(list => list.map(x => x.id === updated.id ? updated : x));
+        this.snack.open('Link updated', 'OK', { duration: 2500 });
+      },
+      error: () => { this.savingEdit.set(false); this.snack.open('Update failed', 'Dismiss', { duration: 4000 }); },
+    });
+  }
 
   toggleViews(s: ShareListItem): void {
     if (this.expandedId() === s.id) { this.expandedId.set(null); return; }

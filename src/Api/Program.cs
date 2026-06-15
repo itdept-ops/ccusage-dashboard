@@ -42,6 +42,7 @@ builder.Services.AddScoped<JsonlIngestionService>();
 builder.Services.AddScoped<CostRecomputeService>();
 builder.Services.AddScoped<UsageQueries>();
 builder.Services.AddSingleton<IGoogleTokenValidator, GoogleTokenValidator>();
+builder.Services.AddSingleton<TokenProtector>();
 builder.Services.AddScoped<GoogleAuthService>();
 builder.Services.AddScoped<CurrentUserAccessor>();
 builder.Services.AddHttpContextAccessor();

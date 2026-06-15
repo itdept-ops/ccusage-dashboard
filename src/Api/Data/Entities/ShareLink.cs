@@ -9,8 +9,11 @@ public class ShareLink
 {
     public int Id { get; set; }
 
-    /// <summary>SHA-256 (hex) of the random token; the token itself is only ever in the URL.</summary>
+    /// <summary>SHA-256 (hex) of the random token — the deterministic key for the public lookup.</summary>
     public string TokenHash { get; set; } = "";
+
+    /// <summary>The token encrypted at rest (AES-GCM via TokenProtector) so the link can be re-copied.</summary>
+    public string? TokenEnc { get; set; }
 
     public string? Label { get; set; }
     public string CreatedByEmail { get; set; } = "";

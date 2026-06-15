@@ -17,10 +17,11 @@ public static class ShareEndpoints
         var shares = app.MapGroup("/api/shares")
             .RequireAuthorization().RequirePermission(Permissions.DashboardView);
 
-        shares.MapGet("/", async (UsageDbContext db, CancellationToken ct) =>
-            Results.Ok((await db.ShareLinks.AsNoTracking().OrderByDescending(s => s.Id).ToListAsync(ct)).Select(ToDto)));
+        shares.MapGet("/", async (UsageDbContext db, TokenProtector protector, CancellationToken ct) =>
+            Results.Ok((await db.ShareLinks.AsNoTracking().OrderByDescending(s => s.Id).ToListAsync(ct))
+                .Select(s => ToDto(s, protector))));
 
-        shares.MapPost("/", async (CreateShareRequest req, UsageDbContext db, CurrentUserAccessor me, CancellationToken ct) =>
+        shares.MapPost("/", async (CreateShareRequest req, UsageDbContext db, CurrentUserAccessor me, TokenProtector protector, CancellationToken ct) =>
         {
             var token = GenerateToken();
             var lbl = req.Label?.Trim();
@@ -29,6 +30,7 @@ public static class ShareEndpoints
             var share = new ShareLink
             {
                 TokenHash = Hash(token),
+                TokenEnc = protector.Protect(token),
                 Label = string.IsNullOrEmpty(lbl) ? null : (lbl.Length > 120 ? lbl[..120] : lbl),
                 CreatedByEmail = user?.Email ?? "",
                 CreatedUtc = DateTime.UtcNow,
@@ -49,6 +51,18 @@ public static class ShareEndpoints
             {
                 Id = share.Id, Token = token, Path = $"/share/{token}", ExpiresUtc = share.ExpiresUtc, Label = share.Label,
             });
+        });
+
+        shares.MapPut("/{id:int}", async (int id, UpdateShareRequest req, UsageDbContext db, TokenProtector protector, CancellationToken ct) =>
+        {
+            var s = await db.ShareLinks.FirstOrDefaultAsync(x => x.Id == id, ct);
+            if (s is null) return Results.NotFound();
+
+            s.ExpiresUtc = DateTime.UtcNow.AddHours(Math.Clamp(req.ExpiresInHours, 1, 24 * 90));
+            var lbl = req.Label?.Trim();
+            s.Label = string.IsNullOrEmpty(lbl) ? null : (lbl.Length > 120 ? lbl[..120] : lbl);
+            await db.SaveChangesAsync(ct);
+            return Results.Ok(ToDto(s, protector));
         });
 
         shares.MapDelete("/{id:int}", async (int id, UsageDbContext db, CancellationToken ct) =>
@@ -123,12 +137,18 @@ public static class ShareEndpoints
     private static string Normalize(string? g) =>
         (g?.ToLowerInvariant()) is "day" or "month" or "project" or "model" or "source" or "session" ? g!.ToLowerInvariant() : "day";
 
-    private static ShareDto ToDto(ShareLink s) => new()
+    private static ShareDto ToDto(ShareLink s, TokenProtector protector)
     {
-        Id = s.Id, Label = s.Label, CreatedByEmail = s.CreatedByEmail,
-        CreatedUtc = s.CreatedUtc, ExpiresUtc = s.ExpiresUtc, Expired = s.ExpiresUtc <= DateTime.UtcNow,
-        AccessCount = s.AccessCount, LastAccessedUtc = s.LastAccessedUtc, Scope = Describe(s),
-    };
+        var token = protector.Unprotect(s.TokenEnc);
+        return new()
+        {
+            Id = s.Id, Label = s.Label,
+            Path = token is null ? null : $"/share/{token}",
+            CreatedByEmail = s.CreatedByEmail,
+            CreatedUtc = s.CreatedUtc, ExpiresUtc = s.ExpiresUtc, Expired = s.ExpiresUtc <= DateTime.UtcNow,
+            AccessCount = s.AccessCount, LastAccessedUtc = s.LastAccessedUtc, Scope = Describe(s),
+        };
+    }
 
     private static string Describe(ShareLink s)
     {

@@ -62,11 +62,12 @@ public sealed class ShareCreatedDto
     public string? Label { get; set; }
 }
 
-/// <summary>A share in the management list (never includes the token).</summary>
+/// <summary>A share in the management list (auth-only; carries the copyable path).</summary>
 public sealed class ShareDto
 {
     public int Id { get; set; }
     public string? Label { get; set; }
+    public string? Path { get; set; }   // /share/<token>, decrypted for re-copy (null for legacy links)
     public string CreatedByEmail { get; set; } = "";
     public DateTime CreatedUtc { get; set; }
     public DateTime ExpiresUtc { get; set; }
@@ -74,6 +75,12 @@ public sealed class ShareDto
     public int AccessCount { get; set; }
     public DateTime? LastAccessedUtc { get; set; }
     public string Scope { get; set; } = "";
+}
+
+public sealed class UpdateShareRequest
+{
+    public int ExpiresInHours { get; set; }
+    public string? Label { get; set; }
 }
 
 /// <summary>One recorded view of a share link.</summary>

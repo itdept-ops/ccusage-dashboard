@@ -155,6 +155,7 @@ public class UsageDbContext(DbContextOptions<UsageDbContext> options) : DbContex
         b.Entity<ShareLink>(e =>
         {
             e.Property(x => x.TokenHash).HasMaxLength(64);
+            e.Property(x => x.TokenEnc).HasMaxLength(256);
             e.Property(x => x.Label).HasMaxLength(120);
             e.Property(x => x.CreatedByEmail).HasMaxLength(256);
             e.Property(x => x.GroupBy).HasMaxLength(16);

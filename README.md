@@ -21,9 +21,11 @@ A self-hosted dashboard for **filtering and visualizing your AI coding-agent tok
 | **Pop-out widget** — Claude | **Pop-out widget** — Codex |
 | ![Claude widget](docs/screenshots/widget-claude.png) | ![Codex widget](docs/screenshots/widget-codex.png) |
 
-**Public share link** (read-only, no login, time-limited):
+**Public share link** (read-only, no login, time-limited) and its management dialog (copy anytime, edit expiry, per-view IP, revoke):
 
-![Public shared view](docs/screenshots/share-public.png)
+| | |
+| --- | --- |
+| ![Public shared view](docs/screenshots/share-public.png) | ![Share management](docs/screenshots/share-dialog.png) |
 
 ---
 
@@ -48,7 +50,7 @@ Each source is enable/disable-able with an editable path on the **Settings** pag
 
 - **Filter** by date range, project, model, **source**, and main-vs-subagent (sidechain) usage.
 - **Quick date presets** — last 7 / 30 / 90 days, month-to-date, or all-time — alongside explicit from/to.
-- **Shareable views** — copy an internal deep-link to a filtered view (sign-in required), **or** create a **public, time-limited share link** (`Share…`): a 256-bit token (only its hash is stored) that lets anyone — **no login** — see read-only totals + charts for the scope you chose, until it expires. Manage/revoke links and see access counts; the public view never exposes individual messages.
+- **Shareable views** — create a **public, time-limited share link** (`Share…`): a 256-bit token that lets anyone — **no login** — see read-only totals + charts for the scope you chose, until it expires. Links are fully manageable: **copy anytime, edit the expiry/label, revoke**, and expand each link to see **every view's time + IP**. Tokens are encrypted at rest (a hash keys the lookup) and kept out of the action log; the public view never exposes individual messages.
 - **Usage calendar** — a GitHub-style heatmap (cost / tokens / **active hours**) with estimated time-spent-with-AI per day (gap-based sessionization), busiest-day and session stats.
 - **Pop-out stat widgets** — small, chrome-less per-company windows (Claude / Codex) showing each model's cost + IN/OUT tokens + calls, auto-refreshing on sync — sized for screen-share or capture.
 - **Group** the time series by day, month, project, model, source, or session.
@@ -82,7 +84,7 @@ Sign-in is **Google** (Google Identity Services, with the "Continue as…" One-T
 
 Permission catalog: `dashboard.view`, `sync.run`, `pricing.manage`, `settings.manage`, `users.manage`. Admins manage everyone from the **Users** page (a user × permission matrix, enable toggles, add/remove) — gated by `users.manage`, with last-admin lockout protection.
 
-**Public share links** are the one *intentional* exception to the auth wall. A signed-in user can mint a token-based link (`/share/<token>`) that an unauthenticated viewer can open to see **read-only aggregates** (totals + charts) for a **fixed scope and expiry** chosen at creation. The token is 256-bit and only its **SHA-256 hash** is stored; the server re-derives the scope from the stored row (a holder can't widen it), enforces expiry/revocation, rate-limits the anonymous endpoint per real client IP (via `UseForwardedHeaders` behind the proxy), keeps the token out of the action log, and never exposes individual message rows.
+**Public share links** are the one *intentional* exception to the auth wall. A signed-in user can mint a token-based link (`/share/<token>`) that an unauthenticated viewer can open to see **read-only aggregates** (totals + charts) for a **fixed scope and expiry** chosen at creation. The token is 256-bit; a **SHA-256 hash** keys the public lookup and the token is also stored **encrypted at rest** (AES-GCM via the app secret) so links can be re-copied — a DB leak alone can't reveal live links. The server re-derives the scope from the stored row (a holder can't widen it), enforces expiry/revocation, records each view's time + IP, rate-limits the anonymous endpoint per real client IP (via `UseForwardedHeaders` behind the proxy), keeps tokens out of the action log, and never exposes individual message rows.
 
 **Secrets stay out of the repo.** The Google client id/secret, the JWT signing key, and the bootstrap admin/allow lists live in `src/Api/appsettings.Local.json` (git-ignored; copy from `appsettings.Local.example.json`). The API **refuses to start** without a strong `Jwt:Key`. Bootstrap: `Auth:AdminEmails` are seeded once as full admins; `Auth:AllowedEmails` as dashboard viewers.
 

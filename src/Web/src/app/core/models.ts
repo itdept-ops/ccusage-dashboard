@@ -42,6 +42,7 @@ export interface ShareCreated {
 export interface ShareListItem {
   id: number;
   label: string | null;
+  path: string | null;
   createdByEmail: string;
   createdUtc: string;
   expiresUtc: string;

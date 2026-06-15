@@ -427,7 +427,7 @@ public class AuthIntegrationTests(WebAppFactory factory) : IClassFixture<WebAppF
     }
 
     [Fact]
-    public async Task Public_share_serves_aggregates_anonymously_and_hides_token()
+    public async Task Public_share_serves_aggregates_anonymously()
     {
         var admin = Client(WebAppFactory.AdminEmail);
         var created = await (await admin.PostAsJsonAsync("/api/shares", ShareReq(label: "Finance", source: new[] { "codex" })))
@@ -439,10 +439,8 @@ public class AuthIntegrationTests(WebAppFactory factory) : IClassFixture<WebAppF
         var pub = await (await Client().GetAsync($"/api/share/{token}")).Content.ReadFromJsonAsync<JsonElement>();
         pub.GetProperty("scope").GetString().Should().Contain("codex");
         pub.TryGetProperty("summary", out _).Should().BeTrue();
-
-        // The management list never exposes the token.
-        var list = await (await admin.GetAsync("/api/shares")).Content.ReadAsStringAsync();
-        list.Should().NotContain(token);
+        // (The token deliberately appears in the auth-only /api/shares list for re-copy; the action log
+        // redacts those bodies — see Share_token_is_redacted_in_the_action_log.)
     }
 
     [Fact]
@@ -476,6 +474,51 @@ public class AuthIntegrationTests(WebAppFactory factory) : IClassFixture<WebAppF
         var list = await (await admin.GetAsync("/api/shares")).Content.ReadFromJsonAsync<JsonElement>();
         var item = list.EnumerateArray().First(e => e.GetProperty("id").GetInt32() == id);
         item.GetProperty("accessCount").GetInt32().Should().BeGreaterThanOrEqualTo(2);
+    }
+
+    [Fact]
+    public async Task Share_can_be_recopied_from_the_list()
+    {
+        var admin = Client(WebAppFactory.AdminEmail);
+        var created = await (await admin.PostAsJsonAsync("/api/shares", ShareReq())).Content.ReadFromJsonAsync<JsonElement>();
+        var id = created.GetProperty("id").GetInt32();
+
+        var list = await (await admin.GetAsync("/api/shares")).Content.ReadFromJsonAsync<JsonElement>();
+        var item = list.EnumerateArray().First(e => e.GetProperty("id").GetInt32() == id);
+        var path = item.GetProperty("path").GetString()!;
+        path.Should().StartWith("/share/");
+
+        // The re-derived token still resolves the public link.
+        var token = path["/share/".Length..];
+        (await Client().GetAsync($"/api/share/{token}")).StatusCode.Should().Be(HttpStatusCode.OK);
+    }
+
+    [Fact]
+    public async Task Share_expiry_and_label_can_be_updated()
+    {
+        var admin = Client(WebAppFactory.AdminEmail);
+        var created = await (await admin.PostAsJsonAsync("/api/shares", ShareReq(hours: 1))).Content.ReadFromJsonAsync<JsonElement>();
+        var id = created.GetProperty("id").GetInt32();
+        var origExpires = created.GetProperty("expiresUtc").GetDateTime();
+
+        var put = await admin.PutAsJsonAsync($"/api/shares/{id}", new { expiresInHours = 720, label = "Renewed" });
+        put.StatusCode.Should().Be(HttpStatusCode.OK);
+        var dto = await put.Content.ReadFromJsonAsync<JsonElement>();
+        dto.GetProperty("label").GetString().Should().Be("Renewed");
+        dto.GetProperty("expiresUtc").GetDateTime().Should().BeAfter(origExpires);
+    }
+
+    [Fact]
+    public async Task Share_token_is_redacted_in_the_action_log()
+    {
+        var admin = Client(WebAppFactory.AdminEmail);
+        var created = await (await admin.PostAsJsonAsync("/api/shares", ShareReq(label: "LogTest"))).Content.ReadFromJsonAsync<JsonElement>();
+        var token = created.GetProperty("token").GetString()!;
+
+        var entry = await WaitForLog(admin, e =>
+            e.GetProperty("path").GetString() == "/api/shares" && e.GetProperty("method").GetString() == "POST");
+        entry.GetProperty("responseBody").GetString().Should().Be("[redacted]");
+        entry.GetRawText().Should().NotContain(token);
     }
 
     [Fact]
