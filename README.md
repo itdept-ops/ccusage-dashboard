@@ -1,3 +1,5 @@
+<img src="docs/usage-iq-icon.png" width="72" align="right" alt="Usage IQ" />
+
 # Usage IQ
 
 A self-hosted dashboard for **filtering and visualizing your AI coding-agent token usage** — your "ccusage", across **multiple tools** (Claude Code + OpenAI Codex), with charts, cost, and drill-down. It reads each tool's local `*.jsonl` logs directly, de-duplicates and prices every message, stores it in **PostgreSQL**, and serves a filterable **Angular** dashboard from a **.NET 9** API.

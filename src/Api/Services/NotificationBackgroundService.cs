@@ -46,7 +46,7 @@ public sealed class NotificationBackgroundService(
         {
             var day = today.AddDays(-1);
             var d = await notifier.BuildDigestAsync(day, day, day.AddDays(-1), day.AddDays(-1), ct);
-            var done = d.Messages == 0 || await notifier.SendDigestAsync(url, $"Daily usage — {day:MMM d}", d, ct);
+            var done = d.Messages == 0 || await notifier.SendDigestAsync(url, "Daily", day.ToString("MMM d"), d, ct);
             if (done) { s.LastDailySent = today; await db.SaveChangesAsync(ct); }
         }
 
@@ -57,7 +57,7 @@ public sealed class NotificationBackgroundService(
             var from = today.AddDays(-7);
             var to = today.AddDays(-1);
             var d = await notifier.BuildDigestAsync(from, to, from.AddDays(-7), from.AddDays(-1), ct);
-            var done = d.Messages == 0 || await notifier.SendDigestAsync(url, $"Weekly usage — {from:MMM d}–{to:MMM d}", d, ct);
+            var done = d.Messages == 0 || await notifier.SendDigestAsync(url, "Weekly", $"{from:MMM d}–{to:MMM d}", d, ct);
             if (done) { s.LastWeeklySent = today; await db.SaveChangesAsync(ct); }
         }
 

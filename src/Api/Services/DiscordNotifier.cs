@@ -4,15 +4,21 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Ccusage.Api.Services;
 
-/// <summary>Posts usage digests/snapshots/alerts to a Discord incoming webhook, and builds the summaries.</summary>
+/// <summary>Posts richly-formatted usage digests/snapshots/alerts to a Discord incoming webhook.</summary>
 public sealed class DiscordNotifier(IHttpClientFactory httpFactory, UsageDbContext db, ILogger<DiscordNotifier> logger)
 {
     // Only ever POST to a genuine Discord webhook — this also closes off SSRF to internal hosts.
     private static readonly HashSet<string> AllowedHosts =
         new(StringComparer.OrdinalIgnoreCase) { "discord.com", "discordapp.com", "canary.discord.com", "ptb.discord.com" };
 
+    // Served from the public repo so Discord can always fetch it, even for a private/local instance.
+    private const string Icon = "https://raw.githubusercontent.com/itdept-ops/usage-iq/main/docs/usage-iq-icon.png";
+
+    private const string Spacer = "​"; // zero-width space — a non-empty but invisible embed field
     private const int Blue = 0x3D8BFF;
     private const int Amber = 0xF2B340;
+    private const int Green = 0x3DD68C;
+    private const int Red = 0xFF5C6C;
 
     public record Summary(decimal Cost, long Tokens, int Messages, string? TopProject);
     public record Breakdown(string Name, decimal Cost);
@@ -27,21 +33,20 @@ public sealed class DiscordNotifier(IHttpClientFactory httpFactory, UsageDbConte
         && u.AbsolutePath.StartsWith("/api/webhooks/", StringComparison.OrdinalIgnoreCase);
 
     public Task<bool> SendTestAsync(string url, CancellationToken ct) =>
-        PostAsync(url, "✅ Usage IQ connected", "Test message — your Discord webhook is wired up correctly.",
-            Blue, Array.Empty<(string, string, bool)>(), ct);
+        PostAsync(url, "Connection test", "✅ Connected",
+            "Your Discord webhook is wired up correctly — digests and alerts will land right here.",
+            Green, NoFields, ct);
 
-    public Task<bool> SendDigestAsync(string url, string title, Digest d, CancellationToken ct)
-    {
-        var fields = new List<(string, string, bool)>
-        {
-            ("Cost", $"${d.Cost:N2}{Trend(d.Cost, d.PrevCost)}", true),
-            ("Tokens", Human(d.Tokens), true),
-            ("Messages", $"{d.Messages:N0}", true),
-        };
-        if (d.TopProjects.Count > 0) fields.Add(("Top projects", BreakdownText(d.TopProjects), true));
-        if (d.TopModels.Count > 0) fields.Add(("Top models", BreakdownText(d.TopModels), true));
-        return PostAsync(url, title, null, Blue, fields.ToArray(), ct);
-    }
+    public Task<bool> SendDigestAsync(string url, string kind, string period, Digest d, CancellationToken ct) =>
+        PostAsync(url, $"{kind} usage digest", period,
+            $"**${d.Cost:N2}** spent{TrendSuffix(d.Cost, d.PrevCost)}", Blue, new[]
+            {
+                ("🔤 Tokens", Human(d.Tokens), true),
+                ("💬 Messages", $"{d.Messages:N0}", true),
+                (Spacer, Spacer, true), // zero-width spacer → pushes the two breakdowns onto their own row
+                ("📂 Top projects", BreakdownText(d.TopProjects), true),
+                ("🧠 Top models", BreakdownText(d.TopModels), true),
+            }, ct);
 
     public async Task<bool> SendSnapshotAsync(string url, DateOnly today, CancellationToken ct)
     {
@@ -51,37 +56,40 @@ public sealed class DiscordNotifier(IHttpClientFactory httpFactory, UsageDbConte
         var allCost = await db.UsageRecords.AsNoTracking().SumAsync(r => (decimal?)r.CostUsd, ct) ?? 0m;
         var allMsgs = await db.UsageRecords.AsNoTracking().CountAsync(ct);
 
-        return await PostAsync(url, $"📊 Usage snapshot — {today:MMM d, yyyy}", null, Blue, new[]
-        {
-            ("Today", $"${todayS.Cost:N2} · {todayS.Messages:N0} msgs", true),
-            ("Last 7 days", $"${weekS.Cost:N2} · {weekS.Messages:N0} msgs", true),
-            ("This month", $"${monthS.Cost:N2} · {monthS.Messages:N0} msgs", true),
-            ("All time", $"${allCost:N2} · {allMsgs:N0} msgs", false),
-            ("Top project today", todayS.TopProject ?? "—", false),
-        }, ct);
+        return await PostAsync(url, "Usage snapshot", today.ToString("MMMM d, yyyy"),
+            $"**${allCost:N2}** all-time across {allMsgs:N0} messages", Blue, new[]
+            {
+                ("📅 Today", $"**${todayS.Cost:N2}** · {todayS.Messages:N0} msgs", true),
+                ("🗓️ Last 7 days", $"**${weekS.Cost:N2}** · {weekS.Messages:N0} msgs", true),
+                ("📆 This month", $"**${monthS.Cost:N2}** · {monthS.Messages:N0} msgs", true),
+                ("🏆 Top project today", todayS.TopProject ?? "—", false),
+            }, ct);
     }
 
     public Task<bool> SendThresholdAsync(
         string url, DateOnly day, decimal spend, decimal threshold, string? mention, CancellationToken ct) =>
-        PostAsync(url, "⚠️ Daily spend threshold reached", null, Amber, new[]
-        {
-            ("Date", day.ToString("MMM d"), true),
-            ("Spend today", $"${spend:N2}", true),
-            ("Threshold", $"${threshold:N2}", true),
-        }, ct, content: mention, allowMentions: !string.IsNullOrWhiteSpace(mention));
+        PostAsync(url, "Spend alert", "⚠️ Daily threshold reached",
+            $"Spend on **{day:MMM d}** has reached **${spend:N2}**, past your **${threshold:N2}** alert.", Amber, new[]
+            {
+                ("💵 Spend today", $"${spend:N2}", true),
+                ("🎯 Threshold", $"${threshold:N2}", true),
+            }, ct, content: mention, allowMentions: !string.IsNullOrWhiteSpace(mention));
 
     public Task<bool> SendSecurityAsync(
         string url, string action, string actor, string? target, string? detail, string? mention, CancellationToken ct)
     {
-        var fields = new List<(string, string, bool)> { ("Action", action, true), ("By", actor, true) };
-        if (!string.IsNullOrEmpty(target)) fields.Add(("Target", target!, true));
-        if (!string.IsNullOrEmpty(detail)) fields.Add(("Detail", Trunc(detail!, 1000), false));
-        return PostAsync(url, "🔐 Security event", null, Amber, fields.ToArray(), ct,
+        var fields = new List<(string, string, bool)> { ("⚙️ Action", $"`{action}`", true), ("👤 By", actor, true) };
+        if (!string.IsNullOrEmpty(target)) fields.Add(("🎯 Target", target!, true));
+        if (!string.IsNullOrEmpty(detail)) fields.Add(("📝 Detail", Trunc(detail!, 1000), false));
+
+        return PostAsync(url, "Security event", "🔐 Access activity", null, Red, fields.ToArray(), ct,
             content: mention, allowMentions: !string.IsNullOrWhiteSpace(mention));
     }
 
+    private static readonly (string, string, bool)[] NoFields = Array.Empty<(string, string, bool)>();
+
     private async Task<bool> PostAsync(
-        string url, string title, string? description, int color,
+        string url, string author, string? title, string? description, int color,
         (string Name, string Value, bool Inline)[] fields, CancellationToken ct,
         string? content = null, bool allowMentions = false)
     {
@@ -94,9 +102,9 @@ public sealed class DiscordNotifier(IHttpClientFactory httpFactory, UsageDbConte
         var payload = new
         {
             username = "Usage IQ",
+            avatar_url = Icon,
             content = string.IsNullOrWhiteSpace(content) ? null : content,
-            // Only ping when an admin explicitly configured a mention; otherwise suppress ALL pings so a
-            // project/model name that happens to contain "@everyone" can never trigger a notification.
+            // Only ping when an admin explicitly configured a mention; otherwise suppress ALL pings.
             allowed_mentions = allowMentions
                 ? new { parse = new[] { "everyone", "roles" } }
                 : new { parse = Array.Empty<string>() },
@@ -104,11 +112,13 @@ public sealed class DiscordNotifier(IHttpClientFactory httpFactory, UsageDbConte
             {
                 new
                 {
+                    author = new { name = author, icon_url = Icon },
                     title,
                     description,
                     color,
                     fields = fields.Select(f => new { name = f.Name, value = f.Value, inline = f.Inline }).ToArray(),
-                    footer = new { text = "Usage IQ" },
+                    footer = new { text = "Usage IQ", icon_url = Icon },
+                    timestamp = DateTime.UtcNow.ToString("o"),
                 },
             },
         };
@@ -120,7 +130,6 @@ public sealed class DiscordNotifier(IHttpClientFactory httpFactory, UsageDbConte
             cts.CancelAfter(TimeSpan.FromSeconds(10));
             var res = await client.PostAsJsonAsync(url, payload, cts.Token);
 
-            // Defense in depth: if a redirect ever slipped through, the request must still have ended on Discord.
             var finalHost = res.RequestMessage?.RequestUri?.Host;
             if (finalHost is not null && !AllowedHosts.Contains(finalHost))
             {
@@ -185,15 +194,15 @@ public sealed class DiscordNotifier(IHttpClientFactory httpFactory, UsageDbConte
             tm.Select(x => new Breakdown(x.Key, x.Cost)).ToList());
     }
 
-    private static string Trend(decimal cur, decimal? prev)
+    private static string TrendSuffix(decimal cur, decimal? prev)
     {
         if (prev is not { } p || p <= 0) return "";
         var pct = (double)((cur - p) / p) * 100;
-        return $"\n{(pct >= 0 ? "▲" : "▼")} {Math.Abs(pct):N0}% vs prev";
+        return $"  ·  {(pct >= 0 ? "📈" : "📉")} {(pct >= 0 ? "+" : "")}{pct:N0}% vs previous";
     }
 
     private static string BreakdownText(IReadOnlyList<Breakdown> items) =>
-        string.Join("\n", items.Select(b => $"{Trunc(b.Name, 40)} · ${b.Cost:N2}"));
+        items.Count == 0 ? "—" : string.Join("\n", items.Select((b, i) => $"`{i + 1}.` {Trunc(b.Name, 28)} · **${b.Cost:N2}**"));
 
     private static string Trunc(string s, int max) => s.Length <= max ? s : s[..max] + "…";
 
