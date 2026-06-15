@@ -72,7 +72,11 @@ export class Dashboard {
   readonly sort = signal('timestamp');
   readonly desc = signal(true);
 
-  readonly displayedColumns = ['localDate', 'source', 'model', 'projectName', 'sidechain', 'inputTokens', 'outputTokens', 'cacheReadTokens', 'totalTokens', 'costUsd'];
+  readonly displayedColumns = ['localDate', 'source', 'model', 'projectName', 'sidechain', 'inputTokens', 'outputTokens', 'totalTokens', 'costUsd'];
+
+  // Estimated active engagement time (gap-based) for the current filter, summed from the calendar.
+  readonly activeMinutes = signal(0);
+  readonly activeHours = computed(() => this.activeMinutes() / 60);
 
   constructor() {
     this.hydrateFromUrl();
@@ -201,8 +205,14 @@ export class Dashboard {
     forkJoin({
       summary: this.api.summary(this.filter(), this.groupBy()),
       records: this.api.records(this.filter(), this.page(), this.pageSize(), this.sort(), this.desc()),
+      calendar: this.api.calendar(this.filter()),
     }).subscribe({
-      next: r => { this.summary.set(r.summary); this.records.set(r.records); this.loading.set(false); },
+      next: r => {
+        this.summary.set(r.summary);
+        this.records.set(r.records);
+        this.activeMinutes.set(r.calendar.reduce((a, d) => a + d.activeMinutes, 0));
+        this.loading.set(false);
+      },
       error: () => { this.loading.set(false); this.snack.open('Failed to load data — is the API running?', 'Dismiss', { duration: 5000 }); },
     });
   }
