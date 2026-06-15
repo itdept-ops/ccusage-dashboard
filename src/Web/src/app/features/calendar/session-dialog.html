@@ -1,0 +1,40 @@
+@if (loading()) {
+  <mat-progress-bar mode="indeterminate" />
+} @else if (data(); as d) {
+  <h2 mat-dialog-title>Session detail</h2>
+  <mat-dialog-content>
+    <div class="sx-head">
+      <div class="sx-id mono">{{ d.sessionId }}</div>
+      <div class="sx-meta">
+        <span>{{ d.projectName || '—' }}</span>
+        <span class="dot">·</span>
+        <span>{{ d.startUtc | date: 'MMM d, HH:mm' }} → {{ d.endUtc | date: 'HH:mm' }}</span>
+        <span class="dot">·</span>
+        <span>{{ durationMin() | number }} min</span>
+      </div>
+    </div>
+
+    <div class="sx-kpis">
+      <div class="sx-kpi"><span class="k">Cost</span><span class="v cost">{{ d.cost | currency: 'USD' : 'symbol' : '1.2-2' }}</span></div>
+      <div class="sx-kpi"><span class="k">Tokens</span><span class="v">{{ d.tokens | compact }}</span></div>
+      <div class="sx-kpi"><span class="k">Messages</span><span class="v">{{ d.messages | number }}</span></div>
+    </div>
+
+    <div class="sx-chart"><app-chart [option]="chart()" /></div>
+
+    <div class="sx-list-head">Timeline</div>
+    <div class="sx-list">
+      @for (m of d.items; track $index) {
+        <div class="sx-row mono">
+          <span class="sx-time">{{ m.timestampUtc | date: 'HH:mm:ss' }}</span>
+          <span class="sx-model">{{ m.model }}</span>
+          @if (m.isSidechain) { <span class="sx-sub">sub</span> }
+          <span class="sx-grow"></span>
+          <span class="sx-tok">{{ m.total | compact }}</span>
+          <span class="sx-cost">{{ m.cost | currency: 'USD' : 'symbol' : '1.2-4' }}</span>
+        </div>
+      }
+    </div>
+  </mat-dialog-content>
+  <mat-dialog-actions align="end"><button mat-button mat-dialog-close>Close</button></mat-dialog-actions>
+}

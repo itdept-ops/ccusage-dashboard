@@ -213,6 +213,46 @@ export interface NotificationUpdate {
   mentionOnAlert: string | null;
 }
 
+export interface HeatmapCell { day: number; hour: number; count: number; }
+
+export interface UsageStats {
+  totalActiveHours: number;
+  activeDays: number;
+  avgHoursPerActiveDay: number;
+  totalSessions: number;
+  avgSessionMinutes: number;
+  longestSessionMinutes: number;
+  totalCost: number;
+  costPerActiveHour: number;
+  mostActiveDay: string | null;
+  mostActiveDayHours: number;
+  currentStreakDays: number;
+  longestStreakDays: number;
+  busiestHour: number;
+}
+
+export interface SessionMessage {
+  timestampUtc: string;
+  model: string;
+  projectName: string;
+  input: number;
+  output: number;
+  total: number;
+  cost: number;
+  isSidechain: boolean;
+}
+
+export interface SessionDetail {
+  sessionId: string;
+  projectName: string | null;
+  startUtc: string;
+  endUtc: string;
+  messages: number;
+  tokens: number;
+  cost: number;
+  items: SessionMessage[];
+}
+
 export interface CalendarDay {
   date: string;
   costUsd: number;

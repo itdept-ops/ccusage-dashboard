@@ -2,9 +2,10 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import {
-  AuditEntry, CalendarDay, CreateShareRequest, GroupBy, IngestionSource, ManagedUser, ModelStat, NotificationSettings,
-  NotificationUpdate, PagedResult, PermissionItem, Pricing, ProjectDto, PublicShare, RequestLogEntry, Settings,
-  ShareAccessItem, ShareCreated, ShareListItem, SummaryResponse, SyncResult, SyncStatus, UsageFilter, UsageRecord,
+  AuditEntry, CalendarDay, CreateShareRequest, GroupBy, HeatmapCell, IngestionSource, ManagedUser, ModelStat,
+  NotificationSettings, NotificationUpdate, PagedResult, PermissionItem, Pricing, ProjectDto, PublicShare,
+  RequestLogEntry, SessionDetail, Settings, ShareAccessItem, ShareCreated, ShareListItem, SummaryResponse, SyncResult,
+  SyncStatus, UsageFilter, UsageRecord, UsageStats,
 } from './models';
 
 @Injectable({ providedIn: 'root' })
@@ -37,6 +38,18 @@ export class Api {
 
   calendar(f?: UsageFilter): Observable<CalendarDay[]> {
     return this.http.get<CalendarDay[]>(`${this.base}/usage/calendar`, { params: f ? this.filterParams(f) : undefined });
+  }
+
+  heatmap(f?: UsageFilter): Observable<HeatmapCell[]> {
+    return this.http.get<HeatmapCell[]>(`${this.base}/usage/heatmap`, { params: f ? this.filterParams(f) : undefined });
+  }
+
+  stats(f?: UsageFilter): Observable<UsageStats> {
+    return this.http.get<UsageStats>(`${this.base}/usage/stats`, { params: f ? this.filterParams(f) : undefined });
+  }
+
+  session(id: string): Observable<SessionDetail> {
+    return this.http.get<SessionDetail>(`${this.base}/usage/session/${encodeURIComponent(id)}`);
   }
 
   // ---- Public share links ----

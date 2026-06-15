@@ -102,6 +102,56 @@ public sealed class PublicShareDto
     public SummaryResponse Models { get; set; } = new();
 }
 
+/// <summary>One cell of the hour × weekday activity heatmap (local time).</summary>
+public sealed class HeatmapCellDto
+{
+    public int Day { get; set; }   // 0 = Sunday … 6 = Saturday
+    public int Hour { get; set; }  // 0–23 (display timezone)
+    public int Count { get; set; }
+}
+
+/// <summary>Headline efficiency / streak figures for the filtered range.</summary>
+public sealed class UsageStatsDto
+{
+    public double TotalActiveHours { get; set; }
+    public int ActiveDays { get; set; }
+    public double AvgHoursPerActiveDay { get; set; }
+    public int TotalSessions { get; set; }
+    public double AvgSessionMinutes { get; set; }
+    public double LongestSessionMinutes { get; set; }
+    public decimal TotalCost { get; set; }
+    public decimal CostPerActiveHour { get; set; }
+    public string? MostActiveDay { get; set; }
+    public double MostActiveDayHours { get; set; }
+    public int CurrentStreakDays { get; set; }
+    public int LongestStreakDays { get; set; }
+    public int BusiestHour { get; set; }
+}
+
+public sealed class SessionMessageDto
+{
+    public DateTime TimestampUtc { get; set; }
+    public string Model { get; set; } = "";
+    public string ProjectName { get; set; } = "";
+    public long Input { get; set; }
+    public long Output { get; set; }
+    public long Total { get; set; }
+    public decimal Cost { get; set; }
+    public bool IsSidechain { get; set; }
+}
+
+public sealed class SessionDetailDto
+{
+    public string SessionId { get; set; } = "";
+    public string? ProjectName { get; set; }
+    public DateTime StartUtc { get; set; }
+    public DateTime EndUtc { get; set; }
+    public int Messages { get; set; }
+    public long Tokens { get; set; }
+    public decimal Cost { get; set; }
+    public List<SessionMessageDto> Items { get; set; } = new();
+}
+
 /// <summary>One day in the usage calendar: spend, volume, and estimated active engagement time.</summary>
 public sealed class CalendarDayDto
 {

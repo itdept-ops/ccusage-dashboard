@@ -410,6 +410,31 @@ public class AuthIntegrationTests(WebAppFactory factory) : IClassFixture<WebAppF
         dto.GetProperty("mentionOnAlert").GetString()!.Length.Should().BeLessThanOrEqualTo(64);
     }
 
+    // ---- Analytics (heatmap / stats / session) ----
+
+    [Fact]
+    public async Task Analytics_endpoints_require_authentication()
+    {
+        (await Client().GetAsync("/api/usage/heatmap")).StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+        (await Client().GetAsync("/api/usage/stats")).StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async Task Heatmap_and_stats_return_ok()
+    {
+        var admin = Client(WebAppFactory.AdminEmail);
+        (await admin.GetAsync("/api/usage/heatmap")).StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var res = await admin.GetAsync("/api/usage/stats");
+        res.StatusCode.Should().Be(HttpStatusCode.OK);
+        (await res.Content.ReadFromJsonAsync<JsonElement>()).TryGetProperty("totalActiveHours", out _).Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task Unknown_session_is_404()
+        => (await Client(WebAppFactory.AdminEmail).GetAsync("/api/usage/session/not-a-real-session"))
+            .StatusCode.Should().Be(HttpStatusCode.NotFound);
+
     // ---- Public share links ----
 
     private static object ShareReq(string? label = null, int hours = 24, string groupBy = "day", string[]? source = null) => new

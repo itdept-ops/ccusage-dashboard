@@ -58,6 +58,21 @@ public static class ApiEndpoints
             Results.Ok(await q.CalendarAsync(filter, Math.Clamp(idleGapMinutes ?? 30, 5, 240), ct)))
             .RequirePermission(Permissions.DashboardView);
 
+        api.MapGet("/usage/heatmap", async (
+            [AsParameters] UsageFilterQuery filter, UsageQueries q, CancellationToken ct) =>
+            Results.Ok(await q.HeatmapAsync(filter, ct)))
+            .RequirePermission(Permissions.DashboardView);
+
+        api.MapGet("/usage/stats", async (
+            [AsParameters] UsageFilterQuery filter, int? idleGapMinutes, UsageQueries q, CancellationToken ct) =>
+            Results.Ok(await q.StatsAsync(filter, Math.Clamp(idleGapMinutes ?? 30, 5, 240), ct)))
+            .RequirePermission(Permissions.DashboardView);
+
+        api.MapGet("/usage/session/{sessionId}", async (
+            string sessionId, UsageQueries q, CancellationToken ct) =>
+            await q.SessionAsync(sessionId, ct) is { } s ? Results.Ok(s) : Results.NotFound())
+            .RequirePermission(Permissions.DashboardView);
+
         api.MapGet("/usage/records.csv", async (
             [AsParameters] UsageFilterQuery filter, HttpContext http, UsageQueries q, CancellationToken ct) =>
         {

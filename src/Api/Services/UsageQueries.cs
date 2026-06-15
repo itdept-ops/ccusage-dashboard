@@ -74,6 +74,140 @@ public sealed class UsageQueries(UsageDbContext db)
         }).OrderBy(d => d.Date).ToList();
     }
 
+    private async Task<TimeZoneInfo> DisplayTzAsync(CancellationToken ct)
+    {
+        var id = (await db.AppConfigs.AsNoTracking().FirstOrDefaultAsync(ct))?.DisplayTimeZone;
+        if (string.IsNullOrWhiteSpace(id)) return TimeZoneInfo.Utc;
+        try { return TimeZoneInfo.FindSystemTimeZoneById(id); } catch { return TimeZoneInfo.Utc; }
+    }
+
+    /// <summary>Message counts bucketed by (weekday, local hour) — "when do I work with AI".</summary>
+    public async Task<List<HeatmapCellDto>> HeatmapAsync(UsageFilterQuery f, CancellationToken ct)
+    {
+        var tz = await DisplayTzAsync(ct);
+        var stamps = await Filtered(f).Select(r => r.TimestampUtc).ToListAsync(ct);
+
+        var grid = new int[7, 24];
+        foreach (var ts in stamps)
+        {
+            var local = TimeZoneInfo.ConvertTimeFromUtc(DateTime.SpecifyKind(ts, DateTimeKind.Utc), tz);
+            grid[(int)local.DayOfWeek, local.Hour]++;
+        }
+
+        var cells = new List<HeatmapCellDto>();
+        for (var d = 0; d < 7; d++)
+            for (var h = 0; h < 24; h++)
+                if (grid[d, h] > 0) cells.Add(new HeatmapCellDto { Day = d, Hour = h, Count = grid[d, h] });
+        return cells;
+    }
+
+    /// <summary>Efficiency/streak headline figures for the filtered range (gap-based sessionization).</summary>
+    public async Task<UsageStatsDto> StatsAsync(UsageFilterQuery f, int idleGapMinutes, CancellationToken ct)
+    {
+        var tz = await DisplayTzAsync(ct);
+        var rows = await Filtered(f).OrderBy(r => r.TimestampUtc)
+            .Select(r => new { r.TimestampUtc, r.CostUsd, r.LocalDate }).ToListAsync(ct);
+        if (rows.Count == 0) return new UsageStatsDto();
+
+        var gap = TimeSpan.FromMinutes(idleGapMinutes);
+        double totalActiveMin = 0, longestSessionMin = 0, curSessionMin = 0;
+        var sessions = 1;
+        var hourCount = new int[24];
+        var perDayMin = new Dictionary<DateOnly, double>();
+        DateTime? prev = null;
+
+        foreach (var r in rows)
+        {
+            var local = TimeZoneInfo.ConvertTimeFromUtc(DateTime.SpecifyKind(r.TimestampUtc, DateTimeKind.Utc), tz);
+            hourCount[local.Hour]++;
+            if (prev is { } p)
+            {
+                var d = r.TimestampUtc - p;
+                if (d <= gap)
+                {
+                    totalActiveMin += d.TotalMinutes;
+                    curSessionMin += d.TotalMinutes;
+                    perDayMin[r.LocalDate] = perDayMin.GetValueOrDefault(r.LocalDate) + d.TotalMinutes;
+                }
+                else
+                {
+                    sessions++;
+                    longestSessionMin = Math.Max(longestSessionMin, curSessionMin);
+                    curSessionMin = 0;
+                }
+            }
+            prev = r.TimestampUtc;
+        }
+        longestSessionMin = Math.Max(longestSessionMin, curSessionMin);
+
+        var activeDates = rows.Select(r => r.LocalDate).Distinct().OrderBy(d => d).ToList();
+        int longest = 1, run = 1;
+        for (var i = 1; i < activeDates.Count; i++)
+        {
+            if (activeDates[i] == activeDates[i - 1].AddDays(1)) run++;
+            else { longest = Math.Max(longest, run); run = 1; }
+        }
+        longest = Math.Max(longest, run);
+        var current = 1;
+        for (var i = activeDates.Count - 1; i > 0; i--)
+        {
+            if (activeDates[i] == activeDates[i - 1].AddDays(1)) current++;
+            else break;
+        }
+
+        var totalCost = rows.Sum(r => r.CostUsd);
+        var top = perDayMin.Count > 0 ? perDayMin.OrderByDescending(kv => kv.Value).First() : default;
+
+        return new UsageStatsDto
+        {
+            TotalActiveHours = totalActiveMin / 60,
+            ActiveDays = activeDates.Count,
+            AvgHoursPerActiveDay = activeDates.Count > 0 ? totalActiveMin / 60 / activeDates.Count : 0,
+            TotalSessions = sessions,
+            AvgSessionMinutes = sessions > 0 ? totalActiveMin / sessions : 0,
+            LongestSessionMinutes = longestSessionMin,
+            TotalCost = totalCost,
+            CostPerActiveHour = totalActiveMin > 0 ? totalCost / (decimal)(totalActiveMin / 60) : 0,
+            MostActiveDay = perDayMin.Count > 0 ? top.Key.ToString("yyyy-MM-dd") : null,
+            MostActiveDayHours = perDayMin.Count > 0 ? top.Value / 60 : 0,
+            CurrentStreakDays = current,
+            LongestStreakDays = longest,
+            BusiestHour = Array.IndexOf(hourCount, hourCount.Max()),
+        };
+    }
+
+    /// <summary>All messages in one session, ordered, for the drill-down timeline.</summary>
+    public async Task<SessionDetailDto?> SessionAsync(string sessionId, CancellationToken ct)
+    {
+        var items = await db.UsageRecords.AsNoTracking()
+            .Where(r => r.SessionId == sessionId)
+            .OrderBy(r => r.TimestampUtc)
+            .Select(r => new SessionMessageDto
+            {
+                TimestampUtc = r.TimestampUtc,
+                Model = r.Model,
+                ProjectName = r.Project!.Name,
+                Input = r.InputTokens,
+                Output = r.OutputTokens,
+                Total = (long)r.InputTokens + r.OutputTokens + r.CacheReadTokens + r.CacheCreation5mTokens + r.CacheCreation1hTokens,
+                Cost = r.CostUsd,
+                IsSidechain = r.IsSidechain,
+            }).ToListAsync(ct);
+
+        if (items.Count == 0) return null;
+        return new SessionDetailDto
+        {
+            SessionId = sessionId,
+            ProjectName = items[0].ProjectName,
+            StartUtc = items[0].TimestampUtc,
+            EndUtc = items[^1].TimestampUtc,
+            Messages = items.Count,
+            Tokens = items.Sum(i => i.Total),
+            Cost = items.Sum(i => i.Cost),
+            Items = items,
+        };
+    }
+
     private sealed record Agg(string Key, long Input, long Output, long Read, long W5, long W1, decimal Cost, int Count);
 
     private static SummaryBucket ToBucket(Agg a) => new()

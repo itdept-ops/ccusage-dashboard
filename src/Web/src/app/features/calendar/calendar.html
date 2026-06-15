@@ -40,9 +40,63 @@
   </mat-card>
 </div>
 
-<!-- Heatmap -->
+<!-- Efficiency / streak stats -->
+@if (metrics(); as m) {
+  <div class="stat-grid stat-grid--2">
+    <mat-card appearance="outlined" class="stat">
+      <span class="stat-label">$ / active hour</span>
+      <span class="stat-value">${{ m.costPerActiveHour | number: '1.0-0' }}</span>
+      <span class="stat-sub">cost of engaged time</span>
+    </mat-card>
+    <mat-card appearance="outlined" class="stat">
+      <span class="stat-label">Longest session</span>
+      <span class="stat-value">{{ m.longestSessionMinutes | number: '1.0-0' }}<span class="unit">m</span></span>
+      <span class="stat-sub">avg {{ m.avgSessionMinutes | number: '1.0-0' }}m</span>
+    </mat-card>
+    <mat-card appearance="outlined" class="stat">
+      <span class="stat-label">Current streak</span>
+      <span class="stat-value">{{ m.currentStreakDays | number }}<span class="unit">d</span></span>
+      <span class="stat-sub">longest {{ m.longestStreakDays }}d</span>
+    </mat-card>
+    <mat-card appearance="outlined" class="stat">
+      <span class="stat-label">Busiest hour</span>
+      <span class="stat-value">{{ fmtHour(m.busiestHour) }}</span>
+      @if (m.mostActiveDay) { <span class="stat-sub">top day {{ m.mostActiveDay }}</span> }
+    </mat-card>
+  </div>
+}
+
+<!-- Year calendar heatmap -->
 <mat-card appearance="outlined" class="panel">
   <div class="cal-wrap" [style.height.px]="wrapHeight()">
     <app-chart [option]="chart()" />
   </div>
 </mat-card>
+
+<div class="cal-cols">
+  <!-- Hour × weekday heatmap -->
+  <mat-card appearance="outlined" class="panel">
+    <div class="panel-header">When you work with AI</div>
+    <div class="hw-wrap"><app-chart [option]="heatmapChart()" /></div>
+  </mat-card>
+
+  <!-- Top sessions → drill-down -->
+  <mat-card appearance="outlined" class="panel">
+    <div class="panel-header">Top sessions</div>
+    @if (!sessions().length) {
+      <div class="ts-empty">No sessions yet.</div>
+    } @else {
+      <div class="ts-list">
+        @for (s of sessions(); track s.key) {
+          <button class="ts-row mono" (click)="openSession(s.key)">
+            <span class="ts-id">{{ shortId(s.key) }}</span>
+            <span class="ts-grow"></span>
+            <span class="ts-msgs">{{ s.records | number }} msgs</span>
+            <span class="ts-cost">{{ s.costUsd | currency: 'USD' : 'symbol' : '1.2-2' }}</span>
+            <mat-icon class="ts-chev">chevron_right</mat-icon>
+          </button>
+        }
+      </div>
+    }
+  </mat-card>
+</div>
