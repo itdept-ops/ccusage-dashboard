@@ -1,0 +1,47 @@
+@if (loading()) {
+  <mat-progress-bar mode="indeterminate" />
+} @else if (error()) {
+  <div class="ps-error">
+    <h2>Link unavailable</h2>
+    <p>This shared link is invalid or has expired.</p>
+  </div>
+} @else if (data(); as d) {
+  <div class="ps-wrap">
+    <header class="ps-head">
+      <div class="ps-brand">
+        <svg width="22" height="22" viewBox="0 0 32 32" fill="none" aria-hidden="true">
+          <defs><linearGradient id="ps-g" x1="3" y1="29" x2="29" y2="3" gradientUnits="userSpaceOnUse">
+            <stop stop-color="#3D8BFF" /><stop offset="0.52" stop-color="#8B7CFF" /><stop offset="1" stop-color="#3FD8D0" />
+          </linearGradient></defs>
+          <rect x="1.25" y="1.25" width="29.5" height="29.5" rx="7.5" fill="#0B1019" stroke="url(#ps-g)" stroke-width="1.5" />
+          <rect x="7" y="18" width="3.6" height="7" rx="1.3" fill="url(#ps-g)" />
+          <rect x="14.2" y="13" width="3.6" height="12" rx="1.3" fill="url(#ps-g)" />
+          <rect x="21.4" y="8" width="3.6" height="17" rx="1.3" fill="url(#ps-g)" />
+        </svg>
+        <span>Usage&nbsp;IQ</span>
+      </div>
+      <div class="ps-titles">
+        <h1>{{ d.label || 'Shared usage' }}</h1>
+        <span class="ps-scope">{{ d.scope }}</span>
+      </div>
+    </header>
+
+    <div class="ps-kpis">
+      <div class="ps-kpi">
+        <span class="k">Total cost</span>
+        <span class="v cost">{{ d.summary.total.costUsd | currency: 'USD' : 'symbol' : '1.2-2' }}</span>
+      </div>
+      <div class="ps-kpi"><span class="k">Tokens</span><span class="v">{{ d.summary.total.totalTokens | compact }}</span></div>
+      <div class="ps-kpi"><span class="k">Messages</span><span class="v">{{ d.summary.total.records | number }}</span></div>
+    </div>
+
+    <div class="ps-charts">
+      <section class="ps-chart wide"><app-chart [option]="mainChart()" /></section>
+      <section class="ps-chart"><app-chart [option]="modelChart()" /></section>
+    </div>
+
+    <footer class="ps-foot">
+      Read-only shared view · expires {{ d.expiresUtc | date: 'MMM d, y, HH:mm' }}
+    </footer>
+  </div>
+}

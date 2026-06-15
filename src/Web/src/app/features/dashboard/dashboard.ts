@@ -11,6 +11,7 @@ import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { MatButtonModule } from '@angular/material/button';
 import { MatMenuModule } from '@angular/material/menu';
+import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatButtonToggleModule } from '@angular/material/button-toggle';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatTableModule } from '@angular/material/table';
@@ -22,6 +23,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 
 import { Api } from '../../core/api';
+import { ShareDialog } from '../share/share-dialog';
 import { AuthService } from '../../core/auth';
 import { GroupBy, IngestionSource, ModelStat, PagedResult, ProjectDto, SummaryResponse, UsageFilter, UsageRecord, PERM } from '../../core/models';
 import { ChartComponent } from '../../shared/chart';
@@ -31,7 +33,7 @@ import { CompactPipe } from '../../shared/format';
   selector: 'app-dashboard',
   imports: [
     CommonModule, FormsModule, RouterLink,
-    MatCardModule, MatFormFieldModule, MatInputModule, MatSelectModule, MatButtonModule, MatMenuModule,
+    MatCardModule, MatFormFieldModule, MatInputModule, MatSelectModule, MatButtonModule, MatMenuModule, MatDialogModule,
     MatButtonToggleModule, MatSlideToggleModule, MatTableModule, MatPaginatorModule, MatSortModule,
     MatProgressBarModule, MatIconModule, MatTooltipModule, MatSnackBarModule,
     ChartComponent, CompactPipe,
@@ -42,6 +44,7 @@ import { CompactPipe } from '../../shared/format';
 export class Dashboard {
   private api = inject(Api);
   private snack = inject(MatSnackBar);
+  private dialog = inject(MatDialog);
   private router = inject(Router);
   private route = inject(ActivatedRoute);
   readonly auth = inject(AuthService);
@@ -123,6 +126,14 @@ export class Dashboard {
   /** Open a small, chrome-less stats window for one source — sized for screen-share/capture. */
   popOut(source: string): void {
     window.open(`/widget/${encodeURIComponent(source)}`, `uiq-widget-${source}`, 'popup,width=440,height=360');
+  }
+
+  /** Open the external-share dialog (public, token-based, time-limited links). */
+  openShare(): void {
+    this.dialog.open(ShareDialog, {
+      data: { filter: this.filter(), groupBy: this.groupBy() },
+      width: '560px', maxWidth: '94vw', autoFocus: false,
+    });
   }
 
   copyShareLink(): void {

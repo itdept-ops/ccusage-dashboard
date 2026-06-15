@@ -2,9 +2,9 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import {
-  AuditEntry, CalendarDay, GroupBy, IngestionSource, ManagedUser, ModelStat, NotificationSettings, NotificationUpdate,
-  PagedResult, PermissionItem, Pricing, ProjectDto, RequestLogEntry, Settings, SummaryResponse, SyncResult, SyncStatus,
-  UsageFilter, UsageRecord,
+  AuditEntry, CalendarDay, CreateShareRequest, GroupBy, IngestionSource, ManagedUser, ModelStat, NotificationSettings,
+  NotificationUpdate, PagedResult, PermissionItem, Pricing, ProjectDto, PublicShare, RequestLogEntry, Settings,
+  ShareCreated, ShareListItem, SummaryResponse, SyncResult, SyncStatus, UsageFilter, UsageRecord,
 } from './models';
 
 @Injectable({ providedIn: 'root' })
@@ -37,6 +37,24 @@ export class Api {
 
   calendar(f?: UsageFilter): Observable<CalendarDay[]> {
     return this.http.get<CalendarDay[]>(`${this.base}/usage/calendar`, { params: f ? this.filterParams(f) : undefined });
+  }
+
+  // ---- Public share links ----
+  createShare(body: CreateShareRequest): Observable<ShareCreated> {
+    return this.http.post<ShareCreated>(`${this.base}/shares`, body);
+  }
+
+  listShares(): Observable<ShareListItem[]> {
+    return this.http.get<ShareListItem[]>(`${this.base}/shares`);
+  }
+
+  deleteShare(id: number): Observable<unknown> {
+    return this.http.delete(`${this.base}/shares/${id}`);
+  }
+
+  /** Anonymous read of a public share by token. */
+  publicShare(token: string): Observable<PublicShare> {
+    return this.http.get<PublicShare>(`${this.base}/share/${encodeURIComponent(token)}`);
   }
 
   recordsCsv(f: UsageFilter): Observable<Blob> {

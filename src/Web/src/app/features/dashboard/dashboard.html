@@ -89,8 +89,11 @@
       }
     </mat-menu>
   }
-  <button mat-stroked-button class="qr-export" matTooltip="Copy a shareable link to this filtered view" (click)="copyShareLink()">
+  <button mat-stroked-button class="qr-export" matTooltip="Copy an internal link to this filtered view (sign-in required)" (click)="copyShareLink()">
     <mat-icon>link</mat-icon> Copy link
+  </button>
+  <button mat-stroked-button class="qr-export" matTooltip="Create a public, time-limited link — no login required" (click)="openShare()">
+    <mat-icon>share</mat-icon> Share…
   </button>
   <button mat-stroked-button class="qr-export" [disabled]="exporting()" (click)="exportCsv()">
     <mat-icon>download</mat-icon> {{ exporting() ? 'Exporting…' : 'Export CSV' }}

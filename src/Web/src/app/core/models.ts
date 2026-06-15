@@ -19,6 +19,48 @@ export interface SummaryResponse {
   total: TokenTotals;
 }
 
+export interface CreateShareRequest {
+  label?: string | null;
+  expiresInHours: number;
+  from: string | null;
+  to: string | null;
+  projectId: number[];
+  model: string[];
+  source: string[];
+  includeSidechain: boolean;
+  groupBy: string;
+}
+
+export interface ShareCreated {
+  id: number;
+  token: string;
+  path: string;
+  expiresUtc: string;
+  label: string | null;
+}
+
+export interface ShareListItem {
+  id: number;
+  label: string | null;
+  createdByEmail: string;
+  createdUtc: string;
+  expiresUtc: string;
+  expired: boolean;
+  accessCount: number;
+  lastAccessedUtc: string | null;
+  scope: string;
+}
+
+export interface PublicShare {
+  label: string | null;
+  generatedAtUtc: string;
+  expiresUtc: string;
+  groupBy: string;
+  scope: string;
+  summary: SummaryResponse;
+  models: SummaryResponse;
+}
+
 export interface UsageRecord {
   id: number;
   source: string;

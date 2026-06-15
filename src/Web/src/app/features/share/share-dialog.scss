@@ -1,0 +1,63 @@
+:host { display: block; min-width: 460px; max-width: 560px; }
+.mono { font-family: var(--tech-font-mono, ui-monospace, monospace); }
+
+.sd-note {
+  margin: 0 0 16px;
+  font-size: var(--tech-fs-body, 13px);
+  line-height: 1.5;
+  color: var(--tech-text-secondary);
+  strong { color: var(--tech-text); }
+}
+
+.sd-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  .sd-label { flex: 1 1 240px; }
+  .sd-expiry { width: 140px; }
+  .sd-create { border-radius: var(--tech-r-control, 8px); font-weight: 600; }
+}
+
+.sd-created {
+  border: 1px solid var(--tech-border, #26303f);
+  border-radius: var(--tech-r-control, 10px);
+  padding: 12px 14px;
+  background: color-mix(in srgb, var(--tech-accent) 8%, transparent);
+
+  .sd-created-head {
+    display: flex; align-items: center; gap: 8px;
+    font-size: var(--tech-fs-label, 12px); color: var(--tech-text); margin-bottom: 10px;
+    mat-icon { color: var(--tech-success, #3dd68c); font-size: 18px; width: 18px; height: 18px; }
+  }
+  .sd-url-row { display: flex; gap: 8px; align-items: center; }
+  .sd-url {
+    flex: 1 1 auto; min-width: 0;
+    padding: 8px 10px; font-size: 12px;
+    color: var(--tech-text); background: var(--tech-panel-raised, #141a24);
+    border: 1px solid var(--tech-border-strong, #33425a); border-radius: 8px;
+  }
+  .sd-another { margin-top: 8px; color: var(--tech-text-secondary); }
+}
+
+.sd-list-head {
+  margin: 18px 0 8px;
+  font-size: var(--tech-fs-micro, 11px); font-weight: 600; letter-spacing: 0.06em;
+  text-transform: uppercase; color: var(--tech-text-tertiary);
+}
+.sd-list { display: flex; flex-direction: column; max-height: 240px; overflow-y: auto; }
+.sd-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 0; border-bottom: 1px solid var(--tech-border-subtle);
+  &:last-child { border-bottom: none; }
+  &.expired { opacity: 0.5; }
+
+  .sd-item-main { display: flex; flex-direction: column; min-width: 0; flex: 1 1 auto; }
+  .sd-item-label { font-size: 13px; color: var(--tech-text); font-weight: 500; }
+  .sd-item-scope {
+    font-size: 11px; color: var(--tech-text-tertiary);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .sd-item-meta { font-size: 11px; color: var(--tech-text-secondary); white-space: nowrap; flex: 0 0 auto; }
+  .sd-revoke { color: var(--tech-text-tertiary); flex: 0 0 auto; &:hover { color: var(--tech-error, #ff5c6c); } }
+}

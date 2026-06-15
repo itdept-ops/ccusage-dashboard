@@ -1,6 +1,8 @@
+using System.Net;
 using System.Net.Http;
 using System.Text;
 using System.Threading.RateLimiting;
+using Microsoft.AspNetCore.HttpOverrides;
 using Ccusage.Api.Auth;
 using Ccusage.Api.Data;
 using Ccusage.Api.Data.Entities;
@@ -93,6 +95,18 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     });
 builder.Services.AddAuthorization();
 
+// The API runs behind the bundled nginx reverse proxy, so honor X-Forwarded-For (from the proxy hop
+// only) — otherwise every request appears to come from the proxy and per-IP rate limits / logged IPs
+// would all collapse to one address. Trust the private/container networks the proxy runs on.
+builder.Services.Configure<ForwardedHeadersOptions>(o =>
+{
+    o.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+    o.ForwardLimit = 1;
+    o.KnownNetworks.Add(new Microsoft.AspNetCore.HttpOverrides.IPNetwork(IPAddress.Parse("10.0.0.0"), 8));
+    o.KnownNetworks.Add(new Microsoft.AspNetCore.HttpOverrides.IPNetwork(IPAddress.Parse("172.16.0.0"), 12));
+    o.KnownNetworks.Add(new Microsoft.AspNetCore.HttpOverrides.IPNetwork(IPAddress.Parse("192.168.0.0"), 16));
+});
+
 builder.Services.AddScoped<AuditLogger>();
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 builder.Services.AddProblemDetails();
@@ -107,6 +121,10 @@ builder.Services.AddRateLimiter(o =>
     o.AddPolicy("notif-test", http => RateLimitPartition.GetFixedWindowLimiter(
         partitionKey: http.User.FindFirst("email")?.Value ?? http.Connection.RemoteIpAddress?.ToString() ?? "unknown",
         factory: _ => new FixedWindowRateLimiterOptions { Window = TimeSpan.FromMinutes(1), PermitLimit = 5, QueueLimit = 0 }));
+    // Public share links are unauthenticated; cap per-IP to blunt scraping/abuse.
+    o.AddPolicy("share", http => RateLimitPartition.GetFixedWindowLimiter(
+        partitionKey: http.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+        factory: _ => new FixedWindowRateLimiterOptions { Window = TimeSpan.FromMinutes(1), PermitLimit = 60, QueueLimit = 0 }));
 });
 
 var app = builder.Build();
@@ -190,6 +208,10 @@ using (var scope = app.Services.CreateScope())
     }
 }
 
+// Resolve the real client IP from the proxy hop first, so rate-limit partitions and the logged IP
+// reflect the actual caller rather than the nginx container address.
+app.UseForwardedHeaders();
+
 // Outermost so the status it records is the final one (after the exception handler runs).
 app.UseMiddleware<RequestLoggingMiddleware>();
 
@@ -212,6 +234,7 @@ app.MapUsersEndpoints();
 app.MapApiEndpoints();
 app.MapObservabilityEndpoints();
 app.MapNotificationsEndpoints();
+app.MapShareEndpoints();
 app.MapGet("/", () => app.Environment.IsDevelopment()
     ? Results.Redirect("/swagger")
     : Results.Ok(new { service = "Usage IQ API" }));

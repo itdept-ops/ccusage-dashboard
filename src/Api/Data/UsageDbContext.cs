@@ -17,6 +17,7 @@ public class UsageDbContext(DbContextOptions<UsageDbContext> options) : DbContex
     public DbSet<AuditEntry> AuditEntries => Set<AuditEntry>();
     public DbSet<RequestLog> RequestLogs => Set<RequestLog>();
     public DbSet<NotificationSetting> NotificationSettings => Set<NotificationSetting>();
+    public DbSet<ShareLink> ShareLinks => Set<ShareLink>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -148,6 +149,18 @@ public class UsageDbContext(DbContextOptions<UsageDbContext> options) : DbContex
             e.Property(x => x.MentionOnAlert).HasMaxLength(64);
             e.Property(x => x.ThresholdUsd).HasPrecision(18, 2);
             e.HasData(new NotificationSetting { Id = 1 });
+        });
+
+        b.Entity<ShareLink>(e =>
+        {
+            e.Property(x => x.TokenHash).HasMaxLength(64);
+            e.Property(x => x.Label).HasMaxLength(120);
+            e.Property(x => x.CreatedByEmail).HasMaxLength(256);
+            e.Property(x => x.GroupBy).HasMaxLength(16);
+            e.Property(x => x.CreatedUtc).HasColumnType("timestamp with time zone");
+            e.Property(x => x.ExpiresUtc).HasColumnType("timestamp with time zone");
+            e.Property(x => x.LastAccessedUtc).HasColumnType("timestamp with time zone");
+            e.HasIndex(x => x.TokenHash).IsUnique();
         });
     }
 }

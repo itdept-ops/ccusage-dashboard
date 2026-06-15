@@ -2,7 +2,10 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
+using Ccusage.Api.Data;
 using FluentAssertions;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Ccusage.Api.Tests.Integration;
 
@@ -405,5 +408,92 @@ public class AuthIntegrationTests(WebAppFactory factory) : IClassFixture<WebAppF
         res.StatusCode.Should().Be(HttpStatusCode.OK);
         var dto = await res.Content.ReadFromJsonAsync<JsonElement>();
         dto.GetProperty("mentionOnAlert").GetString()!.Length.Should().BeLessThanOrEqualTo(64);
+    }
+
+    // ---- Public share links ----
+
+    private static object ShareReq(string? label = null, int hours = 24, string groupBy = "day", string[]? source = null) => new
+    {
+        label, expiresInHours = hours, from = (string?)null, to = (string?)null,
+        projectId = Array.Empty<int>(), model = Array.Empty<string>(), source = source ?? Array.Empty<string>(),
+        includeSidechain = true, groupBy,
+    };
+
+    [Fact]
+    public async Task Share_management_requires_authentication()
+    {
+        (await Client().GetAsync("/api/shares")).StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+        (await Client().PostAsJsonAsync("/api/shares", ShareReq())).StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async Task Public_share_serves_aggregates_anonymously_and_hides_token()
+    {
+        var admin = Client(WebAppFactory.AdminEmail);
+        var created = await (await admin.PostAsJsonAsync("/api/shares", ShareReq(label: "Finance", source: new[] { "codex" })))
+            .Content.ReadFromJsonAsync<JsonElement>();
+        var token = created.GetProperty("token").GetString()!;
+        created.GetProperty("path").GetString().Should().Be($"/share/{token}");
+
+        // Anonymous read works and reflects the baked scope.
+        var pub = await (await Client().GetAsync($"/api/share/{token}")).Content.ReadFromJsonAsync<JsonElement>();
+        pub.GetProperty("scope").GetString().Should().Contain("codex");
+        pub.TryGetProperty("summary", out _).Should().BeTrue();
+
+        // The management list never exposes the token.
+        var list = await (await admin.GetAsync("/api/shares")).Content.ReadAsStringAsync();
+        list.Should().NotContain(token);
+    }
+
+    [Fact]
+    public async Task Invalid_share_token_is_404()
+        => (await Client().GetAsync("/api/share/this-token-does-not-exist")).StatusCode.Should().Be(HttpStatusCode.NotFound);
+
+    [Fact]
+    public async Task Revoked_share_stops_working()
+    {
+        var admin = Client(WebAppFactory.AdminEmail);
+        var created = await (await admin.PostAsJsonAsync("/api/shares", ShareReq())).Content.ReadFromJsonAsync<JsonElement>();
+        var token = created.GetProperty("token").GetString()!;
+        var id = created.GetProperty("id").GetInt32();
+
+        (await Client().GetAsync($"/api/share/{token}")).StatusCode.Should().Be(HttpStatusCode.OK);
+        (await admin.DeleteAsync($"/api/shares/{id}")).StatusCode.Should().Be(HttpStatusCode.NoContent);
+        (await Client().GetAsync($"/api/share/{token}")).StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task Public_read_increments_access_count()
+    {
+        var admin = Client(WebAppFactory.AdminEmail);
+        var created = await (await admin.PostAsJsonAsync("/api/shares", ShareReq())).Content.ReadFromJsonAsync<JsonElement>();
+        var token = created.GetProperty("token").GetString()!;
+        var id = created.GetProperty("id").GetInt32();
+
+        await Client().GetAsync($"/api/share/{token}");
+        await Client().GetAsync($"/api/share/{token}");
+
+        var list = await (await admin.GetAsync("/api/shares")).Content.ReadFromJsonAsync<JsonElement>();
+        var item = list.EnumerateArray().First(e => e.GetProperty("id").GetInt32() == id);
+        item.GetProperty("accessCount").GetInt32().Should().BeGreaterThanOrEqualTo(2);
+    }
+
+    [Fact]
+    public async Task Expired_share_is_404()
+    {
+        var admin = Client(WebAppFactory.AdminEmail);
+        var created = await (await admin.PostAsJsonAsync("/api/shares", ShareReq())).Content.ReadFromJsonAsync<JsonElement>();
+        var token = created.GetProperty("token").GetString()!;
+        var id = created.GetProperty("id").GetInt32();
+
+        using (var scope = factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<UsageDbContext>();
+            var share = await db.ShareLinks.FirstAsync(s => s.Id == id);
+            share.ExpiresUtc = DateTime.UtcNow.AddMinutes(-1);
+            await db.SaveChangesAsync();
+        }
+
+        (await Client().GetAsync($"/api/share/{token}")).StatusCode.Should().Be(HttpStatusCode.NotFound);
     }
 }

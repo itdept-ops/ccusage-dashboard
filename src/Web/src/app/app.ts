@@ -30,8 +30,11 @@ export class App {
   readonly status = signal<SyncStatus | null>(null);
   private readonly now = signal(Date.now());
 
-  /** Pop-out widget routes render bare (no toolbar / page chrome) so they capture cleanly. */
-  readonly isWidget = signal(this.router.url.startsWith('/widget'));
+  /** Widget pop-outs and public shared views render bare (no toolbar / page chrome). */
+  readonly bareLayout = signal(App.isBare(this.router.url));
+  private static isBare(url: string): boolean {
+    return url.startsWith('/widget') || url.startsWith('/share');
+  }
 
   readonly state = computed(() => {
     const s = this.status();
@@ -71,7 +74,7 @@ export class App {
   constructor() {
     this.router.events
       .pipe(filter(e => e instanceof NavigationEnd), takeUntilDestroyed())
-      .subscribe(() => this.isWidget.set(this.router.url.startsWith('/widget')));
+      .subscribe(() => this.bareLayout.set(App.isBare(this.router.url)));
 
     // Poll sync status only when signed in; "now" keeps the relative label fresh.
     timer(0, 15000)

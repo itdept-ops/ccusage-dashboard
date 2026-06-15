@@ -1,0 +1,62 @@
+<h2 mat-dialog-title>Share externally</h2>
+
+<mat-dialog-content>
+  <p class="sd-note">
+    Creates a <strong>public, read-only link</strong> to these stats — <strong>no login required</strong>.
+    It shows totals and charts for your current filters (never individual messages or paths) and stops
+    working when it expires. Revoke any link below at any time.
+  </p>
+
+  @if (created(); as c) {
+    <div class="sd-created">
+      <div class="sd-created-head"><mat-icon>check_circle</mat-icon>
+        Link ready — expires {{ c.expiresUtc | date: 'MMM d, y, HH:mm' }}</div>
+      <div class="sd-url-row">
+        <input class="sd-url mono" [value]="fullUrl(c.path)" readonly (focus)="$any($event.target).select()" />
+        <button mat-flat-button color="primary" (click)="copy(c)"><mat-icon>content_copy</mat-icon> Copy</button>
+      </div>
+      <button mat-button class="sd-another" (click)="reset()"><mat-icon>add</mat-icon> Create another</button>
+    </div>
+  } @else {
+    <div class="sd-form">
+      <mat-form-field appearance="outline" class="sd-label" subscriptSizing="dynamic">
+        <mat-label>Label (optional)</mat-label>
+        <input matInput maxlength="120" [ngModel]="label()" (ngModelChange)="label.set($event)"
+               placeholder="e.g. Q2 review for finance" />
+      </mat-form-field>
+      <mat-form-field appearance="outline" class="sd-expiry" subscriptSizing="dynamic">
+        <mat-label>Expires in</mat-label>
+        <mat-select [ngModel]="expiryHours()" (ngModelChange)="expiryHours.set($event)">
+          @for (o of expiryOptions; track o.h) { <mat-option [value]="o.h">{{ o.l }}</mat-option> }
+        </mat-select>
+      </mat-form-field>
+      <button mat-flat-button color="primary" class="sd-create" [disabled]="creating()" (click)="create()">
+        <mat-icon>link</mat-icon> {{ creating() ? 'Creating…' : 'Create public link' }}
+      </button>
+    </div>
+  }
+
+  @if (shares().length) {
+    <div class="sd-list-head">Active links</div>
+    <div class="sd-list">
+      @for (s of shares(); track s.id) {
+        <div class="sd-item" [class.expired]="s.expired">
+          <div class="sd-item-main">
+            <span class="sd-item-label">{{ s.label || 'Untitled' }}</span>
+            <span class="sd-item-scope">{{ s.scope }}</span>
+          </div>
+          <span class="sd-item-meta mono">
+            {{ s.expired ? 'expired' : 'expires ' + (s.expiresUtc | date: 'MMM d') }} · {{ s.accessCount }} views
+          </span>
+          <button mat-icon-button class="sd-revoke" (click)="revoke(s)" matTooltip="Revoke link">
+            <mat-icon>delete_outline</mat-icon>
+          </button>
+        </div>
+      }
+    </div>
+  }
+</mat-dialog-content>
+
+<mat-dialog-actions align="end">
+  <button mat-button mat-dialog-close>Close</button>
+</mat-dialog-actions>

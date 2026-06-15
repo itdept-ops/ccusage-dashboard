@@ -39,6 +39,55 @@ public sealed class NotificationUpdateRequest
     public string? MentionOnAlert { get; set; }
 }
 
+public sealed class CreateShareRequest
+{
+    public string? Label { get; set; }
+    public int ExpiresInHours { get; set; } = 168; // default 7 days
+    public DateOnly? From { get; set; }
+    public DateOnly? To { get; set; }
+    public int[]? ProjectId { get; set; }
+    public string[]? Model { get; set; }
+    public string[]? Source { get; set; }
+    public bool IncludeSidechain { get; set; } = true;
+    public string GroupBy { get; set; } = "day";
+}
+
+/// <summary>Returned once on creation — the only time the full token is exposed.</summary>
+public sealed class ShareCreatedDto
+{
+    public int Id { get; set; }
+    public string Token { get; set; } = "";
+    public string Path { get; set; } = "";   // e.g. /share/<token>
+    public DateTime ExpiresUtc { get; set; }
+    public string? Label { get; set; }
+}
+
+/// <summary>A share in the management list (never includes the token).</summary>
+public sealed class ShareDto
+{
+    public int Id { get; set; }
+    public string? Label { get; set; }
+    public string CreatedByEmail { get; set; } = "";
+    public DateTime CreatedUtc { get; set; }
+    public DateTime ExpiresUtc { get; set; }
+    public bool Expired { get; set; }
+    public int AccessCount { get; set; }
+    public DateTime? LastAccessedUtc { get; set; }
+    public string Scope { get; set; } = "";
+}
+
+/// <summary>The read-only payload served to an anonymous viewer of a valid share link.</summary>
+public sealed class PublicShareDto
+{
+    public string? Label { get; set; }
+    public DateTime GeneratedAtUtc { get; set; }
+    public DateTime ExpiresUtc { get; set; }
+    public string GroupBy { get; set; } = "day";
+    public string Scope { get; set; } = "";
+    public SummaryResponse Summary { get; set; } = new();
+    public SummaryResponse Models { get; set; } = new();
+}
+
 /// <summary>One day in the usage calendar: spend, volume, and estimated active engagement time.</summary>
 public sealed class CalendarDayDto
 {

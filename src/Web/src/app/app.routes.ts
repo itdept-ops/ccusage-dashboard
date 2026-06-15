@@ -51,5 +51,11 @@ export const routes: Routes = [
     loadComponent: () => import('./features/widget/widget').then(m => m.Widget),
     title: 'Usage IQ · Widget',
   },
+  {
+    // Public, unauthenticated, time-limited shared view — intentionally no guard.
+    path: 'share/:token',
+    loadComponent: () => import('./features/share/public-share').then(m => m.PublicShareView),
+    title: 'Usage IQ · Shared view',
+  },
   { path: '**', redirectTo: '' },
 ];

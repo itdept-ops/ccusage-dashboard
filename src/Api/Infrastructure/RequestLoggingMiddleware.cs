@@ -17,9 +17,11 @@ public sealed class RequestLoggingMiddleware(RequestDelegate next, RequestLogQue
     private const long MaxRequestBufferBytes = 256 * 1024; // don't EnableBuffering for uploads larger than this
 
     // Logged surface: everything under /api except these (probes + the SPA's background polls + self).
+    // "/api/share" (singular) is the public token read — exclude it so live tokens never land in the log
+    // (segment-based match leaves "/api/shares" management endpoints logged).
     private static readonly string[] Excluded =
     {
-        "/api/health", "/api/auth/me", "/api/auth/config", "/api/sync/status", "/api/logs",
+        "/api/health", "/api/auth/me", "/api/auth/config", "/api/sync/status", "/api/logs", "/api/share",
     };
 
     public async Task Invoke(HttpContext ctx)
@@ -106,12 +108,9 @@ public sealed class RequestLoggingMiddleware(RequestDelegate next, RequestLogQue
         return c.Contains("json") || c.Contains("text/") || c.Contains("xml") || c.Contains("csv") || c.Contains("urlencoded");
     }
 
-    private static string? ClientIp(HttpContext ctx)
-    {
-        var fwd = ctx.Request.Headers["X-Forwarded-For"].FirstOrDefault();
-        if (!string.IsNullOrWhiteSpace(fwd)) return Trim(fwd.Split(',')[0].Trim(), 64);
-        return ctx.Connection.RemoteIpAddress?.ToString();
-    }
+    // RemoteIpAddress is already the real client (UseForwardedHeaders runs first); don't trust the raw
+    // header here, which a direct caller could spoof.
+    private static string? ClientIp(HttpContext ctx) => ctx.Connection.RemoteIpAddress?.ToString();
 
     private static string Trim(string s, int max) => s.Length <= max ? s : s[..max];
 }
