@@ -7,11 +7,12 @@
     <div class="orb orb-a"></div>
     <div class="orb orb-b"></div>
     <div class="orb orb-c"></div>
+    <div class="noise"></div>
   </div>
 
   <!-- ───────────────────────── Hero ───────────────────────── -->
   <section class="hero">
-    <div class="hero-copy">
+    <div class="hero-copy" #reveal>
       <a class="eyebrow" href="https://github.com/itdept-ops/usage-iq" target="_blank" rel="noopener">
         <span class="dot"></span> Open source · self-hosted
         <span class="eyebrow-arrow">→</span>
@@ -27,29 +28,58 @@
       </p>
 
       <div class="hero-cta">
-        <div #gbtn class="gbtn"></div>
-        @if (busy()) { <span class="cta-msg">Signing in…</span> }
+        <a
+          class="cta-primary"
+          routerLink="/signin"
+          [queryParams]="signinParams()"
+        >
+          <span class="cta-shine" aria-hidden="true"></span>
+          Sign in
+          <span class="cta-arrow" aria-hidden="true">→</span>
+        </a>
+        <a class="cta-secondary" routerLink="/features">
+          Explore features
+          <mat-icon aria-hidden="true">grid_view</mat-icon>
+        </a>
       </div>
-      @if (error()) { <p class="cta-error">{{ error() }}</p> }
       <p class="cta-foot"><mat-icon>lock</mat-icon> Access is restricted to approved accounts.</p>
     </div>
 
     <!-- terminal demo card -->
-    <div class="hero-demo" aria-hidden="true">
+    <div class="hero-demo" #reveal aria-hidden="true">
       <div class="glow-ring"></div>
-      <div class="term panel">
-        <div class="term-bar">
-          <span class="tdot r"></span><span class="tdot y"></span><span class="tdot g"></span>
-          <span class="term-title">usage-iq — reporter</span>
-        </div>
-        <pre class="term-body">@for (line of terminal; track $index) {<span class="tline" [style.--i]="$index">{{ line }}</span>
+      <div class="demo-tilt">
+        <div class="term panel">
+          <div class="term-bar">
+            <span class="tdot r"></span><span class="tdot y"></span><span class="tdot g"></span>
+            <span class="term-title">usage-iq — reporter</span>
+          </div>
+          <pre class="term-body">@for (line of terminal; track $index) {<span class="tline" [style.--i]="$index">{{ line }}</span>
 }<span class="tcursor">▋</span></pre>
+        </div>
+        <!-- floating stat chip for product-mock energy -->
+        <div class="float-chip">
+          <span class="fc-spark" aria-hidden="true"></span>
+          <span class="fc-num">14.15M</span>
+          <span class="fc-lbl">tokens · $182.4</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ───────────────────────── Tech marquee ───────────────────────── -->
+  <section class="marquee-band" aria-label="Connected sources and capabilities">
+    <span class="marquee-label">Speaks to</span>
+    <div class="marquee" aria-hidden="true">
+      <div class="marquee-track">
+        @for (m of marquee; track $index) { <span class="mq-pill">{{ m }}</span> }
+        @for (m of marquee; track 'b' + $index) { <span class="mq-pill">{{ m }}</span> }
       </div>
     </div>
   </section>
 
   <!-- ───────────────────────── Sources strip ───────────────────────── -->
-  <section class="sources">
+  <section class="sources" #reveal>
     <span class="sources-label">Counts usage from</span>
     <div class="sources-row">
       @for (s of sources; track s.name) {
@@ -61,11 +91,11 @@
     </div>
   </section>
 
-  <!-- ───────────────────────── Stats band ───────────────────────── -->
-  <section class="stats">
-    @for (s of stats; track s.label) {
+  <!-- ───────────────────────── Animated metric band ───────────────────────── -->
+  <section class="stats" #reveal aria-label="Key metrics">
+    @for (s of stats; track s.label; let i = $index) {
       <div class="stat">
-        <span class="stat-value">{{ s.value }}</span>
+        <span class="stat-value">{{ counts()[i] }}<span class="stat-suffix">{{ s.suffix }}</span></span>
         <span class="stat-label">{{ s.label }}</span>
       </div>
     }
@@ -73,14 +103,14 @@
 
   <!-- ───────────────────────── Features ───────────────────────── -->
   <section class="features-section">
-    <header class="section-head">
+    <header class="section-head" #reveal>
       <span class="section-eyebrow">Features</span>
       <h2>Built like a command center.</h2>
       <p>Everything you need to understand AI-agent spend — and nothing phoning home.</p>
     </header>
     <div class="features">
-      @for (f of features; track f.title) {
-        <div class="feature panel">
+      @for (f of features; track f.title; let i = $index) {
+        <div class="feature panel" #reveal [style.--d]="i">
           <span class="feature-icon"><mat-icon>{{ f.icon }}</mat-icon></span>
           <h3>{{ f.title }}</h3>
           <p>{{ f.text }}</p>
@@ -91,31 +121,35 @@
 
   <!-- ───────────────────────── How it works ───────────────────────── -->
   <section class="steps-section">
-    <header class="section-head">
+    <header class="section-head" #reveal>
       <span class="section-eyebrow">How it works</span>
       <h2>From log file to dashboard in three moves.</h2>
     </header>
     <div class="steps">
-      @for (st of steps; track st.n) {
-        <div class="step">
+      @for (st of steps; track st.n; let i = $index) {
+        <div class="step" #reveal [style.--d]="i">
           <span class="step-n">{{ st.n }}</span>
           <h3>{{ st.title }}</h3>
           <p>{{ st.text }}</p>
         </div>
       }
     </div>
-    <div class="steps-cta">
+    <div class="steps-cta" #reveal>
       <a routerLink="/how-it-works" class="ghost-link">See the full walkthrough <span>→</span></a>
     </div>
   </section>
 
   <!-- ───────────────────────── Final CTA ───────────────────────── -->
   <section class="final-cta">
-    <div class="cta-card panel">
+    <div class="cta-card panel" #reveal>
       <div class="cta-glow" aria-hidden="true"></div>
+      <div class="cta-grid" aria-hidden="true"></div>
       <h2>See where your tokens go.</h2>
       <p>Sign in with an approved Google account to open your dashboard.</p>
-      <a class="cta-pill" href="#top" (click)="scrollTop($event)">Get started <span>↑</span></a>
+      <div class="cta-actions">
+        <a class="cta-pill" routerLink="/signin" [queryParams]="signinParams()">Sign in <span>→</span></a>
+        <a class="cta-link" href="#top" (click)="scrollTop($event)">Back to top <span>↑</span></a>
+      </div>
     </div>
   </section>
 </main>

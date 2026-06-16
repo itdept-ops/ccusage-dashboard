@@ -35,7 +35,7 @@ export class App {
    * how-it-works) render bare — they bring their own chrome, so the app toolbar is hidden.
    */
   readonly bareLayout = signal(App.isBare(this.router.url));
-  private static readonly barePrefixes = ['/widget', '/share', '/login', '/features', '/how-it-works'];
+  private static readonly barePrefixes = ['/widget', '/share', '/login', '/features', '/how-it-works', '/signin', '/about'];
   private static isBare(url: string): boolean {
     const path = url.split('?')[0];
     return App.barePrefixes.some(p => path === p || path.startsWith(p + '/'));

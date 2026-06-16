@@ -17,6 +17,7 @@ export class MarketingNav {
     { path: '/login', label: 'Home', exact: true },
     { path: '/features', label: 'Features', exact: false },
     { path: '/how-it-works', label: 'How it works', exact: false },
+    { path: '/about', label: 'About', exact: false },
   ];
 
   @HostListener('window:scroll')

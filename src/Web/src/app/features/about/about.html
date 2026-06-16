@@ -1,0 +1,254 @@
+<app-marketing-nav />
+
+<main class="about">
+  <!-- ───────────────────────── Animated backdrop ───────────────────────── -->
+  <div class="bg-fx" aria-hidden="true">
+    <div class="grid-fade"></div>
+    <div class="orb orb-a"></div>
+    <div class="orb orb-b"></div>
+    <div class="orb orb-c"></div>
+    <div class="scanline"></div>
+  </div>
+
+  <!-- ───────────────────────── Hero ───────────────────────── -->
+  <section class="hero" data-reveal>
+    <!-- Portrait treatment: glowing JF monogram by default, photo when provided. -->
+    <div class="portrait">
+      <span class="portrait-aura" aria-hidden="true"></span>
+      <span class="portrait-ring" aria-hidden="true"></span>
+      <div class="portrait-frame">
+        @if (showPhoto()) {
+          <img
+            class="portrait-img"
+            [src]="photoUrl()"
+            [alt]="'Portrait of ' + name"
+            (error)="onPhotoError()" />
+        } @else {
+          <span class="monogram" role="img" [attr.aria-label]="name + ' monogram'">{{ initials }}</span>
+        }
+      </div>
+      <span class="portrait-orbit" aria-hidden="true"><i></i></span>
+    </div>
+
+    <div class="hero-copy">
+      <a class="eyebrow" routerLink="/login">
+        <span class="dot"></span> About the engineer behind Usage IQ
+        <span class="eyebrow-arrow">→</span>
+      </a>
+      <h1 class="hero-name">{{ name }}</h1>
+      <p class="hero-descriptor">{{ descriptor }}</p>
+      <p class="hero-lede">
+        An elite full-stack engineer and <span class="grad">agentic-AI pioneer</span> — the kind of
+        builder who ships entire production platforms alone, with a team of AI agents at his side.
+      </p>
+
+      <div class="hero-actions">
+        <a class="cta-pill" routerLink="/signin">
+          See his work — Usage IQ <span class="arrow">→</span>
+        </a>
+        <a class="cta-ghost" href="https://github.com/itdept-ops/usage-iq" target="_blank" rel="noopener">
+          <mat-icon>code</mat-icon> View the source
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- ───────────────────────── Metrics ───────────────────────── -->
+  <section class="metrics" data-reveal aria-label="Highlights">
+    @for (m of metrics; track m.label) {
+      <div class="metric">
+        <span class="metric-value">
+          <span class="metric-num" [attr.data-count]="m.value">{{ m.value }}</span><span class="metric-suffix">{{ m.suffix }}</span>
+        </span>
+        <span class="metric-label">{{ m.label }}</span>
+      </div>
+    }
+  </section>
+
+  <!-- ───────────────────────── Pillars ───────────────────────── -->
+  <section class="pillars" data-reveal aria-label="What he does">
+    @for (p of pillars; track p.title; let i = $index) {
+      <article class="pillar" [style.--d]="i">
+        <span class="pillar-icon"><mat-icon>{{ p.icon }}</mat-icon></span>
+        <span class="pillar-kicker">{{ p.kicker }}</span>
+        <h3>{{ p.title }}</h3>
+        <p>{{ p.text }}</p>
+      </article>
+    }
+  </section>
+
+  <!-- ───────────────────────── Engineering + agentic AI ───────────────────────── -->
+  <section class="chapter chapter-ai" data-reveal>
+    <div class="chapter-head">
+      <span class="chapter-eyebrow">Engineering × Agentic AI</span>
+      <h2>Code that builds code.</h2>
+    </div>
+    <div class="chapter-body">
+      <p class="lede">
+        Junior writes software the modern way: as the architect <em>and</em> the orchestrator. Three-plus
+        years deep into agentic AI — among the first to build seriously with OpenAI Codex and Claude — he
+        designs multi-agent development pipelines where models handle the grind and he steers the intent.
+      </p>
+      <p>
+        Rapid prototyping, automated code review, large-scale refactoring, QA planning, documentation, and
+        process automation all run through workflows he engineers himself. Sharp prompt engineering turns a
+        fleet of agents into a force multiplier — and the proof is shipping software, not slideware.
+      </p>
+
+      <!-- Standout flourish: a self-running capability marquee -->
+      <div class="marquee" aria-hidden="true">
+        <div class="marquee-track">
+          @for (cap of marquee; track cap) { <span class="chip">{{ cap }}</span> }
+          @for (cap of marquee; track 'dup-' + cap) { <span class="chip">{{ cap }}</span> }
+        </div>
+      </div>
+
+      <!-- The "proof" panel: Usage IQ itself -->
+      <div class="proof panel" data-reveal>
+        <div class="proof-glow" aria-hidden="true"></div>
+        <span class="proof-tag"><span class="proof-dot"></span> Exhibit A — this very product</span>
+        <h3>Usage IQ</h3>
+        <p>
+          A sophisticated, self-hosted, agent-driven platform built end to end: Angular 21, .NET 9,
+          PostgreSQL and Docker, deployed on AWS through a keyless OIDC CI/CD pipeline — assembled with
+          orchestrated multi-agent workflows and hardened by adversarial security review.
+        </p>
+        <ul class="proof-stack">
+          <li>Angular 21</li>
+          <li>.NET 9</li>
+          <li>PostgreSQL</li>
+          <li>Docker</li>
+          <li>AWS · OIDC CI/CD</li>
+        </ul>
+        <a class="proof-link" routerLink="/signin">Step inside the product <span>→</span></a>
+      </div>
+    </div>
+  </section>
+
+  <!-- ───────────────────────── Founder chapter ───────────────────────── -->
+  <section class="chapter chapter-founder" data-reveal>
+    <div class="chapter-split">
+      <div class="chapter-head left">
+        <span class="chapter-eyebrow">Founder</span>
+        <h2>He built the company, not just the code.</h2>
+        <p class="lede">
+          Junior founded <strong>Horizon Authentication</strong> and built it single-handedly — a software
+          company shipped across its full lifecycle on an AWS CI/CD pipeline.
+        </p>
+      </div>
+      <div class="founder-card panel">
+        <h3>A secure POS · CRM · staff platform</h3>
+        <p>
+          He delivered the whole product alone: a secure point-of-sale, CRM, and staff-management suite —
+          sole engineer for full-stack, infrastructure, security, and uptime. He also ran the marketing
+          and the finances.
+        </p>
+        <div class="founder-feature">
+          <span class="ff-badge"><mat-icon>swap_horiz</mat-icon></span>
+          <div>
+            <h4>The differentiator</h4>
+            <p>
+              A distinctive API-proxy feature let customers securely route their data through the company's
+              own servers — a real edge that set the platform apart.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ───────────────────────── Veteran chapter ───────────────────────── -->
+  <section class="chapter chapter-vet" data-reveal>
+    <div class="vet-inner">
+      <div class="chapter-head center">
+        <span class="chapter-eyebrow">U.S. Army veteran</span>
+        <h2>Mission-critical, by training.</h2>
+        <p class="lede">
+          As a <strong>Senior Wideband Controller</strong>, Junior led communications for high-stakes
+          missions — drone operations, maritime navigation, and submarine comms — owning the full RF signal
+          chain from modem to satellite.
+        </p>
+      </div>
+
+      <ul class="vet-grid">
+        <li class="vet-item">
+          <span class="vet-icon"><mat-icon>settings_input_antenna</mat-icon></span>
+          <h4>Full signal chain</h4>
+          <p>Managed RF from modem to satellite; configured Cisco and Dell systems, VLANs and subnets.</p>
+        </li>
+        <li class="vet-item">
+          <span class="vet-icon"><mat-icon>military_tech</mat-icon></span>
+          <h4>Youngest to lead</h4>
+          <p>Became the unit's youngest Senior Wideband Controller, qualifying rapidly across six critical positions.</p>
+        </li>
+        <li class="vet-item">
+          <span class="vet-icon"><mat-icon>groups</mat-icon></span>
+          <h4>Trained the bench</h4>
+          <p>Mentored junior controllers, setting the standard for reliability when failure was not an option.</p>
+        </li>
+      </ul>
+
+      <p class="vet-note">
+        The takeaway: discipline, reliability under pressure, and a mission-critical mindset he carries into
+        every system he ships today.
+      </p>
+    </div>
+  </section>
+
+  <!-- ───────────────────────── Skills grid ───────────────────────── -->
+  <section class="chapter chapter-skills" data-reveal>
+    <div class="chapter-head center">
+      <span class="chapter-eyebrow">The toolkit</span>
+      <h2>Range across the whole stack.</h2>
+    </div>
+    <div class="skills">
+      @for (g of skillGroups; track g.label; let i = $index) {
+        <div class="skill-group" [style.--d]="i">
+          <header class="skill-head">
+            <span class="skill-group-icon"><mat-icon>{{ g.icon }}</mat-icon></span>
+            <span class="skill-group-label">{{ g.label }}</span>
+          </header>
+          <ul class="skill-list">
+            @for (s of g.skills; track s.name) {
+              <li class="skill">
+                <span class="skill-name">{{ s.name }}</span>
+                <span class="skill-tag">{{ s.tag }}</span>
+              </li>
+            }
+          </ul>
+        </div>
+      }
+    </div>
+
+    <!-- Optional technical certifications strip -->
+    <div class="certs" data-reveal aria-label="Technical certifications">
+      <span class="certs-label">Certifications</span>
+      <ul class="certs-row">
+        @for (c of certs; track c.short) {
+          <li class="cert" [attr.title]="c.full">
+            <mat-icon aria-hidden="true">verified</mat-icon>
+            <span>{{ c.short }}</span>
+          </li>
+        }
+      </ul>
+    </div>
+  </section>
+
+  <!-- ───────────────────────── Closing CTA ───────────────────────── -->
+  <section class="closing" data-reveal>
+    <div class="closing-card panel">
+      <div class="closing-glow" aria-hidden="true"></div>
+      <span class="closing-mono">JF</span>
+      <h2>The best résumé is a running product.</h2>
+      <p>
+        Usage IQ is live, self-hosted, and built by one engineer with a team of agents. Sign in and see
+        what an agentic-AI pioneer ships.
+      </p>
+      <a class="cta-pill big" routerLink="/signin">
+        Open Usage IQ <span class="arrow">→</span>
+      </a>
+    </div>
+  </section>
+</main>
+
+<app-marketing-footer />

@@ -22,14 +22,14 @@
         <a [routerLink]="l.path" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: l.exact }"
            (click)="close()">{{ l.label }}</a>
       }
-      <a class="mnav-cta mobile-only" routerLink="/login" (click)="close()">Sign in</a>
+      <a class="mnav-cta mobile-only" routerLink="/signin" (click)="close()">Sign in</a>
     </nav>
 
     <div class="mnav-right">
       <a class="gh" href="https://github.com/itdept-ops/usage-iq" target="_blank" rel="noopener" aria-label="GitHub">
         <mat-icon>code</mat-icon>
       </a>
-      <a class="mnav-cta desktop-only" routerLink="/login">
+      <a class="mnav-cta desktop-only" routerLink="/signin">
         Sign in <span class="cta-arrow">→</span>
       </a>
       <button class="mnav-burger" (click)="toggle()" [attr.aria-expanded]="menuOpen()" aria-label="Menu">

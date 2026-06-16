@@ -17,12 +17,13 @@ export class MarketingFooter {
         { label: 'Home', path: '/login' },
         { label: 'Features', path: '/features' },
         { label: 'How it works', path: '/how-it-works' },
+        { label: 'About', path: '/about' },
       ],
     },
     {
       title: 'Account',
       links: [
-        { label: 'Sign in', path: '/login' },
+        { label: 'Sign in', path: '/signin' },
         { label: 'Dashboard', path: '/' },
       ],
     },

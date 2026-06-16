@@ -21,6 +21,16 @@ export const routes: Routes = [
     title: 'Usage IQ · How it works',
   },
   {
+    path: 'signin',
+    loadComponent: () => import('./features/signin/signin').then(m => m.SignIn),
+    title: 'Usage IQ - Sign in',
+  },
+  {
+    path: 'about',
+    loadComponent: () => import('./features/about/about').then(m => m.About),
+    title: 'Usage IQ - About',
+  },
+  {
     // Authenticated landing for users awaiting access (no page-view permissions yet).
     path: 'welcome',
     canActivate: [authGuard],
