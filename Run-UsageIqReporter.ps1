@@ -42,17 +42,20 @@ if ([string]::IsNullOrWhiteSpace($RepoRoot)) {
 }
 
 # --- resolve the ingest key (param > env > key file > prompt) ---
-$keyFile = Join-Path $PSScriptRoot "reporter.key"
-if ([string]::IsNullOrWhiteSpace($Key) -and (Test-Path $keyFile)) {
-    $Key = (Get-Content $keyFile -Raw).Trim()
-}
+# Stored OUTSIDE any repo (~/.usage-iq) so it can never be swept into a commit.
+$keyDir  = Join-Path $env:USERPROFILE ".usage-iq"
+$keyFile = Join-Path $keyDir "reporter.key"
+$legacyKeyFile = Join-Path $PSScriptRoot "reporter.key"   # older versions saved next to the script
+if ([string]::IsNullOrWhiteSpace($Key) -and (Test-Path $keyFile))       { $Key = (Get-Content $keyFile -Raw).Trim() }
+if ([string]::IsNullOrWhiteSpace($Key) -and (Test-Path $legacyKeyFile)) { $Key = (Get-Content $legacyKeyFile -Raw).Trim() }
 if ([string]::IsNullOrWhiteSpace($Key)) {
     $secure = Read-Host "Enter your Usage IQ ingest key (Dashboard -> Reporter -> Generate key)" -AsSecureString
     $Key = [System.Net.NetworkCredential]::new("", $secure).Password
     if ([string]::IsNullOrWhiteSpace($Key)) { Fail "No key provided." }
     if ((Read-Host "Save it to '$keyFile' so you don't get asked again? (y/N)") -match '^(y|yes)$') {
+        New-Item -ItemType Directory -Force -Path $keyDir | Out-Null
         Set-Content -Path $keyFile -Value $Key -NoNewline -Encoding ascii
-        Write-Host "Saved. Treat reporter.key as a password - keep it private." -ForegroundColor Yellow
+        Write-Host "Saved to $keyFile. Treat it as a password - keep it private." -ForegroundColor Yellow
     }
 }
 
