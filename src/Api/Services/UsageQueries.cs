@@ -370,14 +370,38 @@ public sealed class UsageQueries(UsageDbContext db)
 
         static string Label(string s) => string.IsNullOrEmpty(s) ? "local" : s;
 
-        var machines = cells.GroupBy(c => Label(c.MachineName)).Select(g => new FleetMachineDto
+        // LEFT-join system metadata by RAW machine name (the value the ingest upsert keys on). Only the
+        // machine names present in this rollup are fetched. Machines with no metadata row stay null.
+        var rawNames = cells.Select(c => c.MachineName).Distinct().ToList();
+        var metaByName = (await db.MachineInfos.AsNoTracking()
+                .Where(m => rawNames.Contains(m.Name)).ToListAsync(ct))
+            .ToDictionary(m => m.Name, StringComparer.Ordinal);
+
+        var machines = cells.GroupBy(c => Label(c.MachineName)).Select(g =>
         {
-            Name = g.Key,
-            LastSeenUtc = g.Max(x => x.LastSeenUtc),
-            Records = g.Sum(x => x.Records),
-            Tokens = g.Sum(x => x.Tokens),
-            CostUsd = g.Sum(x => x.Cost),
-            Users = g.Select(x => Label(x.ReportedByUser)).Distinct().OrderBy(u => u).ToArray(),
+            // The raw machine name for this bucket (group key only collapses "" → "local"; the local
+            // bucket has no metadata row, and every real machine's label equals its raw name).
+            var rawName = g.Select(x => x.MachineName).First();
+            metaByName.TryGetValue(rawName, out var meta);
+            return new FleetMachineDto
+            {
+                Name = g.Key,
+                LastSeenUtc = g.Max(x => x.LastSeenUtc),
+                Records = g.Sum(x => x.Records),
+                Tokens = g.Sum(x => x.Tokens),
+                CostUsd = g.Sum(x => x.Cost),
+                Users = g.Select(x => Label(x.ReportedByUser)).Distinct().OrderBy(u => u).ToArray(),
+                LocalIp = meta?.LocalIp,
+                PublicIp = meta?.PublicIp,
+                Os = meta?.Os,
+                Arch = meta?.Arch,
+                OsUser = meta?.OsUser,
+                Agent = meta?.Agent,
+                ReporterVersion = meta?.ReporterVersion,
+                CpuCount = meta?.CpuCount,
+                FirstSeenUtc = meta?.FirstSeenUtc,
+                MetadataLastSeenUtc = meta?.LastSeenUtc,
+            };
         }).OrderByDescending(m => m.CostUsd).ToList();
 
         var users = cells.GroupBy(c => Label(c.ReportedByUser)).Select(g => new FleetUserDto

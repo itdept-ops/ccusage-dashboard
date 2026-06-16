@@ -30,7 +30,8 @@ public sealed class IngestWriteService(UsageDbContext db, ILogger<IngestWriteSer
 
     public async Task<IngestResultDto> WriteAsync(
         string sourceKind, string? machine, IReadOnlyList<ParsedUsage> rows, CancellationToken ct,
-        string? reportedByUser = null)
+        string? reportedByUser = null, MachineInfoDto? machineInfo = null, string? publicIp = null,
+        string? reporterVersion = null)
     {
         var source = KindToSource[sourceKind]; // caller validated via IsKnownSource
 
@@ -39,6 +40,10 @@ public sealed class IngestWriteService(UsageDbContext db, ILogger<IngestWriteSer
         // (server-derived by the ingest filter — never the client payload), "" when the key is orphaned.
         var machineName = SanitizeMachine(machine);
         var ownerEmail = reportedByUser ?? "";
+
+        // Record/refresh this machine's system metadata. Keyed by the sanitized machine name (the same
+        // value that drives MachineName attribution) so the fleet join lines up. Skipped when empty.
+        await UpsertMachineInfoAsync(machine, machineInfo, publicIp, reporterVersion, ct);
 
         var cfg = await db.AppConfigs.AsNoTracking().FirstAsync(ct);
         var tz = ResolveTimeZone(cfg.DisplayTimeZone);
@@ -229,6 +234,104 @@ public sealed class IngestWriteService(UsageDbContext db, ILogger<IngestWriteSer
                 .Where(f => f.Path == path).Select(f => f.Id).FirstAsync(ct);
         }
     }
+
+    /// <summary>
+    /// Upsert the per-machine system-metadata row keyed by the sanitized machine name (the same value
+    /// stored as <see cref="UsageRecord.MachineName"/>, so the fleet join lines up). Client fields are
+    /// clamped and stored as-is; <paramref name="publicIp"/> is the SERVER-observed request address — a
+    /// client-sent public IP is never trusted. Skipped when <paramref name="machine"/> is empty. On
+    /// insert <c>FirstSeenUtc</c> is set; on every push <c>LastSeenUtc</c> advances. Concurrent first
+    /// inserts converge on the unique Name index. Best-effort: failures here never fail the ingest.
+    /// </summary>
+    private async Task UpsertMachineInfoAsync(
+        string? machine, MachineInfoDto? info, string? publicIp, string? reporterVersion, CancellationToken ct)
+    {
+        // Skip the local file-sync path / blank machine — there is no remote machine to describe.
+        if (string.IsNullOrWhiteSpace(machine)) return;
+        var name = SanitizeMachine(machine);
+
+        var now = DateTime.UtcNow;
+        try
+        {
+            var existing = await db.MachineInfos.FirstOrDefaultAsync(m => m.Name == name, ct);
+            if (existing is null)
+            {
+                db.MachineInfos.Add(new MachineInfo
+                {
+                    Name = name,
+                    Hostname = Trunc(machine, 200),
+                    LocalIp = Trunc(info?.LocalIp, 64),
+                    PublicIp = Trunc(publicIp, 64),
+                    Os = Trunc(info?.Os, 256),
+                    Arch = Trunc(info?.Arch, 32),
+                    OsUser = Trunc(info?.OsUser, 256),
+                    Agent = Trunc(info?.Agent, 32),
+                    ReporterVersion = Trunc(reporterVersion, 64),
+                    CpuCount = info?.CpuCount,
+                    FirstSeenUtc = now,
+                    LastSeenUtc = now,
+                });
+            }
+            else
+            {
+                // Refresh everything except FirstSeenUtc (stable since first contact).
+                existing.Hostname = Trunc(machine, 200);
+                existing.LocalIp = Trunc(info?.LocalIp, 64);
+                existing.PublicIp = Trunc(publicIp, 64);
+                existing.Os = Trunc(info?.Os, 256);
+                existing.Arch = Trunc(info?.Arch, 32);
+                existing.OsUser = Trunc(info?.OsUser, 256);
+                existing.Agent = Trunc(info?.Agent, 32);
+                existing.ReporterVersion = Trunc(reporterVersion, 64);
+                existing.CpuCount = info?.CpuCount;
+                existing.LastSeenUtc = now;
+            }
+            await db.SaveChangesAsync(ct);
+        }
+        catch (DbUpdateException ex) when (IsUniqueViolation(ex))
+        {
+            // A concurrent ingest from the same machine inserted the row first — retry as an update.
+            db.ChangeTracker.Clear();
+            // Hoist the values: an expression-tree lambda (ExecuteUpdateAsync) can't contain `?.`.
+            var hostname = Trunc(machine, 200);
+            var localIp = Trunc(info?.LocalIp, 64);
+            var pubIp = Trunc(publicIp, 64);
+            var os = Trunc(info?.Os, 256);
+            var arch = Trunc(info?.Arch, 32);
+            var osUser = Trunc(info?.OsUser, 256);
+            var agent = Trunc(info?.Agent, 32);
+            var reporter = Trunc(reporterVersion, 64);
+            var cpuCount = info?.CpuCount;
+            try
+            {
+                await db.MachineInfos.Where(m => m.Name == name).ExecuteUpdateAsync(s => s
+                    .SetProperty(m => m.Hostname, hostname)
+                    .SetProperty(m => m.LocalIp, localIp)
+                    .SetProperty(m => m.PublicIp, pubIp)
+                    .SetProperty(m => m.Os, os)
+                    .SetProperty(m => m.Arch, arch)
+                    .SetProperty(m => m.OsUser, osUser)
+                    .SetProperty(m => m.Agent, agent)
+                    .SetProperty(m => m.ReporterVersion, reporter)
+                    .SetProperty(m => m.CpuCount, cpuCount)
+                    .SetProperty(m => m.LastSeenUtc, now), ct);
+            }
+            catch (Exception inner) { logger.LogWarning(inner, "MachineInfo upsert retry failed for '{Machine}'.", name); }
+        }
+        catch (Exception ex)
+        {
+            // Metadata is informational — never let it fail the usage write.
+            db.ChangeTracker.Clear();
+            logger.LogWarning(ex, "Failed to upsert machine info for '{Machine}'.", name);
+        }
+        finally
+        {
+            db.ChangeTracker.Clear(); // keep the shared context clean for the usage-write path below
+        }
+    }
+
+    private static string? Trunc(string? s, int max) =>
+        s is null ? null : (s.Length <= max ? s : s[..max]);
 
     // ---- untrusted-input hardening ----
 

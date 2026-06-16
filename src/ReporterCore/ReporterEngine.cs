@@ -21,15 +21,38 @@ public sealed class ReporterEngine : IDisposable, IObservable<ReporterEvent>
     private readonly List<IObserver<ReporterEvent>> _observers = new();
     private readonly object _gate = new();
 
+    // Machine metadata is invariant for the process lifetime — gather it once and reuse it on every batch.
+    private static readonly object MachineInfoGate = new();
+    private static readonly Dictionary<string, MachineInfo> MachineInfoCache = new(StringComparer.Ordinal);
+
     /// <summary>Raised for every progress event. Multiple handlers may attach (console AND GUI).</summary>
     public event Action<ReporterEvent>? Progress;
 
     public ReporterEngine(ReporterOptions options)
     {
         _options = options;
-        _client = new IngestClient(options.Url!, options.Key!, options.ResolvedMachine);
+        _client = new IngestClient(options.Url!, options.Key!, options.ResolvedMachine, GetMachineInfo(options.ClientKind));
         _store = FileStateStore.Load(options.ResolvedStatePath);
         _scanner = new LogScanner(_client, _store, options.ResolvedBatchSize, Emit);
+    }
+
+    /// <summary>
+    /// Machine info gathered once per process, keyed by client kind so the rare case of two engines with
+    /// different agent kinds in one process still reports the right value. Cached because every probe
+    /// (NIC enumeration, etc.) is invariant for the process lifetime.
+    /// </summary>
+    private static MachineInfo GetMachineInfo(string clientKind)
+    {
+        var kind = string.IsNullOrWhiteSpace(clientKind) ? "console" : clientKind.Trim();
+        lock (MachineInfoGate)
+        {
+            if (!MachineInfoCache.TryGetValue(kind, out var info))
+            {
+                info = MachineInfo.Collect(kind);
+                MachineInfoCache[kind] = info;
+            }
+            return info;
+        }
     }
 
     /// <summary>The resolved configuration this engine is running with (no secrets surfaced by listeners).</summary>

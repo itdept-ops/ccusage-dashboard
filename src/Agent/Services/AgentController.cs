@@ -116,6 +116,10 @@ public sealed class AgentController : IDisposable
             opt = new ReporterOptions();
             Emit(LogLine.Warn($"could not load configuration ({ex.Message}) — open Settings to reconfigure"));
         }
+
+        // This is the WPF tray app: report machineInfo.agent = "desktop" (the console leaves the default).
+        opt.ClientKind = "desktop";
+
         lock (_gate)
         {
             _options = opt;

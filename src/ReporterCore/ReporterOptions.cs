@@ -31,6 +31,12 @@ public sealed class ReporterOptions
     /// <summary>Watch-mode poll interval in seconds.</summary>
     public int IntervalSeconds { get; set; } = 60;
 
+    /// <summary>
+    /// The client kind reported as <c>machineInfo.agent</c> on every batch: <c>console</c> for the CLI
+    /// reporter (the default), <c>desktop</c> for the WPF tray app (which overrides this). Not detected.
+    /// </summary>
+    public string ClientKind { get; set; } = "console";
+
     // ---- GUI-only preferences (defined here so the desktop app and console share one config file) ----
 
     /// <summary>GUI: start the desktop window minimized to the tray. Ignored by the console.</summary>

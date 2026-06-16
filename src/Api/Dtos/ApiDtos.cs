@@ -201,6 +201,20 @@ public sealed class FleetMachineDto
     public long Tokens { get; set; }                 // combined total across all tiers
     public decimal CostUsd { get; set; }
     public string[] Users { get; set; } = Array.Empty<string>();
+
+    // System metadata from the matching MachineInfos row (LEFT-joined by raw machine name). All null
+    // when no metadata has been reported for this machine yet (e.g. legacy machines, or the local bucket).
+    public string? LocalIp { get; set; }
+    public string? PublicIp { get; set; }
+    public string? Os { get; set; }
+    public string? Arch { get; set; }
+    public string? OsUser { get; set; }
+    public string? Agent { get; set; }
+    public string? ReporterVersion { get; set; }
+    public int? CpuCount { get; set; }
+    public DateTime? FirstSeenUtc { get; set; }
+    /// <summary>When metadata was last reported (distinct from <see cref="LastSeenUtc"/>, the last usage row).</summary>
+    public DateTime? MetadataLastSeenUtc { get; set; }
 }
 
 /// <summary>One reporting user in the fleet view: spend/volume plus the machines they reported from.</summary>

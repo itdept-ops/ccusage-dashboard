@@ -245,6 +245,79 @@ mat-progress-bar {
   .lb-detail-lbl { display: block; color: var(--tech-text-tertiary); margin-bottom: 6px; }
   .lb-detail-empty { font-size: var(--tech-fs-label); color: var(--tech-text-tertiary); }
 
+  /* ── System metadata panel (machine details) ── */
+  .meta {
+    margin-bottom: var(--tech-space-3);
+    padding: var(--tech-space-3);
+    border: 1px solid var(--tech-border-subtle);
+    border-radius: var(--tech-r-control);
+    background: var(--tech-bg-sunken);
+
+    .lb-detail-lbl { margin-bottom: var(--tech-space-2); }
+  }
+
+  .meta-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: var(--tech-space-2) var(--tech-space-4);
+    margin: 0;
+  }
+  @media (max-width: 720px) { .meta-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  @media (max-width: 480px) { .meta-grid { grid-template-columns: 1fr; } }
+
+  .meta-item {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+
+    dt {
+      display: inline-flex; align-items: center; gap: 5px;
+      font-family: var(--tech-font-mono);
+      font-size: var(--tech-fs-micro);
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      color: var(--tech-text-tertiary);
+      mat-icon { font-size: 13px; width: 13px; height: 13px; color: var(--tech-text-tertiary); }
+    }
+    dd {
+      margin: 0;
+      font-size: var(--tech-fs-label);
+      color: var(--tech-text);
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .meta-sub { color: var(--tech-text-tertiary); }
+    .muted { color: var(--tech-text-tertiary); font-style: italic; }
+  }
+
+  /* Agent kind badge: blue for Desktop tray, cyan for Console CLI. */
+  .agent-badge {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 1px 8px;
+    border-radius: var(--tech-r-pill);
+    border: 1px solid var(--tech-border-subtle);
+    background: var(--tech-panel-raised);
+    font-family: var(--tech-font-mono);
+    font-size: var(--tech-fs-micro);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--tech-text-secondary);
+    mat-icon { font-size: 13px; width: 13px; height: 13px; }
+
+    &.is-desktop {
+      border-color: color-mix(in srgb, var(--tech-info) 45%, transparent);
+      background: var(--tech-info-tint);
+      color: var(--tech-info);
+      mat-icon { color: var(--tech-info); }
+    }
+    &.is-console {
+      border-color: color-mix(in srgb, var(--tech-accent-cyan) 45%, transparent);
+      background: color-mix(in srgb, var(--tech-accent-cyan) 12%, transparent);
+      color: var(--tech-accent-cyan);
+      mat-icon { color: var(--tech-accent-cyan); }
+    }
+  }
+
   .chips { display: flex; flex-wrap: wrap; gap: 6px; }
   .ent-chip {
     display: inline-flex; align-items: center; gap: 5px;

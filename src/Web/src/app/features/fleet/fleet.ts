@@ -153,6 +153,19 @@ export class Fleet {
   /** "local" is the synthetic file-sync bucket — surface it as such rather than a real host/user. */
   isLocal(name: string): boolean { return name === 'local'; }
 
+  /**
+   * Normalize the raw reporter `agent` kind into a display label for the details badge.
+   * Known kinds are "desktop" (WPF tray) and "console" (CLI); anything else is shown verbatim
+   * (title-cased), and null/blank means no metadata has been reported.
+   */
+  agentLabel(agent: string | null): string {
+    const a = (agent ?? '').trim().toLowerCase();
+    if (a === 'desktop') return 'Desktop';
+    if (a === 'console') return 'Console';
+    if (!a) return '';
+    return agent!.charAt(0).toUpperCase() + agent!.slice(1);
+  }
+
   // ---- management (reporter.manage) ----
 
   /**

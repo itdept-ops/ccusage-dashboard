@@ -75,6 +75,21 @@ export interface FleetMachine {
   tokens: number;
   costUsd: number;
   users: string[];
+
+  // System metadata from the matching MachineInfos row (LEFT-joined by raw machine name). All null
+  // when no metadata has been reported for this machine yet (e.g. legacy machines, or the local bucket).
+  localIp: string | null;
+  publicIp: string | null;
+  os: string | null;
+  arch: string | null;
+  osUser: string | null;
+  /** Reporter client kind: "desktop" (WPF tray) or "console" (CLI). */
+  agent: string | null;
+  reporterVersion: string | null;
+  cpuCount: number | null;
+  firstSeenUtc: string | null;
+  /** When metadata was last reported (distinct from `lastSeenUtc`, the last usage row). */
+  metadataLastSeenUtc: string | null;
 }
 
 /** One reporting user in the fleet view: spend/volume plus the machines they reported from. */

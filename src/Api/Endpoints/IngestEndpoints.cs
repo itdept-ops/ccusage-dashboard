@@ -25,7 +25,12 @@ public static class IngestEndpoints
 
             // Attribute the rows to the key owner the filter resolved — never a client-supplied user.
             var ownerEmail = http.Items[IngestKeyFilter.OwnerEmailItem] as string;
-            return Results.Ok(await writer.WriteAsync(batch.Source, batch.Machine, batch.Rows, ct, ownerEmail));
+            // Server-observed client IP (forwarded headers already applied, same source the ingest filter
+            // uses for LastUsedIp). The machineInfo upsert records this as the machine's public IP — a
+            // client-sent public IP is never trusted.
+            var publicIp = http.Connection.RemoteIpAddress?.ToString();
+            return Results.Ok(await writer.WriteAsync(
+                batch.Source, batch.Machine, batch.Rows, ct, ownerEmail, batch.MachineInfo, publicIp, batch.Reporter));
         })
         .AllowAnonymous()
         .AddEndpointFilter(new IngestKeyFilter())

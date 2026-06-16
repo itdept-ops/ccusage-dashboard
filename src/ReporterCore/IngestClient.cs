@@ -8,8 +8,13 @@ namespace Ccusage.Reporter.Core;
 /// <summary>Thrown for unrecoverable conditions (e.g. a rejected key) — the run should stop, not retry.</summary>
 public sealed class FatalReporterException(string message) : Exception(message);
 
-/// <summary>The batch envelope POSTed to <c>/api/ingest</c>. Rows are parsed locally; no transcript text leaves the box.</summary>
-public sealed record IngestBatch(string Source, string Machine, string Reporter, IReadOnlyList<ParsedUsage> Rows);
+/// <summary>
+/// The batch envelope POSTed to <c>/api/ingest</c>. Rows are parsed locally; no transcript text leaves
+/// the box. <see cref="MachineInfo"/> carries the machine metadata for the Fleet page (camelCase
+/// <c>machineInfo</c> on the wire); it is gathered once and attached to every batch.
+/// </summary>
+public sealed record IngestBatch(
+    string Source, string Machine, string Reporter, MachineInfo MachineInfo, IReadOnlyList<ParsedUsage> Rows);
 
 /// <summary>Server's response to an ingest batch.</summary>
 public sealed record IngestResult(int Received, int Inserted, long InsertedTokens, int Duplicates, int Skipped, string[]? UnpricedModels);
@@ -25,10 +30,12 @@ public sealed class IngestClient : IDisposable
 
     private readonly HttpClient _http;
     private readonly string _machine;
+    private readonly MachineInfo _machineInfo;
 
-    public IngestClient(string baseUrl, string key, string machine)
+    public IngestClient(string baseUrl, string key, string machine, MachineInfo machineInfo)
     {
         _machine = machine;
+        _machineInfo = machineInfo;
         _http = new HttpClient { BaseAddress = new Uri(baseUrl.TrimEnd('/') + "/"), Timeout = TimeSpan.FromSeconds(100) };
         _http.DefaultRequestHeaders.Add("X-Ingest-Key", key);
         _http.DefaultRequestHeaders.UserAgent.ParseAdd(Version);
@@ -36,7 +43,7 @@ public sealed class IngestClient : IDisposable
 
     public async Task<IngestResult> PushAsync(string source, IReadOnlyList<ParsedUsage> rows, CancellationToken ct)
     {
-        var batch = new IngestBatch(source, _machine, Version, rows);
+        var batch = new IngestBatch(source, _machine, Version, _machineInfo, rows);
         // Patient enough that a transient 429 near a 1-minute rate-limit window boundary recovers.
         const int maxAttempts = 6;
 

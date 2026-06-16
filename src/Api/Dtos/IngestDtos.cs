@@ -17,7 +17,35 @@ public sealed class IngestBatchDto
     /// <summary>Optional reporter version string (informational).</summary>
     public string? Reporter { get; set; }
 
+    /// <summary>Optional system metadata for the reporting machine (LAN IP, OS, arch, etc.).</summary>
+    public MachineInfoDto? MachineInfo { get; set; }
+
     public List<ParsedUsage> Rows { get; set; } = new();
+}
+
+/// <summary>
+/// Client-reported system metadata for the reporting machine, carried on the ingest batch. The server
+/// stores these informationally; it never trusts a client-sent public IP (that is observed server-side).
+/// </summary>
+public sealed class MachineInfoDto
+{
+    /// <summary>Primary LAN IPv4 the client detected (e.g. 192.168.1.20).</summary>
+    public string? LocalIp { get; set; }
+
+    /// <summary><c>RuntimeInformation.OSDescription</c>.</summary>
+    public string? Os { get; set; }
+
+    /// <summary><c>RuntimeInformation.OSArchitecture</c> (e.g. "X64").</summary>
+    public string? Arch { get; set; }
+
+    /// <summary><c>Environment.UserName</c>.</summary>
+    public string? OsUser { get; set; }
+
+    /// <summary><c>Environment.ProcessorCount</c>.</summary>
+    public int? CpuCount { get; set; }
+
+    /// <summary>Which client posted: "desktop" (WPF tray) or "console" (CLI reporter).</summary>
+    public string? Agent { get; set; }
 }
 
 /// <summary>Outcome of an ingest batch. Received == Inserted + Duplicates + Skipped.</summary>

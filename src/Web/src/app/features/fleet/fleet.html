@@ -120,6 +120,68 @@
         }
         @if (isExpanded(m.name)) {
           <div class="lb-detail">
+            <!-- System metadata reported by the agent (LEFT-joined; null for legacy/local). -->
+            <div class="meta">
+              <span class="lb-detail-lbl micro-label">Machine details</span>
+              <dl class="meta-grid">
+                <div class="meta-item">
+                  <dt><mat-icon>lan</mat-icon> Local IP</dt>
+                  @if (m.localIp) { <dd class="mono-num">{{ m.localIp }}</dd> }
+                  @else { <dd class="muted">unknown</dd> }
+                </div>
+                <div class="meta-item">
+                  <dt><mat-icon>public</mat-icon> Public IP</dt>
+                  @if (m.publicIp) { <dd class="mono-num">{{ m.publicIp }}</dd> }
+                  @else { <dd class="muted">unknown</dd> }
+                </div>
+                <div class="meta-item">
+                  <dt><mat-icon>computer</mat-icon> OS</dt>
+                  @if (m.os) {
+                    <dd>{{ m.os }}@if (m.arch) { <span class="meta-sub">· {{ m.arch }}</span> }</dd>
+                  } @else { <dd class="muted">unknown</dd> }
+                </div>
+                <div class="meta-item">
+                  <dt><mat-icon>account_circle</mat-icon> OS user</dt>
+                  @if (m.osUser) { <dd class="mono-num">{{ m.osUser }}</dd> }
+                  @else { <dd class="muted">unknown</dd> }
+                </div>
+                <div class="meta-item">
+                  <dt><mat-icon>memory</mat-icon> CPU cores</dt>
+                  @if (m.cpuCount != null) { <dd class="mono-num">{{ m.cpuCount | number }}</dd> }
+                  @else { <dd class="muted">unknown</dd> }
+                </div>
+                <div class="meta-item">
+                  <dt><mat-icon>devices</mat-icon> Agent</dt>
+                  @if (m.agent) {
+                    <dd>
+                      <span class="agent-badge" [class.is-desktop]="agentLabel(m.agent) === 'Desktop'"
+                            [class.is-console]="agentLabel(m.agent) === 'Console'">
+                        <mat-icon>{{ agentLabel(m.agent) === 'Desktop' ? 'desktop_windows' : 'terminal' }}</mat-icon>
+                        {{ agentLabel(m.agent) }}
+                      </span>
+                    </dd>
+                  } @else { <dd class="muted">unknown</dd> }
+                </div>
+                <div class="meta-item">
+                  <dt><mat-icon>verified</mat-icon> Reporter</dt>
+                  @if (m.reporterVersion) { <dd class="mono-num">v{{ m.reporterVersion }}</dd> }
+                  @else { <dd class="muted">unknown</dd> }
+                </div>
+                <div class="meta-item">
+                  <dt><mat-icon>schedule</mat-icon> First seen</dt>
+                  @if (m.firstSeenUtc) {
+                    <dd [title]="(m.firstSeenUtc | date: 'medium') || ''">{{ seen(m.firstSeenUtc) }}</dd>
+                  } @else { <dd class="muted">unknown</dd> }
+                </div>
+                <div class="meta-item">
+                  <dt><mat-icon>update</mat-icon> Last seen</dt>
+                  @if (m.lastSeenUtc) {
+                    <dd [title]="(m.lastSeenUtc | date: 'medium') || ''">{{ seen(m.lastSeenUtc) }}</dd>
+                  } @else { <dd class="muted">never</dd> }
+                </div>
+              </dl>
+            </div>
+
             <span class="lb-detail-lbl micro-label">Users on this machine</span>
             @if (m.users.length) {
               <div class="chips">

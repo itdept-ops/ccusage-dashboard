@@ -21,6 +21,7 @@ public class UsageDbContext(DbContextOptions<UsageDbContext> options) : DbContex
     public DbSet<ShareAccess> ShareAccesses => Set<ShareAccess>();
     public DbSet<IngestKey> IngestKeys => Set<IngestKey>();
     public DbSet<SavedView> SavedViews => Set<SavedView>();
+    public DbSet<MachineInfo> MachineInfos => Set<MachineInfo>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -197,6 +198,23 @@ public class UsageDbContext(DbContextOptions<UsageDbContext> options) : DbContex
             // A deleted user must not cascade-delete usage-bearing keys: orphan them instead.
             e.HasOne(x => x.User).WithMany()
                 .HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.SetNull);
+        });
+
+        b.Entity<MachineInfo>(e =>
+        {
+            e.Property(x => x.Name).HasMaxLength(200).HasDefaultValue("");
+            e.Property(x => x.LocalIp).HasMaxLength(64);
+            e.Property(x => x.PublicIp).HasMaxLength(64);
+            e.Property(x => x.Os).HasMaxLength(256);
+            e.Property(x => x.Arch).HasMaxLength(32);
+            e.Property(x => x.Hostname).HasMaxLength(200);
+            e.Property(x => x.OsUser).HasMaxLength(256);
+            e.Property(x => x.Agent).HasMaxLength(32);
+            e.Property(x => x.ReporterVersion).HasMaxLength(64);
+            e.Property(x => x.FirstSeenUtc).HasColumnType("timestamp with time zone");
+            e.Property(x => x.LastSeenUtc).HasColumnType("timestamp with time zone");
+            // One metadata row per machine name; the upsert keys on this unique index.
+            e.HasIndex(x => x.Name).IsUnique();
         });
 
         b.Entity<SavedView>(e =>
