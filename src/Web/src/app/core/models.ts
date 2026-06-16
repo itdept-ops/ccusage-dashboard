@@ -93,6 +93,51 @@ export interface Fleet {
   users: FleetUser[];
 }
 
+/** One machine in the dashboard filter list: the RAW name plus a display label ("local" when empty). Mirrors MachineStatDto. */
+export interface MachineStat {
+  name: string;        // raw machine name ("" for the local file-sync bucket)
+  label: string;       // display label ("local" when name is empty)
+  records: number;
+  totalTokens: number;
+  costUsd: number;
+}
+
+/** Which fleet dimension a management action targets. */
+export type FleetDimension = 'machine' | 'user';
+
+/**
+ * Reassign (combine/transfer) every usage record in `from` to a single `to` value.
+ * `to` may be "" to re-label to the local bucket. Mirrors FleetReassignRequest.
+ */
+export interface FleetReassignRequest {
+  dimension: FleetDimension;
+  from: string[];
+  to: string;
+}
+
+export interface FleetReassignResult {
+  affected: number;
+}
+
+/** Permanently delete every usage record whose dimension value is one of `names`. Mirrors FleetDeleteRequest. */
+export interface FleetDeleteRequest {
+  dimension: FleetDimension;
+  names: string[];
+}
+
+export interface FleetDeleteResult {
+  deleted: number;
+}
+
+/** Revoke every currently-active ingest key owned by a user. USER dimension only. Mirrors FleetRevokeKeysRequest. */
+export interface FleetRevokeKeysRequest {
+  email: string;
+}
+
+export interface FleetRevokeKeysResult {
+  revoked: number;
+}
+
 /**
  * Cache-efficiency rollup for the filtered range (GET /api/usage/cache-efficiency):
  * how much prompt input was served from the cheap cache, what cache-writes cost,
@@ -458,6 +503,8 @@ export interface UsageFilter {
   projectIds: number[];
   models: string[];
   sources: string[];
+  /** Raw machine names ("" selects the local file-sync bucket). */
+  machine: string[];
   includeSidechain: boolean;
 }
 

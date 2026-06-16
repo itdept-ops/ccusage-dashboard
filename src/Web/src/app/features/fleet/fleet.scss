@@ -148,6 +148,32 @@ mat-progress-bar {
   border-bottom: 1px solid var(--tech-border-subtle);
   &:last-child { border-bottom: none; }
   &.open { background: color-mix(in srgb, var(--tech-accent) 5%, transparent); }
+
+  /* When manageable, the row main + the actions button sit side by side; the detail still spans below. */
+  &.has-actions {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+
+    .lb-main { grid-column: 1; }
+    .lb-actions { grid-column: 2; }
+    .lb-detail { grid-column: 1 / -1; }
+  }
+}
+
+.lb-actions {
+  flex: 0 0 auto;
+  margin-right: 4px;
+  color: var(--tech-text-tertiary);
+  transition: color var(--tech-t-control) ease;
+  &:hover { color: var(--tech-accent); }
+  mat-icon { font-size: 20px; width: 20px; height: 20px; }
+}
+
+/* Destructive items in the row menus. */
+::ng-deep .menu-danger {
+  color: var(--tech-error, #ff5c6c);
+  .mat-icon, mat-icon { color: var(--tech-error, #ff5c6c); }
 }
 
 .lb-main {

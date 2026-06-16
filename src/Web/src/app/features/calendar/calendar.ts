@@ -38,7 +38,7 @@ export class Calendar {
   readonly sessions = signal<SummaryBucket[]>([]);
 
   private static readonly ALL: UsageFilter =
-    { from: null, to: null, projectIds: [], models: [], sources: [], includeSidechain: true };
+    { from: null, to: null, projectIds: [], models: [], sources: [], machine: [], includeSidechain: true };
 
   constructor() {
     this.api.calendar().subscribe({

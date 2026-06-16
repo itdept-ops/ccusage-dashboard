@@ -87,7 +87,7 @@
 
   @if (board() === 'machines') {
     @for (m of machines(); track m.name; let i = $index) {
-      <div class="lb-row" [class.open]="isExpanded(m.name)">
+      <div class="lb-row" [class.open]="isExpanded(m.name)" [class.has-actions]="canManage()">
         <button class="lb-main" (click)="toggle(m.name)" [attr.aria-expanded]="isExpanded(m.name)">
           <span class="lb-rank mono-num">{{ i + 1 }}</span>
           <span class="lb-name">
@@ -104,6 +104,20 @@
             <span class="lb-bar" aria-hidden="true"><i [style.width.%]="costPct(m.costUsd)"></i></span>
           </span>
         </button>
+        @if (canManage()) {
+          <button mat-icon-button class="lb-actions" [matMenuTriggerFor]="machineMenu"
+                  (click)="$event.stopPropagation()" aria-label="Manage machine" matTooltip="Manage">
+            <mat-icon>more_vert</mat-icon>
+          </button>
+          <mat-menu #machineMenu="matMenu">
+            <button mat-menu-item (click)="combineMachine(m)">
+              <mat-icon>merge_type</mat-icon><span>Combine / move…</span>
+            </button>
+            <button mat-menu-item class="menu-danger" (click)="deleteMachine(m)">
+              <mat-icon>delete_forever</mat-icon><span>Delete…</span>
+            </button>
+          </mat-menu>
+        }
         @if (isExpanded(m.name)) {
           <div class="lb-detail">
             <span class="lb-detail-lbl micro-label">Users on this machine</span>
@@ -124,7 +138,7 @@
     }
   } @else {
     @for (u of users(); track u.email; let i = $index) {
-      <div class="lb-row" [class.open]="isExpanded(u.email)">
+      <div class="lb-row" [class.open]="isExpanded(u.email)" [class.has-actions]="canManage()">
         <button class="lb-main" (click)="toggle(u.email)" [attr.aria-expanded]="isExpanded(u.email)">
           <span class="lb-rank mono-num">{{ i + 1 }}</span>
           <span class="lb-name">
@@ -141,6 +155,23 @@
             <span class="lb-bar" aria-hidden="true"><i [style.width.%]="costPct(u.costUsd)"></i></span>
           </span>
         </button>
+        @if (canManage()) {
+          <button mat-icon-button class="lb-actions" [matMenuTriggerFor]="userMenu"
+                  (click)="$event.stopPropagation()" aria-label="Manage user" matTooltip="Manage">
+            <mat-icon>more_vert</mat-icon>
+          </button>
+          <mat-menu #userMenu="matMenu">
+            <button mat-menu-item (click)="combineUser(u)">
+              <mat-icon>merge_type</mat-icon><span>Combine / move…</span>
+            </button>
+            <button mat-menu-item (click)="revokeUser(u)">
+              <mat-icon>block</mat-icon><span>Revoke key</span>
+            </button>
+            <button mat-menu-item class="menu-danger" (click)="deleteUser(u)">
+              <mat-icon>delete_forever</mat-icon><span>Delete…</span>
+            </button>
+          </mat-menu>
+        }
         @if (isExpanded(u.email)) {
           <div class="lb-detail">
             <span class="lb-detail-lbl micro-label">Machines this user reported from</span>

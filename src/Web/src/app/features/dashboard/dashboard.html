@@ -46,6 +46,15 @@
           }
         </mat-select>
       </mat-form-field>
+
+      <mat-form-field appearance="outline" class="f-multi">
+        <mat-label>Machines</mat-label>
+        <mat-select multiple [ngModel]="filter().machine" (ngModelChange)="patch('machine', $event)">
+          @for (m of machines(); track m.name) {
+            <mat-option [value]="m.name">{{ m.label }} ({{ m.records | number }})</mat-option>
+          }
+        </mat-select>
+      </mat-form-field>
     </div>
 
     <mat-slide-toggle class="f-toggle" [ngModel]="filter().includeSidechain"

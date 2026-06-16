@@ -50,19 +50,45 @@
     <div class="se-head">
       <mat-icon class="se-icon">badge</mat-icon>
       <div>
-        <div class="se-title">Get your own reporter token</div>
-        <p class="se-sub">You can mint and revoke ingest keys for <strong>your own</strong> usage. Each key is tied
-          to your account — anything it reports shows up under <b class="mono">{{ auth.session()?.email }}</b> in the fleet view.</p>
+        <div class="se-title">Self-service — get your own reporter token</div>
+        <p class="se-sub">You can mint and revoke ingest keys for <strong>your own</strong> usage — no admin needed.
+          Each key is tied to your account, so anything it reports shows up under
+          <b class="mono">{{ auth.session()?.email }}</b> and your machine on the
+          <a routerLink="/fleet">Fleet</a> page.</p>
       </div>
     </div>
     <ol class="se-steps">
       <li><strong>Generate a key below</strong> and copy it (it's shown only once).</li>
-      <li><strong>Install the reporter</strong> on the machine where your AI coding agent runs (step&nbsp;2).</li>
-      <li><strong>Run it</strong> with this server's URL and your key (step&nbsp;3) — it parses the logs locally and
+      <li><strong>Pick a reporter</strong> for the machine where your AI coding agent runs — the
+        <strong>desktop agent</strong> (a friendly tray app, step&nbsp;2) is the easiest, or the
+        headless console reporter for servers (step&nbsp;3).</li>
+      <li><strong>Point it at this server</strong> with your key — it parses the logs locally and
         pushes only token counts &amp; metadata, never prompts or responses.</li>
     </ol>
   </mat-card>
 }
+
+<!-- Choose-your-reporter — the two ways to push usage -->
+<mat-card appearance="outlined" class="panel choose">
+  <div class="step-head"><span class="panel-header">Two ways to report</span></div>
+  <div class="choose-grid">
+    <div class="choose-card recommended">
+      <div class="cc-badge micro-label">Recommended</div>
+      <mat-icon class="cc-icon">desktop_windows</mat-icon>
+      <div class="cc-title">Desktop agent</div>
+      <p class="cc-sub">A Windows system-tray app with a one-screen Settings panel, live logs, and a
+        run-at-sign-in toggle. The easy, no-terminal option for your own laptop or workstation.</p>
+      <span class="cc-link micro-label">→ Step&nbsp;2</span>
+    </div>
+    <div class="choose-card">
+      <mat-icon class="cc-icon">terminal</mat-icon>
+      <div class="cc-title">Console reporter</div>
+      <p class="cc-sub">A small cross-platform .NET console app. Best for headless servers, CI, and
+        anything you'd run under systemd, Task Scheduler, or cron.</p>
+      <span class="cc-link micro-label">→ Step&nbsp;3</span>
+    </div>
+  </div>
+</mat-card>
 
 <!-- Step 1 — key -->
 @if (canCreate()) {
@@ -141,11 +167,52 @@
 </mat-card>
 }
 
-<!-- Step 2 — get the reporter -->
+<!-- Step 2 — desktop agent (the easy GUI option, Windows) -->
 <mat-card appearance="outlined" class="panel step">
-  <div class="step-head"><span class="step-num">2</span><span class="panel-header">Get the reporter</span></div>
-  <p class="hint">The reporter is a small .NET 9 console app in the repo (<code>src/Reporter</code>). Build a release
-    binary, or run it straight from source — on the machine that has the Claude&nbsp;Code / Codex logs.</p>
+  <div class="step-head">
+    <span class="step-num">2</span><span class="panel-header">Desktop agent (Windows)</span>
+    <span class="grow"></span><span class="step-tag micro-label">easiest</span>
+  </div>
+  <p class="hint">The Usage IQ <strong>desktop agent</strong> is a system-tray app that wraps the reporter in a
+    friendly GUI — no terminal babysitting. Paste this server's URL and your key once in its
+    <strong>Settings</strong> screen and it watches your logs in the background, with a
+    <strong>live log</strong> of every sync and a <strong>run-at-sign-in</strong> toggle so it comes back after a reboot.</p>
+
+  <div class="agent-feats">
+    <div class="agent-feat"><mat-icon>settings</mat-icon><span>One-screen Settings — URL, key, machine label, interval.</span></div>
+    <div class="agent-feat"><mat-icon>article</mat-icon><span>Live logs — watch each pass scan, price, and post in real time.</span></div>
+    <div class="agent-feat"><mat-icon>restart_alt</mat-icon><span>Run at sign-in — starts minimized to the tray after a reboot.</span></div>
+  </div>
+
+  <div class="agent-how">
+    <div class="agent-how-title micro-label">Run it from source (needs the .NET 9 SDK)</div>
+    <div class="cmd">
+      <code class="mono">{{ agentRunCommand() }}</code>
+      <button mat-icon-button class="cmd-copy" aria-label="Copy" (click)="copy(agentRunCommand(), 'Command copied')">
+        <mat-icon>content_copy</mat-icon>
+      </button>
+    </div>
+    <div class="agent-how-title micro-label">…or publish a single, self-contained tray exe to hand out (no .NET install on the target)</div>
+    <div class="cmd">
+      <code class="mono">{{ agentPublishCommand() }}</code>
+      <button mat-icon-button class="cmd-copy" aria-label="Copy" (click)="copy(agentPublishCommand(), 'Command copied')">
+        <mat-icon>content_copy</mat-icon>
+      </button>
+    </div>
+    <div class="cmd-tip micro-label"><mat-icon>info</mat-icon>
+      The published <code>UsageIq.Agent.exe</code> needs no key on the command line — generate one above,
+      then paste it into the agent's Settings screen on first launch.</div>
+  </div>
+</mat-card>
+
+<!-- Step 3 — console reporter (headless / cron) -->
+<mat-card appearance="outlined" class="panel step">
+  <div class="step-head"><span class="step-num">3</span><span class="panel-header">Console reporter (headless / cron)</span></div>
+  <p class="hint">For servers and anything without a desktop, the reporter is a small .NET 9 console app in the
+    repo (<code>src/Reporter</code>). Build a release binary, then point it at this server with the key from
+    step&nbsp;1. By default it <strong>watches</strong> the logs continuously; pass <code>--once</code> for a single
+    pass (e.g. from cron).</p>
+
   <div class="cmd">
     <code class="mono">git clone https://github.com/itdept-ops/usage-iq &amp;&amp; cd usage-iq
 dotnet build src/Reporter -c Release</code>
@@ -154,14 +221,8 @@ dotnet build src/Reporter -c Release</code>
       <mat-icon>content_copy</mat-icon>
     </button>
   </div>
-</mat-card>
 
-<!-- Step 3 — run it -->
-<mat-card appearance="outlined" class="panel step">
-  <div class="step-head"><span class="step-num">3</span><span class="panel-header">Run it</span></div>
-  <p class="hint">Point it at this server with the key from step&nbsp;1. By default it <strong>watches</strong> the
-    logs and pushes new usage continuously; pass <code>--once</code> for a single pass (e.g. from cron).</p>
-
+  <div class="cmd-alt micro-label">Then run the built binary:</div>
   <div class="cmd">
     <code class="mono">{{ runCommand() }}</code>
     <button mat-icon-button class="cmd-copy" aria-label="Copy" (click)="copy(runCommand(), 'Command copied')">
@@ -193,10 +254,11 @@ dotnet build src/Reporter -c Release</code>
 
 <!-- Run as a service -->
 <mat-card appearance="outlined" class="panel step">
-  <div class="step-head"><span class="panel-header">Keep it running</span></div>
+  <div class="step-head"><span class="panel-header">Keep the console reporter running</span></div>
   <p class="hint">Run the watcher under your OS service manager so it survives reboots, or schedule
     <code>--once</code> on a timer. Config can also come from <code>REPORTER_*</code> env vars or an
-    <code>appsettings.json</code> next to the executable.</p>
+    <code>appsettings.json</code> next to the executable. (On a desktop, the agent in step&nbsp;2 handles all
+    of this for you — this section is for headless hosts.)</p>
   <div class="svc-grid">
     <div class="svc">
       <div class="svc-title"><mat-icon>terminal</mat-icon> Linux (systemd)</div>
@@ -218,8 +280,19 @@ Restart=always</code>
     </div>
   </div>
   <p class="hint foot">On Windows, <code>Run-UsageIqReporter.ps1</code> in the repo is a one-file "build
-    + run the loop" launcher. The reporter merges the redundant log lines each turn emits before
-    sending, so a backfill is a few hundred requests, not thousands — full details, service setup, and
-    troubleshooting are in the
+    + run the loop" launcher — the headless counterpart to the desktop agent. The reporter merges the
+    redundant log lines each turn emits before sending, so a backfill is a few hundred requests, not
+    thousands — full details, service setup, and troubleshooting are in the
     <a href="https://github.com/itdept-ops/usage-iq/blob/main/docs/reporter.md" target="_blank" rel="noopener">reporter guide</a>.</p>
+</mat-card>
+
+<!-- Where it shows up — Fleet attribution -->
+<mat-card appearance="outlined" class="panel where">
+  <mat-icon class="where-icon">hub</mat-icon>
+  <div>
+    <div class="where-title">Where your usage shows up</div>
+    <p class="where-sub">Whichever reporter you run, the usage it pushes is attributed to its
+      <strong>machine</strong> and to the <strong>account</strong> that owns the key. You'll see both — ranked by
+      spend, with the machines and users cross-linked — on the <a routerLink="/fleet">Fleet</a> page.</p>
+  </div>
 </mat-card>

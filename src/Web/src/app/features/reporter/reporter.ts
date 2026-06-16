@@ -1,6 +1,7 @@
 import { CommonModule } from '@angular/common';
 import { Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { RouterLink } from '@angular/router';
 import { HttpErrorResponse } from '@angular/common/http';
 
 import { MatCardModule } from '@angular/material/card';
@@ -24,7 +25,7 @@ import { IngestKey, IngestKeyCreated, PERM } from '../../core/models';
 @Component({
   selector: 'app-reporter',
   imports: [
-    CommonModule, FormsModule, MatCardModule, MatButtonModule, MatIconModule,
+    CommonModule, FormsModule, RouterLink, MatCardModule, MatButtonModule, MatIconModule,
     MatFormFieldModule, MatInputModule, MatSnackBarModule,
   ],
   templateUrl: './reporter.html',
@@ -63,6 +64,13 @@ export class ReporterPage {
     const key = this.freshKey()?.key ?? '<your-key>';
     return `dotnet run --project src/Reporter -- --url ${this.serverUrl()} --key ${key}`;
   });
+
+  /** Build + launch the Windows desktop agent straight from source. */
+  readonly agentRunCommand = signal('dotnet run --project src/Agent');
+  /** Publish a single, self-contained tray exe (no .NET install needed on the target). */
+  readonly agentPublishCommand = signal(
+    'dotnet publish src/Agent -c Release -r win-x64 --self-contained ' +
+    '-p:PublishSingleFile=true -o publish/agent');
 
   constructor() {
     this.loadIngestKeys();

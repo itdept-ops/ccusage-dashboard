@@ -1,0 +1,92 @@
+:host { display: block; min-width: 420px; max-width: 520px; }
+.mono { font-family: var(--tech-font-mono, ui-monospace, monospace); }
+
+h2[mat-dialog-title] {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+
+  .ttl-icon { color: var(--tech-accent); font-size: 20px; width: 20px; height: 20px; }
+  &.danger .ttl-icon { color: var(--tech-error, #ff5c6c); }
+}
+
+.fa-note {
+  margin: 0 0 16px;
+  font-size: var(--tech-fs-body, 13px);
+  line-height: 1.55;
+  color: var(--tech-text-secondary);
+
+  strong { color: var(--tech-text); }
+  .fa-from { color: var(--tech-text-accent); font-weight: 600; }
+}
+
+/* ───────────────────────── Reassign target ───────────────────────── */
+.fa-target {
+  .fa-target-lbl { display: block; color: var(--tech-text-tertiary); margin-bottom: 8px; }
+}
+
+.fa-mode {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 12px;
+
+  .fa-mode-btn {
+    flex: 1 1 0;
+    border-radius: var(--tech-r-control, 8px);
+    border: 1px solid var(--tech-border-subtle);
+    color: var(--tech-text-secondary);
+    font-weight: 600;
+    mat-icon { font-size: 17px; width: 17px; height: 17px; margin-right: 4px; }
+
+    &.active {
+      color: var(--tech-text-accent);
+      border-color: color-mix(in srgb, var(--tech-accent) 50%, transparent);
+      background: color-mix(in srgb, var(--tech-accent) 12%, transparent);
+    }
+  }
+}
+
+.fa-field { width: 100%; }
+
+.fa-tip {
+  display: flex; align-items: center; gap: 6px;
+  margin: 8px 0 0; color: var(--tech-text-tertiary);
+  mat-icon { font-size: 15px; width: 15px; height: 15px; color: var(--tech-accent); }
+}
+
+/* ───────────────────────── Delete warning ───────────────────────── */
+.fa-danger-box {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 14px;
+  border-radius: var(--tech-r-control, 8px);
+  border: 1px solid color-mix(in srgb, var(--tech-error, #ff5c6c) 45%, transparent);
+  background: color-mix(in srgb, var(--tech-error, #ff5c6c) 10%, transparent);
+  font-size: var(--tech-fs-label, 12px);
+  color: var(--tech-text-secondary);
+
+  mat-icon { flex: 0 0 auto; color: var(--tech-error, #ff5c6c); font-size: 18px; width: 18px; height: 18px; }
+  b { color: var(--tech-text); }
+}
+
+/* ───────────────────────── Error strip ───────────────────────── */
+.fa-error {
+  display: flex; align-items: center; gap: 8px;
+  margin-top: 14px; padding: 8px 12px;
+  border-radius: var(--tech-r-control, 8px);
+  border: 1px solid color-mix(in srgb, var(--tech-error, #ff5c6c) 45%, transparent);
+  background: color-mix(in srgb, var(--tech-error, #ff5c6c) 8%, transparent);
+  font-size: var(--tech-fs-label, 12px);
+  color: var(--tech-error, #ff5c6c);
+
+  mat-icon { flex: 0 0 auto; font-size: 17px; width: 17px; height: 17px; }
+}
+
+/* Destructive primary action — red flat button without leaning on color="warn" theming. */
+.fa-delete-btn {
+  --mdc-filled-button-container-color: var(--tech-error, #ff5c6c);
+  --mdc-filled-button-label-text-color: #fff;
+  font-weight: 600;
+  mat-icon { font-size: 18px; width: 18px; height: 18px; margin-right: 4px; }
+}
+
+mat-dialog-actions button mat-icon { font-size: 18px; width: 18px; height: 18px; margin-right: 4px; }

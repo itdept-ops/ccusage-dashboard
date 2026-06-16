@@ -74,7 +74,7 @@ export class Widget {
     const src = this.source();
     if (!src) return;
     this.api
-      .summary({ from: null, to: null, projectIds: [], models: [], sources: [src], includeSidechain: true }, 'model')
+      .summary({ from: null, to: null, projectIds: [], models: [], sources: [src], machine: [], includeSidechain: true }, 'model')
       .subscribe({
         next: r => { this.summary.set(r); this.loading.set(false); },
         error: () => this.loading.set(false),

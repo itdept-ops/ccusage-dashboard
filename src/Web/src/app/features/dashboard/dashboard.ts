@@ -25,7 +25,7 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { Api } from '../../core/api';
 import { ShareDialog } from '../share/share-dialog';
 import { AuthService } from '../../core/auth';
-import { CacheEfficiency, CalendarDay, GroupBy, IngestionSource, ModelStat, PagedResult, ProjectDto, SavedView, SummaryResponse, UsageFilter, UsageRecord, PERM } from '../../core/models';
+import { CacheEfficiency, CalendarDay, GroupBy, IngestionSource, MachineStat, ModelStat, PagedResult, ProjectDto, SavedView, SummaryResponse, UsageFilter, UsageRecord, PERM } from '../../core/models';
 import { ChartComponent } from '../../shared/chart';
 import { CompactPipe } from '../../shared/format';
 
@@ -51,7 +51,7 @@ export class Dashboard {
   readonly PERM = PERM;
 
   // ---- filter + view state ----
-  readonly filter = signal<UsageFilter>({ from: null, to: null, projectIds: [], models: [], sources: [], includeSidechain: true });
+  readonly filter = signal<UsageFilter>({ from: null, to: null, projectIds: [], models: [], sources: [], machine: [], includeSidechain: true });
   readonly groupBy = signal<GroupBy>('day');
   readonly activePreset = signal<string>('all');
   readonly presets = [
@@ -63,6 +63,7 @@ export class Dashboard {
   readonly projects = signal<ProjectDto[]>([]);
   readonly modelStats = signal<ModelStat[]>([]);
   readonly sources = signal<IngestionSource[]>([]);
+  readonly machines = signal<MachineStat[]>([]);
   readonly summary = signal<SummaryResponse | null>(null);
   readonly records = signal<PagedResult<UsageRecord> | null>(null);
 
@@ -123,6 +124,7 @@ export class Dashboard {
       projectIds: list('p').map(Number).filter(n => !Number.isNaN(n)),
       models: list('m'),
       sources: list('s'),
+      machine: list('mc'),
       includeSidechain: p.get('sc') !== '0',
     });
     if (p.get('g')) this.groupBy.set(p.get('g') as GroupBy);
@@ -140,6 +142,7 @@ export class Dashboard {
     if (f.projectIds.length) q['p'] = f.projectIds.join(',');
     if (f.models.length) q['m'] = f.models.join(',');
     if (f.sources.length) q['s'] = f.sources.join(',');
+    if (f.machine.length) q['mc'] = f.machine.join(',');
     if (!f.includeSidechain) q['sc'] = '0';
     if (this.groupBy() !== 'day') q['g'] = this.groupBy();
     if (this.activePreset() && this.activePreset() !== 'all') q['preset'] = this.activePreset();
@@ -200,6 +203,7 @@ export class Dashboard {
     this.filter.set({
       from: v.from, to: v.to,
       projectIds: [...v.projectId], models: [...v.model], sources: [...v.source],
+      machine: [],
       includeSidechain: v.includeSidechain,
     });
     this.groupBy.set((v.groupBy || 'day') as GroupBy);
@@ -253,6 +257,7 @@ export class Dashboard {
     this.api.projects().subscribe(p => this.projects.set(p));
     this.api.models().subscribe(m => this.modelStats.set(m));
     this.api.sources().subscribe(s => this.sources.set(s));
+    this.api.machines().subscribe(m => this.machines.set(m));
     this.loadSavedViews();
   }
 
@@ -306,7 +311,7 @@ export class Dashboard {
   }
 
   resetFilters(): void {
-    this.filter.set({ from: null, to: null, projectIds: [], models: [], sources: [], includeSidechain: true });
+    this.filter.set({ from: null, to: null, projectIds: [], models: [], sources: [], machine: [], includeSidechain: true });
     this.activePreset.set('all');
     this.page.set(1);
     this.syncUrl();

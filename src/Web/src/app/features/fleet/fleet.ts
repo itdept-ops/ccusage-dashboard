@@ -8,14 +8,17 @@ import { MatButtonToggleModule } from '@angular/material/button-toggle';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatIconModule } from '@angular/material/icon';
+import { MatMenuModule } from '@angular/material/menu';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 
 import { Api } from '../../core/api';
 import { AuthService } from '../../core/auth';
-import { Fleet as FleetModel, FleetMachine, FleetUser, UsageFilter } from '../../core/models';
+import { Fleet as FleetModel, FleetDimension, FleetMachine, FleetUser, PERM, UsageFilter } from '../../core/models';
 import { CompactPipe, timeAgo } from '../../shared/format';
+import { FleetAction, FleetActionData, FleetActionDialog, FleetActionResult } from './fleet-action-dialog';
 
 type Board = 'machines' | 'users';
 
@@ -29,7 +32,7 @@ type Board = 'machines' | 'users';
   imports: [
     CommonModule, FormsModule,
     MatCardModule, MatButtonModule, MatButtonToggleModule, MatFormFieldModule, MatInputModule,
-    MatIconModule, MatTooltipModule, MatProgressBarModule, MatSnackBarModule,
+    MatIconModule, MatMenuModule, MatTooltipModule, MatProgressBarModule, MatSnackBarModule, MatDialogModule,
     CompactPipe,
   ],
   templateUrl: './fleet.html',
@@ -38,10 +41,14 @@ type Board = 'machines' | 'users';
 export class Fleet {
   private api = inject(Api);
   private snack = inject(MatSnackBar);
+  private dialog = inject(MatDialog);
   readonly auth = inject(AuthService);
 
+  /** Row-level management (combine/move, delete, revoke). The board is read-only without it. */
+  readonly canManage = computed(() => this.auth.hasPermission(PERM.reporterManage));
+
   // ---- filter state (date range only — fleet is a coarse roll-up) ----
-  readonly filter = signal<UsageFilter>({ from: null, to: null, projectIds: [], models: [], sources: [], includeSidechain: true });
+  readonly filter = signal<UsageFilter>({ from: null, to: null, projectIds: [], models: [], sources: [], machine: [], includeSidechain: true });
   readonly activePreset = signal<string>('all');
   readonly presets = [
     { key: '7d', label: '7d' }, { key: '30d', label: '30d' }, { key: '90d', label: '90d' },
@@ -101,7 +108,7 @@ export class Fleet {
   applyFilters(): void { this.reload(); }
 
   resetFilters(): void {
-    this.filter.set({ from: null, to: null, projectIds: [], models: [], sources: [], includeSidechain: true });
+    this.filter.set({ from: null, to: null, projectIds: [], models: [], sources: [], machine: [], includeSidechain: true });
     this.activePreset.set('all');
     this.reload();
   }
@@ -145,4 +152,64 @@ export class Fleet {
 
   /** "local" is the synthetic file-sync bucket — surface it as such rather than a real host/user. */
   isLocal(name: string): boolean { return name === 'local'; }
+
+  // ---- management (reporter.manage) ----
+
+  /**
+   * Map a row's displayed name to the RAW dimension value the management endpoints expect: the "local"
+   * bucket is the empty string server-side (no real host is literally named "local"); everything else is
+   * sent verbatim. See the RAW-VALUE NOTE in the fleet contract.
+   */
+  private rawValue(displayName: string): string {
+    return this.isLocal(displayName) ? '' : displayName;
+  }
+
+  private friendly(displayName: string): string {
+    return this.isLocal(displayName) ? 'local (file sync)' : displayName;
+  }
+
+  /** The OTHER buckets on the current board — combine/transfer targets for the reassign picker. */
+  private otherTargets(dimension: FleetDimension, selfDisplay: string): { rawValue: string; label: string }[] {
+    const rows = dimension === 'machine'
+      ? this.machines().map(m => m.name)
+      : this.users().map(u => u.email);
+    return rows
+      .filter(name => name !== selfDisplay)
+      .map(name => ({ rawValue: this.rawValue(name), label: this.friendly(name) }));
+  }
+
+  /** Open a fleet management dialog for one row; on success refresh the data and toast the count. */
+  private openAction(action: FleetAction, dimension: FleetDimension, displayName: string, records: number): void {
+    if (!this.canManage()) return;
+    const data: FleetActionData = {
+      action, dimension,
+      rawValue: this.rawValue(displayName),
+      label: this.friendly(displayName),
+      records,
+      others: action === 'reassign' ? this.otherTargets(dimension, displayName) : [],
+    };
+    this.dialog.open(FleetActionDialog, { data, width: '520px', maxWidth: '94vw', autoFocus: false })
+      .afterClosed().subscribe((res: FleetActionResult | undefined) => {
+        if (!res) return;
+        this.toastResult(res, data.label);
+        this.reload();
+      });
+  }
+
+  private toastResult(res: FleetActionResult, label: string): void {
+    const n = res.count;
+    const msg = res.action === 'reassign'
+      ? `Moved ${n.toLocaleString()} record${n === 1 ? '' : 's'} from "${label}".`
+      : res.action === 'delete'
+        ? `Deleted ${n.toLocaleString()} record${n === 1 ? '' : 's'} from "${label}".`
+        : `Revoked ${n.toLocaleString()} key${n === 1 ? '' : 's'} for "${label}".`;
+    this.snack.open(msg, 'OK', { duration: 4000 });
+  }
+
+  // Per-row entry points used by the row menu.
+  combineMachine(m: FleetMachine): void { this.openAction('reassign', 'machine', m.name, m.records); }
+  deleteMachine(m: FleetMachine): void { this.openAction('delete', 'machine', m.name, m.records); }
+  combineUser(u: FleetUser): void { this.openAction('reassign', 'user', u.email, u.records); }
+  deleteUser(u: FleetUser): void { this.openAction('delete', 'user', u.email, u.records); }
+  revokeUser(u: FleetUser): void { this.openAction('revoke', 'user', u.email, u.records); }
 }

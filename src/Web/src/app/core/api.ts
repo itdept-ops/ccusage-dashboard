@@ -2,11 +2,12 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import {
-  AccessPolicy, AuditEntry, CacheEfficiency, CalendarDay, CreateShareRequest, Fleet, GroupBy, HeatmapCell,
-  IngestionSource, IngestKey, IngestKeyCreated, ManagedUser, ModelStat, NotificationSettings, NotificationUpdate,
-  PagedResult, PermissionItem, Pricing, ProjectDto, PublicShare, RequestLogEntry, SavedView, SavedViewUpsertRequest,
-  SessionDetail, Settings, ShareAccessItem, ShareCreated, ShareListItem, SummaryResponse, SyncResult, SyncStatus,
-  UsageFilter, UsageRecord, UsageStats,
+  AccessPolicy, AuditEntry, CacheEfficiency, CalendarDay, CreateShareRequest, Fleet, FleetDeleteRequest,
+  FleetDeleteResult, FleetReassignRequest, FleetReassignResult, FleetRevokeKeysRequest, FleetRevokeKeysResult, GroupBy,
+  HeatmapCell, IngestionSource, IngestKey, IngestKeyCreated, MachineStat, ManagedUser, ModelStat, NotificationSettings,
+  NotificationUpdate, PagedResult, PermissionItem, Pricing, ProjectDto, PublicShare, RequestLogEntry, SavedView,
+  SavedViewUpsertRequest, SessionDetail, Settings, ShareAccessItem, ShareCreated, ShareListItem, SummaryResponse,
+  SyncResult, SyncStatus, UsageFilter, UsageRecord, UsageStats,
 } from './models';
 
 @Injectable({ providedIn: 'root' })
@@ -21,6 +22,7 @@ export class Api {
     for (const id of f.projectIds) p = p.append('projectId', id);
     for (const m of f.models) p = p.append('model', m);
     for (const s of f.sources) p = p.append('source', s);
+    for (const mc of f.machine) p = p.append('machine', mc);
     p = p.set('includeSidechain', f.includeSidechain);
     return p;
   }
@@ -44,6 +46,28 @@ export class Api {
   /** Fleet rollup: per-machine and per-user leaderboards for the filtered range. */
   fleet(f?: UsageFilter): Observable<Fleet> {
     return this.http.get<Fleet>(`${this.base}/fleet`, { params: f ? this.filterParams(f) : undefined });
+  }
+
+  /** Reporting machines for the dashboard filter: raw Name + display Label ("local" when empty). */
+  machines(): Observable<MachineStat[]> {
+    return this.http.get<MachineStat[]>(`${this.base}/machines`);
+  }
+
+  // ---- Fleet management (all require reporter.manage; enforced server-side too) ----
+
+  /** Reassign every record in a set of buckets to a single target (combine into an existing one, or transfer/re-label). */
+  reassignFleet(body: FleetReassignRequest): Observable<FleetReassignResult> {
+    return this.http.post<FleetReassignResult>(`${this.base}/fleet/reassign`, body);
+  }
+
+  /** Permanently delete every usage record in the named buckets. */
+  deleteFleet(body: FleetDeleteRequest): Observable<FleetDeleteResult> {
+    return this.http.post<FleetDeleteResult>(`${this.base}/fleet/delete`, body);
+  }
+
+  /** Revoke every active ingest key owned by a user (USER dimension only). */
+  revokeFleetKeys(body: FleetRevokeKeysRequest): Observable<FleetRevokeKeysResult> {
+    return this.http.post<FleetRevokeKeysResult>(`${this.base}/fleet/revoke-keys`, body);
   }
 
   heatmap(f?: UsageFilter): Observable<HeatmapCell[]> {
