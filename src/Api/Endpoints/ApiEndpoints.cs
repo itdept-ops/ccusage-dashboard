@@ -102,6 +102,10 @@ public static class ApiEndpoints
             Results.Ok(await q.ModelsAsync(ct)))
             .RequireAnyPermission(Permissions.DashboardView, Permissions.CalendarView);
 
+        api.MapGet("/machines", async (UsageQueries q, CancellationToken ct) =>
+            Results.Ok(await q.MachinesAsync(ct)))
+            .RequireAnyPermission(Permissions.DashboardView, Permissions.CalendarView);
+
         // ---- Pricing ----
         api.MapGet("/pricing", async (UsageDbContext db, CancellationToken ct) =>
             Results.Ok(await db.ModelPricings.AsNoTracking()

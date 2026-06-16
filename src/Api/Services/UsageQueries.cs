@@ -17,6 +17,9 @@ public sealed class UsageQueries(UsageDbContext db)
         if (f.projectId is { Length: > 0 } pids) q = q.Where(r => pids.Contains(r.ProjectId));
         if (f.model is { Length: > 0 } models) q = q.Where(r => models.Contains(r.Model));
         if (f.source is { Length: > 0 } sources) q = q.Where(r => sources.Contains(r.Source));
+        // Attribution filters operate on RAW values; an empty string in the list means the "local" bucket.
+        if (f.machine is { Length: > 0 } machines) q = q.Where(r => machines.Contains(r.MachineName));
+        if (f.user is { Length: > 0 } users) q = q.Where(r => users.Contains(r.ReportedByUser));
         if (f.includeSidechain == false) q = q.Where(r => !r.IsSidechain);
         return q;
     }
@@ -530,6 +533,34 @@ public sealed class UsageQueries(UsageDbContext db)
                 CostUsd = g.Sum(x => x.CostUsd),
             })
             .OrderByDescending(p => p.CostUsd).ToListAsync(ct);
+
+    /// <summary>
+    /// Distinct machines with their totals (records, tokens, cost), ordered by cost desc. The empty
+    /// <see cref="UsageRecord.MachineName"/> (local file-sync path) is surfaced with the display label
+    /// "local" while keeping the RAW name ("") so the client filters by the real value.
+    /// </summary>
+    public async Task<List<MachineStatDto>> MachinesAsync(CancellationToken ct)
+    {
+        var rows = await db.UsageRecords.AsNoTracking()
+            .GroupBy(r => r.MachineName)
+            .Select(g => new
+            {
+                Name = g.Key,
+                Records = g.Count(),
+                Tokens = g.Sum(x => (long)x.InputTokens + x.OutputTokens + x.CacheReadTokens
+                                     + x.CacheCreation5mTokens + x.CacheCreation1hTokens),
+                Cost = g.Sum(x => x.CostUsd),
+            }).ToListAsync(ct);
+
+        return rows.Select(r => new MachineStatDto
+        {
+            Name = r.Name,
+            Label = string.IsNullOrEmpty(r.Name) ? "local" : r.Name,
+            Records = r.Records,
+            TotalTokens = r.Tokens,
+            CostUsd = r.Cost,
+        }).OrderByDescending(m => m.CostUsd).ToList();
+    }
 
     public async Task<List<ModelStatDto>> ModelsAsync(CancellationToken ct)
     {

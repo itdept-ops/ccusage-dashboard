@@ -271,6 +271,7 @@ app.MapObservabilityEndpoints();
 app.MapNotificationsEndpoints();
 app.MapShareEndpoints();
 app.MapIngestEndpoints();
+app.MapFleetEndpoints();
 app.MapGet("/", () => app.Environment.IsDevelopment()
     ? Results.Redirect("/swagger")
     : Results.Ok(new { service = "Usage IQ API" }));

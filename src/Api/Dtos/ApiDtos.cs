@@ -7,7 +7,9 @@ public readonly record struct UsageFilterQuery(
     int[]? projectId,
     string[]? model,
     string[]? source,
-    bool? includeSidechain);
+    bool? includeSidechain,
+    string[]? machine = null,
+    string[]? user = null);
 
 public sealed class NotificationSettingDto
 {
@@ -263,6 +265,57 @@ public sealed class ModelStatDto
     public long TotalTokens { get; set; }
     public decimal CostUsd { get; set; }
     public bool IsPlaceholderPricing { get; set; }
+}
+
+/// <summary>
+/// One machine in the filter-options list. Carries the RAW <see cref="Name"/> the client filters by
+/// (empty for the local file-sync path) plus a display <see cref="Label"/> ("local" when empty).
+/// </summary>
+public sealed class MachineStatDto
+{
+    public string Name { get; set; } = "";    // raw MachineName ("" for local)
+    public string Label { get; set; } = "";    // display label ("local" when Name is empty)
+    public int Records { get; set; }
+    public long TotalTokens { get; set; }
+    public decimal CostUsd { get; set; }
+}
+
+// ---- Fleet management (reporter.manage) ----
+
+/// <summary>Reassign (combine/transfer) every record in <c>From</c> to a single <c>To</c> value.</summary>
+public sealed class FleetReassignRequest
+{
+    public string Dimension { get; set; } = "";       // "machine" or "user"
+    public string[] From { get; set; } = Array.Empty<string>();
+    public string To { get; set; } = "";              // may be "" (re-label to local)
+}
+
+public sealed class FleetReassignResultDto
+{
+    public long Affected { get; set; }
+}
+
+/// <summary>Permanently delete every record whose dimension value is one of <c>Names</c>.</summary>
+public sealed class FleetDeleteRequest
+{
+    public string Dimension { get; set; } = "";       // "machine" or "user"
+    public string[] Names { get; set; } = Array.Empty<string>();
+}
+
+public sealed class FleetDeleteResultDto
+{
+    public long Deleted { get; set; }
+}
+
+/// <summary>Revoke every currently-active ingest key owned by a user (by id or legacy email).</summary>
+public sealed class FleetRevokeKeysRequest
+{
+    public string Email { get; set; } = "";
+}
+
+public sealed class FleetRevokeKeysResultDto
+{
+    public int Revoked { get; set; }
 }
 
 /// <summary>
