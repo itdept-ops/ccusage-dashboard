@@ -104,7 +104,18 @@ public sealed class AgentController : IDisposable
         Stop();
 
         // valuedArgs empty: the desktop app is driven entirely by config.json + reporter.key, not CLI.
-        var opt = ReporterConfig.Load(Array.Empty<string>());
+        // A corrupt/unreadable config.json must never take the agent down — fall back to empty defaults
+        // (the app shows "not configured" and Settings can fix it) rather than throwing out of startup.
+        ReporterOptions opt;
+        try
+        {
+            opt = ReporterConfig.Load(Array.Empty<string>());
+        }
+        catch (Exception ex)
+        {
+            opt = new ReporterOptions();
+            Emit(LogLine.Warn($"could not load configuration ({ex.Message}) — open Settings to reconfigure"));
+        }
         lock (_gate)
         {
             _options = opt;
