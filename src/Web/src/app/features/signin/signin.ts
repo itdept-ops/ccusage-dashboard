@@ -56,7 +56,8 @@ export class SignIn {
         use_fedcm_for_prompt: true,
       });
 
-      // Inline dark button (matches the theme) for users who want to click explicitly.
+      // Inline dark button. Its white backing (a cross-origin GIS iframe) is removed in CSS via
+      // `iframe[src*="accounts.google.com"] { color-scheme: normal }` in styles.scss.
       google.accounts.id.renderButton(this.btn().nativeElement, {
         theme: 'filled_black',
         size: 'large',
@@ -66,9 +67,7 @@ export class SignIn {
         width: 280,
       });
 
-      // Top-right One Tap "Continue as <name>" card for returning users. Its white logo/avatar
-      // backing is Google's own branding inside a cross-origin iframe and cannot be recolored —
-      // this is the official surface, shown by explicit request.
+      // Top-right One Tap "Continue as <name>" card for returning users.
       google.accounts.id.prompt();
     } catch {
       this.error.set('Could not load Google sign-in. Check your connection and try again.');

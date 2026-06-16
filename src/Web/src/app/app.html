@@ -61,7 +61,10 @@
   </a>
 
   @if (auth.isAuthenticated() && auth.session(); as u) {
-    <button mat-button class="user" [matMenuTriggerFor]="userMenu" aria-label="Account menu">
+    <button mat-button class="user" [matMenuTriggerFor]="userMenu"
+            #userTrigger="matMenuTrigger"
+            [class.user--open]="userTrigger.menuOpen"
+            aria-haspopup="menu" aria-label="Account menu">
       @if (u.picture) {
         <img class="user__avatar" [src]="u.picture" alt="" referrerpolicy="no-referrer" />
       } @else {
@@ -70,12 +73,37 @@
       <span class="user__name">{{ u.name }}</span>
       <mat-icon class="user__chev">expand_more</mat-icon>
     </button>
-    <mat-menu #userMenu="matMenu" xPosition="before">
-      <div class="user-menu-head">
-        <div class="user-menu-name">{{ u.name }}</div>
-        <div class="user-menu-email">{{ u.email }}</div>
+    <mat-menu #userMenu="matMenu" class="account-menu" xPosition="before" overlapTrigger="false">
+      <div class="acct-head" role="presentation">
+        @if (u.picture) {
+          <img class="acct-head__avatar" [src]="u.picture" alt="" referrerpolicy="no-referrer" />
+        } @else {
+          <span class="acct-head__avatar acct-head__avatar--init">{{ initials() }}</span>
+        }
+        <div class="acct-head__id">
+          <div class="acct-head__name">{{ u.name }}</div>
+          <div class="acct-head__email" [title]="u.email">{{ u.email }}</div>
+          <span class="acct-head__role" [attr.data-admin]="roleLabel() === 'Administrator'">
+            <span class="acct-head__role-dot" aria-hidden="true"></span>{{ roleLabel() }}
+          </span>
+        </div>
       </div>
-      <button mat-menu-item (click)="logout()"><mat-icon>logout</mat-icon> Sign out</button>
+
+      <div class="acct-section" role="presentation">
+        @for (link of quickLinks(); track link.route) {
+          <a mat-menu-item class="acct-item" [routerLink]="link.route">
+            <mat-icon class="acct-item__icon">{{ link.icon }}</mat-icon>
+            <span class="acct-item__label">{{ link.label }}</span>
+          </a>
+        }
+      </div>
+
+      <div class="acct-divider" role="separator" aria-hidden="true"></div>
+
+      <button mat-menu-item class="acct-item acct-item--danger" (click)="logout()">
+        <mat-icon class="acct-item__icon">logout</mat-icon>
+        <span class="acct-item__label">Sign out</span>
+      </button>
     </mat-menu>
   }
 </mat-toolbar>

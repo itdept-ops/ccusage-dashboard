@@ -215,10 +215,16 @@
 .user.mat-mdc-button {
   height: 38px;
   min-width: 0;
-  padding: 0 6px 0 5px;
-  margin-left: 2px;
+  padding: 0 8px 0 5px;
+  margin-left: 4px;
   border-radius: var(--tech-r-pill, 999px);
+  border: 1px solid transparent;
   color: var(--tech-text-secondary);
+  transition:
+    background-color var(--tech-t-control, 140ms) ease,
+    border-color var(--tech-t-control, 140ms) ease;
+
+  --mat-text-button-state-layer-color: var(--tech-accent);
 
   .user__avatar {
     width: 26px;
@@ -226,6 +232,7 @@
     border-radius: 50%;
     object-fit: cover;
     flex: 0 0 auto;
+    box-shadow: 0 0 0 1px var(--tech-border-subtle, #1c2533);
   }
   .user__avatar--init {
     display: inline-flex;
@@ -235,7 +242,8 @@
     font-size: 11px;
     font-weight: 600;
     color: var(--tech-text-on-accent, #06090e);
-    background: var(--tech-accent, #3d8bff);
+    background: linear-gradient(135deg, #3d8bff 0%, #8b7cff 52%, #3fd8d0 100%);
+    box-shadow: 0 0 0 1px rgba(61, 139, 255, 0.35), 0 0 12px -3px rgba(139, 124, 255, 0.5);
   }
   .user__name {
     margin: 0 2px 0 8px;
@@ -252,11 +260,212 @@
     width: 18px;
     height: 18px;
     opacity: 0.55;
+    transition: transform var(--tech-t-control, 140ms) var(--tech-ease, cubic-bezier(0.22, 1, 0.36, 1)),
+      opacity var(--tech-t-control, 140ms) ease;
   }
 
   &:hover {
     background: color-mix(in srgb, var(--tech-panel-raised) 70%, transparent);
+    border-color: var(--tech-border-subtle, #1c2533);
+    .user__chev { opacity: 0.85; }
   }
+
+  &:focus-visible {
+    outline: none;
+    box-shadow: var(--tech-focus-ring);
+  }
+
+  /* Open: highlighted pill + flipped chevron, so the trigger reads as active. */
+  &.user--open {
+    background: color-mix(in srgb, var(--tech-panel-raised) 85%, transparent);
+    border-color: var(--tech-border-strong, #33425a);
+
+    .user__chev {
+      opacity: 1;
+      transform: rotate(180deg);
+    }
+  }
+}
+
+/* ---- Account menu panel (rendered in the CDK overlay) -------------- */
+/* The menu lives outside this component's DOM, so reach it via ::ng-deep
+   scoped to the .account-menu panelClass. Tokens keep it on-theme. */
+::ng-deep .account-menu.mat-mdc-menu-panel {
+  min-width: 264px;
+  max-width: 320px;
+  border: 1px solid var(--tech-border, #26303f);
+  border-radius: var(--tech-r-panel, 12px);
+  background: var(--tech-panel, #111722);
+  background-image: radial-gradient(120% 100% at 100% 0%, rgba(139, 124, 255, 0.08), transparent 55%);
+  box-shadow: var(--tech-shadow-popover, 0 24px 60px -20px rgba(0, 0, 0, 0.8));
+  overflow: hidden;
+
+  .mat-mdc-menu-content {
+    padding: 6px;
+  }
+
+  /* Header: avatar + identity + role chip */
+  .acct-head {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 12px 14px;
+    margin-bottom: 4px;
+    border-radius: var(--tech-r-control, 8px);
+    background: linear-gradient(180deg,
+      color-mix(in srgb, var(--tech-panel-raised, #161d2a) 70%, transparent),
+      transparent);
+    border-bottom: 1px solid var(--tech-border-subtle, #1c2533);
+    cursor: default;
+  }
+  .acct-head__avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    object-fit: cover;
+    flex: 0 0 auto;
+    box-shadow: 0 0 0 1px var(--tech-border-strong, #33425a);
+  }
+  .acct-head__avatar--init {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--tech-font-mono);
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    color: var(--tech-text-on-accent, #06090e);
+    background: linear-gradient(135deg, #3d8bff 0%, #8b7cff 52%, #3fd8d0 100%);
+    box-shadow: 0 0 0 1px rgba(61, 139, 255, 0.4), 0 0 16px -4px rgba(139, 124, 255, 0.55);
+  }
+  .acct-head__id {
+    min-width: 0;
+    flex: 1 1 auto;
+  }
+  .acct-head__name {
+    font-family: var(--tech-font-ui);
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--tech-text);
+    line-height: 1.25;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .acct-head__email {
+    font-family: var(--tech-font-mono);
+    font-size: var(--tech-fs-label, 11px);
+    color: var(--tech-text-secondary);
+    line-height: 1.3;
+    margin-top: 1px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .acct-head__role {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    margin-top: 7px;
+    padding: 2px 8px 2px 7px;
+    border-radius: var(--tech-r-pill, 999px);
+    border: 1px solid var(--tech-border-subtle, #1c2533);
+    background: var(--tech-bg-sunken, #0c1118);
+    font-family: var(--tech-font-mono);
+    font-size: var(--tech-fs-micro, 10.5px);
+    font-weight: 500;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--tech-text-tertiary, #5e6c82);
+
+    &[data-admin='true'] {
+      color: var(--tech-accent-cyan, #3fd8d0);
+      border-color: color-mix(in srgb, var(--tech-accent-cyan, #3fd8d0) 35%, transparent);
+      background: color-mix(in srgb, var(--tech-accent-cyan, #3fd8d0) 10%, var(--tech-bg-sunken, #0c1118));
+    }
+  }
+  .acct-head__role-dot {
+    width: 5px;
+    height: 5px;
+    border-radius: 999px;
+    background: currentColor;
+    box-shadow: 0 0 6px 0 currentColor;
+  }
+
+  .acct-section {
+    padding: 2px 0;
+  }
+
+  .acct-divider {
+    height: 1px;
+    margin: 5px 4px;
+    background: var(--tech-border-subtle, #1c2533);
+  }
+
+  /* Items: links + sign-out share a compact, on-theme row */
+  .acct-item.mat-mdc-menu-item {
+    min-height: 38px;
+    border-radius: var(--tech-r-control, 8px);
+    color: var(--tech-text-secondary);
+    font-family: var(--tech-font-ui);
+    font-size: var(--tech-fs-body, 13px);
+    font-weight: 500;
+    transition:
+      color var(--tech-t-control, 140ms) ease,
+      background-color var(--tech-t-control, 140ms) ease;
+
+    --mat-menu-item-hover-state-layer-color: transparent;
+    --mat-menu-item-focus-state-layer-color: transparent;
+
+    .acct-item__icon {
+      font-size: 18px;
+      width: 18px;
+      height: 18px;
+      margin-right: 10px;
+      color: var(--tech-text-tertiary, #5e6c82);
+      transition: color var(--tech-t-control, 140ms) ease;
+    }
+    .acct-item__label {
+      line-height: 1;
+    }
+
+    &:hover,
+    &.cdk-focused.cdk-keyboard-focused,
+    &:focus-visible {
+      color: var(--tech-text);
+      background: color-mix(in srgb, var(--tech-panel-raised, #161d2a) 80%, transparent);
+      .acct-item__icon { color: var(--tech-text-accent, #9fb4d4); }
+    }
+
+    &:focus-visible {
+      outline: none;
+      box-shadow: inset 0 0 0 1px var(--tech-border-strong, #33425a);
+    }
+  }
+
+  /* Active route (e.g. the Dashboard link while on /) gets an accent tick */
+  .acct-item.mat-mdc-menu-item:hover .acct-item__icon { color: var(--tech-text-accent, #9fb4d4); }
+
+  .acct-item--danger.mat-mdc-menu-item {
+    &:hover,
+    &.cdk-focused.cdk-keyboard-focused,
+    &:focus-visible {
+      color: var(--tech-error, #ff5c6c);
+      background: color-mix(in srgb, var(--tech-error, #ff5c6c) 12%, transparent);
+      .acct-item__icon { color: var(--tech-error, #ff5c6c); }
+    }
+  }
+}
+
+/* Smooth, on-brand open animation for the account menu surface. */
+::ng-deep .account-menu.mat-mdc-menu-panel {
+  transform-origin: top right;
+  animation: acct-menu-in 160ms var(--tech-ease, cubic-bezier(0.22, 1, 0.36, 1));
+}
+
+@keyframes acct-menu-in {
+  from { opacity: 0; transform: translateY(-6px) scale(0.97); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
 }
 
 /* ---- Content shell ------------------------------------------------- */
@@ -303,6 +512,12 @@
   .caret,
   .status__dot,
   .nav__item.mat-mdc-button.active::after {
+    animation: none;
+  }
+  .user.mat-mdc-button .user__chev {
+    transition: none;
+  }
+  ::ng-deep .account-menu.mat-mdc-menu-panel {
     animation: none;
   }
 }

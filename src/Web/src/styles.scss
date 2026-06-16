@@ -19,6 +19,11 @@ html {
   );
 }
 
+/* Google Identity Services renders its button + One Tap inside cross-origin iframes whose UA
+   color-scheme paints a white backing/border over our dark theme. Setting color-scheme:normal on
+   the iframe element drops that white while preserving Google's own light/dark theming. */
+iframe[src*="accounts.google.com"] { color-scheme: normal !important; }
+
 /* =========================================================================
    AXON — Token Usage Command Center · Global Design Foundation
    Disciplined observability console: deep slate canvas, electric blue +

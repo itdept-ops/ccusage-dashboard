@@ -57,6 +57,8 @@ export class Login {
     { icon: 'shield_person', title: 'Role-based access', text: 'Google sign-in with per-user permissions, re-checked on every request.' },
     { icon: 'ios_share', title: 'Shareable views', text: 'Public, time-limited links to a read-only dashboard — revoke them anytime.' },
     { icon: 'sync', title: 'Always fresh', text: 'A background reporter posts new usage on a timer; the bar shows when it last ran.' },
+    { icon: 'forum', title: 'Discord digests', text: 'Scheduled usage summaries pushed straight to your team Discord channel.' },
+    { icon: 'fact_check', title: 'Audit & activity log', text: 'Every request and permission change is recorded — full accountability.' },
   ];
 
   readonly steps: Step[] = [

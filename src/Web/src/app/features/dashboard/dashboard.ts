@@ -84,10 +84,18 @@ export class Dashboard {
   constructor() {
     this.hydrateFromUrl();
     this.loadOptions();
+    // Always fetch on init so every panel (usage-over-time, cost-by-model, messages) is
+    // populated on first paint — no manual Apply required. The default filter is an
+    // all-time range (from/to null), which the API treats as "all data", matching the
+    // "All" quick-range that is highlighted by default.
     this.reloadAll();
   }
 
-  /** Restore filter/groupBy/preset from the URL query params so a shared link reopens the same view. */
+  /**
+   * Restore filter/groupBy/preset from the URL query params so a shared link reopens the same view.
+   * When the URL carries no usable range we keep the all-time default and leave the "All" chip
+   * highlighted, so a fresh/bookmark-less visit still shows existing data immediately.
+   */
   private hydrateFromUrl(): void {
     const p = this.route.snapshot.queryParamMap;
     if (![...p.keys].length) return;
@@ -101,7 +109,10 @@ export class Dashboard {
       includeSidechain: p.get('sc') !== '0',
     });
     if (p.get('g')) this.groupBy.set(p.get('g') as GroupBy);
-    this.activePreset.set(p.get('preset') ?? '');
+    // The URL only carries an explicit preset for non-"all" ranges. If none is present we are on
+    // the all-time view, so fall back to 'all' (not blank) to keep the chip highlighted and the
+    // default state self-consistent — otherwise no quick-range reads as active on load.
+    this.activePreset.set(p.get('preset') || 'all');
   }
 
   private shareParams(): Record<string, string> {
@@ -264,7 +275,14 @@ export class Dashboard {
   // ---- chart options ----
   readonly mainChart = computed<EChartsOption>(() => {
     const s = this.summary();
-    if (!s || s.buckets.length === 0) return { title: { text: 'No data', left: 'center', top: 'center', textStyle: { color: '#5e6c82' } } };
+    // While the first fetch is in flight (summary still null, or a reload running) show a neutral
+    // "Loading…" placeholder rather than "No data", so a fresh visit never reads as empty before
+    // the data has actually arrived. "No data" is reserved for a resolved-but-empty result.
+    if (!s) {
+      const text = this.loading() ? 'Loading…' : 'No data';
+      return { title: { text, left: 'center', top: 'center', textStyle: { color: '#5e6c82' } } };
+    }
+    if (s.buckets.length === 0) return { title: { text: 'No data', left: 'center', top: 'center', textStyle: { color: '#5e6c82' } } };
 
     const isTime = s.groupBy === 'day' || s.groupBy === 'month';
     if (isTime) {

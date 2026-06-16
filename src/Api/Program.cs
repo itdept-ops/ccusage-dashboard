@@ -188,20 +188,30 @@ using (var scope = app.Services.CreateScope())
     string[] Emails(string section) => (builder.Configuration.GetSection(section).Get<string[]>() ?? Array.Empty<string>())
         .Select(e => e.Trim().ToLowerInvariant()).Where(e => e.Length > 0).Distinct().ToArray();
 
-    // Create-only: seed configured admins as full admins if they don't exist yet. We never
-    // re-enable or re-grant an existing account, so changes made in the Users UI stick.
+    // Promote/upsert: configured admins are break-glass accounts that must ALWAYS be enabled and
+    // hold every permission — even if the row already exists (e.g. the account first signed in as a
+    // viewer, or new permission keys were added since it was seeded). This is what keeps the owner
+    // from being locked out, so it is deliberately not create-only.
     var adminEmails = Emails("Auth:AdminEmails");
     foreach (var email in adminEmails)
     {
-        if (!await db.Users.AnyAsync(x => x.Email == email))
+        var admin = await db.Users.Include(u => u.Permissions).FirstOrDefaultAsync(x => x.Email == email);
+        if (admin is null)
         {
             db.Users.Add(new AppUser
             {
                 Email = email, IsEnabled = true, CreatedUtc = DateTime.UtcNow,
                 Permissions = Permissions.All.Select(p => new UserPermission { Permission = p }).ToList(),
             });
-            await db.SaveChangesAsync();
         }
+        else
+        {
+            admin.IsEnabled = true;
+            var have = admin.Permissions.Select(p => p.Permission).ToHashSet(StringComparer.Ordinal);
+            foreach (var p in Permissions.All.Where(p => !have.Contains(p)))
+                admin.Permissions.Add(new UserPermission { Permission = p });
+        }
+        await db.SaveChangesAsync();
     }
 
     foreach (var email in Emails("Auth:AllowedEmails").Where(e => !adminEmails.Contains(e)))

@@ -10,8 +10,16 @@ import { MatMenuModule } from '@angular/material/menu';
 
 import { Api } from './core/api';
 import { AuthService } from './core/auth';
-import { SyncStatus } from './core/models';
+import { SyncStatus, PERM } from './core/models';
 import { timeAgo, humanizeInterval } from './shared/format';
+
+/** A quick-link row in the account menu, shown only when the user holds `perm`. */
+interface QuickLink {
+  route: string;
+  label: string;
+  icon: string;
+  perm: string | null;
+}
 
 @Component({
   selector: 'app-root',
@@ -85,6 +93,25 @@ export class App {
     const name = s?.name || s?.email || '';
     const parts = name.split(/[\s@.]+/).filter(Boolean);
     return ((parts[0]?.[0] ?? '') + (parts[1]?.[0] ?? '')).toUpperCase() || 'U';
+  });
+
+  /**
+   * A coarse access tier shown in the account menu header. Anyone who can manage users is an
+   * "Administrator"; everyone else is a "Member". Recomputes live as /me refreshes permissions.
+   */
+  readonly roleLabel = computed(() =>
+    this.auth.permissions().includes(PERM.usersManage) ? 'Administrator' : 'Member',
+  );
+
+  /** Account-menu shortcuts, filtered to the pages the current session is allowed to view. */
+  private static readonly quickLinkDefs: readonly QuickLink[] = [
+    { route: '/', label: 'Dashboard', icon: 'dashboard', perm: PERM.dashboardView },
+    { route: '/settings', label: 'Settings', icon: 'tune', perm: PERM.settingsView },
+    { route: '/users', label: 'Users', icon: 'group', perm: PERM.usersView },
+  ];
+  readonly quickLinks = computed<QuickLink[]>(() => {
+    this.auth.permissions(); // re-run when permissions change
+    return App.quickLinkDefs.filter(l => !l.perm || this.auth.hasPermission(l.perm));
   });
 
   constructor() {
