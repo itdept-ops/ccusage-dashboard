@@ -1,0 +1,166 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >
+  Usage IQ — one tiny EC2 host (Docker), an Elastic IP, a dedicated security group,
+  two ECR image repos, an SSM-managed instance role, and project-scoped deploy
+  permissions on the existing GitHub OIDC role. Everything is tagged Project=usage-iq
+  and isolated from anything else in the account. SSM only — no inbound SSH.
+
+Parameters:
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+    Description: VPC to launch into (the provision script fills in your default VPC).
+  SubnetId:
+    Type: AWS::EC2::Subnet::Id
+    Description: Subnet to launch into (the provision script fills in a default-VPC subnet).
+  InstanceType:
+    Type: String
+    Default: t3.small
+  DiskSizeGb:
+    Type: Number
+    Default: 30
+  DeployRoleName:
+    Type: String
+    Default: usage-iq-deploy
+    Description: The existing GitHub OIDC role to grant deploy (ECR + SSM) permissions to.
+  LatestAmiId:
+    Type: AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>
+    Default: /aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64
+
+Resources:
+  EcrApi:
+    Type: AWS::ECR::Repository
+    Properties:
+      RepositoryName: usage-iq-api
+      ImageScanningConfiguration: { ScanOnPush: true }
+      Tags: [{ Key: Project, Value: usage-iq }]
+
+  EcrWeb:
+    Type: AWS::ECR::Repository
+    Properties:
+      RepositoryName: usage-iq-web
+      ImageScanningConfiguration: { ScanOnPush: true }
+      Tags: [{ Key: Project, Value: usage-iq }]
+
+  SecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: usage-iq web (80/443). No SSH — shell via SSM Session Manager.
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - { IpProtocol: tcp, FromPort: 80,  ToPort: 80,  CidrIp: 0.0.0.0/0, Description: HTTP }
+        - { IpProtocol: tcp, FromPort: 443, ToPort: 443, CidrIp: 0.0.0.0/0, Description: HTTPS }
+      Tags: [{ Key: Project, Value: usage-iq }, { Key: Name, Value: usage-iq }]
+
+  InstanceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal: { Service: ec2.amazonaws.com }
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore        # SSM Session Manager + Run Command
+        - arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly  # pull images from ECR
+      Policies:
+        - PolicyName: read-usage-iq-secrets
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: [ssm:GetParameter, ssm:GetParameters, ssm:GetParametersByPath]
+                Resource: !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/usage-iq/*
+              - Effect: Allow
+                Action: kms:Decrypt
+                Resource: "*"
+                Condition: { StringEquals: { "kms:ViaService": !Sub "ssm.${AWS::Region}.amazonaws.com" } }
+      Tags: [{ Key: Project, Value: usage-iq }]
+
+  InstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Roles: [!Ref InstanceRole]
+
+  Instance:
+    Type: AWS::EC2::Instance
+    Properties:
+      InstanceType: !Ref InstanceType
+      ImageId: !Ref LatestAmiId
+      SubnetId: !Ref SubnetId
+      SecurityGroupIds: [!Ref SecurityGroup]
+      IamInstanceProfile: !Ref InstanceProfile
+      BlockDeviceMappings:
+        - DeviceName: /dev/xvda
+          Ebs: { VolumeSize: !Ref DiskSizeGb, VolumeType: gp3, DeleteOnTermination: true, Encrypted: true }
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          set -e
+          dnf install -y docker
+          systemctl enable --now docker
+          mkdir -p /usr/local/lib/docker/cli-plugins
+          curl -fsSL https://github.com/docker/compose/releases/download/v2.29.7/docker-compose-linux-x86_64 \
+            -o /usr/local/lib/docker/cli-plugins/docker-compose
+          chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
+          mkdir -p /opt/usage-iq
+      Tags: [{ Key: Project, Value: usage-iq }, { Key: Name, Value: usage-iq }]
+
+  Eip:
+    Type: AWS::EC2::EIP
+    Properties:
+      Domain: vpc
+      Tags: [{ Key: Project, Value: usage-iq }, { Key: Name, Value: usage-iq }]
+
+  EipAssoc:
+    Type: AWS::EC2::EIPAssociation
+    Properties:
+      AllocationId: !GetAtt Eip.AllocationId
+      InstanceId: !Ref Instance
+
+  # Grant the existing GitHub OIDC role just enough to ship: push to these two ECR repos and run a
+  # deploy command on THIS instance only. Scoped so it can never touch your other project.
+  DeployPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: usage-iq-deploy-permissions
+      Roles: [!Ref DeployRoleName]
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: EcrAuth
+            Effect: Allow
+            Action: ecr:GetAuthorizationToken
+            Resource: "*"
+          - Sid: EcrPushPull
+            Effect: Allow
+            Action:
+              - ecr:BatchCheckLayerAvailability
+              - ecr:GetDownloadUrlForLayer
+              - ecr:BatchGetImage
+              - ecr:PutImage
+              - ecr:InitiateLayerUpload
+              - ecr:UploadLayerPart
+              - ecr:CompleteLayerUpload
+            Resource: [!GetAtt EcrApi.Arn, !GetAtt EcrWeb.Arn]
+          - Sid: SsmSendToThisInstance
+            Effect: Allow
+            Action: ssm:SendCommand
+            Resource:
+              - !Sub arn:aws:ssm:${AWS::Region}::document/AWS-RunShellScript
+              - !Sub arn:aws:ec2:${AWS::Region}:${AWS::AccountId}:instance/${Instance}
+          - Sid: SsmReadResults
+            Effect: Allow
+            Action: [ssm:GetCommandInvocation, ssm:ListCommands, ssm:ListCommandInvocations]
+            Resource: "*"
+
+Outputs:
+  PublicIp:
+    Description: Point your DNS A-record at this address.
+    Value: !Ref Eip
+  InstanceId:
+    Value: !Ref Instance
+  EcrApiUri:
+    Value: !GetAtt EcrApi.RepositoryUri
+  EcrWebUri:
+    Value: !GetAtt EcrWeb.RepositoryUri
