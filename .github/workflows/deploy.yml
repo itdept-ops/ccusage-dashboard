@@ -40,13 +40,15 @@ jobs:
 
       - name: Roll out on the instance (SSM)
         run: |
-          BOOT='dnf install -y git >/dev/null 2>&1 || true; cd /opt/usage-iq && (if [ -d .git ]; then git fetch origin main -q && git reset --hard origin/main -q; else git clone -q https://github.com/itdept-ops/usage-iq .; fi) && bash deploy/remote-deploy.sh'
+          cat > /tmp/ssm.json <<'JSON'
+          {"commands":["dnf install -y git >/dev/null 2>&1 || true; cd /opt/usage-iq && (if [ -d .git ]; then git fetch origin main -q && git reset --hard origin/main -q; else git clone -q https://github.com/itdept-ops/usage-iq .; fi) && bash deploy/remote-deploy.sh"]}
+          JSON
           CMD_ID=$(aws ssm send-command \
             --region "$AWS_REGION" \
             --document-name AWS-RunShellScript \
             --targets Key=tag:Project,Values=usage-iq \
             --comment "usage-iq deploy ${{ github.sha }}" \
-            --parameters commands="$BOOT" \
+            --parameters file:///tmp/ssm.json \
             --query Command.CommandId --output text)
           echo "SSM command: $CMD_ID"
 
