@@ -1,0 +1,26 @@
+name: Deploy
+
+# For now this just proves the GitHub→AWS OIDC handshake works (no keys stored anywhere).
+# Once verified, this workflow grows into the real deploy (build images → ECR → roll out via SSM).
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  id-token: write   # lets the runner request a short-lived OIDC token
+  contents: read
+
+jobs:
+  oidc-check:
+    name: Verify AWS OIDC
+    runs-on: ubuntu-latest
+    steps:
+      - name: Assume the deploy role via OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: us-west-2
+
+      - name: Who am I (should print the assumed usage-iq-deploy role)
+        run: aws sts get-caller-identity
