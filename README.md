@@ -55,7 +55,10 @@ Each source is enable/disable-able with an editable path on the **Settings** pag
 - **Shareable views** — create a **public, time-limited share link** (`Share…`): a 256-bit token that lets anyone — **no login** — see read-only totals + charts for the scope you chose, until it expires. Links are fully manageable: **copy anytime, edit the expiry/label, revoke**, and expand each link to see **every view's time + IP**. Tokens are encrypted at rest (a hash keys the lookup) and kept out of the action log; the public view never exposes individual messages.
 - **Usage calendar** — a GitHub-style heatmap (cost / tokens / **active hours**) with estimated time-spent-with-AI per day (gap-based sessionization), busiest-day and session stats.
 - **Pop-out stat widgets** — small, chrome-less per-company windows (Claude / Codex) showing each model's cost + IN/OUT tokens + calls, auto-refreshing on sync — sized for screen-share or capture.
-- **Group** the time series by day, month, project, model, source, or session.
+- **Group** the time series by day, month, project, model, source, **machine**, or **user**.
+- **Fleet view** — per-**machine** and per-**user** leaderboards (cost, tokens, last-seen, expandable), so a team can see who and what is spending. Usage is attributed to the posting machine and to the ingest key's owner (server-derived, so it can't be spoofed).
+- **Cache-efficiency insight** — the share of input served from cache and the **dollars saved** by caching vs. paying full input price (plus cache-write cost), as a dashboard card.
+- **Saved views** — name and save a filter set, then re-apply it in one click (per-user).
 - **Cost in USD** from an **editable per-model pricing table** (5m / 1h cache-write and cache-read tiers priced separately).
 - **Charts**: usage-over-time (cost + tokens), top-N by dimension, and a cost-by-model donut (ECharts).
 - **Sortable, paged message table** with project, model, token breakdown, and cost.
@@ -84,7 +87,9 @@ These are the traps the ingestion pipeline is built around (validated against a 
 
 Sign-in is **Google** (Google Identity Services, with the "Continue as…" One-Tap). The server validates the Google ID token's signature, audience (your client id), issuer, and expiry, requires a **verified email**, and **pins each account to its Google subject id** (`sub`) — bound on first login, so a later login with the same email but a different Google account is rejected (a recycled address can't inherit access). Authorization is a **per-user permission set**, enforced **on every request**: the app JWT only proves *who* you are; the server re-loads your user row from the DB on each call and checks `IsEnabled` + the required permission. Disabling a user or removing a permission takes effect on their **next request** — no waiting for a token to expire.
 
-Permission catalog: `dashboard.view`, `sync.run`, `pricing.manage`, `settings.manage`, `users.manage`. Admins manage everyone from the **Users** page (a user × permission matrix, enable toggles, add/remove) — gated by `users.manage`, with last-admin lockout protection.
+Authorization is a **granular, per-page permission catalog** — 19 capabilities, a *view* plus *action* permission per page: `dashboard.view`/`dashboard.export`, `sync.run`, `calendar.view`, `pricing.view`/`pricing.manage`, `settings.view`/`settings.manage`, `sources.manage`, `reporter.view`/`reporter.manage`/`reporter.self`, `notifications.view`/`notifications.manage`, `shares.view`/`shares.manage`, `users.view`/`users.manage`, `activity.view`. Endpoints that serve more than one page accept *any-of* the relevant permissions. Admins manage everyone from the **Users** page (a user × permission matrix grouped by area, enable toggles, add/remove) — gated by `users.manage`, with last-admin lockout protection.
+
+**Open sign-up (optional).** An admin **Access policy** controls onboarding: with open sign-up on, any Google account is **auto-provisioned** on first sign-in with a configurable **default permission set** (an empty default behaves as an approval queue); a kill switch turns it off. `users.manage` can never be a default, so open sign-up can't mint an admin, and bootstrap admin emails are promoted to full access on every startup so the owner can't be locked out.
 
 **Public share links** are the one *intentional* exception to the auth wall. A signed-in user can mint a token-based link (`/share/<token>`) that an unauthenticated viewer can open to see **read-only aggregates** (totals + charts) for a **fixed scope and expiry** chosen at creation. The token is 256-bit; a **SHA-256 hash** keys the public lookup and the token is also stored **encrypted at rest** (AES-GCM via the app secret) so links can be re-copied — a DB leak alone can't reveal live links. The server re-derives the scope from the stored row (a holder can't widen it), enforces expiry/revocation, records each view's time + IP, rate-limits the anonymous endpoint per real client IP (via `UseForwardedHeaders` behind the proxy), keeps tokens out of the action log, and never exposes individual message rows.
 
@@ -168,7 +173,7 @@ The server stays authoritative: it prices each row from the editable pricing tab
 
 ![Usage IQ reporter console](docs/reporter-console.png)
 
-**1. Create an ingest key.** In the app: **Reporter** (top nav, requires `settings.manage`) → **Generate key**. It's shown once and stored only as a hash; revoke anytime (effective on the next request).
+**1. Create an ingest key.** In the app: **Reporter** (top nav). Admins (`reporter.manage`) see and revoke everyone's keys; any user granted `reporter.self` can **generate and revoke their own** key and report their own usage, so a team self-onboards. **Generate key** → shown once, stored only as a hash; revoke anytime (effective on the next request). Every row is attributed to the **machine** it came from and to the **key's owner**, which powers the **Fleet** view.
 
 **2. Run the reporter** on the machine that has the logs:
 
@@ -193,12 +198,16 @@ The reporter de-dupes locally before sending (one billed turn spans several iden
 | `GET`/`POST`/`PUT`/`DELETE` | `/api/users`, `/api/permissions` | User management (requires `users.manage`). |
 | `POST` | `/api/sync` | Ingest new/changed JSONL files; returns counts + timing. |
 | `POST` | `/api/ingest` | **Ingest-key authenticated** push of parsed usage from a remote reporter (anonymous to user auth; rate-limited). |
-| `GET`/`POST`/`DELETE` | `/api/ingest-keys` | Manage reporter ingest keys (requires `settings.manage`; raw key shown once). |
+| `GET`/`POST`/`DELETE` | `/api/ingest-keys` | Reporter ingest keys — `reporter.manage` sees/revokes all, `reporter.self` manages only the caller's own; raw key shown once. |
 | `GET` | `/api/sync/status` | Last-sync time + counts, whether a sync is running, and the auto-sync cadence. |
 | `GET` | `/api/usage/summary` | Aggregates; params: `from,to,projectId[],model[],includeSidechain,groupBy`. |
 | `GET` | `/api/usage/records` | Paged, sortable messages (same filters). |
 | `GET` | `/api/usage/records.csv` | Streamed CSV of the filtered rows (requires `dashboard.view`). |
 | `GET` | `/api/usage/calendar` | Per-day cost/tokens/messages + estimated active minutes & sessions. |
+| `GET` | `/api/usage/cache-efficiency` | Cache-read ratio + dollars saved by caching + cache-write cost (same filters). |
+| `GET` | `/api/fleet` | Per-machine and per-user usage rollups with last-seen (`dashboard.view`/`reporter.*`). |
+| `GET`/`POST`/`PUT`/`DELETE` | `/api/saved-views` | Personal named filter sets (per-user, scoped to the caller). |
+| `GET`/`PUT` | `/api/access-policy` | Open-sign-up toggle + default permission set (requires `users.manage`). |
 | `GET`/`POST`/`DELETE` | `/api/shares` | Manage public share links (requires `dashboard.view`). |
 | `GET` | `/api/share/{token}` | **Anonymous** read of a valid share — scoped aggregates only; 404 if expired/invalid. |
 | `GET` / `PUT` / `POST` | `/api/notifications`, `/api/notifications/test`, `/api/notifications/snapshot` | Discord webhook config + test + send-now snapshot (requires `settings.manage`). |
@@ -229,7 +238,7 @@ Secrets (`Jwt:Key`, Google OAuth, email allowlists) live in git-ignored `src/Api
 
 ## A note on `claude-fable-5` pricing
 
-`claude-fable-5` has no public price, so it ships with a **placeholder** rate (flagged in the UI). Set the real rate on the **Pricing** page and hit **Recompute** — all stored rows re-price instantly. The known Opus / Haiku rates are best-effort defaults and equally editable.
+`claude-fable-5` has no public price, so it ships with an **estimated** rate (Opus-tier). Set the real rate on the **Pricing** page and hit **Recompute** — all stored rows re-price instantly. The known Opus / Haiku rates are best-effort defaults and equally editable. The dashboard's *placeholder-pricing* warning now appears only for models that are **genuinely unpriced** (matched solely by the `*` fallback), not for intentional estimates.
 
 ## Project structure
 
