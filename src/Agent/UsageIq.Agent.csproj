@@ -15,7 +15,12 @@
     <Nullable>enable</Nullable>
     <RootNamespace>UsageIq.Agent</RootNamespace>
     <AssemblyName>UsageIq.Agent</AssemblyName>
-    <InvariantGlobalization>true</InvariantGlobalization>
+    <!--
+      Do NOT set <InvariantGlobalization>true</InvariantGlobalization> here. WPF data bindings
+      resolve a *specific* culture from FrameworkElement.Language (defaults to en-US); invariant
+      globalization removes specific cultures, so the first data-bound render (the live-log list)
+      throws "Cannot find non-neutral culture related to 'en-us'" and the window dies on open.
+    -->
 
     <!-- Identity / branding -->
     <Product>Usage IQ Agent</Product>
