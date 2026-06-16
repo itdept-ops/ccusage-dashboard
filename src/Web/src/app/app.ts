@@ -41,6 +41,17 @@ export class App {
     return App.barePrefixes.some(p => path === p || path.startsWith(p + '/'));
   }
 
+  /** Page routes that require a specific view permission (for live-revocation enforcement). */
+  private static readonly routePerm: Record<string, string> = {
+    '/': 'dashboard.view',
+    '/calendar': 'calendar.view',
+    '/pricing': 'pricing.view',
+    '/settings': 'settings.view',
+    '/reporter': 'reporter.view',
+    '/users': 'users.view',
+    '/activity': 'activity.view',
+  };
+
   readonly state = computed(() => {
     const s = this.status();
     if (!s) return 'idle';
@@ -98,7 +109,19 @@ export class App {
         switchMap(() => this.auth.me().pipe(catchError(err => { this.onMeError(err); return of(null); }))),
         takeUntilDestroyed(),
       )
-      .subscribe(me => { if (me) this.auth.applyMe(me); });
+      .subscribe(me => { if (me) { this.auth.applyMe(me); this.enforceCurrentRoute(); } });
+  }
+
+  /**
+   * If a live /me refresh shows the user has lost the view permission for the page they're currently
+   * on (an admin revoked it mid-session), send them to their new home so the page can't keep 403ing.
+   */
+  private enforceCurrentRoute(): void {
+    const path = this.router.url.split('?')[0];
+    const required = App.routePerm[path];
+    if (required && !this.auth.hasPermission(required)) {
+      this.router.navigateByUrl(this.auth.homeRoute());
+    }
   }
 
   private onMeError(err: { status?: number }): void {

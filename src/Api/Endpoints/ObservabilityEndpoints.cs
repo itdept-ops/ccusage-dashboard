@@ -51,6 +51,6 @@ public static class ObservabilityEndpoints
 
                 return Results.Ok(rows);
             })
-            .RequireAuthorization().RequirePermission(Permissions.UsersManage);
+            .RequireAuthorization().RequirePermission(Permissions.ActivityView);
     }
 }

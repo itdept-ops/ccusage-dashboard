@@ -48,14 +48,81 @@ public sealed class GoogleAuthService(
 
         var email = payload.Email.Trim().ToLowerInvariant();
         var user = await db.Users.Include(u => u.Permissions).FirstOrDefaultAsync(u => u.Email == email, ct);
-        if (user is null || !user.IsEnabled)
+
+        if (user is null)
         {
-            logger.LogWarning("Sign-in denied for {Email} (not provisioned or disabled).", email);
-            // Only audit denials for KNOWN accounts (a disabled user). "Not provisioned" attempts are
-            // reachable by ANY Google account (open self-signup), so auditing them would let an outside
-            // party flood the log (and any forwarded security alert).
-            if (user is not null)
-                await AuditDenialAsync(email, "account disabled", ct);
+            // No account yet. If open sign-up is off, deny (as before). Otherwise auto-provision the
+            // account with the configured default permissions and bind it to this Google id now.
+            // We do NOT audit a "not provisioned" denial: that path is reachable by ANY Google account,
+            // so auditing it would let an outside party flood the log (and any forwarded security alert).
+            var cfg = await db.AppConfigs.FirstOrDefaultAsync(ct);
+            if (cfg is null || !cfg.OpenSignupEnabled)
+            {
+                logger.LogWarning("Sign-in denied for {Email} (not provisioned; open sign-up disabled).", email);
+                return new SignInResult(SignInStatus.Forbidden, null, email, payload.Name);
+            }
+
+            var defaultPerms = ParseDefaultPermissions(cfg.DefaultPermissionsCsv);
+            var created = new AppUser
+            {
+                Email = email,
+                Name = payload.Name ?? "",
+                Picture = payload.Picture,
+                IsEnabled = true,
+                CreatedUtc = DateTime.UtcNow,
+                GoogleSubject = payload.Subject, // bind on create
+                LastLoginUtc = DateTime.UtcNow,
+                Permissions = defaultPerms.Select(p => new UserPermission { Permission = p }).ToList(),
+            };
+            db.Users.Add(created);
+            db.AuditEntries.Add(new AuditEntry
+            {
+                WhenUtc = DateTime.UtcNow,
+                ActorEmail = email,
+                Action = "user.autoprovisioned",
+                TargetEmail = email,
+                Detail = $"permissions=[{string.Join(", ", defaultPerms)}]",
+            });
+
+            try
+            {
+                await db.SaveChangesAsync(ct);
+            }
+            catch (DbUpdateException)
+            {
+                // Lost a race: a concurrent first sign-in for the same account (e.g. One Tap and the
+                // rendered button firing together, or a double-submit) already created the row. The
+                // unique Email/GoogleSubject indexes correctly rejected our duplicate — so discard this
+                // attempt, reload the committed row, and fall through to the normal existing-user path.
+                db.ChangeTracker.Clear();
+                user = await db.Users.Include(u => u.Permissions).FirstOrDefaultAsync(u => u.Email == email, ct);
+                if (user is null) throw; // not a recoverable uniqueness race
+            }
+
+            if (user is null)
+            {
+                // Create succeeded (no race): issue a token for the brand-new account.
+                logger.LogInformation("Auto-provisioned {Email} with [{Permissions}] on first sign-in.",
+                    email, string.Join(", ", defaultPerms));
+
+                var (newJwt, newExpires) = IssueToken(payload.Subject, email, created.Name, created.Picture);
+                return new SignInResult(SignInStatus.Ok, new AuthResultDto
+                {
+                    Token = newJwt,
+                    Email = email,
+                    Name = created.Name,
+                    Picture = created.Picture,
+                    ExpiresAtUtc = newExpires,
+                    Permissions = defaultPerms,
+                }, email, created.Name);
+            }
+            // else: race recovered — `user` now holds the row the winning request created; continue below.
+        }
+
+        if (!user.IsEnabled)
+        {
+            logger.LogWarning("Sign-in denied for {Email} (disabled).", email);
+            await AuditDenialAsync(email, "account disabled", ct);
             return new SignInResult(SignInStatus.Forbidden, null, email, payload.Name);
         }
 
@@ -92,6 +159,15 @@ public sealed class GoogleAuthService(
             Permissions = permissions,
         }, email, user.Name);
     }
+
+    /// <summary>
+    /// Parse a default-permissions CSV into distinct, defaultable keys (order preserved). Filters to
+    /// <see cref="Auth.Permissions.IsDefaultable"/> so a stray <c>users.manage</c> in the stored policy
+    /// can never auto-grant admin to a freshly provisioned account.
+    /// </summary>
+    private static string[] ParseDefaultPermissions(string? csv) =>
+        (csv ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Where(Auth.Permissions.IsDefaultable).Distinct().ToArray();
 
     /// <summary>Record a denied sign-in in the audit log (a security signal; also forwarded to Discord if enabled).</summary>
     private async Task AuditDenialAsync(string email, string reason, CancellationToken ct)

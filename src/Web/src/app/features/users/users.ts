@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { HttpErrorResponse } from '@angular/common/http';
 import { forkJoin } from 'rxjs';
@@ -16,7 +16,16 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 
 import { Api } from '../../core/api';
-import { AuditEntry, ManagedUser, PermissionItem, PERM } from '../../core/models';
+import { AuthService } from '../../core/auth';
+import {
+  AccessPolicy, AuditEntry, ManagedUser, PermissionItem, PERM, PERM_GROUP_OF, PERM_GROUP_ORDER,
+} from '../../core/models';
+
+/** A catalog group with its ordered permission items — drives the grouped matrix columns. */
+interface PermGroup {
+  name: string;
+  perms: PermissionItem[];
+}
 
 @Component({
   selector: 'app-users',
@@ -30,6 +39,8 @@ import { AuditEntry, ManagedUser, PermissionItem, PERM } from '../../core/models
 export class Users {
   private api = inject(Api);
   private snack = inject(MatSnackBar);
+  readonly auth = inject(AuthService);
+  readonly PERM = PERM;
 
   readonly perms = signal<PermissionItem[]>([]);
   readonly users = signal<ManagedUser[]>([]);
@@ -43,6 +54,42 @@ export class Users {
   readonly newPerms = signal<Set<string>>(new Set([PERM.dashboardView]));
   readonly adding = signal(false);
 
+  // access policy (open sign-up + default permissions)
+  readonly policy = signal<AccessPolicy | null>(null);
+  readonly policyPerms = signal<Set<string>>(new Set());
+  readonly savingPolicy = signal(false);
+  readonly canManage = computed(() => this.auth.hasPermission(PERM.usersManage));
+
+  /**
+   * Permission catalog grouped by UI group, in catalog order. Groups follow PERM_GROUP_ORDER;
+   * any keys without a known group fall into a trailing "Other" bucket so nothing is dropped.
+   */
+  readonly groups = computed<PermGroup[]>(() => {
+    const byGroup = new Map<string, PermissionItem[]>();
+    for (const p of this.perms()) {
+      const g = PERM_GROUP_OF[p.key] ?? 'Other';
+      (byGroup.get(g) ?? byGroup.set(g, []).get(g)!).push(p);
+    }
+    const ordered: PermGroup[] = [];
+    for (const name of PERM_GROUP_ORDER) {
+      const perms = byGroup.get(name);
+      if (perms?.length) { ordered.push({ name, perms }); byGroup.delete(name); }
+    }
+    // Any leftover groups (e.g. "Other" or future groups) appended in encounter order.
+    for (const [name, perms] of byGroup) if (perms.length) ordered.push({ name, perms });
+    return ordered;
+  });
+
+  /**
+   * Catalog groups for the default-permissions picker. Excludes users.manage: the server refuses to
+   * store it as a default (open sign-up must never auto-grant admin), so we don't offer it here.
+   */
+  readonly policyGroups = computed<PermGroup[]>(() =>
+    this.groups()
+      .map(g => ({ name: g.name, perms: g.perms.filter(p => p.key !== PERM.usersManage) }))
+      .filter(g => g.perms.length),
+  );
+
   constructor() { this.load(); }
 
   private load(): void {
@@ -52,6 +99,14 @@ export class Users {
       error: () => { this.loading.set(false); this.snack.open('Failed to load users', 'Dismiss', { duration: 4000 }); },
     });
     this.loadAudit();
+    this.loadPolicy();
+  }
+
+  private loadPolicy(): void {
+    this.api.getAccessPolicy().subscribe({
+      next: p => { this.policy.set(p); this.policyPerms.set(new Set(p.defaultPermissions)); },
+      error: () => { /* non-critical — panel hides if policy unavailable */ },
+    });
   }
 
   private loadAudit(): void {
@@ -120,6 +175,39 @@ export class Users {
       error: (err: HttpErrorResponse) => {
         this.adding.set(false);
         this.snack.open(err.error?.message ?? 'Could not add user', 'Dismiss', { duration: 5000 });
+      },
+    });
+  }
+
+  // ---- Access policy ----
+  setOpenSignup(enabled: boolean): void {
+    this.policy.update(p => p ? { ...p, openSignupEnabled: enabled } : p);
+  }
+
+  policyHasPerm(key: string): boolean { return this.policyPerms().has(key); }
+
+  togglePolicyPerm(key: string, checked: boolean): void {
+    const set = new Set(this.policyPerms());
+    if (checked) set.add(key); else set.delete(key);
+    this.policyPerms.set(set);
+  }
+
+  savePolicy(): void {
+    const p = this.policy();
+    if (!p) return;
+    this.savingPolicy.set(true);
+    const body: AccessPolicy = { openSignupEnabled: p.openSignupEnabled, defaultPermissions: [...this.policyPerms()] };
+    this.api.updateAccessPolicy(body).subscribe({
+      next: saved => {
+        this.savingPolicy.set(false);
+        this.policy.set(saved);
+        this.policyPerms.set(new Set(saved.defaultPermissions));
+        this.loadAudit();
+        this.snack.open('Access policy saved', 'OK', { duration: 2500 });
+      },
+      error: (err: HttpErrorResponse) => {
+        this.savingPolicy.set(false);
+        this.snack.open(err.error?.message ?? 'Could not save access policy', 'Dismiss', { duration: 5000 });
       },
     });
   }

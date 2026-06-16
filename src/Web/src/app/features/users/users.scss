@@ -52,8 +52,30 @@ mat-progress-bar {
   gap: 16px;
 
   .add-email { width: 280px; }
-  .add-perms { display: flex; flex-wrap: wrap; gap: 6px 16px; flex: 1 1 auto; }
+  .add-perms { display: flex; flex-wrap: wrap; gap: 10px 18px; flex: 1 1 auto; }
   .add-btn { border-radius: var(--tech-r-control); font-weight: 600; }
+}
+
+/* ---- Grouped permission checklist (add-user + access policy) ---- */
+.add-perm-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 12px;
+  border: 1px solid var(--tech-border-subtle);
+  border-radius: var(--tech-r-chip);
+  background: color-mix(in srgb, var(--tech-panel-raised) 40%, transparent);
+}
+.add-perm-group-name {
+  display: block;
+  color: var(--tech-text-tertiary);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.add-perm-group-items {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 }
 
 /* ---- Matrix table ---- */
@@ -80,6 +102,23 @@ mat-progress-bar {
   }
   .col-perm { text-align: center; }
   .col-actions { text-align: right; }
+
+  /* Grouped header: a top band of group names over a row of per-permission labels. */
+  .group-row .col-group {
+    text-align: center;
+    color: var(--tech-text-secondary);
+    border-bottom-color: var(--tech-border-subtle);
+    border-left: 1px solid var(--tech-border-subtle);
+    letter-spacing: 0.08em;
+  }
+  .perm-row .col-perm {
+    vertical-align: bottom;
+    font-size: var(--tech-fs-micro, 10.5px);
+    color: var(--tech-text-tertiary);
+  }
+  /* A subtle divider at the start of each group for column scannability. */
+  .col-perm.group-start,
+  td.col-perm.group-start { border-left: 1px solid var(--tech-border-subtle); }
 
   tbody tr:hover { background: color-mix(in srgb, var(--tech-panel-raised) 50%, transparent); }
   tbody tr.disabled { opacity: 0.5; }
@@ -147,4 +186,55 @@ mat-checkbox {
 mat-slide-toggle {
   --mat-switch-selected-track-color: var(--tech-accent);
   --mat-switch-selected-hover-track-color: var(--tech-accent-bright);
+}
+
+/* ---- Access policy panel ---- */
+.policy-card {
+  .policy-sub {
+    margin: 0 0 16px;
+    max-width: 760px;
+    font-size: var(--tech-fs-body);
+    line-height: 1.5;
+    color: var(--tech-text-secondary);
+  }
+
+  .policy-toggle {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex-wrap: wrap;
+    padding: 12px 14px;
+    margin-bottom: 18px;
+    border: 1px solid var(--tech-border-subtle);
+    border-radius: var(--tech-r-control);
+    background: color-mix(in srgb, var(--tech-panel-raised) 40%, transparent);
+
+    .policy-toggle-state {
+      font-size: var(--tech-fs-label);
+      color: var(--tech-text-tertiary);
+      &.on { color: var(--tech-accent); }
+    }
+  }
+
+  .policy-defaults-label {
+    display: block;
+    color: var(--tech-text-tertiary);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+  .policy-empty-hint {
+    display: block;
+    margin-bottom: 10px;
+    font-size: var(--tech-fs-label);
+    color: var(--tech-warn);
+  }
+  .policy-perms { display: flex; flex-wrap: wrap; gap: 10px 18px; }
+
+  .policy-actions {
+    margin-top: 18px;
+    padding-top: 14px;
+    border-top: 1px solid var(--tech-border-subtle);
+  }
+  .policy-save { border-radius: var(--tech-r-control); font-weight: 600; }
 }

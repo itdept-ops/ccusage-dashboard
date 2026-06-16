@@ -2,7 +2,11 @@ import { inject } from '@angular/core';
 import { CanActivateFn, Router } from '@angular/router';
 import { AuthService } from './auth';
 
-/** Guard factory: requires authentication + a specific permission (else back to the dashboard). */
+/**
+ * Guard factory: requires authentication + a specific permission. Unauthenticated visitors go to
+ * login; authenticated-but-unauthorized users are sent to '/welcome' (NOT '/', which would loop for
+ * a user lacking dashboard.view).
+ */
 export function permissionGuard(permission: string): CanActivateFn {
   return (_route, state) => {
     const auth = inject(AuthService);
@@ -10,6 +14,6 @@ export function permissionGuard(permission: string): CanActivateFn {
     if (!auth.isAuthenticated()) {
       return router.createUrlTree(['/login'], { queryParams: { returnUrl: state.url } });
     }
-    return auth.hasPermission(permission) ? true : router.createUrlTree(['/']);
+    return auth.hasPermission(permission) ? true : router.createUrlTree(['/welcome']);
   };
 }

@@ -2,10 +2,10 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import {
-  AuditEntry, CalendarDay, CreateShareRequest, GroupBy, HeatmapCell, IngestionSource, IngestKey, IngestKeyCreated,
-  ManagedUser, ModelStat, NotificationSettings, NotificationUpdate, PagedResult, PermissionItem, Pricing, ProjectDto,
-  PublicShare, RequestLogEntry, SessionDetail, Settings, ShareAccessItem, ShareCreated, ShareListItem, SummaryResponse,
-  SyncResult, SyncStatus, UsageFilter, UsageRecord, UsageStats,
+  AccessPolicy, AuditEntry, CalendarDay, CreateShareRequest, GroupBy, HeatmapCell, IngestionSource, IngestKey,
+  IngestKeyCreated, ManagedUser, ModelStat, NotificationSettings, NotificationUpdate, PagedResult, PermissionItem,
+  Pricing, ProjectDto, PublicShare, RequestLogEntry, SessionDetail, Settings, ShareAccessItem, ShareCreated,
+  ShareListItem, SummaryResponse, SyncResult, SyncStatus, UsageFilter, UsageRecord, UsageStats,
 } from './models';
 
 @Injectable({ providedIn: 'root' })
@@ -187,5 +187,14 @@ export class Api {
 
   deleteUser(id: number): Observable<unknown> {
     return this.http.delete(`${this.base}/users/${id}`);
+  }
+
+  // ---- Access policy (open sign-up + default permissions; requires users.manage to edit) ----
+  getAccessPolicy(): Observable<AccessPolicy> {
+    return this.http.get<AccessPolicy>(`${this.base}/access-policy`);
+  }
+
+  updateAccessPolicy(body: AccessPolicy): Observable<AccessPolicy> {
+    return this.http.put<AccessPolicy>(`${this.base}/access-policy`, body);
   }
 }

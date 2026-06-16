@@ -38,7 +38,7 @@ public static class ApiEndpoints
                 AutoSyncEnabled = cfg?.AutoSyncEnabled ?? true,
                 IntervalSeconds = cfg?.AutoSyncIntervalSeconds ?? 300,
             });
-        }).RequirePermission(Permissions.DashboardView);
+        }).RequireAnyPermission(Permissions.Views);
 
         // ---- Usage ----
         api.MapGet("/usage/summary", async (
@@ -56,22 +56,22 @@ public static class ApiEndpoints
         api.MapGet("/usage/calendar", async (
             [AsParameters] UsageFilterQuery filter, int? idleGapMinutes, UsageQueries q, CancellationToken ct) =>
             Results.Ok(await q.CalendarAsync(filter, Math.Clamp(idleGapMinutes ?? 30, 5, 240), ct)))
-            .RequirePermission(Permissions.DashboardView);
+            .RequirePermission(Permissions.CalendarView);
 
         api.MapGet("/usage/heatmap", async (
             [AsParameters] UsageFilterQuery filter, UsageQueries q, CancellationToken ct) =>
             Results.Ok(await q.HeatmapAsync(filter, ct)))
-            .RequirePermission(Permissions.DashboardView);
+            .RequirePermission(Permissions.CalendarView);
 
         api.MapGet("/usage/stats", async (
             [AsParameters] UsageFilterQuery filter, int? idleGapMinutes, UsageQueries q, CancellationToken ct) =>
             Results.Ok(await q.StatsAsync(filter, Math.Clamp(idleGapMinutes ?? 30, 5, 240), ct)))
-            .RequirePermission(Permissions.DashboardView);
+            .RequirePermission(Permissions.CalendarView);
 
         api.MapGet("/usage/session/{sessionId}", async (
             string sessionId, UsageQueries q, CancellationToken ct) =>
             await q.SessionAsync(sessionId, ct) is { } s ? Results.Ok(s) : Results.NotFound())
-            .RequirePermission(Permissions.DashboardView);
+            .RequirePermission(Permissions.CalendarView);
 
         api.MapGet("/usage/records.csv", async (
             [AsParameters] UsageFilterQuery filter, HttpContext http, UsageQueries q, CancellationToken ct) =>
@@ -79,16 +79,16 @@ public static class ApiEndpoints
             http.Response.ContentType = "text/csv; charset=utf-8";
             http.Response.Headers.ContentDisposition = "attachment; filename=\"usage-iq-records.csv\"";
             await q.WriteRecordsCsvAsync(filter, http.Response.Body, ct);
-        }).RequirePermission(Permissions.DashboardView);
+        }).RequirePermission(Permissions.DashboardExport);
 
         // ---- Filter options ----
         api.MapGet("/projects", async (UsageQueries q, CancellationToken ct) =>
             Results.Ok(await q.ProjectsAsync(ct)))
-            .RequirePermission(Permissions.DashboardView);
+            .RequireAnyPermission(Permissions.DashboardView, Permissions.CalendarView);
 
         api.MapGet("/models", async (UsageQueries q, CancellationToken ct) =>
             Results.Ok(await q.ModelsAsync(ct)))
-            .RequirePermission(Permissions.DashboardView);
+            .RequireAnyPermission(Permissions.DashboardView, Permissions.CalendarView);
 
         // ---- Pricing ----
         api.MapGet("/pricing", async (UsageDbContext db, CancellationToken ct) =>
@@ -101,7 +101,7 @@ public static class ApiEndpoints
                     CacheWrite5mPerMTok = p.CacheWrite5mPerMTok, CacheWrite1hPerMTok = p.CacheWrite1hPerMTok,
                     CacheReadPerMTok = p.CacheReadPerMTok, IsPlaceholder = p.IsPlaceholder,
                 }).ToListAsync(ct)))
-            .RequirePermission(Permissions.DashboardView);
+            .RequireAnyPermission(Permissions.PricingView, Permissions.PricingManage);
 
         api.MapPut("/pricing/{id:int}", async (int id, PricingDto dto, UsageDbContext db, CancellationToken ct) =>
         {
@@ -149,7 +149,7 @@ public static class ApiEndpoints
                 Id = s.Id, Name = s.Name, Kind = s.Kind, RootPath = s.RootPath, Enabled = s.Enabled,
                 Records = counts.GetValueOrDefault(s.Name),
             }));
-        }).RequirePermission(Permissions.DashboardView);
+        }).RequireAnyPermission(Permissions.DashboardView, Permissions.SettingsView, Permissions.SourcesManage);
 
         api.MapPut("/sources/{id:int}", async (int id, SourceDto dto, UsageDbContext db, CancellationToken ct) =>
         {
@@ -159,7 +159,7 @@ public static class ApiEndpoints
             s.Enabled = dto.Enabled;
             await db.SaveChangesAsync(ct);
             return Results.Ok(dto);
-        }).RequirePermission(Permissions.SettingsManage);
+        }).RequirePermission(Permissions.SourcesManage);
 
         // ---- Settings ----
         api.MapGet("/settings", async (UsageDbContext db, CancellationToken ct) =>
@@ -172,7 +172,7 @@ public static class ApiEndpoints
                 AutoSyncEnabled = cfg.AutoSyncEnabled,
                 AutoSyncIntervalSeconds = cfg.AutoSyncIntervalSeconds,
             });
-        }).RequirePermission(Permissions.DashboardView);
+        }).RequireAnyPermission(Permissions.Views);
 
         api.MapPut("/settings", async (SettingsDto dto, UsageDbContext db, CostRecomputeService recompute, CancellationToken ct) =>
         {

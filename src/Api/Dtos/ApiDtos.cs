@@ -319,8 +319,16 @@ public sealed class UserUpsertRequest
 public sealed class PermissionItemDto
 {
     public string Key { get; set; } = "";
+    public string Group { get; set; } = "";
     public string Label { get; set; } = "";
     public string Description { get; set; } = "";
+}
+
+/// <summary>The access policy: open sign-up toggle + default permissions for auto-provisioned users.</summary>
+public sealed class AccessPolicyDto
+{
+    public bool OpenSignupEnabled { get; set; }
+    public string[] DefaultPermissions { get; set; } = Array.Empty<string>();
 }
 
 public sealed class AuditEntryDto

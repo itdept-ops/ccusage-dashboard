@@ -299,14 +299,65 @@ export interface RequestLogEntry {
   responseBody: string | null;
 }
 
-/** Canonical permission keys (mirror of the backend catalog). */
+/** Canonical permission keys (mirror of the backend catalog — all 18 keys). */
 export const PERM = {
   dashboardView: 'dashboard.view',
+  dashboardExport: 'dashboard.export',
   syncRun: 'sync.run',
+  calendarView: 'calendar.view',
+  pricingView: 'pricing.view',
   pricingManage: 'pricing.manage',
+  settingsView: 'settings.view',
   settingsManage: 'settings.manage',
+  sourcesManage: 'sources.manage',
+  reporterView: 'reporter.view',
+  reporterManage: 'reporter.manage',
+  notificationsView: 'notifications.view',
+  notificationsManage: 'notifications.manage',
+  sharesView: 'shares.view',
+  sharesManage: 'shares.manage',
+  usersView: 'users.view',
   usersManage: 'users.manage',
+  activityView: 'activity.view',
 } as const;
+
+/**
+ * UI groupings for the permission catalog, in display order. The Users page matrix groups its
+ * permission columns by these. The backend catalog is the source of truth for the keys themselves;
+ * any catalog key whose group isn't listed here falls back to an "Other" bucket so nothing is lost.
+ */
+export const PERM_GROUP_ORDER: readonly string[] = [
+  'Dashboard', 'Calendar', 'Pricing', 'Settings', 'Reporter',
+  'Notifications', 'Shares', 'Administration',
+];
+
+/** Maps each permission key to its UI group (mirror of the backend catalog grouping). */
+export const PERM_GROUP_OF: Readonly<Record<string, string>> = {
+  [PERM.dashboardView]: 'Dashboard',
+  [PERM.dashboardExport]: 'Dashboard',
+  [PERM.syncRun]: 'Dashboard',
+  [PERM.calendarView]: 'Calendar',
+  [PERM.pricingView]: 'Pricing',
+  [PERM.pricingManage]: 'Pricing',
+  [PERM.settingsView]: 'Settings',
+  [PERM.settingsManage]: 'Settings',
+  [PERM.sourcesManage]: 'Settings',
+  [PERM.reporterView]: 'Reporter',
+  [PERM.reporterManage]: 'Reporter',
+  [PERM.notificationsView]: 'Notifications',
+  [PERM.notificationsManage]: 'Notifications',
+  [PERM.sharesView]: 'Shares',
+  [PERM.sharesManage]: 'Shares',
+  [PERM.usersView]: 'Administration',
+  [PERM.usersManage]: 'Administration',
+  [PERM.activityView]: 'Administration',
+};
+
+/** Access policy for open sign-up + default permissions (GET/PUT /api/access-policy). */
+export interface AccessPolicy {
+  openSignupEnabled: boolean;
+  defaultPermissions: string[];
+}
 
 export interface SyncStatus {
   lastSyncUtc: string | null;

@@ -1,0 +1,40 @@
+<div class="welcome">
+  <div class="hero glass">
+    <span class="micro-label hero-eyebrow">~/welcome — you're signed in</span>
+    <h2>Welcome, {{ displayName() }}.</h2>
+
+    @if (pages().length) {
+      <p class="sub">You have access to the following {{ pages().length === 1 ? 'page' : 'pages' }}. Need more?
+        Ask an administrator to grant additional permissions.</p>
+    } @else {
+      <p class="sub">Your account is set up, but you don't have access to any pages yet. An administrator
+        needs to grant you permissions before you can get started — please reach out to your team's admin.</p>
+    }
+
+    @if (pages().length) {
+      <nav class="cards" aria-label="Accessible pages">
+        @for (p of pages(); track p.path) {
+          <a class="card" [routerLink]="p.path">
+            <span class="card-icon"><mat-icon>{{ p.icon }}</mat-icon></span>
+            <span class="card-body">
+              <span class="card-label">{{ p.label }}</span>
+              <span class="card-blurb">{{ p.blurb }}</span>
+            </span>
+            <mat-icon class="card-chev">arrow_forward</mat-icon>
+          </a>
+        }
+      </nav>
+    } @else {
+      <div class="empty">
+        <mat-icon>hourglass_empty</mat-icon>
+        <span>Awaiting access</span>
+      </div>
+    }
+
+    <div class="actions">
+      <button mat-stroked-button class="signout" (click)="logout()">
+        <mat-icon>logout</mat-icon> Sign out
+      </button>
+    </div>
+  </div>
+</div>

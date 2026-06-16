@@ -13,13 +13,13 @@ public static class ShareEndpoints
 {
     public static void MapShareEndpoints(this WebApplication app)
     {
-        // ---- Management (authenticated; you can share what you can view) ----
-        var shares = app.MapGroup("/api/shares")
-            .RequireAuthorization().RequirePermission(Permissions.DashboardView);
+        // ---- Management (authenticated; gated by the shares.* permissions) ----
+        var shares = app.MapGroup("/api/shares").RequireAuthorization();
 
         shares.MapGet("/", async (UsageDbContext db, TokenProtector protector, CancellationToken ct) =>
             Results.Ok((await db.ShareLinks.AsNoTracking().OrderByDescending(s => s.Id).ToListAsync(ct))
-                .Select(s => ToDto(s, protector))));
+                .Select(s => ToDto(s, protector))))
+            .RequireAnyPermission(Permissions.SharesView, Permissions.SharesManage);
 
         shares.MapPost("/", async (CreateShareRequest req, UsageDbContext db, CurrentUserAccessor me, TokenProtector protector, CancellationToken ct) =>
         {
@@ -51,7 +51,7 @@ public static class ShareEndpoints
             {
                 Id = share.Id, Token = token, Path = $"/share/{token}", ExpiresUtc = share.ExpiresUtc, Label = share.Label,
             });
-        });
+        }).RequirePermission(Permissions.SharesManage);
 
         shares.MapPut("/{id:int}", async (int id, UpdateShareRequest req, UsageDbContext db, TokenProtector protector, CancellationToken ct) =>
         {
@@ -63,11 +63,12 @@ public static class ShareEndpoints
             s.Label = string.IsNullOrEmpty(lbl) ? null : (lbl.Length > 120 ? lbl[..120] : lbl);
             await db.SaveChangesAsync(ct);
             return Results.Ok(ToDto(s, protector));
-        });
+        }).RequirePermission(Permissions.SharesManage);
 
         shares.MapDelete("/{id:int}", async (int id, UsageDbContext db, CancellationToken ct) =>
             await db.ShareLinks.Where(s => s.Id == id).ExecuteDeleteAsync(ct) > 0
-                ? Results.NoContent() : Results.NotFound());
+                ? Results.NoContent() : Results.NotFound())
+            .RequirePermission(Permissions.SharesManage);
 
         // Per-view detail: who (IP) viewed a link and when (most recent first).
         shares.MapGet("/{id:int}/accesses", async (int id, UsageDbContext db, CancellationToken ct) =>
@@ -75,7 +76,8 @@ public static class ShareEndpoints
                 .Where(a => a.ShareLinkId == id)
                 .OrderByDescending(a => a.Id).Take(100)
                 .Select(a => new ShareAccessDto { WhenUtc = a.WhenUtc, Ip = a.Ip })
-                .ToListAsync(ct)));
+                .ToListAsync(ct)))
+            .RequireAnyPermission(Permissions.SharesView, Permissions.SharesManage);
 
         // ---- Public, anonymous, rate-limited read of a valid (non-expired) link ----
         app.MapGet("/api/share/{token}", async (string token, HttpContext http, UsageDbContext db, UsageQueries q, ILoggerFactory lf, CancellationToken ct) =>

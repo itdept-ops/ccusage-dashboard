@@ -19,4 +19,17 @@ public class AppConfig
 
     /// <summary>Cadence of the background sync, in seconds (min 30).</summary>
     public int AutoSyncIntervalSeconds { get; set; } = 300;
+
+    /// <summary>
+    /// When true, any Google account that passes token validation is auto-provisioned a user
+    /// (granted <see cref="DefaultPermissionsCsv"/>). When false, only pre-provisioned accounts
+    /// may sign in.
+    /// </summary>
+    public bool OpenSignupEnabled { get; set; } = true;
+
+    /// <summary>
+    /// CSV of permission keys granted to auto-provisioned users. Validated against the catalog
+    /// on use; empty means new accounts land on /welcome with no access (an approval queue).
+    /// </summary>
+    public string DefaultPermissionsCsv { get; set; } = "dashboard.view";
 }

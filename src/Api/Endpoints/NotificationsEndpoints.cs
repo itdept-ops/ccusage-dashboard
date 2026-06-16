@@ -11,14 +11,14 @@ public static class NotificationsEndpoints
 {
     public static void MapNotificationsEndpoints(this WebApplication app)
     {
-        // Manage the Discord integration. Gated by settings.manage; the webhook URL is a secret,
+        // Manage the Discord integration. Gated by notifications.*; the webhook URL is a secret,
         // so it is never returned in full (masked on read) and its PUT body is redacted in the action log.
-        var g = app.MapGroup("/api/notifications")
-            .RequireAuthorization().RequirePermission(Permissions.SettingsManage);
+        var g = app.MapGroup("/api/notifications").RequireAuthorization();
 
         g.MapGet("/", async (UsageDbContext db, CancellationToken ct) =>
             Results.Ok(ToDto(await db.NotificationSettings.AsNoTracking().FirstOrDefaultAsync(ct)
-                              ?? new NotificationSetting { Id = 1 })));
+                              ?? new NotificationSetting { Id = 1 })))
+            .RequireAnyPermission(Permissions.NotificationsView, Permissions.NotificationsManage);
 
         g.MapPut("/", async (NotificationUpdateRequest req, UsageDbContext db, CancellationToken ct) =>
         {
@@ -50,7 +50,7 @@ public static class NotificationsEndpoints
 
             await db.SaveChangesAsync(ct);
             return Results.Ok(ToDto(s));
-        });
+        }).RequirePermission(Permissions.NotificationsManage);
 
         g.MapPost("/test", async (UsageDbContext db, DiscordNotifier notifier, CancellationToken ct) =>
         {
@@ -62,7 +62,7 @@ public static class NotificationsEndpoints
                 ? Results.Ok(new { message = "Test message sent to Discord." })
                 : Results.Json(new { message = "Discord rejected the message — double-check the webhook URL." },
                     statusCode: StatusCodes.Status502BadGateway);
-        }).RequireRateLimiting("notif-test");
+        }).RequirePermission(Permissions.NotificationsManage).RequireRateLimiting("notif-test");
 
         // Post a current-usage snapshot (today / 7d / month / all-time) to Discord on demand.
         g.MapPost("/snapshot", async (UsageDbContext db, DiscordNotifier notifier, CancellationToken ct) =>
@@ -79,7 +79,7 @@ public static class NotificationsEndpoints
                 ? Results.Ok(new { message = "Usage snapshot sent to Discord." })
                 : Results.Json(new { message = "Discord rejected the message — double-check the webhook URL." },
                     statusCode: StatusCodes.Status502BadGateway);
-        }).RequireRateLimiting("notif-test");
+        }).RequirePermission(Permissions.NotificationsManage).RequireRateLimiting("notif-test");
     }
 
     private static NotificationSettingDto ToDto(NotificationSetting s) => new()

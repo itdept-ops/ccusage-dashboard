@@ -13,8 +13,8 @@ public static class UsersEndpoints
     {
         // The permission catalog (for the admin UI).
         app.MapGet("/api/permissions", () => Results.Ok(Permissions.Catalog
-                .Select(p => new PermissionItemDto { Key = p.Key, Label = p.Label, Description = p.Description })))
-            .RequireAuthorization().RequirePermission(Permissions.UsersManage);
+                .Select(p => new PermissionItemDto { Key = p.Key, Group = p.Group, Label = p.Label, Description = p.Description })))
+            .RequireAuthorization().RequireAnyPermission(Permissions.UsersView, Permissions.UsersManage);
 
         // Recent audit entries (who changed what).
         app.MapGet("/api/audit", async (UsageDbContext db, CancellationToken ct) =>
@@ -25,15 +25,42 @@ public static class UsersEndpoints
                         Id = a.Id, WhenUtc = a.WhenUtc, ActorEmail = a.ActorEmail,
                         Action = a.Action, TargetEmail = a.TargetEmail, Detail = a.Detail,
                     }).ToListAsync(ct)))
-            .RequireAuthorization().RequirePermission(Permissions.UsersManage);
+            .RequireAuthorization().RequireAnyPermission(Permissions.UsersView, Permissions.UsersManage);
 
-        var users = app.MapGroup("/api/users")
-            .RequireAuthorization()
-            .RequirePermission(Permissions.UsersManage);
+        // Access policy: open sign-up toggle + the default permissions for auto-provisioned users.
+        app.MapGet("/api/access-policy", async (UsageDbContext db, CancellationToken ct) =>
+        {
+            var cfg = await db.AppConfigs.AsNoTracking().FirstAsync(ct);
+            return Results.Ok(new AccessPolicyDto
+            {
+                OpenSignupEnabled = cfg.OpenSignupEnabled,
+                DefaultPermissions = (cfg.DefaultPermissionsCsv ?? "")
+                    .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                    .Where(Permissions.IsDefaultable).Distinct().ToArray(),
+            });
+        }).RequireAuthorization().RequireAnyPermission(Permissions.UsersView, Permissions.UsersManage);
+
+        app.MapPut("/api/access-policy", async (AccessPolicyDto req, UsageDbContext db, AuditLogger audit, CancellationToken ct) =>
+        {
+            // Defaults are filtered to "defaultable" keys: users.manage is never persistable as a default,
+            // so open sign-up can't be configured to auto-grant admin to every new account.
+            var perms = (req.DefaultPermissions ?? Array.Empty<string>())
+                .Where(Permissions.IsDefaultable).Distinct().ToArray();
+            var cfg = await db.AppConfigs.FirstAsync(ct);
+            cfg.OpenSignupEnabled = req.OpenSignupEnabled;
+            cfg.DefaultPermissionsCsv = string.Join(",", perms);
+            await db.SaveChangesAsync(ct);
+            await audit.LogAsync("accesspolicy.updated", null,
+                $"openSignup={cfg.OpenSignupEnabled}; defaults=[{string.Join(", ", perms)}]", ct);
+            return Results.Ok(new AccessPolicyDto { OpenSignupEnabled = cfg.OpenSignupEnabled, DefaultPermissions = perms });
+        }).RequireAuthorization().RequirePermission(Permissions.UsersManage);
+
+        var users = app.MapGroup("/api/users").RequireAuthorization();
 
         users.MapGet("/", async (UsageDbContext db, CancellationToken ct) =>
             Results.Ok((await db.Users.AsNoTracking().Include(u => u.Permissions)
-                .OrderBy(u => u.Email).ToListAsync(ct)).Select(ToDto)));
+                .OrderBy(u => u.Email).ToListAsync(ct)).Select(ToDto)))
+            .RequireAnyPermission(Permissions.UsersView, Permissions.UsersManage);
 
         users.MapPost("/", async (UserUpsertRequest req, UsageDbContext db, AuditLogger audit, CancellationToken ct) =>
         {
@@ -56,7 +83,7 @@ public static class UsersEndpoints
             await audit.LogAsync("user.created", email,
                 $"enabled={user.IsEnabled}; permissions=[{string.Join(", ", user.Permissions.Select(p => p.Permission))}]", ct);
             return Results.Created($"/api/users/{user.Id}", ToDto(user));
-        });
+        }).RequirePermission(Permissions.UsersManage);
 
         users.MapPut("/{id:int}", async (int id, UserUpsertRequest req, UsageDbContext db, AuditLogger audit, CancellationToken ct) =>
         {
@@ -87,7 +114,7 @@ public static class UsersEndpoints
                     $"enabled={user.IsEnabled}; permissions=[{string.Join(", ", user.Permissions.Select(p => p.Permission))}]", ct);
                 return Results.Ok(ToDto(user));
             });
-        });
+        }).RequirePermission(Permissions.UsersManage);
 
         users.MapDelete("/{id:int}", async (int id, UsageDbContext db, AuditLogger audit, CancellationToken ct) =>
         {
@@ -109,7 +136,7 @@ public static class UsersEndpoints
                 await audit.LogAsync("user.deleted", removedEmail, null, ct);
                 return Results.NoContent();
             });
-        });
+        }).RequirePermission(Permissions.UsersManage);
     }
 
     private static string[] ValidPermissions(string[]? requested) =>

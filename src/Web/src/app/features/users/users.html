@@ -22,9 +22,16 @@
     <mat-slide-toggle [ngModel]="newEnabled()" (ngModelChange)="newEnabled.set($event)">Enabled</mat-slide-toggle>
 
     <div class="add-perms">
-      @for (p of perms(); track p.key) {
-        <mat-checkbox [checked]="newHasPerm(p.key)" (change)="toggleNewPerm(p.key, $event.checked)"
-                      [matTooltip]="p.description">{{ p.label }}</mat-checkbox>
+      @for (g of groups(); track g.name) {
+        <div class="add-perm-group">
+          <span class="add-perm-group-name micro-label">{{ g.name }}</span>
+          <div class="add-perm-group-items">
+            @for (p of g.perms; track p.key) {
+              <mat-checkbox [checked]="newHasPerm(p.key)" (change)="toggleNewPerm(p.key, $event.checked)"
+                            [matTooltip]="p.description">{{ p.label }}</mat-checkbox>
+            }
+          </div>
+        </div>
       }
     </div>
 
@@ -40,13 +47,20 @@
   <div class="table-scroll">
     <table class="perm-table">
       <thead>
-        <tr>
-          <th class="col-user">User</th>
-          <th class="col-enabled">Enabled</th>
-          @for (p of perms(); track p.key) {
-            <th class="col-perm" [matTooltip]="p.description">{{ p.label }}</th>
+        <tr class="group-row">
+          <th class="col-user" rowspan="2">User</th>
+          <th class="col-enabled" rowspan="2">Enabled</th>
+          @for (g of groups(); track g.name) {
+            <th class="col-group" [attr.colspan]="g.perms.length">{{ g.name }}</th>
           }
-          <th class="col-actions"></th>
+          <th class="col-actions" rowspan="2"></th>
+        </tr>
+        <tr class="perm-row">
+          @for (g of groups(); track g.name) {
+            @for (p of g.perms; track p.key) {
+              <th class="col-perm" [class.group-start]="$first" [matTooltip]="p.description">{{ p.label }}</th>
+            }
+          }
         </tr>
       </thead>
       <tbody>
@@ -69,10 +83,12 @@
             <td class="col-enabled">
               <mat-slide-toggle [ngModel]="u.isEnabled" (ngModelChange)="u.isEnabled = $event"></mat-slide-toggle>
             </td>
-            @for (p of perms(); track p.key) {
-              <td class="col-perm">
-                <mat-checkbox [checked]="hasPerm(u, p.key)" (change)="togglePerm(u, p.key, $event.checked)"></mat-checkbox>
-              </td>
+            @for (g of groups(); track g.name) {
+              @for (p of g.perms; track p.key) {
+                <td class="col-perm" [class.group-start]="$first">
+                  <mat-checkbox [checked]="hasPerm(u, p.key)" (change)="togglePerm(u, p.key, $event.checked)"></mat-checkbox>
+                </td>
+              }
             }
             <td class="col-actions">
               <button mat-stroked-button class="save-btn" [disabled]="savingId() === u.id" (click)="save(u)">
@@ -88,6 +104,51 @@
     </table>
   </div>
 </mat-card>
+
+<!-- Access policy (open sign-up + default permissions) -->
+@if (canManage() && policy(); as pol) {
+  <mat-card appearance="outlined" class="panel policy-card">
+    <div class="panel-header">Access policy</div>
+    <p class="policy-sub">Control how new people get in. When open sign-up is on, anyone who signs in with Google
+      is auto-provisioned with the default permissions below. Turn it off to require an admin to add users by hand.</p>
+
+    <div class="policy-toggle">
+      <mat-slide-toggle [ngModel]="pol.openSignupEnabled" (ngModelChange)="setOpenSignup($event)">
+        Open sign-up
+      </mat-slide-toggle>
+      <span class="policy-toggle-state" [class.on]="pol.openSignupEnabled">
+        {{ pol.openSignupEnabled ? 'New Google accounts are auto-provisioned' : 'New accounts must be added by an admin' }}
+      </span>
+    </div>
+
+    <div class="policy-defaults">
+      <span class="policy-defaults-label micro-label">Default permissions for new users</span>
+      @if (!policyPerms().size) {
+        <span class="policy-empty-hint">None selected — new users land on the welcome page with no access (approval queue).</span>
+      }
+      <div class="policy-perms">
+        @for (g of policyGroups(); track g.name) {
+          <div class="add-perm-group">
+            <span class="add-perm-group-name micro-label">{{ g.name }}</span>
+            <div class="add-perm-group-items">
+              @for (p of g.perms; track p.key) {
+                <mat-checkbox [checked]="policyHasPerm(p.key)" (change)="togglePolicyPerm(p.key, $event.checked)"
+                              [matTooltip]="p.description">{{ p.label }}</mat-checkbox>
+              }
+            </div>
+          </div>
+        }
+      </div>
+      <span class="policy-defaults-note micro-label">Admin (Manage users) can't be a default — grant it per user above.</span>
+    </div>
+
+    <div class="policy-actions">
+      <button mat-flat-button color="primary" class="policy-save" [disabled]="savingPolicy()" (click)="savePolicy()">
+        <mat-icon>save</mat-icon> {{ savingPolicy() ? 'Saving…' : 'Save policy' }}
+      </button>
+    </div>
+  </mat-card>
+}
 
 <!-- Audit log -->
 @if (audit().length) {

@@ -1,6 +1,6 @@
 @if (!bareLayout()) {
 <mat-toolbar class="topbar glass">
-  <a class="brand" routerLink="/" aria-label="Usage IQ home">
+  <a class="brand" [routerLink]="auth.homeRoute()" aria-label="Usage IQ home">
     <svg class="brand__logo" width="24" height="24" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
       <defs>
         <linearGradient id="uiq-logo-grad" x1="3" y1="29" x2="29" y2="3" gradientUnits="userSpaceOnUse">
@@ -20,16 +20,26 @@
 
   @if (auth.isAuthenticated()) {
     <nav class="nav" aria-label="Primary">
-      <a mat-button class="nav__item" routerLink="/" routerLinkActive="active"
-         [routerLinkActiveOptions]="{ exact: true }">Dashboard</a>
-      <a mat-button class="nav__item" routerLink="/calendar" routerLinkActive="active">Calendar</a>
-      <a mat-button class="nav__item" routerLink="/pricing" routerLinkActive="active">Pricing</a>
-      <a mat-button class="nav__item" routerLink="/settings" routerLinkActive="active">Settings</a>
-      @if (auth.hasPermission('settings.manage')) {
+      @if (auth.hasPermission('dashboard.view')) {
+        <a mat-button class="nav__item" routerLink="/" routerLinkActive="active"
+           [routerLinkActiveOptions]="{ exact: true }">Dashboard</a>
+      }
+      @if (auth.hasPermission('calendar.view')) {
+        <a mat-button class="nav__item" routerLink="/calendar" routerLinkActive="active">Calendar</a>
+      }
+      @if (auth.hasPermission('pricing.view')) {
+        <a mat-button class="nav__item" routerLink="/pricing" routerLinkActive="active">Pricing</a>
+      }
+      @if (auth.hasPermission('settings.view')) {
+        <a mat-button class="nav__item" routerLink="/settings" routerLinkActive="active">Settings</a>
+      }
+      @if (auth.hasPermission('reporter.view')) {
         <a mat-button class="nav__item" routerLink="/reporter" routerLinkActive="active">Reporter</a>
       }
-      @if (auth.hasPermission('users.manage')) {
+      @if (auth.hasPermission('users.view')) {
         <a mat-button class="nav__item" routerLink="/users" routerLinkActive="active">Users</a>
+      }
+      @if (auth.hasPermission('activity.view')) {
         <a mat-button class="nav__item" routerLink="/activity" routerLinkActive="active">Activity</a>
       }
     </nav>

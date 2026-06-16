@@ -77,7 +77,7 @@ export class Login {
   }
 
   private returnUrl(): string {
-    return this.route.snapshot.queryParamMap.get('returnUrl') || '/';
+    return this.route.snapshot.queryParamMap.get('returnUrl') || this.auth.homeRoute();
   }
 
   scrollTop(ev: Event): void {
@@ -99,10 +99,11 @@ export class Login {
         callback: (resp: { credential: string }) => this.zone.run(() => this.handleCredential(resp.credential)),
         auto_select: false,
         cancel_on_tap_outside: false,
+        // FedCM is required for One Tap in current Chrome; without it prompt() is a no-op.
+        use_fedcm_for_prompt: true,
       });
 
-      // filled_black is Google's official dark button — it matches the dark theme (no clashing white
-      // card) and still personalizes to "Continue as <name>" for returning users.
+      // Inline dark button (matches the theme) for users who want to click explicitly.
       google.accounts.id.renderButton(this.btn().nativeElement, {
         theme: 'filled_black',
         size: 'large',
@@ -112,8 +113,10 @@ export class Login {
         width: 280,
       });
 
-      // No One Tap prompt() — its "Continue as" card is a cross-origin Google iframe with a white
-      // background we can't recolor; the dark button above gives the same one-click sign-in.
+      // Top-right One Tap "Continue as <name>" card for returning users. Its white logo/avatar
+      // backing is Google's own branding inside a cross-origin iframe and cannot be recolored —
+      // this is the official surface, shown by explicit request.
+      google.accounts.id.prompt();
     } catch {
       this.error.set('Could not load Google sign-in. Check your connection and try again.');
     }

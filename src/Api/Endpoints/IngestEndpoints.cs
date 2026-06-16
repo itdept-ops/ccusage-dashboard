@@ -29,9 +29,8 @@ public static class IngestEndpoints
         .AddEndpointFilter(new IngestKeyFilter())
         .RequireRateLimiting("ingest");
 
-        // ---- Ingest key management (admins) ----
-        var keys = app.MapGroup("/api/ingest-keys")
-            .RequireAuthorization().RequirePermission(Permissions.SettingsManage);
+        // ---- Ingest key management (reporter.*) ----
+        var keys = app.MapGroup("/api/ingest-keys").RequireAuthorization();
 
         keys.MapGet("/", async (UsageDbContext db, CancellationToken ct) =>
             Results.Ok(await db.IngestKeys.AsNoTracking().OrderByDescending(k => k.Id)
@@ -41,7 +40,8 @@ public static class IngestEndpoints
                     CreatedUtc = k.CreatedUtc, CreatedByEmail = k.CreatedByEmail,
                     LastUsedUtc = k.LastUsedUtc, LastUsedIp = k.LastUsedIp,
                     Revoked = k.RevokedUtc != null,
-                }).ToListAsync(ct)));
+                }).ToListAsync(ct)))
+            .RequireAnyPermission(Permissions.ReporterView, Permissions.ReporterManage);
 
         keys.MapPost("/", async (CreateIngestKeyRequest req, UsageDbContext db, CurrentUserAccessor me, AuditLogger audit, CancellationToken ct) =>
         {
@@ -64,7 +64,7 @@ public static class IngestEndpoints
 
             // The raw key is returned exactly once — only its hash is stored.
             return Results.Ok(new IngestKeyCreatedDto { Id = key.Id, Name = key.Name, Prefix = key.Prefix, Key = raw });
-        });
+        }).RequirePermission(Permissions.ReporterManage);
 
         keys.MapDelete("/{id:int}", async (int id, UsageDbContext db, AuditLogger audit, CancellationToken ct) =>
         {
@@ -77,7 +77,7 @@ public static class IngestEndpoints
                 await audit.LogAsync("ingestkey.revoke", null, $"{key.Name} ({key.Prefix})", ct);
             }
             return Results.NoContent();
-        });
+        }).RequirePermission(Permissions.ReporterManage);
     }
 
     // uiq_<43 base64url chars of 32 random bytes> — recognizable prefix, 256 bits of entropy.

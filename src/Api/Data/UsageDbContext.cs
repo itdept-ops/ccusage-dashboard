@@ -86,6 +86,8 @@ public class UsageDbContext(DbContextOptions<UsageDbContext> options) : DbContex
             e.Property(x => x.ClaudeProjectsPath).HasMaxLength(1024);
             e.Property(x => x.AutoSyncEnabled).HasDefaultValue(true);
             e.Property(x => x.AutoSyncIntervalSeconds).HasDefaultValue(300);
+            e.Property(x => x.OpenSignupEnabled).HasDefaultValue(true);
+            e.Property(x => x.DefaultPermissionsCsv).HasMaxLength(1024).HasDefaultValue("dashboard.view");
         });
 
         b.Entity<IngestionSource>(e =>

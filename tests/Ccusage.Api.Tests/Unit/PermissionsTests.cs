@@ -5,12 +5,38 @@ namespace Ccusage.Api.Tests.Unit;
 
 public class PermissionsTests
 {
+    // The full catalog of 18 keys.
+    private static readonly string[] AllKeys =
+    {
+        "dashboard.view", "dashboard.export", "sync.run",
+        "calendar.view",
+        "pricing.view", "pricing.manage",
+        "settings.view", "settings.manage", "sources.manage",
+        "reporter.view", "reporter.manage",
+        "notifications.view", "notifications.manage",
+        "shares.view", "shares.manage",
+        "users.view", "users.manage", "activity.view",
+    };
+
     [Theory]
     [InlineData("dashboard.view")]
+    [InlineData("dashboard.export")]
     [InlineData("sync.run")]
+    [InlineData("calendar.view")]
+    [InlineData("pricing.view")]
     [InlineData("pricing.manage")]
+    [InlineData("settings.view")]
     [InlineData("settings.manage")]
+    [InlineData("sources.manage")]
+    [InlineData("reporter.view")]
+    [InlineData("reporter.manage")]
+    [InlineData("notifications.view")]
+    [InlineData("notifications.manage")]
+    [InlineData("shares.view")]
+    [InlineData("shares.manage")]
+    [InlineData("users.view")]
     [InlineData("users.manage")]
+    [InlineData("activity.view")]
     public void IsValid_is_true_for_each_known_key(string key)
     {
         Permissions.IsValid(key).Should().BeTrue();
@@ -30,24 +56,30 @@ public class PermissionsTests
     public void Constants_match_their_canonical_key_strings()
     {
         Permissions.DashboardView.Should().Be("dashboard.view");
+        Permissions.DashboardExport.Should().Be("dashboard.export");
         Permissions.SyncRun.Should().Be("sync.run");
+        Permissions.CalendarView.Should().Be("calendar.view");
+        Permissions.PricingView.Should().Be("pricing.view");
         Permissions.PricingManage.Should().Be("pricing.manage");
+        Permissions.SettingsView.Should().Be("settings.view");
         Permissions.SettingsManage.Should().Be("settings.manage");
+        Permissions.SourcesManage.Should().Be("sources.manage");
+        Permissions.ReporterView.Should().Be("reporter.view");
+        Permissions.ReporterManage.Should().Be("reporter.manage");
+        Permissions.NotificationsView.Should().Be("notifications.view");
+        Permissions.NotificationsManage.Should().Be("notifications.manage");
+        Permissions.SharesView.Should().Be("shares.view");
+        Permissions.SharesManage.Should().Be("shares.manage");
+        Permissions.UsersView.Should().Be("users.view");
         Permissions.UsersManage.Should().Be("users.manage");
+        Permissions.ActivityView.Should().Be("activity.view");
     }
 
     [Fact]
-    public void All_contains_exactly_the_five_known_keys()
+    public void All_contains_exactly_the_eighteen_known_keys()
     {
-        Permissions.All.Should().HaveCount(5);
-        Permissions.All.Should().Contain(new[]
-        {
-            "dashboard.view",
-            "sync.run",
-            "pricing.manage",
-            "settings.manage",
-            "users.manage",
-        });
+        Permissions.All.Should().HaveCount(18);
+        Permissions.All.Should().BeEquivalentTo(AllKeys);
     }
 
     [Fact]
@@ -57,9 +89,9 @@ public class PermissionsTests
     }
 
     [Fact]
-    public void Catalog_has_five_entries()
+    public void Catalog_has_eighteen_entries()
     {
-        Permissions.Catalog.Should().HaveCount(5);
+        Permissions.Catalog.Should().HaveCount(18);
     }
 
     [Fact]
@@ -78,12 +110,24 @@ public class PermissionsTests
     }
 
     [Fact]
-    public void Every_catalog_entry_has_non_empty_label_and_description()
+    public void Every_catalog_entry_has_non_empty_group_label_and_description()
     {
         foreach (var info in Permissions.Catalog)
         {
+            info.Group.Should().NotBeNullOrWhiteSpace();
             info.Label.Should().NotBeNullOrWhiteSpace();
             info.Description.Should().NotBeNullOrWhiteSpace();
         }
+    }
+
+    [Fact]
+    public void Views_are_exactly_the_nine_view_keys_and_all_valid()
+    {
+        Permissions.Views.Should().HaveCount(9);
+        Permissions.Views.Should().OnlyContain(k => k.EndsWith(".view"));
+        Permissions.Views.Should().OnlyContain(k => Permissions.IsValid(k));
+        // Every *.view key in the catalog is represented in Views.
+        var catalogViews = Permissions.All.Where(k => k.EndsWith(".view"));
+        Permissions.Views.Should().BeEquivalentTo(catalogViews);
     }
 }

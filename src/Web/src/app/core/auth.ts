@@ -1,7 +1,7 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { Observable, tap } from 'rxjs';
-import { AuthSession } from './models';
+import { AuthSession, PERM } from './models';
 
 const STORAGE_KEY = 'usage_iq_session';
 
@@ -20,6 +20,27 @@ export class AuthService {
   /** True if the (non-expired) session grants the given permission. */
   hasPermission(key: string): boolean {
     return this.isAuthenticated() && (this._session()?.permissions?.includes(key) ?? false);
+  }
+
+  /**
+   * The first page route the user can actually view, in nav order. Used as the post-login
+   * landing target and the "home" of the app. Falls back to '/welcome' for a user with no
+   * page-view permissions (e.g. a freshly auto-provisioned account awaiting approval).
+   */
+  homeRoute(): string {
+    const order: [string, string][] = [
+      [PERM.dashboardView, '/'],
+      [PERM.calendarView, '/calendar'],
+      [PERM.pricingView, '/pricing'],
+      [PERM.settingsView, '/settings'],
+      [PERM.reporterView, '/reporter'],
+      [PERM.usersView, '/users'],
+      [PERM.activityView, '/activity'],
+    ];
+    for (const [perm, route] of order) {
+      if (this.hasPermission(perm)) return route;
+    }
+    return '/welcome';
   }
 
   /** Live identity + permissions from the server (403 when the account is disabled/removed). */

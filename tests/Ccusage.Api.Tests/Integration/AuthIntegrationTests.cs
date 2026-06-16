@@ -64,6 +64,136 @@ public class AuthIntegrationTests(WebAppFactory factory)
         (await viewer.PostAsync("/api/sync", null)).StatusCode.Should().Be(HttpStatusCode.Forbidden);
     }
 
+    /// <summary>Provisions a user with an exact permission set and returns a client for them.</summary>
+    private async Task<HttpClient> ProvisionUser(params string[] permissions)
+    {
+        var email = $"u-{Guid.NewGuid():N}@test.local";
+        var res = await Client(WebAppFactory.AdminEmail).PostAsJsonAsync("/api/users",
+            new { email, isEnabled = true, permissions });
+        res.StatusCode.Should().Be(HttpStatusCode.Created);
+        return Client(email);
+    }
+
+    [Fact]
+    public async Task Dashboard_view_does_not_grant_calendar_or_export()
+    {
+        // The dashboard split: dashboard.view no longer covers calendar or CSV export.
+        var c = await ProvisionUser("dashboard.view");
+        (await c.GetAsync(Summary)).StatusCode.Should().Be(HttpStatusCode.OK);
+        (await c.GetAsync("/api/usage/calendar")).StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        (await c.GetAsync("/api/usage/heatmap")).StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        (await c.GetAsync("/api/usage/records.csv")).StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
+
+    [Fact]
+    public async Task Export_permission_unlocks_csv_only()
+    {
+        var c = await ProvisionUser("dashboard.export");
+        (await c.GetAsync("/api/usage/records.csv")).StatusCode.Should().Be(HttpStatusCode.OK);
+        // export alone does not grant the summary (gated by dashboard.view).
+        (await c.GetAsync(Summary)).StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
+
+    [Fact]
+    public async Task Calendar_view_unlocks_the_calendar_endpoints()
+    {
+        var c = await ProvisionUser("calendar.view");
+        (await c.GetAsync("/api/usage/calendar")).StatusCode.Should().Be(HttpStatusCode.OK);
+        (await c.GetAsync("/api/usage/stats")).StatusCode.Should().Be(HttpStatusCode.OK);
+        (await c.GetAsync(Summary)).StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
+
+    [Fact]
+    public async Task Any_of_lets_either_dashboard_or_calendar_view_reach_projects()
+    {
+        // GET /api/projects accepts ANY(dashboard.view, calendar.view).
+        var dash = await ProvisionUser("dashboard.view");
+        (await dash.GetAsync("/api/projects")).StatusCode.Should().Be(HttpStatusCode.OK);
+        (await dash.GetAsync("/api/models")).StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var cal = await ProvisionUser("calendar.view");
+        (await cal.GetAsync("/api/projects")).StatusCode.Should().Be(HttpStatusCode.OK);
+        (await cal.GetAsync("/api/models")).StatusCode.Should().Be(HttpStatusCode.OK);
+
+        // Someone with neither view is denied.
+        var neither = await ProvisionUser("sync.run");
+        (await neither.GetAsync("/api/projects")).StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
+
+    [Fact]
+    public async Task Sync_status_and_settings_are_reachable_by_any_page_viewer()
+    {
+        // GET /api/sync/status and GET /api/settings accept ANY(Permissions.Views).
+        // An activity-only viewer holds a *.view key but none of the data perms.
+        var c = await ProvisionUser("activity.view");
+        (await c.GetAsync("/api/sync/status")).StatusCode.Should().Be(HttpStatusCode.OK);
+        (await c.GetAsync("/api/settings")).StatusCode.Should().Be(HttpStatusCode.OK);
+        // ...but cannot read the dashboard summary.
+        (await c.GetAsync(Summary)).StatusCode.Should().Be(HttpStatusCode.Forbidden);
+
+        // A user with NO view permission at all is denied even sync/status.
+        var noView = await ProvisionUser("sync.run");
+        (await noView.GetAsync("/api/sync/status")).StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
+
+    [Fact]
+    public async Task Notifications_view_reads_but_cannot_manage()
+    {
+        var c = await ProvisionUser("notifications.view");
+        (await c.GetAsync("/api/notifications")).StatusCode.Should().Be(HttpStatusCode.OK);
+        var put = await c.PutAsJsonAsync("/api/notifications", NotifBody(null));
+        put.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
+
+    [Fact]
+    public async Task Pricing_view_reads_but_cannot_manage()
+    {
+        var c = await ProvisionUser("pricing.view");
+        (await c.GetAsync("/api/pricing")).StatusCode.Should().Be(HttpStatusCode.OK);
+        (await c.PostAsync("/api/pricing/recompute", null)).StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
+
+    [Fact]
+    public async Task Sources_view_reads_but_cannot_manage_and_reporter_split_holds()
+    {
+        // settings.view can read /api/sources (any-of) but not edit them (sources.manage).
+        var settingsViewer = await ProvisionUser("settings.view");
+        (await settingsViewer.GetAsync("/api/sources")).StatusCode.Should().Be(HttpStatusCode.OK);
+
+        // reporter.view reads ingest keys but cannot create/revoke them.
+        var reporterViewer = await ProvisionUser("reporter.view");
+        (await reporterViewer.GetAsync("/api/ingest-keys")).StatusCode.Should().Be(HttpStatusCode.OK);
+        (await reporterViewer.PostAsJsonAsync("/api/ingest-keys", new { name = "x" }))
+            .StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
+
+    [Fact]
+    public async Task Shares_view_lists_but_cannot_create_and_activity_gates_logs()
+    {
+        var sharesViewer = await ProvisionUser("shares.view");
+        (await sharesViewer.GetAsync("/api/shares")).StatusCode.Should().Be(HttpStatusCode.OK);
+        (await sharesViewer.PostAsJsonAsync("/api/shares", ShareReq())).StatusCode.Should().Be(HttpStatusCode.Forbidden);
+
+        // /api/logs is now gated by activity.view (not users.manage).
+        var activityViewer = await ProvisionUser("activity.view");
+        (await activityViewer.GetAsync("/api/logs")).StatusCode.Should().Be(HttpStatusCode.OK);
+        var noActivity = await ProvisionUser("users.view");
+        (await noActivity.GetAsync("/api/logs")).StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
+
+    [Fact]
+    public async Task Users_view_reads_list_and_audit_but_cannot_mutate()
+    {
+        var c = await ProvisionUser("users.view");
+        (await c.GetAsync("/api/users")).StatusCode.Should().Be(HttpStatusCode.OK);
+        (await c.GetAsync("/api/audit")).StatusCode.Should().Be(HttpStatusCode.OK);
+        (await c.GetAsync("/api/permissions")).StatusCode.Should().Be(HttpStatusCode.OK);
+        // ...but cannot create users.
+        (await c.PostAsJsonAsync("/api/users",
+            new { email = "blocked@test.local", isEnabled = true, permissions = new[] { "dashboard.view" } }))
+            .StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
+
     [Fact]
     public async Task Disabling_a_user_revokes_access_on_the_next_request()
     {
@@ -147,10 +277,157 @@ public class AuthIntegrationTests(WebAppFactory factory)
     public async Task Google_login_with_an_invalid_token_is_unauthorized()
         => (await GoogleLogin("invalid")).StatusCode.Should().Be(HttpStatusCode.Unauthorized);
 
+    /// <summary>Sets the global access policy (open sign-up + default permissions) as the admin.</summary>
+    private async Task SetAccessPolicy(bool openSignup, params string[] defaults)
+    {
+        var res = await Client(WebAppFactory.AdminEmail).PutAsJsonAsync("/api/access-policy",
+            new { openSignupEnabled = openSignup, defaultPermissions = defaults });
+        res.StatusCode.Should().Be(HttpStatusCode.OK);
+    }
+
     [Fact]
-    public async Task Google_login_for_an_unprovisioned_email_is_forbidden()
-        => (await GoogleLogin($"ghost-{Guid.NewGuid():N}@test.local|sub-x"))
+    public async Task Google_login_for_an_unprovisioned_email_is_forbidden_when_open_signup_is_off()
+    {
+        await SetAccessPolicy(openSignup: false, "dashboard.view");
+        try
+        {
+            (await GoogleLogin($"ghost-{Guid.NewGuid():N}@test.local|sub-x"))
+                .StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        }
+        finally
+        {
+            await SetAccessPolicy(openSignup: true, "dashboard.view"); // restore default
+        }
+    }
+
+    [Fact]
+    public async Task Open_signup_auto_provisions_an_unknown_account_with_default_permissions()
+    {
+        await SetAccessPolicy(openSignup: true, "dashboard.view", "calendar.view");
+        try
+        {
+            var sub = $"sub-{Guid.NewGuid():N}";
+            var email = $"newbie-{Guid.NewGuid():N}@test.local";
+
+            // First Google login creates the account and issues a token with the default perms.
+            var res = await GoogleLogin($"{email}|{sub}");
+            res.StatusCode.Should().Be(HttpStatusCode.OK);
+            var auth = await res.Content.ReadFromJsonAsync<JsonElement>();
+            var perms = auth.GetProperty("permissions").EnumerateArray().Select(e => e.GetString()).ToList();
+            perms.Should().BeEquivalentTo(new[] { "dashboard.view", "calendar.view" });
+
+            // The new user can now reach an endpoint they were granted, and is denied one they weren't.
+            var newbie = Client(email);
+            (await newbie.GetAsync("/api/usage/calendar")).StatusCode.Should().Be(HttpStatusCode.OK);
+            (await newbie.GetAsync("/api/users")).StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        }
+        finally
+        {
+            await SetAccessPolicy(openSignup: true, "dashboard.view"); // restore default
+        }
+    }
+
+    [Fact]
+    public async Task Empty_default_permissions_provisions_a_zero_permission_user()
+    {
+        await SetAccessPolicy(openSignup: true); // no defaults -> approval-queue mode
+        try
+        {
+            var email = $"approval-{Guid.NewGuid():N}@test.local";
+            var res = await GoogleLogin($"{email}|sub-{Guid.NewGuid():N}");
+            res.StatusCode.Should().Be(HttpStatusCode.OK);
+            var auth = await res.Content.ReadFromJsonAsync<JsonElement>();
+            auth.GetProperty("permissions").GetArrayLength().Should().Be(0);
+
+            // Authenticated but has no access to any gated endpoint.
+            (await Client(email).GetAsync(Summary)).StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        }
+        finally
+        {
+            await SetAccessPolicy(openSignup: true, "dashboard.view");
+        }
+    }
+
+    [Fact]
+    public async Task Auto_provisioned_account_is_pinned_to_its_google_subject()
+    {
+        await SetAccessPolicy(openSignup: true, "dashboard.view");
+        try
+        {
+            var email = $"pin-{Guid.NewGuid():N}@test.local";
+            var subA = $"sub-{Guid.NewGuid():N}";
+            var subB = $"sub-{Guid.NewGuid():N}";
+
+            // First login auto-provisions and binds subA.
+            (await GoogleLogin($"{email}|{subA}")).StatusCode.Should().Be(HttpStatusCode.OK);
+            // Same subject logs in fine.
+            (await GoogleLogin($"{email}|{subA}")).StatusCode.Should().Be(HttpStatusCode.OK);
+            // A different Google account for the same (now-bound) email is rejected.
+            (await GoogleLogin($"{email}|{subB}")).StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        }
+        finally
+        {
+            await SetAccessPolicy(openSignup: true, "dashboard.view");
+        }
+    }
+
+    [Fact]
+    public async Task Auto_provisioned_account_is_audited()
+    {
+        await SetAccessPolicy(openSignup: true, "dashboard.view");
+        try
+        {
+            var admin = Client(WebAppFactory.AdminEmail);
+            var email = $"autoaudit-{Guid.NewGuid():N}@test.local";
+            (await GoogleLogin($"{email}|sub-{Guid.NewGuid():N}")).StatusCode.Should().Be(HttpStatusCode.OK);
+
+            var audit = await (await admin.GetAsync("/api/audit")).Content.ReadFromJsonAsync<JsonElement>();
+            audit.EnumerateArray().ToList().Should().Contain(e =>
+                e.GetProperty("action").GetString() == "user.autoprovisioned" &&
+                e.GetProperty("targetEmail").GetString() == email);
+        }
+        finally
+        {
+            await SetAccessPolicy(openSignup: true, "dashboard.view");
+        }
+    }
+
+    [Fact]
+    public async Task Access_policy_get_is_gated_and_put_requires_users_manage()
+    {
+        var admin = Client(WebAppFactory.AdminEmail);
+        (await admin.GetAsync("/api/access-policy")).StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var viewer = $"viewer-policy-{Guid.NewGuid():N}@test.local";
+        await admin.PostAsJsonAsync("/api/users",
+            new { email = viewer, isEnabled = true, permissions = new[] { "dashboard.view" } });
+
+        // A non-admin viewer cannot read or change the policy.
+        (await Client(viewer).GetAsync("/api/access-policy")).StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        (await Client(viewer).PutAsJsonAsync("/api/access-policy",
+            new { openSignupEnabled = true, defaultPermissions = new[] { "dashboard.view" } }))
             .StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        (await Client().GetAsync("/api/access-policy")).StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async Task Access_policy_put_filters_out_invalid_permission_keys()
+    {
+        var admin = Client(WebAppFactory.AdminEmail);
+        try
+        {
+            var res = await admin.PutAsJsonAsync("/api/access-policy",
+                new { openSignupEnabled = true, defaultPermissions = new[] { "dashboard.view", "not.a.real.perm", "DASHBOARD.VIEW" } });
+            res.StatusCode.Should().Be(HttpStatusCode.OK);
+            var dto = await res.Content.ReadFromJsonAsync<JsonElement>();
+            dto.GetProperty("defaultPermissions").EnumerateArray().Select(e => e.GetString())
+                .Should().BeEquivalentTo(new[] { "dashboard.view" });
+        }
+        finally
+        {
+            await SetAccessPolicy(openSignup: true, "dashboard.view");
+        }
+    }
 
     [Fact]
     public async Task Google_login_pins_the_account_to_its_google_subject()
@@ -364,17 +641,26 @@ public class AuthIntegrationTests(WebAppFactory factory)
     }
 
     [Fact]
-    public async Task Unprovisioned_google_login_is_not_audited()
+    public async Task Unprovisioned_google_login_is_not_audited_when_open_signup_is_off()
     {
-        // Reachable by any Google account (open self-signup), so it must NOT create audit rows.
+        // With open sign-up off, an unprovisioned attempt is denied — but reachable by ANY Google
+        // account, so it must NOT create an auth.denied row (which would let outsiders flood the log).
         var admin = Client(WebAppFactory.AdminEmail);
-        var email = $"ghost-audit-{Guid.NewGuid():N}@test.local";
-        (await GoogleLogin($"{email}|sub-x")).StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        await SetAccessPolicy(openSignup: false, "dashboard.view");
+        try
+        {
+            var email = $"ghost-audit-{Guid.NewGuid():N}@test.local";
+            (await GoogleLogin($"{email}|sub-x")).StatusCode.Should().Be(HttpStatusCode.Forbidden);
 
-        var audit = await (await admin.GetAsync("/api/audit")).Content.ReadFromJsonAsync<JsonElement>();
-        audit.EnumerateArray().ToList().Should().NotContain(e =>
-            e.GetProperty("action").GetString() == "auth.denied" &&
-            e.GetProperty("targetEmail").GetString() == email);
+            var audit = await (await admin.GetAsync("/api/audit")).Content.ReadFromJsonAsync<JsonElement>();
+            audit.EnumerateArray().ToList().Should().NotContain(e =>
+                e.GetProperty("action").GetString() == "auth.denied" &&
+                e.GetProperty("targetEmail").GetString() == email);
+        }
+        finally
+        {
+            await SetAccessPolicy(openSignup: true, "dashboard.view");
+        }
     }
 
     [Fact]
