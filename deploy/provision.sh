@@ -24,11 +24,13 @@ echo "==> Storing app secrets in SSM (/usage-iq/*)"
 ensure_secret /usage-iq/jwt-key
 ensure_secret /usage-iq/db-password
 
-# 2. Use your account's default VPC + a subnet in it.
+# 2. Use your account's default VPC + a subnet in it (create the default VPC if the region lacks one).
 echo "==> Finding your default VPC + a subnet"
 VPC=$(aws ec2 describe-vpcs --region "$REGION" --filters Name=isDefault,Values=true --query 'Vpcs[0].VpcId' --output text)
 if [ "$VPC" = "None" ] || [ -z "$VPC" ]; then
-  echo "    No default VPC in $REGION — tell your assistant and we'll pass an explicit VPC/subnet." >&2; exit 1
+  echo "    No default VPC in $REGION — creating the standard one (free, isolated)…"
+  aws ec2 create-default-vpc --region "$REGION" >/dev/null
+  VPC=$(aws ec2 describe-vpcs --region "$REGION" --filters Name=isDefault,Values=true --query 'Vpcs[0].VpcId' --output text)
 fi
 SUBNET=$(aws ec2 describe-subnets --region "$REGION" --filters Name=vpc-id,Values="$VPC" --query 'Subnets[0].SubnetId' --output text)
 echo "    VPC=$VPC  Subnet=$SUBNET"
