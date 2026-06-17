@@ -6,7 +6,7 @@ A self-hosted dashboard for **filtering and visualizing your AI coding-agent tok
 
 [![CI](https://github.com/itdept-ops/usage-iq/actions/workflows/ci.yml/badge.svg)](https://github.com/itdept-ops/usage-iq/actions/workflows/ci.yml)
 
-<a href="https://www.buymeacoffee.com/itdept"><img src="https://img.buymeacoffee.com/button-api/?text=Buy me a coffee&emoji=&slug=itdept&button_colour=5F7FFF&font_colour=ffffff&font_family=Cookie&outline_colour=000000&coffee_colour=FFDD00" /></a>
+<a href="https://www.buymeacoffee.com/itdept"><img src="https://img.buymeacoffee.com/button-api/?text=Buy%20me%20a%20coffee&emoji=&slug=itdept&button_colour=5F7FFF&font_colour=ffffff&font_family=Cookie&outline_colour=000000&coffee_colour=FFDD00" alt="Buy me a coffee" /></a>
 
 > Built with Angular 21 · .NET 9 · EF Core · PostgreSQL · Docker · ECharts.
 
