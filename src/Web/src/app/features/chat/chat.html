@@ -1,0 +1,272 @@
+<div class="chat" [class.chat--open]="selectedChannel()">
+  <!-- ─────────────────────────── Sidebar ─────────────────────────── -->
+  <aside class="cx-side" [class.cx-side--hidden]="selectedChannel()">
+    <header class="cx-side__head" tabindex="-1">
+      <div class="cx-side__title">
+        <span class="panel-header">Conversations</span>
+        @if (chat.isReconnecting()) {
+          <span class="cx-conn cx-conn--re" matTooltip="Reconnecting…">
+            <span class="cx-conn__dot"></span> reconnecting
+          </span>
+        } @else if (chat.isConnected()) {
+          <span class="cx-conn cx-conn--ok" matTooltip="Live">
+            <span class="cx-conn__dot"></span> live
+          </span>
+        } @else {
+          <span class="cx-conn cx-conn--off" matTooltip="Offline">
+            <span class="cx-conn__dot"></span> offline
+          </span>
+        }
+      </div>
+      @if (canSend()) {
+        <button mat-icon-button class="cx-add" [matMenuTriggerFor]="addMenu"
+                matTooltip="New conversation" aria-label="New conversation">
+          <mat-icon>add</mat-icon>
+        </button>
+        <mat-menu #addMenu="matMenu" class="cx-add-menu" xPosition="before">
+          <button mat-menu-item (click)="openCreate('channel')">
+            <mat-icon>tag</mat-icon><span>New channel</span>
+          </button>
+          <button mat-menu-item (click)="openCreate('direct')">
+            <mat-icon>alternate_email</mat-icon><span>New direct message</span>
+          </button>
+        </mat-menu>
+      }
+    </header>
+
+    <div class="cx-lists">
+      @if (!hasConversations()) {
+        <div class="cx-side__empty">
+          <mat-icon>forum</mat-icon>
+          <p>No conversations yet.</p>
+          @if (canSend()) {
+            <button mat-flat-button color="primary" (click)="openCreate('channel')">
+              <mat-icon>add</mat-icon> Create a channel
+            </button>
+          }
+        </div>
+      } @else {
+        <!-- Channels -->
+        <section class="cx-group">
+          <div class="cx-group__label micro-label">Channels</div>
+          @for (ch of channelList(); track ch.id) {
+            <button type="button" class="cx-item" [class.active]="selectedId() === ch.id"
+                    (click)="select(ch)">
+              <span class="cx-item__avatar cx-item__avatar--channel"
+                    [class.private]="ch.isPrivate">
+                <mat-icon>{{ ch.isPrivate ? 'lock' : 'tag' }}</mat-icon>
+              </span>
+              <span class="cx-item__body">
+                <span class="cx-item__top">
+                  <span class="cx-item__name">{{ ch.displayName }}</span>
+                  @if (ch.lastMessage) {
+                    <span class="cx-item__time">{{ timeAgo(ch.lastMessage.createdUtc, now()) }}</span>
+                  }
+                </span>
+                <span class="cx-item__preview">
+                  @if (ch.lastMessage; as lm) {
+                    {{ lm.deleted ? 'Message deleted' : (lm.senderName + ': ' + (lm.body ?? '')) }}
+                  } @else {
+                    No messages yet
+                  }
+                </span>
+              </span>
+              @if (unread(ch.id) > 0 && selectedId() !== ch.id) {
+                <span class="cx-item__badge mono-num">{{ unread(ch.id) }}</span>
+              }
+            </button>
+          } @empty {
+            <p class="cx-group__none">No channels.</p>
+          }
+        </section>
+
+        <!-- Direct messages -->
+        <section class="cx-group">
+          <div class="cx-group__label micro-label">Direct messages</div>
+          @for (ch of directList(); track ch.id) {
+            <button type="button" class="cx-item" [class.active]="selectedId() === ch.id"
+                    (click)="select(ch)">
+              <span class="cx-item__avatar-wrap">
+                <span class="cx-item__avatar cx-item__avatar--init">{{ channelInitial(ch) }}</span>
+                @if (dmOnline(ch)) { <span class="cx-item__dot" aria-hidden="true"></span> }
+              </span>
+              <span class="cx-item__body">
+                <span class="cx-item__top">
+                  <span class="cx-item__name">{{ ch.displayName }}</span>
+                  @if (ch.lastMessage) {
+                    <span class="cx-item__time">{{ timeAgo(ch.lastMessage.createdUtc, now()) }}</span>
+                  }
+                </span>
+                <span class="cx-item__preview">
+                  @if (ch.lastMessage; as lm) {
+                    {{ lm.deleted ? 'Message deleted' : (lm.body ?? '') }}
+                  } @else {
+                    No messages yet
+                  }
+                </span>
+              </span>
+              @if (unread(ch.id) > 0 && selectedId() !== ch.id) {
+                <span class="cx-item__badge mono-num">{{ unread(ch.id) }}</span>
+              }
+            </button>
+          } @empty {
+            <p class="cx-group__none">No direct messages.</p>
+          }
+        </section>
+      }
+    </div>
+  </aside>
+
+  <!-- ─────────────────────────── Conversation pane ─────────────────────────── -->
+  <section class="cx-main">
+    @if (selectedChannel(); as ch) {
+      <header class="cx-conv-head">
+        <button mat-icon-button class="cx-back" (click)="back()"
+                aria-label="Back to conversations">
+          <mat-icon>arrow_back</mat-icon>
+        </button>
+        <span class="cx-conv-head__avatar"
+              [class.cx-conv-head__avatar--channel]="ch.kind === 'channel'">
+          @if (ch.kind === 'channel') {
+            <mat-icon>{{ ch.isPrivate ? 'lock' : 'tag' }}</mat-icon>
+          } @else {
+            <span class="cx-conv-head__init">{{ channelInitial(ch) }}</span>
+            @if (dmOnline(ch)) { <span class="cx-item__dot" aria-hidden="true"></span> }
+          }
+        </span>
+        <div class="cx-conv-head__id">
+          <h2 class="cx-conv-head__name">{{ ch.displayName }}</h2>
+          <div class="cx-conv-head__sub">
+            @if (ch.kind === 'channel') {
+              {{ ch.topic || (ch.members.length + ' member' + (ch.members.length === 1 ? '' : 's')) }}
+            } @else {
+              {{ dmOnline(ch) ? 'Online' : 'Offline' }}
+            }
+          </div>
+        </div>
+      </header>
+
+      <div #scroller class="cx-msgs" (scroll)="onScroll()"
+           role="log" aria-label="Messages" aria-live="polite" aria-relevant="additions">
+        @if (loadingHistory()) {
+          <div class="cx-loading-older"><span class="cx-spinner"></span> Loading earlier messages…</div>
+        }
+
+        @if (groups().length === 0 && !loadingHistory()) {
+          <div class="cx-msgs__empty">
+            <mat-icon>chat_bubble_outline</mat-icon>
+            <p>No messages yet. Say hello!</p>
+          </div>
+        }
+
+        @for (g of groups(); track g.firstUtc + ':' + g.senderEmail + ':' + g.messages[0].id) {
+          <div class="cx-grp" [class.mine]="g.isMine">
+            <span class="cx-grp__avatar-wrap">
+              @if (g.senderPicture) {
+                <img class="cx-grp__avatar" [src]="g.senderPicture" alt="" referrerpolicy="no-referrer" />
+              } @else {
+                <span class="cx-grp__avatar cx-grp__avatar--init">{{ groupInitials(g) }}</span>
+              }
+            </span>
+            <div class="cx-grp__body">
+              <div class="cx-grp__head">
+                <span class="cx-grp__name">{{ g.senderName }}</span>
+                <span class="cx-grp__time">{{ msgTime(g.firstUtc) }}</span>
+              </div>
+              @for (m of g.messages; track m.id) {
+                <div class="cx-msg" [class.deleted]="m.deleted">
+                  @if (editingId() === m.id) {
+                    <div class="cx-edit">
+                      <textarea class="cx-edit__input" [ngModel]="editDraft()"
+                                (ngModelChange)="editDraft.set($event)"
+                                (keydown)="onEditKeydown($event, m)" rows="1"></textarea>
+                      <div class="cx-edit__actions">
+                        <button mat-button (click)="cancelEdit()">Cancel</button>
+                        <button mat-flat-button color="primary" (click)="saveEdit(m)">Save</button>
+                      </div>
+                    </div>
+                  } @else if (m.deleted) {
+                    <span class="cx-msg__deleted"><mat-icon>block</mat-icon> message deleted</span>
+                  } @else {
+                    <span class="cx-msg__text">{{ m.body }}</span>
+                    @if (m.editedUtc) { <span class="cx-msg__edited">(edited)</span> }
+                    @if (canManageMessage(m)) {
+                      <span class="cx-msg__tools">
+                        <button mat-icon-button class="cx-msg__tool" (click)="startEdit(m)"
+                                matTooltip="Edit" aria-label="Edit message">
+                          <mat-icon>edit</mat-icon>
+                        </button>
+                        <button mat-icon-button class="cx-msg__tool" (click)="deleteMessage(m)"
+                                matTooltip="Delete" aria-label="Delete message">
+                          <mat-icon>delete_outline</mat-icon>
+                        </button>
+                      </span>
+                    }
+                  }
+                </div>
+              }
+            </div>
+          </div>
+        }
+      </div>
+
+      <!-- typing indicator row -->
+      <div class="cx-typing" [class.active]="typingUsers().length > 0" aria-live="polite">
+        @if (typingUsers().length > 0) {
+          <span class="cx-typing__dots" aria-hidden="true"><i></i><i></i><i></i></span>
+          <span class="cx-typing__label">{{ typingLabel() }}</span>
+        }
+      </div>
+
+      <!-- composer -->
+      @if (canSend()) {
+        <div class="cx-composer">
+          @if (mentionOpen()) {
+            <div class="cx-mentions" role="listbox" id="cx-mention-list" aria-label="Mention a member">
+              @for (c of mentionCandidates(); track c.email; let i = $index) {
+                <button type="button" class="cx-mention" role="option"
+                        [id]="'cx-mention-opt-' + i"
+                        [class.active]="i === mentionIndex()"
+                        [attr.aria-selected]="i === mentionIndex()"
+                        (mousedown)="$event.preventDefault()" (click)="applyMention(c)">
+                  @if (c.picture) {
+                    <img class="cx-mention__avatar" [src]="c.picture" alt="" referrerpolicy="no-referrer" />
+                  } @else {
+                    <span class="cx-mention__avatar cx-mention__avatar--init">{{ c.initials }}</span>
+                  }
+                  <span class="cx-mention__name">{{ c.name }}</span>
+                  <span class="cx-mention__email">{{ c.email }}</span>
+                </button>
+              }
+            </div>
+          }
+          <div class="cx-composer__row">
+            <textarea #composer class="cx-composer__input" rows="1"
+                      [ngModel]="draft()" (ngModelChange)="onDraftChange($event)"
+                      (keydown)="onComposerKeydown($event)" (blur)="closeMentionsSoon()"
+                      [placeholder]="'Message ' + ch.displayName + '… (Enter to send, Shift+Enter for newline, @ to mention)'"
+                      aria-label="Message"
+                      role="combobox" aria-autocomplete="list" aria-controls="cx-mention-list"
+                      [attr.aria-expanded]="mentionOpen()"
+                      [attr.aria-activedescendant]="mentionOpen() ? 'cx-mention-opt-' + mentionIndex() : null"></textarea>
+            <button mat-flat-button color="primary" class="cx-send" (click)="send()"
+                    [disabled]="!draft().trim()" aria-label="Send">
+              <mat-icon>send</mat-icon>
+            </button>
+          </div>
+        </div>
+      } @else {
+        <div class="cx-readonly">
+          <mat-icon>visibility</mat-icon> You have read-only access to this conversation.
+        </div>
+      }
+    } @else {
+      <!-- no conversation selected -->
+      <div class="cx-pick">
+        <mat-icon>forum</mat-icon>
+        <h2>Select a conversation</h2>
+        <p>Pick a channel or direct message from the left to start chatting.</p>
+      </div>
+    }
+  </section>
+</div>

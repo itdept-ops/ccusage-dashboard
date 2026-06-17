@@ -1,0 +1,564 @@
+/* The chat page is a fixed-height two-pane workspace. The app content shell adds
+   24px top + 56px bottom padding (32px top at >=1440px), so fill the viewport minus
+   the 56px toolbar and that padding, and let each pane scroll internally. */
+:host {
+  display: block;
+  height: calc(100dvh - 56px - 24px - 56px);
+  min-height: 420px;
+}
+@media (min-width: 1440px) {
+  :host { height: calc(100dvh - 56px - 32px - 56px); }
+}
+
+.chat {
+  display: grid;
+  grid-template-columns: 320px minmax(0, 1fr);
+  height: 100%;
+  border: 1px solid var(--tech-border);
+  border-radius: var(--tech-radius);
+  background: var(--tech-panel);
+  box-shadow: var(--tech-shadow-panel);
+  overflow: hidden;
+}
+
+/* ───────────────────────── Sidebar ───────────────────────── */
+.cx-side {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border-right: 1px solid var(--tech-border);
+  background: var(--tech-bg-sunken);
+
+  &__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 12px 10px 12px 16px;
+    border-bottom: 1px solid var(--tech-border-subtle);
+  }
+
+  &__title { display: flex; align-items: center; gap: 10px; min-width: 0; }
+
+  &__empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    padding: var(--tech-space-8) var(--tech-space-4);
+    text-align: center;
+    color: var(--tech-text-tertiary);
+
+    mat-icon { font-size: 40px; width: 40px; height: 40px; opacity: 0.6; }
+    p { margin: 0; font-size: var(--tech-fs-body); }
+    button { border-radius: var(--tech-r-control); font-weight: 600; mat-icon { font-size: 18px; width: 18px; height: 18px; } }
+  }
+}
+
+.cx-conn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-family: var(--tech-font-mono);
+  font-size: var(--tech-fs-micro);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+
+  &__dot { width: 6px; height: 6px; border-radius: 50%; flex: 0 0 auto; }
+
+  &--ok { color: var(--tech-success); .cx-conn__dot { background: var(--tech-success); box-shadow: 0 0 6px 0 rgba(61, 214, 140, 0.7); } }
+  &--re { color: var(--tech-warn); .cx-conn__dot { background: var(--tech-warn); animation: cx-pulse 1.1s ease-in-out infinite; } }
+  &--off { color: var(--tech-text-tertiary); .cx-conn__dot { background: var(--tech-text-tertiary); } }
+}
+
+@keyframes cx-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
+
+.cx-add.mat-mdc-icon-button {
+  flex: 0 0 auto;
+  color: var(--tech-text-secondary);
+  &:hover { color: var(--tech-accent); }
+}
+
+.cx-lists {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 8px;
+}
+
+.cx-group {
+  margin-bottom: var(--tech-space-3);
+
+  &__label { padding: 6px 8px; color: var(--tech-text-tertiary); }
+  &__none { margin: 0; padding: 4px 8px 8px; font-size: var(--tech-fs-label); color: var(--tech-text-tertiary); }
+}
+
+.cx-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px;
+  border: none;
+  background: transparent;
+  border-radius: var(--tech-r-control);
+  text-align: left;
+  cursor: pointer;
+  color: inherit;
+  font: inherit;
+  transition: background-color var(--tech-t-control) ease;
+
+  &:hover { background: var(--tech-panel-raised); }
+  &:focus-visible { outline: none; box-shadow: var(--tech-focus-ring); }
+  &.active { background: color-mix(in srgb, var(--tech-accent) 14%, transparent); box-shadow: inset 2px 0 0 var(--tech-accent); }
+
+  &__avatar-wrap { position: relative; flex: 0 0 auto; width: 34px; height: 34px; }
+
+  &__avatar {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    flex: 0 0 auto;
+    font-family: var(--tech-font-mono);
+    font-weight: 700;
+    font-size: 13px;
+  }
+  &__avatar--init { color: var(--tech-text-on-accent); background: linear-gradient(135deg, #3d8bff 0%, #8b7cff 52%, #3fd8d0 100%); }
+  &__avatar--channel {
+    color: var(--tech-text-secondary);
+    background: var(--tech-panel-raised);
+    box-shadow: inset 0 0 0 1px var(--tech-border-subtle);
+    mat-icon { font-size: 18px; width: 18px; height: 18px; }
+    &.private { color: var(--tech-warn); }
+  }
+
+  &__dot {
+    position: absolute;
+    right: -1px;
+    bottom: -1px;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--tech-success);
+    box-shadow: 0 0 0 2px var(--tech-bg-sunken), 0 0 6px 0 rgba(61, 214, 140, 0.6);
+  }
+
+  &__body { min-width: 0; flex: 1 1 auto; }
+
+  &__top { display: flex; align-items: baseline; gap: 6px; }
+  &__name {
+    flex: 1 1 auto;
+    min-width: 0;
+    font-size: var(--tech-fs-body);
+    font-weight: 600;
+    color: var(--tech-text);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  &__time {
+    flex: 0 0 auto;
+    font-family: var(--tech-font-mono);
+    font-size: var(--tech-fs-micro);
+    color: var(--tech-text-tertiary);
+  }
+  &__preview {
+    display: block;
+    margin-top: 1px;
+    font-size: var(--tech-fs-label);
+    color: var(--tech-text-tertiary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__badge {
+    flex: 0 0 auto;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    border-radius: var(--tech-r-pill);
+    background: var(--tech-accent);
+    color: var(--tech-text-on-accent);
+    font-size: var(--tech-fs-micro);
+    font-weight: 700;
+    line-height: 18px;
+    text-align: center;
+  }
+}
+
+/* ───────────────────────── Conversation pane ───────────────────────── */
+.cx-main {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+
+.cx-conv-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--tech-border-subtle);
+  background: color-mix(in srgb, var(--tech-panel-raised) 50%, var(--tech-panel));
+
+  &__avatar {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    flex: 0 0 auto;
+    background: linear-gradient(135deg, #3d8bff 0%, #8b7cff 52%, #3fd8d0 100%);
+
+    &--channel { background: var(--tech-panel-raised); box-shadow: inset 0 0 0 1px var(--tech-border-subtle); mat-icon { color: var(--tech-text-secondary); font-size: 20px; width: 20px; height: 20px; } }
+  }
+  &__init { font-family: var(--tech-font-mono); font-weight: 700; font-size: 14px; color: var(--tech-text-on-accent); }
+
+  &__id { min-width: 0; flex: 1 1 auto; }
+  &__name {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--tech-text);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  &__sub {
+    font-size: var(--tech-fs-label);
+    color: var(--tech-text-tertiary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+.cx-back { display: none; flex: 0 0 auto; color: var(--tech-text-secondary); }
+
+/* Message list */
+.cx-msgs {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding: var(--tech-space-4) var(--tech-space-4) var(--tech-space-2);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+
+  &__empty {
+    margin: auto;
+    text-align: center;
+    color: var(--tech-text-tertiary);
+    mat-icon { font-size: 42px; width: 42px; height: 42px; opacity: 0.55; }
+    p { margin: 6px 0 0; font-size: var(--tech-fs-body); }
+  }
+}
+
+.cx-loading-older,
+.cx-msgs__empty mat-icon { color: var(--tech-text-tertiary); }
+
+.cx-loading-older {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 8px 0 12px;
+  font-size: var(--tech-fs-label);
+  color: var(--tech-text-tertiary);
+}
+
+.cx-spinner {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid var(--tech-border-strong);
+  border-top-color: var(--tech-accent);
+  animation: cx-spin 0.7s linear infinite;
+  flex: 0 0 auto;
+}
+@keyframes cx-spin { to { transform: rotate(360deg); } }
+
+/* One grouped run of messages from a sender */
+.cx-grp {
+  display: flex;
+  gap: 10px;
+  padding: 8px 0 4px;
+
+  &__avatar-wrap { flex: 0 0 auto; width: 34px; }
+  &__avatar {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    object-fit: cover;
+    box-shadow: 0 0 0 1px var(--tech-border-subtle);
+  }
+  &__avatar--init { font-family: var(--tech-font-mono); font-weight: 700; font-size: 13px; color: var(--tech-text-on-accent); background: linear-gradient(135deg, #3d8bff 0%, #8b7cff 52%, #3fd8d0 100%); }
+
+  &__body { min-width: 0; flex: 1 1 auto; }
+  &__head { display: flex; align-items: baseline; gap: 8px; margin-bottom: 2px; }
+  &__name { font-size: var(--tech-fs-body); font-weight: 600; color: var(--tech-text); }
+  &__time { font-family: var(--tech-font-mono); font-size: var(--tech-fs-micro); color: var(--tech-text-tertiary); }
+}
+
+.cx-msg {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  padding: 2px 0;
+  border-radius: var(--tech-r-chip);
+
+  &:hover { background: color-mix(in srgb, var(--tech-panel-raised) 45%, transparent); }
+  /* Keyboard users can always reach the tools by focusing into the message. */
+  &:focus-within .cx-msg__tools { opacity: 1; }
+
+  &__text {
+    font-size: var(--tech-fs-body);
+    line-height: 1.5;
+    color: var(--tech-text);
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+  &__edited { font-size: var(--tech-fs-micro); color: var(--tech-text-tertiary); align-self: flex-end; }
+
+  &__deleted {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: var(--tech-fs-label);
+    font-style: italic;
+    color: var(--tech-text-tertiary);
+    mat-icon { font-size: 14px; width: 14px; height: 14px; }
+  }
+
+  &__tools {
+    position: absolute;
+    top: -14px;
+    right: 4px;
+    display: inline-flex;
+    gap: 2px;
+    padding: 2px;
+    border-radius: var(--tech-r-control);
+    border: 1px solid var(--tech-border-subtle);
+    background: var(--tech-panel-raised);
+    box-shadow: var(--tech-shadow-panel);
+    /* Default: persistently visible so touch/coarse-pointer users can edit/delete (no hover state). */
+    opacity: 1;
+    transition: opacity var(--tech-t-control) ease;
+  }
+  &__tool.mat-mdc-icon-button {
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    color: var(--tech-text-tertiary);
+    &:hover { color: var(--tech-accent); }
+    mat-icon { font-size: 16px; width: 16px; height: 16px; }
+  }
+}
+
+/* On hover-capable, fine pointers (desktop mouse) the tools stay out of the way until hover/focus. */
+@media (hover: hover) and (pointer: fine) {
+  .cx-msg__tools { opacity: 0; }
+  .cx-msg:hover .cx-msg__tools { opacity: 1; }
+}
+
+/* Inline edit box */
+.cx-edit {
+  flex: 1 1 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+
+  &__input {
+    width: 100%;
+    min-height: 36px;
+    resize: vertical;
+    padding: 8px 10px;
+    border-radius: var(--tech-r-control);
+    border: 1px solid var(--tech-border-strong);
+    background: var(--tech-input);
+    color: var(--tech-text);
+    font: inherit;
+    font-size: var(--tech-fs-body);
+    line-height: 1.5;
+    &:focus-visible { outline: none; box-shadow: var(--tech-glow-blue); border-color: transparent; }
+  }
+  &__actions { display: flex; gap: 6px; justify-content: flex-end; button { min-height: 32px; border-radius: var(--tech-r-control); } }
+}
+
+/* Typing indicator row (always reserves a slim line so the composer doesn't jump) */
+.cx-typing {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 20px;
+  padding: 0 16px 2px;
+  font-size: var(--tech-fs-label);
+  color: var(--tech-text-tertiary);
+
+  &__dots { display: inline-flex; gap: 3px; i { width: 5px; height: 5px; border-radius: 50%; background: var(--tech-text-tertiary); animation: cx-typing-bounce 1.2s infinite ease-in-out; } i:nth-child(2) { animation-delay: 0.15s; } i:nth-child(3) { animation-delay: 0.3s; } }
+}
+@keyframes cx-typing-bounce { 0%, 80%, 100% { transform: translateY(0); opacity: 0.5; } 40% { transform: translateY(-3px); opacity: 1; } }
+
+/* Composer */
+.cx-composer {
+  position: relative;
+  padding: 10px 16px 14px;
+  border-top: 1px solid var(--tech-border-subtle);
+
+  &__row { display: flex; align-items: flex-end; gap: 8px; }
+  &__input {
+    flex: 1 1 auto;
+    min-height: 42px;
+    max-height: 160px;
+    resize: none;
+    padding: 11px 12px;
+    border-radius: var(--tech-r-control);
+    border: 1px solid var(--tech-border);
+    background: var(--tech-input);
+    color: var(--tech-text);
+    font: inherit;
+    font-size: var(--tech-fs-body);
+    line-height: 1.5;
+    &::placeholder { color: var(--tech-text-tertiary); }
+    &:focus-visible { outline: none; box-shadow: var(--tech-glow-blue); border-color: transparent; }
+  }
+}
+
+.cx-send.mat-mdc-unelevated-button {
+  flex: 0 0 auto;
+  min-width: 44px;
+  height: 42px;
+  padding: 0;
+  border-radius: var(--tech-r-control);
+  mat-icon { margin: 0; }
+}
+
+/* @mention autocomplete popup */
+.cx-mentions {
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  bottom: calc(100% - 6px);
+  max-height: 232px;
+  overflow-y: auto;
+  margin-bottom: 6px;
+  padding: 4px;
+  border: 1px solid var(--tech-border);
+  border-radius: var(--tech-r-control);
+  background: var(--tech-glass-popover);
+  backdrop-filter: blur(12px);
+  box-shadow: var(--tech-shadow-popover);
+  z-index: 6;
+}
+
+.cx-mention {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 8px;
+  border: none;
+  background: transparent;
+  border-radius: var(--tech-r-control);
+  text-align: left;
+  cursor: pointer;
+  color: inherit;
+  font: inherit;
+
+  &.active, &:hover { background: color-mix(in srgb, var(--tech-accent) 16%, transparent); }
+
+  &__avatar {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    object-fit: cover;
+    flex: 0 0 auto;
+  }
+  &__avatar--init { font-family: var(--tech-font-mono); font-weight: 700; font-size: 10px; color: var(--tech-text-on-accent); background: linear-gradient(135deg, #3d8bff 0%, #8b7cff 52%, #3fd8d0 100%); }
+  &__name { flex: 0 1 auto; min-width: 0; font-size: var(--tech-fs-body); font-weight: 600; color: var(--tech-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  &__email { flex: 1 1 auto; font-family: var(--tech-font-mono); font-size: var(--tech-fs-label); color: var(--tech-text-tertiary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: right; }
+}
+
+.cx-readonly {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 14px 16px;
+  border-top: 1px solid var(--tech-border-subtle);
+  font-size: var(--tech-fs-label);
+  color: var(--tech-text-tertiary);
+  mat-icon { font-size: 16px; width: 16px; height: 16px; }
+}
+
+/* No conversation selected */
+.cx-pick {
+  margin: auto;
+  text-align: center;
+  color: var(--tech-text-tertiary);
+  padding: var(--tech-space-6);
+
+  mat-icon { font-size: 56px; width: 56px; height: 56px; opacity: 0.5; }
+  h2 { margin: 8px 0 4px; color: var(--tech-text-secondary); font-size: 18px; }
+  p { margin: 0; font-size: var(--tech-fs-body); }
+}
+
+/* ───────────────────────── Responsive: single-pane on phones ─────────────────────────
+   Below 760px the two panes overlay: the sidebar shows until a conversation is picked,
+   then the conversation pane takes over (with a Back button). */
+@media (max-width: 760px) {
+  :host { height: calc(100dvh - 56px - 24px - 56px); }
+
+  .chat {
+    grid-template-columns: 1fr;
+    border-radius: var(--tech-radius);
+  }
+
+  .cx-side { border-right: none; }
+  .cx-side--hidden { display: none; }
+
+  /* When no conversation is selected the main pane is collapsed (sidebar owns the view). */
+  .chat:not(.chat--open) .cx-main { display: none; }
+
+  .cx-back { display: inline-flex; }
+
+  /* >=44px tap targets on touch: New-conversation, mobile Back, and per-message edit/delete. */
+  .cx-add.mat-mdc-icon-button,
+  .cx-back.mat-mdc-icon-button {
+    width: 44px;
+    height: 44px;
+  }
+  .cx-msg__tool.mat-mdc-icon-button {
+    width: 44px;
+    height: 44px;
+    mat-icon { font-size: 20px; width: 20px; height: 20px; }
+  }
+}
+
+/* Tablet: a slightly narrower sidebar so the conversation gets room. */
+@media (max-width: 1080px) and (min-width: 761px) {
+  .chat { grid-template-columns: 268px minmax(0, 1fr); }
+}
+
+/* ---- Reduced motion (matches app.scss): kill the looping chat animations ---- */
+@media (prefers-reduced-motion: reduce) {
+  .cx-conn--re .cx-conn__dot,
+  .cx-spinner,
+  .cx-typing__dots i {
+    animation: none;
+  }
+}

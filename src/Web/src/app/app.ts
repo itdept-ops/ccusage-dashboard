@@ -1,4 +1,4 @@
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, computed, effect, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { RouterOutlet, RouterLink, RouterLinkActive, Router, NavigationEnd } from '@angular/router';
 import { timer, switchMap, catchError, of, filter } from 'rxjs';
@@ -10,6 +10,7 @@ import { MatMenuModule } from '@angular/material/menu';
 
 import { Api } from './core/api';
 import { AuthService } from './core/auth';
+import { ChatRealtime } from './core/chat-realtime';
 import { Presence, SyncStatus, PERM } from './core/models';
 import { timeAgo, humanizeInterval } from './shared/format';
 
@@ -40,6 +41,7 @@ export class App {
   private api = inject(Api);
   private router = inject(Router);
   readonly auth = inject(AuthService);
+  private chat = inject(ChatRealtime);
 
   readonly status = signal<SyncStatus | null>(null);
   readonly online = signal<Presence[]>([]);
@@ -190,6 +192,20 @@ export class App {
         takeUntilDestroyed(),
       )
       .subscribe(list => this.online.set(list));
+
+    // Own the realtime chat hub lifecycle at the app shell so live notifications work app-wide (not
+    // just on /chat) and the connection is bound to the CURRENT user. Start when signed in AND the
+    // session grants chat.read; otherwise tear it down. Making the effect symmetric ties teardown to
+    // the gating signals, so it covers not just sign-out (logout/onMeError also call stop()) but a
+    // LIVE chat.read revocation that arrives via the /me poll without a full logout — the connection
+    // never lingers on a now-unauthorized session, and the next valid session builds a fresh one.
+    effect(() => {
+      if (this.auth.isAuthenticated() && this.auth.hasPermission(PERM.chatRead)) {
+        void this.chat.start();
+      } else {
+        void this.chat.stop();
+      }
+    });
   }
 
   /**
@@ -207,6 +223,7 @@ export class App {
   private onMeError(err: { status?: number }): void {
     if (err?.status === 401 || err?.status === 403) {
       this.auth.logout();
+      void this.chat.stop(); // tear down the prior user's hub on a forced 401/403 logout
       this.status.set(null);
       this.online.set([]);
       this.router.navigate(['/login']);
@@ -215,6 +232,7 @@ export class App {
 
   logout(): void {
     this.auth.logout();
+    void this.chat.stop(); // tear down the hub so the next user never reuses this connection/token
     this.status.set(null);
     this.router.navigate(['/login']);
   }

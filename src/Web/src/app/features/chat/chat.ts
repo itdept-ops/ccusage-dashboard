@@ -1,0 +1,578 @@
+import {
+  AfterViewChecked, Component, ElementRef, OnDestroy, computed, effect, inject, signal, viewChild,
+} from '@angular/core';
+import { FormsModule } from '@angular/forms';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { timer, switchMap, catchError, of } from 'rxjs';
+
+import { MatIconModule } from '@angular/material/icon';
+import { MatButtonModule } from '@angular/material/button';
+import { MatTooltipModule } from '@angular/material/tooltip';
+import { MatMenuModule } from '@angular/material/menu';
+import { MatDialog, MatDialogModule } from '@angular/material/dialog';
+import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+
+import { Api } from '../../core/api';
+import { AuthService } from '../../core/auth';
+import { ChatRealtime } from '../../core/chat-realtime';
+import { ChatChannelDto, ChatMember, ChatMessageDto, PERM, Presence } from '../../core/models';
+import { timeAgo } from '../../shared/format';
+import { ChatCreateData, ChatCreateDialog, ChatPickPerson } from './chat-create-dialog';
+
+/** A run of consecutive messages from the same sender, rendered as one grouped block. */
+interface MessageGroup {
+  senderEmail: string;
+  senderName: string;
+  senderPicture?: string;
+  firstUtc: string;
+  isMine: boolean;
+  messages: ChatMessageDto[];
+}
+
+/** One @mention autocomplete candidate (a channel member matching the active token). */
+interface MentionCandidate extends ChatMember {
+  initials: string;
+}
+
+const PRESENCE_STALE_MS = 2 * 60 * 1000; // a presence row older than this is "offline"
+const TYPING_STOP_MS = 3500;             // stop broadcasting typing after this idle gap
+
+/**
+ * The full Chat page: a two-pane workspace (conversation sidebar + active conversation) rendered
+ * entirely from the shared {@link ChatRealtime} signals. It owns only view concerns — selection,
+ * scroll anchoring, mark-read on view, the composer (Enter-to-send + @mention autocomplete), and the
+ * create/DM dialog — never the connection itself.
+ */
+@Component({
+  selector: 'app-chat',
+  imports: [
+    FormsModule, MatIconModule, MatButtonModule, MatTooltipModule, MatMenuModule,
+    MatDialogModule, MatSnackBarModule,
+  ],
+  templateUrl: './chat.html',
+  styleUrl: './chat.scss',
+})
+export class Chat implements AfterViewChecked, OnDestroy {
+  private api = inject(Api);
+  private dialog = inject(MatDialog);
+  private snack = inject(MatSnackBar);
+  private host = inject<ElementRef<HTMLElement>>(ElementRef);
+  readonly auth = inject(AuthService);
+  readonly chat = inject(ChatRealtime);
+
+  readonly timeAgo = timeAgo;
+
+  // ---- permissions ----
+  readonly canSend = computed(() => this.auth.hasPermission(PERM.chatSend));
+  readonly canModerate = computed(() => this.auth.hasPermission(PERM.chatModerate));
+
+  /** Lower-cased email of the signed-in user, for "mine" checks. */
+  private readonly myEmail = computed(() => this.auth.session()?.email?.toLowerCase() ?? '');
+
+  // ---- selection ----
+  readonly selectedId = signal<number | null>(null);
+  readonly selectedChannel = computed<ChatChannelDto | null>(() => {
+    const id = this.selectedId();
+    return id == null ? null : this.chat.channels().find(c => c.id === id) ?? null;
+  });
+
+  // ---- presence (reuse the existing /api/presence feed for online dots) ----
+  private readonly presence = signal<Presence[]>([]);
+  /** Heartbeat for relative timestamps + presence staleness; refreshed on every presence poll. */
+  readonly now = signal(Date.now());
+  /** Set of lower-cased emails seen as online within the staleness window. */
+  private readonly onlineEmails = computed(() => {
+    const cutoff = this.now() - PRESENCE_STALE_MS;
+    const set = new Set<string>();
+    for (const p of this.presence()) {
+      if (new Date(p.lastSeenUtc).getTime() >= cutoff) set.add(p.email.toLowerCase());
+    }
+    return set;
+  });
+
+  // ---- sidebar lists (split channels vs DMs; order already activity-sorted by the service) ----
+  readonly channelList = computed(() => this.chat.channels().filter(c => c.kind === 'channel'));
+  readonly directList = computed(() => this.chat.channels().filter(c => c.kind === 'direct'));
+  readonly hasConversations = computed(() => this.chat.channels().length > 0);
+
+  // ---- active-conversation messages, grouped by sender ----
+  readonly groups = computed<MessageGroup[]>(() => {
+    const id = this.selectedId();
+    if (id == null) return [];
+    const msgs = this.chat.messages()[id] ?? [];
+    const me = this.myEmail();
+    const out: MessageGroup[] = [];
+    for (const m of msgs) {
+      const prev = out[out.length - 1];
+      const sameRun = prev
+        && prev.senderEmail === m.senderEmail
+        && new Date(m.createdUtc).getTime() - new Date(prev.firstUtc).getTime() < 5 * 60 * 1000;
+      if (sameRun) {
+        prev.messages.push(m);
+      } else {
+        out.push({
+          senderEmail: m.senderEmail,
+          senderName: m.senderName,
+          senderPicture: m.senderPicture,
+          firstUtc: m.createdUtc,
+          isMine: m.senderEmail.toLowerCase() === me,
+          messages: [m],
+        });
+      }
+    }
+    return out;
+  });
+
+  readonly typingUsers = computed(() => {
+    const id = this.selectedId();
+    return id == null ? [] : this.chat.typing()[id] ?? [];
+  });
+  readonly typingLabel = computed(() => {
+    const t = this.typingUsers();
+    if (t.length === 0) return '';
+    if (t.length === 1) return `${t[0].name} is typing…`;
+    if (t.length === 2) return `${t[0].name} and ${t[1].name} are typing…`;
+    return `${t[0].name} and ${t.length - 1} others are typing…`;
+  });
+
+  // ---- history paging ----
+  readonly loadingHistory = signal(false);
+  /** Channels that have no more older history (loadHistory returned 0). */
+  private readonly exhausted = signal<Set<number>>(new Set());
+
+  // ---- composer ----
+  readonly draft = signal('');
+  private typingActive = false;
+  private typingTimer: ReturnType<typeof setTimeout> | null = null;
+
+  // ---- @mention autocomplete ----
+  readonly mentionOpen = signal(false);
+  readonly mentionCandidates = signal<MentionCandidate[]>([]);
+  readonly mentionIndex = signal(0);
+  private mentionStart = -1; // index in draft where the active "@token" begins
+
+  // ---- inline edit ----
+  readonly editingId = signal<number | null>(null);
+  readonly editDraft = signal('');
+
+  // ---- view refs for scroll handling ----
+  private readonly scroller = viewChild<ElementRef<HTMLElement>>('scroller');
+  private readonly composerEl = viewChild<ElementRef<HTMLTextAreaElement>>('composer');
+
+  /** When set, the next afterViewChecked pins the scroll to the bottom (own send / initial open). */
+  private pendingScrollBottom = false;
+  /** Preserved scroll offset-from-bottom while prepending older history (keeps the view anchored). */
+  private preserveFromBottom: number | null = null;
+  private lastRenderedCount = 0;
+  private lastChannelId: number | null = null;
+
+  constructor() {
+    // The app shell owns the hub lifecycle (start on auth+chat.read, stop on logout), so the page
+    // no longer bootstraps the connection itself — avoiding a double-start race.
+
+    // Poll presence (~20s) for the sidebar online dots; keep "now" fresh for staleness + timestamps.
+    timer(0, 20000)
+      .pipe(
+        switchMap(() => this.auth.isAuthenticated()
+          ? this.api.presence().pipe(catchError(() => of<Presence[]>([])))
+          : of<Presence[]>([])),
+        takeUntilDestroyed(),
+      )
+      .subscribe(list => { this.now.set(Date.now()); this.presence.set(list); });
+
+    // Auto-select the most-recent conversation once channels arrive (nice default, not forced).
+    effect(() => {
+      const list = this.chat.channels();
+      if (this.selectedId() == null && list.length > 0) {
+        this.select(list[0]);
+      }
+    });
+
+    // When the active conversation gains messages and we're pinned to the bottom, mark it read.
+    effect(() => {
+      const id = this.selectedId();
+      const msgs = id == null ? [] : this.chat.messages()[id] ?? [];
+      if (id != null && msgs.length > 0 && this.isNearBottom()) {
+        this.markReadLatest(id, msgs);
+      }
+    });
+  }
+
+  // =========================================================================
+  // Selection + history
+  // =========================================================================
+
+  isOnline(email: string): boolean {
+    return this.onlineEmails().has(email.toLowerCase());
+  }
+
+  /** A DM's online state = the OTHER member online (DMs have exactly two members). */
+  dmOnline(ch: ChatChannelDto): boolean {
+    const me = this.myEmail();
+    return ch.members.some(m => m.email.toLowerCase() !== me && this.isOnline(m.email));
+  }
+
+  unread(id: number): number {
+    return this.chat.unreadFor(id);
+  }
+
+  select(ch: ChatChannelDto): void {
+    if (this.selectedId() === ch.id) return;
+    this.stopTypingNow(); // flush typing for the OLD channel so it doesn't leak into the new one
+    this.cancelEdit();
+    this.closeMentions();
+    this.selectedId.set(ch.id);
+    this.lastChannelId = ch.id;
+    this.pendingScrollBottom = true;
+    this.preserveFromBottom = null;
+
+    // Opening a conversation is a read action — clear its unread badge optimistically (the server
+    // call happens in markReadLatest). Done here, at the user action, not inside the mark-read effect.
+    this.chat.clearUnreadLocal(ch.id);
+
+    // Load history if we haven't yet (initial page); then mark read at the bottom.
+    const have = this.chat.messages()[ch.id] ?? [];
+    if (have.length === 0) {
+      this.loadingHistory.set(true);
+      this.chat.loadHistory(ch.id)
+        .then(() => { this.pendingScrollBottom = true; })
+        .catch(() => {})
+        .finally(() => this.loadingHistory.set(false));
+    }
+    this.markReadLatest(ch.id, have);
+    queueMicrotask(() => this.focusComposer());
+  }
+
+  /** Load older messages when the user scrolls to the top. */
+  onScroll(): void {
+    const el = this.scroller()?.nativeElement;
+    const id = this.selectedId();
+    if (!el || id == null) return;
+    // Scrolling to the bottom is a read action: clear the local unread badge here (the user action),
+    // not inside the mark-read effect. The effect still issues the server-side MarkRead.
+    if (this.isNearBottom(el) && this.chat.unreadFor(id) > 0) {
+      this.chat.clearUnreadLocal(id);
+    }
+    if (el.scrollTop <= 48 && !this.loadingHistory() && !this.exhausted().has(id)) {
+      const list = this.chat.messages()[id] ?? [];
+      const oldest = list[0]?.id;
+      if (oldest == null) return;
+      this.loadingHistory.set(true);
+      // Anchor: remember distance-from-bottom so the viewport stays put after we prepend.
+      this.preserveFromBottom = el.scrollHeight - el.scrollTop;
+      this.chat.loadHistory(id, oldest)
+        .then(count => {
+          if (count === 0) this.exhausted.update(s => new Set(s).add(id));
+        })
+        .catch(() => { this.preserveFromBottom = null; })
+        .finally(() => this.loadingHistory.set(false));
+    }
+  }
+
+  /** Navigating away must flush our own typing state so other clients don't see a stuck "is typing…". */
+  ngOnDestroy(): void {
+    this.stopTypingNow();
+  }
+
+  // =========================================================================
+  // Scroll anchoring (post-render)
+  // =========================================================================
+
+  ngAfterViewChecked(): void {
+    const el = this.scroller()?.nativeElement;
+    if (!el) return;
+    const id = this.selectedId();
+    const count = id == null ? 0 : (this.chat.messages()[id] ?? []).length;
+
+    if (this.pendingScrollBottom) {
+      el.scrollTop = el.scrollHeight;
+      this.pendingScrollBottom = false;
+    } else if (this.preserveFromBottom != null && count !== this.lastRenderedCount) {
+      // We just prepended older history — restore the prior distance-from-bottom.
+      el.scrollTop = el.scrollHeight - this.preserveFromBottom;
+      this.preserveFromBottom = null;
+    } else if (count > this.lastRenderedCount && this.lastChannelId === id && this.isNearBottom(el)) {
+      // A new message arrived while we were already at the bottom — follow it.
+      el.scrollTop = el.scrollHeight;
+    }
+    this.lastRenderedCount = count;
+    this.lastChannelId = id;
+  }
+
+  /** True when the message list is scrolled near its bottom (or not yet scrollable). */
+  private isNearBottom(el?: HTMLElement): boolean {
+    const node = el ?? this.scroller()?.nativeElement;
+    if (!node) return true;
+    return node.scrollHeight - node.scrollTop - node.clientHeight < 120;
+  }
+
+  private markReadLatest(channelId: number, msgs: ChatMessageDto[]): void {
+    const newest = msgs[msgs.length - 1];
+    if (newest && this.chat.unreadFor(channelId) > 0) {
+      void this.chat.markRead(channelId, newest.id);
+    }
+  }
+
+  // =========================================================================
+  // Composer + typing
+  // =========================================================================
+
+  onDraftChange(value: string): void {
+    this.draft.set(value);
+    this.signalTyping();
+    this.updateMentionState();
+  }
+
+  onComposerKeydown(event: KeyboardEvent): void {
+    // Mention navigation takes precedence while the popup is open.
+    if (this.mentionOpen()) {
+      if (event.key === 'ArrowDown') { event.preventDefault(); this.moveMention(1); return; }
+      if (event.key === 'ArrowUp') { event.preventDefault(); this.moveMention(-1); return; }
+      if (event.key === 'Enter' || event.key === 'Tab') {
+        event.preventDefault();
+        this.applyMention(this.mentionCandidates()[this.mentionIndex()]);
+        return;
+      }
+      if (event.key === 'Escape') { event.preventDefault(); this.closeMentions(); return; }
+    }
+    // Enter sends; Shift+Enter inserts a newline.
+    if (event.key === 'Enter' && !event.shiftKey) {
+      event.preventDefault();
+      this.send();
+    }
+  }
+
+  send(): void {
+    const id = this.selectedId();
+    const body = this.draft().trim();
+    if (id == null || !body || !this.canSend()) return;
+
+    const mentions = this.extractMentions(body, this.selectedChannel());
+    void this.chat.sendMessage(id, body, mentions.length ? mentions : null);
+    this.draft.set('');
+    this.closeMentions();
+    this.stopTypingNow();
+    this.pendingScrollBottom = true;
+    queueMicrotask(() => this.focusComposer());
+  }
+
+  private signalTyping(): void {
+    const id = this.selectedId();
+    if (id == null || !this.canSend()) return;
+    if (!this.typingActive) {
+      this.typingActive = true;
+      void this.chat.startTyping(id);
+    }
+    if (this.typingTimer) clearTimeout(this.typingTimer);
+    this.typingTimer = setTimeout(() => this.stopTypingNow(), TYPING_STOP_MS);
+  }
+
+  private stopTypingNow(): void {
+    if (this.typingTimer) { clearTimeout(this.typingTimer); this.typingTimer = null; }
+    if (this.typingActive) {
+      this.typingActive = false;
+      const id = this.selectedId();
+      if (id != null) void this.chat.stopTyping(id);
+    }
+  }
+
+  // =========================================================================
+  // @mention autocomplete (over the active channel's members)
+  // =========================================================================
+
+  /** Recompute the mention popup from the caret position after each keystroke. */
+  private updateMentionState(): void {
+    const el = this.composerEl()?.nativeElement;
+    const ch = this.selectedChannel();
+    if (!el || !ch) { this.closeMentions(); return; }
+    const caret = el.selectionStart ?? this.draft().length;
+    const upto = this.draft().slice(0, caret);
+    // Find the last "@" that starts a token (preceded by whitespace or start-of-text).
+    const match = /(?:^|\s)@([\w.\-]*)$/.exec(upto);
+    if (!match) { this.closeMentions(); return; }
+    this.mentionStart = caret - match[1].length - 1; // position of the "@"
+    const token = match[1].toLowerCase();
+    const me = this.myEmail();
+    const candidates = ch.members
+      .filter(m => m.email.toLowerCase() !== me)
+      .filter(m => !token
+        || m.name.toLowerCase().includes(token)
+        || m.email.toLowerCase().includes(token))
+      .slice(0, 6)
+      .map(m => ({ ...m, initials: this.initialsOf(m.name, m.email) }));
+    if (candidates.length === 0) { this.closeMentions(); return; }
+    this.mentionCandidates.set(candidates);
+    this.mentionIndex.set(0);
+    this.mentionOpen.set(true);
+  }
+
+  moveMention(delta: number): void {
+    const n = this.mentionCandidates().length;
+    if (n === 0) return;
+    this.mentionIndex.update(i => (i + delta + n) % n);
+  }
+
+  applyMention(c: MentionCandidate | undefined): void {
+    const el = this.composerEl()?.nativeElement;
+    if (!c || this.mentionStart < 0) { this.closeMentions(); return; }
+    const caret = el?.selectionStart ?? this.draft().length;
+    const before = this.draft().slice(0, this.mentionStart);
+    const after = this.draft().slice(caret);
+    const token = `@${c.name} `;
+    const next = before + token + after;
+    this.draft.set(next);
+    this.closeMentions();
+    queueMicrotask(() => {
+      const node = this.composerEl()?.nativeElement;
+      if (node) {
+        const pos = (before + token).length;
+        node.focus();
+        node.setSelectionRange(pos, pos);
+      }
+    });
+  }
+
+  private closeMentions(): void {
+    this.mentionOpen.set(false);
+    this.mentionCandidates.set([]);
+    this.mentionStart = -1;
+  }
+
+  /** Close the mention popup on composer blur, deferred so a click on a candidate still lands. */
+  closeMentionsSoon(): void {
+    setTimeout(() => this.closeMentions(), 120);
+  }
+
+  /** Resolve "@Name" tokens in the body to member emails (the backend's mentionedEmails contract). */
+  private extractMentions(body: string, ch: ChatChannelDto | null): string[] {
+    if (!ch) return [];
+    const hits = new Set<string>();
+    const lower = body.toLowerCase();
+    for (const m of ch.members) {
+      if (m.email.toLowerCase() === this.myEmail()) continue;
+      if (lower.includes(`@${m.name.toLowerCase()}`) || lower.includes(`@${m.email.toLowerCase()}`)) {
+        hits.add(m.email);
+      }
+    }
+    return [...hits];
+  }
+
+  // =========================================================================
+  // Edit / delete own (or any, with chat.moderate) messages
+  // =========================================================================
+
+  canManageMessage(m: ChatMessageDto): boolean {
+    return !m.deleted && (this.canModerate() || m.senderEmail.toLowerCase() === this.myEmail());
+  }
+
+  startEdit(m: ChatMessageDto): void {
+    this.closeMentions();
+    this.editingId.set(m.id);
+    this.editDraft.set(m.body ?? '');
+  }
+
+  cancelEdit(): void {
+    this.editingId.set(null);
+    this.editDraft.set('');
+  }
+
+  onEditKeydown(event: KeyboardEvent, m: ChatMessageDto): void {
+    if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); this.saveEdit(m); }
+    else if (event.key === 'Escape') { event.preventDefault(); this.cancelEdit(); }
+  }
+
+  saveEdit(m: ChatMessageDto): void {
+    const body = this.editDraft().trim();
+    if (!body) { this.deleteMessage(m); return; }
+    if (body === (m.body ?? '')) { this.cancelEdit(); return; }
+    this.api.editChatMessage(m.id, body).subscribe({
+      next: () => this.cancelEdit(),
+      error: () => this.snack.open('Could not edit the message.', 'Dismiss', { duration: 4000 }),
+    });
+  }
+
+  deleteMessage(m: ChatMessageDto): void {
+    this.cancelEdit();
+    this.api.deleteChatMessage(m.id).subscribe({
+      error: () => this.snack.open('Could not delete the message.', 'Dismiss', { duration: 4000 }),
+    });
+  }
+
+  // =========================================================================
+  // Create channel / start DM
+  // =========================================================================
+
+  openCreate(mode: 'channel' | 'direct'): void {
+    if (!this.canSend()) return;
+    const people = this.pickablePeople();
+    const data: ChatCreateData = { people, mode };
+    this.dialog.open(ChatCreateDialog, { data, width: '480px', maxWidth: '94vw', autoFocus: false })
+      .afterClosed().subscribe((ch: ChatChannelDto | undefined) => {
+        if (ch) this.select(ch);
+      });
+  }
+
+  /** Presence roster (everyone seen recently) minus the caller — the picker's candidate list. */
+  private pickablePeople(): ChatPickPerson[] {
+    const me = this.myEmail();
+    const online = this.onlineEmails();
+    return this.presence()
+      .filter(p => p.email.toLowerCase() !== me)
+      .map(p => ({
+        email: p.email,
+        name: p.name,
+        picture: p.picture,
+        online: online.has(p.email.toLowerCase()),
+      }))
+      .sort((a, b) => Number(b.online) - Number(a.online) || (a.name || a.email).localeCompare(b.name || b.email));
+  }
+
+  // =========================================================================
+  // small view helpers
+  // =========================================================================
+
+  /** Local time-of-day for a message timestamp, e.g. "3:07 PM". */
+  msgTime(iso: string): string {
+    return new Date(iso).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  }
+
+  channelInitial(ch: ChatChannelDto): string {
+    if (ch.kind === 'direct') return this.initialsOf(ch.displayName, ch.displayName);
+    return (ch.displayName?.[0] ?? '#').toUpperCase();
+  }
+
+  private initialsOf(name: string | null | undefined, email?: string | null): string {
+    const parts = (name || email || '').split(/[\s@.]+/).filter(Boolean);
+    return ((parts[0]?.[0] ?? '') + (parts[1]?.[0] ?? '')).toUpperCase() || 'U';
+  }
+
+  groupInitials(g: MessageGroup): string {
+    return this.initialsOf(g.senderName, g.senderEmail);
+  }
+
+  /**
+   * Focus the composer — but only on a desktop-width viewport. On phones the panes overlay and the
+   * composer is brought into view on open; auto-focusing there would immediately pop the on-screen
+   * keyboard over the freshly opened conversation, so we skip it.
+   */
+  private focusComposer(): void {
+    if (typeof window === 'undefined' || !window.matchMedia('(min-width: 761px)').matches) return;
+    this.composerEl()?.nativeElement?.focus();
+  }
+
+  /**
+   * Mobile Back: deselect the conversation and move focus to the sidebar New-conversation button (or
+   * its header) so focus isn't lost to <body> when the Back button gets display:none. On desktop both
+   * panes are visible, so this is just a deselect.
+   */
+  back(): void {
+    this.selectedId.set(null);
+    queueMicrotask(() => {
+      const root = this.host.nativeElement;
+      const target = root.querySelector<HTMLElement>('.cx-add')
+        ?? root.querySelector<HTMLElement>('.cx-side__head .panel-header')
+        ?? root.querySelector<HTMLElement>('.cx-side__head');
+      target?.focus();
+    });
+  }
+}

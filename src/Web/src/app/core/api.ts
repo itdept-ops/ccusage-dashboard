@@ -2,9 +2,10 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import {
-  AccessPolicy, AuditEntry, CacheEfficiency, CalendarDay, CreateShareRequest, Fleet, FleetDeleteRequest,
+  AccessPolicy, AuditEntry, CacheEfficiency, CalendarDay, ChatChannelDto, ChatMessageDto, CreateChannelRequest,
+  CreateShareRequest, Fleet, FleetDeleteRequest,
   FleetDeleteResult, FleetReassignRequest, FleetReassignResult, FleetRevokeKeysRequest, FleetRevokeKeysResult, GroupBy,
-  HeatmapCell, IngestionSource, IngestKey, IngestKeyCreated, LoginEvent, MachineStat, ManagedUser, ModelStat, NotificationSettings,
+  HeatmapCell, IngestionSource, IngestKey, IngestKeyCreated, LoginEvent, MachineStat, ManagedUser, ModelStat, NotificationDto, NotificationSettings,
   NotificationUpdate, PagedResult, PermissionItem, Presence, Pricing, ProjectDto, PublicShare, RequestLogEntry, SavedView,
   SavedViewUpsertRequest, SessionDetail, Settings, ShareAccessItem, ShareCreated, ShareListItem, SummaryResponse,
   SyncResult, SyncStatus, UsageFilter, UsageRecord, UsageStats,
@@ -252,6 +253,71 @@ export class Api {
 
   deleteUser(id: number): Observable<unknown> {
     return this.http.delete(`${this.base}/users/${id}`);
+  }
+
+  // ---- Chat (channels, DMs, messages) — gated by chat.read/chat.send/chat.moderate ----
+
+  /** All channels + DMs the caller can see, with unread counts and last-message previews. */
+  chatChannels(): Observable<ChatChannelDto[]> {
+    return this.http.get<ChatChannelDto[]>(`${this.base}/chat/channels`);
+  }
+
+  /** Create a channel (requires chat.send). */
+  createChannel(body: CreateChannelRequest): Observable<ChatChannelDto> {
+    return this.http.post<ChatChannelDto>(`${this.base}/chat/channels`, body);
+  }
+
+  /** Open (or fetch the existing) 1:1 direct-message conversation with a user (requires chat.send). */
+  openDirect(userEmail: string): Observable<ChatChannelDto> {
+    return this.http.post<ChatChannelDto>(`${this.base}/chat/direct`, { userEmail });
+  }
+
+  /**
+   * One page of a channel's messages, newest-first. Paginate older history by passing
+   * `before` = the oldest message id already loaded; `limit` caps the page size.
+   */
+  chatMessages(channelId: number, opts: { before?: number; limit?: number } = {}): Observable<ChatMessageDto[]> {
+    let p = new HttpParams();
+    if (opts.before != null) p = p.set('before', opts.before);
+    if (opts.limit != null) p = p.set('limit', opts.limit);
+    return this.http.get<ChatMessageDto[]>(`${this.base}/chat/channels/${channelId}/messages`, { params: p });
+  }
+
+  /** Post a message via REST (the realtime hub is preferred; this is the fallback). */
+  sendChatMessage(channelId: number, body: string, mentionedEmails: string[] | null = null): Observable<ChatMessageDto> {
+    return this.http.post<ChatMessageDto>(`${this.base}/chat/channels/${channelId}/messages`, { body, mentionedEmails });
+  }
+
+  /** Edit a message's body (own message, or any with chat.moderate). */
+  editChatMessage(messageId: number, body: string): Observable<unknown> {
+    return this.http.patch(`${this.base}/chat/messages/${messageId}`, { body });
+  }
+
+  /** Soft-delete a message (own message, or any with chat.moderate). */
+  deleteChatMessage(messageId: number): Observable<unknown> {
+    return this.http.delete(`${this.base}/chat/messages/${messageId}`);
+  }
+
+  /** Mark a channel read up to `messageId`; returns the resulting unread count. */
+  markChatRead(channelId: number, messageId: number): Observable<{ unreadCount: number }> {
+    return this.http.post<{ unreadCount: number }>(`${this.base}/chat/channels/${channelId}/read`, { messageId });
+  }
+
+  // ---- Inbox / notifications (bell UI is Phase 2b; methods provided now for the realtime service) ----
+
+  /** The caller's notifications, newest-first. */
+  inboxNotifications(): Observable<NotificationDto[]> {
+    return this.http.get<NotificationDto[]>(`${this.base}/inbox`);
+  }
+
+  /** Mark a single notification read. */
+  markNotificationRead(id: number): Observable<unknown> {
+    return this.http.post(`${this.base}/inbox/${id}/read`, {});
+  }
+
+  /** Mark every notification read; returns the new (zero) unread total. */
+  markAllNotificationsRead(): Observable<{ unread: number }> {
+    return this.http.post<{ unread: number }>(`${this.base}/inbox/read-all`, {});
   }
 
   // ---- Access policy (open sign-up + default permissions; requires users.manage to edit) ----

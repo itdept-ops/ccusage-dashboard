@@ -74,6 +74,12 @@ export const routes: Routes = [
     title: 'Usage IQ · Fleet',
   },
   {
+    path: 'chat',
+    canActivate: [permissionGuard(PERM.chatRead)],
+    loadComponent: () => import('./features/chat/chat').then(m => m.Chat),
+    title: 'Usage IQ · Chat',
+  },
+  {
     path: 'users',
     canActivate: [permissionGuard(PERM.usersView)],
     loadComponent: () => import('./features/users/users').then(m => m.Users),

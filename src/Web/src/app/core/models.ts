@@ -465,7 +465,70 @@ export interface RequestLogEntry {
   responseBody: string | null;
 }
 
-/** Canonical permission keys (mirror of the backend catalog — all 19 keys). */
+// ---- Chat + notifications (Phase 2) ----
+
+/** A member of a chat channel/DM (minimal identity for avatars + online dots). Mirrors the member shape in ChatChannelDto. */
+export interface ChatMember {
+  email: string;
+  name: string;
+  picture?: string;
+}
+
+/**
+ * One chat conversation — a named channel or a 1:1 direct message. `displayName` is server-computed
+ * (channel name, or the other participant's name for a DM). `unreadCount` is the per-channel unread
+ * MESSAGE count. Mirrors ChatChannelDto (camelCase JSON).
+ */
+export interface ChatChannelDto {
+  id: number;
+  kind: 'channel' | 'direct';
+  name?: string;
+  topic?: string;
+  isPrivate: boolean;
+  archived: boolean;
+  displayName: string;
+  members: ChatMember[];
+  lastMessage?: ChatMessageDto;
+  unreadCount: number;
+}
+
+/**
+ * One chat message. `body` is null when `deleted` is true (render a muted placeholder).
+ * `editedUtc` is set on edits. Timestamps are ISO-8601 UTC strings. Mirrors ChatMessageDto.
+ */
+export interface ChatMessageDto {
+  id: number;
+  channelId: number;
+  senderEmail: string;
+  senderName: string;
+  senderPicture?: string;
+  body: string | null;
+  createdUtc: string;
+  editedUtc?: string;
+  deleted: boolean;
+}
+
+/** One in-app notification (inbox / bell). The bell UI ships in Phase 2b. Mirrors NotificationDto. */
+export interface NotificationDto {
+  id: number;
+  type: string;
+  text: string;
+  link?: string;
+  actorEmail?: string;
+  actorName?: string;
+  isRead: boolean;
+  createdUtc: string;
+}
+
+/** Create-a-channel payload (POST /api/chat/channels). */
+export interface CreateChannelRequest {
+  name: string;
+  topic?: string;
+  isPrivate: boolean;
+  memberEmails: string[];
+}
+
+/** Canonical permission keys (mirror of the backend catalog — all 22 keys). */
 export const PERM = {
   dashboardView: 'dashboard.view',
   dashboardExport: 'dashboard.export',
@@ -486,6 +549,9 @@ export const PERM = {
   usersView: 'users.view',
   usersManage: 'users.manage',
   activityView: 'activity.view',
+  chatRead: 'chat.read',
+  chatSend: 'chat.send',
+  chatModerate: 'chat.moderate',
 } as const;
 
 /**
@@ -495,7 +561,7 @@ export const PERM = {
  */
 export const PERM_GROUP_ORDER: readonly string[] = [
   'Dashboard', 'Calendar', 'Pricing', 'Settings', 'Reporter',
-  'Notifications', 'Shares', 'Administration',
+  'Notifications', 'Chat', 'Shares', 'Administration',
 ];
 
 /** Maps each permission key to its UI group (mirror of the backend catalog grouping). */
@@ -514,6 +580,9 @@ export const PERM_GROUP_OF: Readonly<Record<string, string>> = {
   [PERM.reporterSelf]: 'Reporter',
   [PERM.notificationsView]: 'Notifications',
   [PERM.notificationsManage]: 'Notifications',
+  [PERM.chatRead]: 'Chat',
+  [PERM.chatSend]: 'Chat',
+  [PERM.chatModerate]: 'Chat',
   [PERM.sharesView]: 'Shares',
   [PERM.sharesManage]: 'Shares',
   [PERM.usersView]: 'Administration',
