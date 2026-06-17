@@ -1,0 +1,367 @@
+/* ============================================================
+   Notification bell — toolbar trigger + dropdown panel
+   Mirrors the presence indicator / account-menu language in app.scss,
+   using ONLY foundation tokens from styles.scss.
+   ============================================================ */
+
+/* ---- Bell trigger (sits in the toolbar right cluster) -------------- */
+.bell {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border-radius: var(--tech-r-pill, 999px);
+  background: var(--tech-input);
+  border: 1px solid var(--tech-border-subtle, #1c2533);
+  color: var(--tech-text-secondary);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    background-color var(--tech-t-control, 140ms) ease,
+    border-color var(--tech-t-control, 140ms) ease,
+    color var(--tech-t-control, 140ms) ease;
+
+  &:hover {
+    color: var(--tech-text);
+    border-color: var(--tech-border-strong, #33425a);
+  }
+  &:focus-visible {
+    outline: none;
+    box-shadow: var(--tech-focus-ring);
+  }
+  &--open {
+    color: var(--tech-text);
+    border-color: var(--tech-border-strong, #33425a);
+    background: color-mix(in srgb, var(--tech-panel-raised) 85%, transparent);
+  }
+
+  &__icon {
+    font-size: 20px;
+    width: 20px;
+    height: 20px;
+  }
+
+  /* Unread count pill, anchored to the top-right of the bell. */
+  &__badge {
+    position: absolute;
+    top: -3px;
+    right: -3px;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 4px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    /* Darker red than --tech-error so white text clears ~4.5:1 contrast against the white glyph. */
+    background: #c8102e;
+    color: #fff;
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 1;
+    letter-spacing: 0.02em;
+    box-shadow: 0 0 0 2px var(--tech-panel, #111722), 0 0 8px -1px rgba(255, 92, 108, 0.6);
+  }
+}
+
+/* ---- Visually-hidden polite live region (unread-count announcements) -- */
+.nb-sr-status {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ---- Dropdown panel (CDK overlay; reach it via panelClass) --------- */
+::ng-deep .notif-menu.mat-mdc-menu-panel {
+  min-width: 332px;
+  max-width: 380px;
+  border: 1px solid var(--tech-border, #26303f);
+  border-radius: var(--tech-r-panel, 12px);
+  background: var(--tech-panel, #111722);
+  background-image: radial-gradient(120% 100% at 100% 0%, rgba(61, 139, 255, 0.08), transparent 55%);
+  box-shadow: var(--tech-shadow-popover, 0 24px 60px -20px rgba(0, 0, 0, 0.8));
+  overflow: hidden;
+  transform-origin: top right;
+  animation: notif-menu-in 160ms var(--tech-ease, cubic-bezier(0.22, 1, 0.36, 1));
+
+  .mat-mdc-menu-content { padding: 0; }
+
+  /* ── Header: title + unread count + mark-all ── */
+  .nb-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 11px 12px;
+    border-bottom: 1px solid var(--tech-border-subtle, #1c2533);
+    cursor: default;
+  }
+  .nb-head__title {
+    font-family: var(--tech-font-mono);
+    font-size: var(--tech-fs-micro, 10.5px);
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--tech-text-secondary);
+  }
+  .nb-head__count {
+    font-family: var(--tech-font-mono);
+    font-size: var(--tech-fs-label, 11px);
+    font-weight: 700;
+    color: var(--tech-accent);
+  }
+  .nb-head__action {
+    margin-left: auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    height: 28px;
+    padding: 0 10px;
+    border: 1px solid var(--tech-border-subtle, #1c2533);
+    border-radius: var(--tech-r-pill, 999px);
+    background: var(--tech-bg-sunken, #0c1118);
+    color: var(--tech-text-secondary);
+    font-family: var(--tech-font-ui);
+    font-size: var(--tech-fs-label, 11px);
+    font-weight: 500;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    transition:
+      color var(--tech-t-control, 140ms) ease,
+      border-color var(--tech-t-control, 140ms) ease,
+      background-color var(--tech-t-control, 140ms) ease;
+
+    mat-icon { font-size: 15px; width: 15px; height: 15px; }
+
+    &:hover:not(:disabled) {
+      color: var(--tech-text);
+      border-color: var(--tech-border-strong, #33425a);
+      background: color-mix(in srgb, var(--tech-panel-raised) 70%, transparent);
+    }
+    &:focus-visible {
+      outline: none;
+      box-shadow: var(--tech-focus-ring);
+    }
+    &:disabled {
+      opacity: 0.45;
+      cursor: default;
+    }
+
+    /* Touch: keep the compact 28px visual but expand the tap target to >=40px. */
+    @media (pointer: coarse) {
+      min-height: 40px;
+      padding: 0 14px;
+    }
+  }
+
+  /* ── Scrollable list ── */
+  .nb-list {
+    max-height: 60vh;
+    overflow-y: auto;
+    padding: 4px;
+  }
+
+  .nb-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    width: 100%;
+    padding: 9px 9px 9px 8px;
+    border: none;
+    background: transparent;
+    border-radius: var(--tech-r-control, 8px);
+    text-align: left;
+    cursor: pointer;
+    color: inherit;
+    font: inherit;
+    transition: background-color var(--tech-t-control, 140ms) ease;
+
+    &:hover {
+      background: color-mix(in srgb, var(--tech-panel-raised, #161d2a) 70%, transparent);
+    }
+    &:focus-visible {
+      outline: none;
+      box-shadow: var(--tech-focus-ring);
+    }
+
+    &--unread {
+      background: color-mix(in srgb, var(--tech-accent) 7%, transparent);
+      &:hover { background: color-mix(in srgb, var(--tech-accent) 12%, transparent); }
+    }
+
+    &__icon-wrap {
+      flex: 0 0 auto;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 32px;
+      height: 32px;
+      border-radius: var(--tech-r-control, 8px);
+      background: var(--tech-bg-sunken, #0c1118);
+      border: 1px solid var(--tech-border-subtle, #1c2533);
+      color: var(--tech-text-secondary);
+    }
+    /* System events read as alerts; tint them. */
+    &__icon-wrap[data-type='systemSyncFailed'],
+    &__icon-wrap[data-type='systemFleetOffline'] {
+      color: var(--tech-error, #ff5c6c);
+      border-color: color-mix(in srgb, var(--tech-error, #ff5c6c) 30%, transparent);
+      background: color-mix(in srgb, var(--tech-error, #ff5c6c) 10%, var(--tech-bg-sunken, #0c1118));
+    }
+    &__icon-wrap[data-type='mention'],
+    &__icon-wrap[data-type='directMessage'] {
+      color: var(--tech-accent);
+      border-color: color-mix(in srgb, var(--tech-accent) 28%, transparent);
+    }
+    &__icon { font-size: 18px; width: 18px; height: 18px; }
+
+    &__body {
+      min-width: 0;
+      flex: 1 1 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    &__text {
+      font-family: var(--tech-font-ui);
+      font-size: var(--tech-fs-body, 13px);
+      color: var(--tech-text);
+      line-height: 1.35;
+      /* Clamp long bodies to two lines. */
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+    &__meta {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      min-width: 0;
+      font-family: var(--tech-font-mono);
+      font-size: var(--tech-fs-label, 11px);
+      /* Secondary (not tertiary) so the 11px actor/timestamp meta clears ~4.5:1 against the panel. */
+      color: var(--tech-text-secondary);
+    }
+    &__actor {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      max-width: 180px;
+    }
+    &__sep { flex: 0 0 auto; }
+    &__time { flex: 0 0 auto; }
+
+    &__dot {
+      flex: 0 0 auto;
+      align-self: center;
+      width: 7px;
+      height: 7px;
+      border-radius: 999px;
+      background: var(--tech-accent);
+      box-shadow: 0 0 8px -1px var(--tech-accent);
+    }
+  }
+
+  /* ── Empty state ── */
+  .nb-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    padding: 28px 20px 30px;
+    cursor: default;
+
+    &__icon {
+      font-size: 30px;
+      width: 30px;
+      height: 30px;
+      color: var(--tech-text-tertiary, #5e6c82);
+      opacity: 0.7;
+      margin-bottom: 8px;
+    }
+    &__title {
+      margin: 0;
+      font-family: var(--tech-font-ui);
+      font-size: var(--tech-fs-body, 13px);
+      font-weight: 600;
+      color: var(--tech-text-secondary);
+    }
+    &__sub {
+      margin: 3px 0 0;
+      font-size: var(--tech-fs-label, 11px);
+      color: var(--tech-text-tertiary, #5e6c82);
+    }
+  }
+
+  /* ── Footer: settings link ── */
+  .nb-foot {
+    border-top: 1px solid var(--tech-border-subtle, #1c2533);
+    padding: 6px;
+  }
+  .nb-foot__settings {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    width: 100%;
+    min-height: 38px;
+    padding: 0 10px;
+    border: none;
+    background: transparent;
+    border-radius: var(--tech-r-control, 8px);
+    color: var(--tech-text-secondary);
+    font-family: var(--tech-font-ui);
+    font-size: var(--tech-fs-body, 13px);
+    font-weight: 500;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    transition:
+      color var(--tech-t-control, 140ms) ease,
+      background-color var(--tech-t-control, 140ms) ease;
+
+    mat-icon {
+      font-size: 18px;
+      width: 18px;
+      height: 18px;
+      color: var(--tech-text-tertiary, #5e6c82);
+    }
+
+    &:hover {
+      color: var(--tech-text);
+      background: color-mix(in srgb, var(--tech-panel-raised, #161d2a) 80%, transparent);
+      mat-icon { color: var(--tech-text-accent, #9fb4d4); }
+    }
+    &:focus-visible {
+      outline: none;
+      box-shadow: inset 0 0 0 1px var(--tech-border-strong, #33425a);
+    }
+  }
+}
+
+@keyframes notif-menu-in {
+  from { opacity: 0; transform: translateY(-6px) scale(0.97); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* Mobile: the 332–380px panel can overflow below a ~360px viewport. Cap it to the viewport,
+   mirroring the toolbar presence/account menus + the prefs dialog's 94vw clamp. */
+@media (max-width: 480px) {
+  ::ng-deep .notif-menu.mat-mdc-menu-panel {
+    min-width: 0;
+    max-width: 94vw;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::ng-deep .notif-menu.mat-mdc-menu-panel { animation: none; }
+}

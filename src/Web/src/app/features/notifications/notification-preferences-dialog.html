@@ -1,0 +1,119 @@
+<h2 mat-dialog-title class="np-title">Notification settings</h2>
+
+<mat-dialog-content class="np-body">
+  <section class="np-group" role="group" aria-labelledby="np-triggers-head">
+    <div class="np-group__head">
+      <span class="micro-label" id="np-triggers-head">Notify me about</span>
+      <p class="np-group__hint">Choose which events create a notification in your inbox.</p>
+    </div>
+
+    <div class="np-row">
+      <div class="np-row__text">
+        <mat-icon class="np-row__icon">alternate_email</mat-icon>
+        <div class="np-row__id">
+          <div class="np-row__label">Direct messages</div>
+          <div class="np-row__desc">When someone sends you a 1:1 message.</div>
+        </div>
+      </div>
+      <mat-slide-toggle class="np-toggle" [checked]="model().notifyDirectMessages"
+                        (change)="patch('notifyDirectMessages', $event.checked)"
+                        aria-label="Notify me about direct messages" />
+    </div>
+
+    <div class="np-row">
+      <div class="np-row__text">
+        <mat-icon class="np-row__icon">campaign</mat-icon>
+        <div class="np-row__id">
+          <div class="np-row__label">Mentions</div>
+          <div class="np-row__desc">When someone &#64;mentions you in a channel.</div>
+        </div>
+      </div>
+      <mat-slide-toggle class="np-toggle" [checked]="model().notifyMentions"
+                        (change)="patch('notifyMentions', $event.checked)"
+                        aria-label="Notify me about mentions" />
+    </div>
+
+    <div class="np-row">
+      <div class="np-row__text">
+        <mat-icon class="np-row__icon">forum</mat-icon>
+        <div class="np-row__id">
+          <div class="np-row__label">All channel messages</div>
+          <div class="np-row__desc">Every new message in channels you belong to.</div>
+        </div>
+      </div>
+      <mat-slide-toggle class="np-toggle" [checked]="model().notifyChannelMessages"
+                        (change)="patch('notifyChannelMessages', $event.checked)"
+                        aria-label="Notify me about all channel messages" />
+    </div>
+
+    <div class="np-row">
+      <div class="np-row__text">
+        <mat-icon class="np-row__icon">monitor_heart</mat-icon>
+        <div class="np-row__id">
+          <div class="np-row__label">System events</div>
+          <div class="np-row__desc">Sync failures, fleet offline alerts, and new sign-ups.</div>
+        </div>
+      </div>
+      <mat-slide-toggle class="np-toggle" [checked]="model().notifySystemEvents"
+                        (change)="patch('notifySystemEvents', $event.checked)"
+                        aria-label="Notify me about system events" />
+    </div>
+  </section>
+
+  <div class="np-divider" role="separator" aria-hidden="true"></div>
+
+  <section class="np-group" role="group" aria-labelledby="np-surfaces-head">
+    <div class="np-group__head">
+      <span class="micro-label" id="np-surfaces-head">How alerts appear</span>
+      <p class="np-group__hint">The bell and unread badge always show — these control live pop-ups.</p>
+    </div>
+
+    <div class="np-row">
+      <div class="np-row__text">
+        <mat-icon class="np-row__icon">notifications_active</mat-icon>
+        <div class="np-row__id">
+          <div class="np-row__label">In-app toasts</div>
+          <div class="np-row__desc">A brief pop-up in the corner when a notification arrives.</div>
+        </div>
+      </div>
+      <mat-slide-toggle class="np-toggle" [checked]="model().surfaceToasts"
+                        (change)="onToastsChange($event.checked)"
+                        aria-label="Show in-app toast notifications" />
+    </div>
+
+    <div class="np-row">
+      <div class="np-row__text">
+        <mat-icon class="np-row__icon">desktop_windows</mat-icon>
+        <div class="np-row__id">
+          <div class="np-row__label">Browser notifications</div>
+          <div class="np-row__desc">Desktop alerts while this tab is in the background.</div>
+        </div>
+      </div>
+      <mat-slide-toggle class="np-toggle" [checked]="model().surfaceBrowser"
+                        [disabled]="!browserSupported"
+                        (change)="onBrowserChange($event.checked)"
+                        aria-label="Show browser notifications" />
+    </div>
+
+    @if (browserHint(); as hint) {
+      <p class="np-permhint" [class.np-permhint--warn]="permission() === 'denied' || !browserSupported"
+         role="status">
+        <mat-icon>{{ permission() === 'denied' || !browserSupported ? 'block' : 'info' }}</mat-icon>
+        <span>{{ hint }}</span>
+      </p>
+    }
+  </section>
+
+  @if (error()) {
+    <p class="np-error" role="alert">
+      <mat-icon>error_outline</mat-icon> {{ error() }}
+    </p>
+  }
+</mat-dialog-content>
+
+<mat-dialog-actions class="np-actions" align="end">
+  <button mat-stroked-button type="button" (click)="cancel()" [disabled]="busy()">Cancel</button>
+  <button mat-flat-button type="button" color="primary" (click)="save()" [disabled]="busy()">
+    Save preferences
+  </button>
+</mat-dialog-actions>

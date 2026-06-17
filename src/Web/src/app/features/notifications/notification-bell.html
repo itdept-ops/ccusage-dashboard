@@ -1,0 +1,83 @@
+<button type="button" class="bell" [matMenuTriggerFor]="bellMenu"
+        #bellTrigger="matMenuTrigger"
+        [class.bell--open]="bellTrigger.menuOpen"
+        (menuOpened)="onMenuOpened()"
+        aria-haspopup="dialog"
+        [attr.aria-label]="ariaLabel()"
+        matTooltip="Notifications" matTooltipClass="axon-tip">
+  <mat-icon class="bell__icon" aria-hidden="true">
+    {{ unread() > 0 ? 'notifications_active' : 'notifications' }}
+  </mat-icon>
+  @if (badgeText()) {
+    <span class="bell__badge mono-num" aria-hidden="true">{{ badgeText() }}</span>
+  }
+</button>
+
+<!--
+  Visually-hidden polite live region: announces unread-count changes to screen readers even when
+  toasts are off. The visual badge stays aria-hidden so the count is conveyed exactly once.
+-->
+<span class="nb-sr-status" aria-live="polite" aria-atomic="true">{{ unread() }} unread notifications</span>
+
+<mat-menu #bellMenu="matMenu" class="notif-menu" xPosition="before" overlapTrigger="false">
+  <!--
+    The panel is a single labelled popover region wrapping the header action, the list, and the
+    footer action. The controls are native buttons (keyboard-focusable + Tab-navigable), so we do NOT
+    claim role=menu/menuitem (which would imply MatMenu FocusKeyManager arrow-key semantics that don't
+    govern these plain buttons). MatMenu hardcodes role="menu" on its panel root; onMenuOpened()
+    relabels that root as role="region" aria-label="Notifications", so this inner wrapper is a plain
+    layout container (no extra role) to avoid a nested duplicate region.
+  -->
+  <div class="nb-panel" (click)="$event.stopPropagation()">
+    <div class="nb-head">
+      <span class="nb-head__title">Notifications</span>
+      @if (unread() > 0) {
+        <span class="nb-head__count mono-num">{{ unread() }} unread</span>
+      }
+      <button type="button" class="nb-head__action" (click)="markAllRead()"
+              [disabled]="unread() === 0"
+              aria-label="Mark all notifications read">
+        <mat-icon aria-hidden="true">done_all</mat-icon>
+        <span>Mark all read</span>
+      </button>
+    </div>
+
+    <div class="nb-list">
+      @for (n of notifications(); track n.id) {
+        <button type="button" class="nb-item"
+                [class.nb-item--unread]="!n.isRead"
+                (click)="open(n)">
+          <span class="nb-item__icon-wrap" [attr.data-type]="n.type" aria-hidden="true">
+            <mat-icon class="nb-item__icon">{{ iconFor(n.type) }}</mat-icon>
+          </span>
+          <span class="nb-item__body">
+            <span class="nb-item__text">{{ n.text }}</span>
+            <span class="nb-item__meta">
+              @if (n.actorName || n.actorEmail) {
+                <span class="nb-item__actor">{{ n.actorName || n.actorEmail }}</span>
+                <span class="nb-item__sep" aria-hidden="true">·</span>
+              }
+              <span class="nb-item__time">{{ timeAgo(n.createdUtc, now()) }}</span>
+            </span>
+          </span>
+          @if (!n.isRead) {
+            <span class="nb-item__dot" aria-label="Unread"></span>
+          }
+        </button>
+      } @empty {
+        <div class="nb-empty">
+          <mat-icon class="nb-empty__icon" aria-hidden="true">notifications_off</mat-icon>
+          <p class="nb-empty__title">You're all caught up</p>
+          <p class="nb-empty__sub">New notifications will show up here.</p>
+        </div>
+      }
+    </div>
+
+    <div class="nb-foot">
+      <button type="button" class="nb-foot__settings" (click)="openPreferences()">
+        <mat-icon aria-hidden="true">tune</mat-icon>
+        <span>Notification settings</span>
+      </button>
+    </div>
+  </div>
+</mat-menu>

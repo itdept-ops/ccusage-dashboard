@@ -174,7 +174,7 @@
                 <span class="cx-grp__time">{{ msgTime(g.firstUtc) }}</span>
               </div>
               @for (m of g.messages; track m.id) {
-                <div class="cx-msg" [class.deleted]="m.deleted">
+                <div class="cx-msg" [class.deleted]="m.deleted" [attr.data-msg-id]="m.id">
                   @if (editingId() === m.id) {
                     <div class="cx-edit">
                       <textarea class="cx-edit__input" [ngModel]="editDraft()"

@@ -9,8 +9,18 @@ import {
 
 import { Api } from './api';
 import { AuthService } from './auth';
-import { ChatChannelDto, ChatMessageDto, NotificationDto } from './models';
+import { ChatChannelDto, ChatMessageDto, NotificationDto, NotificationPreferenceDto } from './models';
 import { firstValueFrom } from 'rxjs';
+
+/** Sensible defaults until the real preferences are loaded from the server (everything on). */
+const DEFAULT_PREFERENCES: NotificationPreferenceDto = {
+  notifyDirectMessages: true,
+  notifyMentions: true,
+  notifyChannelMessages: true,
+  notifySystemEvents: true,
+  surfaceToasts: true,
+  surfaceBrowser: false,
+};
 
 /** SignalR hub endpoint (JWT is appended by the client as ?access_token=...). */
 const HUB_URL = '/api/hubs/chat';
@@ -92,13 +102,30 @@ export class ChatRealtime {
     Object.values(this._unread()).reduce((a, b) => a + b, 0),
   );
 
-  // ---- notifications (inbox) — captured now; bell UI is Phase 2b ----
+  // ---- notifications (inbox) ----
   private readonly _notifications = signal<NotificationDto[]>([]);
+  /** Recent notifications for the bell dropdown, newest-first. */
   readonly notifications = this._notifications.asReadonly();
 
   private readonly _inboxUnread = signal(0);
   /** Global unread NOTIFICATION count (mirrors InboxUnreadChanged). */
   readonly inboxUnread = this._inboxUnread.asReadonly();
+
+  // ---- notification delivery preferences ----
+  private readonly _preferences = signal<NotificationPreferenceDto>({ ...DEFAULT_PREFERENCES });
+  /** The caller's delivery preferences (TRIGGER + SURFACE prefs). Defaults until loaded. */
+  readonly preferences = this._preferences.asReadonly();
+
+  /**
+   * The most recent LIVE notification (set ONLY in the ReceiveNotification hub handler, never on the
+   * initial inbox load or a reconnect re-fetch). The bell reads this in an effect to decide whether to
+   * pop a toast / browser notification — so history is never replayed. Each live arrival publishes a
+   * fresh wrapper object (new `seq`) so consecutive notifications with the same id still re-fire the
+   * effect, and consumers can dedupe on `notification.id`.
+   */
+  private readonly _liveNotification = signal<{ seq: number; notification: NotificationDto } | null>(null);
+  readonly liveNotification = this._liveNotification.asReadonly();
+  private liveSeq = 0;
 
   // =========================================================================
   // Connection lifecycle
@@ -129,8 +156,11 @@ export class ChatRealtime {
     connection.onreconnecting(() => this._connection.set('reconnecting'));
     connection.onreconnected(() => {
       this._connection.set('connected');
-      // After a reconnect the server replays nothing — re-pull channel list to resync.
+      // After a reconnect the server replays nothing — re-pull channel list to resync. Also re-pull
+      // the inbox so the badge/list catch up on anything missed during the gap; refreshInbox never
+      // touches _liveNotification, so this can't replay history as toasts.
       void this.refreshChannels();
+      void this.refreshInbox();
     });
     connection.onclose(() => this._connection.set('disconnected'));
 
@@ -142,7 +172,15 @@ export class ChatRealtime {
     } catch {
       this._connection.set('disconnected');
       this.connection = null;
+      return;
     }
+
+    // Initial inbox + preferences load. These populate the dropdown/badge/prefs but must NOT surface
+    // toasts — they never touch _liveNotification (only ReceiveNotification does). They run OUTSIDE
+    // the connection try/catch above and each swallows its own error, so a transient REST failure can
+    // never tear down a healthy hub connection. Preferences additionally fall back to DEFAULT_PREFERENCES.
+    void this.refreshInbox().catch(() => { /* keep the live hub; badge/list stay as-is */ });
+    void this.loadPreferences().catch(() => { /* keep DEFAULT_PREFERENCES */ });
   }
 
   /**
@@ -166,6 +204,9 @@ export class ChatRealtime {
     this._unread.set({});
     this._notifications.set([]);
     this._inboxUnread.set(0);
+    this._preferences.set({ ...DEFAULT_PREFERENCES });
+    this._liveNotification.set(null);
+    this.liveSeq = 0;
   }
 
   // =========================================================================
@@ -239,6 +280,10 @@ export class ChatRealtime {
 
   private onReceiveNotification(n: NotificationDto): void {
     this._notifications.update(list => [n, ...list.filter(x => x.id !== n.id)]);
+    // Publish to the LIVE surface so the bell can toast / browser-notify. This is the ONLY place
+    // _liveNotification is set — the initial load and reconnect re-fetch go through refreshInbox(),
+    // which never touches it, so backlog/history is never replayed as toasts.
+    this._liveNotification.set({ seq: ++this.liveSeq, notification: n });
   }
 
   private onUnreadChanged(channelId: number, unreadCount: number): void {
@@ -354,6 +399,60 @@ export class ChatRealtime {
       return { ...map, [channelId]: merged };
     });
     return page.length;
+  }
+
+  // =========================================================================
+  // Inbox / notifications (REST-backed) — bell UI reads these signals
+  // =========================================================================
+
+  /**
+   * (Re)load the notification list + unread count from REST. Used on initial start() and safe to call
+   * after a reconnect — it replaces the dropdown list and badge from the server's source of truth but
+   * NEVER fires the live surface, so it can't replay history as toasts.
+   */
+  async refreshInbox(limit = 50): Promise<void> {
+    const [list, unread] = await Promise.all([
+      firstValueFrom(this.api.inboxNotifications({ limit })),
+      firstValueFrom(this.api.inboxUnreadCount()),
+    ]);
+    this._notifications.set(list);
+    this._inboxUnread.set(unread.count);
+  }
+
+  /** Load the caller's delivery preferences into the {@link preferences} signal. */
+  async loadPreferences(): Promise<NotificationPreferenceDto> {
+    const pref = await firstValueFrom(this.api.getNotificationPreferences());
+    this._preferences.set(pref);
+    return pref;
+  }
+
+  /**
+   * Mark one or more notifications read. Calls POST /api/inbox/read with the ids, then folds the
+   * server's authoritative unread total back into state and flips the affected rows to read locally so
+   * the dropdown updates immediately. No-op for an empty id list.
+   */
+  async markNotificationsRead(ids: number[]): Promise<void> {
+    const unique = [...new Set(ids)];
+    if (unique.length === 0) return;
+    const idSet = new Set(unique);
+    const res = await firstValueFrom(this.api.markNotificationsRead(unique));
+    this._notifications.update(list =>
+      list.map(n => (idSet.has(n.id) && !n.isRead ? { ...n, isRead: true } : n)));
+    this._inboxUnread.set(res.unreadCount);
+  }
+
+  /** Mark every notification read (POST /api/inbox/read-all); clears the badge and flips all rows. */
+  async markAllNotificationsRead(): Promise<void> {
+    const res = await firstValueFrom(this.api.markAllNotificationsRead());
+    this._notifications.update(list => list.map(n => (n.isRead ? n : { ...n, isRead: true })));
+    this._inboxUnread.set(res.unreadCount);
+  }
+
+  /** Persist delivery preferences (PUT /api/inbox/preferences) and update the {@link preferences} signal. */
+  async updatePreferences(dto: NotificationPreferenceDto): Promise<NotificationPreferenceDto> {
+    const saved = await firstValueFrom(this.api.updateNotificationPreferences(dto));
+    this._preferences.set(saved);
+    return saved;
   }
 
   // =========================================================================

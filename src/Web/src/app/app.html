@@ -118,6 +118,11 @@
         </div>
       </mat-menu>
     }
+
+    <!-- Notification bell: shown only to signed-in users with chat.read; sits next to presence. -->
+    @if (auth.hasPermission('chat.read')) {
+      <app-notification-bell />
+    }
   }
 
   <a mat-icon-button class="gh" href="https://github.com/itdept-ops/usage-iq" target="_blank" rel="noopener"

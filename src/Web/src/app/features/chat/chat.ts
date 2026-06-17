@@ -2,6 +2,7 @@ import {
   AfterViewChecked, Component, ElementRef, OnDestroy, computed, effect, inject, signal, viewChild,
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { ActivatedRoute } from '@angular/router';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { timer, switchMap, catchError, of } from 'rxjs';
 
@@ -56,6 +57,7 @@ export class Chat implements AfterViewChecked, OnDestroy {
   private api = inject(Api);
   private dialog = inject(MatDialog);
   private snack = inject(MatSnackBar);
+  private route = inject(ActivatedRoute);
   private host = inject<ElementRef<HTMLElement>>(ElementRef);
   readonly auth = inject(AuthService);
   readonly chat = inject(ChatRealtime);
@@ -166,6 +168,13 @@ export class Chat implements AfterViewChecked, OnDestroy {
   private lastRenderedCount = 0;
   private lastChannelId: number | null = null;
 
+  /** Channel id requested via the ?c= deep link (notification click); null when none is pending. */
+  private deepLinkChannel: number | null = null;
+  /** Optional ?m= message id to scroll to once the linked channel's history has loaded. */
+  private pendingScrollToMessage: number | null = null;
+  /** Guard so an in-flight refreshChannels() for a deep link isn't kicked off twice. */
+  private resolvingDeepLink = false;
+
   constructor() {
     // The app shell owns the hub lifecycle (start on auth+chat.read, stop on logout), so the page
     // no longer bootstraps the connection itself — avoiding a double-start race.
@@ -180,10 +189,28 @@ export class Chat implements AfterViewChecked, OnDestroy {
       )
       .subscribe(list => { this.now.set(Date.now()); this.presence.set(list); });
 
+    // Honor notification deep links: /chat?c={channelId}&m={messageId}. The component is NOT
+    // recreated when the user clicks a different notification while already on /chat, so we react to
+    // the live queryParamMap stream (not just the initial snapshot) and re-resolve on every change.
+    this.route.queryParamMap.pipe(takeUntilDestroyed()).subscribe(params => {
+      const c = Number(params.get('c'));
+      if (!c || Number.isNaN(c)) {
+        // No (or invalid) ?c=: clear any pending deep-link so the auto-select-newest default applies.
+        this.deepLinkChannel = null;
+        this.pendingScrollToMessage = null;
+        return;
+      }
+      const m = Number(params.get('m'));
+      this.deepLinkChannel = c;
+      this.pendingScrollToMessage = m && !Number.isNaN(m) ? m : null;
+      this.resolveDeepLink(c);
+    });
+
     // Auto-select the most-recent conversation once channels arrive (nice default, not forced).
+    // Suppressed while a ?c= deep link is pending so it can't win the race against the linked channel.
     effect(() => {
       const list = this.chat.channels();
-      if (this.selectedId() == null && list.length > 0) {
+      if (this.deepLinkChannel == null && this.selectedId() == null && list.length > 0) {
         this.select(list[0]);
       }
     });
@@ -243,6 +270,45 @@ export class Chat implements AfterViewChecked, OnDestroy {
     queueMicrotask(() => this.focusComposer());
   }
 
+  /**
+   * Resolve a ?c= notification deep link to a selected channel. If the channel is already in the
+   * loaded list, select it immediately. Otherwise (channels not yet fetched, or a brand-new
+   * channel/DM) refresh the list once and select it; if it is still missing the channel isn't visible
+   * to this user, so we skip gracefully and leave the current selection untouched.
+   */
+  private resolveDeepLink(channelId: number): void {
+    const existing = this.chat.channels().find(c => c.id === channelId);
+    if (existing) {
+      this.deepLinkChannel = null;
+      this.select(existing);
+      return;
+    }
+    // A refresh is already in flight; let it finish — its finally re-resolves whatever is pending now,
+    // so a rapid click on a second still-unloaded channel isn't dropped.
+    if (this.resolvingDeepLink) return;
+    this.resolvingDeepLink = true;
+    this.chat.refreshChannels()
+      .then(list => {
+        // The user may have clicked a different notification while this was in flight; only act if this
+        // channel is still the one being requested.
+        if (this.deepLinkChannel !== channelId) return;
+        const found = list.find(c => c.id === channelId);
+        if (found) {
+          this.deepLinkChannel = null;
+          this.select(found);
+        }
+        // Still missing: not visible to this user — leave selection as-is (skip).
+      })
+      .catch(() => {})
+      .finally(() => {
+        this.resolvingDeepLink = false;
+        // If a still-unresolved deep link is pending (e.g. the user clicked a second link mid-refresh),
+        // resolve it now against the freshly loaded list.
+        const pending = this.deepLinkChannel;
+        if (pending != null && pending !== channelId) this.resolveDeepLink(pending);
+      });
+  }
+
   /** Load older messages when the user scrolls to the top. */
   onScroll(): void {
     const el = this.scroller()?.nativeElement;
@@ -297,6 +363,15 @@ export class Chat implements AfterViewChecked, OnDestroy {
     }
     this.lastRenderedCount = count;
     this.lastChannelId = id;
+
+    // Best-effort scroll to a deep-linked message (?m=) once its channel's messages have rendered.
+    if (this.pendingScrollToMessage != null && id != null && count > 0) {
+      const target = el.querySelector<HTMLElement>(`[data-msg-id="${this.pendingScrollToMessage}"]`);
+      if (target) {
+        target.scrollIntoView({ block: 'center' });
+        this.pendingScrollToMessage = null;
+      }
+    }
   }
 
   /** True when the message list is scrolled near its bottom (or not yet scrollable). */

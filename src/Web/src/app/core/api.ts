@@ -5,7 +5,7 @@ import {
   AccessPolicy, AuditEntry, CacheEfficiency, CalendarDay, ChatChannelDto, ChatMessageDto, CreateChannelRequest,
   CreateShareRequest, Fleet, FleetDeleteRequest,
   FleetDeleteResult, FleetReassignRequest, FleetReassignResult, FleetRevokeKeysRequest, FleetRevokeKeysResult, GroupBy,
-  HeatmapCell, IngestionSource, IngestKey, IngestKeyCreated, LoginEvent, MachineStat, ManagedUser, ModelStat, NotificationDto, NotificationSettings,
+  HeatmapCell, IngestionSource, IngestKey, IngestKeyCreated, LoginEvent, MachineStat, ManagedUser, ModelStat, NotificationDto, NotificationPreferenceDto, NotificationSettings,
   NotificationUpdate, PagedResult, PermissionItem, Presence, Pricing, ProjectDto, PublicShare, RequestLogEntry, SavedView,
   SavedViewUpsertRequest, SessionDetail, Settings, ShareAccessItem, ShareCreated, ShareListItem, SummaryResponse,
   SyncResult, SyncStatus, UsageFilter, UsageRecord, UsageStats,
@@ -305,19 +305,40 @@ export class Api {
 
   // ---- Inbox / notifications (bell UI is Phase 2b; methods provided now for the realtime service) ----
 
-  /** The caller's notifications, newest-first. */
-  inboxNotifications(): Observable<NotificationDto[]> {
-    return this.http.get<NotificationDto[]>(`${this.base}/inbox`);
+  /** The caller's notifications, newest-first. `unreadOnly` filters to unread; `limit` caps the page (1..100). */
+  inboxNotifications(opts: { unreadOnly?: boolean; limit?: number } = {}): Observable<NotificationDto[]> {
+    let p = new HttpParams();
+    if (opts.unreadOnly != null) p = p.set('unreadOnly', opts.unreadOnly);
+    if (opts.limit != null) p = p.set('limit', opts.limit);
+    return this.http.get<NotificationDto[]>(`${this.base}/inbox`, { params: p });
   }
 
-  /** Mark a single notification read. */
-  markNotificationRead(id: number): Observable<unknown> {
-    return this.http.post(`${this.base}/inbox/${id}/read`, {});
+  /** The caller's unread notification count. */
+  inboxUnreadCount(): Observable<{ count: number }> {
+    return this.http.get<{ count: number }>(`${this.base}/inbox/unread-count`);
+  }
+
+  /**
+   * Mark one or more notifications read in a single request. Routes to POST /api/inbox/read with a
+   * body of `{ ids: [...] }` (NOT /api/inbox/{id}/read); returns the resulting unread total.
+   */
+  markNotificationsRead(ids: number[]): Observable<{ unreadCount: number }> {
+    return this.http.post<{ unreadCount: number }>(`${this.base}/inbox/read`, { ids });
   }
 
   /** Mark every notification read; returns the new (zero) unread total. */
-  markAllNotificationsRead(): Observable<{ unread: number }> {
-    return this.http.post<{ unread: number }>(`${this.base}/inbox/read-all`, {});
+  markAllNotificationsRead(): Observable<{ unreadCount: number }> {
+    return this.http.post<{ unreadCount: number }>(`${this.base}/inbox/read-all`, {});
+  }
+
+  /** The caller's notification delivery preferences. */
+  getNotificationPreferences(): Observable<NotificationPreferenceDto> {
+    return this.http.get<NotificationPreferenceDto>(`${this.base}/inbox/preferences`);
+  }
+
+  /** Persist the caller's notification delivery preferences; returns the saved row. */
+  updateNotificationPreferences(dto: NotificationPreferenceDto): Observable<NotificationPreferenceDto> {
+    return this.http.put<NotificationPreferenceDto>(`${this.base}/inbox/preferences`, dto);
   }
 
   // ---- Access policy (open sign-up + default permissions; requires users.manage to edit) ----

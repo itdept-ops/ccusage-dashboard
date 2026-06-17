@@ -13,6 +13,7 @@ import { AuthService } from './core/auth';
 import { ChatRealtime } from './core/chat-realtime';
 import { Presence, SyncStatus, PERM } from './core/models';
 import { timeAgo, humanizeInterval } from './shared/format';
+import { NotificationBell } from './features/notifications/notification-bell';
 
 /** A teammate online, enriched with the initials + "you" flag the indicator needs to render. */
 interface OnlineUser extends Presence {
@@ -33,6 +34,7 @@ interface QuickLink {
   imports: [
     RouterOutlet, RouterLink, RouterLinkActive,
     MatToolbarModule, MatButtonModule, MatIconModule, MatTooltipModule, MatMenuModule,
+    NotificationBell,
   ],
   templateUrl: './app.html',
   styleUrl: './app.scss',

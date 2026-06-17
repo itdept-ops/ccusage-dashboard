@@ -520,6 +520,22 @@ export interface NotificationDto {
   createdUtc: string;
 }
 
+/**
+ * Per-user notification delivery preferences (GET/PUT /api/inbox/preferences). The TRIGGER prefs
+ * (notify*) gate whether the server creates a notification row at all; the SURFACE prefs
+ * (surfaceToasts/surfaceBrowser) are applied CLIENT-SIDE to decide whether to pop an in-app toast or
+ * an OS/browser notification when one arrives live. The bell + unread badge are shown regardless.
+ * Mirrors NotificationPreferenceDto.
+ */
+export interface NotificationPreferenceDto {
+  notifyDirectMessages: boolean;
+  notifyMentions: boolean;
+  notifyChannelMessages: boolean;
+  notifySystemEvents: boolean;
+  surfaceToasts: boolean;
+  surfaceBrowser: boolean;
+}
+
 /** Create-a-channel payload (POST /api/chat/channels). */
 export interface CreateChannelRequest {
   name: string;
