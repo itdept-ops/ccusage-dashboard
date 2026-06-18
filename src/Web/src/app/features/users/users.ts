@@ -12,6 +12,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 
@@ -52,7 +53,7 @@ interface PermGroup {
   selector: 'app-users',
   imports: [
     CommonModule, FormsModule, MatCardModule, MatFormFieldModule, MatInputModule, MatButtonModule,
-    MatIconModule, MatCheckboxModule, MatSlideToggleModule, MatProgressBarModule, MatTooltipModule, MatSnackBarModule,
+    MatIconModule, MatCheckboxModule, MatSlideToggleModule, MatProgressBarModule, MatProgressSpinnerModule, MatTooltipModule, MatSnackBarModule,
   ],
   templateUrl: './users.html',
   styleUrl: './users.scss',
@@ -68,6 +69,8 @@ export class Users {
   readonly audit = signal<AuditEntry[]>([]);
   readonly loading = signal(true);
   readonly savingId = signal<number | null>(null);
+  // The user currently being force-logged-out (disables that row's Sign-out control + shows busy state).
+  readonly loggingOutId = signal<number | null>(null);
 
   // Per-user login history: which rows are expanded + their lazy-loaded sign-in logs (keyed by user id).
   readonly expanded = signal<Set<number>>(new Set());
@@ -291,6 +294,25 @@ export class Users {
         this.savingId.set(null);
         this.snack.open(err.error?.message ?? 'Save failed', 'Dismiss', { duration: 5000 });
         this.load();
+      },
+    });
+  }
+
+  /**
+   * Force-log a user out of their current session (invalidates their active JWT). Non-destructive: the
+   * account stays enabled and they can sign back in immediately — distinct from Disable, which blocks re-login.
+   */
+  forceLogout(u: ManagedUser): void {
+    this.loggingOutId.set(u.id);
+    this.api.forceLogout(u.id).subscribe({
+      next: () => {
+        this.loggingOutId.set(null);
+        this.loadAudit();
+        this.snack.open(`Signed ${u.name || u.email} out of their sessions.`, 'OK', { duration: 2500 });
+      },
+      error: (err: HttpErrorResponse) => {
+        this.loggingOutId.set(null);
+        this.snack.open(err.error?.message ?? 'Could not sign user out', 'Dismiss', { duration: 5000 });
       },
     });
   }

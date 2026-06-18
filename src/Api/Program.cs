@@ -150,6 +150,40 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
                     ctx.Token = token;
                 return Task.CompletedTask;
             },
+            // Session invalidation (force-logout): the token's "sv" claim must still match the user's
+            // current SessionVersion. An admin bumping SessionVersion (POST /api/users/{id}/logout)
+            // invalidates every outstanding token without disabling the account. A MISSING "sv" claim
+            // is treated as 0, so tokens minted before this field existed stay valid while the user's
+            // SessionVersion is still its default 0 — no mass-logout on deploy.
+            OnTokenValidated = async ctx =>
+            {
+                var email = ctx.Principal?.FindFirst("email")?.Value?.Trim().ToLowerInvariant();
+                if (string.IsNullOrEmpty(email))
+                {
+                    ctx.Fail("No email claim.");
+                    return;
+                }
+
+                var db = ctx.HttpContext.RequestServices.GetRequiredService<UsageDbContext>();
+                var user = await db.Users.AsNoTracking().Include(u => u.Permissions)
+                    .FirstOrDefaultAsync(u => u.Email == email, ctx.HttpContext.RequestAborted);
+                if (user is null)
+                {
+                    // Unknown user: leave the request to the per-endpoint permission filter (403), which
+                    // matches today's behaviour for a valid token whose account doesn't exist.
+                    return;
+                }
+
+                var tokenSv = int.TryParse(ctx.Principal?.FindFirst("sv")?.Value, out var sv) ? sv : 0;
+                if (tokenSv != user.SessionVersion)
+                {
+                    ctx.Fail("Session has been invalidated.");
+                    return;
+                }
+
+                // Stash the loaded user so CurrentUserAccessor can reuse it (avoids a duplicate DB hit).
+                ctx.HttpContext.Items[CurrentUserAccessor.LoadedUserKey] = user;
+            },
         };
     });
 builder.Services.AddAuthorization();

@@ -108,7 +108,7 @@ public sealed class GoogleAuthService(
 
                 await RecordLoginAsync(email, created.Id, success: true, "auto-provisioned", payload.Name, ct);
 
-                var (newJwt, newExpires) = IssueToken(payload.Subject, email, created.Name, created.Picture);
+                var (newJwt, newExpires) = IssueToken(payload.Subject, email, created.Name, created.Picture, created.SessionVersion);
                 return new SignInResult(SignInStatus.Ok, new AuthResultDto
                 {
                     Token = newJwt,
@@ -154,7 +154,7 @@ public sealed class GoogleAuthService(
         await RecordLoginAsync(email, user.Id, success: true, "ok", payload.Name, ct);
 
         var permissions = user.Permissions.Select(p => p.Permission).ToArray();
-        var (jwt, expires) = IssueToken(payload.Subject, email, user.Name, user.Picture);
+        var (jwt, expires) = IssueToken(payload.Subject, email, user.Name, user.Picture, user.SessionVersion);
 
         return new SignInResult(SignInStatus.Ok, new AuthResultDto
         {
@@ -224,7 +224,7 @@ public sealed class GoogleAuthService(
         await db.SaveChangesAsync(ct);
     }
 
-    private (string Jwt, DateTime Expires) IssueToken(string? subject, string email, string name, string? picture)
+    private (string Jwt, DateTime Expires) IssueToken(string? subject, string email, string name, string? picture, int sessionVersion)
     {
         var key = config["Jwt:Key"];
         if (string.IsNullOrWhiteSpace(key) || Encoding.UTF8.GetByteCount(key) < 32)
@@ -238,6 +238,8 @@ public sealed class GoogleAuthService(
             new(JwtRegisteredClaimNames.Sub, subject ?? email),
             new("email", email),
             new("name", name),
+            // Session stamp: the pipeline rejects this token once an admin bumps the user's SessionVersion.
+            new("sv", sessionVersion.ToString()),
         };
         if (!string.IsNullOrEmpty(picture)) claims.Add(new Claim("picture", picture));
 

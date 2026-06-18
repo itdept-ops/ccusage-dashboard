@@ -256,6 +256,15 @@ export class Api {
     return this.http.delete(`${this.base}/users/${id}`);
   }
 
+  /**
+   * Force-log a user out of their current session by invalidating their active JWT (bumps the user's
+   * SessionVersion). Non-destructive — the account stays enabled and they can sign back in immediately.
+   * Requires users.manage.
+   */
+  forceLogout(userId: number): Observable<{ ok: boolean }> {
+    return this.http.post<{ ok: boolean }>(`${this.base}/users/${userId}/logout`, {});
+  }
+
   // ---- Chat (channels, DMs, messages) — gated by chat.read/chat.send/chat.moderate ----
 
   /** All channels + DMs the caller can see, with unread counts and last-message previews. */

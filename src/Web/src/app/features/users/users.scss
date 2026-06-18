@@ -125,6 +125,35 @@ mat-progress-bar {
 
   tbody tr:hover { background: color-mix(in srgb, var(--tech-panel-raised) 50%, transparent); }
   tbody tr.disabled { opacity: 0.5; }
+
+  /* ---- Sticky identity (first) column ----
+     The matrix scrolls sideways through many permission columns; pin the leading chevron + user
+     identity cell so the row stays identifiable. Both cells get a solid --tech background so the
+     scrolling matrix passes underneath, and a right-edge divider separates the frozen region. */
+  .col-expand,
+  .col-user {
+    position: sticky;
+    z-index: 2;
+    background: var(--tech-panel, #111722);
+  }
+  .col-expand { left: 0; }
+  .col-user {
+    left: 36px; /* matches .col-expand width so the identity cell sits flush against it */
+    box-shadow: 1px 0 0 var(--tech-border-subtle), 4px 0 8px -6px rgba(0, 0, 0, 0.55);
+  }
+  /* Header corner sits above both the scrolling header and the sticky body column. */
+  thead .col-expand,
+  thead .col-user { z-index: 3; }
+  /* Keep the sticky cells' background in lock-step with row hover/expanded/disabled tints so the
+     scrolled-under matrix never shows through them. */
+  tbody tr:hover .col-expand,
+  tbody tr:hover .col-user { background: color-mix(in srgb, var(--tech-panel-raised) 50%, var(--tech-panel, #111722)); }
+  tbody tr.expanded .col-expand,
+  tbody tr.expanded .col-user { background: color-mix(in srgb, var(--tech-panel-raised) 50%, var(--tech-panel, #111722)); }
+  /* A disabled row dims its whole identity; mirror that tint onto the solid-backed sticky cells so
+     they don't read as a brighter panel than the rest of the (dimmed) row alongside them. */
+  tbody tr.disabled .col-expand,
+  tbody tr.disabled .col-user { background: color-mix(in srgb, var(--tech-text-tertiary) 14%, var(--tech-panel, #111722)); }
 }
 
 .u-cell { display: flex; align-items: center; gap: 10px; }
@@ -146,6 +175,19 @@ mat-progress-bar {
   color: var(--tech-accent);
   --mdc-outlined-button-outline-color: var(--tech-border-strong);
   margin-right: 4px;
+}
+/* Force-logout: deliberately distinct from Disable — a neutral session control that warms to the
+   accent (not the destructive red of delete) so admins don't read it as "disable account". */
+.signout-btn {
+  /* >=44px touch target (Material 21's icon-button box is ~40px) without distorting the 24px glyph. */
+  width: 44px;
+  height: 44px;
+  --mat-icon-button-touch-target-display: none;
+  color: var(--tech-text-tertiary);
+  &:hover { color: var(--tech-accent); }
+  &:disabled { opacity: 0.5; }
+  /* In-flight spinner sits where the icon was; inherit the button's current color. */
+  .signout-spinner { --mdc-circular-progress-active-indicator-color: currentColor; }
 }
 .del-btn { color: var(--tech-text-tertiary); &:hover { color: var(--tech-error, #ff5c6c); } }
 
@@ -483,28 +525,8 @@ mat-slide-toggle {
 /* Mobile — per-user cards replace the wide matrix; everything stacks.   */
 /* ===================================================================== */
 
-/* Tablet: the matrix stays a table but scrolls within its container with
-   a sticky user column so the page itself never scrolls sideways. */
-@media (max-width: 960px) and (min-width: 641px) {
-  .perm-table {
-    .col-expand,
-    .col-user {
-      position: sticky;
-      z-index: 2;
-      background: var(--tech-panel, #111722);
-    }
-    .col-expand { left: 0; }
-    .col-user { left: 36px; box-shadow: 1px 0 0 var(--tech-border-subtle); }
-    thead .col-expand,
-    thead .col-user { z-index: 3; }
-    tbody tr:hover .col-expand,
-    tbody tr:hover .col-user { background: color-mix(in srgb, var(--tech-panel-raised) 60%, var(--tech-panel, #111722)); }
-    tbody tr.expanded .col-expand,
-    tbody tr.expanded .col-user,
-    tbody tr.disabled .col-expand,
-    tbody tr.disabled .col-user { background: color-mix(in srgb, var(--tech-panel-raised) 50%, var(--tech-panel, #111722)); }
-  }
-}
+/* The sticky identity column (defined in the base .perm-table rule above) applies at every width the
+   matrix is visible — full desktop and tablet alike — so the page itself never scrolls sideways. */
 
 @media (max-width: 640px) {
   .panel { padding: 14px 14px; }

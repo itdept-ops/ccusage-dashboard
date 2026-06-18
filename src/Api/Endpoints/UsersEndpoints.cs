@@ -157,6 +157,21 @@ public static class UsersEndpoints
                 return Results.NoContent();
             });
         }).RequirePermission(Permissions.UsersManage);
+
+        // Force-logout: invalidate the user's CURRENT session(s) without disabling the account. Bumping
+        // SessionVersion makes every outstanding token's "sv" claim stale, so the next request (or /me
+        // poll) is rejected 401 and the SPA logs them out. They can sign in again to get a fresh token —
+        // this is distinct from Disable, which blocks re-login.
+        users.MapPost("/{id:int}/logout", async (int id, UsageDbContext db, AuditLogger audit, CancellationToken ct) =>
+        {
+            var user = await db.Users.FirstOrDefaultAsync(u => u.Id == id, ct);
+            if (user is null) return Results.NotFound();
+
+            user.SessionVersion += 1;
+            await db.SaveChangesAsync(ct);
+            await audit.LogAsync("user.forcedlogout", user.Email, $"sessionVersion={user.SessionVersion}", ct);
+            return Results.Ok(new { ok = true });
+        }).RequirePermission(Permissions.UsersManage);
     }
 
     private static string[] ValidPermissions(string[]? requested) =>

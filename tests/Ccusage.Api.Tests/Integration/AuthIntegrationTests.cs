@@ -213,6 +213,110 @@ public class AuthIntegrationTests(WebAppFactory factory)
         (await viewer.GetAsync(Summary)).StatusCode.Should().Be(HttpStatusCode.Forbidden);
     }
 
+    // ---- Force-logout (session invalidation via SessionVersion / "sv" claim) ----
+
+    /// <summary>Creates a user and returns (id, email).</summary>
+    private async Task<(int Id, string Email)> CreateUser(params string[] permissions)
+    {
+        var email = $"fl-{Guid.NewGuid():N}@test.local";
+        var created = await Client(WebAppFactory.AdminEmail).PostAsJsonAsync("/api/users",
+            new { email, isEnabled = true, permissions = permissions.Length == 0 ? new[] { "dashboard.view" } : permissions });
+        created.StatusCode.Should().Be(HttpStatusCode.Created);
+        var id = (await created.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("id").GetInt32();
+        return (id, email);
+    }
+
+    private HttpClient ClientWithSv(string email, int? sv)
+    {
+        var c = factory.CreateClient();
+        c.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", TestJwt.For(email, sv: sv));
+        return c;
+    }
+
+    [Fact]
+    public async Task Force_logout_bumps_session_version_and_writes_an_audit_entry()
+    {
+        var admin = Client(WebAppFactory.AdminEmail);
+        var (id, email) = await CreateUser();
+
+        var res = await admin.PostAsync($"/api/users/{id}/logout", null);
+        res.StatusCode.Should().Be(HttpStatusCode.OK);
+        (await res.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("ok").GetBoolean().Should().BeTrue();
+
+        // SessionVersion incremented in the DB.
+        using (var scope = factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<UsageDbContext>();
+            (await db.Users.FirstAsync(u => u.Id == id)).SessionVersion.Should().Be(1);
+        }
+
+        // Audit entry written with actor + target.
+        var audit = await (await admin.GetAsync("/api/audit")).Content.ReadFromJsonAsync<JsonElement>();
+        audit.EnumerateArray().ToList().Should().Contain(e =>
+            e.GetProperty("action").GetString() == "user.forcedlogout" &&
+            e.GetProperty("targetEmail").GetString() == email &&
+            e.GetProperty("actorEmail").GetString() == WebAppFactory.AdminEmail);
+    }
+
+    [Fact]
+    public async Task Stale_session_token_is_rejected_while_a_freshly_stamped_one_is_accepted()
+    {
+        var admin = Client(WebAppFactory.AdminEmail);
+        var (id, email) = await CreateUser();
+
+        // A token stamped sv=0 works while SessionVersion is still 0.
+        (await ClientWithSv(email, 0).GetAsync(Summary)).StatusCode.Should().Be(HttpStatusCode.OK);
+
+        // Admin force-logs the user out (SessionVersion -> 1).
+        (await admin.PostAsync($"/api/users/{id}/logout", null)).StatusCode.Should().Be(HttpStatusCode.OK);
+
+        // The old sv=0 token is now stale -> 401 (not 403; the auth pipeline fails the token).
+        (await ClientWithSv(email, 0).GetAsync(Summary)).StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+
+        // A freshly minted token carrying the new stamp (sv=1), as a re-login would, is accepted again.
+        (await ClientWithSv(email, 1).GetAsync(Summary)).StatusCode.Should().Be(HttpStatusCode.OK);
+    }
+
+    [Fact]
+    public async Task Token_with_no_sv_claim_is_accepted_while_session_version_is_zero()
+    {
+        // Pre-existing tokens minted before the "sv" claim existed (sv omitted) must keep working as
+        // long as the user's SessionVersion is still its default 0 — no mass-logout on deploy.
+        var (_, email) = await CreateUser();
+        (await ClientWithSv(email, null).GetAsync(Summary)).StatusCode.Should().Be(HttpStatusCode.OK);
+    }
+
+    [Fact]
+    public async Task Token_with_no_sv_claim_is_rejected_after_a_force_logout()
+    {
+        // ...but once SessionVersion has been bumped, a missing-sv (==0) token is stale too.
+        var admin = Client(WebAppFactory.AdminEmail);
+        var (id, email) = await CreateUser();
+        (await ClientWithSv(email, null).GetAsync(Summary)).StatusCode.Should().Be(HttpStatusCode.OK);
+
+        (await admin.PostAsync($"/api/users/{id}/logout", null)).StatusCode.Should().Be(HttpStatusCode.OK);
+
+        (await ClientWithSv(email, null).GetAsync(Summary)).StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async Task Force_logout_requires_users_manage()
+    {
+        var (id, _) = await CreateUser();
+
+        var viewer = $"viewer-fl-{Guid.NewGuid():N}@test.local";
+        await Client(WebAppFactory.AdminEmail).PostAsJsonAsync("/api/users",
+            new { email = viewer, isEnabled = true, permissions = new[] { "users.view" } });
+
+        (await Client(viewer).PostAsync($"/api/users/{id}/logout", null)).StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        (await Client().PostAsync($"/api/users/{id}/logout", null)).StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async Task Force_logout_on_an_unknown_user_is_404()
+        => (await Client(WebAppFactory.AdminEmail).PostAsync("/api/users/999999/logout", null))
+            .StatusCode.Should().Be(HttpStatusCode.NotFound);
+
     [Fact]
     public async Task Cannot_remove_the_last_administrator()
     {

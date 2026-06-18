@@ -102,6 +102,18 @@
               <button mat-stroked-button class="save-btn" [disabled]="savingId() === u.id" (click)="save(u)">
                 <mat-icon>save</mat-icon> Save
               </button>
+              @if (canManage()) {
+                <button mat-icon-button class="signout-btn" [disabled]="loggingOutId() === u.id"
+                        [attr.aria-busy]="loggingOutId() === u.id ? true : null"
+                        [attr.aria-label]="'Sign ' + (u.name || u.email) + ' out of their current session'"
+                        matTooltip="Sign out of current session" (click)="forceLogout(u)">
+                  @if (loggingOutId() === u.id) {
+                    <mat-progress-spinner class="signout-spinner" mode="indeterminate" [diameter]="18" />
+                  } @else {
+                    <mat-icon>logout</mat-icon>
+                  }
+                </button>
+              }
               <button mat-icon-button class="del-btn" matTooltip="Remove user" (click)="remove(u)">
                 <mat-icon>delete_outline</mat-icon>
               </button>
@@ -279,6 +291,18 @@
           <button mat-stroked-button class="save-btn" [disabled]="savingId() === u.id" (click)="save(u)">
             <mat-icon>save</mat-icon> Save
           </button>
+          @if (canManage()) {
+            <button mat-icon-button class="signout-btn" [disabled]="loggingOutId() === u.id"
+                    [attr.aria-busy]="loggingOutId() === u.id ? true : null"
+                    [attr.aria-label]="'Sign ' + (u.name || u.email) + ' out of their current session'"
+                    matTooltip="Sign out of current session" (click)="forceLogout(u)">
+              @if (loggingOutId() === u.id) {
+                <mat-progress-spinner class="signout-spinner" mode="indeterminate" [diameter]="18" />
+              } @else {
+                <mat-icon>logout</mat-icon>
+              }
+            </button>
+          }
           <button mat-icon-button class="del-btn" matTooltip="Remove user" (click)="remove(u)">
             <mat-icon>delete_outline</mat-icon>
           </button>

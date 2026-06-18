@@ -21,6 +21,16 @@ public class AppUser
     /// <summary>When false, sign-in and all API access are denied (checked on every request).</summary>
     public bool IsEnabled { get; set; } = true;
 
+    /// <summary>
+    /// Security stamp for session invalidation. Each issued JWT carries this value in its <c>sv</c>
+    /// claim; the request pipeline rejects a token whose <c>sv</c> no longer matches. An admin
+    /// "force logout" bumps this (+1), invalidating every outstanding token for the user without
+    /// disabling the account (they can sign in again to get a fresh token). A MISSING <c>sv</c> claim
+    /// is treated as 0, so tokens minted before this field existed stay valid while SessionVersion is
+    /// still its default 0 — i.e. no mass-logout on deploy.
+    /// </summary>
+    public int SessionVersion { get; set; }
+
     public DateTime CreatedUtc { get; set; }
     public DateTime? LastLoginUtc { get; set; }
 
