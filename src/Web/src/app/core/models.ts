@@ -701,6 +701,8 @@ export interface TrackerProfileDto {
   unitSystem: UnitSystem;
   /** Daily hydration goal in millilitres (backend always metric ml), or null to use the 2000 ml default. */
   hydrationGoalMl?: number;
+  /** Daily step goal (UI defaults to ~10000 when unset), or null. */
+  stepGoal?: number;
 }
 
 /**
@@ -738,6 +740,35 @@ export interface HydrationEntryDto {
   createdUtc: string;
 }
 
+/** How a day's watch active-calories combine with the logged-exercise sum. Mirrors ActivityCalorieMode. */
+export type ActivityCalorieMode = 'add' | 'override';
+
+/**
+ * The day's manually-recorded smartwatch stats (steps, distance, active calories) plus how the active
+ * calories factor into the day's burn. `calorieMode` is "add" (active calories on top of logged
+ * exercises) or "override" (active calories replace the logged-exercise sum). All metric — distance is
+ * metres; the UI converts to mi/km. Null on a day with no watch row. Mirrors WatchActivityDto.
+ */
+export interface WatchActivityDto {
+  steps?: number;
+  distanceMeters?: number;
+  activeCalories?: number;
+  calorieMode: ActivityCalorieMode;
+}
+
+/**
+ * Upsert-the-day's-watch-stats payload (PUT /api/tracker/activity). OWN tracker only (resolves to the
+ * caller; no user param). `distanceMeters` is always metric metres; the UI converts from the user's
+ * display units before sending. Mirrors UpsertActivityRequest.
+ */
+export interface UpsertActivityRequest {
+  date: string;
+  steps?: number | null;
+  distanceMeters?: number | null;
+  activeCalories?: number | null;
+  calorieMode: ActivityCalorieMode;
+}
+
 /** Log-today's-weight payload (POST /api/tracker/weight). Mirrors LogWeightRequest. */
 export interface LogWeightRequest {
   date: string;
@@ -769,6 +800,11 @@ export interface TrackerDayDto {
   foods: FoodEntryDto[];
   exercises: ExerciseEntryDto[];
   caloriesIn: number;
+  /**
+   * Resolved calories burned: the logged-exercise sum combined with the watch active calories per the
+   * day's {@link WatchActivityDto.calorieMode} (add → exercise + active; override → active replaces the
+   * sum). Equals {@link exerciseCalories} when there's no watch row / no active-calories value.
+   */
   caloriesOut: number;
   netCalories: number;
   proteinG: number;
@@ -782,6 +818,12 @@ export interface TrackerDayDto {
   hydrationGoalMl: number;
   /** The day's hydration entries, oldest-first (by id). Visible even when read-only (like food/exercise). */
   hydration: HydrationEntryDto[];
+  /** The day's manually-recorded smartwatch stats + calorie mode, or null when no watch row exists. */
+  activity?: WatchActivityDto | null;
+  /** Resolved daily step goal (the profile's goal), or null when unset. */
+  stepGoal?: number;
+  /** Raw logged-exercise calorie sum for the day, BEFORE the watch add/override is applied. */
+  exerciseCalories: number;
 }
 
 /** Someone whose tracker the caller may view read-only (GET /api/tracker/shared). Mirrors SharedUserDto. */

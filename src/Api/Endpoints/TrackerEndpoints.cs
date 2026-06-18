@@ -392,6 +392,7 @@ public static class TrackerEndpoints
             profile.GoalWeightKg = Positive(req.GoalWeightKg);
             profile.UnitSystem = Enum.TryParse<UnitSystem>(req.UnitSystem, ignoreCase: true, out var unit) ? unit : UnitSystem.Metric;
             profile.HydrationGoalMl = Positive(req.HydrationGoalMl);
+            profile.StepGoal = Positive(req.StepGoal);
             profile.UpdatedUtc = DateTime.UtcNow;
             await db.SaveChangesAsync(ct);
             return Results.Ok(ToProfileDto(profile));
@@ -517,6 +518,89 @@ public static class TrackerEndpoints
                 .Where(h => h.Id == id && h.UserEmail == caller.Email)
                 .ExecuteDeleteAsync(ct);
             return deleted == 0 ? Results.NotFound() : Results.NoContent();
+        }).RequirePermission(Permissions.TrackerSelf);
+
+        // ---- Upsert the caller's watch activity stats for a day (OWN only; one row per day) ----
+        // Records steps/distance/active calories + the calorie mode (add|override) that controls how the
+        // active calories factor into the day's calories out. Upserts the single (caller, date) row.
+        g.MapPut("/activity", async (
+            UpsertActivityRequest req, CurrentUserAccessor me, UsageDbContext db, CancellationToken ct) =>
+        {
+            var caller = (await me.GetUserAsync(ct))!;
+
+            if (!TryParseDate(req.Date, out var localDate))
+                return Results.BadRequest(new { message = "A valid date (yyyy-MM-dd) is required." });
+            if (!InRange(req.Steps, 0, 200000))
+                return Results.BadRequest(new { message = "Steps must be between 0 and 200000." });
+            if (!InRange(req.DistanceMeters, 0, 1000000))
+                return Results.BadRequest(new { message = "Distance must be between 0 and 1000000 metres." });
+            if (!InRange(req.ActiveCalories, 0, 20000))
+                return Results.BadRequest(new { message = "Active calories must be between 0 and 20000." });
+            if (!TryParseCalorieMode(req.CalorieMode, out var mode))
+                return Results.BadRequest(new { message = "Calorie mode must be 'add' or 'override'." });
+
+            var now = DateTime.UtcNow;
+            var entry = await db.DailyActivities
+                .FirstOrDefaultAsync(a => a.UserEmail == caller.Email && a.LocalDate == localDate, ct);
+            if (entry is null)
+            {
+                entry = new DailyActivity
+                {
+                    UserEmail = caller.Email,
+                    LocalDate = localDate,
+                    Steps = req.Steps,
+                    DistanceMeters = req.DistanceMeters,
+                    ActiveCalories = req.ActiveCalories,
+                    CalorieMode = mode,
+                    CreatedUtc = now,
+                    UpdatedUtc = now,
+                };
+                db.DailyActivities.Add(entry);
+            }
+            else
+            {
+                entry.Steps = req.Steps;
+                entry.DistanceMeters = req.DistanceMeters;
+                entry.ActiveCalories = req.ActiveCalories;
+                entry.CalorieMode = mode;
+                entry.UpdatedUtc = now;
+            }
+
+            try
+            {
+                await db.SaveChangesAsync(ct);
+            }
+            catch (DbUpdateException ex) when (IsUniqueViolation(ex))
+            {
+                // A concurrent insert for the same (user, date) won the race; reload + overwrite it.
+                db.ChangeTracker.Clear();
+                entry = await db.DailyActivities
+                    .FirstAsync(a => a.UserEmail == caller.Email && a.LocalDate == localDate, ct);
+                entry.Steps = req.Steps;
+                entry.DistanceMeters = req.DistanceMeters;
+                entry.ActiveCalories = req.ActiveCalories;
+                entry.CalorieMode = mode;
+                entry.UpdatedUtc = now;
+                await db.SaveChangesAsync(ct);
+            }
+
+            return Results.Ok(ToActivityDto(entry));
+        }).RequirePermission(Permissions.TrackerSelf);
+
+        // ---- Clear the caller's watch activity stats for a day (owner only) ----
+        g.MapDelete("/activity", async (
+            string? date, CurrentUserAccessor me, UsageDbContext db, CancellationToken ct) =>
+        {
+            var caller = (await me.GetUserAsync(ct))!;
+            if (!TryParseDate(date, out var localDate))
+                return Results.BadRequest(new { message = "A valid date (yyyy-MM-dd) is required." });
+
+            // No-op delete (no row for that day) is still a 204 — the caller's day ends up with no stats
+            // either way; there's nothing to leak (writes only ever target the caller).
+            await db.DailyActivities
+                .Where(a => a.UserEmail == caller.Email && a.LocalDate == localDate)
+                .ExecuteDeleteAsync(ct);
+            return Results.NoContent();
         }).RequirePermission(Permissions.TrackerSelf);
 
         // ---- WorkoutX: browse/search the exercise catalog (503 when unconfigured) ----
@@ -652,9 +736,17 @@ public static class TrackerEndpoints
             .Where(h => h.UserEmail == email && h.LocalDate == date)
             .OrderBy(h => h.Id)
             .ToListAsync(ct);
+        // The day's recorded watch stats (at most one per day), part of the day like hydration/exercise:
+        // a permitted viewer sees them (and the resolved burn) read-only too — we do NOT null it.
+        var activity = await db.DailyActivities.AsNoTracking()
+            .FirstOrDefaultAsync(a => a.UserEmail == email && a.LocalDate == date, ct);
 
         var caloriesIn = foods.Sum(f => f.Calories);
-        var caloriesOut = exercises.Sum(x => x.CaloriesBurned);
+        // The raw logged-exercise sum, BEFORE the watch add/override.
+        var exerciseCalories = exercises.Sum(x => x.CaloriesBurned);
+        // Resolve calories out: with a watch active-calories value, ADD on top of exercises or OVERRIDE
+        // (replace) the exercise sum; with no watch entry / no active calories, it's the exercise sum.
+        var caloriesOut = ResolveCaloriesOut(exerciseCalories, activity);
         var protein = Math.Round(foods.Sum(f => f.ProteinG), 1);
         var carbs = Math.Round(foods.Sum(f => f.CarbG), 1);
         var fat = Math.Round(foods.Sum(f => f.FatG), 1);
@@ -677,6 +769,7 @@ public static class TrackerEndpoints
             Exercises = exercises.Select(ToExerciseDto).ToArray(),
             CaloriesIn = caloriesIn,
             CaloriesOut = caloriesOut,
+            ExerciseCalories = exerciseCalories,
             NetCalories = caloriesIn - caloriesOut,
             ProteinG = protein,
             CarbG = carbs,
@@ -686,7 +779,23 @@ public static class TrackerEndpoints
             HydrationMl = hydrationMl,
             HydrationGoalMl = hydrationGoalMl,
             Hydration = hydration.Select(ToHydrationDto).ToArray(),
+            Activity = activity is null ? null : ToActivityDto(activity),
+            StepGoal = profile?.StepGoal,
         };
+    }
+
+    /// <summary>
+    /// The day's RESOLVED calories out: the logged-exercise sum, with the watch ACTIVE CALORIES applied
+    /// per the activity's mode — ADD adds them on top (exercises + active), OVERRIDE replaces the exercise
+    /// sum with the watch total (a watch active-calories figure usually already includes the day's
+    /// workouts). With no activity row OR no active-calories value, it is just the exercise sum.
+    /// </summary>
+    private static int ResolveCaloriesOut(int exerciseCalories, DailyActivity? activity)
+    {
+        if (activity?.ActiveCalories is not { } active) return exerciseCalories;
+        return activity.CalorieMode == ActivityCalorieMode.Override
+            ? active
+            : exerciseCalories + active;
     }
 
     /// <summary>The fallback daily hydration goal (ml) when a user's profile has none set.</summary>
@@ -1016,6 +1125,7 @@ public static class TrackerEndpoints
         GoalWeightKg = p.GoalWeightKg,
         UnitSystem = p.UnitSystem.ToString(),
         HydrationGoalMl = p.HydrationGoalMl,
+        StepGoal = p.StepGoal,
     };
 
     private static HydrationEntryDto ToHydrationDto(HydrationEntry h) => new()
@@ -1025,6 +1135,21 @@ public static class TrackerEndpoints
         Label = h.Label,
         CreatedUtc = h.CreatedUtc.ToString("o", System.Globalization.CultureInfo.InvariantCulture),
     };
+
+    private static WatchActivityDto ToActivityDto(DailyActivity a) => new()
+    {
+        Steps = a.Steps,
+        DistanceMeters = a.DistanceMeters,
+        ActiveCalories = a.ActiveCalories,
+        CalorieMode = a.CalorieMode.ToString().ToLowerInvariant(),
+    };
+
+    /// <summary>Parse the watch calorie mode ("add" | "override", case-insensitive).</summary>
+    private static bool TryParseCalorieMode(string? value, out ActivityCalorieMode mode) =>
+        Enum.TryParse((value ?? "").Trim(), ignoreCase: true, out mode) && Enum.IsDefined(mode);
+
+    /// <summary>True when a nullable int is null (not supplied) or within [min, max] inclusive.</summary>
+    private static bool InRange(int? value, int min, int max) => value is not { } v || (v >= min && v <= max);
 
     private static bool TryParseMeal(string? value, out MealType meal) =>
         Enum.TryParse((value ?? "").Trim(), ignoreCase: true, out meal)

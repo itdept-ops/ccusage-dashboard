@@ -13,19 +13,24 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { AuthService } from '../../core/auth';
 import { TrackerStore } from '../../core/tracker-store';
 import {
-  AddExerciseRequest, AddFoodRequest, AddHydrationRequest, ExerciseEntryDto, FoodEntryDto,
-  HydrationEntryDto, LogWeightRequest, Meal, SharedUserDto, TrackerProfileDto, WeightPointDto,
+  ActivityCalorieMode, AddExerciseRequest, AddFoodRequest, AddHydrationRequest, ExerciseEntryDto, FoodEntryDto,
+  HydrationEntryDto, LogWeightRequest, Meal, SharedUserDto, TrackerProfileDto, UpsertActivityRequest, WeightPointDto,
 } from '../../core/models';
 import { CalorieRing } from './calorie-ring';
 import { HydrationRing } from './hydration-ring';
+import { ActivityRing } from './activity-ring';
 import { AddFoodDialog, AddFoodData } from './add-food-dialog';
 import { AddExerciseDialog, AddExerciseData } from './add-exercise-dialog';
 import { AddHydrationDialog, AddHydrationData } from './add-hydration-dialog';
+import { AddActivityDialog, AddActivityData } from './add-activity-dialog';
 import { ProfileDialog, ProfileData } from './profile-dialog';
 import { LogWeightDialog, LogWeightData } from './log-weight-dialog';
 import { OnboardingCard, OnboardingResult } from './onboarding-card';
 import { WeightTrend } from './weight-trend';
-import { formatVolume, formatWeight, kgToLb } from './units';
+import { formatDistance, formatVolume, formatWeight, kgToLb } from './units';
+
+/** UI default daily step goal when the profile hasn't set one. */
+const DEFAULT_STEP_GOAL = 10_000;
 
 /** Re-fetch the viewed tracker every this many ms while in a read-only (someone else's) view. */
 const READONLY_REFRESH_MS = 30_000;
@@ -50,8 +55,8 @@ const MEAL_SECTIONS: MealSection[] = [
   selector: 'app-tracker',
   imports: [
     DecimalPipe, FormsModule, MatIconModule, MatButtonModule, MatProgressBarModule, MatMenuModule,
-    MatTooltipModule, MatDialogModule, MatSnackBarModule, CalorieRing, HydrationRing, WeightTrend,
-    OnboardingCard,
+    MatTooltipModule, MatDialogModule, MatSnackBarModule, CalorieRing, HydrationRing, ActivityRing,
+    WeightTrend, OnboardingCard,
   ],
   templateUrl: './tracker.html',
   styleUrl: './tracker.scss',
@@ -416,6 +421,83 @@ export class Tracker {
     const d = new Date(iso);
     if (isNaN(d.getTime())) return '';
     return d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+  }
+
+  // ---- watch activity (steps / distance / active calories) ----
+
+  /** The day's watch stats, or null when no row exists. */
+  readonly activity = computed(() => this.store.day()?.activity ?? null);
+
+  /** The resolved daily step goal: the day's stepGoal, else the UI default (~10000). */
+  readonly stepGoal = computed(() => this.store.day()?.stepGoal ?? DEFAULT_STEP_GOAL);
+
+  /** The active calorie mode for the toggle (defaults to "add" when there's no row yet). */
+  readonly calorieMode = computed<ActivityCalorieMode>(() => this.activity()?.calorieMode ?? 'add');
+
+  /** Format a metric distance (metres) in the user's chosen units (or '—' when null). */
+  distanceLabel(meters: number | null | undefined): string {
+    return formatDistance(meters, this.imperial()) ?? '—';
+  }
+
+  /**
+   * A short hint describing how the watch active calories shaped the resolved burn, or null when there's
+   * nothing to add/override (no watch row or no active-calories value). Drives the small note under the
+   * activity card so the user understands the calorie ring's "burned".
+   */
+  readonly burnHint = computed<string | null>(() => {
+    const day = this.store.day();
+    const act = this.activity();
+    if (!day || !act || act.activeCalories == null) return null;
+    const active = Math.round(act.activeCalories).toLocaleString();
+    if (act.calorieMode === 'override') {
+      return `${day.caloriesOut.toLocaleString()} burned — watch active, replaces workouts`;
+    }
+    return `+${active} watch active on top of ${day.exerciseCalories.toLocaleString()} from workouts`;
+  });
+
+  /**
+   * Flip the add/override calorie mode (segmented toggle) and persist it, carrying the day's existing
+   * steps/distance/active calories so the upsert only changes the mode. No-op in read-only views or when
+   * the mode is unchanged. The store reloads the day so the calorie ring / burned figure updates.
+   */
+  setCalorieMode(mode: ActivityCalorieMode): void {
+    if (this.store.readOnly() || mode === this.calorieMode()) return;
+    const act = this.activity();
+    const body: UpsertActivityRequest = {
+      date: this.store.date(),
+      steps: act?.steps ?? null,
+      distanceMeters: act?.distanceMeters ?? null,
+      activeCalories: act?.activeCalories ?? null,
+      calorieMode: mode,
+    };
+    this.store.upsertActivity(body)
+      .then(() => this.snack.open(
+        mode === 'override' ? 'Watch replaces workouts' : 'Watch adds to workouts', 'OK', { duration: 2000 }))
+      .catch(() => this.snack.open('Could not update', 'Dismiss', { duration: 4000 }));
+  }
+
+  /** Open the edit/add watch-stats dialog (steps, distance in user units, active calories, mode). */
+  openActivity(): void {
+    if (this.store.readOnly()) return;
+    const p = this.store.profile();
+    const data: AddActivityData = {
+      date: this.store.date(),
+      unitSystem: p?.unitSystem ?? 'Imperial',
+      activity: this.activity(),
+    };
+    this.dialog.open(AddActivityDialog, { data, width: '380px', maxWidth: '95vw', autoFocus: false })
+      .afterClosed().subscribe((res: UpsertActivityRequest | 'clear' | undefined) => {
+        if (!res) return;
+        if (res === 'clear') {
+          this.store.clearActivity(this.store.date())
+            .then(() => this.snack.open('Watch stats cleared', 'OK', { duration: 2000 }))
+            .catch(() => this.snack.open('Could not clear', 'Dismiss', { duration: 4000 }));
+          return;
+        }
+        this.store.upsertActivity(res)
+          .then(() => this.snack.open('Watch stats saved', 'OK', { duration: 2000 }))
+          .catch(() => this.snack.open('Could not save watch stats', 'Dismiss', { duration: 4000 }));
+      });
   }
 
   removeFood(f: FoodEntryDto): void {

@@ -226,6 +226,74 @@
       </div>
     </section>
 
+    <!-- ── Activity card: steps ring vs step goal + distance + active calories add/override toggle ── -->
+    <section class="tracker__activity" aria-label="Watch activity">
+      <div class="tracker__meal-head">
+        <h2 class="tracker__meal-title">
+          <mat-icon aria-hidden="true" class="tracker__activity-icon">watch</mat-icon> Activity
+        </h2>
+        @if (!store.readOnly()) {
+          <button mat-stroked-button type="button" class="tracker__logwt" (click)="openActivity()">
+            <mat-icon>{{ activity() ? 'edit' : 'add' }}</mat-icon>
+            {{ activity() ? 'Edit watch stats' : 'Add watch stats' }}
+          </button>
+        }
+      </div>
+
+      <div class="tracker__activity-body">
+        <div class="tracker__actring">
+          <app-activity-ring [steps]="activity()?.steps ?? 0" [goal]="stepGoal()" />
+        </div>
+
+        <div class="tracker__activity-main">
+          <div class="tracker__actmetrics">
+            <div class="tracker__actcell">
+              <span class="tracker__stat-l">Steps</span>
+              <span class="tracker__stat-v mono-num">
+                {{ activity()?.steps != null ? (activity()!.steps! | number) : '—' }}
+              </span>
+              <span class="tracker__stat-x">goal {{ stepGoal() | number }}</span>
+            </div>
+            <div class="tracker__actcell">
+              <span class="tracker__stat-l">Distance</span>
+              <span class="tracker__stat-v mono-num">{{ distanceLabel(activity()?.distanceMeters) }}</span>
+            </div>
+            <div class="tracker__actcell">
+              <span class="tracker__stat-l">Active calories</span>
+              <span class="tracker__stat-v mono-num">
+                {{ activity()?.activeCalories != null ? (activity()!.activeCalories! | number) : '—' }}
+              </span>
+              @if (activity()?.activeCalories != null) { <span class="tracker__stat-x">kcal</span> }
+            </div>
+          </div>
+
+          <!-- Add vs override segmented control (persists on change; updates the calorie ring's burn). -->
+          <div class="tracker__actmode">
+            <span class="tracker__stat-l" id="tracker-actmode-l">Active calories count</span>
+            @if (store.readOnly()) {
+              <span class="tracker__actmode-ro">
+                {{ calorieMode() === 'override' ? 'Replaces workouts' : 'Added to workouts' }}
+              </span>
+            } @else {
+              <div class="tracker__actmode-seg" role="group" aria-labelledby="tracker-actmode-l">
+                <button type="button" class="tracker__seg" [class.is-active]="calorieMode() === 'add'"
+                        [attr.aria-pressed]="calorieMode() === 'add'" (click)="setCalorieMode('add')">
+                  Add to workouts
+                </button>
+                <button type="button" class="tracker__seg" [class.is-active]="calorieMode() === 'override'"
+                        [attr.aria-pressed]="calorieMode() === 'override'" (click)="setCalorieMode('override')">
+                  Replace workouts
+                </button>
+              </div>
+            }
+            @if (burnHint(); as hint) {
+              <p class="tracker__burnhint">{{ hint }}</p>
+            }
+          </div>
+        </div>
+      </div>
+    </section>
+
     <!-- ── Your stats + weight trend (own tracker only; hidden when viewing someone else) ── -->
     @if (!store.readOnly()) {
       <div class="tracker__fitness">
@@ -354,7 +422,7 @@
         <h2 class="tracker__meal-title">
           <mat-icon aria-hidden="true">fitness_center</mat-icon> Exercise
         </h2>
-        <span class="tracker__meal-cal mono-num">{{ day.caloriesOut | number }} kcal</span>
+        <span class="tracker__meal-cal mono-num">{{ day.exerciseCalories | number }} kcal</span>
       </div>
 
       <ul class="tracker__entries">

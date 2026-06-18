@@ -524,6 +524,109 @@
   .tracker__hydration-main { width: 100%; }
 }
 
+/* ── Activity card (steps ring + distance + active calories add/override) ── */
+.tracker__activity {
+  border: 1px solid var(--tech-border);
+  border-radius: var(--tech-radius);
+  background: var(--tech-panel);
+  box-shadow: var(--tech-shadow-panel);
+  overflow: hidden;
+
+  .tracker__activity-icon { color: var(--tech-accent-2); }
+}
+
+.tracker__activity-body {
+  display: grid;
+  grid-template-columns: minmax(160px, 200px) 1fr;
+  gap: var(--tech-space-4);
+  padding: var(--tech-space-4);
+  align-items: start;
+}
+
+.tracker__actring {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.tracker__activity-main {
+  display: flex;
+  flex-direction: column;
+  gap: var(--tech-space-4);
+  min-width: 0;
+}
+
+.tracker__actmetrics {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--tech-space-3);
+}
+
+.tracker__actcell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.tracker__actmode {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* Segmented control: two equal-width pill buttons sharing a sunken track. */
+.tracker__actmode-seg {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  border-radius: var(--tech-r-control);
+  background: var(--tech-bg-sunken);
+  border: 1px solid var(--tech-border-subtle);
+}
+
+.tracker__seg {
+  flex: 1 1 0;
+  min-height: 44px;
+  border: none;
+  border-radius: calc(var(--tech-r-control) - 2px);
+  background: transparent;
+  color: var(--tech-text-secondary);
+  font-family: var(--tech-font-ui);
+  font-size: var(--tech-fs-label);
+  font-weight: 600;
+  cursor: pointer;
+  transition: background var(--tech-t-control) ease, color var(--tech-t-control) ease;
+
+  &:hover { color: var(--tech-text); }
+  &:focus-visible { outline: none; box-shadow: var(--tech-focus-ring); }
+
+  &.is-active {
+    background: var(--tech-accent-2);
+    color: var(--tech-text-on-accent);
+  }
+}
+
+.tracker__actmode-ro {
+  font-size: var(--tech-fs-body);
+  font-weight: 600;
+  color: var(--tech-text-secondary);
+}
+
+.tracker__burnhint {
+  margin: 0;
+  font-size: var(--tech-fs-label);
+  color: var(--tech-text-tertiary);
+}
+
+@media (max-width: 720px) {
+  .tracker__activity-body { grid-template-columns: 1fr; justify-items: center; }
+  .tracker__activity-main { width: 100%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tracker__seg { transition: none; }
+}
+
 @media (max-width: 860px) {
   .tracker__fitness { grid-template-columns: 1fr; }
 }

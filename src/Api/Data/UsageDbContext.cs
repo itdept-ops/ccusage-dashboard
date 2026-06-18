@@ -38,6 +38,7 @@ public class UsageDbContext(DbContextOptions<UsageDbContext> options) : DbContex
     public DbSet<CustomFood> CustomFoods => Set<CustomFood>();
     public DbSet<CustomExercise> CustomExercises => Set<CustomExercise>();
     public DbSet<HydrationEntry> HydrationEntries => Set<HydrationEntry>();
+    public DbSet<DailyActivity> DailyActivities => Set<DailyActivity>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -402,6 +403,16 @@ public class UsageDbContext(DbContextOptions<UsageDbContext> options) : DbContex
             e.Property(x => x.CreatedUtc).HasColumnType("timestamp with time zone");
             // The day view reads one user's drinks for one local date (no unique — many drinks per day).
             e.HasIndex(x => new { x.UserEmail, x.LocalDate });
+        });
+
+        b.Entity<DailyActivity>(e =>
+        {
+            e.Property(x => x.UserEmail).HasMaxLength(256);
+            e.Property(x => x.CreatedUtc).HasColumnType("timestamp with time zone");
+            e.Property(x => x.UpdatedUtc).HasColumnType("timestamp with time zone");
+            // One watch-stats row per user per local date (recording again that day upserts); also the
+            // day-view read.
+            e.HasIndex(x => new { x.UserEmail, x.LocalDate }).IsUnique();
         });
 
         b.Entity<CustomFood>(e =>

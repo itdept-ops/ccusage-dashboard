@@ -64,6 +64,31 @@ export function formatVolume(ml: number | null | undefined, imperial: boolean): 
   return `${Math.round(ml)} ml`;
 }
 
+// ── distance: m <-> mi/km ───────────────────────────────────────────────────
+
+/** 1 mile expressed in metres. */
+export const M_PER_MI = 1609.34;
+
+/** Metres → miles. */
+export function metersToMiles(m: number): number {
+  return m / M_PER_MI;
+}
+
+/** Miles → metres. */
+export function milesToMeters(mi: number): number {
+  return mi * M_PER_MI;
+}
+
+/**
+ * Format a metric distance (metres) for display in the chosen unit system, with the unit suffix.
+ * Imperial → miles (e.g. "3.2 mi"); Metric → kilometres (e.g. "5.1 km"). Rounded to 1 decimal.
+ */
+export function formatDistance(meters: number | null | undefined, imperial: boolean): string | null {
+  if (meters == null) return null;
+  if (imperial) return `${metersToMiles(meters).toFixed(1)} mi`;
+  return `${(meters / 1000).toFixed(1)} km`;
+}
+
 // ── display formatting ────────────────────────────────────────────────────────
 
 /** Format a metric weight (kg) for display in the chosen unit system, with the unit suffix. */

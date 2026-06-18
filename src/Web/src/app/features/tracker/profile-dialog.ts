@@ -71,6 +71,7 @@ export class ProfileDialog {
   readonly proteinGoalG = signal<number | null>(this.data.profile.proteinGoalG ?? null);
   readonly carbGoalG = signal<number | null>(this.data.profile.carbGoalG ?? null);
   readonly fatGoalG = signal<number | null>(this.data.profile.fatGoalG ?? null);
+  readonly stepGoal = signal<number | null>(this.data.profile.stepGoal ?? null);
   readonly shareWithContacts = signal<boolean>(this.data.profile.shareWithContacts ?? false);
 
   // ---- body profile ----
@@ -223,6 +224,7 @@ export class ProfileDialog {
       goalWeightKg: goalWeightKg != null ? Math.round(goalWeightKg * 100) / 100 : undefined,
       unitSystem: this.unitSystem(),
       hydrationGoalMl: hydrationGoalMl ?? undefined,
+      stepGoal: this.num(this.stepGoal()),
     };
     this.ref.close(body);
   }

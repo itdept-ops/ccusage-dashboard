@@ -4,7 +4,7 @@ import { firstValueFrom } from 'rxjs';
 import { Api } from './api';
 import {
   AddExerciseRequest, AddFoodRequest, AddHydrationRequest, HydrationEntryDto, LogWeightRequest,
-  SharedUserDto, TrackerDayDto, TrackerProfileDto, WeightPointDto,
+  SharedUserDto, TrackerDayDto, TrackerProfileDto, UpsertActivityRequest, WeightPointDto,
 } from './models';
 
 /** Format a Date as a local `YYYY-MM-DD` string (matches the dashboard/fleet date convention). */
@@ -131,6 +131,21 @@ export class TrackerStore {
   /** Delete a logged hydration entry, then refresh the day. */
   async deleteHydration(id: number): Promise<void> {
     await firstValueFrom(this.api.deleteHydration(id));
+    await this.load();
+  }
+
+  /**
+   * Upsert the caller's watch stats (steps/distance/active calories + calorie mode) for a date, then
+   * refresh the day so the resolved burn (calorie ring / burned figure) updates.
+   */
+  async upsertActivity(body: UpsertActivityRequest): Promise<void> {
+    await firstValueFrom(this.api.upsertActivity(body));
+    await this.load();
+  }
+
+  /** Clear the caller's watch stats for a date, then refresh the day. */
+  async clearActivity(date: string): Promise<void> {
+    await firstValueFrom(this.api.clearActivity(date));
     await this.load();
   }
 

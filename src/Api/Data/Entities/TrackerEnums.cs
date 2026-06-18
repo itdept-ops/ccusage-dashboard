@@ -49,3 +49,16 @@ public enum UnitSystem
     Metric = 0,
     Imperial = 1,
 }
+
+/// <summary>
+/// How a day's watch ACTIVE CALORIES combine with the logged-exercise calorie sum to produce the day's
+/// resolved "calories out". <see cref="Add"/> adds the watch total on top of logged exercises; <see
+/// cref="Override"/> replaces the logged-exercise sum with the watch total (a watch active-calories
+/// figure usually already includes the day's workouts). With no watch entry / no active-calories value,
+/// neither applies and calories out is just the logged-exercise sum.
+/// </summary>
+public enum ActivityCalorieMode
+{
+    Add = 0,
+    Override = 1,
+}

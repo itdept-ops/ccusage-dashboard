@@ -997,4 +997,236 @@ public class TrackerIntegrationTests(WebAppFactory factory)
         var aliceAfter = await Json(await alice.GetAsync($"/api/tracker/day?date={Today}"));
         aliceAfter.GetProperty("hydrationMl").GetInt32().Should().Be(750); // unchanged by Bob's write
     }
+
+    // ---- Watch activity: upsert appears on the day (steps/distance/active calories/mode) + clear ----
+
+    [Fact]
+    public async Task Upserting_watch_activity_appears_on_the_day_then_clears()
+    {
+        var (_, user) = await ProvisionUser("tracker.self");
+
+        // First upsert records the day's stats (steps, distance in metres, active calories, mode).
+        var up = await user.PutAsJsonAsync("/api/tracker/activity", new
+        {
+            date = Today, steps = 8200, distanceMeters = 6100, activeCalories = 480, calorieMode = "add",
+        });
+        up.StatusCode.Should().Be(HttpStatusCode.OK);
+        var body = await Json(up);
+        body.GetProperty("steps").GetInt32().Should().Be(8200);
+        body.GetProperty("distanceMeters").GetInt32().Should().Be(6100);
+        body.GetProperty("activeCalories").GetInt32().Should().Be(480);
+        body.GetProperty("calorieMode").GetString().Should().Be("add");
+
+        // It appears on the day.
+        var day = await Json(await user.GetAsync($"/api/tracker/day?date={Today}"));
+        var act = day.GetProperty("activity");
+        act.ValueKind.Should().Be(JsonValueKind.Object);
+        act.GetProperty("steps").GetInt32().Should().Be(8200);
+        act.GetProperty("distanceMeters").GetInt32().Should().Be(6100);
+        act.GetProperty("activeCalories").GetInt32().Should().Be(480);
+        act.GetProperty("calorieMode").GetString().Should().Be("add");
+
+        // A second upsert UPSERTS the single (user, date) row (no duplicate) and switches the mode.
+        await user.PutAsJsonAsync("/api/tracker/activity", new
+        {
+            date = Today, steps = 9000, distanceMeters = 7000, activeCalories = 510, calorieMode = "override",
+        });
+        var day2 = await Json(await user.GetAsync($"/api/tracker/day?date={Today}"));
+        day2.GetProperty("activity").GetProperty("steps").GetInt32().Should().Be(9000);
+        day2.GetProperty("activity").GetProperty("calorieMode").GetString().Should().Be("override");
+
+        // Clearing removes it for the day → 204, and the day's activity is null again.
+        (await user.DeleteAsync($"/api/tracker/activity?date={Today}")).StatusCode.Should().Be(HttpStatusCode.NoContent);
+        var after = await Json(await user.GetAsync($"/api/tracker/day?date={Today}"));
+        after.GetProperty("activity").ValueKind.Should().Be(JsonValueKind.Null);
+    }
+
+    // ---- ADD mode: caloriesOut = exercises + active; exerciseCalories reported raw ----
+
+    [Fact]
+    public async Task Add_mode_adds_watch_active_calories_on_top_of_logged_exercises()
+    {
+        var (_, user) = await ProvisionUser("tracker.self");
+        await user.PutAsJsonAsync("/api/tracker/profile", new
+        {
+            goal = "Maintain", dailyCalorieGoal = 2000, shareWithContacts = false,
+        });
+
+        // 700 in, 200 logged-exercise calories.
+        await user.PostAsJsonAsync("/api/tracker/food", new
+        {
+            date = Today, meal = "lunch", description = "Burrito", quantity = 1.0,
+            calories = 700, proteinG = 30.0, carbG = 80.0, fatG = 20.0,
+        });
+        await user.PostAsJsonAsync("/api/tracker/exercise", new
+        {
+            date = Today, name = "Run", durationMin = 20, caloriesBurned = 200,
+        });
+        // Watch: 350 active calories in ADD mode.
+        await user.PutAsJsonAsync("/api/tracker/activity", new
+        {
+            date = Today, steps = 5000, activeCalories = 350, calorieMode = "add",
+        });
+
+        var day = await Json(await user.GetAsync($"/api/tracker/day?date={Today}"));
+        day.GetProperty("exerciseCalories").GetInt32().Should().Be(200);  // raw logged sum, unchanged
+        day.GetProperty("caloriesOut").GetInt32().Should().Be(550);       // 200 + 350
+        day.GetProperty("caloriesIn").GetInt32().Should().Be(700);
+        day.GetProperty("netCalories").GetInt32().Should().Be(150);       // 700 - 550
+        // remaining = goal - in + out = 2000 - 700 + 550 = 1850.
+        day.GetProperty("remaining").GetInt32().Should().Be(1850);
+    }
+
+    // ---- OVERRIDE mode: caloriesOut = active (ignores the exercise sum); exerciseCalories still reported ----
+
+    [Fact]
+    public async Task Override_mode_replaces_the_logged_exercise_sum_with_watch_active_calories()
+    {
+        var (_, user) = await ProvisionUser("tracker.self");
+        await user.PutAsJsonAsync("/api/tracker/profile", new
+        {
+            goal = "Maintain", dailyCalorieGoal = 2000, shareWithContacts = false,
+        });
+
+        await user.PostAsJsonAsync("/api/tracker/food", new
+        {
+            date = Today, meal = "lunch", description = "Burrito", quantity = 1.0,
+            calories = 700, proteinG = 30.0, carbG = 80.0, fatG = 20.0,
+        });
+        await user.PostAsJsonAsync("/api/tracker/exercise", new
+        {
+            date = Today, name = "Run", durationMin = 20, caloriesBurned = 200,
+        });
+        // Watch: 540 active calories in OVERRIDE mode → the watch total replaces the exercise sum.
+        await user.PutAsJsonAsync("/api/tracker/activity", new
+        {
+            date = Today, activeCalories = 540, calorieMode = "override",
+        });
+
+        var day = await Json(await user.GetAsync($"/api/tracker/day?date={Today}"));
+        day.GetProperty("exerciseCalories").GetInt32().Should().Be(200);  // still reported raw
+        day.GetProperty("caloriesOut").GetInt32().Should().Be(540);       // watch total, exercises ignored
+        day.GetProperty("netCalories").GetInt32().Should().Be(160);       // 700 - 540
+        // remaining = 2000 - 700 + 540 = 1840.
+        day.GetProperty("remaining").GetInt32().Should().Be(1840);
+    }
+
+    // ---- No watch entry (or no active calories): caloriesOut = exercises (unchanged) ----
+
+    [Fact]
+    public async Task No_watch_entry_leaves_calories_out_as_the_exercise_sum()
+    {
+        var (_, user) = await ProvisionUser("tracker.self");
+
+        await user.PostAsJsonAsync("/api/tracker/exercise", new
+        {
+            date = Today, name = "Cycle", durationMin = 40, caloriesBurned = 300,
+        });
+
+        // No activity row at all → caloriesOut == exerciseCalories.
+        var day = await Json(await user.GetAsync($"/api/tracker/day?date={Today}"));
+        day.GetProperty("exerciseCalories").GetInt32().Should().Be(300);
+        day.GetProperty("caloriesOut").GetInt32().Should().Be(300);
+        day.GetProperty("activity").ValueKind.Should().Be(JsonValueKind.Null);
+
+        // An activity row WITHOUT an active-calories value (steps only) also leaves caloriesOut untouched,
+        // even in ADD mode — there is nothing to add.
+        await user.PutAsJsonAsync("/api/tracker/activity", new
+        {
+            date = Today, steps = 12000, calorieMode = "add",
+        });
+        var day2 = await Json(await user.GetAsync($"/api/tracker/day?date={Today}"));
+        day2.GetProperty("caloriesOut").GetInt32().Should().Be(300);   // still just the exercise sum
+        day2.GetProperty("exerciseCalories").GetInt32().Should().Be(300);
+        day2.GetProperty("activity").GetProperty("steps").GetInt32().Should().Be(12000);
+        day2.GetProperty("activity").GetProperty("activeCalories").ValueKind.Should().Be(JsonValueKind.Null);
+    }
+
+    // ---- Activity validation: bounds + mode + date → 400 ----
+
+    [Fact]
+    public async Task Upserting_activity_rejects_out_of_range_values_and_bad_mode()
+    {
+        var (_, user) = await ProvisionUser("tracker.self");
+
+        (await user.PutAsJsonAsync("/api/tracker/activity", new { date = Today, steps = 200001 }))
+            .StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        (await user.PutAsJsonAsync("/api/tracker/activity", new { date = Today, distanceMeters = 1000001 }))
+            .StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        (await user.PutAsJsonAsync("/api/tracker/activity", new { date = Today, activeCalories = 20001 }))
+            .StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        (await user.PutAsJsonAsync("/api/tracker/activity", new { date = Today, steps = -1 }))
+            .StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        (await user.PutAsJsonAsync("/api/tracker/activity", new { date = Today, calorieMode = "nonsense" }))
+            .StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        (await user.PutAsJsonAsync("/api/tracker/activity", new { date = "not-a-date", steps = 5000 }))
+            .StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    // ---- Step goal: defaults to null + round-trips via the profile ----
+
+    [Fact]
+    public async Task Step_goal_is_null_by_default_and_round_trips_via_the_profile()
+    {
+        var (_, user) = await ProvisionUser("tracker.self");
+
+        // Unset by default (the UI supplies the ~10000 placeholder, not the backend).
+        var p = await Json(await user.GetAsync("/api/tracker/profile"));
+        p.GetProperty("stepGoal").ValueKind.Should().Be(JsonValueKind.Null);
+
+        var put = await user.PutAsJsonAsync("/api/tracker/profile", new
+        {
+            goal = "Maintain", shareWithContacts = false, stepGoal = 12000,
+        });
+        put.StatusCode.Should().Be(HttpStatusCode.OK);
+        (await Json(put)).GetProperty("stepGoal").GetInt32().Should().Be(12000);
+
+        // It round-trips on the profile AND surfaces on the day's stepGoal.
+        var saved = await Json(await user.GetAsync("/api/tracker/profile"));
+        saved.GetProperty("stepGoal").GetInt32().Should().Be(12000);
+
+        var day = await Json(await user.GetAsync($"/api/tracker/day?date={Today}"));
+        day.GetProperty("stepGoal").GetInt32().Should().Be(12000);
+    }
+
+    // ---- Activity visibility: a viewer sees the stats + resolved burn; writes target only the caller ----
+
+    [Fact]
+    public async Task A_shared_users_activity_is_visible_read_only_but_a_write_targets_only_the_caller()
+    {
+        var (aliceEmail, alice) = await ProvisionUser("tracker.self");
+        var (bobEmail, bob) = await ProvisionUser("tracker.self");
+        await MakeContacts(aliceEmail, bobEmail);
+
+        await alice.PutAsJsonAsync("/api/tracker/profile", new
+        {
+            goal = "Maintain", shareWithContacts = true, stepGoal = 11000,
+        });
+        await alice.PostAsJsonAsync("/api/tracker/exercise", new
+        {
+            date = Today, name = "Swim", durationMin = 30, caloriesBurned = 250,
+        });
+        await alice.PutAsJsonAsync("/api/tracker/activity", new
+        {
+            date = Today, steps = 9400, distanceMeters = 7200, activeCalories = 600, calorieMode = "override",
+        });
+
+        // Bob (a sharing mutual contact) sees Alice's activity stats + the RESOLVED burn (override → 600).
+        var viewed = await Json(await bob.GetAsync($"/api/tracker/day?date={Today}&user={aliceEmail}"));
+        viewed.GetProperty("readOnly").GetBoolean().Should().BeTrue();
+        var act = viewed.GetProperty("activity");
+        act.GetProperty("steps").GetInt32().Should().Be(9400);
+        act.GetProperty("distanceMeters").GetInt32().Should().Be(7200);
+        act.GetProperty("activeCalories").GetInt32().Should().Be(600);
+        act.GetProperty("calorieMode").GetString().Should().Be("override");
+        viewed.GetProperty("exerciseCalories").GetInt32().Should().Be(250);
+        viewed.GetProperty("caloriesOut").GetInt32().Should().Be(600);     // override → the watch total
+        viewed.GetProperty("stepGoal").GetInt32().Should().Be(11000);
+
+        // There is no ?user= on the write — Bob upserting activity lands on BOB's own day, never Alice's.
+        await bob.PutAsJsonAsync("/api/tracker/activity", new { date = Today, steps = 1, activeCalories = 999 });
+        var aliceAfter = await Json(await alice.GetAsync($"/api/tracker/day?date={Today}"));
+        aliceAfter.GetProperty("activity").GetProperty("steps").GetInt32().Should().Be(9400); // unchanged
+        aliceAfter.GetProperty("caloriesOut").GetInt32().Should().Be(600);                    // unchanged
+    }
 }

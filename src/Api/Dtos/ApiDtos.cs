@@ -815,6 +815,9 @@ public sealed class TrackerProfileDto
 
     /// <summary>Daily fluid-intake goal in millilitres, or null (the day then uses a 2000 ml default).</summary>
     public int? HydrationGoalMl { get; set; }
+
+    /// <summary>Daily step goal, or null (the UI then shows a ~10000 default). Not required.</summary>
+    public int? StepGoal { get; set; }
 }
 
 /// <summary>Computed body-metric estimates from the current profile (all metric inputs). Any field whose
@@ -848,7 +851,12 @@ public sealed class TrackerDayDto
     public FoodEntryDto[] Foods { get; set; } = Array.Empty<FoodEntryDto>();
     public ExerciseEntryDto[] Exercises { get; set; } = Array.Empty<ExerciseEntryDto>();
     public int CaloriesIn { get; set; }
+    /// <summary>The day's RESOLVED calories burned: the logged-exercise sum, then the watch active
+    /// calories applied per the day's <see cref="WatchActivityDto.CalorieMode"/> (ADD on top, OVERRIDE
+    /// replaces). With no watch entry it equals <see cref="ExerciseCalories"/>.</summary>
     public int CaloriesOut { get; set; }
+    /// <summary>The raw sum of logged-exercise calories, BEFORE the watch add/override is applied.</summary>
+    public int ExerciseCalories { get; set; }
     public int NetCalories { get; set; }
     public double ProteinG { get; set; }
     public double CarbG { get; set; }
@@ -863,6 +871,26 @@ public sealed class TrackerDayDto
     public int HydrationGoalMl { get; set; }
     /// <summary>The day's hydration entries (drinks), oldest-first. Visible to a permitted viewer too.</summary>
     public HydrationEntryDto[] Hydration { get; set; } = Array.Empty<HydrationEntryDto>();
+
+    /// <summary>The day's recorded watch stats (steps/distance/active calories + mode), or null when none
+    /// recorded. Visible to a permitted viewer too (read-only).</summary>
+    public WatchActivityDto? Activity { get; set; }
+    /// <summary>The profile's daily step goal, or null (the UI then shows a ~10000 default).</summary>
+    public int? StepGoal { get; set; }
+}
+
+/// <summary>One day's recorded smartwatch activity stats: steps, distance (always metres), active
+/// calories, and how the active calories factor into the day's calories out. Part of the tracker day —
+/// visible to a permitted viewer read-only, but only the owner may write it.</summary>
+public sealed class WatchActivityDto
+{
+    public int? Steps { get; set; }
+    /// <summary>Distance covered in metres (the client converts to mi/km for display).</summary>
+    public int? DistanceMeters { get; set; }
+    public int? ActiveCalories { get; set; }
+    /// <summary>"add" — active calories add on top of logged exercises; "override" — they replace the
+    /// logged-exercise sum.</summary>
+    public string CalorieMode { get; set; } = "add";
 }
 
 /// <summary>One logged drink: its volume in millilitres, an optional label, and when it was logged.</summary>
@@ -977,4 +1005,17 @@ public sealed class AddHydrationRequest
     public string Date { get; set; } = "";
     public int AmountMl { get; set; }
     public string? Label { get; set; }
+}
+
+/// <summary>Upsert the caller's watch activity stats for a day. Distance is always metres (1..1000000),
+/// steps 0..200000, active calories 0..20000; <see cref="CalorieMode"/> is "add" | "override" (how the
+/// active calories factor into the day's calories out). All-null stats keep the row (with nulls).</summary>
+public sealed class UpsertActivityRequest
+{
+    public string Date { get; set; } = "";
+    public int? Steps { get; set; }
+    public int? DistanceMeters { get; set; }
+    public int? ActiveCalories { get; set; }
+    /// <summary>"add" (default) | "override".</summary>
+    public string CalorieMode { get; set; } = "add";
 }

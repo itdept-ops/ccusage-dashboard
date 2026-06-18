@@ -8,8 +8,8 @@ import {
   HeatmapCell, HydrationEntryDto, IngestionSource, IngestKey, IngestKeyCreated, LogWeightRequest, LoginEvent, MachineStat, ManagedUser, ModelStat, NotificationDto, NotificationPreferenceDto, NotificationSettings,
   NotificationUpdate, PagedResult, PermissionItem, Presence, Pricing, ProjectDto, PublicShare, ReactionGroupDto, RequestLogEntry, SavedView,
   SavedViewUpsertRequest, SessionDetail, Settings, ShareAccessItem, ShareCreated, ShareListItem, SharedUserDto, SummaryResponse,
-  SyncResult, SyncStatus, TrackerDayDto, TrackerProfileDto, UsageFilter, UsageRecord, UsageStats, WeightPointDto,
-  WorkoutXSearchResultDto,
+  SyncResult, SyncStatus, TrackerDayDto, TrackerProfileDto, UpsertActivityRequest, UsageFilter, UsageRecord, UsageStats,
+  WatchActivityDto, WeightPointDto, WorkoutXSearchResultDto,
 } from './models';
 
 @Injectable({ providedIn: 'root' })
@@ -535,5 +535,19 @@ export class Api {
   /** Delete a logged hydration entry (owner-only; 404 otherwise). */
   deleteHydration(id: number): Observable<unknown> {
     return this.http.delete(`${this.base}/tracker/hydration/${id}`);
+  }
+
+  /**
+   * Upsert (replace) the caller's manually-recorded smartwatch stats for a date — one row per day (OWN
+   * tracker only). `distanceMeters` is always metric metres. Returns the saved watch stats; the page
+   * reloads the day so the calorie ring / burned figure reflects the resolved burn.
+   */
+  upsertActivity(body: UpsertActivityRequest): Observable<WatchActivityDto> {
+    return this.http.put<WatchActivityDto>(`${this.base}/tracker/activity`, body);
+  }
+
+  /** Clear the caller's watch stats for a date (owner-only; 204, no-op when no row). */
+  clearActivity(date: string): Observable<unknown> {
+    return this.http.delete(`${this.base}/tracker/activity`, { params: new HttpParams().set('date', date) });
   }
 }
