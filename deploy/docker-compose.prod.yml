@@ -36,6 +36,7 @@ services:
       Usda__ApiKey: ${USDA_API_KEY:-}    # food & fitness tracker; blank → food lookup returns 503
       FatSecret__ClientId: ${FATSECRET_CLIENT_ID:-}        # secondary food provider; blank → disabled
       FatSecret__ClientSecret: ${FATSECRET_CLIENT_SECRET:-}
+      WorkoutX__ApiKey: ${WORKOUTX_API_KEY:-}    # add-exercise WorkoutX tab; blank → WorkoutX returns 503
       ASPNETCORE_URLS: "http://+:8080"
 
   web:

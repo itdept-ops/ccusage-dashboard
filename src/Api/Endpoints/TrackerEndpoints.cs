@@ -438,6 +438,34 @@ public static class TrackerEndpoints
             return Results.Ok(points);
         }).RequirePermission(Permissions.TrackerSelf);
 
+        // ---- WorkoutX: browse/search the exercise catalog (503 when unconfigured) ----
+        // Hit by the add-exercise dialog's "WorkoutX" tab. Logging a picked exercise reuses POST
+        // /api/tracker/exercise (name + durationMin + caloriesBurned) — no dedicated log path here.
+        g.MapGet("/workoutx/exercises", async (
+            string? q, string? bodyPart, string? target, string? equipment, int? limit, int? offset,
+            WorkoutXService workoutx, CancellationToken ct) =>
+        {
+            if (!workoutx.IsConfigured) return WorkoutXUnconfigured();
+            var result = await workoutx.SearchAsync(
+                q, bodyPart, target, equipment, limit ?? 24, offset ?? 0, ct);
+            return Results.Ok(result);
+        }).RequirePermission(Permissions.TrackerSelf);
+
+        // ---- WorkoutX: proxy a single exercise's GIF demo (the provider needs the key the client lacks) ----
+        // {id} is constrained to digits at the route AND re-validated in the service before it's used in
+        // the upstream path. The Angular client loads this via HttpClient (responseType:"blob") so the JWT
+        // interceptor authorizes it — the WorkoutX key never reaches the browser.
+        g.MapGet("/workoutx/gif/{id:int:min(0)}", async (
+            string id, WorkoutXService workoutx, HttpContext http, CancellationToken ct) =>
+        {
+            if (!workoutx.IsConfigured) return WorkoutXUnconfigured();
+            var gif = await workoutx.GetGifAsync(id, ct);
+            if (gif is not { } g) return Results.NotFound();
+            // The catalog gifs are immutable per id; let the browser cache them for a day.
+            http.Response.Headers.CacheControl = "private, max-age=86400";
+            return Results.Bytes(g.Bytes, g.ContentType);
+        }).RequirePermission(Permissions.TrackerSelf);
+
         // ---- People whose tracker the caller may view ----
         g.MapGet("/shared", async (CurrentUserAccessor me, UsageDbContext db, CancellationToken ct) =>
         {
@@ -823,6 +851,11 @@ public static class TrackerEndpoints
     private static IResult UsdaUnconfigured() => Results.Problem(
         title: "USDA FoodData Central is not configured.",
         detail: "USDA FoodData Central is not configured.",
+        statusCode: StatusCodes.Status503ServiceUnavailable);
+
+    private static IResult WorkoutXUnconfigured() => Results.Problem(
+        title: "WorkoutX is not configured.",
+        detail: "WorkoutX is not configured.",
         statusCode: StatusCodes.Status503ServiceUnavailable);
 
     private static string? Trunc(string? s, int max) =>

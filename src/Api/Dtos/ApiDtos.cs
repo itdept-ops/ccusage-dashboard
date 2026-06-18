@@ -756,6 +756,38 @@ public sealed class ExerciseEntryDto
     public int CaloriesBurned { get; set; }
 }
 
+/// <summary>
+/// One WorkoutX catalog exercise, normalized from the provider's payload. The GIF is omitted on purpose
+/// (the provider's gifUrl needs the secret key, which never reaches the client) — the client loads the
+/// demo via the key-authenticated proxy at <c>/api/tracker/workoutx/gif/{Id}</c> instead.
+/// <see cref="CaloriesPerMinute"/> drives the client's live estimate (round(caloriesPerMinute * minutes)).
+/// </summary>
+public sealed class WorkoutXExerciseDto
+{
+    /// <summary>Provider id, e.g. "0001". Used as the gif-proxy path segment.</summary>
+    public string Id { get; set; } = "";
+    public string Name { get; set; } = "";
+    public string BodyPart { get; set; } = "";
+    public string Equipment { get; set; } = "";
+    public string Target { get; set; } = "";
+    public string[] SecondaryMuscles { get; set; } = Array.Empty<string>();
+    public string[] Instructions { get; set; } = Array.Empty<string>();
+    public string Category { get; set; } = "";
+    public string Difficulty { get; set; } = "";
+    public double Met { get; set; }
+    public double CaloriesPerMinute { get; set; }
+    public string? Description { get; set; }
+    public string? RecommendedSets { get; set; }
+    public string? RecommendedReps { get; set; }
+}
+
+/// <summary>A page of WorkoutX exercises plus the catalog-wide total for the active filter (for paging).</summary>
+public sealed class WorkoutXSearchResultDto
+{
+    public int Total { get; set; }
+    public WorkoutXExerciseDto[] Data { get; set; } = Array.Empty<WorkoutXExerciseDto>();
+}
+
 /// <summary>A user's tracker profile: goal, body profile, optional calorie/macro targets, sharing flag.
 /// Doubles as the body of <c>PUT /api/tracker/profile</c> (UpdateTrackerProfileRequest). All body
 /// measures are metric (kg + cm); <see cref="UnitSystem"/> is a display preference only.</summary>

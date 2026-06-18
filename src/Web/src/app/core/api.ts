@@ -9,6 +9,7 @@ import {
   NotificationUpdate, PagedResult, PermissionItem, Presence, Pricing, ProjectDto, PublicShare, ReactionGroupDto, RequestLogEntry, SavedView,
   SavedViewUpsertRequest, SessionDetail, Settings, ShareAccessItem, ShareCreated, ShareListItem, SharedUserDto, SummaryResponse,
   SyncResult, SyncStatus, TrackerDayDto, TrackerProfileDto, UsageFilter, UsageRecord, UsageStats, WeightPointDto,
+  WorkoutXSearchResultDto,
 } from './models';
 
 @Injectable({ providedIn: 'root' })
@@ -453,6 +454,33 @@ export class Api {
   exerciseLibrary(goal?: string): Observable<ExerciseLibraryDto[]> {
     const params = goal ? new HttpParams().set('goal', goal) : undefined;
     return this.http.get<ExerciseLibraryDto[]>(`${this.base}/tracker/exercises`, { params });
+  }
+
+  /**
+   * Browse/search the WorkoutX exercise catalog. `q` is a free-text name filter (server-side substring);
+   * `bodyPart`/`target`/`equipment` are the confirmed catalog filters; `limit`/`offset` paginate.
+   * Returns 503 ProblemDetails when WorkoutX is unconfigured — the tab shows a friendly steer.
+   */
+  workoutxExercises(opts: {
+    q?: string; bodyPart?: string; target?: string; equipment?: string; limit?: number; offset?: number;
+  } = {}): Observable<WorkoutXSearchResultDto> {
+    let p = new HttpParams();
+    if (opts.q) p = p.set('q', opts.q);
+    if (opts.bodyPart) p = p.set('bodyPart', opts.bodyPart);
+    if (opts.target) p = p.set('target', opts.target);
+    if (opts.equipment) p = p.set('equipment', opts.equipment);
+    if (opts.limit != null) p = p.set('limit', opts.limit);
+    if (opts.offset != null) p = p.set('offset', opts.offset);
+    return this.http.get<WorkoutXSearchResultDto>(`${this.base}/tracker/workoutx/exercises`, { params: p });
+  }
+
+  /**
+   * Fetch one WorkoutX exercise's GIF demo as a Blob (the provider needs the secret key the browser
+   * lacks, so the backend proxies it). The JWT interceptor authorizes this request; the caller turns the
+   * Blob into an object URL (and must revoke it). `id` is digits only (provider ids like "0001").
+   */
+  workoutxGif(id: string): Observable<Blob> {
+    return this.http.get(`${this.base}/tracker/workoutx/gif/${encodeURIComponent(id)}`, { responseType: 'blob' });
   }
 
   /** The caller's tracker profile / goals. */

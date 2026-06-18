@@ -4,6 +4,7 @@
   <mat-button-toggle-group class="ax-mode" [value]="mode()" (change)="setMode($event.value)"
                            aria-label="How to add exercise" hideSingleSelectionIndicator>
     <mat-button-toggle value="library"><mat-icon>fitness_center</mat-icon> Library</mat-button-toggle>
+    <mat-button-toggle value="workoutx"><mat-icon>sports_gymnastics</mat-icon> WorkoutX</mat-button-toggle>
     <mat-button-toggle value="manual"><mat-icon>edit</mat-icon> Manual</mat-button-toggle>
   </mat-button-toggle-group>
 
@@ -74,6 +75,153 @@
           </p>
         }
       </div>
+    }
+  } @else if (mode() === 'workoutx') {
+    @if (wxUnavailable()) {
+      <div class="ax-unconfigured" role="status">
+        <mat-icon aria-hidden="true">cloud_off</mat-icon>
+        <p>WorkoutX isn't configured yet. You can still use the Library or Manual tabs.</p>
+      </div>
+    } @else {
+      <form class="ax-wxsearch" (submit)="$event.preventDefault(); searchWorkoutx()">
+        <mat-form-field appearance="outline" class="ax-field ax-search">
+          <mat-icon matPrefix>search</mat-icon>
+          <mat-label>Search WorkoutX</mat-label>
+          <input matInput autocomplete="off" placeholder="e.g. push up"
+                 [ngModel]="wxQuery()" (ngModelChange)="wxQuery.set($event)" name="wxQuery"
+                 (keyup.enter)="searchWorkoutx()" />
+        </mat-form-field>
+      </form>
+
+      <div class="ax-chips">
+        <span class="ax-chips__label" id="wx-bodypart-label">Body part</span>
+        <mat-chip-listbox aria-labelledby="wx-bodypart-label" class="ax-chiprow"
+                          [value]="wxBodyPart()" (change)="setWxFilter('bodyPart', $event.value)">
+          @for (bp of wxBodyPartOptions; track bp) {
+            <mat-chip-option [value]="bp" selectable>{{ bp }}</mat-chip-option>
+          }
+        </mat-chip-listbox>
+
+        <span class="ax-chips__label" id="wx-equipment-label">Equipment</span>
+        <mat-chip-listbox aria-labelledby="wx-equipment-label" class="ax-chiprow"
+                          [value]="wxEquipment()" (change)="setWxFilter('equipment', $event.value)">
+          @for (eq of wxEquipmentOptions; track eq) {
+            <mat-chip-option [value]="eq" selectable>{{ eq }}</mat-chip-option>
+          }
+        </mat-chip-listbox>
+
+        <span class="ax-chips__label" id="wx-target-label">Target muscle</span>
+        <mat-chip-listbox aria-labelledby="wx-target-label" class="ax-chiprow"
+                          [value]="wxTarget()" (change)="setWxFilter('target', $event.value)">
+          @for (tg of wxTargetOptions; track tg) {
+            <mat-chip-option [value]="tg" selectable>{{ tg }}</mat-chip-option>
+          }
+        </mat-chip-listbox>
+      </div>
+
+      @if (wxLoading() && wxResults().length === 0) {
+        <mat-progress-bar mode="indeterminate" aria-label="Searching WorkoutX" />
+      }
+      @if (wxError(); as e) { <p class="ax-error" role="alert"><mat-icon>error_outline</mat-icon> {{ e }}</p> }
+
+      <div class="ax-list" role="list" aria-label="WorkoutX exercises">
+        @for (e of wxResults(); track e.id) {
+          <div role="listitem" class="ax-row">
+            <button type="button" class="ax-ex"
+                    [class.selected]="wxSelected()?.id === e.id"
+                    [attr.aria-pressed]="wxSelected()?.id === e.id"
+                    (click)="pickWorkoutx(e)">
+              <span class="ax-ex__id">
+                <span class="ax-ex__name">{{ e.name }}</span>
+                <span class="ax-ex__cat">{{ e.target }} · {{ e.equipment }}</span>
+              </span>
+              @if (e.difficulty) { <span class="ax-ex__met">{{ e.difficulty }}</span> }
+              @if (wxSelected()?.id === e.id) { <mat-icon class="ax-ex__check">check_circle</mat-icon> }
+            </button>
+          </div>
+        } @empty {
+          @if (!wxLoading()) { <p class="ax-empty">No exercises match.</p> }
+        }
+      </div>
+
+      @if (wxHasMore()) {
+        <button mat-stroked-button type="button" class="ax-loadmore"
+                [disabled]="wxLoading()" (click)="loadMoreWorkoutx()">
+          @if (wxLoading()) { Loading… } @else { Load more ({{ wxResults().length }} of {{ wxTotal() }}) }
+        </button>
+      }
+
+      @if (wxSelected(); as sel) {
+        <div class="ax-detail ax-wxdetail">
+          <div class="ax-gif" aria-live="polite">
+            @if (wxReducedMotion() && !wxGifRequested()) {
+              <div class="ax-gif__state">
+                <button mat-stroked-button type="button" class="ax-gif__show" (click)="showWxGif()">
+                  <mat-icon aria-hidden="true">play_circle</mat-icon> Show animated demo
+                </button>
+              </div>
+            } @else if (wxGifLoading()) {
+              <div class="ax-gif__state">
+                <mat-progress-bar mode="indeterminate" aria-label="Loading demo" />
+                <span class="ax-sr-status">Loading demonstration…</span>
+              </div>
+            } @else if (wxGifError() || !wxGifUrl()) {
+              <div class="ax-gif__state ax-gif__fallback">
+                <mat-icon aria-hidden="true">image_not_supported</mat-icon>
+                <span>Demonstration unavailable</span>
+              </div>
+            } @else {
+              <img [src]="wxGifUrl()" [alt]="sel.name + ' demonstration'" />
+            }
+          </div>
+
+          <div class="ax-wxmeta">
+            @if (sel.recommendedSets || sel.recommendedReps) {
+              <p class="ax-wxmeta__line">
+                <mat-icon aria-hidden="true">repeat</mat-icon>
+                Recommended: {{ sel.recommendedSets || '—' }} sets × {{ sel.recommendedReps || '—' }} reps
+              </p>
+            }
+            @if (sel.secondaryMuscles.length > 0) {
+              <p class="ax-wxmeta__line">
+                <mat-icon aria-hidden="true">accessibility_new</mat-icon>
+                Secondary: {{ sel.secondaryMuscles.join(', ') }}
+              </p>
+            }
+          </div>
+
+          @if (sel.instructions.length > 0) {
+            <ol class="ax-steps" aria-label="Instructions">
+              @for (step of sel.instructions; track $index) { <li>{{ step }}</li> }
+            </ol>
+          }
+
+          <mat-form-field appearance="outline" class="ax-field">
+            <mat-label>Duration</mat-label>
+            <input matInput type="number" min="1" inputmode="numeric"
+                   [ngModel]="wxDuration()" (ngModelChange)="wxDuration.set($event)" />
+            <span matTextSuffix>min</span>
+          </mat-form-field>
+
+          <mat-checkbox class="ax-override" [ngModel]="wxOverride()" (ngModelChange)="wxOverride.set($event)">
+            Enter calories myself instead of estimating
+          </mat-checkbox>
+
+          @if (wxOverride()) {
+            <mat-form-field appearance="outline" class="ax-field">
+              <mat-label>Calories burned</mat-label>
+              <input matInput type="number" min="0" inputmode="numeric"
+                     [ngModel]="wxManualCals()" (ngModelChange)="wxManualCals.set($event)" />
+              <span matTextSuffix>kcal</span>
+            </mat-form-field>
+          } @else {
+            <p class="ax-estimate" role="status">
+              <mat-icon aria-hidden="true">local_fire_department</mat-icon>
+              Estimated {{ wxEstimate() }} kcal ({{ sel.caloriesPerMinute }} kcal/min × {{ wxDuration() || 0 }} min).
+            </p>
+          }
+        </div>
+      }
     }
   } @else {
     <div class="ax-manual">

@@ -585,6 +585,53 @@ public class TrackerIntegrationTests(WebAppFactory factory)
         (await user.GetAsync("/api/tracker/profile")).StatusCode.Should().Be(HttpStatusCode.OK);
     }
 
+    // ---- WorkoutX: auth + permission gating, and 503 when unconfigured (no key in the test env) ----
+
+    [Fact]
+    public async Task WorkoutX_endpoints_require_authentication()
+    {
+        var anon = factory.CreateClient();
+        (await anon.GetAsync("/api/tracker/workoutx/exercises?q=press"))
+            .StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+        (await anon.GetAsync("/api/tracker/workoutx/gif/1"))
+            .StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async Task WorkoutX_endpoints_require_tracker_self()
+    {
+        var (_, noTracker) = await ProvisionUser("dashboard.view");
+        (await noTracker.GetAsync("/api/tracker/workoutx/exercises?q=press"))
+            .StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        (await noTracker.GetAsync("/api/tracker/workoutx/gif/1"))
+            .StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
+
+    [Fact]
+    public async Task WorkoutX_endpoints_return_503_when_unconfigured()
+    {
+        var (_, user) = await ProvisionUser("tracker.self");
+
+        var search = await user.GetAsync("/api/tracker/workoutx/exercises?q=press");
+        search.StatusCode.Should().Be(HttpStatusCode.ServiceUnavailable);
+
+        var gif = await user.GetAsync("/api/tracker/workoutx/gif/1");
+        gif.StatusCode.Should().Be(HttpStatusCode.ServiceUnavailable);
+
+        // The rest of the tracker still works even with WorkoutX off.
+        (await user.GetAsync("/api/tracker/profile")).StatusCode.Should().Be(HttpStatusCode.OK);
+    }
+
+    [Fact]
+    public async Task WorkoutX_gif_route_rejects_a_non_numeric_id_as_404()
+    {
+        var (_, user) = await ProvisionUser("tracker.self");
+        // The {id:int} route constraint never matches a non-numeric segment, so it's an unmatched 404
+        // (the id never reaches the handler / the upstream path).
+        (await user.GetAsync("/api/tracker/workoutx/gif/abc"))
+            .StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
     // ---- Saved "My foods": manual logs auto-save + dedupe; provider logs don't ----
 
     [Fact]

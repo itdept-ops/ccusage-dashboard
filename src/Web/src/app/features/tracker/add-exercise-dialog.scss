@@ -128,3 +128,138 @@
   gap: 8px;
   button { border-radius: var(--tech-r-control); font-weight: 600; min-height: 44px; }
 }
+
+// ---- WorkoutX tab ----
+
+.ax-wxsearch { display: block; }
+
+.ax-unconfigured {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: var(--tech-space-4);
+  border: 1px solid var(--tech-border);
+  border-radius: var(--tech-r-control);
+  background: var(--tech-bg-sunken);
+  color: var(--tech-text-secondary);
+  p { margin: 0; font-size: var(--tech-fs-body); }
+  mat-icon { font-size: 28px; width: 28px; height: 28px; color: var(--tech-text-tertiary); flex: 0 0 auto; }
+}
+
+.ax-chips {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+
+  &__label {
+    font-size: var(--tech-fs-label);
+    color: var(--tech-text-tertiary);
+    margin-top: 4px;
+  }
+}
+
+.ax-chiprow ::ng-deep .mat-mdc-chip { min-height: 32px; }
+
+.ax-loadmore {
+  align-self: center;
+  border-radius: var(--tech-r-control);
+  min-height: 44px;
+}
+
+.ax-wxdetail {
+  border-top: 1px solid var(--tech-border-subtle);
+  margin-top: var(--tech-space-2);
+}
+
+.ax-gif {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 200px;
+  border: 1px solid var(--tech-border-subtle);
+  border-radius: var(--tech-r-control);
+  background: var(--tech-bg-sunken);
+  overflow: hidden;
+
+  img {
+    display: block;
+    max-width: 100%;
+    max-height: 280px;
+    object-fit: contain;
+  }
+
+  &__state {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: var(--tech-space-4);
+  }
+
+  &__fallback {
+    color: var(--tech-text-tertiary);
+    font-size: var(--tech-fs-label);
+    mat-icon { font-size: 32px; width: 32px; height: 32px; }
+  }
+}
+
+.ax-wxmeta {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+
+  &__line {
+    display: flex;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 0;
+    min-width: 0;
+    font-size: var(--tech-fs-label);
+    color: var(--tech-text-secondary);
+    // Let the muscle list wrap instead of forcing horizontal overflow on narrow (~320px) phones.
+    white-space: normal;
+    overflow-wrap: anywhere;
+    // Keep the leading icon optically aligned with the first text line.
+    mat-icon {
+      font-size: 16px; width: 16px; height: 16px; line-height: 1.4;
+      color: var(--tech-text-tertiary); flex: 0 0 auto;
+    }
+  }
+}
+
+.ax-steps {
+  margin: 0;
+  padding-left: 1.2em;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 160px;
+  overflow-y: auto;
+  font-size: var(--tech-fs-label);
+  color: var(--tech-text-secondary);
+  li { line-height: 1.4; }
+}
+
+// Reduced-motion is handled in TS: when the user prefers it we don't auto-load the animated GIF and
+// instead surface this "Show animated demo" button so motion only ever starts on an explicit action.
+.ax-gif__show {
+  border-radius: var(--tech-r-control);
+  min-height: 44px;
+  mat-icon { font-size: 18px; width: 18px; height: 18px; margin-right: 4px; vertical-align: -4px; }
+}
+
+/* Visually-hidden polite-region text (GIF load/fail announcements). */
+.ax-sr-status {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}

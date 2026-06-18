@@ -627,6 +627,36 @@ export interface FoodEntryDto {
   fatG: number;
 }
 
+/**
+ * One WorkoutX catalog exercise (GET /api/tracker/workoutx/exercises). The GIF is omitted on purpose —
+ * the provider's gifUrl needs the secret key, so the client loads the demo via the key-authenticated
+ * proxy at GET /api/tracker/workoutx/gif/{id} (responseType blob, JWT-authorized). `caloriesPerMinute`
+ * drives the live estimate: round(caloriesPerMinute * durationMin). Mirrors WorkoutXExerciseDto.
+ */
+export interface WorkoutXExerciseDto {
+  /** Provider id, e.g. "0001". Used as the gif-proxy path segment. */
+  id: string;
+  name: string;
+  bodyPart: string;
+  equipment: string;
+  target: string;
+  secondaryMuscles: string[];
+  instructions: string[];
+  category: string;
+  difficulty: string;
+  met: number;
+  caloriesPerMinute: number;
+  description?: string | null;
+  recommendedSets?: string | null;
+  recommendedReps?: string | null;
+}
+
+/** A page of WorkoutX exercises plus the catalog-wide total for the active filter (for paging). Mirrors WorkoutXSearchResultDto. */
+export interface WorkoutXSearchResultDto {
+  total: number;
+  data: WorkoutXExerciseDto[];
+}
+
 /** One exercise from the library (GET /api/tracker/exercises). MET drives the server-side calorie estimate. Mirrors ExerciseLibraryDto. */
 export interface ExerciseLibraryDto {
   id: number;

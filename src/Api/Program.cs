@@ -88,6 +88,17 @@ builder.Services.AddHttpClient(FatSecretFoodService.HttpClientName,
     c => c.Timeout = TimeSpan.FromSeconds(15));
 builder.Services.AddScoped<FatSecretFoodService>();
 
+// WorkoutX is the exercise-catalog provider for the add-exercise dialog (browse/search 1300+ exercises
+// with GIF demos). The ApiKey is a secret (appsettings.Local.json locally / WorkoutX__ApiKey env var in
+// prod), sent only as the X-WorkoutX-Key header and never logged; when blank the WorkoutX endpoints
+// return 503 and the rest of the tracker still works. The host is fixed (WorkoutX:BaseUrl), never
+// user-controlled (no SSRF). Search responses are cached to respect the key's rate limit; GIFs are
+// proxied server-side because the provider rejects gif requests that lack the key.
+builder.Services.Configure<WorkoutXOptions>(builder.Configuration.GetSection(WorkoutXOptions.SectionName));
+builder.Services.AddHttpClient(WorkoutXService.HttpClientName,
+    c => c.Timeout = TimeSpan.FromSeconds(15));
+builder.Services.AddScoped<WorkoutXService>();
+
 // Real-time chat + in-app notifications. The hub addresses individual users by their email claim
 // (EmailUserIdProvider) so per-user pushes work across all of a user's connections; the fan-out
 // service is the shared broadcast/notify path used by both the REST endpoints and the hub.

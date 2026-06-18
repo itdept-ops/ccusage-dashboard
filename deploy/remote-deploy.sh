@@ -25,6 +25,9 @@ USDA_API_KEY=$(ssm /usage-iq/usda-api-key --with-decryption)
 # is unconfigured or returns nothing). Non-fatal if unset — FatSecret stays disabled until set.
 FATSECRET_CLIENT_ID=$(ssm /usage-iq/fatsecret-client-id --with-decryption)
 FATSECRET_CLIENT_SECRET=$(ssm /usage-iq/fatsecret-client-secret --with-decryption)
+# Optional: WorkoutX API key for the add-exercise dialog's WorkoutX tab (exercise catalog + gifs).
+# Non-fatal if unset — the tracker still runs, only the WorkoutX endpoints return 503 until a key is set.
+WORKOUTX_API_KEY=$(ssm /usage-iq/workoutx-api-key --with-decryption)
 
 if [ -z "$JWT" ] || [ -z "$DBPW" ]; then
   echo "FATAL: /usage-iq/jwt-key or /usage-iq/db-password missing in SSM." >&2; exit 1
@@ -43,6 +46,7 @@ GOOGLE_CLIENT_SECRET=$GOOGLE_SECRET
 USDA_API_KEY=$USDA_API_KEY
 FATSECRET_CLIENT_ID=$FATSECRET_CLIENT_ID
 FATSECRET_CLIENT_SECRET=$FATSECRET_CLIENT_SECRET
+WORKOUTX_API_KEY=$WORKOUTX_API_KEY
 EOF
 
 echo "==> Logging in to ECR"
