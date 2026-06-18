@@ -39,26 +39,38 @@
     <div class="tracker__readonly" role="status">
       <span class="tracker__readonly-avatar">{{ initials(vu) }}</span>
       <span>Viewing <strong>{{ vu.name }}</strong>’s tracker — read-only.</span>
+      @if (refreshing()) {
+        <span class="tracker__refreshnote" aria-hidden="true">
+          <mat-icon class="tracker__refreshspin">autorenew</mat-icon> Updating…
+        </span>
+      }
+      <button mat-icon-button type="button" class="tracker__refreshbtn" (click)="refreshReadOnly()"
+              [disabled]="refreshing()" aria-label="Refresh this tracker"
+              matTooltip="Refresh this tracker">
+        <mat-icon>refresh</mat-icon>
+      </button>
       <button mat-button type="button" class="tracker__exitview" (click)="viewSelf()">Back to mine</button>
     </div>
   }
 
-  <!-- Date navigator. -->
-  <div class="tracker__datenav" role="group" aria-label="Choose day">
-    <button mat-icon-button type="button" (click)="prevDay()" aria-label="Previous day">
-      <mat-icon>chevron_left</mat-icon>
-    </button>
-    <div class="tracker__datelabel">
-      <span class="tracker__dateheading" id="tracker-dateheading">{{ dateHeading() }}</span>
-      <input class="tracker__dateinput mono-num" type="date" [value]="store.date()"
-             (change)="onDateInput($any($event.target).value)" aria-label="Pick a date"
-             aria-describedby="tracker-dateheading" />
+  <!-- Date navigator (hidden during the blocking baseline onboarding so the gated day can't be browsed). -->
+  @if (!needsBaseline()) {
+    <div class="tracker__datenav" role="group" aria-label="Choose day">
+      <button mat-icon-button type="button" (click)="prevDay()" aria-label="Previous day">
+        <mat-icon>chevron_left</mat-icon>
+      </button>
+      <div class="tracker__datelabel">
+        <span class="tracker__dateheading" id="tracker-dateheading">{{ dateHeading() }}</span>
+        <input class="tracker__dateinput mono-num" type="date" [value]="store.date()"
+               (change)="onDateInput($any($event.target).value)" aria-label="Pick a date"
+               aria-describedby="tracker-dateheading" />
+      </div>
+      <button mat-icon-button type="button" (click)="nextDay()" aria-label="Next day">
+        <mat-icon>chevron_right</mat-icon>
+      </button>
+      <button mat-stroked-button type="button" class="tracker__today" (click)="today()">Today</button>
     </div>
-    <button mat-icon-button type="button" (click)="nextDay()" aria-label="Next day">
-      <mat-icon>chevron_right</mat-icon>
-    </button>
-    <button mat-stroked-button type="button" class="tracker__today" (click)="today()">Today</button>
-  </div>
+  }
 
   <!-- Visually-hidden polite live region: announces day reloads and entry deletions to screen readers. -->
   <span class="tracker__sr-status" aria-live="polite" aria-atomic="true">{{ statusMsg() }}</span>
@@ -72,6 +84,12 @@
   }
 
   @if (store.day(); as day) {
+    <!-- BLOCKING baseline onboarding (own tracker only): replaces the dashboard until the baseline is
+         complete (current weight, height, DOB, explicit sex). Non-dismissable — no skip/cancel. -->
+    @if (needsBaseline()) {
+      <app-tracker-onboarding [profile]="day.profile" [saving]="savingBaseline()"
+                              (completed)="onBaselineComplete($event)" />
+    } @else {
     <!-- First-time setup prompt (own tracker, no goal/data). -->
     @if (needsSetup()) {
       <div class="tracker__setup">
@@ -300,5 +318,6 @@
         </button>
       }
     </section>
+    } <!-- /@else (baseline complete) -->
   }
 </section>

@@ -1,4 +1,4 @@
-import { Component, computed, effect, inject, signal } from '@angular/core';
+import { Component, DestroyRef, computed, effect, inject, signal } from '@angular/core';
 import { DecimalPipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 
@@ -21,8 +21,12 @@ import { AddFoodDialog, AddFoodData } from './add-food-dialog';
 import { AddExerciseDialog, AddExerciseData } from './add-exercise-dialog';
 import { ProfileDialog, ProfileData } from './profile-dialog';
 import { LogWeightDialog, LogWeightData } from './log-weight-dialog';
+import { OnboardingCard, OnboardingResult } from './onboarding-card';
 import { WeightTrend } from './weight-trend';
 import { formatWeight, kgToLb } from './units';
+
+/** Re-fetch the viewed tracker every this many ms while in a read-only (someone else's) view. */
+const READONLY_REFRESH_MS = 30_000;
 
 interface MealSection { meal: Meal; label: string; icon: string }
 
@@ -44,7 +48,7 @@ const MEAL_SECTIONS: MealSection[] = [
   selector: 'app-tracker',
   imports: [
     DecimalPipe, FormsModule, MatIconModule, MatButtonModule, MatProgressBarModule, MatMenuModule,
-    MatTooltipModule, MatDialogModule, MatSnackBarModule, CalorieRing, WeightTrend,
+    MatTooltipModule, MatDialogModule, MatSnackBarModule, CalorieRing, WeightTrend, OnboardingCard,
   ],
   templateUrl: './tracker.html',
   styleUrl: './tracker.scss',
@@ -54,11 +58,24 @@ export class Tracker {
   readonly auth = inject(AuthService);
   private dialog = inject(MatDialog);
   private snack = inject(MatSnackBar);
+  private destroyRef = inject(DestroyRef);
 
   readonly mealSections = MEAL_SECTIONS;
 
   /** Screen-reader-only live status: announces day reloads and entry deletions. */
   readonly statusMsg = signal('');
+
+  /** True while a read-only auto/manual refresh is in flight (for the subtle spinner). */
+  readonly refreshing = signal(false);
+
+  /** When the read-only view was last successfully re-fetched (epoch ms), for the "updated" label. */
+  readonly lastRefreshed = signal<number | null>(null);
+
+  /** True while the blocking baseline onboarding result is being persisted. */
+  readonly savingBaseline = signal(false);
+
+  /** The active read-only auto-refresh interval handle, or null when not running. */
+  private refreshTimer: ReturnType<typeof setInterval> | null = null;
 
   /** The caller's OWN weight history (oldest-first) for the trend chart. Empty when none / read-only. */
   readonly weightHistory = signal<WeightPointDto[]>([]);
@@ -89,6 +106,44 @@ export class Tracker {
       }
       void this.loadWeightHistory();
     });
+
+    // Read-only auto-refresh lifecycle: run a gentle 30s re-fetch ONLY while viewing someone else's
+    // tracker. Keyed on the view target so switching users restarts a fresh timer for the new target;
+    // switching back to your own view (viewUser === null) stops it. Never runs for your own tracker.
+    effect(() => {
+      const target = this.store.viewUser();
+      this.stopAutoRefresh();
+      if (target !== null) {
+        this.lastRefreshed.set(Date.now());
+        this.refreshTimer = setInterval(() => void this.refreshReadOnly(), READONLY_REFRESH_MS);
+      }
+    });
+
+    // Belt-and-suspenders: clear any interval if the component is torn down.
+    this.destroyRef.onDestroy(() => this.stopAutoRefresh());
+  }
+
+  private stopAutoRefresh(): void {
+    if (this.refreshTimer !== null) {
+      clearInterval(this.refreshTimer);
+      this.refreshTimer = null;
+    }
+  }
+
+  /**
+   * Manually/auto re-fetch the currently-viewed (read-only) tracker. No-ops if we're no longer in a
+   * read-only view (e.g. the user switched back), so a queued tick can't fire against your own tracker.
+   * The store's load() refreshes signals in place — it doesn't move focus or reset scroll.
+   */
+  async refreshReadOnly(): Promise<void> {
+    if (this.store.viewUser() === null) return;
+    this.refreshing.set(true);
+    try {
+      await this.store.load();
+      this.lastRefreshed.set(Date.now());
+    } finally {
+      this.refreshing.set(false);
+    }
   }
 
   private async loadWeightHistory(): Promise<void> {
@@ -169,6 +224,19 @@ export class Tracker {
     return empty && !p.dailyCalorieGoal && (!p.goal || p.goal === 'Maintain') && !p.weightKg && !p.shareWithContacts;
   });
 
+  /**
+   * True when the caller's OWN baseline is incomplete: any of current weight, height, date of birth, or
+   * an explicit biological sex is missing. Drives the BLOCKING onboarding step that replaces the
+   * dashboard until saved. Never true when viewing someone else (read-only) — their metrics aren't
+   * exposed and we never gate their tracker.
+   */
+  readonly needsBaseline = computed(() => {
+    const day = this.store.day();
+    if (!day || day.readOnly) return false;
+    const p = day.profile;
+    return p.weightKg == null || p.heightCm == null || !p.dateOfBirth || p.sex === 'Unspecified';
+  });
+
   // ---- macro helpers ----
   foodsFor(meal: Meal): FoodEntryDto[] {
     return this.store.day()?.foods.filter(f => f.meal === meal) ?? [];
@@ -241,6 +309,36 @@ export class Tracker {
           .then(() => this.snack.open('Goals saved', 'OK', { duration: 2000 }))
           .catch(() => this.snack.open('Could not save goals', 'Dismiss', { duration: 4000 }));
       });
+  }
+
+  /**
+   * Complete the blocking baseline onboarding (own tracker only). Persists the profile, and — if no
+   * weight has been logged for today yet — records the entered current weight as today's WeightEntry so
+   * the trend/BMI/BMR have a day-one baseline. Both calls reload the day; the gate (needsBaseline) then
+   * clears and the normal dashboard renders.
+   */
+  async onBaselineComplete(result: OnboardingResult): Promise<void> {
+    if (this.store.readOnly() || this.savingBaseline()) return;
+    this.savingBaseline.set(true);
+    try {
+      await this.store.saveProfile(result.profile);
+
+      // Seed today's weigh-in only if today doesn't already have one (avoid clobbering an existing entry).
+      const today = this.store.date();
+      const history = await this.store.weightHistory(7).catch(() => []);
+      const hasToday = history.some(w => w.date === today);
+      if (!hasToday) {
+        await this.store.logWeight({ date: today, weightKg: result.weightKg });
+      }
+
+      await this.store.load();
+      void this.loadWeightHistory();
+      this.snack.open('Baseline saved', 'OK', { duration: 2000 });
+    } catch {
+      this.snack.open('Could not save your baseline', 'Dismiss', { duration: 4000 });
+    } finally {
+      this.savingBaseline.set(false);
+    }
   }
 
   openLogWeight(): void {

@@ -1,0 +1,163 @@
+<section #cardEl class="ob" role="group" aria-labelledby="ob-title" tabindex="-1">
+  <header class="ob__head">
+    <mat-icon class="ob__icon" aria-hidden="true">flag</mat-icon>
+    <div class="ob__copy">
+      <h2 id="ob-title">Let’s set your baseline</h2>
+      <p>We need a few basics to estimate your BMI, BMR and calorie targets. This is a one-time step.</p>
+    </div>
+  </header>
+
+  <div class="ob__form">
+    <!-- Unit toggle (display only; everything is stored in metric). -->
+    <div class="ob__units">
+      <span class="micro-label">Units</span>
+      <mat-button-toggle-group [value]="unitSystem()" (change)="onUnitChange($event.value)"
+                               aria-label="Unit system" class="ob__unit-toggle">
+        <mat-button-toggle value="Metric">Metric</mat-button-toggle>
+        <mat-button-toggle value="Imperial">Imperial</mat-button-toggle>
+      </mat-button-toggle-group>
+    </div>
+
+    <mat-form-field appearance="outline" class="ob__field">
+      <mat-label>Date of birth</mat-label>
+      <input #firstField matInput type="date" required [max]="todayIso"
+             [ngModel]="dateOfBirth()" (ngModelChange)="dateOfBirth.set($event)" />
+      <mat-hint>Used to estimate your age for BMR/TDEE.</mat-hint>
+    </mat-form-field>
+
+    <!-- Height: cm OR ft + in depending on units. -->
+    @if (imperial()) {
+      <div class="ob__htgrid">
+        <mat-form-field appearance="outline">
+          <mat-label>Height (ft)</mat-label>
+          <input matInput type="number" min="0" max="9" inputmode="numeric" required
+                 [ngModel]="heightFt()" (ngModelChange)="heightFt.set($event)" />
+          <span matTextSuffix>ft</span>
+        </mat-form-field>
+        <mat-form-field appearance="outline">
+          <mat-label>Height (in)</mat-label>
+          <input matInput type="number" min="0" max="11" inputmode="numeric"
+                 [ngModel]="heightIn()" (ngModelChange)="heightIn.set($event)" />
+          <span matTextSuffix>in</span>
+        </mat-form-field>
+      </div>
+    } @else {
+      <mat-form-field appearance="outline" class="ob__field">
+        <mat-label>Height</mat-label>
+        <input matInput type="number" min="0" step="0.5" inputmode="decimal" required
+               [ngModel]="heightCm()" (ngModelChange)="heightCm.set($event)" />
+        <span matTextSuffix>cm</span>
+      </mat-form-field>
+    }
+
+    <div class="ob__wtgrid">
+      <mat-form-field appearance="outline">
+        <mat-label>Current weight</mat-label>
+        <input matInput type="number" min="0" step="0.1" inputmode="decimal" required
+               [ngModel]="weightDisp()" (ngModelChange)="weightDisp.set($event)" />
+        <span matTextSuffix>{{ imperial() ? 'lb' : 'kg' }}</span>
+      </mat-form-field>
+      <mat-form-field appearance="outline">
+        <mat-label>Goal weight (optional)</mat-label>
+        <input matInput type="number" min="0" step="0.1" inputmode="decimal"
+               [ngModel]="goalWeightDisp()" (ngModelChange)="goalWeightDisp.set($event)" />
+        <span matTextSuffix>{{ imperial() ? 'lb' : 'kg' }}</span>
+      </mat-form-field>
+    </div>
+    <p class="ob__note">Current weight also seeds today’s weigh-in and drives the calories-burned estimate for exercise.</p>
+
+    <mat-form-field appearance="outline" class="ob__field">
+      <mat-label>Biological sex</mat-label>
+      <mat-select required [ngModel]="sex()" (ngModelChange)="sex.set($event)">
+        @for (s of sexes; track s.value) {
+          <mat-option [value]="s.value">{{ s.label }}</mat-option>
+        }
+      </mat-select>
+      <mat-hint>Used only to estimate BMR/TDEE.</mat-hint>
+    </mat-form-field>
+
+    <div class="ob__gagrid">
+      <mat-form-field appearance="outline">
+        <mat-label>Goal</mat-label>
+        <mat-select [ngModel]="goal()" (ngModelChange)="goal.set($event)">
+          @for (g of goals; track g.value) {
+            <mat-option [value]="g.value">{{ g.label }}</mat-option>
+          }
+        </mat-select>
+      </mat-form-field>
+      <mat-form-field appearance="outline">
+        <mat-label>Activity level</mat-label>
+        <mat-select [ngModel]="activityLevel()" (ngModelChange)="activityLevel.set($event)">
+          @for (a of activityLevels; track a.value) {
+            <mat-option [value]="a.value">{{ a.label }}</mat-option>
+          }
+        </mat-select>
+      </mat-form-field>
+    </div>
+
+    <!-- ── Live stats preview ── -->
+    @if (preview(); as s) {
+      @if (s.bmi != null || s.bmr != null || s.tdee != null || s.suggestedCalorieGoal != null) {
+        <div class="ob__preview" role="group" aria-label="Estimated stats">
+          <div class="ob__preview-grid">
+            @if (s.bmi != null) {
+              <div class="ob__stat"><span class="ob__stat-l">BMI</span>
+                <span class="ob__stat-v mono-num">{{ s.bmi }}</span>
+                <span class="ob__stat-x">{{ s.bmiCategory }}</span></div>
+            }
+            @if (s.bmr != null) {
+              <div class="ob__stat"><span class="ob__stat-l">BMR</span>
+                <span class="ob__stat-v mono-num">{{ s.bmr }}</span><span class="ob__stat-x">kcal/day</span></div>
+            }
+            @if (s.tdee != null) {
+              <div class="ob__stat"><span class="ob__stat-l">TDEE</span>
+                <span class="ob__stat-v mono-num">{{ s.tdee }}</span><span class="ob__stat-x">kcal/day</span></div>
+            }
+            @if (s.suggestedCalorieGoal != null) {
+              <div class="ob__stat"><span class="ob__stat-l">Suggested</span>
+                <span class="ob__stat-v mono-num">{{ s.suggestedCalorieGoal }}</span><span class="ob__stat-x">kcal/day</span></div>
+            }
+          </div>
+          @if (hasSuggestion()) {
+            <button mat-stroked-button type="button" class="ob__usesuggested" (click)="useSuggested()">
+              <mat-icon>auto_fix_high</mat-icon> Use suggested targets
+            </button>
+          }
+        </div>
+      }
+    }
+
+    <mat-form-field appearance="outline" class="ob__field">
+      <mat-label>Daily calorie goal (optional)</mat-label>
+      <input matInput type="number" min="0" inputmode="numeric"
+             [ngModel]="dailyCalorieGoal()" (ngModelChange)="dailyCalorieGoal.set($event)" />
+      <span matTextSuffix>kcal</span>
+    </mat-form-field>
+
+    <span class="micro-label ob__section">Macro targets (optional)</span>
+    <div class="ob__macgrid">
+      <mat-form-field appearance="outline">
+        <mat-label>Protein</mat-label>
+        <input matInput type="number" min="0" [ngModel]="proteinGoalG()" (ngModelChange)="proteinGoalG.set($event)" />
+        <span matTextSuffix>g</span>
+      </mat-form-field>
+      <mat-form-field appearance="outline">
+        <mat-label>Carbs</mat-label>
+        <input matInput type="number" min="0" [ngModel]="carbGoalG()" (ngModelChange)="carbGoalG.set($event)" />
+        <span matTextSuffix>g</span>
+      </mat-form-field>
+      <mat-form-field appearance="outline">
+        <mat-label>Fat</mat-label>
+        <input matInput type="number" min="0" [ngModel]="fatGoalG()" (ngModelChange)="fatGoalG.set($event)" />
+        <span matTextSuffix>g</span>
+      </mat-form-field>
+    </div>
+  </div>
+
+  <footer class="ob__actions">
+    <button mat-flat-button color="primary" type="button" class="ob__save"
+            [disabled]="!canSave() || saving()" (click)="save()">
+      <mat-icon>check</mat-icon> {{ saving() ? 'Saving…' : 'Save baseline & continue' }}
+    </button>
+  </footer>
+</section>

@@ -57,7 +57,40 @@
   color: var(--tech-text-secondary);
 
   strong { color: var(--tech-text); }
-  .tracker__exitview { margin-left: auto; font-weight: 600; }
+  .tracker__refreshnote {
+    margin-left: auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: var(--tech-fs-label);
+    color: var(--tech-text-tertiary);
+  }
+  .tracker__refreshbtn {
+    /* Push the refresh + "Back to mine" group to the right edge of the banner. */
+    margin-left: auto;
+    width: 44px;
+    height: 44px;
+    color: var(--tech-text-secondary);
+    &:hover { color: var(--tech-accent); }
+  }
+  /* When the "Updating…" note is present it already takes the auto margin, so reset the button's. */
+  .tracker__refreshnote + .tracker__refreshbtn { margin-left: 0; }
+  .tracker__exitview { font-weight: 600; }
+}
+
+.tracker__refreshspin {
+  font-size: 16px;
+  width: 16px;
+  height: 16px;
+  animation: tracker-spin 900ms linear infinite;
+}
+
+@keyframes tracker-spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tracker__refreshspin { animation: none; }
 }
 
 .tracker__readonly-avatar {
