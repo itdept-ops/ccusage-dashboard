@@ -7,6 +7,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatMenuModule } from '@angular/material/menu';
+import { MatSnackBar } from '@angular/material/snack-bar';
 
 import { Api } from './core/api';
 import { AuthService } from './core/auth';
@@ -44,6 +45,10 @@ export class App {
   private router = inject(Router);
   readonly auth = inject(AuthService);
   private chat = inject(ChatRealtime);
+  private snack = inject(MatSnackBar);
+
+  /** Last session-revoke seq we acted on — so a re-login can't re-trigger a stale forced logout. */
+  private lastRevokeSeq = 0;
 
   readonly status = signal<SyncStatus | null>(null);
   readonly online = signal<Presence[]>([]);
@@ -208,6 +213,18 @@ export class App {
         void this.chat.stop();
       }
     });
+
+    // Real-time force-logout: when an admin invalidates this user's session (a SessionRevoked event over
+    // the hub), sign out the INSTANT it arrives rather than waiting for the next request / /me poll to 401.
+    // The counter only climbs; acting solely on increments past the last one we handled keeps a later
+    // re-login from re-firing on the stale value.
+    effect(() => {
+      const seq = this.chat.sessionRevoked();
+      if (seq > this.lastRevokeSeq) {
+        this.lastRevokeSeq = seq;
+        this.onForcedLogout();
+      }
+    });
   }
 
   /**
@@ -230,6 +247,17 @@ export class App {
       this.online.set([]);
       this.router.navigate(['/login']);
     }
+  }
+
+  /** An admin force-logged this session out (real-time SessionRevoked push). Sign out immediately. */
+  private onForcedLogout(): void {
+    if (!this.auth.isAuthenticated()) return; // already signed out (e.g. raced the /me-poll 401)
+    this.auth.logout();
+    void this.chat.stop();
+    this.status.set(null);
+    this.online.set([]);
+    this.snack.open('You were signed out by an administrator.', 'OK', { duration: 6000 });
+    this.router.navigate(['/login']);
   }
 
   logout(): void {

@@ -2,7 +2,9 @@ using Ccusage.Api.Auth;
 using Ccusage.Api.Data;
 using Ccusage.Api.Data.Entities;
 using Ccusage.Api.Dtos;
+using Ccusage.Api.Hubs;
 using Ccusage.Api.Services;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 
 namespace Ccusage.Api.Endpoints;
@@ -162,7 +164,8 @@ public static class UsersEndpoints
         // SessionVersion makes every outstanding token's "sv" claim stale, so the next request (or /me
         // poll) is rejected 401 and the SPA logs them out. They can sign in again to get a fresh token —
         // this is distinct from Disable, which blocks re-login.
-        users.MapPost("/{id:int}/logout", async (int id, UsageDbContext db, AuditLogger audit, CancellationToken ct) =>
+        users.MapPost("/{id:int}/logout", async (int id, UsageDbContext db, AuditLogger audit,
+            IHubContext<ChatHub> hub, CancellationToken ct) =>
         {
             var user = await db.Users.FirstOrDefaultAsync(u => u.Id == id, ct);
             if (user is null) return Results.NotFound();
@@ -170,6 +173,15 @@ public static class UsersEndpoints
             user.SessionVersion += 1;
             await db.SaveChangesAsync(ct);
             await audit.LogAsync("user.forcedlogout", user.Email, $"sessionVersion={user.SessionVersion}", ct);
+
+            // Kill the session in REAL TIME: push a SessionRevoked event to any of the user's live SignalR
+            // connections so the SPA logs them out immediately, instead of waiting for their next request or
+            // the ~20s /me poll to 401. Best-effort — the SessionVersion bump above is the source of truth, so
+            // even if the push no-ops (no live connection) or fails (transient hub error) the now-stale token
+            // is still rejected on the next call.
+            try { await hub.Clients.User(user.Email).SendAsync("SessionRevoked", ct); }
+            catch { /* non-fatal: the version bump + per-request token re-check already invalidates the session */ }
+
             return Results.Ok(new { ok = true });
         }).RequirePermission(Permissions.UsersManage);
     }

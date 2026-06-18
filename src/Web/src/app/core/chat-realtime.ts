@@ -127,6 +127,15 @@ export class ChatRealtime {
   readonly liveNotification = this._liveNotification.asReadonly();
   private liveSeq = 0;
 
+  /**
+   * One-shot session-revocation counter. Bumped by the `SessionRevoked` hub event an admin triggers via
+   * force-logout (POST /api/users/{id}/logout). The app shell watches this in an effect and signs the user
+   * out the instant it arrives — real-time, instead of waiting for the next request / ~20s /me poll to 401.
+   * It only ever counts up; consumers track the last value they acted on so a re-login can't re-trigger.
+   */
+  private readonly _sessionRevoked = signal(0);
+  readonly sessionRevoked = this._sessionRevoked.asReadonly();
+
   // =========================================================================
   // Connection lifecycle
   // =========================================================================
@@ -225,6 +234,7 @@ export class ChatRealtime {
     c.on('ChannelAdded', (channel: ChatChannelDto) => this.onChannelAdded(channel));
     c.on('ReactionChanged', (channelId: number, messageId: number, reactions: ReactionGroupDto[]) =>
       this.onReactionChanged(channelId, messageId, reactions));
+    c.on('SessionRevoked', () => this._sessionRevoked.update(n => n + 1));
   }
 
   private onReceiveMessage(msg: ChatMessageDto): void {
