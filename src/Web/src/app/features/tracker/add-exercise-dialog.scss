@@ -18,8 +18,32 @@
   align-self: stretch;
   border-radius: var(--tech-r-control);
 
-  mat-icon { font-size: 16px; width: 16px; height: 16px; margin-right: 4px; vertical-align: -3px; }
+  // Equal-width toggles.
   ::ng-deep .mat-button-toggle { flex: 1 1 0; }
+
+  // Robust fix for Angular Material MDC button-toggle label clipping: the MDC label line-box can be
+  // shorter than / mis-aligned against the icon+text content, slicing the tops of the glyphs. Lay the
+  // label content out as a centered flex row with a normal line-height, enough min-height/padding, and
+  // visible overflow so nothing is ever clipped. Long labels stay on one centered line.
+  ::ng-deep .mat-button-toggle-label-content {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    line-height: normal;
+    min-height: 40px;
+    padding: 6px 12px;
+    overflow: visible;
+    white-space: nowrap;
+  }
+
+  // Center the inline icon via flex (replaces the fragile vertical-align hack) with a small gap to the text.
+  mat-icon {
+    font-size: 16px;
+    width: 16px;
+    height: 16px;
+    margin-right: 4px;
+    flex: 0 0 auto;
+  }
 }
 
 .ax-libhead {
