@@ -13,7 +13,11 @@ import { MatIconModule } from '@angular/material/icon';
 import { ChatRealtime } from '../../core/chat-realtime';
 import { ChatChannelDto } from '../../core/models';
 
-/** One pickable teammate in the member/DM picker (presence roster, minus the caller). */
+/**
+ * One pickable teammate in the member/DM picker. Candidates come from the caller's curated chat
+ * contacts (their circle) — or, for an admin, the full directory — never the live presence roster;
+ * `online` is the presence-derived dot, cross-referenced only for the indicator + online-first sort.
+ */
 export interface ChatPickPerson {
   email: string;
   name: string;
@@ -21,11 +25,16 @@ export interface ChatPickPerson {
   online: boolean;
 }
 
-/** Input contract: the candidate people to pick from (presence-derived) + which tab to open on. */
+/** Input contract: the candidate people to pick from + which tab to open on. */
 export interface ChatCreateData {
   people: ChatPickPerson[];
   /** Which mode the dialog opens in. */
   mode: 'channel' | 'direct';
+  /**
+   * True when the caller holds chat.contacts.manage and the candidates are the full directory; drives
+   * the empty-state copy (an admin sees a directory message, a regular user is told to ask an admin).
+   */
+  isAdmin: boolean;
 }
 
 /**
@@ -72,6 +81,14 @@ export class ChatCreateDialog {
 
   /** How many members are picked (drives the channel create button + chip count). */
   readonly selectedCount = computed(() => this.selected().size);
+
+  /**
+   * Empty-state copy when there are NO candidates at all. A non-admin with an empty circle is told to
+   * ask an admin; an admin with an empty directory (no other enabled users) gets a sensible fallback.
+   */
+  readonly emptyCopy = computed(() => this.data.isAdmin
+    ? 'No other teammates available yet.'
+    : 'No contacts yet — ask an admin to add some to your circle.');
 
   isSelected(email: string): boolean {
     return this.selected().has(email.toLowerCase());

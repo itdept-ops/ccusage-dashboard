@@ -155,6 +155,83 @@
                       </table>
                     }
                   }
+
+                  <!-- Admin chat-contacts editor (chat.contacts.manage only) -->
+                  @if (canManageContacts()) {
+                    <div class="contacts-block" [attr.aria-busy]="contactsState(u.id)?.busyEmail ? true : null">
+                      <span class="contacts-sr-status" aria-live="polite" aria-atomic="true">{{ contactsStatus() }}</span>
+                      <div class="logins-head">
+                        <mat-icon class="logins-head-icon">group</mat-icon>
+                        <span class="logins-head-title">Chat contacts</span>
+                        <span class="logins-head-sub micro-label">their circle · the chat picker draws from this</span>
+                      </div>
+
+                      @if (contactsState(u.id); as cs) {
+                        @if (cs.loading) {
+                          <div class="logins-state"><mat-progress-bar mode="indeterminate" /></div>
+                        } @else if (cs.error) {
+                          <div class="logins-state logins-empty">Couldn't load chat contacts.</div>
+                        } @else {
+                          @if (cs.contacts.length) {
+                            <ul class="contacts-chips" aria-label="Current contacts">
+                              @for (c of cs.contacts; track c.email) {
+                                <li class="contact-chip">
+                                  @if (c.picture) {
+                                    <img class="contact-chip-avatar" [src]="c.picture" alt="" referrerpolicy="no-referrer" />
+                                  } @else {
+                                    <span class="contact-chip-avatar contact-chip-avatar--init">{{ contactInitials(c) }}</span>
+                                  }
+                                  <span class="contact-chip-id">
+                                    <span class="contact-chip-name">{{ c.name || c.email }}</span>
+                                    <span class="contact-chip-email mono-num">{{ c.email }}</span>
+                                  </span>
+                                  <button mat-icon-button class="contact-chip-remove" type="button"
+                                          [disabled]="cs.busyEmail === c.email"
+                                          [attr.aria-label]="'Remove ' + (c.name || c.email)"
+                                          matTooltip="Remove from circle" (click)="removeContact(u, c.email)">
+                                    <mat-icon>close</mat-icon>
+                                  </button>
+                                </li>
+                              }
+                            </ul>
+                          } @else {
+                            <div class="logins-state logins-empty">No contacts yet — add some below.</div>
+                          }
+
+                          <div class="contacts-add">
+                            <mat-form-field appearance="outline" class="contacts-search" subscriptSizing="dynamic">
+                              <mat-icon matPrefix>search</mat-icon>
+                              <mat-label>Add a contact</mat-label>
+                              <input matInput [ngModel]="cs.query" (ngModelChange)="setContactsQuery(u.id, $event)"
+                                     placeholder="Search people to add" autocomplete="off" />
+                            </mat-form-field>
+
+                            @if (cs.query.trim()) {
+                              <div class="contacts-results" role="list" aria-label="People to add">
+                                @for (cand of addCandidates(u); track cand.email) {
+                                  <button type="button" class="contact-result" role="listitem"
+                                          [disabled]="cs.busyEmail === cand.email" (click)="addContact(u, cand.email)">
+                                    @if (cand.picture) {
+                                      <img class="contact-chip-avatar" [src]="cand.picture" alt="" referrerpolicy="no-referrer" />
+                                    } @else {
+                                      <span class="contact-chip-avatar contact-chip-avatar--init">{{ contactInitials(cand) }}</span>
+                                    }
+                                    <span class="contact-chip-id">
+                                      <span class="contact-chip-name">{{ cand.name || cand.email }}</span>
+                                      <span class="contact-chip-email mono-num">{{ cand.email }}</span>
+                                    </span>
+                                    <mat-icon class="contact-result-add">add_circle_outline</mat-icon>
+                                  </button>
+                                } @empty {
+                                  <p class="cc-empty contacts-noresults">No matching people to add.</p>
+                                }
+                              </div>
+                            }
+                          </div>
+                        }
+                      }
+                    </div>
+                  }
                 </div>
               </td>
             </tr>
@@ -246,6 +323,84 @@
               }
             }
           </div>
+
+          <!-- Admin chat-contacts editor (mobile, chat.contacts.manage only) -->
+          @if (canManageContacts()) {
+            <div class="logins-panel ucard-logins contacts-block"
+                 [attr.aria-busy]="contactsState(u.id)?.busyEmail ? true : null">
+              <span class="contacts-sr-status" aria-live="polite" aria-atomic="true">{{ contactsStatus() }}</span>
+              <div class="logins-head">
+                <mat-icon class="logins-head-icon">group</mat-icon>
+                <span class="logins-head-title">Chat contacts</span>
+                <span class="logins-head-sub micro-label">their circle</span>
+              </div>
+
+              @if (contactsState(u.id); as cs) {
+                @if (cs.loading) {
+                  <div class="logins-state"><mat-progress-bar mode="indeterminate" /></div>
+                } @else if (cs.error) {
+                  <div class="logins-state logins-empty">Couldn't load chat contacts.</div>
+                } @else {
+                  @if (cs.contacts.length) {
+                    <ul class="contacts-chips" aria-label="Current contacts">
+                      @for (c of cs.contacts; track c.email) {
+                        <li class="contact-chip">
+                          @if (c.picture) {
+                            <img class="contact-chip-avatar" [src]="c.picture" alt="" referrerpolicy="no-referrer" />
+                          } @else {
+                            <span class="contact-chip-avatar contact-chip-avatar--init">{{ contactInitials(c) }}</span>
+                          }
+                          <span class="contact-chip-id">
+                            <span class="contact-chip-name">{{ c.name || c.email }}</span>
+                            <span class="contact-chip-email mono-num">{{ c.email }}</span>
+                          </span>
+                          <button mat-icon-button class="contact-chip-remove" type="button"
+                                  [disabled]="cs.busyEmail === c.email"
+                                  [attr.aria-label]="'Remove ' + (c.name || c.email)"
+                                  matTooltip="Remove from circle" (click)="removeContact(u, c.email)">
+                            <mat-icon>close</mat-icon>
+                          </button>
+                        </li>
+                      }
+                    </ul>
+                  } @else {
+                    <div class="logins-state logins-empty">No contacts yet — add some below.</div>
+                  }
+
+                  <div class="contacts-add">
+                    <mat-form-field appearance="outline" class="contacts-search" subscriptSizing="dynamic">
+                      <mat-icon matPrefix>search</mat-icon>
+                      <mat-label>Add a contact</mat-label>
+                      <input matInput [ngModel]="cs.query" (ngModelChange)="setContactsQuery(u.id, $event)"
+                             placeholder="Search people to add" autocomplete="off" />
+                    </mat-form-field>
+
+                    @if (cs.query.trim()) {
+                      <div class="contacts-results" role="list" aria-label="People to add">
+                        @for (cand of addCandidates(u); track cand.email) {
+                          <button type="button" class="contact-result" role="listitem"
+                                  [disabled]="cs.busyEmail === cand.email" (click)="addContact(u, cand.email)">
+                            @if (cand.picture) {
+                              <img class="contact-chip-avatar" [src]="cand.picture" alt="" referrerpolicy="no-referrer" />
+                            } @else {
+                              <span class="contact-chip-avatar contact-chip-avatar--init">{{ contactInitials(cand) }}</span>
+                            }
+                            <span class="contact-chip-id">
+                              <span class="contact-chip-name">{{ cand.name || cand.email }}</span>
+                              <span class="contact-chip-email mono-num">{{ cand.email }}</span>
+                            </span>
+                            <mat-icon class="contact-result-add">add_circle_outline</mat-icon>
+                          </button>
+                        } @empty {
+                          <p class="cc-empty contacts-noresults">No matching people to add.</p>
+                        }
+                      </div>
+                    }
+                  </div>
+                }
+              }
+            </div>
+          }
         }
       </div>
     }

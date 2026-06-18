@@ -650,3 +650,17 @@ public sealed class MarkNotificationsReadRequest
 {
     public long[] Ids { get; set; } = Array.Empty<long>();
 }
+
+/// <summary>One person in a user's chat contacts (their circle), with display identity for the picker.</summary>
+public sealed class ChatContactDto
+{
+    public string Email { get; set; } = "";
+    public string Name { get; set; } = "";
+    public string? Picture { get; set; }
+}
+
+/// <summary>Add a person to a user's chat contacts (mutual: writes both directions).</summary>
+public sealed class AddContactRequest
+{
+    public string ContactEmail { get; set; } = "";
+}

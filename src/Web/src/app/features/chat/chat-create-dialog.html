@@ -77,7 +77,7 @@
         </button>
       } @empty {
         <p class="cc-empty">
-          {{ query() ? 'No people match your search.' : 'No teammates available to add yet.' }}
+          {{ query() ? 'No people match your search.' : emptyCopy() }}
         </p>
       }
     </div>

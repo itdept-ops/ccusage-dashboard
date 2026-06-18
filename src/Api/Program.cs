@@ -309,6 +309,7 @@ app.MapShareEndpoints();
 app.MapIngestEndpoints();
 app.MapFleetEndpoints();
 app.MapChatEndpoints();
+app.MapContactsEndpoints();
 app.MapInboxEndpoints();
 app.MapHub<ChatHub>("/api/hubs/chat");
 app.MapGet("/", () => app.Environment.IsDevelopment()

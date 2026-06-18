@@ -5,7 +5,7 @@ namespace Ccusage.Api.Tests.Unit;
 
 public class PermissionsTests
 {
-    // The full catalog of 22 keys.
+    // The full catalog of 23 keys.
     private static readonly string[] AllKeys =
     {
         "dashboard.view", "dashboard.export", "sync.run",
@@ -14,7 +14,7 @@ public class PermissionsTests
         "settings.view", "settings.manage", "sources.manage",
         "reporter.view", "reporter.manage", "reporter.self",
         "notifications.view", "notifications.manage",
-        "chat.read", "chat.send", "chat.moderate",
+        "chat.read", "chat.send", "chat.moderate", "chat.contacts.manage",
         "shares.view", "shares.manage",
         "users.view", "users.manage", "activity.view",
     };
@@ -37,6 +37,7 @@ public class PermissionsTests
     [InlineData("chat.read")]
     [InlineData("chat.send")]
     [InlineData("chat.moderate")]
+    [InlineData("chat.contacts.manage")]
     [InlineData("shares.view")]
     [InlineData("shares.manage")]
     [InlineData("users.view")]
@@ -77,6 +78,7 @@ public class PermissionsTests
         Permissions.ChatRead.Should().Be("chat.read");
         Permissions.ChatSend.Should().Be("chat.send");
         Permissions.ChatModerate.Should().Be("chat.moderate");
+        Permissions.ChatContactsManage.Should().Be("chat.contacts.manage");
         Permissions.SharesView.Should().Be("shares.view");
         Permissions.SharesManage.Should().Be("shares.manage");
         Permissions.UsersView.Should().Be("users.view");
@@ -85,9 +87,9 @@ public class PermissionsTests
     }
 
     [Fact]
-    public void All_contains_exactly_the_twenty_two_known_keys()
+    public void All_contains_exactly_the_twenty_three_known_keys()
     {
-        Permissions.All.Should().HaveCount(22);
+        Permissions.All.Should().HaveCount(23);
         Permissions.All.Should().BeEquivalentTo(AllKeys);
     }
 
@@ -98,9 +100,9 @@ public class PermissionsTests
     }
 
     [Fact]
-    public void Catalog_has_twenty_two_entries()
+    public void Catalog_has_twenty_three_entries()
     {
-        Permissions.Catalog.Should().HaveCount(22);
+        Permissions.Catalog.Should().HaveCount(23);
     }
 
     [Fact]
@@ -149,5 +151,12 @@ public class PermissionsTests
         Permissions.IsDefaultable(Permissions.ChatModerate).Should().BeFalse();
         Permissions.IsDefaultable(Permissions.ChatRead).Should().BeTrue();
         Permissions.IsDefaultable(Permissions.ChatSend).Should().BeTrue();
+    }
+
+    [Fact]
+    public void ChatContactsManage_is_not_defaultable()
+    {
+        Permissions.IsDefaultable(Permissions.ChatContactsManage).Should().BeFalse();
+        Permissions.IsDefaultable(Permissions.UsersManage).Should().BeFalse();
     }
 }

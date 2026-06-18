@@ -16,7 +16,7 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { Api } from '../../core/api';
 import { AuthService } from '../../core/auth';
 import { ChatRealtime } from '../../core/chat-realtime';
-import { ChatChannelDto, ChatMember, ChatMessageDto, PERM, Presence } from '../../core/models';
+import { ChatChannelDto, ChatContactDto, ChatMember, ChatMessageDto, PERM, Presence } from '../../core/models';
 import { timeAgo } from '../../shared/format';
 import { ChatCreateData, ChatCreateDialog, ChatPickPerson } from './chat-create-dialog';
 
@@ -67,6 +67,8 @@ export class Chat implements AfterViewChecked, OnDestroy {
   // ---- permissions ----
   readonly canSend = computed(() => this.auth.hasPermission(PERM.chatSend));
   readonly canModerate = computed(() => this.auth.hasPermission(PERM.chatModerate));
+  /** Admins (chat.contacts.manage) pick from the full directory so they're never boxed in by a circle. */
+  readonly canManageContacts = computed(() => this.auth.hasPermission(PERM.chatContactsManage));
 
   /** Lower-cased email of the signed-in user, for "mine" checks. */
   private readonly myEmail = computed(() => this.auth.session()?.email?.toLowerCase() ?? '');
@@ -77,6 +79,10 @@ export class Chat implements AfterViewChecked, OnDestroy {
     const id = this.selectedId();
     return id == null ? null : this.chat.channels().find(c => c.id === id) ?? null;
   });
+
+  // ---- picker candidate source (the caller's curated contacts, or the full directory for admins) ----
+  // NOT the presence roster anymore — presence below is used ONLY for the online dot + online-first sort.
+  private readonly contacts = signal<ChatContactDto[]>([]);
 
   // ---- presence (reuse the existing /api/presence feed for online dots) ----
   private readonly presence = signal<Presence[]>([]);
@@ -579,25 +585,35 @@ export class Chat implements AfterViewChecked, OnDestroy {
 
   openCreate(mode: 'channel' | 'direct'): void {
     if (!this.canSend()) return;
-    const people = this.pickablePeople();
-    const data: ChatCreateData = { people, mode };
-    this.dialog.open(ChatCreateDialog, { data, width: '480px', maxWidth: '94vw', autoFocus: false })
-      .afterClosed().subscribe((ch: ChatChannelDto | undefined) => {
-        if (ch) this.select(ch);
-      });
+    const isAdmin = this.canManageContacts();
+    // Refresh the candidate source on open (cheap, and keeps an admin's directory / a user's circle
+    // current after the backend changes it). Then open the picker — presence only colours the dots.
+    const source$ = isAdmin ? this.api.chatDirectory() : this.api.myContacts();
+    source$.pipe(catchError(() => of<ChatContactDto[]>([]))).subscribe(list => {
+      this.contacts.set(list);
+      const data: ChatCreateData = { people: this.pickablePeople(), mode, isAdmin };
+      this.dialog.open(ChatCreateDialog, { data, width: '480px', maxWidth: '94vw', autoFocus: false })
+        .afterClosed().subscribe((ch: ChatChannelDto | undefined) => {
+          if (ch) this.select(ch);
+        });
+    });
   }
 
-  /** Presence roster (everyone seen recently) minus the caller — the picker's candidate list. */
+  /**
+   * The picker's candidate list: the caller's curated contacts (or, for an admin, the full directory),
+   * minus the caller, with presence cross-referenced ONLY to set the online dot and sort online-first.
+   * Presence is no longer the candidate source.
+   */
   private pickablePeople(): ChatPickPerson[] {
     const me = this.myEmail();
     const online = this.onlineEmails();
-    return this.presence()
-      .filter(p => p.email.toLowerCase() !== me)
-      .map(p => ({
-        email: p.email,
-        name: p.name,
-        picture: p.picture,
-        online: online.has(p.email.toLowerCase()),
+    return this.contacts()
+      .filter(c => c.email.toLowerCase() !== me)
+      .map(c => ({
+        email: c.email,
+        name: c.name,
+        picture: c.picture,
+        online: online.has(c.email.toLowerCase()),
       }))
       .sort((a, b) => Number(b.online) - Number(a.online) || (a.name || a.email).localeCompare(b.name || b.email));
   }

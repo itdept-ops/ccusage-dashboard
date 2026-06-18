@@ -35,6 +35,7 @@ public static class Permissions
     public const string ChatRead = "chat.read";
     public const string ChatSend = "chat.send";
     public const string ChatModerate = "chat.moderate";
+    public const string ChatContactsManage = "chat.contacts.manage";
 
     // ---- Shares ----
     public const string SharesView = "shares.view";
@@ -70,6 +71,7 @@ public static class Permissions
         new PermissionInfo(ChatRead, "Chat", "View chat", "See channels and direct messages you belong to and read their messages."),
         new PermissionInfo(ChatSend, "Chat", "Send messages", "Post messages, create channels, and start direct messages."),
         new PermissionInfo(ChatModerate, "Chat", "Moderate chat", "Edit or delete other people’s messages, and archive or delete channels."),
+        new PermissionInfo(ChatContactsManage, "Chat", "Manage contacts", "Add or remove the people in any user’s chat contacts (their circle)."),
 
         new PermissionInfo(SharesView, "Shares", "View shares", "View share links and access logs."),
         new PermissionInfo(SharesManage, "Shares", "Manage shares", "Create, edit, and revoke share links."),
@@ -95,7 +97,10 @@ public static class Permissions
     /// so auto-provisioning can never mint an administrator: granting admin must always be an explicit,
     /// per-user action on the Users page, never something every new Google account inherits by default.
     /// Also excludes <see cref="ChatModerate"/> for the same reason — chat-moderation is a privileged
+    /// capability that must be granted deliberately, never inherited by every new account. Likewise
+    /// excludes <see cref="ChatContactsManage"/>: curating other people's contacts is an admin
     /// capability that must be granted deliberately, never inherited by every new account.
     /// </summary>
-    public static bool IsDefaultable(string key) => IsValid(key) && key != UsersManage && key != ChatModerate;
+    public static bool IsDefaultable(string key) =>
+        IsValid(key) && key != UsersManage && key != ChatModerate && key != ChatContactsManage;
 }

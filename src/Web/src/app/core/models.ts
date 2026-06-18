@@ -544,6 +544,17 @@ export interface CreateChannelRequest {
   memberEmails: string[];
 }
 
+/**
+ * One person in a chat contact circle — the curated, admin-managed candidate list the New-DM /
+ * channel-member picker draws from. Identity is resolved server-side from the AppUser. Mirrors
+ * ChatContactDto (camelCase JSON).
+ */
+export interface ChatContactDto {
+  email: string;
+  name: string;
+  picture?: string | null;
+}
+
 /** Canonical permission keys (mirror of the backend catalog — all 22 keys). */
 export const PERM = {
   dashboardView: 'dashboard.view',
@@ -568,6 +579,7 @@ export const PERM = {
   chatRead: 'chat.read',
   chatSend: 'chat.send',
   chatModerate: 'chat.moderate',
+  chatContactsManage: 'chat.contacts.manage',
 } as const;
 
 /**
@@ -599,6 +611,7 @@ export const PERM_GROUP_OF: Readonly<Record<string, string>> = {
   [PERM.chatRead]: 'Chat',
   [PERM.chatSend]: 'Chat',
   [PERM.chatModerate]: 'Chat',
+  [PERM.chatContactsManage]: 'Chat',
   [PERM.sharesView]: 'Shares',
   [PERM.sharesManage]: 'Shares',
   [PERM.usersView]: 'Administration',

@@ -26,6 +26,7 @@ public class UsageDbContext(DbContextOptions<UsageDbContext> options) : DbContex
     public DbSet<ChatChannel> ChatChannels => Set<ChatChannel>();
     public DbSet<ChatChannelMember> ChatChannelMembers => Set<ChatChannelMember>();
     public DbSet<ChatMessage> ChatMessages => Set<ChatMessage>();
+    public DbSet<ChatContact> ChatContacts => Set<ChatContact>();
     public DbSet<Notification> Notifications => Set<Notification>();
     public DbSet<NotificationPreference> NotificationPreferences => Set<NotificationPreference>();
 
@@ -288,6 +289,16 @@ public class UsageDbContext(DbContextOptions<UsageDbContext> options) : DbContex
             e.HasIndex(x => new { x.ChannelId, x.CreatedUtc });
             e.HasOne(x => x.Channel).WithMany(c => c.Messages)
                 .HasForeignKey(x => x.ChannelId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        b.Entity<ChatContact>(e =>
+        {
+            e.Property(x => x.OwnerEmail).HasMaxLength(256);
+            e.Property(x => x.ContactEmail).HasMaxLength(256);
+            e.Property(x => x.AddedByEmail).HasMaxLength(256);
+            e.Property(x => x.CreatedUtc).HasColumnType("timestamp with time zone");
+            // One directed edge per (owner, contact); also the lookup for "is X in Y's circle".
+            e.HasIndex(x => new { x.OwnerEmail, x.ContactEmail }).IsUnique();
         });
 
         b.Entity<Notification>(e =>

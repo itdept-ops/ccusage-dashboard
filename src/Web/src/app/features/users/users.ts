@@ -18,7 +18,7 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { Api } from '../../core/api';
 import { AuthService } from '../../core/auth';
 import {
-  AccessPolicy, AuditEntry, LoginEvent, ManagedUser, PermissionItem, PERM, PERM_GROUP_OF, PERM_GROUP_ORDER,
+  AccessPolicy, AuditEntry, ChatContactDto, LoginEvent, ManagedUser, PermissionItem, PERM, PERM_GROUP_OF, PERM_GROUP_ORDER,
 } from '../../core/models';
 
 /** Lazy-loaded login-history state for one expanded user row. */
@@ -27,6 +27,19 @@ interface LoginHistory {
   loaded: boolean;
   error: boolean;
   events: LoginEvent[];
+}
+
+/** Lazy-loaded chat-contacts (circle) state for one expanded user row. Only shown to contact managers. */
+interface ContactsState {
+  loading: boolean;
+  loaded: boolean;
+  error: boolean;
+  /** That user's current contacts. */
+  contacts: ChatContactDto[];
+  /** Search box for the add-control (filters the directory). */
+  query: string;
+  /** Email currently being added/removed (disables that control + shows progress). */
+  busyEmail: string | null;
 }
 
 /** A catalog group with its ordered permission items — drives the grouped matrix columns. */
@@ -59,6 +72,17 @@ export class Users {
   // Per-user login history: which rows are expanded + their lazy-loaded sign-in logs (keyed by user id).
   readonly expanded = signal<Set<number>>(new Set());
   readonly logins = signal<Map<number, LoginHistory>>(new Map());
+
+  // Per-user chat contacts (the circle), lazy-loaded on first expand (keyed by user id). Only loaded
+  // for managers — gated by chat.contacts.manage, same gate the backend enforces.
+  readonly contacts = signal<Map<number, ContactsState>>(new Map());
+  // The chat directory (all enabled users except the caller), loaded once for the add-control search.
+  readonly directory = signal<ChatContactDto[]>([]);
+  private directoryLoaded = false;
+  /** Polite SR announcement for the contacts editor (add/remove); read by an aria-live region. */
+  readonly contactsStatus = signal('');
+  /** Visible only to contact managers; mirrors the chat.contacts.manage backend gate. */
+  readonly canManageContacts = computed(() => this.auth.hasPermission(PERM.chatContactsManage));
 
   // new-user form
   readonly newEmail = signal('');
@@ -143,6 +167,11 @@ export class Users {
       next.add(u.id);
       // Lazy-load on first expand only; cached thereafter (and across collapses).
       if (!this.logins().has(u.id)) this.loadLogins(u.id);
+      // Contacts editor only loads for managers; same lazy-once pattern.
+      if (this.canManageContacts()) {
+        if (!this.contacts().has(u.id)) this.loadContacts(u);
+        this.ensureDirectory();
+      }
     }
     this.expanded.set(next);
   }
@@ -157,6 +186,88 @@ export class Users {
       next: events => this.setLoginHistory(id, { loading: false, loaded: true, error: false, events }),
       error: () => this.setLoginHistory(id, { loading: false, loaded: true, error: true, events: [] }),
     });
+  }
+
+  // ---- Per-user chat contacts (the circle) — admin editor in the expanded row (chat.contacts.manage) ----
+  contactsState(id: number): ContactsState | undefined { return this.contacts().get(id); }
+
+  private setContactsState(id: number, patch: Partial<ContactsState>): void {
+    this.contacts.update(m => {
+      const prev = m.get(id) ?? { loading: false, loaded: false, error: false, contacts: [], query: '', busyEmail: null };
+      return new Map(m).set(id, { ...prev, ...patch });
+    });
+  }
+
+  private loadContacts(u: ManagedUser): void {
+    this.setContactsState(u.id, { loading: true, loaded: false, error: false, contacts: [], query: '', busyEmail: null });
+    this.api.userContacts(u.email).subscribe({
+      next: contacts => this.setContactsState(u.id, { loading: false, loaded: true, error: false, contacts }),
+      error: () => this.setContactsState(u.id, { loading: false, loaded: true, error: true, contacts: [] }),
+    });
+  }
+
+  /** Fetch the directory once (the add-control's search pool). Failure is non-fatal — the list stays empty. */
+  private ensureDirectory(): void {
+    if (this.directoryLoaded) return;
+    this.directoryLoaded = true;
+    this.api.chatDirectory().subscribe({
+      next: dir => this.directory.set(dir),
+      error: () => { this.directoryLoaded = false; /* allow a retry on next expand */ },
+    });
+  }
+
+  setContactsQuery(id: number, q: string): void { this.setContactsState(id, { query: q }); }
+
+  /**
+   * Directory candidates for a user's add-control: everyone in the directory except the user themselves
+   * and anyone already in their circle, filtered by the search box.
+   */
+  addCandidates(u: ManagedUser): ChatContactDto[] {
+    const state = this.contactsState(u.id);
+    const have = new Set((state?.contacts ?? []).map(c => c.email.toLowerCase()));
+    const self = u.email.toLowerCase();
+    const q = (state?.query ?? '').trim().toLowerCase();
+    return this.directory()
+      .filter(c => c.email.toLowerCase() !== self && !have.has(c.email.toLowerCase()))
+      .filter(c => !q || c.name.toLowerCase().includes(q) || c.email.toLowerCase().includes(q));
+  }
+
+  addContact(u: ManagedUser, contactEmail: string): void {
+    const added = this.directory().find(c => c.email === contactEmail);
+    this.setContactsState(u.id, { busyEmail: contactEmail });
+    this.api.addUserContact(u.email, contactEmail).subscribe({
+      next: contacts => {
+        this.setContactsState(u.id, { contacts, query: '', busyEmail: null });
+        this.contactsStatus.set(`Added ${added?.name || contactEmail} to circle.`);
+        this.loadAudit();
+      },
+      error: (err: HttpErrorResponse) => {
+        this.setContactsState(u.id, { busyEmail: null });
+        this.snack.open(err.error?.message ?? 'Could not add contact', 'Dismiss', { duration: 5000 });
+      },
+    });
+  }
+
+  removeContact(u: ManagedUser, contactEmail: string): void {
+    const removed = this.contactsState(u.id)?.contacts.find(c => c.email === contactEmail);
+    this.setContactsState(u.id, { busyEmail: contactEmail });
+    this.api.removeUserContact(u.email, contactEmail).subscribe({
+      next: contacts => {
+        this.setContactsState(u.id, { contacts, busyEmail: null });
+        this.contactsStatus.set(`Removed ${removed?.name || contactEmail} from circle.`);
+        this.loadAudit();
+      },
+      error: (err: HttpErrorResponse) => {
+        this.setContactsState(u.id, { busyEmail: null });
+        this.snack.open(err.error?.message ?? 'Could not remove contact', 'Dismiss', { duration: 5000 });
+      },
+    });
+  }
+
+  /** Two-letter initials for a contact avatar fallback. */
+  contactInitials(c: ChatContactDto): string {
+    const parts = (c.name || c.email).split(/[\s@.]+/).filter(Boolean);
+    return ((parts[0]?.[0] ?? '') + (parts[1]?.[0] ?? '')).toUpperCase() || 'U';
   }
 
   hasPerm(u: ManagedUser, key: string): boolean { return u.permissions.includes(key); }

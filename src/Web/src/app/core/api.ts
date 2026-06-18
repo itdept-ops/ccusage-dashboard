@@ -2,7 +2,7 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import {
-  AccessPolicy, AuditEntry, CacheEfficiency, CalendarDay, ChatChannelDto, ChatMessageDto, CreateChannelRequest,
+  AccessPolicy, AuditEntry, CacheEfficiency, CalendarDay, ChatChannelDto, ChatContactDto, ChatMessageDto, CreateChannelRequest,
   CreateShareRequest, Fleet, FleetDeleteRequest,
   FleetDeleteResult, FleetReassignRequest, FleetReassignResult, FleetRevokeKeysRequest, FleetRevokeKeysResult, GroupBy,
   HeatmapCell, IngestionSource, IngestKey, IngestKeyCreated, LoginEvent, MachineStat, ManagedUser, ModelStat, NotificationDto, NotificationPreferenceDto, NotificationSettings,
@@ -301,6 +301,34 @@ export class Api {
   /** Mark a channel read up to `messageId`; returns the resulting unread count. */
   markChatRead(channelId: number, messageId: number): Observable<{ unreadCount: number }> {
     return this.http.post<{ unreadCount: number }>(`${this.base}/chat/channels/${channelId}/read`, { messageId });
+  }
+
+  // ---- Chat contacts / circles (admin-managed; the picker draws from these) ----
+
+  /** The CALLER's own chat contacts (their circle) — the New-DM / member-picker candidate source. Gated by chat.read. */
+  myContacts(): Observable<ChatContactDto[]> {
+    return this.http.get<ChatContactDto[]>(`${this.base}/chat/contacts/me`);
+  }
+
+  /** Every enabled user except the caller, name-sorted — the admin editor's search pool (and the admin's own picker). Gated by chat.contacts.manage. */
+  chatDirectory(): Observable<ChatContactDto[]> {
+    return this.http.get<ChatContactDto[]>(`${this.base}/chat/directory`);
+  }
+
+  /** A specific user's chat contacts (admin editor). Gated by chat.contacts.manage. */
+  userContacts(email: string): Observable<ChatContactDto[]> {
+    return this.http.get<ChatContactDto[]>(`${this.base}/chat/contacts/user/${encodeURIComponent(email)}`);
+  }
+
+  /** Add a contact to a user's circle (mutual, idempotent); returns the updated list. Gated by chat.contacts.manage. */
+  addUserContact(email: string, contactEmail: string): Observable<ChatContactDto[]> {
+    return this.http.post<ChatContactDto[]>(`${this.base}/chat/contacts/user/${encodeURIComponent(email)}`, { contactEmail });
+  }
+
+  /** Remove a contact from a user's circle (mutual, no-op if absent); returns the updated list. Gated by chat.contacts.manage. */
+  removeUserContact(email: string, contactEmail: string): Observable<ChatContactDto[]> {
+    return this.http.delete<ChatContactDto[]>(
+      `${this.base}/chat/contacts/user/${encodeURIComponent(email)}/${encodeURIComponent(contactEmail)}`);
   }
 
   // ---- Inbox / notifications (bell UI is Phase 2b; methods provided now for the realtime service) ----
