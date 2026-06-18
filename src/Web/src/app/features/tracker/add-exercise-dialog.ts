@@ -10,8 +10,8 @@ import { MatInputModule } from '@angular/material/input';
 import { MatButtonModule } from '@angular/material/button';
 import { MatButtonToggleModule } from '@angular/material/button-toggle';
 import { MatCheckboxModule } from '@angular/material/checkbox';
-import { MatChipsModule } from '@angular/material/chips';
 import { MatIconModule } from '@angular/material/icon';
+import { MatSelectModule } from '@angular/material/select';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 
 import { Api } from '../../core/api';
@@ -42,7 +42,7 @@ export interface AddExerciseData {
   selector: 'app-add-exercise-dialog',
   imports: [
     FormsModule, MatDialogModule, MatFormFieldModule, MatInputModule, MatButtonModule,
-    MatButtonToggleModule, MatCheckboxModule, MatChipsModule, MatIconModule, MatProgressBarModule,
+    MatButtonToggleModule, MatCheckboxModule, MatIconModule, MatSelectModule, MatProgressBarModule,
   ],
   templateUrl: './add-exercise-dialog.html',
   styleUrl: './add-exercise-dialog.scss',
@@ -325,10 +325,10 @@ export class AddExerciseDialog {
   }
 
   /**
-   * Apply a body-part / equipment / target filter from its chip-listbox (change) then re-search.
-   * The listbox is single-select and bound via [value], so it emits the newly selected value (or
-   * null/empty when the active chip is toggled off) and owns the toggle — keyboard (Space/Enter) and
-   * click route through here identically, giving focus + roving tabindex for free.
+   * Apply a body-part / equipment / target filter from its compact mat-select then re-search.
+   * Each select is single-select and bound via [ngModel], emitting the newly chosen value ('' = the
+   * "Any" default). mat-select is keyboard-operable and labelled, so this routes click + keyboard
+   * identically. We bail when the value is unchanged to avoid a redundant search.
    */
   setWxFilter(kind: 'bodyPart' | 'target' | 'equipment', value: string | null | undefined): void {
     const sig = kind === 'bodyPart' ? this.wxBodyPart : kind === 'target' ? this.wxTarget : this.wxEquipment;

@@ -291,7 +291,7 @@ export class Tracker {
       goal: p?.goal ?? '',
       hasWeight: (p?.weightKg ?? 0) > 0,
     };
-    this.dialog.open(AddExerciseDialog, { data, width: '480px', maxWidth: '95vw', autoFocus: false })
+    this.dialog.open(AddExerciseDialog, { data, width: '820px', maxWidth: '94vw', autoFocus: false })
       .afterClosed().subscribe((req: AddExerciseRequest | undefined) => {
         if (!req) return;
         this.store.addExercise(req)
