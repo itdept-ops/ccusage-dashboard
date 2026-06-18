@@ -40,6 +40,9 @@ public class TrackerProfile
     public int? CarbGoalG { get; set; }
     public int? FatGoalG { get; set; }
 
+    /// <summary>Daily fluid-intake goal in millilitres; null ⇒ the day uses a 2000 ml default.</summary>
+    public int? HydrationGoalMl { get; set; }
+
     /// <summary>When true, the user's mutual chat contacts may view (read-only) this tracker.</summary>
     public bool ShareWithContacts { get; set; }
 

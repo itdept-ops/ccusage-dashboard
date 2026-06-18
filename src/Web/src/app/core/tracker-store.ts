@@ -3,8 +3,8 @@ import { firstValueFrom } from 'rxjs';
 
 import { Api } from './api';
 import {
-  AddExerciseRequest, AddFoodRequest, LogWeightRequest, SharedUserDto, TrackerDayDto, TrackerProfileDto,
-  WeightPointDto,
+  AddExerciseRequest, AddFoodRequest, AddHydrationRequest, HydrationEntryDto, LogWeightRequest,
+  SharedUserDto, TrackerDayDto, TrackerProfileDto, WeightPointDto,
 } from './models';
 
 /** Format a Date as a local `YYYY-MM-DD` string (matches the dashboard/fleet date convention). */
@@ -47,6 +47,9 @@ export class TrackerStore {
 
   /** The active profile/goals for the loaded day. */
   readonly profile = computed<TrackerProfileDto | null>(() => this.day()?.profile ?? null);
+
+  /** The day's hydration entries (oldest-first), or empty before the first load. */
+  readonly hydration = computed<HydrationEntryDto[]>(() => this.day()?.hydration ?? []);
 
   /** Load (or reload) the current day for the current date + view target. */
   async load(): Promise<void> {
@@ -116,6 +119,18 @@ export class TrackerStore {
   /** Delete a logged exercise entry, then refresh the day. */
   async deleteExercise(id: number): Promise<void> {
     await firstValueFrom(this.api.deleteExercise(id));
+    await this.load();
+  }
+
+  /** Log a drink toward the day's hydration goal, then refresh the day. */
+  async addHydration(body: AddHydrationRequest): Promise<void> {
+    await firstValueFrom(this.api.addHydration(body));
+    await this.load();
+  }
+
+  /** Delete a logged hydration entry, then refresh the day. */
+  async deleteHydration(id: number): Promise<void> {
+    await firstValueFrom(this.api.deleteHydration(id));
     await this.load();
   }
 

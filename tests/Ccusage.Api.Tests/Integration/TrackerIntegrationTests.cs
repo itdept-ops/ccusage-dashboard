@@ -783,4 +783,118 @@ public class TrackerIntegrationTests(WebAppFactory factory)
         (await alice.DeleteAsync($"/api/tracker/foods/saved/{savedId}")).StatusCode.Should().Be(HttpStatusCode.NoContent);
         (await Json(await alice.GetAsync("/api/tracker/foods/saved"))).EnumerateArray().Should().BeEmpty();
     }
+
+    // ---- Hydration: add + appears on the day (sum + entries), delete own ----
+
+    [Fact]
+    public async Task Adding_hydration_appears_on_the_day_sum_and_entries_then_deletes()
+    {
+        var (_, user) = await ProvisionUser("tracker.self");
+
+        var add1 = await user.PostAsJsonAsync("/api/tracker/hydration", new
+        {
+            date = Today, amountMl = 250, label = "Water",
+        });
+        add1.StatusCode.Should().Be(HttpStatusCode.OK);
+        var drink = await Json(add1);
+        var drinkId = drink.GetProperty("id").GetInt64();
+        drink.GetProperty("amountMl").GetInt32().Should().Be(250);
+        drink.GetProperty("label").GetString().Should().Be("Water");
+        drink.GetProperty("createdUtc").GetString().Should().NotBeNullOrEmpty();
+
+        // A second drink with no label.
+        (await user.PostAsJsonAsync("/api/tracker/hydration", new { date = Today, amountMl = 500 }))
+            .StatusCode.Should().Be(HttpStatusCode.OK);
+
+        // Both appear on the day; hydrationMl is the sum.
+        var day = await Json(await user.GetAsync($"/api/tracker/day?date={Today}"));
+        day.GetProperty("hydrationMl").GetInt32().Should().Be(750);
+        day.GetProperty("hydration").EnumerateArray().Should().HaveCount(2);
+
+        // Delete the first → 204, and the day reflects only the remaining drink.
+        (await user.DeleteAsync($"/api/tracker/hydration/{drinkId}")).StatusCode.Should().Be(HttpStatusCode.NoContent);
+        var after = await Json(await user.GetAsync($"/api/tracker/day?date={Today}"));
+        after.GetProperty("hydrationMl").GetInt32().Should().Be(500);
+        after.GetProperty("hydration").EnumerateArray().Should().ContainSingle();
+    }
+
+    [Fact]
+    public async Task Deleting_hydration_you_dont_own_is_404()
+    {
+        var (_, owner) = await ProvisionUser("tracker.self");
+        var (_, other) = await ProvisionUser("tracker.self");
+
+        var add = await owner.PostAsJsonAsync("/api/tracker/hydration", new { date = Today, amountMl = 300 });
+        var drinkId = (await Json(add)).GetProperty("id").GetInt64();
+
+        // Another tracker.self user can't delete it (404, not 403 — never reveal the row).
+        (await other.DeleteAsync($"/api/tracker/hydration/{drinkId}")).StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task Hydration_amount_validation_rejects_out_of_range_values()
+    {
+        var (_, user) = await ProvisionUser("tracker.self");
+        (await user.PostAsJsonAsync("/api/tracker/hydration", new { date = Today, amountMl = 0 }))
+            .StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        (await user.PostAsJsonAsync("/api/tracker/hydration", new { date = Today, amountMl = 5001 }))
+            .StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        (await user.PostAsJsonAsync("/api/tracker/hydration", new { date = "not-a-date", amountMl = 250 }))
+            .StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    // ---- Hydration goal: 2000 ml default when unset, reflects the profile when set ----
+
+    [Fact]
+    public async Task Hydration_goal_defaults_to_2000_and_reflects_the_profile_when_set()
+    {
+        var (_, user) = await ProvisionUser("tracker.self");
+
+        // No profile goal yet → the day resolves a 2000 ml default.
+        var day = await Json(await user.GetAsync($"/api/tracker/day?date={Today}"));
+        day.GetProperty("hydrationGoalMl").GetInt32().Should().Be(2000);
+        day.GetProperty("hydrationMl").GetInt32().Should().Be(0);
+
+        // Set a profile goal → it round-trips on the profile AND drives the day's resolved goal.
+        var put = await user.PutAsJsonAsync("/api/tracker/profile", new
+        {
+            goal = "Maintain", shareWithContacts = false, hydrationGoalMl = 3000,
+        });
+        put.StatusCode.Should().Be(HttpStatusCode.OK);
+        (await Json(put)).GetProperty("hydrationGoalMl").GetInt32().Should().Be(3000);
+
+        var saved = await Json(await user.GetAsync("/api/tracker/profile"));
+        saved.GetProperty("hydrationGoalMl").GetInt32().Should().Be(3000);
+
+        var day2 = await Json(await user.GetAsync($"/api/tracker/day?date={Today}"));
+        day2.GetProperty("hydrationGoalMl").GetInt32().Should().Be(3000);
+    }
+
+    // ---- Hydration visibility: a viewer sees totals/entries; writes target only the caller ----
+
+    [Fact]
+    public async Task A_shared_users_hydration_is_visible_but_a_write_targets_only_the_caller()
+    {
+        var (aliceEmail, alice) = await ProvisionUser("tracker.self");
+        var (bobEmail, bob) = await ProvisionUser("tracker.self");
+        await MakeContacts(aliceEmail, bobEmail);
+
+        await alice.PutAsJsonAsync("/api/tracker/profile", new
+        {
+            goal = "Maintain", shareWithContacts = true, hydrationGoalMl = 2500,
+        });
+        await alice.PostAsJsonAsync("/api/tracker/hydration", new { date = Today, amountMl = 750, label = "Tea" });
+
+        // Bob (a sharing mutual contact) sees Alice's hydration total + entries + resolved goal.
+        var viewed = await Json(await bob.GetAsync($"/api/tracker/day?date={Today}&user={aliceEmail}"));
+        viewed.GetProperty("readOnly").GetBoolean().Should().BeTrue();
+        viewed.GetProperty("hydrationMl").GetInt32().Should().Be(750);
+        viewed.GetProperty("hydrationGoalMl").GetInt32().Should().Be(2500);
+        viewed.GetProperty("hydration").EnumerateArray().Should().ContainSingle();
+
+        // There is no ?user= on the write — Bob logging a drink lands on BOB's own log, never Alice's.
+        await bob.PostAsJsonAsync("/api/tracker/hydration", new { date = Today, amountMl = 200 });
+        var aliceAfter = await Json(await alice.GetAsync($"/api/tracker/day?date={Today}"));
+        aliceAfter.GetProperty("hydrationMl").GetInt32().Should().Be(750); // unchanged by Bob's write
+    }
 }

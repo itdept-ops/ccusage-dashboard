@@ -13,17 +13,19 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { AuthService } from '../../core/auth';
 import { TrackerStore } from '../../core/tracker-store';
 import {
-  AddExerciseRequest, AddFoodRequest, ExerciseEntryDto, FoodEntryDto, LogWeightRequest, Meal,
-  SharedUserDto, TrackerProfileDto, WeightPointDto,
+  AddExerciseRequest, AddFoodRequest, AddHydrationRequest, ExerciseEntryDto, FoodEntryDto,
+  HydrationEntryDto, LogWeightRequest, Meal, SharedUserDto, TrackerProfileDto, WeightPointDto,
 } from '../../core/models';
 import { CalorieRing } from './calorie-ring';
+import { HydrationRing } from './hydration-ring';
 import { AddFoodDialog, AddFoodData } from './add-food-dialog';
 import { AddExerciseDialog, AddExerciseData } from './add-exercise-dialog';
+import { AddHydrationDialog, AddHydrationData } from './add-hydration-dialog';
 import { ProfileDialog, ProfileData } from './profile-dialog';
 import { LogWeightDialog, LogWeightData } from './log-weight-dialog';
 import { OnboardingCard, OnboardingResult } from './onboarding-card';
 import { WeightTrend } from './weight-trend';
-import { formatWeight, kgToLb } from './units';
+import { formatVolume, formatWeight, kgToLb } from './units';
 
 /** Re-fetch the viewed tracker every this many ms while in a read-only (someone else's) view. */
 const READONLY_REFRESH_MS = 30_000;
@@ -48,7 +50,8 @@ const MEAL_SECTIONS: MealSection[] = [
   selector: 'app-tracker',
   imports: [
     DecimalPipe, FormsModule, MatIconModule, MatButtonModule, MatProgressBarModule, MatMenuModule,
-    MatTooltipModule, MatDialogModule, MatSnackBarModule, CalorieRing, WeightTrend, OnboardingCard,
+    MatTooltipModule, MatDialogModule, MatSnackBarModule, CalorieRing, HydrationRing, WeightTrend,
+    OnboardingCard,
   ],
   templateUrl: './tracker.html',
   styleUrl: './tracker.scss',
@@ -359,6 +362,60 @@ export class Tracker {
           })
           .catch(() => this.snack.open('Could not log weight', 'Dismiss', { duration: 4000 }));
       });
+  }
+
+  // ---- hydration ----
+
+  /** Format a metric volume (ml) in the user's chosen units (or '—' when null). */
+  volumeLabel(ml: number | null | undefined): string {
+    return formatVolume(ml, this.imperial()) ?? '—';
+  }
+
+  /** Quick-add a fixed amount of water (Glass/Bottle/Large) to today's hydration. */
+  quickHydration(amountMl: number): void {
+    if (this.store.readOnly()) return;
+    this.store.addHydration({ date: this.store.date(), amountMl })
+      .then(() => this.announceHydration(`Added ${this.volumeLabel(amountMl)}`))
+      .catch(() => this.snack.open('Could not log drink', 'Dismiss', { duration: 4000 }));
+  }
+
+  /**
+   * Announce a hydration change to the single existing SR live region (statusMsg), suffixed with the
+   * running total vs goal so the user hears their progress (e.g. "Added 8 oz, 24 oz of 64 oz").
+   */
+  private announceHydration(prefix: string): void {
+    const day = this.store.day();
+    const total = this.volumeLabel(day?.hydrationMl);
+    const goal = this.volumeLabel(day?.hydrationGoalMl);
+    this.statusMsg.set(`${prefix}, ${total} of ${goal}`);
+  }
+
+  /** Open the custom-drink dialog (amount in the user's units + optional drink label). */
+  openAddHydration(): void {
+    if (this.store.readOnly()) return;
+    const p = this.store.profile();
+    const data: AddHydrationData = { date: this.store.date(), unitSystem: p?.unitSystem ?? 'Imperial' };
+    this.dialog.open(AddHydrationDialog, { data, width: '360px', maxWidth: '95vw', autoFocus: false })
+      .afterClosed().subscribe((req: AddHydrationRequest | undefined) => {
+        if (!req) return;
+        this.store.addHydration(req)
+          .then(() => this.snack.open(`Added ${req.label || 'drink'}`, 'OK', { duration: 2000 }))
+          .catch(() => this.snack.open('Could not log drink', 'Dismiss', { duration: 4000 }));
+      });
+  }
+
+  removeHydration(h: HydrationEntryDto): void {
+    if (this.store.readOnly()) return;
+    this.store.deleteHydration(h.id)
+      .then(() => this.announceHydration('Removed drink'))
+      .catch(() => this.snack.open('Could not remove entry', 'Dismiss', { duration: 4000 }));
+  }
+
+  /** Short local time (e.g. "3:24 PM") from an ISO-8601 UTC string, for a hydration entry. */
+  entryTime(iso: string): string {
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return '';
+    return d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
   }
 
   removeFood(f: FoodEntryDto): void {

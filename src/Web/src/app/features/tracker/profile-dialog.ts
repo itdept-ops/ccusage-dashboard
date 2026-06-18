@@ -12,7 +12,7 @@ import { MatIconModule } from '@angular/material/icon';
 
 import { ActivityLevel, Sex, TrackerGoal, TrackerProfileDto, UnitSystem } from '../../core/models';
 import {
-  StatsInputs, ageFrom, cmToFtIn, computeStats, ftInToCm, kgToLb, lbToKg,
+  StatsInputs, ageFrom, cmToFtIn, computeStats, ftInToCm, kgToLb, lbToKg, mlToOz, ozToMl,
 } from './units';
 
 /** Opens with the current profile (or sensible defaults for a first-time user). */
@@ -97,6 +97,8 @@ export class ProfileDialog {
   // Weights stored as DISPLAY values (kg or lb) so editing in imperial keeps precision.
   readonly weightDisp = signal<number | null>(this.toDisp(this.data.profile.weightKg));
   readonly goalWeightDisp = signal<number | null>(this.toDisp(this.data.profile.goalWeightKg));
+  // Hydration goal as a DISPLAY value (oz or ml). Optional — null uses the server's 2000 ml default.
+  readonly hydrationGoalDisp = signal<number | null>(this.toVolDisp(this.data.profile.hydrationGoalMl));
 
   constructor() {
     // Seed the imperial height fields from the stored cm.
@@ -114,6 +116,19 @@ export class ProfileDialog {
       : kg;
   }
 
+  /** A metric volume (ml) as a whole DISPLAY value in the current units (oz for Imperial, ml for Metric). */
+  private toVolDisp(ml: number | null | undefined): number | null {
+    if (ml == null) return null;
+    return this.unitSystem() === 'Imperial' ? Math.round(mlToOz(ml)) : Math.round(ml);
+  }
+
+  /** Convert the display hydration-goal value back to metric ml (or null when empty/non-positive). */
+  private currentHydrationGoalMl(disp: number | null): number | null {
+    if (disp == null || disp <= 0) return null;
+    const ml = this.imperial() ? ozToMl(disp) : disp;
+    return Math.round(ml);
+  }
+
   /** Switch units — convert the in-flight display values so the user sees the same body in new units. */
   onUnitChange(sys: UnitSystem): void {
     if (sys === this.unitSystem()) return;
@@ -124,6 +139,8 @@ export class ProfileDialog {
     // weights: read metric first, then re-emit in the new units
     const wKg = this.currentWeightKg(this.weightDisp());
     const gKg = this.currentWeightKg(this.goalWeightDisp());
+    // hydration goal: read metric ml first, then re-emit in the new units
+    const hydMl = this.currentHydrationGoalMl(this.hydrationGoalDisp());
 
     this.unitSystem.set(sys);
 
@@ -137,6 +154,7 @@ export class ProfileDialog {
     }
     this.weightDisp.set(toImperial ? (wKg != null ? Math.round(kgToLb(wKg) * 10) / 10 : null) : wKg);
     this.goalWeightDisp.set(toImperial ? (gKg != null ? Math.round(kgToLb(gKg) * 10) / 10 : null) : gKg);
+    this.hydrationGoalDisp.set(hydMl != null ? (toImperial ? Math.round(mlToOz(hydMl)) : Math.round(hydMl)) : null);
   }
 
   /** The current height in cm from whichever unit fields are active. */
@@ -188,6 +206,7 @@ export class ProfileDialog {
     const heightCm = this.currentHeightCm();
     const weightKg = this.currentWeightKg(this.weightDisp());
     const goalWeightKg = this.currentWeightKg(this.goalWeightDisp());
+    const hydrationGoalMl = this.currentHydrationGoalMl(this.hydrationGoalDisp());
 
     const body: TrackerProfileDto = {
       goal: this.goal(),
@@ -203,6 +222,7 @@ export class ProfileDialog {
       activityLevel: this.activityLevel(),
       goalWeightKg: goalWeightKg != null ? Math.round(goalWeightKg * 100) / 100 : undefined,
       unitSystem: this.unitSystem(),
+      hydrationGoalMl: hydrationGoalMl ?? undefined,
     };
     this.ref.close(body);
   }

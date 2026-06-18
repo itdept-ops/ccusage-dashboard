@@ -699,6 +699,8 @@ export interface TrackerProfileDto {
   goalWeightKg?: number;
   /** Display unit preference; backend stores/returns metric regardless. */
   unitSystem: UnitSystem;
+  /** Daily hydration goal in millilitres (backend always metric ml), or null to use the 2000 ml default. */
+  hydrationGoalMl?: number;
 }
 
 /**
@@ -724,10 +726,33 @@ export interface WeightPointDto {
   weightKg: number;
 }
 
+/**
+ * One logged hydration (fluid-intake) entry on a tracker day. Amount is always stored/returned in
+ * millilitres (the UI converts to oz for Imperial). `label` is an optional drink name (Water/Coffee/…).
+ * `createdUtc` is an ISO-8601 UTC string. Mirrors HydrationEntryDto.
+ */
+export interface HydrationEntryDto {
+  id: number;
+  amountMl: number;
+  label?: string;
+  createdUtc: string;
+}
+
 /** Log-today's-weight payload (POST /api/tracker/weight). Mirrors LogWeightRequest. */
 export interface LogWeightRequest {
   date: string;
   weightKg: number;
+}
+
+/**
+ * Log-a-drink payload (POST /api/tracker/hydration). `amountMl` is always metric ml (1..5000); the UI
+ * converts from the user's display units before sending. `label` is an optional drink name (<=64 chars).
+ * Mirrors AddHydrationRequest.
+ */
+export interface AddHydrationRequest {
+  date: string;
+  amountMl: number;
+  label?: string;
 }
 
 /**
@@ -751,6 +776,12 @@ export interface TrackerDayDto {
   fatG: number;
   calorieGoal?: number;
   remaining?: number;
+  /** Total fluid intake logged for the day, in millilitres (sum of all hydration entries). */
+  hydrationMl: number;
+  /** Resolved daily hydration goal in ml: the profile's goal, or the 2000 ml server default. */
+  hydrationGoalMl: number;
+  /** The day's hydration entries, oldest-first (by id). Visible even when read-only (like food/exercise). */
+  hydration: HydrationEntryDto[];
 }
 
 /** Someone whose tracker the caller may view read-only (GET /api/tracker/shared). Mirrors SharedUserDto. */

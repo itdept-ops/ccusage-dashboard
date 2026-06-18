@@ -36,6 +36,7 @@ public class UsageDbContext(DbContextOptions<UsageDbContext> options) : DbContex
     public DbSet<ExerciseLibrary> ExerciseLibrary => Set<ExerciseLibrary>();
     public DbSet<WeightEntry> WeightEntries => Set<WeightEntry>();
     public DbSet<CustomFood> CustomFoods => Set<CustomFood>();
+    public DbSet<HydrationEntry> HydrationEntries => Set<HydrationEntry>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -391,6 +392,15 @@ public class UsageDbContext(DbContextOptions<UsageDbContext> options) : DbContex
             e.Property(x => x.CreatedUtc).HasColumnType("timestamp with time zone");
             // One reading per user per local date (logging again that day upserts); also the trend read.
             e.HasIndex(x => new { x.UserEmail, x.LocalDate }).IsUnique();
+        });
+
+        b.Entity<HydrationEntry>(e =>
+        {
+            e.Property(x => x.UserEmail).HasMaxLength(256);
+            e.Property(x => x.Label).HasMaxLength(64);
+            e.Property(x => x.CreatedUtc).HasColumnType("timestamp with time zone");
+            // The day view reads one user's drinks for one local date (no unique — many drinks per day).
+            e.HasIndex(x => new { x.UserEmail, x.LocalDate });
         });
 
         b.Entity<CustomFood>(e =>

@@ -349,6 +349,7 @@ public static class TrackerEndpoints
             profile.ActivityLevel = Enum.TryParse<ActivityLevel>(req.ActivityLevel, ignoreCase: true, out var act) ? act : ActivityLevel.Sedentary;
             profile.GoalWeightKg = Positive(req.GoalWeightKg);
             profile.UnitSystem = Enum.TryParse<UnitSystem>(req.UnitSystem, ignoreCase: true, out var unit) ? unit : UnitSystem.Metric;
+            profile.HydrationGoalMl = Positive(req.HydrationGoalMl);
             profile.UpdatedUtc = DateTime.UtcNow;
             await db.SaveChangesAsync(ct);
             return Results.Ok(ToProfileDto(profile));
@@ -436,6 +437,44 @@ public static class TrackerEndpoints
                 .Select(w => new WeightPointDto { Date = w.LocalDate.ToString("yyyy-MM-dd"), WeightKg = w.WeightKg })
                 .ToListAsync(ct);
             return Results.Ok(points);
+        }).RequirePermission(Permissions.TrackerSelf);
+
+        // ---- Log a drink onto a day (OWN only; many drinks per day, no upsert) ----
+        g.MapPost("/hydration", async (
+            AddHydrationRequest req, CurrentUserAccessor me, UsageDbContext db, CancellationToken ct) =>
+        {
+            var caller = (await me.GetUserAsync(ct))!;
+
+            if (!TryParseDate(req.Date, out var localDate))
+                return Results.BadRequest(new { message = "A valid date (yyyy-MM-dd) is required." });
+            if (!(req.AmountMl >= 1 && req.AmountMl <= 5000))
+                return Results.BadRequest(new { message = "Amount must be between 1 and 5000 ml." });
+
+            var label = Trunc(req.Label?.Trim(), 64);
+
+            var entry = new HydrationEntry
+            {
+                UserEmail = caller.Email,
+                LocalDate = localDate,
+                AmountMl = req.AmountMl,
+                Label = string.IsNullOrEmpty(label) ? null : label,
+                CreatedUtc = DateTime.UtcNow,
+            };
+            db.HydrationEntries.Add(entry);
+            await db.SaveChangesAsync(ct);
+            return Results.Ok(ToHydrationDto(entry));
+        }).RequirePermission(Permissions.TrackerSelf);
+
+        // ---- Delete a logged drink (owner only) ----
+        g.MapDelete("/hydration/{id:long}", async (
+            long id, CurrentUserAccessor me, UsageDbContext db, CancellationToken ct) =>
+        {
+            var caller = (await me.GetUserAsync(ct))!;
+            // 404 when the entry doesn't exist OR isn't the caller's (never reveal someone else's row).
+            var deleted = await db.HydrationEntries
+                .Where(h => h.Id == id && h.UserEmail == caller.Email)
+                .ExecuteDeleteAsync(ct);
+            return deleted == 0 ? Results.NotFound() : Results.NoContent();
         }).RequirePermission(Permissions.TrackerSelf);
 
         // ---- WorkoutX: browse/search the exercise catalog (503 when unconfigured) ----
@@ -565,6 +604,12 @@ public static class TrackerEndpoints
             .Where(x => x.UserEmail == email && x.LocalDate == date)
             .OrderBy(x => x.Id)
             .ToListAsync(ct);
+        // Hydration is part of the day (like food/exercise): a permitted viewer sees the totals + entries
+        // read-only too. Many drinks per day, so this is a plain list (no upsert), oldest-first by id.
+        var hydration = await db.HydrationEntries.AsNoTracking()
+            .Where(h => h.UserEmail == email && h.LocalDate == date)
+            .OrderBy(h => h.Id)
+            .ToListAsync(ct);
 
         var caloriesIn = foods.Sum(f => f.Calories);
         var caloriesOut = exercises.Sum(x => x.CaloriesBurned);
@@ -574,6 +619,10 @@ public static class TrackerEndpoints
 
         var goal = profile?.DailyCalorieGoal;
         int? remaining = goal is { } g ? g - caloriesIn + caloriesOut : null;
+
+        var hydrationMl = hydration.Sum(h => h.AmountMl);
+        // The resolved goal: the profile's goal when set, else the 2000 ml default.
+        var hydrationGoalMl = profile?.HydrationGoalMl ?? DefaultHydrationGoalMl;
 
         return new TrackerDayDto
         {
@@ -592,8 +641,14 @@ public static class TrackerEndpoints
             FatG = fat,
             CalorieGoal = goal,
             Remaining = remaining,
+            HydrationMl = hydrationMl,
+            HydrationGoalMl = hydrationGoalMl,
+            Hydration = hydration.Select(ToHydrationDto).ToArray(),
         };
     }
+
+    /// <summary>The fallback daily hydration goal (ml) when a user's profile has none set.</summary>
+    private const int DefaultHydrationGoalMl = 2000;
 
     // ===================================================================================
     // Profile helpers
@@ -836,6 +891,15 @@ public static class TrackerEndpoints
         ActivityLevel = p.ActivityLevel.ToString(),
         GoalWeightKg = p.GoalWeightKg,
         UnitSystem = p.UnitSystem.ToString(),
+        HydrationGoalMl = p.HydrationGoalMl,
+    };
+
+    private static HydrationEntryDto ToHydrationDto(HydrationEntry h) => new()
+    {
+        Id = h.Id,
+        AmountMl = h.AmountMl,
+        Label = h.Label,
+        CreatedUtc = h.CreatedUtc.ToString("o", System.Globalization.CultureInfo.InvariantCulture),
     };
 
     private static bool TryParseMeal(string? value, out MealType meal) =>

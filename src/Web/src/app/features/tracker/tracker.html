@@ -159,6 +159,73 @@
       </div>
     </div>
 
+    <!-- ── Hydration card: progress ring vs goal + quick-add + today's drinks ── -->
+    <section class="tracker__hydration" aria-label="Hydration">
+      <div class="tracker__meal-head">
+        <h2 class="tracker__meal-title">
+          <mat-icon aria-hidden="true">water_drop</mat-icon> Hydration
+        </h2>
+        <span class="tracker__meal-cal mono-num">
+          {{ volumeLabel(day.hydrationMl) }} / {{ volumeLabel(day.hydrationGoalMl) }}
+        </span>
+      </div>
+
+      <div class="tracker__hydration-body">
+        <div class="tracker__hydring">
+          <app-hydration-ring [hydrationMl]="day.hydrationMl" [goalMl]="day.hydrationGoalMl"
+                              [imperial]="imperial()" />
+        </div>
+
+        <div class="tracker__hydration-main">
+          <!-- Quick-add buttons (own tracker only). -->
+          @if (!store.readOnly()) {
+            <div class="tracker__hydquick" role="group" aria-label="Quick add water">
+              <button mat-stroked-button type="button" class="tracker__hydbtn"
+                      (click)="quickHydration(250)" [attr.aria-label]="'Add a glass, ' + volumeLabel(250)">
+                <mat-icon>local_drink</mat-icon> Glass
+                <span class="tracker__hydbtn-amt">+{{ volumeLabel(250) }}</span>
+              </button>
+              <button mat-stroked-button type="button" class="tracker__hydbtn"
+                      (click)="quickHydration(500)" [attr.aria-label]="'Add a bottle, ' + volumeLabel(500)">
+                <mat-icon>local_drink</mat-icon> Bottle
+                <span class="tracker__hydbtn-amt">+{{ volumeLabel(500) }}</span>
+              </button>
+              <button mat-stroked-button type="button" class="tracker__hydbtn"
+                      (click)="quickHydration(750)" [attr.aria-label]="'Add a large drink, ' + volumeLabel(750)">
+                <mat-icon>sports_bar</mat-icon> Large
+                <span class="tracker__hydbtn-amt">+{{ volumeLabel(750) }}</span>
+              </button>
+              <button mat-stroked-button type="button" class="tracker__hydbtn tracker__hydbtn--custom"
+                      (click)="openAddHydration()" aria-label="Add a custom drink">
+                <mat-icon>add</mat-icon> Custom
+              </button>
+            </div>
+          }
+
+          <!-- Today's drinks. -->
+          <ul class="tracker__entries tracker__hydentries">
+            @for (h of day.hydration; track h.id) {
+              <li class="tracker__entry">
+                <div class="tracker__entry-id">
+                  <span class="tracker__entry-name">{{ h.label || 'Water' }}</span>
+                  <span class="tracker__entry-meta">{{ entryTime(h.createdUtc) }}</span>
+                </div>
+                <span class="tracker__entry-cal mono-num">{{ volumeLabel(h.amountMl) }}</span>
+                @if (!store.readOnly()) {
+                  <button mat-icon-button type="button" class="tracker__entry-del"
+                          (click)="removeHydration(h)" [attr.aria-label]="'Remove ' + (h.label || 'drink')">
+                    <mat-icon>close</mat-icon>
+                  </button>
+                }
+              </li>
+            } @empty {
+              <li class="tracker__entry tracker__entry--empty">No water logged yet.</li>
+            }
+          </ul>
+        </div>
+      </div>
+    </section>
+
     <!-- ── Your stats + weight trend (own tracker only; hidden when viewing someone else) ── -->
     @if (!store.readOnly()) {
       <div class="tracker__fitness">

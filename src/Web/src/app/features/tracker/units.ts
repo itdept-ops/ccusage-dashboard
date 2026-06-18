@@ -31,6 +31,39 @@ export function ftInToCm(ft: number, inches: number): number {
   return (ft * 12 + inches) * 2.54;
 }
 
+// ── hydration: ml <-> fl oz ─────────────────────────────────────────────────
+
+/** 1 US fluid ounce expressed in millilitres. */
+export const ML_PER_OZ = 29.5735;
+
+/** A "glass" of water in ml (~8 fl oz) — the unit the glasses subtitle counts in. */
+export const ML_PER_GLASS = 250;
+
+/** Millilitres → US fluid ounces. */
+export function mlToOz(ml: number): number {
+  return ml / ML_PER_OZ;
+}
+
+/** US fluid ounces → millilitres. */
+export function ozToMl(oz: number): number {
+  return oz * ML_PER_OZ;
+}
+
+/** A whole-glass count for a volume (ml / 250), used in the "x of y glasses" subtitle. */
+export function glasses(ml: number): number {
+  return Math.round(ml / ML_PER_GLASS);
+}
+
+/**
+ * Format a metric volume (ml) for display in the chosen unit system, with the unit suffix.
+ * Imperial → fl oz (e.g. "24 oz"); Metric → ml (e.g. "750 ml"). Rounded to whole units.
+ */
+export function formatVolume(ml: number | null | undefined, imperial: boolean): string | null {
+  if (ml == null) return null;
+  if (imperial) return `${Math.round(mlToOz(ml))} oz`;
+  return `${Math.round(ml)} ml`;
+}
+
 // ── display formatting ────────────────────────────────────────────────────────
 
 /** Format a metric weight (kg) for display in the chosen unit system, with the unit suffix. */

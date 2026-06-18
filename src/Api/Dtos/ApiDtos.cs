@@ -812,6 +812,9 @@ public sealed class TrackerProfileDto
     public double? GoalWeightKg { get; set; }
     /// <summary>"Metric" | "Imperial" — display preference; backend always stores/returns metric.</summary>
     public string UnitSystem { get; set; } = "Metric";
+
+    /// <summary>Daily fluid-intake goal in millilitres, or null (the day then uses a 2000 ml default).</summary>
+    public int? HydrationGoalMl { get; set; }
 }
 
 /// <summary>Computed body-metric estimates from the current profile (all metric inputs). Any field whose
@@ -853,6 +856,23 @@ public sealed class TrackerDayDto
     public int? CalorieGoal { get; set; }
     /// <summary>When a goal is set: goal − caloriesIn + caloriesOut.</summary>
     public int? Remaining { get; set; }
+
+    /// <summary>Total fluid intake for the day in millilitres (sum of <see cref="Hydration"/>).</summary>
+    public int HydrationMl { get; set; }
+    /// <summary>The resolved daily hydration goal in ml: the profile's goal, else a 2000 ml default.</summary>
+    public int HydrationGoalMl { get; set; }
+    /// <summary>The day's hydration entries (drinks), oldest-first. Visible to a permitted viewer too.</summary>
+    public HydrationEntryDto[] Hydration { get; set; } = Array.Empty<HydrationEntryDto>();
+}
+
+/// <summary>One logged drink: its volume in millilitres, an optional label, and when it was logged.</summary>
+public sealed class HydrationEntryDto
+{
+    public long Id { get; set; }
+    public int AmountMl { get; set; }
+    public string? Label { get; set; }
+    /// <summary>ISO-8601 UTC timestamp of when the drink was logged.</summary>
+    public string CreatedUtc { get; set; } = "";
 }
 
 /// <summary>A person whose tracker the caller may view (a sharing mutual contact, or anyone when the
@@ -928,4 +948,13 @@ public sealed class AddExerciseRequest
     public string? Name { get; set; }
     public int? DurationMin { get; set; }
     public int? CaloriesBurned { get; set; }
+}
+
+/// <summary>Log a drink onto a day; <see cref="AmountMl"/> is always millilitres (1..5000), with an
+/// optional drink <see cref="Label"/> (trimmed, &lt;= 64 chars). Multiple drinks per day are expected.</summary>
+public sealed class AddHydrationRequest
+{
+    public string Date { get; set; } = "";
+    public int AmountMl { get; set; }
+    public string? Label { get; set; }
 }
