@@ -27,6 +27,67 @@
   mat-form-field { margin-bottom: -1.25em; }
 }
 
+.pf-units {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--tech-space-3);
+}
+
+.pf-unit-toggle {
+  border-radius: var(--tech-r-control);
+  ::ng-deep .mat-button-toggle-label-content { line-height: 44px; }
+}
+
+.pf-htgrid,
+.pf-wtgrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--tech-space-2);
+  mat-form-field { margin-bottom: -1.25em; }
+}
+
+/* ── Live stats preview ── */
+.pf-preview {
+  border: 1px solid var(--tech-border);
+  border-radius: var(--tech-radius);
+  background: var(--tech-bg-sunken);
+  padding: var(--tech-space-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--tech-space-2);
+}
+
+.pf-preview-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--tech-space-2) var(--tech-space-3);
+}
+
+.pf-stat {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+
+  &-l {
+    font-size: var(--tech-fs-micro);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--tech-text-tertiary);
+    min-width: 4.2em;
+  }
+  &-v { font-size: var(--tech-fs-body); font-weight: 700; color: var(--tech-text); }
+  &-x { font-size: var(--tech-fs-label); color: var(--tech-text-tertiary); }
+}
+
+.pf-usesuggested {
+  align-self: flex-start;
+  border-radius: var(--tech-r-control);
+  font-weight: 600;
+  color: var(--tech-accent);
+  mat-icon { font-size: 18px; width: 18px; height: 18px; }
+}
+
 .pf-share {
   margin-top: var(--tech-space-2);
   font-size: var(--tech-fs-body);
@@ -47,4 +108,5 @@
 
 @media (max-width: 480px) {
   .pf-macgrid { grid-template-columns: 1fr; }
+  .pf-preview-grid { grid-template-columns: 1fr; }
 }

@@ -334,6 +334,96 @@
   mat-icon { font-size: 18px; width: 18px; height: 18px; }
 }
 
+/* ── Fitness: stats panel + weight trend ── */
+.tracker__fitness {
+  display: grid;
+  grid-template-columns: minmax(280px, 1fr) 1.2fr;
+  gap: var(--tech-space-4);
+  align-items: stretch;
+}
+
+.tracker__stats,
+.tracker__trend {
+  border: 1px solid var(--tech-border);
+  border-radius: var(--tech-radius);
+  background: var(--tech-panel);
+  box-shadow: var(--tech-shadow-panel);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.tracker__logwt {
+  min-height: 44px;
+  border-radius: var(--tech-r-control);
+  font-weight: 600;
+  color: var(--tech-accent);
+  mat-icon { font-size: 18px; width: 18px; height: 18px; }
+}
+
+.tracker__statgrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: var(--tech-space-3);
+  padding: var(--tech-space-4);
+}
+
+.tracker__statcell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.tracker__stat-l {
+  font-size: var(--tech-fs-micro);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--tech-text-tertiary);
+}
+
+.tracker__stat-v { font-size: var(--tech-fs-kpi-sm); font-weight: 700; color: var(--tech-text); }
+.tracker__stat-x { font-size: var(--tech-fs-micro); color: var(--tech-text-tertiary); }
+
+.tracker__bmichip {
+  align-self: flex-start;
+  margin-top: 2px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-size: var(--tech-fs-micro);
+  font-weight: 600;
+  border: 1px solid transparent;
+
+  &.is-under { color: var(--tech-accent-cyan); border-color: var(--tech-accent-cyan); background: var(--tech-bg-sunken); }
+  &.is-normal { color: var(--tech-success); border-color: var(--tech-success); background: var(--tech-success-tint, var(--tech-bg-sunken)); }
+  &.is-over { color: var(--tech-warn, #f2b340); border-color: var(--tech-warn, #f2b340); background: var(--tech-warn-tint, var(--tech-bg-sunken)); }
+  &.is-obese { color: var(--tech-error); border-color: var(--tech-error); background: var(--tech-error-tint); }
+}
+
+.tracker__goalprog {
+  padding: 0 var(--tech-space-4) var(--tech-space-4);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.tracker__goalprog-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+.tracker__goaldelta { font-size: var(--tech-fs-label); color: var(--tech-text-secondary); font-weight: 600; }
+
+.tracker__trend-body {
+  padding: var(--tech-space-3) var(--tech-space-4) var(--tech-space-4);
+  flex: 1 1 auto;
+  min-height: 240px;
+}
+
+@media (max-width: 860px) {
+  .tracker__fitness { grid-template-columns: 1fr; }
+}
+
 @media (max-width: 720px) {
   .tracker__summary { grid-template-columns: 1fr; }
   .tracker { padding: var(--tech-space-4); }

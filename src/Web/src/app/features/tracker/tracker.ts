@@ -13,12 +13,16 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { AuthService } from '../../core/auth';
 import { TrackerStore } from '../../core/tracker-store';
 import {
-  AddExerciseRequest, AddFoodRequest, ExerciseEntryDto, FoodEntryDto, Meal, SharedUserDto, TrackerProfileDto,
+  AddExerciseRequest, AddFoodRequest, ExerciseEntryDto, FoodEntryDto, LogWeightRequest, Meal,
+  SharedUserDto, TrackerProfileDto, WeightPointDto,
 } from '../../core/models';
 import { CalorieRing } from './calorie-ring';
 import { AddFoodDialog, AddFoodData } from './add-food-dialog';
 import { AddExerciseDialog, AddExerciseData } from './add-exercise-dialog';
 import { ProfileDialog, ProfileData } from './profile-dialog';
+import { LogWeightDialog, LogWeightData } from './log-weight-dialog';
+import { WeightTrend } from './weight-trend';
+import { formatWeight, kgToLb } from './units';
 
 interface MealSection { meal: Meal; label: string; icon: string }
 
@@ -40,7 +44,7 @@ const MEAL_SECTIONS: MealSection[] = [
   selector: 'app-tracker',
   imports: [
     DecimalPipe, FormsModule, MatIconModule, MatButtonModule, MatProgressBarModule, MatMenuModule,
-    MatTooltipModule, MatDialogModule, MatSnackBarModule, CalorieRing,
+    MatTooltipModule, MatDialogModule, MatSnackBarModule, CalorieRing, WeightTrend,
   ],
   templateUrl: './tracker.html',
   styleUrl: './tracker.scss',
@@ -56,6 +60,15 @@ export class Tracker {
   /** Screen-reader-only live status: announces day reloads and entry deletions. */
   readonly statusMsg = signal('');
 
+  /** The caller's OWN weight history (oldest-first) for the trend chart. Empty when none / read-only. */
+  readonly weightHistory = signal<WeightPointDto[]>([]);
+
+  /** Computed body stats for the current day (server-supplied; null when read-only). */
+  readonly stats = computed(() => this.store.day()?.stats ?? null);
+
+  /** True when displaying in imperial units (per the profile preference). */
+  readonly imperial = computed(() => this.store.profile()?.unitSystem === 'Imperial');
+
   constructor() {
     void this.store.load();
     void this.store.loadShared();
@@ -66,6 +79,67 @@ export class Tracker {
       if (!day) return;
       this.statusMsg.set(`Showing ${this.dateHeading()}, ${Math.round(day.netCalories)} net calories`);
     });
+
+    // Refresh the weight trend whenever a fresh OWN day loads (weight history is private — own only).
+    effect(() => {
+      const day = this.store.day();
+      if (!day || day.readOnly) {
+        this.weightHistory.set([]);
+        return;
+      }
+      void this.loadWeightHistory();
+    });
+  }
+
+  private async loadWeightHistory(): Promise<void> {
+    try {
+      this.weightHistory.set(await this.store.weightHistory(90));
+    } catch {
+      this.weightHistory.set([]);
+    }
+  }
+
+  // ---- stats / unit display helpers ----
+
+  /** Format a metric kg weight in the user's chosen units (or '—' when null). */
+  weightLabel(kg: number | null | undefined, dp = 1): string {
+    return formatWeight(kg, this.imperial(), dp) ?? '—';
+  }
+
+  /** Progress toward goal weight as 0..100 (relative to current vs goal, monotonic toward goal). */
+  goalProgressPct(): number | null {
+    const p = this.store.profile();
+    const w = p?.weightKg, g = p?.goalWeightKg;
+    if (w == null || g == null || g <= 0 || w <= 0) return null;
+    if (w === g) return 100;
+    // Distance remaining as a share of the current gap; we just show "how far from goal" inverted.
+    const diff = Math.abs(w - g);
+    const denom = Math.max(w, g);
+    return Math.max(0, Math.min(100, (1 - diff / denom) * 100));
+  }
+
+  /** Weight remaining to goal, formatted with direction, in display units (null when not computable). */
+  goalDelta(): { text: string; toLose: boolean } | null {
+    const p = this.store.profile();
+    const w = p?.weightKg, g = p?.goalWeightKg;
+    if (w == null || g == null || g <= 0 || w <= 0) return null;
+    const diffKg = w - g;
+    if (Math.abs(diffKg) < 0.05) return { text: 'at goal', toLose: false };
+    const mag = this.imperial() ? Math.abs(kgToLb(diffKg)) : Math.abs(diffKg);
+    const unit = this.imperial() ? 'lb' : 'kg';
+    return { text: `${mag.toFixed(1)} ${unit} to ${diffKg > 0 ? 'lose' : 'gain'}`, toLose: diffKg > 0 };
+  }
+
+  /** CSS class for the BMI category chip. */
+  bmiClass(): string {
+    const cat = this.stats()?.bmiCategory;
+    switch (cat) {
+      case 'Underweight': return 'is-under';
+      case 'Normal': return 'is-normal';
+      case 'Overweight': return 'is-over';
+      case 'Obese': return 'is-obese';
+      default: return '';
+    }
   }
 
   // ---- date navigation ----
@@ -154,7 +228,7 @@ export class Tracker {
   openProfile(): void {
     if (this.store.readOnly()) return;
     const profile: TrackerProfileDto = this.store.profile()
-      ?? { goal: 'Maintain', shareWithContacts: false };
+      ?? { goal: 'Maintain', shareWithContacts: false, sex: 'Unspecified', activityLevel: 'Sedentary', unitSystem: 'Metric' };
     const data: ProfileData = { profile };
     this.dialog.open(ProfileDialog, { data, width: '460px', maxWidth: '95vw', autoFocus: false })
       .afterClosed().subscribe((req: TrackerProfileDto | undefined) => {
@@ -162,6 +236,26 @@ export class Tracker {
         this.store.saveProfile(req)
           .then(() => this.snack.open('Goals saved', 'OK', { duration: 2000 }))
           .catch(() => this.snack.open('Could not save goals', 'Dismiss', { duration: 4000 }));
+      });
+  }
+
+  openLogWeight(): void {
+    if (this.store.readOnly()) return;
+    const p = this.store.profile();
+    const data: LogWeightData = {
+      date: this.store.date(),
+      unitSystem: (p?.unitSystem ?? 'Metric'),
+      currentKg: p?.weightKg ?? null,
+    };
+    this.dialog.open(LogWeightDialog, { data, width: '360px', maxWidth: '95vw', autoFocus: false })
+      .afterClosed().subscribe((req: LogWeightRequest | undefined) => {
+        if (!req) return;
+        this.store.logWeight(req)
+          .then(() => {
+            this.snack.open('Weight logged', 'OK', { duration: 2000 });
+            void this.loadWeightHistory();
+          })
+          .catch(() => this.snack.open('Could not log weight', 'Dismiss', { duration: 4000 }));
       });
   }
 

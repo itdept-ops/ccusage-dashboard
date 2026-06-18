@@ -34,6 +34,7 @@ public class UsageDbContext(DbContextOptions<UsageDbContext> options) : DbContex
     public DbSet<FoodEntry> FoodEntries => Set<FoodEntry>();
     public DbSet<ExerciseEntry> ExerciseEntries => Set<ExerciseEntry>();
     public DbSet<ExerciseLibrary> ExerciseLibrary => Set<ExerciseLibrary>();
+    public DbSet<WeightEntry> WeightEntries => Set<WeightEntry>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -381,6 +382,14 @@ public class UsageDbContext(DbContextOptions<UsageDbContext> options) : DbContex
             e.Property(x => x.Name).HasMaxLength(128);
             e.Property(x => x.Category).HasMaxLength(64);
             e.Property(x => x.GoalTags).HasMaxLength(128);
+        });
+
+        b.Entity<WeightEntry>(e =>
+        {
+            e.Property(x => x.UserEmail).HasMaxLength(256);
+            e.Property(x => x.CreatedUtc).HasColumnType("timestamp with time zone");
+            // One reading per user per local date (logging again that day upserts); also the trend read.
+            e.HasIndex(x => new { x.UserEmail, x.LocalDate }).IsUnique();
         });
     }
 }

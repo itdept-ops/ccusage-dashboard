@@ -1,6 +1,16 @@
-<h2 mat-dialog-title class="pf-title">Your goals</h2>
+<h2 mat-dialog-title class="pf-title">Your profile &amp; goals</h2>
 
 <mat-dialog-content class="pf-body">
+  <!-- Unit toggle (display only; everything is stored in metric). -->
+  <div class="pf-units">
+    <span class="micro-label">Units</span>
+    <mat-button-toggle-group [value]="unitSystem()" (change)="onUnitChange($event.value)"
+                             aria-label="Unit system" class="pf-unit-toggle">
+      <mat-button-toggle value="Metric">Metric</mat-button-toggle>
+      <mat-button-toggle value="Imperial">Imperial</mat-button-toggle>
+    </mat-button-toggle-group>
+  </div>
+
   <mat-form-field appearance="outline" class="pf-field">
     <mat-label>Goal</mat-label>
     <mat-select [ngModel]="goal()" (ngModelChange)="goal.set($event)">
@@ -10,13 +20,106 @@
     </mat-select>
   </mat-form-field>
 
+  <!-- ── Body profile (drives the metabolic estimates) ── -->
+  <span class="micro-label pf-section">Body profile</span>
+
   <mat-form-field appearance="outline" class="pf-field">
-    <mat-label>Body weight (optional)</mat-label>
-    <input matInput type="number" min="0" step="0.1" inputmode="decimal"
-           [ngModel]="weightKg()" (ngModelChange)="weightKg.set($event)" />
-    <span matTextSuffix>kg</span>
-    <mat-hint>Used to estimate calories burned from exercise duration.</mat-hint>
+    <mat-label>Date of birth (optional)</mat-label>
+    <input matInput type="date" [max]="todayIso" [ngModel]="dateOfBirth()" (ngModelChange)="dateOfBirth.set($event)" />
+    <mat-hint>Used to estimate your age for BMR/TDEE.</mat-hint>
   </mat-form-field>
+
+  <!-- Height: cm OR ft + in depending on units. -->
+  @if (imperial()) {
+    <div class="pf-htgrid">
+      <mat-form-field appearance="outline">
+        <mat-label>Height (ft)</mat-label>
+        <input matInput type="number" min="0" max="9" inputmode="numeric"
+               [ngModel]="heightFt()" (ngModelChange)="heightFt.set($event)" />
+        <span matTextSuffix>ft</span>
+      </mat-form-field>
+      <mat-form-field appearance="outline">
+        <mat-label>Height (in)</mat-label>
+        <input matInput type="number" min="0" max="11" inputmode="numeric"
+               [ngModel]="heightIn()" (ngModelChange)="heightIn.set($event)" />
+        <span matTextSuffix>in</span>
+      </mat-form-field>
+    </div>
+  } @else {
+    <mat-form-field appearance="outline" class="pf-field">
+      <mat-label>Height (optional)</mat-label>
+      <input matInput type="number" min="0" step="0.5" inputmode="decimal"
+             [ngModel]="heightCm()" (ngModelChange)="heightCm.set($event)" />
+      <span matTextSuffix>cm</span>
+    </mat-form-field>
+  }
+
+  <div class="pf-wtgrid">
+    <mat-form-field appearance="outline">
+      <mat-label>Current weight</mat-label>
+      <input matInput type="number" min="0" step="0.1" inputmode="decimal"
+             [ngModel]="weightDisp()" (ngModelChange)="weightDisp.set($event)" />
+      <span matTextSuffix>{{ imperial() ? 'lb' : 'kg' }}</span>
+    </mat-form-field>
+    <mat-form-field appearance="outline">
+      <mat-label>Goal weight</mat-label>
+      <input matInput type="number" min="0" step="0.1" inputmode="decimal"
+             [ngModel]="goalWeightDisp()" (ngModelChange)="goalWeightDisp.set($event)" />
+      <span matTextSuffix>{{ imperial() ? 'lb' : 'kg' }}</span>
+    </mat-form-field>
+  </div>
+  <p class="pf-share-note">Current weight also drives the calories-burned estimate for exercise.</p>
+
+  <mat-form-field appearance="outline" class="pf-field">
+    <mat-label>Biological sex (for metabolic estimates)</mat-label>
+    <mat-select [ngModel]="sex()" (ngModelChange)="sex.set($event)">
+      @for (s of sexes; track s.value) {
+        <mat-option [value]="s.value">{{ s.label }}</mat-option>
+      }
+    </mat-select>
+    <mat-hint>Used only to estimate BMR/TDEE.</mat-hint>
+  </mat-form-field>
+
+  <mat-form-field appearance="outline" class="pf-field">
+    <mat-label>Activity level</mat-label>
+    <mat-select [ngModel]="activityLevel()" (ngModelChange)="activityLevel.set($event)">
+      @for (a of activityLevels; track a.value) {
+        <mat-option [value]="a.value">{{ a.label }}</mat-option>
+      }
+    </mat-select>
+  </mat-form-field>
+
+  <!-- ── Live stats preview ── -->
+  @if (preview(); as s) {
+    @if (s.bmi != null || s.bmr != null || s.tdee != null || s.suggestedCalorieGoal != null) {
+      <div class="pf-preview" role="group" aria-label="Estimated stats">
+        <div class="pf-preview-grid">
+          @if (s.bmi != null) {
+            <div class="pf-stat"><span class="pf-stat-l">BMI</span>
+              <span class="pf-stat-v mono-num">{{ s.bmi }}</span>
+              <span class="pf-stat-x">{{ s.bmiCategory }}</span></div>
+          }
+          @if (s.bmr != null) {
+            <div class="pf-stat"><span class="pf-stat-l">BMR</span>
+              <span class="pf-stat-v mono-num">{{ s.bmr }}</span><span class="pf-stat-x">kcal/day</span></div>
+          }
+          @if (s.tdee != null) {
+            <div class="pf-stat"><span class="pf-stat-l">TDEE</span>
+              <span class="pf-stat-v mono-num">{{ s.tdee }}</span><span class="pf-stat-x">kcal/day</span></div>
+          }
+          @if (s.suggestedCalorieGoal != null) {
+            <div class="pf-stat"><span class="pf-stat-l">Suggested</span>
+              <span class="pf-stat-v mono-num">{{ s.suggestedCalorieGoal }}</span><span class="pf-stat-x">kcal/day</span></div>
+          }
+        </div>
+        @if (hasSuggestion()) {
+          <button mat-stroked-button type="button" class="pf-usesuggested" (click)="useSuggested()">
+            <mat-icon>auto_fix_high</mat-icon> Use suggested
+          </button>
+        }
+      </div>
+    }
+  }
 
   <mat-form-field appearance="outline" class="pf-field">
     <mat-label>Daily calorie goal (optional)</mat-label>
@@ -47,10 +150,10 @@
   <mat-checkbox class="pf-share" [ngModel]="shareWithContacts()" (ngModelChange)="shareWithContacts.set($event)">
     Share my tracker with my contacts
   </mat-checkbox>
-  <p class="pf-share-note">When on, people in your contact circle can view this tracker read-only.</p>
+  <p class="pf-share-note">When on, people in your contact circle can view this tracker read-only. Your body metrics (weight, BMI, BMR) stay private.</p>
 </mat-dialog-content>
 
 <mat-dialog-actions class="pf-actions" align="end">
   <button mat-stroked-button type="button" (click)="cancel()">Cancel</button>
-  <button mat-flat-button type="button" color="primary" (click)="save()">Save goals</button>
+  <button mat-flat-button type="button" color="primary" (click)="save()">Save profile</button>
 </mat-dialog-actions>

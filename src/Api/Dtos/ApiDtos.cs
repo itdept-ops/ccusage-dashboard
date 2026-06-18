@@ -750,8 +750,9 @@ public sealed class ExerciseEntryDto
     public int CaloriesBurned { get; set; }
 }
 
-/// <summary>A user's tracker profile: goal, weight, optional calorie/macro targets, sharing flag.
-/// Doubles as the body of <c>PUT /api/tracker/profile</c> (UpdateTrackerProfileRequest).</summary>
+/// <summary>A user's tracker profile: goal, body profile, optional calorie/macro targets, sharing flag.
+/// Doubles as the body of <c>PUT /api/tracker/profile</c> (UpdateTrackerProfileRequest). All body
+/// measures are metric (kg + cm); <see cref="UnitSystem"/> is a display preference only.</summary>
 public sealed class TrackerProfileDto
 {
     /// <summary>One of the <c>TrackerGoal</c> names: "LoseWeight" | "Maintain" | "GainMuscle" | "Endurance".</summary>
@@ -762,6 +763,34 @@ public sealed class TrackerProfileDto
     public int? CarbGoalG { get; set; }
     public int? FatGoalG { get; set; }
     public bool ShareWithContacts { get; set; }
+
+    /// <summary>"yyyy-MM-dd" or null.</summary>
+    public string? DateOfBirth { get; set; }
+    public double? HeightCm { get; set; }
+    /// <summary>One of the <c>BiologicalSex</c> names: "Unspecified" | "Male" | "Female".</summary>
+    public string Sex { get; set; } = "Unspecified";
+    /// <summary>One of the <c>ActivityLevel</c> names: "Sedentary" | "Light" | "Moderate" | "Active" | "VeryActive".</summary>
+    public string ActivityLevel { get; set; } = "Sedentary";
+    public double? GoalWeightKg { get; set; }
+    /// <summary>"Metric" | "Imperial" — display preference; backend always stores/returns metric.</summary>
+    public string UnitSystem { get; set; } = "Metric";
+}
+
+/// <summary>Computed body-metric estimates from the current profile (all metric inputs). Any field whose
+/// inputs are missing is null — partial stats are expected. NULLED entirely when a viewer reads someone
+/// else's day (body metrics are private).</summary>
+public sealed class TrackerStatsDto
+{
+    public int? Age { get; set; }
+    public double? Bmi { get; set; }
+    /// <summary>"Underweight" | "Normal" | "Overweight" | "Obese".</summary>
+    public string? BmiCategory { get; set; }
+    public int? Bmr { get; set; }
+    public int? Tdee { get; set; }
+    public int? SuggestedCalorieGoal { get; set; }
+    public int? SuggestedProteinG { get; set; }
+    public int? SuggestedCarbG { get; set; }
+    public int? SuggestedFatG { get; set; }
 }
 
 /// <summary>A whole day's tracker: the profile, foods (grouped by meal on the client), exercises, and
@@ -772,6 +801,9 @@ public sealed class TrackerDayDto
     public string UserEmail { get; set; } = "";
     public bool ReadOnly { get; set; }
     public TrackerProfileDto Profile { get; set; } = new();
+    /// <summary>Computed body-metric estimates for the owner. NULL in the read-only (viewer) branch —
+    /// BMI/BMR/weight must not leak to a sharing contact or a coach.</summary>
+    public TrackerStatsDto? Stats { get; set; }
     public FoodEntryDto[] Foods { get; set; } = Array.Empty<FoodEntryDto>();
     public ExerciseEntryDto[] Exercises { get; set; } = Array.Empty<ExerciseEntryDto>();
     public int CaloriesIn { get; set; }
@@ -808,6 +840,21 @@ public sealed class AddFoodRequest
     public double ProteinG { get; set; }
     public double CarbG { get; set; }
     public double FatG { get; set; }
+}
+
+/// <summary>One body-weight reading on a day, for the trend chart. Weight is always kg.</summary>
+public sealed class WeightPointDto
+{
+    /// <summary>"yyyy-MM-dd".</summary>
+    public string Date { get; set; } = "";
+    public double WeightKg { get; set; }
+}
+
+/// <summary>Log (upsert) today's-or-any-day body weight; weight is always kilograms.</summary>
+public sealed class LogWeightRequest
+{
+    public string Date { get; set; } = "";
+    public double WeightKg { get; set; }
 }
 
 /// <summary>Log an exercise. When <see cref="CaloriesBurned"/> is omitted and an

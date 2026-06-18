@@ -401,6 +401,173 @@ public class TrackerIntegrationTests(WebAppFactory factory)
         coachShared.Should().Contain(aliceEmail).And.Contain(bobEmail);
     }
 
+    // ---- Profile: the full-fitness body fields round-trip ----
+
+    [Fact]
+    public async Task Profile_round_trips_the_full_fitness_body_fields()
+    {
+        var (_, user) = await ProvisionUser("tracker.self");
+
+        var put = await user.PutAsJsonAsync("/api/tracker/profile", new
+        {
+            goal = "LoseWeight",
+            weightKg = 80.0,
+            shareWithContacts = false,
+            dateOfBirth = "1990-01-01",
+            heightCm = 180.0,
+            sex = "Male",
+            activityLevel = "Moderate",
+            goalWeightKg = 72.0,
+            unitSystem = "Imperial",
+        });
+        put.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var saved = await Json(await user.GetAsync("/api/tracker/profile"));
+        saved.GetProperty("dateOfBirth").GetString().Should().Be("1990-01-01");
+        saved.GetProperty("heightCm").GetDouble().Should().Be(180.0);
+        saved.GetProperty("sex").GetString().Should().Be("Male");
+        saved.GetProperty("activityLevel").GetString().Should().Be("Moderate");
+        saved.GetProperty("goalWeightKg").GetDouble().Should().Be(72.0);
+        saved.GetProperty("unitSystem").GetString().Should().Be("Imperial");
+    }
+
+    // ---- Stats: computed on the day from the profile (BMI/BMR/TDEE/suggestions) ----
+
+    [Fact]
+    public async Task Day_stats_are_computed_from_the_profile()
+    {
+        var (_, user) = await ProvisionUser("tracker.self");
+        await user.PutAsJsonAsync("/api/tracker/profile", new
+        {
+            goal = "Maintain",
+            weightKg = 80.0,
+            heightCm = 180.0,
+            dateOfBirth = "1990-01-01", // birthday in January → age stable regardless of "today"
+            sex = "Male",
+            activityLevel = "Sedentary",
+            shareWithContacts = false,
+        });
+
+        var day = await Json(await user.GetAsync($"/api/tracker/day?date={Today}"));
+        var stats = day.GetProperty("stats");
+        stats.ValueKind.Should().Be(JsonValueKind.Object);
+        // BMI = 80 / 1.8^2 = 24.7, Normal.
+        stats.GetProperty("bmi").GetDouble().Should().Be(24.7);
+        stats.GetProperty("bmiCategory").GetString().Should().Be("Normal");
+        // Male BMR = 10*80 + 6.25*180 - 5*36 + 5 = 1750; Sedentary TDEE = 1750*1.2 = 2100.
+        stats.GetProperty("bmr").GetInt32().Should().Be(1750);
+        stats.GetProperty("tdee").GetInt32().Should().Be(2100);
+        stats.GetProperty("suggestedCalorieGoal").GetInt32().Should().Be(2100); // Maintain
+        stats.GetProperty("age").GetInt32().Should().Be(36);
+    }
+
+    [Fact]
+    public async Task Day_stats_are_partial_when_sex_unspecified()
+    {
+        var (_, user) = await ProvisionUser("tracker.self");
+        await user.PutAsJsonAsync("/api/tracker/profile", new
+        {
+            goal = "Maintain", weightKg = 80.0, heightCm = 180.0, sex = "Unspecified", shareWithContacts = false,
+        });
+
+        var stats = (await Json(await user.GetAsync($"/api/tracker/day?date={Today}"))).GetProperty("stats");
+        stats.GetProperty("bmi").GetDouble().Should().Be(24.7);   // BMI present
+        stats.GetProperty("bmr").ValueKind.Should().Be(JsonValueKind.Null);  // no BMR without sex
+        stats.GetProperty("tdee").ValueKind.Should().Be(JsonValueKind.Null);
+    }
+
+    // ---- Stats PRIVACY: NULLED when a sharing contact (or coach) views you ----
+
+    [Fact]
+    public async Task Day_stats_are_null_in_the_read_only_branch_for_a_viewer()
+    {
+        var (aliceEmail, alice) = await ProvisionUser("tracker.self");
+        var (bobEmail, bob) = await ProvisionUser("tracker.self");
+        await MakeContacts(aliceEmail, bobEmail);
+
+        await alice.PutAsJsonAsync("/api/tracker/profile", new
+        {
+            goal = "Maintain", weightKg = 80.0, heightCm = 180.0, dateOfBirth = "1990-01-01",
+            sex = "Male", activityLevel = "Sedentary", shareWithContacts = true,
+        });
+
+        // Alice sees her own stats.
+        var own = (await Json(await alice.GetAsync($"/api/tracker/day?date={Today}"))).GetProperty("stats");
+        own.ValueKind.Should().Be(JsonValueKind.Object);
+
+        // Bob (a sharing mutual contact) sees the day, but stats are NULL — body metrics don't leak.
+        var viewed = await Json(await bob.GetAsync($"/api/tracker/day?date={Today}&user={aliceEmail}"));
+        viewed.GetProperty("readOnly").GetBoolean().Should().BeTrue();
+        viewed.GetProperty("stats").ValueKind.Should().Be(JsonValueKind.Null);
+        // Weight is nulled too (existing rule).
+        viewed.GetProperty("profile").GetProperty("weightKg").ValueKind.Should().Be(JsonValueKind.Null);
+
+        // A coach with viewall also gets NULL stats.
+        var (_, coach) = await ProvisionUser("tracker.self", "tracker.viewall");
+        var coachView = await Json(await coach.GetAsync($"/api/tracker/day?date={Today}&user={aliceEmail}"));
+        coachView.GetProperty("stats").ValueKind.Should().Be(JsonValueKind.Null);
+    }
+
+    // ---- Weight: upsert one-per-day + current weight tracks the latest-dated entry ----
+
+    [Fact]
+    public async Task Logging_weight_upserts_one_per_day_and_tracks_the_latest_dated_entry()
+    {
+        var (_, user) = await ProvisionUser("tracker.self");
+
+        // Log an older day first, then a newer day; current weight should follow the newest DATE.
+        var older = await user.PostAsJsonAsync("/api/tracker/weight", new { date = "2026-06-10", weightKg = 82.0 });
+        older.StatusCode.Should().Be(HttpStatusCode.OK);
+        (await Json(older)).GetProperty("weightKg").GetDouble().Should().Be(82.0);
+
+        var newer = await user.PostAsJsonAsync("/api/tracker/weight", new { date = "2026-06-17", weightKg = 80.5 });
+        newer.StatusCode.Should().Be(HttpStatusCode.OK);
+        // Returned profile's current weight = the latest-dated entry.
+        (await Json(newer)).GetProperty("weightKg").GetDouble().Should().Be(80.5);
+
+        // Re-logging the SAME (older) date upserts (no duplicate) and does NOT change current weight,
+        // because the newer-dated entry still wins.
+        var reolder = await user.PostAsJsonAsync("/api/tracker/weight", new { date = "2026-06-10", weightKg = 83.0 });
+        (await Json(reolder)).GetProperty("weightKg").GetDouble().Should().Be(80.5);
+
+        // History has exactly two points (one per day), oldest-first, with the upserted older value.
+        var history = (await Json(await user.GetAsync("/api/tracker/weight?days=365"))).EnumerateArray().ToList();
+        history.Should().HaveCount(2);
+        history[0].GetProperty("date").GetString().Should().Be("2026-06-10");
+        history[0].GetProperty("weightKg").GetDouble().Should().Be(83.0);
+        history[1].GetProperty("date").GetString().Should().Be("2026-06-17");
+        history[1].GetProperty("weightKg").GetDouble().Should().Be(80.5);
+    }
+
+    [Fact]
+    public async Task Logging_weight_rejects_out_of_range_values()
+    {
+        var (_, user) = await ProvisionUser("tracker.self");
+        (await user.PostAsJsonAsync("/api/tracker/weight", new { date = Today, weightKg = 0.0 }))
+            .StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        (await user.PostAsJsonAsync("/api/tracker/weight", new { date = Today, weightKg = 1500.0 }))
+            .StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        (await user.PostAsJsonAsync("/api/tracker/weight", new { date = "not-a-date", weightKg = 80.0 }))
+            .StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task Weight_history_returns_only_your_own_readings()
+    {
+        var (aliceEmail, alice) = await ProvisionUser("tracker.self");
+        var (_, coach) = await ProvisionUser("tracker.self", "tracker.viewall");
+
+        await alice.PostAsJsonAsync("/api/tracker/weight", new { date = "2026-06-17", weightKg = 80.0 });
+
+        // There is no ?user= on the weight GET — it's the caller's own history only. Even a viewall
+        // coach reading the endpoint gets THEIR OWN (empty) history, never Alice's.
+        var coachHistory = (await Json(await coach.GetAsync("/api/tracker/weight"))).EnumerateArray().ToList();
+        coachHistory.Should().BeEmpty();
+
+        var aliceHistory = (await Json(await alice.GetAsync("/api/tracker/weight"))).EnumerateArray().ToList();
+        aliceHistory.Should().ContainSingle();
+    }
+
     // ---- USDA: 503 when unconfigured (no API key in the test environment) ----
 
     [Fact]

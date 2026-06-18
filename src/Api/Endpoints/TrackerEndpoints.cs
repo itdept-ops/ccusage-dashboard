@@ -253,9 +253,99 @@ public static class TrackerEndpoints
             profile.CarbGoalG = Positive(req.CarbGoalG);
             profile.FatGoalG = Positive(req.FatGoalG);
             profile.ShareWithContacts = req.ShareWithContacts;
+            profile.DateOfBirth = TryParseDate(req.DateOfBirth, out var dob) ? dob : null;
+            profile.HeightCm = Positive(req.HeightCm);
+            profile.Sex = Enum.TryParse<BiologicalSex>(req.Sex, ignoreCase: true, out var sex) ? sex : BiologicalSex.Unspecified;
+            profile.ActivityLevel = Enum.TryParse<ActivityLevel>(req.ActivityLevel, ignoreCase: true, out var act) ? act : ActivityLevel.Sedentary;
+            profile.GoalWeightKg = Positive(req.GoalWeightKg);
+            profile.UnitSystem = Enum.TryParse<UnitSystem>(req.UnitSystem, ignoreCase: true, out var unit) ? unit : UnitSystem.Metric;
             profile.UpdatedUtc = DateTime.UtcNow;
             await db.SaveChangesAsync(ct);
             return Results.Ok(ToProfileDto(profile));
+        }).RequirePermission(Permissions.TrackerSelf);
+
+        // ---- Log (upsert) the caller's body weight on a day (OWN only) ----
+        // Upserts the WeightEntry for that local date AND sets profile.WeightKg to the entry on the
+        // MOST RECENT date present (so "current weight" + stats track the latest reading). Returns the
+        // refreshed profile so the client can update its current weight + stats.
+        g.MapPost("/weight", async (
+            LogWeightRequest req, CurrentUserAccessor me, UsageDbContext db, CancellationToken ct) =>
+        {
+            var caller = (await me.GetUserAsync(ct))!;
+
+            if (!TryParseDate(req.Date, out var localDate))
+                return Results.BadRequest(new { message = "A valid date (yyyy-MM-dd) is required." });
+            if (!(req.WeightKg >= 1 && req.WeightKg <= 1000))
+                return Results.BadRequest(new { message = "Weight must be between 1 and 1000 kg." });
+
+            var weightKg = Math.Round(req.WeightKg, 2);
+
+            var entry = await db.WeightEntries
+                .FirstOrDefaultAsync(w => w.UserEmail == caller.Email && w.LocalDate == localDate, ct);
+            if (entry is null)
+            {
+                entry = new WeightEntry
+                {
+                    UserEmail = caller.Email,
+                    LocalDate = localDate,
+                    WeightKg = weightKg,
+                    CreatedUtc = DateTime.UtcNow,
+                };
+                db.WeightEntries.Add(entry);
+            }
+            else
+            {
+                entry.WeightKg = weightKg;
+            }
+
+            var profile = await GetOrCreateProfileAsync(db, caller.Email, ct);
+            try
+            {
+                await db.SaveChangesAsync(ct);
+            }
+            catch (DbUpdateException ex) when (IsUniqueViolation(ex))
+            {
+                // A concurrent insert for the same (user, date) won the race; reload + overwrite it.
+                db.ChangeTracker.Clear();
+                profile = await GetOrCreateProfileAsync(db, caller.Email, ct);
+                entry = await db.WeightEntries
+                    .FirstAsync(w => w.UserEmail == caller.Email && w.LocalDate == localDate, ct);
+                entry.WeightKg = weightKg;
+                await db.SaveChangesAsync(ct);
+            }
+
+            // Current weight = the reading on the most recent dated entry (ties broken by newest insert).
+            var latest = await db.WeightEntries.AsNoTracking()
+                .Where(w => w.UserEmail == caller.Email)
+                .OrderByDescending(w => w.LocalDate).ThenByDescending(w => w.Id)
+                .Select(w => (double?)w.WeightKg)
+                .FirstOrDefaultAsync(ct);
+            if (latest is { } lw && profile.WeightKg != lw)
+            {
+                profile.WeightKg = lw;
+                profile.UpdatedUtc = DateTime.UtcNow;
+                await db.SaveChangesAsync(ct);
+            }
+
+            return Results.Ok(ToProfileDto(profile));
+        }).RequirePermission(Permissions.TrackerSelf);
+
+        // ---- The caller's own weight history for the trend (OWN only — private, never for others) ----
+        g.MapGet("/weight", async (
+            int? days, CurrentUserAccessor me, UsageDbContext db, CancellationToken ct) =>
+        {
+            var caller = (await me.GetUserAsync(ct))!;
+            var window = days is { } d ? Math.Clamp(d, 1, 365) : 90;
+            var today = DateOnly.FromDateTime(
+                TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, await DisplayTzAsync(db, ct)));
+            var from = today.AddDays(-(window - 1));
+
+            var points = await db.WeightEntries.AsNoTracking()
+                .Where(w => w.UserEmail == caller.Email && w.LocalDate >= from && w.LocalDate <= today)
+                .OrderBy(w => w.LocalDate)
+                .Select(w => new WeightPointDto { Date = w.LocalDate.ToString("yyyy-MM-dd"), WeightKg = w.WeightKg })
+                .ToListAsync(ct);
+            return Results.Ok(points);
         }).RequirePermission(Permissions.TrackerSelf);
 
         // ---- People whose tracker the caller may view ----
@@ -338,6 +428,17 @@ public static class TrackerEndpoints
         // never expose it to a viewer (shared contact or coach); they still see calories + macros.
         if (readOnly) profileDto.WeightKg = null;
 
+        // Body-metric estimates (BMI/BMR/TDEE/suggestions). PRIVACY: only the owner ever sees these —
+        // a viewer (shared contact or coach) gets NULL so body metrics don't leak. Age uses "today" in
+        // the display timezone (not the viewed day) per the existing date handling.
+        TrackerStatsDto? stats = null;
+        if (!readOnly && profile is not null)
+        {
+            var today = DateOnly.FromDateTime(
+                TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, await DisplayTzAsync(db, ct)));
+            stats = TrackerStats.Compute(profile, today);
+        }
+
         var foods = await db.FoodEntries.AsNoTracking()
             .Where(f => f.UserEmail == email && f.LocalDate == date)
             .OrderBy(f => f.Meal).ThenBy(f => f.Id)
@@ -362,6 +463,7 @@ public static class TrackerEndpoints
             UserEmail = email,
             ReadOnly = readOnly,
             Profile = profileDto,
+            Stats = stats,
             Foods = foods.Select(ToFoodDto).ToArray(),
             Exercises = exercises.Select(ToExerciseDto).ToArray(),
             CaloriesIn = caloriesIn,
@@ -483,6 +585,12 @@ public static class TrackerEndpoints
         CarbGoalG = p.CarbGoalG,
         FatGoalG = p.FatGoalG,
         ShareWithContacts = p.ShareWithContacts,
+        DateOfBirth = p.DateOfBirth?.ToString("yyyy-MM-dd"),
+        HeightCm = p.HeightCm,
+        Sex = p.Sex.ToString(),
+        ActivityLevel = p.ActivityLevel.ToString(),
+        GoalWeightKg = p.GoalWeightKg,
+        UnitSystem = p.UnitSystem.ToString(),
     };
 
     private static bool TryParseMeal(string? value, out MealType meal) =>

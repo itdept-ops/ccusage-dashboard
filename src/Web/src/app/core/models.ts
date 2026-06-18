@@ -574,6 +574,15 @@ export interface ChatContactDto {
 /** Tracker macro/exercise goal preset (mirrors the backend goal enum names). */
 export type TrackerGoal = 'LoseWeight' | 'Maintain' | 'GainMuscle' | 'Endurance';
 
+/** Biological sex for metabolic estimates (BMR/TDEE). "Unspecified" => no BMR/TDEE computed. Mirrors BiologicalSex. */
+export type Sex = 'Unspecified' | 'Male' | 'Female';
+
+/** Activity level for the TDEE multiplier. Mirrors ActivityLevel (default Sedentary). */
+export type ActivityLevel = 'Sedentary' | 'Light' | 'Moderate' | 'Active' | 'VeryActive';
+
+/** Display unit preference. Backend always stores/returns metric (kg + cm). Mirrors UnitSystem. */
+export type UnitSystem = 'Metric' | 'Imperial';
+
 /** Which meal a food entry belongs to. */
 export type Meal = 'breakfast' | 'lunch' | 'dinner' | 'snack';
 
@@ -644,6 +653,47 @@ export interface TrackerProfileDto {
   carbGoalG?: number;
   fatGoalG?: number;
   shareWithContacts: boolean;
+  /** Date of birth as `yyyy-MM-dd`, or null. Age is derived from this server-side. */
+  dateOfBirth?: string | null;
+  /** Height in centimetres (backend always metric), or null. */
+  heightCm?: number;
+  /** Biological sex for metabolic estimates ("Unspecified" => no BMR/TDEE). */
+  sex: Sex;
+  /** Activity level driving the TDEE multiplier. */
+  activityLevel: ActivityLevel;
+  /** Goal weight in kilograms (backend always metric), or null. */
+  goalWeightKg?: number;
+  /** Display unit preference; backend stores/returns metric regardless. */
+  unitSystem: UnitSystem;
+}
+
+/**
+ * Computed body/metabolic stats for the CURRENT profile (server-computed from the profile). Any field
+ * whose inputs are missing comes back null (partial stats are fine — e.g. BMI without BMR). The WHOLE
+ * object is null in the readOnly/viewer branch (body metrics must not leak). Mirrors TrackerStatsDto.
+ */
+export interface TrackerStatsDto {
+  age?: number | null;
+  bmi?: number | null;
+  bmiCategory?: string | null;
+  bmr?: number | null;
+  tdee?: number | null;
+  suggestedCalorieGoal?: number | null;
+  suggestedProteinG?: number | null;
+  suggestedCarbG?: number | null;
+  suggestedFatG?: number | null;
+}
+
+/** One point in the weight trend (GET /api/tracker/weight). Mirrors WeightPointDto. */
+export interface WeightPointDto {
+  date: string;
+  weightKg: number;
+}
+
+/** Log-today's-weight payload (POST /api/tracker/weight). Mirrors LogWeightRequest. */
+export interface LogWeightRequest {
+  date: string;
+  weightKg: number;
 }
 
 /**
@@ -655,6 +705,8 @@ export interface TrackerDayDto {
   userEmail: string;
   readOnly: boolean;
   profile: TrackerProfileDto;
+  /** Computed body/metabolic stats from the profile; null when viewing someone else (privacy). */
+  stats?: TrackerStatsDto | null;
   foods: FoodEntryDto[];
   exercises: ExerciseEntryDto[];
   caloriesIn: number;

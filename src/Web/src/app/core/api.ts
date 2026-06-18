@@ -5,10 +5,10 @@ import {
   AccessPolicy, AddExerciseRequest, AddFoodRequest, AuditEntry, CacheEfficiency, CalendarDay, ChatChannelDto, ChatContactDto, ChatMessageDto, CreateChannelRequest,
   CreateShareRequest, ExerciseEntryDto, ExerciseLibraryDto, Fleet, FleetDeleteRequest,
   FleetDeleteResult, FleetReassignRequest, FleetReassignResult, FleetRevokeKeysRequest, FleetRevokeKeysResult, FoodEntryDto, FoodSearchItemDto, GroupBy,
-  HeatmapCell, IngestionSource, IngestKey, IngestKeyCreated, LoginEvent, MachineStat, ManagedUser, ModelStat, NotificationDto, NotificationPreferenceDto, NotificationSettings,
+  HeatmapCell, IngestionSource, IngestKey, IngestKeyCreated, LogWeightRequest, LoginEvent, MachineStat, ManagedUser, ModelStat, NotificationDto, NotificationPreferenceDto, NotificationSettings,
   NotificationUpdate, PagedResult, PermissionItem, Presence, Pricing, ProjectDto, PublicShare, ReactionGroupDto, RequestLogEntry, SavedView,
   SavedViewUpsertRequest, SessionDetail, Settings, ShareAccessItem, ShareCreated, ShareListItem, SharedUserDto, SummaryResponse,
-  SyncResult, SyncStatus, TrackerDayDto, TrackerProfileDto, UsageFilter, UsageRecord, UsageStats,
+  SyncResult, SyncStatus, TrackerDayDto, TrackerProfileDto, UsageFilter, UsageRecord, UsageStats, WeightPointDto,
 } from './models';
 
 @Injectable({ providedIn: 'root' })
@@ -454,5 +454,20 @@ export class Api {
   /** People whose tracker the caller may view read-only. */
   trackerShared(): Observable<SharedUserDto[]> {
     return this.http.get<SharedUserDto[]>(`${this.base}/tracker/shared`);
+  }
+
+  /**
+   * Log (upsert) the caller's weight for a date — one entry per day. Also sets the profile's current
+   * weight to the most-recent-dated entry. Returns the updated profile (so the client refreshes current
+   * weight + stats). OWN tracker only; weight in 1..1000 kg.
+   */
+  logWeight(body: LogWeightRequest): Observable<TrackerProfileDto> {
+    return this.http.post<TrackerProfileDto>(`${this.base}/tracker/weight`, body);
+  }
+
+  /** The caller's OWN weight history (oldest-first) for the last N days (default 90, max 365). Private — never another user's. */
+  weightHistory(days?: number): Observable<WeightPointDto[]> {
+    const params = days != null ? new HttpParams().set('days', days) : undefined;
+    return this.http.get<WeightPointDto[]>(`${this.base}/tracker/weight`, { params });
   }
 }

@@ -17,6 +17,24 @@ public class TrackerProfile
     /// <summary>Body weight in kilograms; used to estimate calories burned from MET + duration.</summary>
     public double? WeightKg { get; set; }
 
+    /// <summary>Date of birth; age (whole years to "today") is derived for the metabolic estimate.</summary>
+    public DateOnly? DateOfBirth { get; set; }
+
+    /// <summary>Height in centimetres (metric is always stored); an input to BMI + BMR.</summary>
+    public double? HeightCm { get; set; }
+
+    /// <summary>Biological sex (for the metabolic estimate). Unspecified ⇒ no BMR/TDEE.</summary>
+    public BiologicalSex Sex { get; set; } = BiologicalSex.Unspecified;
+
+    /// <summary>Day-to-day activity level; the TDEE multiplier on top of BMR.</summary>
+    public ActivityLevel ActivityLevel { get; set; } = ActivityLevel.Sedentary;
+
+    /// <summary>Target body weight in kilograms, for the weight-trend goal line + progress.</summary>
+    public double? GoalWeightKg { get; set; }
+
+    /// <summary>Preferred display units (metric vs imperial). Backend always stores/returns metric.</summary>
+    public UnitSystem UnitSystem { get; set; } = UnitSystem.Metric;
+
     public int? DailyCalorieGoal { get; set; }
     public int? ProteinGoalG { get; set; }
     public int? CarbGoalG { get; set; }

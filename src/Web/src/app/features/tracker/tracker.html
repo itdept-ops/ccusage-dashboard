@@ -141,6 +141,86 @@
       </div>
     </div>
 
+    <!-- ── Your stats + weight trend (own tracker only; hidden when viewing someone else) ── -->
+    @if (!store.readOnly()) {
+      <div class="tracker__fitness">
+        <!-- Stats panel -->
+        <section class="tracker__stats" aria-label="Your stats">
+          <div class="tracker__meal-head">
+            <h2 class="tracker__meal-title">
+              <mat-icon aria-hidden="true">monitor_heart</mat-icon> Your stats
+            </h2>
+            <button mat-stroked-button type="button" class="tracker__logwt" (click)="openLogWeight()">
+              <mat-icon>monitor_weight</mat-icon> Log weight
+            </button>
+          </div>
+
+          <div class="tracker__statgrid">
+            <div class="tracker__statcell">
+              <span class="tracker__stat-l">Age</span>
+              <span class="tracker__stat-v mono-num">{{ stats()?.age != null ? stats()!.age : '—' }}</span>
+            </div>
+            <div class="tracker__statcell">
+              <span class="tracker__stat-l">Current</span>
+              <span class="tracker__stat-v mono-num">{{ weightLabel(store.profile()?.weightKg) }}</span>
+            </div>
+            <div class="tracker__statcell">
+              <span class="tracker__stat-l">Goal</span>
+              <span class="tracker__stat-v mono-num">{{ weightLabel(store.profile()?.goalWeightKg) }}</span>
+            </div>
+            <div class="tracker__statcell">
+              <span class="tracker__stat-l">BMI</span>
+              @if (stats()?.bmi != null) {
+                <span class="tracker__stat-v mono-num">{{ stats()!.bmi }}</span>
+                <span class="tracker__bmichip" [class]="bmiClass()">{{ stats()!.bmiCategory }}</span>
+              } @else {
+                <span class="tracker__stat-v">—</span>
+              }
+            </div>
+            <div class="tracker__statcell">
+              <span class="tracker__stat-l">BMR</span>
+              <span class="tracker__stat-v mono-num">{{ stats()?.bmr != null ? (stats()!.bmr | number) : '—' }}</span>
+              @if (stats()?.bmr != null) { <span class="tracker__stat-x">kcal</span> }
+            </div>
+            <div class="tracker__statcell">
+              <span class="tracker__stat-l">TDEE</span>
+              <span class="tracker__stat-v mono-num">{{ stats()?.tdee != null ? (stats()!.tdee | number) : '—' }}</span>
+              @if (stats()?.tdee != null) { <span class="tracker__stat-x">kcal</span> }
+            </div>
+          </div>
+
+          <!-- Goal-weight progress. -->
+          @if (goalProgressPct() != null) {
+            <div class="tracker__goalprog">
+              <div class="tracker__goalprog-head">
+                <span class="tracker__stat-l">Toward goal weight</span>
+                @if (goalDelta(); as gd) { <span class="tracker__goaldelta">{{ gd.text }}</span> }
+              </div>
+              <div class="tracker__macro-track" role="progressbar"
+                   aria-valuemin="0" aria-valuemax="100" [attr.aria-valuenow]="goalProgressPct()"
+                   aria-label="Progress toward goal weight">
+                <div class="tracker__macro-fill tracker__macro-fill--p" [style.width.%]="goalProgressPct()"></div>
+              </div>
+            </div>
+          }
+        </section>
+
+        <!-- Weight trend -->
+        <section class="tracker__trend" aria-label="Weight trend">
+          <div class="tracker__meal-head">
+            <h2 class="tracker__meal-title">
+              <mat-icon aria-hidden="true">show_chart</mat-icon> Weight trend
+            </h2>
+            <span class="tracker__meal-cal">last 90 days</span>
+          </div>
+          <div class="tracker__trend-body">
+            <app-weight-trend [points]="weightHistory()" [goalWeightKg]="store.profile()?.goalWeightKg"
+                              [imperial]="imperial()" />
+          </div>
+        </section>
+      </div>
+    }
+
     <!-- Meal sections. -->
     @for (s of mealSections; track s.meal) {
       <section class="tracker__meal" [attr.aria-label]="s.label">
