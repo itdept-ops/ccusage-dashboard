@@ -710,6 +710,12 @@ public sealed class FoodSearchItemDto
     public string? ServingUnit { get; set; }
     /// <summary>"perServing" or "per100g".</summary>
     public string Basis { get; set; } = "per100g";
+
+    /// <summary>Which provider produced this hit: "usda" | "fatsecret". REQUIRED.</summary>
+    public string Source { get; set; } = "usda";
+
+    /// <summary>Provider-native id (USDA: <see cref="FdcId"/> as string; FatSecret: food_id), or null.</summary>
+    public string? SourceId { get; set; }
 }
 
 /// <summary>One logged food, with its meal so the day view can group by meal. Nutrition is the
@@ -840,6 +846,29 @@ public sealed class AddFoodRequest
     public double ProteinG { get; set; }
     public double CarbG { get; set; }
     public double FatG { get; set; }
+
+    /// <summary>
+    /// Where the food came from ("usda" | "fatsecret" | "custom"), or null/absent when MANUALLY typed.
+    /// A manual log (no source AND no <see cref="FdcId"/>) is auto-saved to the caller's "My foods"
+    /// library; a "custom" log bumps the matching saved food's use count; usda/fatsecret logs are not saved.
+    /// </summary>
+    public string? Source { get; set; }
+}
+
+/// <summary>One of the caller's saved "My foods" — a per-user library auto-built from manual food logs.
+/// Calories/macros are the verbatim totals first logged; <see cref="UseCount"/> tracks how often it was
+/// logged (newest-used first in the list).</summary>
+public sealed class CustomFoodDto
+{
+    public long Id { get; set; }
+    public string Description { get; set; } = "";
+    public string? Brand { get; set; }
+    public string? ServingDesc { get; set; }
+    public int Calories { get; set; }
+    public double ProteinG { get; set; }
+    public double CarbG { get; set; }
+    public double FatG { get; set; }
+    public int UseCount { get; set; }
 }
 
 /// <summary>One body-weight reading on a day, for the trend chart. Weight is always kg.</summary>

@@ -3,7 +3,7 @@ import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import {
   AccessPolicy, AddExerciseRequest, AddFoodRequest, AuditEntry, CacheEfficiency, CalendarDay, ChatChannelDto, ChatContactDto, ChatMessageDto, CreateChannelRequest,
-  CreateShareRequest, ExerciseEntryDto, ExerciseLibraryDto, Fleet, FleetDeleteRequest,
+  CreateShareRequest, CustomFoodDto, ExerciseEntryDto, ExerciseLibraryDto, Fleet, FleetDeleteRequest,
   FleetDeleteResult, FleetReassignRequest, FleetReassignResult, FleetRevokeKeysRequest, FleetRevokeKeysResult, FoodEntryDto, FoodSearchItemDto, GroupBy,
   HeatmapCell, IngestionSource, IngestKey, IngestKeyCreated, LogWeightRequest, LoginEvent, MachineStat, ManagedUser, ModelStat, NotificationDto, NotificationPreferenceDto, NotificationSettings,
   NotificationUpdate, PagedResult, PermissionItem, Presence, Pricing, ProjectDto, PublicShare, ReactionGroupDto, RequestLogEntry, SavedView,
@@ -420,6 +420,20 @@ export class Api {
   /** Delete a logged food entry. */
   deleteFood(id: number): Observable<unknown> {
     return this.http.delete(`${this.base}/tracker/food/${id}`);
+  }
+
+  /**
+   * The caller's saved "My foods" library (auto-built from manual food logs), newest-used first.
+   * Pass `q` for a case-insensitive description/brand filter.
+   */
+  savedFoods(q?: string): Observable<CustomFoodDto[]> {
+    const params = q ? new HttpParams().set('q', q) : undefined;
+    return this.http.get<CustomFoodDto[]>(`${this.base}/tracker/foods/saved`, { params });
+  }
+
+  /** Delete one of the caller's saved foods (owner-only). */
+  deleteSavedFood(id: number): Observable<unknown> {
+    return this.http.delete(`${this.base}/tracker/foods/saved/${id}`);
   }
 
   /**

@@ -13,7 +13,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 
 import { Api } from '../../core/api';
-import { AddFoodRequest, FoodSearchItemDto, Meal } from '../../core/models';
+import { AddFoodRequest, CustomFoodDto, FoodSearchItemDto, Meal } from '../../core/models';
 import { BarcodeScanner } from './barcode-scanner';
 
 /** What the dialog opens with: the active day + which meal section the user tapped "Add food" on. */
@@ -23,7 +23,7 @@ export interface AddFoodData {
 }
 
 /** Which sub-panel of the add-food flow is showing. */
-type Mode = 'search' | 'scan';
+type Mode = 'search' | 'scan' | 'saved';
 
 const MEALS: { value: Meal; label: string }[] = [
   { value: 'breakfast', label: 'Breakfast' },
@@ -65,12 +65,27 @@ export class AddFoodDialog {
   readonly searchError = signal<string | null>(null);
   private readonly queryStream = new Subject<string>();
 
+  // ---- "My foods" (per-user saved library) ----
+  readonly savedQuery = signal('');
+  readonly savedLoading = signal(false);
+  readonly saved = signal<CustomFoodDto[]>([]);
+  private readonly savedQueryStream = new Subject<string>();
+  private savedLoadedOnce = false;
+
   // ---- selection / quantity ----
   readonly selected = signal<FoodSearchItemDto | null>(null);
+  /**
+   * Provider the current selection came from ("usda" | "fatsecret" | "custom"), or null for a manual
+   * entry. Carried into the log request so the backend knows whether to auto-save / bump a saved food.
+   */
+  readonly selectedSource = signal<string | null>(null);
   /** "manual" === a hand-entered food (no FDC id); the form fields below drive the snapshot. */
   readonly manual = signal(false);
   readonly meal = signal<Meal>(this.data.meal);
   readonly quantity = signal(1);
+
+  /** The original serving text of a picked saved food (preserved verbatim at quantity 1). */
+  readonly pickedServingDesc = signal<string | undefined>(undefined);
 
   // ---- manual-entry fields ----
   readonly mDesc = signal('');
@@ -118,6 +133,9 @@ export class AddFoodDialog {
     if (this.manual()) return undefined;
     const f = this.selected();
     if (!f) return undefined;
+    // A re-picked saved food at quantity 1 keeps its original serving text verbatim.
+    const orig = this.pickedServingDesc();
+    if (orig && this.quantity() === 1) return orig;
     const unit = f.basis === 'per100g' ? 'g' : (this.quantity() === 1 ? 'serving' : 'servings');
     const sizeNote = f.servingSize && f.servingUnit ? ` (${f.servingSize}${f.servingUnit})` : '';
     return `${this.quantity()} ${unit}${f.basis === 'per100g' ? '' : sizeNote}`;
@@ -156,30 +174,86 @@ export class AddFoodDialog {
 
     // Keep the query stream fed from the signal.
     effect(() => this.queryStream.next(this.query()));
+
+    // Debounced "My foods" filter — re-fetches the caller's saved library on each keystroke.
+    this.savedQueryStream.pipe(
+      debounceTime(250),
+      distinctUntilChanged(),
+      switchMap(q => {
+        this.savedLoading.set(true);
+        return this.api.savedFoods(q.trim() || undefined).pipe(
+          catchError(() => of<CustomFoodDto[]>([])),
+        );
+      }),
+      takeUntilDestroyed(),
+    ).subscribe(list => {
+      this.savedLoading.set(false);
+      this.saved.set(list);
+    });
+
+    effect(() => this.savedQueryStream.next(this.savedQuery()));
   }
 
   setMode(m: Mode): void {
     this.mode.set(m);
     this.saveError.set(null);
+    // Lazy-load the saved library the first time the "My foods" tab is opened.
+    if (m === 'saved' && !this.savedLoadedOnce) {
+      this.savedLoadedOnce = true;
+      this.savedQueryStream.next(this.savedQuery());
+    }
   }
 
-  /** Pick a search/scan result → move to the quantity step. */
+  /** Pick a search/scan result → move to the quantity step, carrying its provider source. */
   pick(food: FoodSearchItemDto): void {
     this.manual.set(false);
+    this.pickedServingDesc.set(undefined);
+    this.selectedSource.set(food.source || null);
     this.selected.set(food);
     this.quantity.set(food.basis === 'per100g' ? (food.servingSize ?? 100) : 1);
+  }
+
+  /** Pick a saved "My foods" entry → quantity step (source="custom" so the backend bumps its use count). */
+  pickSaved(food: CustomFoodDto): void {
+    this.manual.set(false);
+    this.pickedServingDesc.set(food.servingDesc || undefined);
+    this.selectedSource.set('custom');
+    this.selected.set({
+      fdcId: 0,
+      description: food.description,
+      brand: food.brand,
+      calories: food.calories,
+      proteinG: food.proteinG,
+      carbG: food.carbG,
+      fatG: food.fatG,
+      basis: 'perServing',
+      source: 'custom',
+      sourceId: String(food.id),
+    });
+    this.quantity.set(1);
+  }
+
+  /** Remove a saved food from the caller's library (× on a "My foods" row). */
+  deleteSaved(food: CustomFoodDto, ev: Event): void {
+    ev.stopPropagation();
+    this.saved.update(list => list.filter(f => f.id !== food.id));
+    this.api.deleteSavedFood(food.id).subscribe({ error: () => this.savedQueryStream.next(this.savedQuery()) });
   }
 
   /** Start a fresh manual entry (used by the "enter manually" affordances). */
   startManual(): void {
     this.manual.set(true);
     this.selected.set(null);
+    this.selectedSource.set(null);
+    this.pickedServingDesc.set(undefined);
     this.mode.set('search');
   }
 
   /** Drop the current selection and go back to searching. */
   clearSelection(): void {
     this.selected.set(null);
+    this.selectedSource.set(null);
+    this.pickedServingDesc.set(undefined);
     this.manual.set(false);
   }
 
@@ -213,10 +287,12 @@ export class AddFoodDialog {
     if (!this.canSave()) return;
     const s = this.scaled();
     const f = this.selected();
+    const src = this.manual() ? null : this.selectedSource();
     const body: AddFoodRequest = {
       date: this.data.date,
       meal: this.meal(),
-      fdcId: this.manual() ? undefined : f?.fdcId,
+      // Only USDA hits carry a real FDC id; FatSecret/custom/manual logs leave it unset.
+      fdcId: (!this.manual() && src === 'usda') ? f?.fdcId : undefined,
       description: this.manual() ? this.mDesc().trim() : (f?.description ?? ''),
       brand: this.manual() ? (this.mBrand().trim() || undefined) : f?.brand,
       quantity: this.manual() ? 1 : this.quantity(),
@@ -225,6 +301,8 @@ export class AddFoodDialog {
       proteinG: s.proteinG,
       carbG: s.carbG,
       fatG: s.fatG,
+      // Manual entries send NO source so the backend auto-saves them to "My foods".
+      source: src ?? undefined,
     };
     // Resolve with the request; the page persists it through the store and refreshes the day.
     this.ref.close(body);

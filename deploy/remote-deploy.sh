@@ -21,6 +21,10 @@ GOOGLE_SECRET=$(ssm /usage-iq/google-client-secret --with-decryption)
 # Optional: USDA FoodData Central key for the food & fitness tracker. Non-fatal if unset — the
 # tracker still runs, only the food-search/details endpoints return 503 until a key is configured.
 USDA_API_KEY=$(ssm /usage-iq/usda-api-key --with-decryption)
+# Optional: FatSecret Platform OAuth2 credentials (the secondary food provider, used only when USDA
+# is unconfigured or returns nothing). Non-fatal if unset — FatSecret stays disabled until set.
+FATSECRET_CLIENT_ID=$(ssm /usage-iq/fatsecret-client-id --with-decryption)
+FATSECRET_CLIENT_SECRET=$(ssm /usage-iq/fatsecret-client-secret --with-decryption)
 
 if [ -z "$JWT" ] || [ -z "$DBPW" ]; then
   echo "FATAL: /usage-iq/jwt-key or /usage-iq/db-password missing in SSM." >&2; exit 1
@@ -37,6 +41,8 @@ ADMIN_EMAIL=$ADMIN_EMAIL
 GOOGLE_CLIENT_ID=$GOOGLE_ID
 GOOGLE_CLIENT_SECRET=$GOOGLE_SECRET
 USDA_API_KEY=$USDA_API_KEY
+FATSECRET_CLIENT_ID=$FATSECRET_CLIENT_ID
+FATSECRET_CLIENT_SECRET=$FATSECRET_CLIENT_SECRET
 EOF
 
 echo "==> Logging in to ECR"

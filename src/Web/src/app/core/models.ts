@@ -606,6 +606,10 @@ export interface FoodSearchItemDto {
   servingSize?: number;
   servingUnit?: string;
   basis: NutritionBasis;
+  /** Which provider produced this hit: "usda" | "fatsecret". */
+  source: string;
+  /** Provider-native id (USDA: fdcId as string; FatSecret: food_id), or null. */
+  sourceId?: string;
 }
 
 /** One logged food entry on a tracker day (calories/macros are the SNAPSHOT scaled by quantity). Mirrors FoodEntryDto. */
@@ -739,6 +743,28 @@ export interface AddFoodRequest {
   proteinG: number;
   carbG: number;
   fatG: number;
+  /**
+   * The provider the food came from ("usda" | "fatsecret" | "custom"), or null/omitted when MANUALLY
+   * typed. A manual log (no source + no fdcId) gets auto-saved to the caller's "My foods" library.
+   */
+  source?: string;
+}
+
+/**
+ * One of the caller's saved "My foods" (GET /api/tracker/foods/saved) — a per-user library auto-built
+ * from manual food logs. Calories/macros are the verbatim totals first logged; the dialog can scale
+ * them by quantity when re-picking. Mirrors CustomFoodDto.
+ */
+export interface CustomFoodDto {
+  id: number;
+  description: string;
+  brand?: string;
+  servingDesc?: string;
+  calories: number;
+  proteinG: number;
+  carbG: number;
+  fatG: number;
+  useCount: number;
 }
 
 /**

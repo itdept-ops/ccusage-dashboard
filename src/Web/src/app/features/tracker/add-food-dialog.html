@@ -5,7 +5,10 @@
   @if (selected() || manual()) {
     @if (manual()) {
       <div class="af-manual">
-        <p class="af-manual__lead">Enter the food and its totals.</p>
+        <p class="af-manual__lead">
+          Enter the food and its totals.
+          <span class="af-manual__hint"><mat-icon aria-hidden="true">bookmark_add</mat-icon> Saved to My foods for next time.</span>
+        </p>
         <mat-form-field appearance="outline" class="af-field">
           <mat-label>Description</mat-label>
           <input matInput cdkFocusInitial autocomplete="off" maxlength="120"
@@ -85,6 +88,7 @@
                              aria-label="How to add food" hideSingleSelectionIndicator>
       <mat-button-toggle value="search"><mat-icon>search</mat-icon> Search</mat-button-toggle>
       <mat-button-toggle value="scan"><mat-icon>qr_code_scanner</mat-icon> Scan</mat-button-toggle>
+      <mat-button-toggle value="saved"><mat-icon>bookmark</mat-icon> My foods</mat-button-toggle>
     </mat-button-toggle-group>
 
     @if (mode() === 'search') {
@@ -105,11 +109,16 @@
         @if (searchError(); as e) { <p class="af-error" role="alert"><mat-icon>error_outline</mat-icon> {{ e }}</p> }
 
         <div class="af-results" role="list" aria-label="Search results">
-          @for (f of results(); track f.fdcId) {
+          @for (f of results(); track f.source + ':' + (f.sourceId ?? f.fdcId)) {
             <div role="listitem" class="af-result-row">
               <button type="button" class="af-result" (click)="pick(f)">
                 <span class="af-result__id">
-                  <span class="af-result__name">{{ f.description }}</span>
+                  <span class="af-result__name">
+                    {{ f.description }}
+                    <span class="af-src-tag" [class.af-src-tag--fs]="f.source === 'fatsecret'">
+                      {{ f.source === 'fatsecret' ? 'FatSecret' : 'USDA' }}
+                    </span>
+                  </span>
                   @if (f.brand) { <span class="af-result__brand">{{ f.brand }}</span> }
                 </span>
                 <span class="af-result__nutr">
@@ -125,9 +134,50 @@
           }
         </div>
       }
-    } @else {
+    } @else if (mode() === 'scan') {
       <app-barcode-scanner (detected)="onBarcode($event)" />
       @if (searchError(); as e) { <p class="af-error" role="alert"><mat-icon>error_outline</mat-icon> {{ e }}</p> }
+    } @else {
+      <!-- "My foods": the caller's per-user saved library, searchable + pickable. -->
+      <mat-form-field appearance="outline" class="af-field af-search">
+        <mat-icon matPrefix>search</mat-icon>
+        <mat-label>Search my foods</mat-label>
+        <input matInput autocomplete="off" cdkFocusInitial
+               [ngModel]="savedQuery()" (ngModelChange)="savedQuery.set($event)" placeholder="e.g. chili" />
+      </mat-form-field>
+
+      @if (savedLoading()) { <mat-progress-bar mode="indeterminate" aria-label="Loading" /> }
+
+      <div class="af-results" role="list" aria-label="My foods">
+        @for (f of saved(); track f.id) {
+          <div role="listitem" class="af-result-row">
+            <button type="button" class="af-result" (click)="pickSaved(f)">
+              <span class="af-result__id">
+                <span class="af-result__name">{{ f.description }}</span>
+                <span class="af-result__brand">
+                  @if (f.brand) { {{ f.brand }} · }
+                  @if (f.servingDesc) { {{ f.servingDesc }} · }
+                  used {{ f.useCount }}×
+                </span>
+              </span>
+              <span class="af-result__nutr">
+                <span class="af-result__cal mono-num">{{ f.calories }} kcal</span>
+              </span>
+            </button>
+            <button mat-icon-button type="button" class="af-saved-del" (click)="deleteSaved(f, $event)"
+                    [attr.aria-label]="'Remove ' + f.description + ' from my foods'">
+              <mat-icon>close</mat-icon>
+            </button>
+          </div>
+        } @empty {
+          @if (!savedLoading()) {
+            <p class="af-empty">
+              @if (savedQuery().trim()) { No saved foods match. }
+              @else { No saved foods yet. Foods you enter manually are saved here. }
+            </p>
+          }
+        }
+      </div>
     }
 
     <button mat-stroked-button type="button" class="af-manual-btn" (click)="startManual()">

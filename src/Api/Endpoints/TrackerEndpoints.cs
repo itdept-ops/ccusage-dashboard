@@ -33,27 +33,72 @@ public static class TrackerEndpoints
     }
 
     // ===================================================================================
-    // USDA FoodData Central proxy (/api/foods) — search + details, 503 when unconfigured.
+    // Food lookup proxy (/api/foods) — search + details. USDA is the PRIMARY provider; FatSecret is a
+    // fallback used only when USDA is unconfigured or returns nothing. 503 only when BOTH are off.
     // ===================================================================================
     private static void MapFoodsProxy(WebApplication app)
     {
         var g = app.MapGroup("/api/foods").RequireAuthorization();
 
         // ---- Search by free-text query OR barcode (UPC/GTIN) ----
-        g.MapGet("/search", async (string? q, string? barcode, UsdaFoodService usda, CancellationToken ct) =>
+        // USDA first; if it returns hits, use them. If USDA is empty OR unconfigured, fall back to
+        // FatSecret (search or barcode) when it is configured. Both unconfigured → 503; both
+        // configured-but-empty → [] (200). USDA hits are tagged source="usda" + sourceId=fdcId.
+        g.MapGet("/search", async (
+            string? q, string? barcode, UsdaFoodService usda, FatSecretFoodService fatsecret, CancellationToken ct) =>
         {
-            if (!usda.IsConfigured) return UsdaUnconfigured();
-            var items = await usda.SearchAsync(q, barcode, ct);
-            return Results.Ok(items);
+            if (!usda.IsConfigured && !fatsecret.IsConfigured) return UsdaUnconfigured();
+
+            IReadOnlyList<FoodSearchItemDto>? usdaItems = null;
+            if (usda.IsConfigured)
+                usdaItems = TagUsda(await usda.SearchAsync(q, barcode, ct));
+
+            // Only call FatSecret when it could actually win (USDA off or empty) — never waste a request.
+            IReadOnlyList<FoodSearchItemDto>? fsItems = null;
+            if (fatsecret.IsConfigured && (usdaItems is null || usdaItems.Count == 0))
+                fsItems = !string.IsNullOrWhiteSpace(barcode)
+                    ? await fatsecret.BarcodeAsync(barcode, ct)
+                    : await fatsecret.SearchAsync(q, ct);
+
+            return Results.Ok(ChooseSearchResult(usda.IsConfigured, usdaItems, fatsecret.IsConfigured, fsItems));
         }).RequirePermission(Permissions.TrackerSelf);
 
-        // ---- Single food by FDC id ----
+        // ---- Single food by FDC id (USDA-only) ----
         g.MapGet("/{fdcId:int}", async (int fdcId, UsdaFoodService usda, CancellationToken ct) =>
         {
             if (!usda.IsConfigured) return UsdaUnconfigured();
             var item = await usda.GetDetailsAsync(fdcId, ct);
-            return item is null ? Results.NotFound() : Results.Ok(item);
+            return item is null ? Results.NotFound() : Results.Ok(TagUsdaOne(item));
         }).RequirePermission(Permissions.TrackerSelf);
+    }
+
+    /// <summary>
+    /// The food-search fallback decision, isolated for unit testing. USDA wins when it is configured and
+    /// returned at least one hit; otherwise FatSecret's results are used when it is configured; otherwise
+    /// an empty list (the both-unconfigured case is handled earlier as a 503). Null result lists are
+    /// treated as "that provider wasn't consulted / returned nothing".
+    /// </summary>
+    public static IReadOnlyList<FoodSearchItemDto> ChooseSearchResult(
+        bool usdaConfigured, IReadOnlyList<FoodSearchItemDto>? usdaItems,
+        bool fatsecretConfigured, IReadOnlyList<FoodSearchItemDto>? fatsecretItems)
+    {
+        if (usdaConfigured && usdaItems is { Count: > 0 }) return usdaItems;
+        if (fatsecretConfigured && fatsecretItems is not null) return fatsecretItems;
+        return Array.Empty<FoodSearchItemDto>();
+    }
+
+    /// <summary>Stamp source="usda" + sourceId=fdcId on USDA hits (FdcId stays set).</summary>
+    private static IReadOnlyList<FoodSearchItemDto> TagUsda(IReadOnlyList<FoodSearchItemDto> items)
+    {
+        foreach (var i in items) TagUsdaOne(i);
+        return items;
+    }
+
+    private static FoodSearchItemDto TagUsdaOne(FoodSearchItemDto item)
+    {
+        item.Source = "usda";
+        item.SourceId = item.FdcId.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        return item;
     }
 
     // ===================================================================================
@@ -114,7 +159,50 @@ public static class TrackerEndpoints
             };
             db.FoodEntries.Add(entry);
             await db.SaveChangesAsync(ct);
+
+            // Saved "My foods" upkeep. A MANUAL log (no provider source AND no FdcId) is auto-saved /
+            // bumped; an explicit "custom" re-log bumps the matching saved row; usda/fatsecret logs are
+            // never saved (they're searchable upstream already).
+            var source = (req.Source ?? "").Trim().ToLowerInvariant();
+            var isManual = source.Length == 0 && req.FdcId is null;
+            if (isManual || source == "custom")
+                await UpsertCustomFoodAsync(db, caller.Email, entry, bumpOnly: source == "custom", ct);
+
             return Results.Ok(ToFoodDto(entry));
+        }).RequirePermission(Permissions.TrackerSelf);
+
+        // ---- The caller's saved "My foods" library (auto-built from manual logs), newest-used first ----
+        g.MapGet("/foods/saved", async (
+            string? q, CurrentUserAccessor me, UsageDbContext db, CancellationToken ct) =>
+        {
+            var caller = (await me.GetUserAsync(ct))!;
+            var query = db.CustomFoods.AsNoTracking().Where(f => f.UserEmail == caller.Email);
+
+            var term = (q ?? "").Trim();
+            if (term.Length > 0)
+            {
+                var like = $"%{term}%";
+                query = query.Where(f =>
+                    EF.Functions.ILike(f.Description, like) || EF.Functions.ILike(f.Brand, like));
+            }
+
+            var rows = await query
+                .OrderByDescending(f => f.LastUsedUtc).ThenByDescending(f => f.Id)
+                .Take(100)
+                .ToListAsync(ct);
+            return Results.Ok(rows.Select(ToCustomFoodDto).ToArray());
+        }).RequirePermission(Permissions.TrackerSelf);
+
+        // ---- Delete one of the caller's saved foods (owner only) ----
+        g.MapDelete("/foods/saved/{id:long}", async (
+            long id, CurrentUserAccessor me, UsageDbContext db, CancellationToken ct) =>
+        {
+            var caller = (await me.GetUserAsync(ct))!;
+            // 404 when it doesn't exist OR isn't the caller's (never reveal someone else's saved food).
+            var deleted = await db.CustomFoods
+                .Where(f => f.Id == id && f.UserEmail == caller.Email)
+                .ExecuteDeleteAsync(ct);
+            return deleted == 0 ? Results.NotFound() : Results.NoContent();
         }).RequirePermission(Permissions.TrackerSelf);
 
         // ---- Delete a logged food (owner only) ----
@@ -510,6 +598,87 @@ public static class TrackerEndpoints
     }
 
     // ===================================================================================
+    // Saved "My foods" upkeep
+    // ===================================================================================
+
+    /// <summary>
+    /// Upsert the caller's saved "My foods" row for a just-logged food, keyed by the normalized identity
+    /// (UserEmail, Description, Brand="", ServingDesc=""): if it exists, bump UseCount + LastUsedUtc and
+    /// (unless <paramref name="bumpOnly"/>) refresh the snapshot macros; otherwise insert with UseCount=1.
+    /// <paramref name="bumpOnly"/> is for an explicit "custom" re-log (a pick of an existing saved food):
+    /// it must never create a new row — if no match exists it is a no-op. The unique-index violation
+    /// catch handles a concurrent insert racing the same identity.
+    /// </summary>
+    private static async Task UpsertCustomFoodAsync(
+        UsageDbContext db, string email, FoodEntry entry, bool bumpOnly, CancellationToken ct)
+    {
+        var description = entry.Description; // already trimmed + capped at log time
+        var brand = NormalizeKey(entry.Brand);
+        var servingDesc = NormalizeKey(entry.ServingDesc);
+
+        var existing = await db.CustomFoods.FirstOrDefaultAsync(f =>
+            f.UserEmail == email && f.Description == description
+            && f.Brand == brand && f.ServingDesc == servingDesc, ct);
+
+        if (existing is not null)
+        {
+            existing.UseCount += 1;
+            existing.LastUsedUtc = DateTime.UtcNow;
+            if (!bumpOnly)
+            {
+                existing.Calories = entry.Calories;
+                existing.ProteinG = entry.ProteinG;
+                existing.CarbG = entry.CarbG;
+                existing.FatG = entry.FatG;
+            }
+            await db.SaveChangesAsync(ct);
+            return;
+        }
+
+        // A "custom" re-log of a food that's no longer saved (e.g. the user deleted it) is a no-op.
+        if (bumpOnly) return;
+
+        var now = DateTime.UtcNow;
+        db.CustomFoods.Add(new CustomFood
+        {
+            UserEmail = email,
+            Description = description,
+            Brand = brand,
+            ServingDesc = servingDesc,
+            Calories = entry.Calories,
+            ProteinG = entry.ProteinG,
+            CarbG = entry.CarbG,
+            FatG = entry.FatG,
+            UseCount = 1,
+            CreatedUtc = now,
+            LastUsedUtc = now,
+        });
+        try
+        {
+            await db.SaveChangesAsync(ct);
+        }
+        catch (DbUpdateException ex) when (IsUniqueViolation(ex))
+        {
+            // A concurrent log for the same identity won the race; drop our insert and bump the winner.
+            db.ChangeTracker.Clear();
+            var winner = await db.CustomFoods.FirstOrDefaultAsync(f =>
+                f.UserEmail == email && f.Description == description
+                && f.Brand == brand && f.ServingDesc == servingDesc, ct);
+            if (winner is null) return;
+            winner.UseCount += 1;
+            winner.LastUsedUtc = DateTime.UtcNow;
+            winner.Calories = entry.Calories;
+            winner.ProteinG = entry.ProteinG;
+            winner.CarbG = entry.CarbG;
+            winner.FatG = entry.FatG;
+            await db.SaveChangesAsync(ct);
+        }
+    }
+
+    /// <summary>Normalize a nullable key part to the empty string so null/empty collapse to one row.</summary>
+    private static string NormalizeKey(string? s) => (s ?? "").Trim();
+
+    // ===================================================================================
     // Date handling
     // ===================================================================================
 
@@ -555,6 +724,20 @@ public static class TrackerEndpoints
         ProteinG = f.ProteinG,
         CarbG = f.CarbG,
         FatG = f.FatG,
+    };
+
+    private static CustomFoodDto ToCustomFoodDto(CustomFood f) => new()
+    {
+        Id = f.Id,
+        Description = f.Description,
+        // Re-expose normalized-empty brand/serving as null so the client sees "no brand", not "".
+        Brand = string.IsNullOrEmpty(f.Brand) ? null : f.Brand,
+        ServingDesc = string.IsNullOrEmpty(f.ServingDesc) ? null : f.ServingDesc,
+        Calories = f.Calories,
+        ProteinG = f.ProteinG,
+        CarbG = f.CarbG,
+        FatG = f.FatG,
+        UseCount = f.UseCount,
     };
 
     private static ExerciseEntryDto ToExerciseDto(ExerciseEntry x) => new()

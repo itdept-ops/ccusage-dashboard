@@ -63,13 +63,44 @@
   overflow-y: auto;
 }
 
-.af-result-row { display: block; width: 100%; }
+.af-result-row { display: flex; align-items: center; width: 100%; }
+
+/* Provider badge on a search result ("USDA" / "FatSecret"). */
+.af-src-tag {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 6px;
+  border-radius: var(--tech-r-pill, 999px);
+  font-size: var(--tech-fs-micro);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  vertical-align: 1px;
+  color: var(--tech-text-secondary);
+  background: var(--tech-bg-sunken);
+  border: 1px solid var(--tech-border);
+
+  &--fs {
+    color: var(--tech-accent);
+    border-color: color-mix(in srgb, var(--tech-accent) 40%, transparent);
+  }
+}
+
+/* Remove (×) on a "My foods" row. */
+.af-saved-del {
+  flex: 0 0 auto;
+  color: var(--tech-text-tertiary);
+  &:hover { color: var(--tech-error); }
+  mat-icon { font-size: 18px; width: 18px; height: 18px; }
+}
 
 .af-result {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 10px;
+  flex: 1 1 auto;
+  min-width: 0;
   width: 100%;
   min-height: 44px;
   padding: 7px 8px;
@@ -142,6 +173,14 @@
   gap: var(--tech-space-3);
 
   &__lead { margin: 0; font-size: var(--tech-fs-label); color: var(--tech-text-secondary); }
+  &__hint {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin-left: 6px;
+    color: var(--tech-text-tertiary);
+    mat-icon { font-size: 14px; width: 14px; height: 14px; }
+  }
 }
 
 .af-macgrid {

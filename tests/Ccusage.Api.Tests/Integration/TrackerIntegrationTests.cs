@@ -584,4 +584,111 @@ public class TrackerIntegrationTests(WebAppFactory factory)
         // The rest of the tracker still works even with USDA off.
         (await user.GetAsync("/api/tracker/profile")).StatusCode.Should().Be(HttpStatusCode.OK);
     }
+
+    // ---- Saved "My foods": manual logs auto-save + dedupe; provider logs don't ----
+
+    [Fact]
+    public async Task Manual_food_log_auto_saves_and_a_second_identical_log_bumps_use_count_without_duplicating()
+    {
+        var (_, user) = await ProvisionUser("tracker.self");
+
+        async Task LogManualAsync() =>
+            (await user.PostAsJsonAsync("/api/tracker/food", new
+            {
+                date = Today, meal = "lunch", description = "Homemade chili", brand = "",
+                quantity = 1.0, servingDesc = "1 bowl",
+                calories = 420, proteinG = 30.0, carbG = 35.0, fatG = 15.0,
+            })).StatusCode.Should().Be(HttpStatusCode.OK);
+
+        // First manual log creates a saved food (UseCount = 1).
+        await LogManualAsync();
+        var saved1 = (await Json(await user.GetAsync("/api/tracker/foods/saved"))).EnumerateArray().ToList();
+        saved1.Should().ContainSingle();
+        saved1[0].GetProperty("description").GetString().Should().Be("Homemade chili");
+        saved1[0].GetProperty("useCount").GetInt32().Should().Be(1);
+        saved1[0].GetProperty("calories").GetInt32().Should().Be(420);
+
+        // A second identical manual log bumps UseCount to 2 — no duplicate row.
+        await LogManualAsync();
+        var saved2 = (await Json(await user.GetAsync("/api/tracker/foods/saved"))).EnumerateArray().ToList();
+        saved2.Should().ContainSingle();
+        saved2[0].GetProperty("useCount").GetInt32().Should().Be(2);
+    }
+
+    [Fact]
+    public async Task A_usda_or_fatsecret_sourced_log_does_not_create_a_saved_food()
+    {
+        var (_, user) = await ProvisionUser("tracker.self");
+
+        // A USDA-sourced log (carries fdcId).
+        await user.PostAsJsonAsync("/api/tracker/food", new
+        {
+            date = Today, meal = "breakfast", fdcId = 173944, description = "Banana, raw",
+            quantity = 1.0, calories = 105, proteinG = 1.3, carbG = 27.0, fatG = 0.4,
+        });
+        // A FatSecret-sourced log (source set, no fdcId).
+        await user.PostAsJsonAsync("/api/tracker/food", new
+        {
+            date = Today, meal = "snack", source = "fatsecret", description = "Greek yogurt",
+            quantity = 1.0, calories = 100, proteinG = 17.0, carbG = 6.0, fatG = 0.0,
+        });
+
+        var saved = (await Json(await user.GetAsync("/api/tracker/foods/saved"))).EnumerateArray().ToList();
+        saved.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task Saved_foods_are_caller_own_only_and_filterable_by_query()
+    {
+        var (_, alice) = await ProvisionUser("tracker.self");
+        var (_, bob) = await ProvisionUser("tracker.self");
+
+        await alice.PostAsJsonAsync("/api/tracker/food", new
+        {
+            date = Today, meal = "lunch", description = "Avocado toast", brand = "Acme",
+            quantity = 1.0, calories = 250, proteinG = 6.0, carbG = 20.0, fatG = 16.0,
+        });
+        await alice.PostAsJsonAsync("/api/tracker/food", new
+        {
+            date = Today, meal = "dinner", description = "Beef stew",
+            quantity = 1.0, calories = 380, proteinG = 28.0, carbG = 22.0, fatG = 18.0,
+        });
+
+        // Bob sees none of Alice's saved foods.
+        (await Json(await bob.GetAsync("/api/tracker/foods/saved"))).EnumerateArray().Should().BeEmpty();
+
+        // Alice sees both; a query filters on description/brand, case-insensitively.
+        var all = (await Json(await alice.GetAsync("/api/tracker/foods/saved"))).EnumerateArray().ToList();
+        all.Should().HaveCount(2);
+
+        var byDesc = (await Json(await alice.GetAsync("/api/tracker/foods/saved?q=toast"))).EnumerateArray().ToList();
+        byDesc.Should().ContainSingle();
+        byDesc[0].GetProperty("description").GetString().Should().Be("Avocado toast");
+
+        var byBrand = (await Json(await alice.GetAsync("/api/tracker/foods/saved?q=acme"))).EnumerateArray().ToList();
+        byBrand.Should().ContainSingle();
+        byBrand[0].GetProperty("brand").GetString().Should().Be("Acme");
+    }
+
+    [Fact]
+    public async Task Deleting_a_saved_food_is_owner_only_and_404_for_another_user()
+    {
+        var (_, alice) = await ProvisionUser("tracker.self");
+        var (_, bob) = await ProvisionUser("tracker.self");
+
+        await alice.PostAsJsonAsync("/api/tracker/food", new
+        {
+            date = Today, meal = "snack", description = "Trail mix",
+            quantity = 1.0, calories = 200, proteinG = 5.0, carbG = 18.0, fatG = 12.0,
+        });
+        var savedId = (await Json(await alice.GetAsync("/api/tracker/foods/saved")))
+            .EnumerateArray().First().GetProperty("id").GetInt64();
+
+        // Bob can't delete Alice's saved food → 404 (never reveal the row).
+        (await bob.DeleteAsync($"/api/tracker/foods/saved/{savedId}")).StatusCode.Should().Be(HttpStatusCode.NotFound);
+
+        // Alice deletes her own → 204, and it's gone.
+        (await alice.DeleteAsync($"/api/tracker/foods/saved/{savedId}")).StatusCode.Should().Be(HttpStatusCode.NoContent);
+        (await Json(await alice.GetAsync("/api/tracker/foods/saved"))).EnumerateArray().Should().BeEmpty();
+    }
 }

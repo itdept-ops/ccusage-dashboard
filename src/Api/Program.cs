@@ -79,6 +79,15 @@ builder.Services.AddHttpClient(UsdaFoodService.HttpClientName,
     c => c.Timeout = TimeSpan.FromSeconds(15));
 builder.Services.AddScoped<UsdaFoodService>();
 
+// FatSecret is the SECONDARY food provider (the search proxy falls back to it only when USDA is
+// unconfigured or returns nothing). ClientId/ClientSecret are secrets (appsettings.Local.json locally /
+// FatSecret__ClientId + FatSecret__ClientSecret env vars in prod) and are never logged; when either is
+// blank FatSecret is disabled. The hosts are fixed (FatSecret:TokenUrl/ApiUrl), never user-controlled.
+builder.Services.Configure<FatSecretOptions>(builder.Configuration.GetSection(FatSecretOptions.SectionName));
+builder.Services.AddHttpClient(FatSecretFoodService.HttpClientName,
+    c => c.Timeout = TimeSpan.FromSeconds(15));
+builder.Services.AddScoped<FatSecretFoodService>();
+
 // Real-time chat + in-app notifications. The hub addresses individual users by their email claim
 // (EmailUserIdProvider) so per-user pushes work across all of a user's connections; the fan-out
 // service is the shared broadcast/notify path used by both the REST endpoints and the hub.

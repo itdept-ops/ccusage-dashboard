@@ -202,8 +202,12 @@ export class Tracker {
     this.dialog.open(AddFoodDialog, { data, width: '500px', maxWidth: '95vw', autoFocus: false })
       .afterClosed().subscribe((req: AddFoodRequest | undefined) => {
         if (!req) return;
+        // A manual log (no provider source + no FDC id) is auto-saved to the caller's "My foods".
+        const wasManual = !req.source && req.fdcId == null;
         this.store.addFood(req)
-          .then(() => this.snack.open(`Added ${req.description}`, 'OK', { duration: 2000 }))
+          .then(() => this.snack.open(
+            wasManual ? `Added ${req.description} · saved to My foods` : `Added ${req.description}`,
+            'OK', { duration: 2500 }))
           .catch(() => this.snack.open('Could not add food', 'Dismiss', { duration: 4000 }));
       });
   }

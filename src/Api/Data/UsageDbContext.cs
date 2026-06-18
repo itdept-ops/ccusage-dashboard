@@ -35,6 +35,7 @@ public class UsageDbContext(DbContextOptions<UsageDbContext> options) : DbContex
     public DbSet<ExerciseEntry> ExerciseEntries => Set<ExerciseEntry>();
     public DbSet<ExerciseLibrary> ExerciseLibrary => Set<ExerciseLibrary>();
     public DbSet<WeightEntry> WeightEntries => Set<WeightEntry>();
+    public DbSet<CustomFood> CustomFoods => Set<CustomFood>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -390,6 +391,21 @@ public class UsageDbContext(DbContextOptions<UsageDbContext> options) : DbContex
             e.Property(x => x.CreatedUtc).HasColumnType("timestamp with time zone");
             // One reading per user per local date (logging again that day upserts); also the trend read.
             e.HasIndex(x => new { x.UserEmail, x.LocalDate }).IsUnique();
+        });
+
+        b.Entity<CustomFood>(e =>
+        {
+            e.Property(x => x.UserEmail).HasMaxLength(256);
+            e.Property(x => x.Description).HasMaxLength(256);
+            // Brand + ServingDesc are normalized to "" (never null) so the dedup key below is stable.
+            e.Property(x => x.Brand).HasMaxLength(256).HasDefaultValue("");
+            e.Property(x => x.ServingDesc).HasMaxLength(128).HasDefaultValue("");
+            e.Property(x => x.CreatedUtc).HasColumnType("timestamp with time zone");
+            e.Property(x => x.LastUsedUtc).HasColumnType("timestamp with time zone");
+            // The "My foods" list reads one user's saved foods newest-used-first.
+            e.HasIndex(x => new { x.UserEmail, x.LastUsedUtc });
+            // One saved row per (user, food identity); the manual-log upsert keys on this unique index.
+            e.HasIndex(x => new { x.UserEmail, x.Description, x.Brand, x.ServingDesc }).IsUnique();
         });
     }
 }
