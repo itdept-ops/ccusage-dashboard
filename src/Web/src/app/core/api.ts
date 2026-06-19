@@ -3,13 +3,13 @@ import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import {
   AccessPolicy, AddExerciseRequest, AddFoodRequest, AddHydrationRequest, AuditEntry, CacheEfficiency, CalendarDay, ChatChannelDto, ChatContactDto, ChatMessageDto, CreateChannelRequest,
-  CreateShareRequest, CustomExerciseDto, CustomFoodDto, ExerciseEntryDto, ExerciseLibraryDto, Fleet, FleetDeleteRequest,
+  CreateShareRequest, CustomExerciseDto, CustomFoodDto, EstimateExerciseRequest, EstimateExerciseResponse, EstimateMacrosRequest, EstimateMacrosResponse, ExerciseEntryDto, ExerciseLibraryDto, Fleet, FleetDeleteRequest,
   FleetDeleteResult, FleetReassignRequest, FleetReassignResult, FleetRevokeKeysRequest, FleetRevokeKeysResult, FoodEntryDto, FoodSearchItemDto, GroupBy,
   HeatmapCell, HydrationEntryDto, IngestionSource, IngestKey, IngestKeyCreated, LogWeightRequest, LoginEvent, MachineStat, ManagedUser, ModelStat, NotificationDto, NotificationPreferenceDto, NotificationSettings,
   NotificationUpdate, PagedResult, PermissionItem, Presence, Pricing, ProjectDto, PublicShare, ReactionGroupDto, RequestLogEntry, SavedView,
-  SavedViewUpsertRequest, SessionDetail, Settings, ShareAccessItem, ShareCreated, ShareListItem, SharedUserDto, SummaryResponse,
+  SavedViewUpsertRequest, SessionDetail, Settings, ShareAccessItem, ShareCreated, ShareListItem, SharedUserDto, SuggestGoalResponse, SummaryResponse,
   SyncResult, SyncStatus, TrackerDayDto, TrackerProfileDto, UpsertActivityRequest, UsageFilter, UsageRecord, UsageStats,
-  WatchActivityDto, WeightPointDto, WorkoutXSearchResultDto,
+  WatchActivityDto, WeightPointDto, WeightStatsDto, WorkoutXSearchResultDto,
 } from './models';
 
 @Injectable({ providedIn: 'root' })
@@ -252,6 +252,11 @@ export class Api {
    */
   users(revealKey?: string): Observable<ManagedUser[]> {
     return this.http.get<ManagedUser[]>(`${this.base}/users`, { headers: this.revealHeader(revealKey) });
+  }
+
+  /** Total number of users (just the count, no row data). Gated by users.view|users.manage. */
+  userCount(): Observable<{ total: number }> {
+    return this.http.get<{ total: number }>(`${this.base}/users/count`);
   }
 
   /** A user's recent sign-in history (newest first, capped at 200). Gated by users.view|users.manage. */
@@ -549,6 +554,32 @@ export class Api {
   weightHistory(days?: number): Observable<WeightPointDto[]> {
     const params = days != null ? new HttpParams().set('days', days) : undefined;
     return this.http.get<WeightPointDto[]>(`${this.base}/tracker/weight`, { params });
+  }
+
+  /**
+   * The caller's OWN weight statistics: per-slot (Morning/Afternoon/Evening) averages + latest + count,
+   * the typical morning to evening delta, and recent readings. Private — owner-only, never another user's.
+   */
+  weightStats(days?: number): Observable<WeightStatsDto> {
+    const params = days != null ? new HttpParams().set('days', days) : undefined;
+    return this.http.get<WeightStatsDto>(`${this.base}/tracker/weight/stats`, { params });
+  }
+
+  // ---- AI assists (Gemini-backed; each returns 503 ProblemDetails when unconfigured/unavailable) ----
+
+  /** Estimate calories + macros for a free-text food description (+ optional free-text quantity). */
+  estimateMacros(body: EstimateMacrosRequest): Observable<EstimateMacrosResponse> {
+    return this.http.post<EstimateMacrosResponse>(`${this.base}/ai/estimate-macros`, body);
+  }
+
+  /** Suggest a daily calorie + macro goal from the CALLER's own profile (read server-side; empty body). */
+  suggestGoal(): Observable<SuggestGoalResponse> {
+    return this.http.post<SuggestGoalResponse>(`${this.base}/ai/suggest-goal`, {});
+  }
+
+  /** Estimate calories burned for a free-text exercise name over a duration in minutes. */
+  estimateExercise(body: EstimateExerciseRequest): Observable<EstimateExerciseResponse> {
+    return this.http.post<EstimateExerciseResponse>(`${this.base}/ai/estimate-exercise`, body);
   }
 
   /** Log a drink toward the day's hydration goal (OWN tracker only; amountMl 1..5000). Returns the created entry. */

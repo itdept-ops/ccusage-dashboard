@@ -122,6 +122,15 @@
       </mat-menu>
     }
 
+    <!-- Total user count: a small "group N" pill, shown only to users with users.view once loaded. -->
+    @if (userCount() != null && auth.hasPermission('users.view')) {
+      <span class="usercount" matTooltip="Total users" matTooltipClass="axon-tip"
+            [attr.aria-label]="'Total users: ' + userCount()">
+        <mat-icon class="usercount__icon" aria-hidden="true">group</mat-icon>
+        <span class="usercount__num mono-num">{{ userCount() }}</span>
+      </span>
+    }
+
     <!-- Notification bell: shown only to signed-in users with chat.read; sits next to presence. -->
     @if (auth.hasPermission('chat.read')) {
       <app-notification-bell />

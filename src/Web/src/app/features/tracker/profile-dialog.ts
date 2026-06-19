@@ -1,5 +1,6 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { firstValueFrom } from 'rxjs';
 
 import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -9,7 +10,10 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatButtonToggleModule } from '@angular/material/button-toggle';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatIconModule } from '@angular/material/icon';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { MatSnackBar } from '@angular/material/snack-bar';
 
+import { Api } from '../../core/api';
 import { ActivityLevel, Sex, TrackerGoal, TrackerProfileDto, UnitSystem } from '../../core/models';
 import {
   StatsInputs, ageFrom, cmToFtIn, computeStats, ftInToCm, kgToLb, lbToKg, mlToOz, ozToMl,
@@ -52,13 +56,15 @@ const ACTIVITY_LEVELS: { value: ActivityLevel; label: string }[] = [
   selector: 'app-tracker-profile-dialog',
   imports: [
     FormsModule, MatDialogModule, MatFormFieldModule, MatInputModule, MatSelectModule,
-    MatButtonModule, MatButtonToggleModule, MatCheckboxModule, MatIconModule,
+    MatButtonModule, MatButtonToggleModule, MatCheckboxModule, MatIconModule, MatProgressSpinnerModule,
   ],
   templateUrl: './profile-dialog.html',
   styleUrl: './profile-dialog.scss',
 })
 export class ProfileDialog {
   private ref = inject(MatDialogRef<ProfileDialog, TrackerProfileDto>);
+  private api = inject(Api);
+  private snack = inject(MatSnackBar);
   readonly data = inject<ProfileData>(MAT_DIALOG_DATA);
 
   readonly goals = GOALS;
@@ -197,6 +203,43 @@ export class ProfileDialog {
     if (s.suggestedProteinG != null) this.proteinGoalG.set(s.suggestedProteinG);
     if (s.suggestedCarbG != null) this.carbGoalG.set(s.suggestedCarbG);
     if (s.suggestedFatG != null) this.fatGoalG.set(s.suggestedFatG);
+  }
+
+  // ---- AI goal suggestion (Gemini-backed; reads the caller's own profile server-side) ----
+  /** True while suggest-goal is in flight. */
+  readonly aiLoading = signal(false);
+  /** The model's one-sentence rationale, shown as helper text under the goal fields. */
+  readonly aiRationale = signal<string | null>(null);
+  /** Polite sr-only announcement of the AI suggestion (or its unavailability). */
+  readonly aiAnnounce = signal('');
+
+  /**
+   * Ask Gemini to suggest a daily calorie + macro goal (it reads the caller's saved profile server-side,
+   * NOT the unsaved in-dialog edits), then PREFILL the editable goal fields. The rationale renders as
+   * helper text. A 503/unavailable leaves the fields untouched + editable and shows a snackbar.
+   */
+  async suggestWithAi(): Promise<void> {
+    if (this.aiLoading()) return;
+    this.aiLoading.set(true);
+    this.aiAnnounce.set('Suggesting a goal with AI…');
+    try {
+      const res = await firstValueFrom(this.api.suggestGoal());
+      // Prefill the editable fields — a suggestion the user can adjust before saving.
+      this.dailyCalorieGoal.set(res.calorieTarget);
+      this.proteinGoalG.set(res.proteinG);
+      this.carbGoalG.set(res.carbsG);
+      this.fatGoalG.set(res.fatG);
+      this.aiRationale.set(res.rationale ?? null);
+      this.aiAnnounce.set(
+        `AI suggested ${res.calorieTarget} calories per day: ${res.proteinG} grams protein, ` +
+        `${res.carbsG} grams carbs, ${res.fatG} grams fat.` + (res.rationale ? ` ${res.rationale}` : ''));
+    } catch {
+      this.aiRationale.set(null);
+      this.aiAnnounce.set('AI suggestion unavailable. Set your goal manually.');
+      this.snack.open('AI suggestion unavailable — set your goal manually', 'OK', { duration: 4000 });
+    } finally {
+      this.aiLoading.set(false);
+    }
   }
 
   private num(v: number | null): number | undefined {

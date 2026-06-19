@@ -99,6 +99,19 @@ builder.Services.AddHttpClient(WorkoutXService.HttpClientName,
     c => c.Timeout = TimeSpan.FromSeconds(15));
 builder.Services.AddScoped<WorkoutXService>();
 
+// Gemini powers the tracker's AI-assist endpoints (estimate macros, suggest a goal, estimate exercise
+// calories). The ApiKey is a secret (appsettings.Local.json locally / Gemini__ApiKey env var in prod,
+// sourced from SSM /usage-iq/gemini-api-key), sent only as the x-goog-api-key header and never logged;
+// when blank the /api/ai endpoints return 503 and the rest of the tracker still works. The BaseAddress is
+// FIXED below (not user-controlled), so the model id / prompts can never redirect the call (no SSRF).
+builder.Services.Configure<GeminiOptions>(builder.Configuration.GetSection(GeminiOptions.SectionName));
+builder.Services.AddHttpClient(GeminiService.HttpClientName, c =>
+{
+    c.BaseAddress = new Uri("https://generativelanguage.googleapis.com");
+    c.Timeout = TimeSpan.FromSeconds(20);
+});
+builder.Services.AddScoped<GeminiService>();
+
 // Real-time chat + in-app notifications. The hub addresses individual users by their email claim
 // (EmailUserIdProvider) so per-user pushes work across all of a user's connections; the fan-out
 // service is the shared broadcast/notify path used by both the REST endpoints and the hub.
@@ -241,6 +254,10 @@ builder.Services.AddRateLimiter(o =>
     o.AddPolicy("chat", http => RateLimitPartition.GetFixedWindowLimiter(
         partitionKey: http.User.FindFirst("email")?.Value ?? http.Connection.RemoteIpAddress?.ToString() ?? "unknown",
         factory: _ => new FixedWindowRateLimiterOptions { Window = TimeSpan.FromMinutes(1), PermitLimit = 30, QueueLimit = 0 }));
+    // AI-assist (Gemini) calls cost tokens; cap per-email so one account can't run up the bill (~15/min).
+    o.AddPolicy(AiEndpoints.RateLimitPolicy, http => RateLimitPartition.GetFixedWindowLimiter(
+        partitionKey: http.User.FindFirst("email")?.Value ?? http.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+        factory: _ => new FixedWindowRateLimiterOptions { Window = TimeSpan.FromMinutes(1), PermitLimit = 15, QueueLimit = 0 }));
 });
 
 var app = builder.Build();
@@ -397,6 +414,7 @@ app.MapChatEndpoints();
 app.MapContactsEndpoints();
 app.MapInboxEndpoints();
 app.MapTrackerEndpoints();
+app.MapAiEndpoints();
 app.MapHub<ChatHub>("/api/hubs/chat");
 app.MapGet("/", () => app.Environment.IsDevelopment()
     ? Results.Redirect("/swagger")

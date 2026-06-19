@@ -1,12 +1,14 @@
 import { Component, computed, inject, signal } from '@angular/core';
+import { LowerCasePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 
 import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatButtonModule } from '@angular/material/button';
+import { MatButtonToggleModule } from '@angular/material/button-toggle';
 
-import { LogWeightRequest, UnitSystem } from '../../core/models';
+import { LogWeightRequest, UnitSystem, WeightSlot } from '../../core/models';
 import { kgToLb, lbToKg } from './units';
 
 /** Opens with the active date, the user's unit preference, and (optionally) the current weight to prefill. */
@@ -17,22 +19,52 @@ export interface LogWeightData {
   currentKg?: number | null;
 }
 
+/** The selectable weigh-in slots (Unspecified is the implicit default when omitted). */
+const SLOTS: { value: WeightSlot; label: string }[] = [
+  { value: 'Morning', label: 'Morning' },
+  { value: 'Afternoon', label: 'Afternoon' },
+  { value: 'Evening', label: 'Evening' },
+];
+
+/** Pick the slot that matches the current local hour (so the default reflects when the user is logging). */
+function currentSlot(now = new Date()): WeightSlot {
+  const h = now.getHours();
+  if (h < 12) return 'Morning';
+  if (h < 18) return 'Afternoon';
+  return 'Evening';
+}
+
 /**
- * Quick "log today's weight" dialog. Enters a weight in the user's chosen units; converts to metric kg
- * on save. Resolves with a {@link LogWeightRequest} (date + metric kg) for the page to persist.
+ * Quick "log weight" dialog. Enters a weight in the user's chosen units; converts to metric kg on save.
+ * A time-of-day SLOT selector (Morning / Afternoon / Evening) lets several weigh-ins coexist per day; it
+ * defaults to the current part of the day. Resolves with a {@link LogWeightRequest} (date + metric kg +
+ * slot) for the page to persist.
  */
 @Component({
   selector: 'app-log-weight-dialog',
-  imports: [FormsModule, MatDialogModule, MatFormFieldModule, MatInputModule, MatButtonModule],
+  imports: [
+    FormsModule, LowerCasePipe, MatDialogModule, MatFormFieldModule, MatInputModule, MatButtonModule,
+    MatButtonToggleModule,
+  ],
   template: `
     <h2 mat-dialog-title class="lw-title">Log weight</h2>
     <mat-dialog-content class="lw-body">
+      <div class="lw-slot">
+        <span class="micro-label" id="lw-slot-label">Time of day</span>
+        <mat-button-toggle-group class="lw-slot-toggle" [value]="slot()" (change)="slot.set($event.value)"
+                                 aria-labelledby="lw-slot-label" hideSingleSelectionIndicator>
+          @for (s of slots; track s.value) {
+            <mat-button-toggle [value]="s.value" [attr.aria-label]="s.label + ' weigh-in'">{{ s.label }}</mat-button-toggle>
+          }
+        </mat-button-toggle-group>
+      </div>
+
       <mat-form-field appearance="outline" class="lw-field">
         <mat-label>Weight</mat-label>
         <input matInput type="number" min="0" step="0.1" inputmode="decimal" cdkFocusInitial
                [ngModel]="weightDisp()" (ngModelChange)="weightDisp.set($event)" />
         <span matTextSuffix>{{ imperial ? 'lb' : 'kg' }}</span>
-        <mat-hint>Recorded for {{ data.date }}. One entry per day.</mat-hint>
+        <mat-hint>Recorded for {{ data.date }} ({{ slot() | lowercase }}). One entry per slot.</mat-hint>
       </mat-form-field>
     </mat-dialog-content>
     <mat-dialog-actions class="lw-actions" align="end">
@@ -42,8 +74,13 @@ export interface LogWeightData {
   `,
   styles: `
     .lw-title { font-family: var(--tech-font-ui); font-weight: 700; color: var(--tech-text); }
-    .lw-body { min-width: min(320px, 80vw); padding-top: 4px !important; }
+    .lw-body { display: flex; flex-direction: column; gap: var(--tech-space-3);
+      min-width: min(320px, 80vw); padding-top: 4px !important; }
     .lw-field { width: 100%; }
+    .lw-slot { display: flex; flex-direction: column; gap: var(--tech-space-2); }
+    .lw-slot-toggle { align-self: stretch; border-radius: var(--tech-r-control);
+      ::ng-deep .mat-button-toggle { flex: 1 1 0; }
+      ::ng-deep .mat-button-toggle-label-content { line-height: 44px; } }
     .lw-actions { padding: var(--tech-space-3) var(--tech-space-4); gap: 8px;
       button { border-radius: var(--tech-r-control); font-weight: 600; min-height: 44px; } }
   `,
@@ -53,6 +90,10 @@ export class LogWeightDialog {
   readonly data = inject<LogWeightData>(MAT_DIALOG_DATA);
 
   readonly imperial = this.data.unitSystem === 'Imperial';
+  readonly slots = SLOTS;
+
+  /** Defaults to the current part of the day (Morning / Afternoon / Evening). */
+  readonly slot = signal<WeightSlot>(currentSlot());
 
   readonly weightDisp = signal<number | null>(
     this.data.currentKg != null
@@ -73,7 +114,7 @@ export class LogWeightDialog {
   save(): void {
     const kg = this.kg();
     if (kg == null) return;
-    this.ref.close({ date: this.data.date, weightKg: kg });
+    this.ref.close({ date: this.data.date, weightKg: kg, slot: this.slot() });
   }
 
   cancel(): void {

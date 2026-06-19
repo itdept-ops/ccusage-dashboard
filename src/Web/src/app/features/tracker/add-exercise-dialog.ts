@@ -13,6 +13,8 @@ import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatIconModule } from '@angular/material/icon';
 import { MatSelectModule } from '@angular/material/select';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { MatSnackBar } from '@angular/material/snack-bar';
 
 import { Api } from '../../core/api';
 import { AddExerciseRequest, CustomExerciseDto, ExerciseLibraryDto, WorkoutXExerciseDto } from '../../core/models';
@@ -43,6 +45,7 @@ export interface AddExerciseData {
   imports: [
     FormsModule, MatDialogModule, MatFormFieldModule, MatInputModule, MatButtonModule,
     MatButtonToggleModule, MatCheckboxModule, MatIconModule, MatSelectModule, MatProgressBarModule,
+    MatProgressSpinnerModule,
   ],
   templateUrl: './add-exercise-dialog.html',
   styleUrl: './add-exercise-dialog.scss',
@@ -51,6 +54,7 @@ export class AddExerciseDialog {
   private api = inject(Api);
   private ref = inject(MatDialogRef<AddExerciseDialog, AddExerciseRequest>);
   private injector = inject(Injector);
+  private snack = inject(MatSnackBar);
   readonly data = inject<AddExerciseData>(MAT_DIALOG_DATA);
 
   readonly mode = signal<'library' | 'workoutx' | 'manual'>('library');
@@ -145,6 +149,57 @@ export class AddExerciseDialog {
    */
   readonly mWillSave = computed(() =>
     this.pickedSavedId() === null && this.mName().trim().length > 0);
+
+  // ---- AI calorie estimate for a manual exercise (Gemini-backed; optional, degrades gracefully) ----
+  /** True while estimate-exercise is in flight. */
+  readonly aiLoading = signal(false);
+  /** Set once an AI estimate prefilled the calories field → renders the "AI estimate" chip. */
+  readonly aiEstimated = signal(false);
+  /** The model's optional short note (e.g. "assumes a 70 kg adult"). */
+  readonly aiNote = signal<string | null>(null);
+  /** Polite sr-only announcement of the AI result (or its unavailability). */
+  readonly aiAnnounce = signal('');
+
+  /** Can we ask the AI? A name + a positive duration are required to estimate burn. */
+  readonly canEstimateAi = computed(() =>
+    !this.aiLoading() && this.mName().trim().length > 0 && (this.mDuration() ?? 0) > 0);
+
+  /**
+   * Ask Gemini to estimate calories burned for the typed exercise name over the typed duration, then
+   * PREFILL the editable calories field. The estimate is a suggestion the user can adjust. A
+   * 503/unavailable leaves the field editable and shows a snackbar.
+   */
+  async estimateWithAi(): Promise<void> {
+    if (!this.canEstimateAi()) return;
+    this.aiLoading.set(true);
+    this.aiAnnounce.set('Estimating calories with AI…');
+    try {
+      const res = await firstValueFrom(this.api.estimateExercise({
+        name: this.mName().trim(),
+        durationMin: this.mDuration() ?? 0,
+      }));
+      this.mCalories.set(res.caloriesBurned); // editable — never silently committed
+      this.aiNote.set(res.note ?? null);
+      this.aiEstimated.set(true);
+      this.aiAnnounce.set(
+        `AI estimate: ${res.caloriesBurned} calories burned.` + (res.note ? ` ${res.note}` : ''));
+    } catch {
+      this.aiEstimated.set(false);
+      this.aiAnnounce.set('AI estimate unavailable. Enter the calories manually.');
+      this.snack.open('AI estimate unavailable — enter manually', 'OK', { duration: 4000 });
+    } finally {
+      this.aiLoading.set(false);
+    }
+  }
+
+  /** Clear the "AI estimate" chip + note (called when the user edits the calories field themselves). */
+  clearAiEstimate(): void {
+    this.aiEstimated.set(false);
+    this.aiNote.set(null);
+    // The single polite live region renders `aiAnnounce() || pickAnnounce()`; clearing the AI text here
+    // lets a later "picked saved exercise" announcement surface instead of being masked by a stale one.
+    this.aiAnnounce.set('');
+  }
 
   /** Whether we can let the server estimate (profile weight + a chosen library item + a duration). */
   readonly canEstimate = computed(() =>
@@ -267,6 +322,7 @@ export class AddExerciseDialog {
     this.mName.set(ex.name);
     this.mCalories.set(ex.defaultCaloriesBurned ?? null);
     this.mDuration.set(ex.defaultDurationMin ?? null);
+    this.clearAiEstimate();
     // Remember it was a saved pick so save() sends source="custom" (bump, not duplicate).
     this.pickedSavedId.set(ex.id);
     // The prefilled fields render below the list, so move focus there (and announce) — otherwise

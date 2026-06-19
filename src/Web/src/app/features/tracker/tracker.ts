@@ -14,7 +14,7 @@ import { AuthService } from '../../core/auth';
 import { TrackerStore } from '../../core/tracker-store';
 import {
   ActivityCalorieMode, AddExerciseRequest, AddFoodRequest, AddHydrationRequest, ExerciseEntryDto, FoodEntryDto,
-  HydrationEntryDto, LogWeightRequest, Meal, SharedUserDto, TrackerProfileDto, UpsertActivityRequest, WeightPointDto,
+  HydrationEntryDto, LogWeightRequest, Meal, SharedUserDto, TrackerProfileDto, UpsertActivityRequest, WeightPointDto, WeightStatsDto,
 } from '../../core/models';
 import { CalorieRing } from './calorie-ring';
 import { HydrationRing } from './hydration-ring';
@@ -27,6 +27,7 @@ import { ProfileDialog, ProfileData } from './profile-dialog';
 import { LogWeightDialog, LogWeightData } from './log-weight-dialog';
 import { OnboardingCard, OnboardingResult } from './onboarding-card';
 import { WeightTrend } from './weight-trend';
+import { WeightStats } from './weight-stats';
 import { formatDistance, formatVolume, formatWeight, kgToLb } from './units';
 
 /** UI default daily step goal when the profile hasn't set one. */
@@ -56,7 +57,7 @@ const MEAL_SECTIONS: MealSection[] = [
   imports: [
     DecimalPipe, FormsModule, MatIconModule, MatButtonModule, MatProgressBarModule, MatMenuModule,
     MatTooltipModule, MatDialogModule, MatSnackBarModule, CalorieRing, HydrationRing, ActivityRing,
-    WeightTrend, OnboardingCard,
+    WeightTrend, WeightStats, OnboardingCard,
   ],
   templateUrl: './tracker.html',
   styleUrl: './tracker.scss',
@@ -88,6 +89,9 @@ export class Tracker {
   /** The caller's OWN weight history (oldest-first) for the trend chart. Empty when none / read-only. */
   readonly weightHistory = signal<WeightPointDto[]>([]);
 
+  /** The caller's OWN per-slot weight stats (averages + morning→evening delta). Null when none / read-only. */
+  readonly weightStats = signal<WeightStatsDto | null>(null);
+
   /** Computed body stats for the current day (server-supplied; null when read-only). */
   readonly stats = computed(() => this.store.day()?.stats ?? null);
 
@@ -110,6 +114,7 @@ export class Tracker {
       const day = this.store.day();
       if (!day || day.readOnly) {
         this.weightHistory.set([]);
+        this.weightStats.set(null);
         return;
       }
       void this.loadWeightHistory();
@@ -155,10 +160,16 @@ export class Tracker {
   }
 
   private async loadWeightHistory(): Promise<void> {
+    // Trend points + per-slot stats are independent fetches; one failing must not blank the other.
     try {
       this.weightHistory.set(await this.store.weightHistory(90));
     } catch {
       this.weightHistory.set([]);
+    }
+    try {
+      this.weightStats.set(await this.store.weightStats(90));
+    } catch {
+      this.weightStats.set(null);
     }
   }
 

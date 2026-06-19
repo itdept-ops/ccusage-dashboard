@@ -54,6 +54,9 @@ export class App {
   readonly online = signal<Presence[]>([]);
   readonly now = signal(Date.now());
 
+  /** Total user count for the toolbar (null until first loaded / when the caller lacks users.view). */
+  readonly userCount = signal<number | null>(null);
+
   /** Exposed for the template's "active …" presence lines. */
   readonly timeAgo = timeAgo;
 
@@ -200,6 +203,17 @@ export class App {
       )
       .subscribe(list => this.online.set(list));
 
+    // Poll the total user count (~60s) only while signed in AND holding users.view — it's a nav-bar
+    // nicety, so it's cheap (just a number) and any error keeps the prior value rather than flickering.
+    timer(600, 60000)
+      .pipe(
+        switchMap(() => this.auth.isAuthenticated() && this.auth.hasPermission(PERM.usersView)
+          ? this.api.userCount().pipe(catchError(() => of(null)))
+          : of(null)),
+        takeUntilDestroyed(),
+      )
+      .subscribe(res => { if (res) this.userCount.set(res.total); });
+
     // Own the realtime chat hub lifecycle at the app shell so live notifications work app-wide (not
     // just on /chat) and the connection is bound to the CURRENT user. Start when signed in AND the
     // session grants chat.read; otherwise tear it down. Making the effect symmetric ties teardown to
@@ -245,6 +259,7 @@ export class App {
       void this.chat.stop(); // tear down the prior user's hub on a forced 401/403 logout
       this.status.set(null);
       this.online.set([]);
+      this.userCount.set(null);
       this.router.navigate(['/login']);
     }
   }
@@ -256,6 +271,7 @@ export class App {
     void this.chat.stop();
     this.status.set(null);
     this.online.set([]);
+    this.userCount.set(null);
     this.snack.open('You were signed out by an administrator.', 'OK', { duration: 6000 });
     this.router.navigate(['/login']);
   }
@@ -264,6 +280,7 @@ export class App {
     this.auth.logout();
     void this.chat.stop(); // tear down the hub so the next user never reuses this connection/token
     this.status.set(null);
+    this.userCount.set(null);
     this.router.navigate(['/login']);
   }
 }

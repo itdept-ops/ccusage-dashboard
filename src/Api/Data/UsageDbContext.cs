@@ -392,8 +392,10 @@ public class UsageDbContext(DbContextOptions<UsageDbContext> options) : DbContex
         {
             e.Property(x => x.UserEmail).HasMaxLength(256);
             e.Property(x => x.CreatedUtc).HasColumnType("timestamp with time zone");
-            // One reading per user per local date (logging again that day upserts); also the trend read.
-            e.HasIndex(x => new { x.UserEmail, x.LocalDate }).IsUnique();
+            // One reading per user per local date per slot (logging again that day+slot upserts), so a
+            // user can weigh in at several slots on one day; the (UserEmail, LocalDate) prefix also serves
+            // the trend read.
+            e.HasIndex(x => new { x.UserEmail, x.LocalDate, x.Slot }).IsUnique();
         });
 
         b.Entity<HydrationEntry>(e =>

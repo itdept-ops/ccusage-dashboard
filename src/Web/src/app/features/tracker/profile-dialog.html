@@ -121,12 +121,33 @@
     }
   }
 
+  <!-- AI goal suggestion: prefills the calorie + macro goal fields from your saved profile. -->
+  <div class="pf-ai">
+    <button mat-stroked-button type="button" class="pf-ai-btn"
+            [disabled]="aiLoading()" (click)="suggestWithAi()"
+            aria-label="Suggest a daily calorie and macro goal with AI from your profile">
+      @if (aiLoading()) {
+        <mat-progress-spinner mode="indeterminate" diameter="18" aria-hidden="true" />
+        Suggesting…
+      } @else {
+        <span class="pf-ai-btn-label"><mat-icon aria-hidden="true">auto_awesome</mat-icon> Suggest with AI</span>
+      }
+    </button>
+    <span class="pf-ai-hint">AI uses your last saved profile — save edits first. It fills the goals below; adjust as you like.</span>
+  </div>
+  @if (aiRationale(); as why) {
+    <p class="pf-ai-rationale"><mat-icon aria-hidden="true">auto_awesome</mat-icon> {{ why }}</p>
+  }
+
   <mat-form-field appearance="outline" class="pf-field">
     <mat-label>Daily calorie goal (optional)</mat-label>
     <input matInput type="number" min="0" inputmode="numeric"
            [ngModel]="dailyCalorieGoal()" (ngModelChange)="dailyCalorieGoal.set($event)" />
     <span matTextSuffix>kcal</span>
   </mat-form-field>
+
+  <!-- Polite sr-only announcement of the AI suggestion (or its unavailability). -->
+  <span class="pf-sr-status" role="status" aria-live="polite">{{ aiAnnounce() }}</span>
 
   <mat-form-field appearance="outline" class="pf-field">
     <mat-label>Daily hydration goal (optional)</mat-label>

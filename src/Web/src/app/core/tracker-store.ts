@@ -4,7 +4,7 @@ import { firstValueFrom } from 'rxjs';
 import { Api } from './api';
 import {
   AddExerciseRequest, AddFoodRequest, AddHydrationRequest, HydrationEntryDto, LogWeightRequest,
-  SharedUserDto, TrackerDayDto, TrackerProfileDto, UpsertActivityRequest, WeightPointDto,
+  SharedUserDto, TrackerDayDto, TrackerProfileDto, UpsertActivityRequest, WeightPointDto, WeightStatsDto,
 } from './models';
 
 /** Format a Date as a local `YYYY-MM-DD` string (matches the dashboard/fleet date convention). */
@@ -166,6 +166,11 @@ export class TrackerStore {
   /** Fetch the caller's OWN weight history (oldest-first) for the trend chart. */
   async weightHistory(days = 90): Promise<WeightPointDto[]> {
     return firstValueFrom(this.api.weightHistory(days));
+  }
+
+  /** Fetch the caller's OWN per-slot weight statistics (averages, latest, morning→evening delta). */
+  async weightStats(days = 90): Promise<WeightStatsDto> {
+    return firstValueFrom(this.api.weightStats(days));
   }
 
   private messageOf(e: unknown): string {

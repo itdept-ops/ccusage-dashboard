@@ -39,6 +39,10 @@ services:
       Ingestion__CodexPath: "/data/codex"
       Ingestion__DisplayTimeZone: "${Ingestion__DisplayTimeZone:-America/New_York}"
       Cors__AllowedOrigin: "http://localhost:${WEB_PORT:-4200}"
+      # Tracker AI-assist (Gemini). Pass your host's Gemini__ApiKey through for the full-stack profile;
+      # blank → the /api/ai endpoints return 503 and the rest of the tracker still works.
+      Gemini__ApiKey: "${Gemini__ApiKey:-}"
+      Gemini__Model: "${Gemini__Model:-gemini-2.5-flash}"
       ASPNETCORE_URLS: "http://+:8080"
     ports:
       - "${API_PORT:-5180}:8080"

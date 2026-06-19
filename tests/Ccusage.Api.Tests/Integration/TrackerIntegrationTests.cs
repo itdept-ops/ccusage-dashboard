@@ -568,6 +568,112 @@ public class TrackerIntegrationTests(WebAppFactory factory)
         aliceHistory.Should().ContainSingle();
     }
 
+    // ---- Weight slots: morning + evening coexist on one day; stats expose per-slot averages + delta ----
+
+    [Fact]
+    public async Task Logging_morning_and_evening_on_the_same_day_makes_two_rows()
+    {
+        var (_, user) = await ProvisionUser("tracker.self");
+
+        // Two readings on the SAME day at different slots both persist (no upsert across slots).
+        (await user.PostAsJsonAsync("/api/tracker/weight", new { date = "2026-06-17", weightKg = 81.0, slot = "Morning" }))
+            .StatusCode.Should().Be(HttpStatusCode.OK);
+        var evening = await user.PostAsJsonAsync("/api/tracker/weight", new { date = "2026-06-17", weightKg = 82.0, slot = "Evening" });
+        evening.StatusCode.Should().Be(HttpStatusCode.OK);
+        // Current weight tracks the most recent reading (same date, Evening slot > Morning slot).
+        (await Json(evening)).GetProperty("weightKg").GetDouble().Should().Be(82.0);
+
+        // Stats expose two per-slot rows for the one day.
+        var stats = await Json(await user.GetAsync("/api/tracker/weight/stats?days=365"));
+        var bySlot = stats.GetProperty("bySlot").EnumerateArray().ToList();
+        bySlot.Should().HaveCount(2);
+        bySlot.Should().Contain(s => s.GetProperty("slot").GetString() == "Morning");
+        bySlot.Should().Contain(s => s.GetProperty("slot").GetString() == "Evening");
+
+        // Re-logging the SAME day+slot upserts in place (still two rows total).
+        (await user.PostAsJsonAsync("/api/tracker/weight", new { date = "2026-06-17", weightKg = 80.5, slot = "Morning" }))
+            .StatusCode.Should().Be(HttpStatusCode.OK);
+        var entries = stats.GetProperty("entries").EnumerateArray().ToList();
+        entries.Should().HaveCount(2);
+        var restats = await Json(await user.GetAsync("/api/tracker/weight/stats?days=365"));
+        restats.GetProperty("entries").EnumerateArray().Should().HaveCount(2);
+    }
+
+    [Fact]
+    public async Task Weight_stats_returns_per_slot_averages_and_the_morning_evening_delta()
+    {
+        var (_, user) = await ProvisionUser("tracker.self");
+
+        // Morning readings: 80, 82 (avg 81). Evening readings: 83, 85 (avg 84). Delta = 84 - 81 = 3.
+        await user.PostAsJsonAsync("/api/tracker/weight", new { date = "2026-06-16", weightKg = 80.0, slot = "Morning" });
+        await user.PostAsJsonAsync("/api/tracker/weight", new { date = "2026-06-16", weightKg = 83.0, slot = "Evening" });
+        await user.PostAsJsonAsync("/api/tracker/weight", new { date = "2026-06-17", weightKg = 82.0, slot = "Morning" });
+        await user.PostAsJsonAsync("/api/tracker/weight", new { date = "2026-06-17", weightKg = 85.0, slot = "Evening" });
+
+        var stats = await Json(await user.GetAsync("/api/tracker/weight/stats?days=365"));
+
+        var morning = stats.GetProperty("bySlot").EnumerateArray()
+            .Single(s => s.GetProperty("slot").GetString() == "Morning");
+        morning.GetProperty("avgKg").GetDouble().Should().Be(81.0);
+        morning.GetProperty("latestKg").GetDouble().Should().Be(82.0); // 2026-06-17 morning
+        morning.GetProperty("count").GetInt32().Should().Be(2);
+
+        var eveningStat = stats.GetProperty("bySlot").EnumerateArray()
+            .Single(s => s.GetProperty("slot").GetString() == "Evening");
+        eveningStat.GetProperty("avgKg").GetDouble().Should().Be(84.0);
+        eveningStat.GetProperty("latestKg").GetDouble().Should().Be(85.0); // 2026-06-17 evening
+        eveningStat.GetProperty("count").GetInt32().Should().Be(2);
+
+        stats.GetProperty("morningEveningDeltaKg").GetDouble().Should().Be(3.0);
+        stats.GetProperty("entries").EnumerateArray().Should().HaveCount(4);
+    }
+
+    [Fact]
+    public async Task Weight_stats_delta_is_null_when_a_slot_is_missing()
+    {
+        var (_, user) = await ProvisionUser("tracker.self");
+
+        // Only morning readings -> evening avg missing -> delta is null.
+        await user.PostAsJsonAsync("/api/tracker/weight", new { date = "2026-06-17", weightKg = 80.0, slot = "Morning" });
+
+        var stats = await Json(await user.GetAsync("/api/tracker/weight/stats"));
+        stats.GetProperty("morningEveningDeltaKg").ValueKind.Should().Be(JsonValueKind.Null);
+    }
+
+    [Fact]
+    public async Task Weight_without_a_slot_defaults_to_unspecified_and_upserts_one_per_day()
+    {
+        var (_, user) = await ProvisionUser("tracker.self");
+
+        // Existing single-per-day callers (no slot) keep upserting one row per day (Unspecified slot).
+        await user.PostAsJsonAsync("/api/tracker/weight", new { date = "2026-06-17", weightKg = 80.0 });
+        await user.PostAsJsonAsync("/api/tracker/weight", new { date = "2026-06-17", weightKg = 81.0 });
+
+        var history = (await Json(await user.GetAsync("/api/tracker/weight?days=365"))).EnumerateArray().ToList();
+        history.Should().ContainSingle();
+        history[0].GetProperty("weightKg").GetDouble().Should().Be(81.0);
+
+        var stats = await Json(await user.GetAsync("/api/tracker/weight/stats?days=365"));
+        var bySlot = stats.GetProperty("bySlot").EnumerateArray().ToList();
+        bySlot.Should().ContainSingle();
+        bySlot[0].GetProperty("slot").GetString().Should().Be("Unspecified");
+        bySlot[0].GetProperty("count").GetInt32().Should().Be(1);
+    }
+
+    [Fact]
+    public async Task Weight_stats_are_private_owner_only()
+    {
+        var (_, alice) = await ProvisionUser("tracker.self");
+        var (_, coach) = await ProvisionUser("tracker.self", "tracker.viewall");
+
+        await alice.PostAsJsonAsync("/api/tracker/weight", new { date = "2026-06-17", weightKg = 80.0, slot = "Morning" });
+
+        // There is no ?user= on stats — even a viewall coach reading it gets THEIR OWN (empty) stats.
+        var coachStats = await Json(await coach.GetAsync("/api/tracker/weight/stats"));
+        coachStats.GetProperty("bySlot").EnumerateArray().Should().BeEmpty();
+        coachStats.GetProperty("entries").EnumerateArray().Should().BeEmpty();
+    }
+
     // ---- USDA: 503 when unconfigured (no API key in the test environment) ----
 
     [Fact]

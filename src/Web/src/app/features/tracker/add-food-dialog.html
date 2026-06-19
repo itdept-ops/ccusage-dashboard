@@ -19,29 +19,52 @@
           <input matInput autocomplete="off" maxlength="80"
                  [ngModel]="mBrand()" (ngModelChange)="mBrand.set($event)" />
         </mat-form-field>
+        <!-- AI macro estimate: prefills the editable fields below from the description (+ quantity). -->
+        <div class="af-ai">
+          <button mat-stroked-button type="button" class="af-ai-btn"
+                  [disabled]="!canEstimateAi()" (click)="estimateWithAi()"
+                  aria-label="Estimate calories and macros with AI from the description">
+            @if (aiLoading()) {
+              <mat-progress-spinner mode="indeterminate" diameter="18" aria-hidden="true" />
+              Estimating…
+            } @else {
+              <span class="af-ai-btn-label"><mat-icon aria-hidden="true">auto_awesome</mat-icon> Estimate with AI</span>
+            }
+          </button>
+          @if (aiEstimated()) {
+            <span class="af-ai-chip"><mat-icon aria-hidden="true">auto_awesome</mat-icon> AI estimate</span>
+          }
+        </div>
+        @if (aiEstimated() && aiNote(); as note) {
+          <p class="af-ai-note">{{ note }}</p>
+        }
+
         <div class="af-macgrid">
           <mat-form-field appearance="outline">
             <mat-label>Calories</mat-label>
             <input matInput type="number" min="0" inputmode="numeric"
-                   [ngModel]="mCalories()" (ngModelChange)="mCalories.set($event)" />
+                   [ngModel]="mCalories()" (ngModelChange)="mCalories.set($event); clearAiEstimate()" />
             <span matTextSuffix>kcal</span>
           </mat-form-field>
           <mat-form-field appearance="outline">
             <mat-label>Protein</mat-label>
-            <input matInput type="number" min="0" [ngModel]="mProtein()" (ngModelChange)="mProtein.set($event)" />
+            <input matInput type="number" min="0" [ngModel]="mProtein()" (ngModelChange)="mProtein.set($event); clearAiEstimate()" />
             <span matTextSuffix>g</span>
           </mat-form-field>
           <mat-form-field appearance="outline">
             <mat-label>Carbs</mat-label>
-            <input matInput type="number" min="0" [ngModel]="mCarb()" (ngModelChange)="mCarb.set($event)" />
+            <input matInput type="number" min="0" [ngModel]="mCarb()" (ngModelChange)="mCarb.set($event); clearAiEstimate()" />
             <span matTextSuffix>g</span>
           </mat-form-field>
           <mat-form-field appearance="outline">
             <mat-label>Fat</mat-label>
-            <input matInput type="number" min="0" [ngModel]="mFat()" (ngModelChange)="mFat.set($event)" />
+            <input matInput type="number" min="0" [ngModel]="mFat()" (ngModelChange)="mFat.set($event); clearAiEstimate()" />
             <span matTextSuffix>g</span>
           </mat-form-field>
         </div>
+
+        <!-- Polite sr-only announcement of the AI estimate (or its unavailability). -->
+        <span class="af-sr-status" role="status" aria-live="polite">{{ aiAnnounce() }}</span>
 
         <mat-form-field appearance="outline" class="af-field af-qty">
           <mat-label>Quantity (servings)</mat-label>

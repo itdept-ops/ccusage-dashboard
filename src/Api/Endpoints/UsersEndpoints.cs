@@ -88,6 +88,11 @@ public static class UsersEndpoints
             return Results.Ok(rows.Select(u => ToDto(u, maskEmail: !reveal && !SameEmail(u.Email, me))));
         }).RequireAnyPermission(Permissions.UsersView, Permissions.UsersManage);
 
+        // Lightweight total user count for the nav bar (no row data / emails — just the number).
+        users.MapGet("/count", async (UsageDbContext db, CancellationToken ct) =>
+            Results.Ok(new { total = await db.Users.CountAsync(ct) }))
+            .RequireAnyPermission(Permissions.UsersView, Permissions.UsersManage);
+
         // Per-user sign-in history (newest first, capped). Filters by the user's email so it also
         // surfaces events recorded before a UserId was bound (and survives id churn).
         users.MapGet("/{id:int}/logins", async (int id, UsageDbContext db, CancellationToken ct) =>

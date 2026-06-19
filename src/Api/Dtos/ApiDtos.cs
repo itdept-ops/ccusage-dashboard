@@ -964,11 +964,51 @@ public sealed class WeightPointDto
     public double WeightKg { get; set; }
 }
 
-/// <summary>Log (upsert) today's-or-any-day body weight; weight is always kilograms.</summary>
+/// <summary>
+/// One body-weight reading on a day at a named slot, for charting in the stats view. Weight is always kg.
+/// </summary>
+public sealed class WeightStatEntryDto
+{
+    /// <summary>"yyyy-MM-dd".</summary>
+    public string Date { get; set; } = "";
+    /// <summary>The slot name: Unspecified | Morning | Afternoon | Evening.</summary>
+    public string Slot { get; set; } = "";
+    public double WeightKg { get; set; }
+}
+
+/// <summary>Per-slot weight statistics: the average, the latest reading, and how many readings.</summary>
+public sealed class WeightSlotStatDto
+{
+    /// <summary>The slot name: Unspecified | Morning | Afternoon | Evening.</summary>
+    public string Slot { get; set; } = "";
+    public double AvgKg { get; set; }
+    public double LatestKg { get; set; }
+    public int Count { get; set; }
+}
+
+/// <summary>
+/// The caller's own weight statistics. Per-slot averages/latest/counts, the typical morning→evening
+/// delta (avg evening − avg morning; null if either slot has no readings), and recent readings for
+/// charting. PRIVATE — owner-only, never exposed to viewers.
+/// </summary>
+public sealed class WeightStatsDto
+{
+    public List<WeightSlotStatDto> BySlot { get; set; } = [];
+    /// <summary>Avg evening minus avg morning (kg); null when either morning or evening is missing.</summary>
+    public double? MorningEveningDeltaKg { get; set; }
+    public List<WeightStatEntryDto> Entries { get; set; } = [];
+}
+
+/// <summary>
+/// Log (upsert) today's-or-any-day body weight at an optional slot; weight is always kilograms. When
+/// <see cref="Slot"/> is omitted/empty it defaults to Unspecified (back-compat single-per-day behavior).
+/// </summary>
 public sealed class LogWeightRequest
 {
     public string Date { get; set; } = "";
     public double WeightKg { get; set; }
+    /// <summary>Optional slot name: Unspecified | Morning | Afternoon | Evening.</summary>
+    public string? Slot { get; set; }
 }
 
 /// <summary>Log an exercise. When <see cref="CaloriesBurned"/> is omitted and an

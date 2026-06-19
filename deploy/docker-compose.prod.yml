@@ -37,6 +37,7 @@ services:
       FatSecret__ClientId: ${FATSECRET_CLIENT_ID:-}        # secondary food provider; blank → disabled
       FatSecret__ClientSecret: ${FATSECRET_CLIENT_SECRET:-}
       WorkoutX__ApiKey: ${WORKOUTX_API_KEY:-}    # add-exercise WorkoutX tab; blank → WorkoutX returns 503
+      Gemini__ApiKey: ${GEMINI_API_KEY:-}        # tracker AI-assist; blank → /api/ai returns 503
       ASPNETCORE_URLS: "http://+:8080"
 
   web:

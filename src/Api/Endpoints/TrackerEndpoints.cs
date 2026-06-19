@@ -398,10 +398,11 @@ public static class TrackerEndpoints
             return Results.Ok(ToProfileDto(profile));
         }).RequirePermission(Permissions.TrackerSelf);
 
-        // ---- Log (upsert) the caller's body weight on a day (OWN only) ----
-        // Upserts the WeightEntry for that local date AND sets profile.WeightKg to the entry on the
-        // MOST RECENT date present (so "current weight" + stats track the latest reading). Returns the
-        // refreshed profile so the client can update its current weight + stats.
+        // ---- Log (upsert) the caller's body weight on a day + slot (OWN only) ----
+        // Upserts the WeightEntry for that local date AND slot (so morning + evening can coexist on one
+        // day) AND sets profile.WeightKg to the MOST RECENT reading (latest date, then latest slot/insert)
+        // so "current weight" tracks the freshest reading. Returns the refreshed profile so the client can
+        // update its current weight + stats.
         g.MapPost("/weight", async (
             LogWeightRequest req, CurrentUserAccessor me, UsageDbContext db, CancellationToken ct) =>
         {
@@ -412,16 +413,18 @@ public static class TrackerEndpoints
             if (!(req.WeightKg >= 1 && req.WeightKg <= 1000))
                 return Results.BadRequest(new { message = "Weight must be between 1 and 1000 kg." });
 
+            var slot = Enum.TryParse<WeightSlot>(req.Slot, ignoreCase: true, out var s) ? s : WeightSlot.Unspecified;
             var weightKg = Math.Round(req.WeightKg, 2);
 
             var entry = await db.WeightEntries
-                .FirstOrDefaultAsync(w => w.UserEmail == caller.Email && w.LocalDate == localDate, ct);
+                .FirstOrDefaultAsync(w => w.UserEmail == caller.Email && w.LocalDate == localDate && w.Slot == slot, ct);
             if (entry is null)
             {
                 entry = new WeightEntry
                 {
                     UserEmail = caller.Email,
                     LocalDate = localDate,
+                    Slot = slot,
                     WeightKg = weightKg,
                     CreatedUtc = DateTime.UtcNow,
                 };
@@ -439,19 +442,19 @@ public static class TrackerEndpoints
             }
             catch (DbUpdateException ex) when (IsUniqueViolation(ex))
             {
-                // A concurrent insert for the same (user, date) won the race; reload + overwrite it.
+                // A concurrent insert for the same (user, date, slot) won the race; reload + overwrite it.
                 db.ChangeTracker.Clear();
                 profile = await GetOrCreateProfileAsync(db, caller.Email, ct);
                 entry = await db.WeightEntries
-                    .FirstAsync(w => w.UserEmail == caller.Email && w.LocalDate == localDate, ct);
+                    .FirstAsync(w => w.UserEmail == caller.Email && w.LocalDate == localDate && w.Slot == slot, ct);
                 entry.WeightKg = weightKg;
                 await db.SaveChangesAsync(ct);
             }
 
-            // Current weight = the reading on the most recent dated entry (ties broken by newest insert).
+            // Current weight = the most recent reading (latest date, then latest slot, then newest insert).
             var latest = await db.WeightEntries.AsNoTracking()
                 .Where(w => w.UserEmail == caller.Email)
-                .OrderByDescending(w => w.LocalDate).ThenByDescending(w => w.Id)
+                .OrderByDescending(w => w.LocalDate).ThenByDescending(w => w.Slot).ThenByDescending(w => w.Id)
                 .Select(w => (double?)w.WeightKg)
                 .FirstOrDefaultAsync(ct);
             if (latest is { } lw && profile.WeightKg != lw)
@@ -480,6 +483,63 @@ public static class TrackerEndpoints
                 .Select(w => new WeightPointDto { Date = w.LocalDate.ToString("yyyy-MM-dd"), WeightKg = w.WeightKg })
                 .ToListAsync(ct);
             return Results.Ok(points);
+        }).RequirePermission(Permissions.TrackerSelf);
+
+        // ---- The caller's own weight statistics (OWN only — private, never for others) ----
+        // Per-slot average/latest/count, the typical morning→evening delta (avg evening − avg morning,
+        // null if either is missing), and recent readings for charting.
+        g.MapGet("/weight/stats", async (
+            int? days, CurrentUserAccessor me, UsageDbContext db, CancellationToken ct) =>
+        {
+            var caller = (await me.GetUserAsync(ct))!;
+            var window = days is { } d ? Math.Clamp(d, 1, 365) : 90;
+            var today = DateOnly.FromDateTime(
+                TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, await DisplayTzAsync(db, ct)));
+            var from = today.AddDays(-(window - 1));
+
+            var rows = await db.WeightEntries.AsNoTracking()
+                .Where(w => w.UserEmail == caller.Email && w.LocalDate >= from && w.LocalDate <= today)
+                .OrderBy(w => w.LocalDate).ThenBy(w => w.Slot).ThenBy(w => w.Id)
+                .Select(w => new { w.LocalDate, w.Slot, w.WeightKg })
+                .ToListAsync(ct);
+
+            // Per-slot stats: average + latest (newest by date, then slot order, then insert) + count.
+            var bySlot = rows
+                .GroupBy(w => w.Slot)
+                .OrderBy(grp => grp.Key)
+                .Select(grp => new WeightSlotStatDto
+                {
+                    Slot = grp.Key.ToString(),
+                    AvgKg = Math.Round(grp.Average(w => w.WeightKg), 2),
+                    LatestKg = grp.Last().WeightKg, // rows are date/slot/id-ascending, so Last() is newest
+                    Count = grp.Count(),
+                })
+                .ToList();
+
+            double? AvgFor(WeightSlot slot)
+            {
+                var vals = rows.Where(w => w.Slot == slot).Select(w => w.WeightKg).ToList();
+                return vals.Count == 0 ? null : vals.Average();
+            }
+            var morningAvg = AvgFor(WeightSlot.Morning);
+            var eveningAvg = AvgFor(WeightSlot.Evening);
+            var delta = morningAvg is { } m && eveningAvg is { } ev ? Math.Round(ev - m, 2) : (double?)null;
+
+            var entries = rows
+                .Select(w => new WeightStatEntryDto
+                {
+                    Date = w.LocalDate.ToString("yyyy-MM-dd"),
+                    Slot = w.Slot.ToString(),
+                    WeightKg = w.WeightKg,
+                })
+                .ToList();
+
+            return Results.Ok(new WeightStatsDto
+            {
+                BySlot = bySlot,
+                MorningEveningDeltaKg = delta,
+                Entries = entries,
+            });
         }).RequirePermission(Permissions.TrackerSelf);
 
         // ---- Log a drink onto a day (OWN only; many drinks per day, no upsert) ----
@@ -707,9 +767,19 @@ public static class TrackerEndpoints
         var profileDto = profile is null
             ? new TrackerProfileDto() // an unconfigured user reads as Maintain / no goals
             : ToProfileDto(profile);
-        // Body weight is the owner's private metric (used only for their own exercise estimates) —
-        // never expose it to a viewer (shared contact or coach); they still see calories + macros.
-        if (readOnly) profileDto.WeightKg = null;
+        // Body metrics are the owner's PRIVATE data — never expose them to a viewer (shared contact or
+        // coach with tracker.viewall). A viewer legitimately needs the goal direction, the daily targets
+        // and the sharing/display flags, but NEVER the raw body metrics. Null every metric that reveals
+        // body data (weight, goal weight, height, age/DOB, sex). The body-metric estimates (BMI/BMR/TDEE)
+        // in `stats` are already only computed for the owner (see below), so they stay null for viewers.
+        if (readOnly)
+        {
+            profileDto.WeightKg = null;
+            profileDto.GoalWeightKg = null;
+            profileDto.HeightCm = null;
+            profileDto.DateOfBirth = null;
+            profileDto.Sex = "Unspecified";
+        }
 
         // Body-metric estimates (BMI/BMR/TDEE/suggestions). PRIVACY: only the owner ever sees these —
         // a viewer (shared contact or coach) gets NULL so body metrics don't leak. Age uses "today" in

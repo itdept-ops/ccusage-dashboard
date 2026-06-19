@@ -295,17 +295,41 @@
                [ngModel]="mName()" (ngModelChange)="setManualName($event)" placeholder="e.g. Evening walk" />
       </mat-form-field>
       <mat-form-field appearance="outline" class="ax-field">
-        <mat-label>Calories burned</mat-label>
-        <input matInput type="number" min="0" inputmode="numeric"
-               [ngModel]="mCalories()" (ngModelChange)="mCalories.set($event)" />
-        <span matTextSuffix>kcal</span>
-      </mat-form-field>
-      <mat-form-field appearance="outline" class="ax-field">
         <mat-label>Duration (optional)</mat-label>
         <input matInput type="number" min="1" inputmode="numeric"
                [ngModel]="mDuration()" (ngModelChange)="mDuration.set($event)" />
         <span matTextSuffix>min</span>
       </mat-form-field>
+
+      <mat-form-field appearance="outline" class="ax-field">
+        <mat-label>Calories burned</mat-label>
+        <input matInput type="number" min="0" inputmode="numeric"
+               [ngModel]="mCalories()" (ngModelChange)="mCalories.set($event); clearAiEstimate()" />
+        <span matTextSuffix>kcal</span>
+      </mat-form-field>
+
+      <!-- AI calorie estimate: name + duration → prefills the editable calories field above. -->
+      <div class="ax-ai">
+        <button mat-stroked-button type="button" class="ax-ai-btn"
+                [disabled]="!canEstimateAi()" (click)="estimateWithAi()"
+                aria-label="Estimate calories burned with AI from the exercise name and duration">
+          @if (aiLoading()) {
+            <mat-progress-spinner mode="indeterminate" diameter="18" aria-hidden="true" />
+            Estimating…
+          } @else {
+            <span class="ax-ai-btn-label"><mat-icon aria-hidden="true">auto_awesome</mat-icon> Estimate calories with AI</span>
+          }
+        </button>
+        @if (aiEstimated()) {
+          <span class="ax-ai-chip"><mat-icon aria-hidden="true">auto_awesome</mat-icon> AI estimate</span>
+        }
+      </div>
+      @if (aiEstimated() && aiNote(); as note) {
+        <p class="ax-ai-note">{{ note }}</p>
+      }
+      @if (!canEstimateAi() && !aiLoading() && mName().trim().length > 0) {
+        <p class="ax-ai-hint">Add a duration to estimate calories with AI.</p>
+      }
 
       @if (mWillSave()) {
         <p class="ax-savehint" aria-live="polite" aria-atomic="true">
@@ -314,8 +338,8 @@
       }
     </div>
 
-    <!-- Polite sr-only announcement spoken after a "My exercises" pick prefills the form below. -->
-    <span class="ax-sr-status" role="status" aria-live="polite">{{ pickAnnounce() }}</span>
+    <!-- Polite sr-only announcement: a "My exercises" pick prefill, OR the AI estimate result. -->
+    <span class="ax-sr-status" role="status" aria-live="polite">{{ aiAnnounce() || pickAnnounce() }}</span>
   }
 </mat-dialog-content>
 

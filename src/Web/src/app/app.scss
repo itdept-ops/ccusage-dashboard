@@ -326,6 +326,31 @@
   50% { opacity: 0.55; box-shadow: 0 0 4px 0 rgba(61, 214, 140, 0.4); }
 }
 
+/* Total-user-count pill (admins only): unobtrusive, mirrors the .status pill chrome. */
+.usercount {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px;
+  border-radius: var(--tech-r-pill, 999px);
+  background: var(--tech-input);
+  border: 1px solid var(--tech-border-subtle, #1c2533);
+  color: var(--tech-text-secondary);
+
+  &__icon {
+    font-size: 16px;
+    width: 16px;
+    height: 16px;
+    color: var(--tech-text-tertiary);
+  }
+
+  &__num {
+    font-size: var(--tech-fs-micro, 10.5px);
+    letter-spacing: 0.04em;
+    line-height: 1;
+  }
+}
+
 /* Sync-state dot coloring (default green = ok/synced) */
 .status[data-state='running'] {
   .status__dot { background: var(--tech-accent-cyan, #3fd8d0); box-shadow: 0 0 8px 0 rgba(63, 216, 208, 0.7); }

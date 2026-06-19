@@ -9,6 +9,19 @@ public enum TrackerGoal
     Endurance = 3,
 }
 
+/// <summary>
+/// The named time-of-day slot a body-weight reading belongs to, so a user can weigh in multiple times
+/// per day (e.g. morning AND evening) and get per-slot statistics. <see cref="Unspecified"/> is the
+/// back-compat default for readings logged without a slot (and for rows that predate slots).
+/// </summary>
+public enum WeightSlot
+{
+    Unspecified = 0,
+    Morning = 1,
+    Afternoon = 2,
+    Evening = 3,
+}
+
 /// <summary>Which meal a logged food belongs to, so the day view can group entries.</summary>
 public enum MealType
 {

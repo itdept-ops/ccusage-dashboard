@@ -1,7 +1,7 @@
 import { Component, computed, effect, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { HttpErrorResponse } from '@angular/common/http';
-import { Subject, debounceTime, distinctUntilChanged, switchMap, of, catchError } from 'rxjs';
+import { Subject, debounceTime, distinctUntilChanged, switchMap, of, catchError, firstValueFrom } from 'rxjs';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 
 import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
@@ -11,6 +11,8 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatButtonToggleModule } from '@angular/material/button-toggle';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { MatSnackBar } from '@angular/material/snack-bar';
 
 import { Api } from '../../core/api';
 import { AddFoodRequest, CustomFoodDto, FoodSearchItemDto, Meal } from '../../core/models';
@@ -43,7 +45,7 @@ const MEALS: { value: Meal; label: string }[] = [
   selector: 'app-add-food-dialog',
   imports: [
     FormsModule, MatDialogModule, MatFormFieldModule, MatInputModule, MatButtonModule,
-    MatButtonToggleModule, MatIconModule, MatProgressBarModule, BarcodeScanner,
+    MatButtonToggleModule, MatIconModule, MatProgressBarModule, MatProgressSpinnerModule, BarcodeScanner,
   ],
   templateUrl: './add-food-dialog.html',
   styleUrl: './add-food-dialog.scss',
@@ -51,6 +53,7 @@ const MEALS: { value: Meal; label: string }[] = [
 export class AddFoodDialog {
   private api = inject(Api);
   private ref = inject(MatDialogRef<AddFoodDialog, AddFoodRequest>);
+  private snack = inject(MatSnackBar);
   readonly data = inject<AddFoodData>(MAT_DIALOG_DATA);
 
   readonly meals = MEALS;
@@ -104,6 +107,19 @@ export class AddFoodDialog {
 
   readonly saving = signal(false);
   readonly saveError = signal<string | null>(null);
+
+  // ---- AI macro estimate (Gemini-backed; optional, gracefully degrades) ----
+  /** True while the estimate-macros call is in flight (drives the spinner + disables the button). */
+  readonly aiLoading = signal(false);
+  /** Set once an AI estimate has prefilled the macro fields → renders the "AI estimate" chip. */
+  readonly aiEstimated = signal(false);
+  /** The model's optional short note (an assumption it made), shown beside the chip. */
+  readonly aiNote = signal<string | null>(null);
+  /** Polite sr-only announcement of the AI result (or its unavailability). */
+  readonly aiAnnounce = signal('');
+
+  /** Can we ask the AI? A description is required (quantity is optional free text). */
+  readonly canEstimateAi = computed(() => !this.aiLoading() && this.mDesc().trim().length > 0);
 
   /** Unit hint for the quantity field, driven by the selected food's basis (manual = servings). */
   readonly quantityUnit = computed(() =>
@@ -266,7 +282,51 @@ export class AddFoodDialog {
     this.pickedServingDesc.set(undefined);
     this.barcodeNotFound.set(null);
     this.quantity.set(1);
+    this.clearAiEstimate();
     this.mode.set('search');
+  }
+
+  /** Clear the "AI estimate" chip + note (called when the user edits the macro fields themselves). */
+  clearAiEstimate(): void {
+    this.aiEstimated.set(false);
+    this.aiNote.set(null);
+  }
+
+  /**
+   * Ask Gemini to estimate calories + macros for the typed description (+ optional quantity), then
+   * PREFILL the editable fields. The estimate is per-one-serving (quantity stays the form's own scaler),
+   * a suggestion the user can adjust. A 503/unavailable leaves the fields editable and steers to manual.
+   */
+  async estimateWithAi(): Promise<void> {
+    if (!this.canEstimateAi()) return;
+    this.aiLoading.set(true);
+    this.aiAnnounce.set('Estimating nutrition with AI…');
+    try {
+      const res = await firstValueFrom(this.api.estimateMacros({
+        description: this.mDesc().trim(),
+        // Always request ONE serving: the macro fields are PER-serving and the form's `quantity` signal
+        // already scales them (see the `scaled` computed). Passing the typed serving count here would make
+        // the AI return macros for N servings, which then get scaled by N again → double-counted.
+        quantity: '1 serving',
+      }));
+      // Prefill the editable per-serving fields — never silently authoritative; the user can adjust.
+      this.mCalories.set(res.calories);
+      this.mProtein.set(res.proteinG);
+      this.mCarb.set(res.carbsG);
+      this.mFat.set(res.fatG);
+      this.aiNote.set(res.note ?? null);
+      this.aiEstimated.set(true);
+      this.aiAnnounce.set(
+        `AI estimate: ${res.calories} calories, ${res.proteinG} grams protein, ` +
+        `${res.carbsG} grams carbs, ${res.fatG} grams fat.` + (res.note ? ` ${res.note}` : ''));
+    } catch {
+      // 503 (unconfigured) or any failure → one consistent degraded path; fields stay editable.
+      this.aiEstimated.set(false);
+      this.aiAnnounce.set('AI estimate unavailable. Enter the values manually.');
+      this.snack.open('AI estimate unavailable — enter manually', 'OK', { duration: 4000 });
+    } finally {
+      this.aiLoading.set(false);
+    }
   }
 
   /** Drop the current selection and go back to searching. */

@@ -772,10 +772,87 @@ export interface UpsertActivityRequest {
   calorieMode: ActivityCalorieMode;
 }
 
-/** Log-today's-weight payload (POST /api/tracker/weight). Mirrors LogWeightRequest. */
+/** Which part of the day a weigh-in was taken (so several can coexist per day). Mirrors WeightSlot. */
+export type WeightSlot = 'Morning' | 'Afternoon' | 'Evening' | 'Unspecified';
+
+/**
+ * Log-today's-weight payload (POST /api/tracker/weight). `slot` lets several weigh-ins coexist on one
+ * day; omit/Unspecified for the back-compat single-per-day behavior. Mirrors LogWeightRequest.
+ */
 export interface LogWeightRequest {
   date: string;
   weightKg: number;
+  /** Slot name: Morning | Afternoon | Evening | Unspecified. Omitted => Unspecified. */
+  slot?: WeightSlot;
+}
+
+/** Per-slot weight statistics (GET /api/tracker/weight/stats). Weight is always kg. Mirrors WeightSlotStatDto. */
+export interface WeightSlotStatDto {
+  /** Slot name: Unspecified | Morning | Afternoon | Evening. */
+  slot: WeightSlot;
+  avgKg: number;
+  latestKg: number;
+  count: number;
+}
+
+/** One weigh-in (date + slot) for the stats view. Weight is always kg. Mirrors WeightStatEntryDto. */
+export interface WeightStatEntryDto {
+  date: string;
+  slot: WeightSlot;
+  weightKg: number;
+}
+
+/**
+ * The caller's OWN weight statistics (GET /api/tracker/weight/stats). Per-slot averages/latest/counts,
+ * the typical morning→evening delta (avg evening − avg morning; null when either slot has no reading),
+ * and recent readings. PRIVATE — owner-only. Mirrors WeightStatsDto.
+ */
+export interface WeightStatsDto {
+  bySlot: WeightSlotStatDto[];
+  /** Avg evening minus avg morning (kg); null when morning or evening has no readings. */
+  morningEveningDeltaKg: number | null;
+  entries: WeightStatEntryDto[];
+}
+
+// ---- AI assists (Gemini-backed; each may 503 when unconfigured) ----
+
+/**
+ * Estimate-macros request (POST /api/ai/estimate-macros). `description` is free-text food; `quantity`
+ * is an optional free-text amount ("2 eggs", "100 g"). Mirrors EstimateMacrosRequest.
+ */
+export interface EstimateMacrosRequest {
+  description: string;
+  quantity?: string;
+}
+
+/** An AI macro estimate (clamped server-side). `note` is an optional model assumption. Mirrors EstimateMacrosResponse. */
+export interface EstimateMacrosResponse {
+  calories: number;
+  proteinG: number;
+  carbsG: number;
+  fatG: number;
+  note?: string | null;
+}
+
+/** A suggested daily target from the caller's own profile (POST /api/ai/suggest-goal). Mirrors SuggestGoalResponse. */
+export interface SuggestGoalResponse {
+  calorieTarget: number;
+  proteinG: number;
+  carbsG: number;
+  fatG: number;
+  rationale?: string | null;
+}
+
+/** Estimate-exercise request (POST /api/ai/estimate-exercise). Mirrors EstimateExerciseRequest. */
+export interface EstimateExerciseRequest {
+  name: string;
+  durationMin: number;
+}
+
+/** An AI exercise-calorie estimate (clamped server-side). `note` is an optional model assumption. Mirrors EstimateExerciseResponse. */
+export interface EstimateExerciseResponse {
+  caloriesBurned: number;
+  note?: string | null;
 }
 
 /**

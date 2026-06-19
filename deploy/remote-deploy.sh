@@ -28,6 +28,9 @@ FATSECRET_CLIENT_SECRET=$(ssm /usage-iq/fatsecret-client-secret --with-decryptio
 # Optional: WorkoutX API key for the add-exercise dialog's WorkoutX tab (exercise catalog + gifs).
 # Non-fatal if unset — the tracker still runs, only the WorkoutX endpoints return 503 until a key is set.
 WORKOUTX_API_KEY=$(ssm /usage-iq/workoutx-api-key --with-decryption)
+# Optional: Gemini API key for the tracker's AI-assist endpoints (macros/goal/exercise estimates).
+# Non-fatal if unset — the tracker still runs, only the /api/ai endpoints return 503 until a key is set.
+GEMINI_API_KEY=$(ssm /usage-iq/gemini-api-key --with-decryption)
 
 if [ -z "$JWT" ] || [ -z "$DBPW" ]; then
   echo "FATAL: /usage-iq/jwt-key or /usage-iq/db-password missing in SSM." >&2; exit 1
@@ -47,6 +50,7 @@ USDA_API_KEY=$USDA_API_KEY
 FATSECRET_CLIENT_ID=$FATSECRET_CLIENT_ID
 FATSECRET_CLIENT_SECRET=$FATSECRET_CLIENT_SECRET
 WORKOUTX_API_KEY=$WORKOUTX_API_KEY
+GEMINI_API_KEY=$GEMINI_API_KEY
 EOF
 
 echo "==> Logging in to ECR"
