@@ -1,27 +1,31 @@
 import { Component, DestroyRef, computed, effect, inject, signal } from '@angular/core';
 import { DecimalPipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { firstValueFrom } from 'rxjs';
 
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatMenuModule } from '@angular/material/menu';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 
+import { Api } from '../../core/api';
 import { AuthService } from '../../core/auth';
 import { TrackerStore } from '../../core/tracker-store';
 import {
-  ActivityCalorieMode, AddExerciseRequest, AddFoodRequest, AddHydrationRequest, ExerciseEntryDto, FoodEntryDto,
-  HydrationEntryDto, LogWeightRequest, Meal, SharedUserDto, TrackerProfileDto, UpsertActivityRequest, WeightPointDto, WeightStatsDto,
+  ActivityCalorieMode, AddExerciseRequest, AddFoodRequest, AddHydrationRequest, DailyCoachResponse, ExerciseEntryDto, FoodEntryDto,
+  FoodSuggestionDto, HydrationEntryDto, LogWeightRequest, Meal, PERM, SharedUserDto, TrackerProfileDto, UpsertActivityRequest,
+  WeeklyReviewResponse, WeightPointDto, WeightStatsDto,
 } from '../../core/models';
 import { CalorieRing } from './calorie-ring';
 import { HydrationRing } from './hydration-ring';
 import { ActivityRing } from './activity-ring';
 import { AddFoodDialog, AddFoodData } from './add-food-dialog';
 import { AddExerciseDialog, AddExerciseData } from './add-exercise-dialog';
-import { AddHydrationDialog, AddHydrationData } from './add-hydration-dialog';
+import { AddHydrationDialog, AddHydrationData, AddHydrationResult } from './add-hydration-dialog';
 import { AddActivityDialog, AddActivityData } from './add-activity-dialog';
 import { ProfileDialog, ProfileData } from './profile-dialog';
 import { LogWeightDialog, LogWeightData } from './log-weight-dialog';
@@ -56,8 +60,8 @@ const MEAL_SECTIONS: MealSection[] = [
   selector: 'app-tracker',
   imports: [
     DecimalPipe, FormsModule, MatIconModule, MatButtonModule, MatProgressBarModule, MatMenuModule,
-    MatTooltipModule, MatDialogModule, MatSnackBarModule, CalorieRing, HydrationRing, ActivityRing,
-    WeightTrend, WeightStats, OnboardingCard,
+    MatTooltipModule, MatDialogModule, MatSnackBarModule, MatProgressSpinnerModule,
+    CalorieRing, HydrationRing, ActivityRing, WeightTrend, WeightStats, OnboardingCard,
   ],
   templateUrl: './tracker.html',
   styleUrl: './tracker.scss',
@@ -65,11 +69,50 @@ const MEAL_SECTIONS: MealSection[] = [
 export class Tracker {
   readonly store = inject(TrackerStore);
   readonly auth = inject(AuthService);
+  private api = inject(Api);
   private dialog = inject(MatDialog);
   private snack = inject(MatSnackBar);
   private destroyRef = inject(DestroyRef);
 
   readonly mealSections = MEAL_SECTIONS;
+
+  // ---- AI assists (gated by tracker.ai; Gemini-backed, gracefully degrade on 503/error) ----
+
+  /**
+   * Whether the AI affordances may render at all. Gated on the trackerAi permission AND the OWN tracker
+   * (these endpoints read the caller's own day server-side — they're meaningless / hidden in read-only
+   * views of someone else). Everything AI checks this first.
+   */
+  readonly aiEnabled = computed(() => this.auth.hasPermission(PERM.trackerAi) && !this.store.readOnly());
+
+  /** True once the OWN day has something logged — we only spend the rate-limited key when there's data. */
+  readonly hasDataForAi = computed(() => {
+    const day = this.store.day();
+    if (!day) return false;
+    return day.foods.length > 0 || day.exercises.length > 0 || day.hydration.length > 0
+      || (day.activity?.steps ?? 0) > 0;
+  });
+
+  // Daily coach card (GET daily-coach; cached server-side per day). Lazy: fetched on demand / once per
+  // view via the Refresh affordance, never automatically on load, so we don't spam the rate-limited key.
+  readonly coachLoading = signal(false);
+  readonly coach = signal<DailyCoachResponse | null>(null);
+  /** True once a coach fetch failed (503/unavailable) — we show a quiet "unavailable" steer, not an error. */
+  readonly coachUnavailable = signal(false);
+  /** Polite sr-only announcement for the coach result / its unavailability. */
+  readonly coachAnnounce = signal('');
+
+  // Weekly review panel (GET weekly-review; cached server-side).
+  readonly weeklyLoading = signal(false);
+  readonly weekly = signal<WeeklyReviewResponse | null>(null);
+  readonly weeklyUnavailable = signal(false);
+  readonly weeklyAnnounce = signal('');
+
+  // "What should I eat?" — suggest foods for the remaining macros (POST suggest-foods; on-demand only).
+  readonly suggestLoading = signal(false);
+  readonly suggestions = signal<FoodSuggestionDto[] | null>(null);
+  readonly suggestUnavailable = signal(false);
+  readonly suggestAnnounce = signal('');
 
   /** Screen-reader-only live status: announces day reloads and entry deletions. */
   readonly statusMsg = signal('');
@@ -287,14 +330,25 @@ export class Tracker {
     if (this.store.readOnly()) return;
     const data: AddFoodData = { date: this.store.date(), meal };
     this.dialog.open(AddFoodDialog, { data, width: '500px', maxWidth: '95vw', autoFocus: false })
-      .afterClosed().subscribe((req: AddFoodRequest | undefined) => {
+      .afterClosed().subscribe((req: AddFoodRequest | AddFoodRequest[] | undefined) => {
         if (!req) return;
-        // A manual log (no provider source + no FDC id) is auto-saved to the caller's "My foods".
-        const wasManual = !req.source && req.fdcId == null;
-        this.store.addFood(req)
-          .then(() => this.snack.open(
-            wasManual ? `Added ${req.description} · saved to My foods` : `Added ${req.description}`,
-            'OK', { duration: 2500 }))
+        // The AI multi-item flows (photo / "describe your meal") resolve with an ARRAY; log them in order.
+        const reqs = Array.isArray(req) ? req : [req];
+        if (reqs.length === 0) return;
+        const run = reqs.reduce<Promise<unknown>>((p, r) => p.then(() => this.store.addFood(r)), Promise.resolve());
+        run
+          .then(() => {
+            if (reqs.length > 1) {
+              this.snack.open(`Added ${reqs.length} foods`, 'OK', { duration: 2500 });
+            } else {
+              // A single manual log (no provider source + no FDC id) is auto-saved to "My foods".
+              const r = reqs[0];
+              const wasManual = !r.source && r.fdcId == null;
+              this.snack.open(
+                wasManual ? `Added ${r.description} · saved to My foods` : `Added ${r.description}`,
+                'OK', { duration: 2500 });
+            }
+          })
           .catch(() => this.snack.open('Could not add food', 'Dismiss', { duration: 4000 }));
       });
   }
@@ -406,18 +460,51 @@ export class Tracker {
     this.statusMsg.set(`${prefix}, ${total} of ${goal}`);
   }
 
-  /** Open the custom-drink dialog (amount in the user's units + optional drink label). */
+  /**
+   * Open the custom-drink dialog (amount in the user's units + optional drink label). For tracker.ai
+   * users the dialog can also resolve a list of AI-parsed drinks, or an accepted AI-suggested daily
+   * hydration goal to persist on the profile.
+   */
   openAddHydration(): void {
     if (this.store.readOnly()) return;
     const p = this.store.profile();
     const data: AddHydrationData = { date: this.store.date(), unitSystem: p?.unitSystem ?? 'Imperial' };
-    this.dialog.open(AddHydrationDialog, { data, width: '360px', maxWidth: '95vw', autoFocus: false })
-      .afterClosed().subscribe((req: AddHydrationRequest | undefined) => {
-        if (!req) return;
-        this.store.addHydration(req)
-          .then(() => this.snack.open(`Added ${req.label || 'drink'}`, 'OK', { duration: 2000 }))
-          .catch(() => this.snack.open('Could not log drink', 'Dismiss', { duration: 4000 }));
+    this.dialog.open(AddHydrationDialog, { data, width: '400px', maxWidth: '95vw', autoFocus: false })
+      .afterClosed().subscribe((res: AddHydrationResult | undefined) => {
+        if (!res) return;
+        if (res.kind === 'goal') {
+          this.applyHydrationGoal(res.targetMl);
+          return;
+        }
+        this.logDrinks(res.requests, res.kind === 'parsed');
       });
+  }
+
+  /** Log one or more drinks sequentially (each refreshes the day), with a single summary snackbar. */
+  private async logDrinks(requests: AddHydrationRequest[], parsed: boolean): Promise<void> {
+    let ok = 0;
+    for (const req of requests) {
+      try {
+        await this.store.addHydration(req);
+        ok++;
+      } catch { /* keep going; report the shortfall at the end */ }
+    }
+    if (ok === 0) {
+      this.snack.open('Could not log drink', 'Dismiss', { duration: 4000 });
+    } else if (parsed || requests.length > 1) {
+      this.snack.open(`Added ${ok} drink${ok === 1 ? '' : 's'}`, 'OK', { duration: 2000 });
+    } else {
+      this.snack.open(`Added ${requests[0].label || 'drink'}`, 'OK', { duration: 2000 });
+    }
+  }
+
+  /** Persist an AI-accepted daily hydration target (ml) onto the profile, then refresh. */
+  private applyHydrationGoal(targetMl: number): void {
+    const current = this.store.profile();
+    if (!current) return;
+    this.store.saveProfile({ ...current, hydrationGoalMl: targetMl })
+      .then(() => this.snack.open('Hydration goal updated', 'OK', { duration: 2000 }))
+      .catch(() => this.snack.open('Could not update hydration goal', 'Dismiss', { duration: 4000 }));
   }
 
   removeHydration(h: HydrationEntryDto): void {
@@ -508,6 +595,101 @@ export class Tracker {
         this.store.upsertActivity(res)
           .then(() => this.snack.open('Watch stats saved', 'OK', { duration: 2000 }))
           .catch(() => this.snack.open('Could not save watch stats', 'Dismiss', { duration: 4000 }));
+      });
+  }
+
+  // ---- AI assists ----
+
+  /**
+   * Fetch the daily coach insight + tips on demand (button / Refresh). The endpoint caches per day
+   * server-side, but we still only call it lazily — never on load — and only when there's data, so we
+   * don't spam the rate-limited key. A 503/error flips to a quiet "unavailable" steer; the dashboard
+   * is never blocked.
+   */
+  async loadCoach(): Promise<void> {
+    if (!this.aiEnabled() || this.coachLoading()) return;
+    this.coachLoading.set(true);
+    this.coachUnavailable.set(false);
+    this.coachAnnounce.set('Getting your daily coaching…');
+    try {
+      const res = await firstValueFrom(this.api.dailyCoach());
+      this.coach.set(res);
+      this.coachAnnounce.set(`Coach: ${res.insight}` + (res.tips.length ? ` ${res.tips.length} tips.` : ''));
+    } catch {
+      this.coach.set(null);
+      this.coachUnavailable.set(true);
+      this.coachAnnounce.set('AI coaching is unavailable right now.');
+    } finally {
+      this.coachLoading.set(false);
+    }
+  }
+
+  /** Fetch the weekly review on demand. Same graceful-degrade contract as {@link loadCoach}. */
+  async loadWeekly(): Promise<void> {
+    if (!this.aiEnabled() || this.weeklyLoading()) return;
+    this.weeklyLoading.set(true);
+    this.weeklyUnavailable.set(false);
+    this.weeklyAnnounce.set('Reviewing your week…');
+    try {
+      const res = await firstValueFrom(this.api.weeklyReview());
+      this.weekly.set(res);
+      this.weeklyAnnounce.set(`This week: ${res.summary} ${res.suggestion}`);
+    } catch {
+      this.weekly.set(null);
+      this.weeklyUnavailable.set(true);
+      this.weeklyAnnounce.set('The weekly review is unavailable right now.');
+    } finally {
+      this.weeklyLoading.set(false);
+    }
+  }
+
+  /**
+   * Ask the AI what to eat for the remaining calories/macros today (reads the caller's own day
+   * server-side). On-demand only. Each suggestion is a prompt the user acts on through the normal,
+   * editable Add Food flow — nothing is auto-logged. A 503/error degrades gracefully.
+   */
+  async suggestFoods(): Promise<void> {
+    if (!this.aiEnabled() || this.suggestLoading()) return;
+    this.suggestLoading.set(true);
+    this.suggestUnavailable.set(false);
+    this.suggestAnnounce.set('Finding foods for your remaining macros…');
+    try {
+      const res = await firstValueFrom(this.api.suggestFoods());
+      this.suggestions.set(res.suggestions);
+      this.suggestAnnounce.set(res.suggestions.length
+        ? `${res.suggestions.length} food ${res.suggestions.length === 1 ? 'idea' : 'ideas'} for your remaining macros.`
+        : 'No suggestions right now.');
+    } catch {
+      this.suggestions.set(null);
+      this.suggestUnavailable.set(true);
+      this.suggestAnnounce.set('Food suggestions are unavailable right now — add food manually.');
+    } finally {
+      this.suggestLoading.set(false);
+    }
+  }
+
+  /** Dismiss the food-suggestions list (clears the panel; the button can re-fetch). */
+  clearSuggestions(): void {
+    this.suggestions.set(null);
+    this.suggestUnavailable.set(false);
+  }
+
+  /**
+   * Act on an AI food suggestion: open the standard Add Food dialog with the name pre-seeded into the
+   * search box. It's an editable prefill — the user searches/confirms and sets quantity; nothing logs
+   * automatically. Defaults to the snack meal as a neutral target.
+   */
+  addSuggestedFood(s: FoodSuggestionDto): void {
+    if (this.store.readOnly()) return;
+    const data: AddFoodData = { date: this.store.date(), meal: 'snack', prefillQuery: s.food };
+    this.dialog.open(AddFoodDialog, { data, width: '500px', maxWidth: '95vw', autoFocus: false })
+      .afterClosed().subscribe((req: AddFoodRequest | AddFoodRequest[] | undefined) => {
+        if (!req) return;
+        const reqs = Array.isArray(req) ? req : [req];
+        const run = reqs.reduce<Promise<unknown>>((p, r) => p.then(() => this.store.addFood(r)), Promise.resolve());
+        run
+          .then(() => this.snack.open(`Added ${reqs.length === 1 ? reqs[0].description : reqs.length + ' foods'}`, 'OK', { duration: 2500 }))
+          .catch(() => this.snack.open('Could not add food', 'Dismiss', { duration: 4000 }));
       });
   }
 

@@ -218,6 +218,97 @@
   color: var(--tech-text-tertiary);
 }
 
+/* ── AI tab (✨): three stacked assist cards ── */
+.ax-ai-tab {
+  display: flex;
+  flex-direction: column;
+  gap: var(--tech-space-3);
+}
+
+.ax-ai-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--tech-space-2);
+  padding: var(--tech-space-3);
+  border: 1px solid var(--tech-border-subtle);
+  border-radius: var(--tech-r-control);
+  background: var(--tech-bg-sunken);
+
+  &__h {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin: 0;
+    font-family: var(--tech-font-ui);
+    font-size: var(--tech-fs-body);
+    font-weight: 700;
+    color: var(--tech-text);
+    mat-icon { font-size: 18px; width: 18px; height: 18px; color: var(--tech-accent); }
+  }
+
+  &__sub {
+    margin: 0;
+    font-size: var(--tech-fs-label);
+    color: var(--tech-text-tertiary);
+  }
+}
+
+/* Two fields side-by-side on the AI assist cards (wraps on narrow viewports). */
+.ax-ai-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--tech-space-2);
+  .ax-field { flex: 1 1 160px; margin-bottom: 0; }
+  &__minutes { flex: 0 1 120px; }
+}
+
+/* Editable prefill block shown after a successful AI assist. */
+.ax-ai-prefill {
+  display: flex;
+  flex-direction: column;
+  gap: var(--tech-space-2);
+  margin-top: var(--tech-space-1);
+  padding-top: var(--tech-space-2);
+  border-top: 1px solid var(--tech-border-subtle);
+
+  &__tag { margin: 0; }
+
+  &__actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    button { border-radius: var(--tech-r-control); font-weight: 600; min-height: 44px; }
+  }
+}
+
+/* Quick burn-target chips. */
+.ax-ai-chiprow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.ax-ai-target {
+  min-height: 44px;
+  padding: 0 14px;
+  border: 1px solid var(--tech-border);
+  border-radius: var(--tech-r-pill, 999px);
+  background: transparent;
+  color: var(--tech-text-secondary);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color var(--tech-t-control) ease, border-color var(--tech-t-control) ease;
+
+  &:hover { background: var(--tech-panel-raised); }
+  &:focus-visible { outline: none; box-shadow: var(--tech-focus-ring); }
+  &.selected {
+    border-color: color-mix(in srgb, var(--tech-accent) 50%, transparent);
+    background: color-mix(in srgb, var(--tech-accent) 12%, transparent);
+    color: var(--tech-accent);
+  }
+}
+
 .ax-override {
   font-size: var(--tech-fs-body);
   color: var(--tech-text-secondary);

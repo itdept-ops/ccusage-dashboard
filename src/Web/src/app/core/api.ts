@@ -3,13 +3,13 @@ import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import {
   AccessPolicy, AddExerciseRequest, AddFoodRequest, AddHydrationRequest, AuditEntry, CacheEfficiency, CalendarDay, ChatChannelDto, ChatContactDto, ChatMessageDto, CreateChannelRequest,
-  CreateShareRequest, CustomExerciseDto, CustomFoodDto, EstimateExerciseRequest, EstimateExerciseResponse, EstimateMacrosRequest, EstimateMacrosResponse, ExerciseEntryDto, ExerciseLibraryDto, Fleet, FleetDeleteRequest,
+  CreateShareRequest, CustomExerciseDto, CustomFoodDto, DailyCoachResponse, EstimateExerciseRequest, EstimateExerciseResponse, EstimateMacrosRequest, EstimateMacrosResponse, ExerciseEntryDto, ExerciseLibraryDto, Fleet, FleetDeleteRequest,
   FleetDeleteResult, FleetReassignRequest, FleetReassignResult, FleetRevokeKeysRequest, FleetRevokeKeysResult, FoodEntryDto, FoodSearchItemDto, GroupBy,
-  HeatmapCell, HydrationEntryDto, IngestionSource, IngestKey, IngestKeyCreated, LogWeightRequest, LoginEvent, MachineStat, ManagedUser, ModelStat, NotificationDto, NotificationPreferenceDto, NotificationSettings,
-  NotificationUpdate, PagedResult, PermissionItem, Presence, Pricing, ProjectDto, PublicShare, ReactionGroupDto, RequestLogEntry, SavedView,
-  SavedViewUpsertRequest, SessionDetail, Settings, ShareAccessItem, ShareCreated, ShareListItem, SharedUserDto, SuggestGoalResponse, SummaryResponse,
+  HeatmapCell, HydrationEntryDto, HydrationSuggestResponse, ImageRequest, IngestionSource, IngestKey, IngestKeyCreated, LogWeightRequest, LoginEvent, MachineStat, ManagedUser, MealFeedbackRequest, MealFeedbackResponse, ModelStat, NaturalGoalRequest, NaturalGoalResponse, NotificationDto, NotificationPreferenceDto, NotificationSettings,
+  NotificationUpdate, PagedResult, ParseExerciseRequest, ParseExerciseResponse, ParseHydrationRequest, ParseHydrationResponse, ParseMealRequest, ParseMealResponse, PermissionItem, Presence, Pricing, ProjectDto, PublicShare, ReactionGroupDto, ReadLabelResponse, RecipeMacrosRequest, RecipeMacrosResponse, RequestLogEntry, SavedView,
+  SavedViewUpsertRequest, SessionDetail, Settings, ShareAccessItem, ShareCreated, ShareListItem, SharedUserDto, SuggestFoodsResponse, SuggestGoalResponse, SuggestWorkoutRequest, SuggestWorkoutResponse, SummaryResponse,
   SyncResult, SyncStatus, TrackerDayDto, TrackerProfileDto, UpsertActivityRequest, UsageFilter, UsageRecord, UsageStats,
-  WatchActivityDto, WeightPointDto, WeightStatsDto, WorkoutXSearchResultDto,
+  WatchActivityDto, WeeklyReviewResponse, WeightInsightResponse, WeightPointDto, WeightStatsDto, WorkoutXSearchResultDto,
 } from './models';
 
 @Injectable({ providedIn: 'root' })
@@ -580,6 +580,76 @@ export class Api {
   /** Estimate calories burned for a free-text exercise name over a duration in minutes. */
   estimateExercise(body: EstimateExerciseRequest): Observable<EstimateExerciseResponse> {
     return this.http.post<EstimateExerciseResponse>(`${this.base}/ai/estimate-exercise`, body);
+  }
+
+  /** Parse a natural-language exercise log into a structured exercise (calories use the caller's own body weight, server-side). */
+  parseExercise(body: ParseExerciseRequest): Observable<ParseExerciseResponse> {
+    return this.http.post<ParseExerciseResponse>(`${this.base}/ai/parse-exercise`, body);
+  }
+
+  /** Suggest a workout plan for a focus area + duration (minutes) + optional equipment. */
+  suggestWorkout(body: SuggestWorkoutRequest): Observable<SuggestWorkoutResponse> {
+    return this.http.post<SuggestWorkoutResponse>(`${this.base}/ai/suggest-workout`, body);
+  }
+
+  /** Parse a free-text multi-item meal ("Big Mac, fries, Coke") into individual food items. */
+  parseMeal(body: ParseMealRequest): Observable<ParseMealResponse> {
+    return this.http.post<ParseMealResponse>(`${this.base}/ai/parse-meal`, body);
+  }
+
+  /** MULTIMODAL: identify foods + macros from a meal photo. `imageBase64` is raw base64 (no `data:` prefix). */
+  photoMeal(body: ImageRequest): Observable<ParseMealResponse> {
+    return this.http.post<ParseMealResponse>(`${this.base}/ai/photo-meal`, body);
+  }
+
+  /** MULTIMODAL: read a nutrition label from a photo. `imageBase64` is raw base64 (no `data:` prefix). */
+  readLabel(body: ImageRequest): Observable<ReadLabelResponse> {
+    return this.http.post<ReadLabelResponse>(`${this.base}/ai/read-label`, body);
+  }
+
+  /** Suggest foods from the CALLER's own remaining calories/macros today (read server-side; empty body). */
+  suggestFoods(): Observable<SuggestFoodsResponse> {
+    return this.http.post<SuggestFoodsResponse>(`${this.base}/ai/suggest-foods`, {});
+  }
+
+  /** Quick verdict + healthier swaps on a free-text meal. */
+  mealFeedback(body: MealFeedbackRequest): Observable<MealFeedbackResponse> {
+    return this.http.post<MealFeedbackResponse>(`${this.base}/ai/meal-feedback`, body);
+  }
+
+  /** Per-serving macros for a free-text recipe (+ optional number of servings). */
+  recipeMacros(body: RecipeMacrosRequest): Observable<RecipeMacrosResponse> {
+    return this.http.post<RecipeMacrosResponse>(`${this.base}/ai/recipe-macros`, body);
+  }
+
+  /** Daily coaching from the CALLER's own day so far (GET; cached ~6h server-side). */
+  dailyCoach(): Observable<DailyCoachResponse> {
+    return this.http.get<DailyCoachResponse>(`${this.base}/ai/daily-coach`);
+  }
+
+  /** Weekly review of the CALLER's own last 7 days (GET; cached ~6h server-side). */
+  weeklyReview(): Observable<WeeklyReviewResponse> {
+    return this.http.get<WeeklyReviewResponse>(`${this.base}/ai/weekly-review`);
+  }
+
+  /** Weight insight from the CALLER's own weight stats (GET; cached ~6h server-side). */
+  weightInsight(): Observable<WeightInsightResponse> {
+    return this.http.get<WeightInsightResponse>(`${this.base}/ai/weight-insight`);
+  }
+
+  /** Suggest a daily hydration target from the CALLER's own profile (read server-side; empty body). */
+  hydrationSuggest(): Observable<HydrationSuggestResponse> {
+    return this.http.post<HydrationSuggestResponse>(`${this.base}/ai/hydration-suggest`, {});
+  }
+
+  /** Parse free-text drinks ("2 coffees and a big water") into discrete amounts. */
+  parseHydration(body: ParseHydrationRequest): Observable<ParseHydrationResponse> {
+    return this.http.post<ParseHydrationResponse>(`${this.base}/ai/parse-hydration`, body);
+  }
+
+  /** Turn a free-text goal ("lose 10 lbs in 3 months") into a structured plan. */
+  naturalGoal(body: NaturalGoalRequest): Observable<NaturalGoalResponse> {
+    return this.http.post<NaturalGoalResponse>(`${this.base}/ai/natural-goal`, body);
   }
 
   /** Log a drink toward the day's hydration goal (OWN tracker only; amountMl 1..5000). Returns the created entry. */

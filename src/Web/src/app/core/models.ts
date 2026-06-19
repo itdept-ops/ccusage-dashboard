@@ -855,6 +855,193 @@ export interface EstimateExerciseResponse {
   note?: string | null;
 }
 
+/** Parse-exercise request (POST /api/ai/parse-exercise). Free-text exercise log ("3x10 squats", "jogged 2mi"). Mirrors ParseExerciseRequest. */
+export interface ParseExerciseRequest {
+  text: string;
+}
+
+/**
+ * A parsed exercise (clamped server-side; calories use the CALLER's own body weight read server-side).
+ * Mirrors ParseExerciseResponse.
+ */
+export interface ParseExerciseResponse {
+  name: string;
+  calories: number;
+  durationMin?: number | null;
+  sets?: number | null;
+  reps?: number | null;
+  /** Free-text distance the model extracted (e.g. "2 mi"), or null. */
+  distanceText?: string | null;
+  note?: string | null;
+}
+
+/** Suggest-workout request (POST /api/ai/suggest-workout): a focus area, minutes, and optional equipment. Mirrors SuggestWorkoutRequest. */
+export interface SuggestWorkoutRequest {
+  focus: string;
+  minutes: number;
+  equipment?: string;
+}
+
+/** One suggested exercise in a workout plan. Mirrors WorkoutItemDto. */
+export interface WorkoutItemDto {
+  name: string;
+  setsReps: string;
+  note?: string | null;
+}
+
+/** A suggested workout (POST /api/ai/suggest-workout). `estCalories` is clamped server-side. Mirrors SuggestWorkoutResponse. */
+export interface SuggestWorkoutResponse {
+  title: string;
+  items: WorkoutItemDto[];
+  estCalories: number;
+}
+
+/** Parse-meal request (POST /api/ai/parse-meal): free-text meal to split into items ("Big Mac, fries, Coke"). Mirrors ParseMealRequest. */
+export interface ParseMealRequest {
+  text: string;
+}
+
+/** One parsed food item (clamped server-side). Mirrors MealItemDto. */
+export interface MealItemDto {
+  description: string;
+  calories: number;
+  proteinG: number;
+  carbsG: number;
+  fatG: number;
+}
+
+/** A parsed meal: zero or more items, each with clamped macros (POST /api/ai/parse-meal). Mirrors ParseMealResponse. */
+export interface ParseMealResponse {
+  items: MealItemDto[];
+}
+
+/**
+ * A base64-encoded image + mime type for the multimodal photo features (POST /api/ai/photo-meal,
+ * /api/ai/read-label). `imageBase64` is the raw base64 (NO `data:` prefix); `mimeType` is one of
+ * image/jpeg, image/png, image/webp. Mirrors ImageRequest.
+ */
+export interface ImageRequest {
+  imageBase64: string;
+  mimeType: string;
+}
+
+/** A single nutrition-label read from a photo (POST /api/ai/read-label; clamped server-side). Mirrors ReadLabelResponse. */
+export interface ReadLabelResponse {
+  description: string;
+  calories: number;
+  proteinG: number;
+  carbsG: number;
+  fatG: number;
+  /** The serving size the label states (e.g. "1 cup (240 ml)"), or null. */
+  servingSize?: string | null;
+}
+
+/** A suggested food to round out the day (clamped server-side). Mirrors FoodSuggestionDto. */
+export interface FoodSuggestionDto {
+  food: string;
+  why?: string | null;
+  calories: number;
+  proteinG: number;
+}
+
+/**
+ * Food suggestions to hit the caller's remaining targets (POST /api/ai/suggest-foods; reads the caller's
+ * OWN remaining calories/macros today server-side — empty body). Mirrors SuggestFoodsResponse.
+ */
+export interface SuggestFoodsResponse {
+  suggestions: FoodSuggestionDto[];
+}
+
+/** Meal-feedback request (POST /api/ai/meal-feedback): a free-text meal to get a verdict + swaps for. Mirrors MealFeedbackRequest. */
+export interface MealFeedbackRequest {
+  description: string;
+}
+
+/** A quick verdict on a meal + healthier swaps (POST /api/ai/meal-feedback). Mirrors MealFeedbackResponse. */
+export interface MealFeedbackResponse {
+  verdict: string;
+  goodForGoal: boolean;
+  swaps: string[];
+}
+
+/** Recipe-macros request (POST /api/ai/recipe-macros): a free-text recipe + number of servings. Mirrors RecipeMacrosRequest. */
+export interface RecipeMacrosRequest {
+  recipe: string;
+  servings?: number;
+}
+
+/** Per-serving macros (clamped server-side). Mirrors MacroSet. */
+export interface MacroSet {
+  calories: number;
+  proteinG: number;
+  carbsG: number;
+  fatG: number;
+}
+
+/** Per-serving macros for a recipe (POST /api/ai/recipe-macros). Mirrors RecipeMacrosResponse. */
+export interface RecipeMacrosResponse {
+  perServing: MacroSet;
+}
+
+/** A short daily-coaching insight + actionable tips (GET /api/ai/daily-coach; cached server-side). Mirrors DailyCoachResponse. */
+export interface DailyCoachResponse {
+  insight: string;
+  tips: string[];
+}
+
+/** A short weekly review + one forward-looking suggestion (GET /api/ai/weekly-review; cached). Mirrors WeeklyReviewResponse. */
+export interface WeeklyReviewResponse {
+  summary: string;
+  suggestion: string;
+}
+
+/** A short insight on the caller's weight stats + a trend label (GET /api/ai/weight-insight; cached). Mirrors WeightInsightResponse. */
+export interface WeightInsightResponse {
+  insight: string;
+  trend: string;
+}
+
+/** A suggested daily hydration target in ml (clamped 0..10000) + rationale (POST /api/ai/hydration-suggest; reads profile, empty body). Mirrors HydrationSuggestResponse. */
+export interface HydrationSuggestResponse {
+  targetMl: number;
+  rationale?: string | null;
+}
+
+/** Parse-hydration request (POST /api/ai/parse-hydration): free-text drinks ("2 coffees and a big water"). Mirrors ParseHydrationRequest. */
+export interface ParseHydrationRequest {
+  text: string;
+}
+
+/** One parsed drink (clamped server-side). Mirrors HydrationItemDto. */
+export interface HydrationItemDto {
+  label: string;
+  ml: number;
+}
+
+/** Parsed drinks from a free-text hydration description (POST /api/ai/parse-hydration). Mirrors ParseHydrationResponse. */
+export interface ParseHydrationResponse {
+  items: HydrationItemDto[];
+}
+
+/** Natural-goal request (POST /api/ai/natural-goal): a free-text goal ("lose 10 lbs in 3 months"). Mirrors NaturalGoalRequest. */
+export interface NaturalGoalRequest {
+  text: string;
+}
+
+/**
+ * A structured goal parsed from free text (POST /api/ai/natural-goal; clamped server-side). `realistic`
+ * flags whether the model judged the timeline sensible. Mirrors NaturalGoalResponse.
+ */
+export interface NaturalGoalResponse {
+  calorieTarget: number;
+  proteinG: number;
+  carbsG: number;
+  fatG: number;
+  timeline?: string | null;
+  realistic: boolean;
+  rationale?: string | null;
+}
+
 /**
  * Log-a-drink payload (POST /api/tracker/hydration). `amountMl` is always metric ml (1..5000); the UI
  * converts from the user's display units before sending. `label` is an optional drink name (<=64 chars).
@@ -1009,6 +1196,7 @@ export const PERM = {
   chatContactsManage: 'chat.contacts.manage',
   trackerSelf: 'tracker.self',
   trackerViewAll: 'tracker.viewall',
+  trackerAi: 'tracker.ai',
 } as const;
 
 /**
@@ -1043,6 +1231,7 @@ export const PERM_GROUP_OF: Readonly<Record<string, string>> = {
   [PERM.chatContactsManage]: 'Chat',
   [PERM.trackerSelf]: 'Tracker',
   [PERM.trackerViewAll]: 'Tracker',
+  [PERM.trackerAi]: 'Tracker',
   [PERM.sharesView]: 'Shares',
   [PERM.sharesManage]: 'Shares',
   [PERM.usersView]: 'Administration',

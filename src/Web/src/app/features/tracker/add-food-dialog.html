@@ -1,8 +1,72 @@
 <h2 mat-dialog-title class="af-title">Add food</h2>
 
 <mat-dialog-content class="af-body">
-  <!-- Step 2: quantity + meal for a chosen/manual food. -->
-  @if (selected() || manual()) {
+  <!-- Multi-item review: AI photo / "describe your meal" produced several items to confirm + edit. -->
+  @if (reviewItems().length) {
+    <div class="af-review">
+      <p class="af-review__lead">
+        <span class="af-ai-chip"><mat-icon aria-hidden="true">auto_awesome</mat-icon> AI items</span>
+        Review and edit
+        {{ reviewSource() === 'photo' ? 'what we saw in your photo' : 'what we found in your meal' }} —
+        untick anything you don’t want.
+      </p>
+
+      <div class="af-mealpick">
+        <span class="micro-label">Add all to</span>
+        <mat-button-toggle-group class="af-mealtoggle" [value]="meal()" (change)="meal.set($event.value)"
+                                 aria-label="Meal" hideSingleSelectionIndicator>
+          @for (m of meals; track m.value) {
+            <mat-button-toggle [value]="m.value">{{ m.label }}</mat-button-toggle>
+          }
+        </mat-button-toggle-group>
+      </div>
+
+      <div class="af-review__list" role="list" aria-label="Parsed meal items">
+        @for (it of reviewItems(); track $index) {
+          <div role="listitem" class="af-review-item" [class.af-review-item--off]="!it.include">
+            <mat-checkbox class="af-review-item__chk" [checked]="it.include"
+                          (change)="toggleReviewItem($index)"
+                          [attr.aria-label]="'Include ' + it.description" />
+            <div class="af-review-item__fields">
+              <mat-form-field appearance="outline" class="af-field af-review-item__desc">
+                <mat-label>Item</mat-label>
+                <input matInput autocomplete="off" maxlength="120" [ngModel]="it.description"
+                       (ngModelChange)="updateReviewItem($index, { description: $event })" />
+              </mat-form-field>
+              <div class="af-review-item__macros">
+                <mat-form-field appearance="outline">
+                  <mat-label>Cal</mat-label>
+                  <input matInput type="number" min="0" inputmode="numeric" [ngModel]="it.calories"
+                         (ngModelChange)="updateReviewItem($index, { calories: $event })" />
+                </mat-form-field>
+                <mat-form-field appearance="outline">
+                  <mat-label>P</mat-label>
+                  <input matInput type="number" min="0" [ngModel]="it.proteinG"
+                         (ngModelChange)="updateReviewItem($index, { proteinG: $event })" />
+                </mat-form-field>
+                <mat-form-field appearance="outline">
+                  <mat-label>C</mat-label>
+                  <input matInput type="number" min="0" [ngModel]="it.carbG"
+                         (ngModelChange)="updateReviewItem($index, { carbG: $event })" />
+                </mat-form-field>
+                <mat-form-field appearance="outline">
+                  <mat-label>F</mat-label>
+                  <input matInput type="number" min="0" [ngModel]="it.fatG"
+                         (ngModelChange)="updateReviewItem($index, { fatG: $event })" />
+                </mat-form-field>
+              </div>
+            </div>
+            <button mat-icon-button type="button" class="af-review-item__del" (click)="removeReviewItem($index)"
+                    [attr.aria-label]="'Remove ' + it.description">
+              <mat-icon>close</mat-icon>
+            </button>
+          </div>
+        }
+      </div>
+
+      <span class="af-sr-status" role="status" aria-live="polite">{{ reviewAnnounce() }}</span>
+    </div>
+  } @else if (selected() || manual()) {
     @if (manual()) {
       <div class="af-manual">
         <p class="af-manual__lead">
@@ -12,7 +76,7 @@
         <mat-form-field appearance="outline" class="af-field">
           <mat-label>Description</mat-label>
           <input matInput cdkFocusInitial autocomplete="off" maxlength="120"
-                 [ngModel]="mDesc()" (ngModelChange)="mDesc.set($event)" placeholder="e.g. Homemade chili" />
+                 [ngModel]="mDesc()" (ngModelChange)="onDescChange($event)" placeholder="e.g. Homemade chili" />
         </mat-form-field>
         <mat-form-field appearance="outline" class="af-field">
           <mat-label>Brand (optional)</mat-label>
@@ -31,6 +95,19 @@
               <span class="af-ai-btn-label"><mat-icon aria-hidden="true">auto_awesome</mat-icon> Estimate with AI</span>
             }
           </button>
+          <!-- AI "is this good for my goal?" — gated by tracker.ai; read-only verdict + swaps. -->
+          @if (canUseAi) {
+            <button mat-stroked-button type="button" class="af-ai-btn"
+                    [disabled]="!canGetFeedback()" (click)="getMealFeedback()"
+                    aria-label="Ask AI whether this is good for my goal">
+              @if (feedbackLoading()) {
+                <mat-progress-spinner mode="indeterminate" diameter="18" aria-hidden="true" />
+                Checking…
+              } @else {
+                <span class="af-ai-btn-label"><mat-icon aria-hidden="true">auto_awesome</mat-icon> Good for my goal?</span>
+              }
+            </button>
+          }
           @if (aiEstimated()) {
             <span class="af-ai-chip"><mat-icon aria-hidden="true">auto_awesome</mat-icon> AI estimate</span>
           }
@@ -38,6 +115,22 @@
         @if (aiEstimated() && aiNote(); as note) {
           <p class="af-ai-note">{{ note }}</p>
         }
+
+        <!-- Meal feedback: read-only verdict + healthier swaps (a helper, not auto-applied). -->
+        @if (feedback(); as fb) {
+          <div class="af-feedback" [class.af-feedback--good]="fb.goodForGoal" role="status">
+            <p class="af-feedback__verdict">
+              <mat-icon aria-hidden="true">{{ fb.goodForGoal ? 'check_circle' : 'lightbulb' }}</mat-icon>
+              {{ fb.verdict }}
+            </p>
+            @if (fb.swaps.length) {
+              <ul class="af-feedback__swaps">
+                @for (s of fb.swaps; track s) { <li>{{ s }}</li> }
+              </ul>
+            }
+          </div>
+        }
+        <span class="af-sr-status" role="status" aria-live="polite">{{ feedbackAnnounce() }}</span>
 
         <div class="af-macgrid">
           <mat-form-field appearance="outline">
@@ -113,13 +206,37 @@
       <div class="af-total"><span class="af-total__v mono-num">{{ scaled().fatG }}</span><span class="af-total__l">F</span></div>
     </div>
   } @else {
-    <!-- Step 1: find a food (search / scan) or go manual. -->
+    <!-- Step 1: find a food (search / scan / AI) or go manual. -->
     <mat-button-toggle-group class="af-mode" [value]="mode()" (change)="setMode($event.value)"
                              aria-label="How to add food" hideSingleSelectionIndicator>
       <mat-button-toggle value="search"><mat-icon>search</mat-icon> Search</mat-button-toggle>
       <mat-button-toggle value="scan"><mat-icon>qr_code_scanner</mat-icon> Scan</mat-button-toggle>
       <mat-button-toggle value="saved"><mat-icon>bookmark</mat-icon> My foods</mat-button-toggle>
+      @if (canUseAi) {
+        <mat-button-toggle value="describe"><mat-icon>auto_awesome</mat-icon> Describe</mat-button-toggle>
+        <mat-button-toggle value="recipe"><mat-icon>restaurant_menu</mat-icon> Recipe</mat-button-toggle>
+      }
     </mat-button-toggle-group>
+
+    <!-- AI photo quick-actions (gated by tracker.ai): snap a meal, or scan a nutrition label. -->
+    @if (canUseAi) {
+      <div class="af-photo-actions">
+        <button mat-stroked-button type="button" class="af-ai-btn" [disabled]="photoLoading()"
+                (click)="photoMeal()" aria-label="Snap or upload a meal photo to identify foods with AI">
+          @if (photoLoading()) {
+            <mat-progress-spinner mode="indeterminate" diameter="18" aria-hidden="true" />
+            Analysing…
+          } @else {
+            <span class="af-ai-btn-label"><mat-icon aria-hidden="true">photo_camera</mat-icon> Snap a meal photo</span>
+          }
+        </button>
+        <button mat-stroked-button type="button" class="af-ai-btn" [disabled]="photoLoading()"
+                (click)="scanLabel()" aria-label="Scan a nutrition label photo to read its macros with AI">
+          <span class="af-ai-btn-label"><mat-icon aria-hidden="true">document_scanner</mat-icon> Scan a label</span>
+        </button>
+      </div>
+      <span class="af-sr-status" role="status" aria-live="polite">{{ photoAnnounce() }}</span>
+    }
 
     @if (mode() === 'search') {
       @if (searchUnavailable()) {
@@ -185,6 +302,52 @@
         </div>
       }
       @if (searchError(); as e) { <p class="af-error" role="alert"><mat-icon>error_outline</mat-icon> {{ e }}</p> }
+    } @else if (mode() === 'describe') {
+      <!-- Describe your meal → parse-meal → reviewable multi-item list (gated by tracker.ai). -->
+      <p class="af-manual__lead">Type your whole meal and AI will split it into items you can review.</p>
+      <mat-form-field appearance="outline" class="af-field">
+        <mat-label>Describe your meal</mat-label>
+        <textarea matInput cdkFocusInitial rows="3" maxlength="500" autocomplete="off"
+                  [ngModel]="describeText()" (ngModelChange)="describeText.set($event)"
+                  placeholder="e.g. a Big Mac, medium fries, and a large Coke"></textarea>
+      </mat-form-field>
+      <button mat-stroked-button type="button" class="af-ai-btn af-manual-btn"
+              [disabled]="!canParseMeal()" (click)="parseMeal()"
+              aria-label="Split this meal into items with AI">
+        @if (describeLoading()) {
+          <mat-progress-spinner mode="indeterminate" diameter="18" aria-hidden="true" />
+          Splitting…
+        } @else {
+          <span class="af-ai-btn-label"><mat-icon aria-hidden="true">auto_awesome</mat-icon> Split into items</span>
+        }
+      </button>
+      <span class="af-sr-status" role="status" aria-live="polite">{{ reviewAnnounce() }}</span>
+    } @else if (mode() === 'recipe') {
+      <!-- Recipe → recipe-macros → per-serving prefill of the manual fields (gated by tracker.ai). -->
+      <p class="af-manual__lead">Paste your ingredients and servings — AI estimates the per-serving macros.</p>
+      <mat-form-field appearance="outline" class="af-field">
+        <mat-label>Ingredients</mat-label>
+        <textarea matInput cdkFocusInitial rows="4" maxlength="1000" autocomplete="off"
+                  [ngModel]="recipeText()" (ngModelChange)="recipeText.set($event)"
+                  placeholder="e.g. 500 g chicken, 2 cups rice, 1 tbsp olive oil…"></textarea>
+      </mat-form-field>
+      <mat-form-field appearance="outline" class="af-field af-qty">
+        <mat-label>Servings</mat-label>
+        <input matInput type="number" min="1" step="1" inputmode="numeric"
+               [ngModel]="recipeServings()" (ngModelChange)="recipeServings.set($event)" />
+        <span matTextSuffix>servings</span>
+      </mat-form-field>
+      <button mat-stroked-button type="button" class="af-ai-btn af-manual-btn"
+              [disabled]="!canRecipeMacros()" (click)="recipeMacros()"
+              aria-label="Estimate per-serving macros with AI">
+        @if (recipeLoading()) {
+          <mat-progress-spinner mode="indeterminate" diameter="18" aria-hidden="true" />
+          Estimating…
+        } @else {
+          <span class="af-ai-btn-label"><mat-icon aria-hidden="true">auto_awesome</mat-icon> Estimate per serving</span>
+        }
+      </button>
+      <span class="af-sr-status" role="status" aria-live="polite">{{ aiAnnounce() }}</span>
     } @else {
       <!-- "My foods": the caller's per-user saved library, searchable + pickable. -->
       <mat-form-field appearance="outline" class="af-field af-search">
@@ -228,17 +391,27 @@
       </div>
     }
 
-    <button mat-stroked-button type="button" class="af-manual-btn" (click)="startManual()">
-      <mat-icon>edit</mat-icon> Enter manually
-    </button>
+    @if (mode() !== 'describe' && mode() !== 'recipe') {
+      <button mat-stroked-button type="button" class="af-manual-btn" (click)="startManual()">
+        <mat-icon>edit</mat-icon> Enter manually
+      </button>
+    }
   }
 </mat-dialog-content>
 
 <mat-dialog-actions class="af-actions" align="end">
-  <button mat-stroked-button type="button" (click)="cancel()" [disabled]="saving()">Cancel</button>
-  @if (selected() || manual()) {
-    <button mat-flat-button type="button" color="primary" (click)="save()" [disabled]="!canSave()">
-      Add to {{ meal() }}
+  @if (reviewItems().length) {
+    <button mat-stroked-button type="button" (click)="discardReview()">Discard</button>
+    <button mat-flat-button type="button" color="primary" (click)="addReviewItems()"
+            [disabled]="reviewSelectedCount() === 0">
+      Add {{ reviewSelectedCount() }} to {{ meal() }}
     </button>
+  } @else {
+    <button mat-stroked-button type="button" (click)="cancel()" [disabled]="saving()">Cancel</button>
+    @if (selected() || manual()) {
+      <button mat-flat-button type="button" color="primary" (click)="save()" [disabled]="!canSave()">
+        Add to {{ meal() }}
+      </button>
+    }
   }
 </mat-dialog-actions>

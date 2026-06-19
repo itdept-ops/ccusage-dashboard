@@ -6,6 +6,9 @@
     <mat-button-toggle value="library"><mat-icon>fitness_center</mat-icon> Library</mat-button-toggle>
     <mat-button-toggle value="workoutx"><mat-icon>sports_gymnastics</mat-icon> WorkoutX</mat-button-toggle>
     <mat-button-toggle value="manual"><mat-icon>edit</mat-icon> Manual</mat-button-toggle>
+    @if (canUseAi) {
+      <mat-button-toggle value="ai"><mat-icon>auto_awesome</mat-icon> AI</mat-button-toggle>
+    }
   </mat-button-toggle-group>
 
   @if (mode() === 'library') {
@@ -243,6 +246,212 @@
         }
       </div>
     }
+  } @else if (mode() === 'ai' && canUseAi) {
+    <!-- ── AI tab (gated by tracker.ai) ──
+         Three Gemini-backed assists. Each result is EDITABLE (prefill, never auto-committed), carries a
+         ✨ label + spinner + aria-live, and degrades to "do it manually" on 503/error. -->
+    <div class="ax-ai-tab">
+
+      <!-- 1) Natural-language logging — the headline feature. -->
+      <section class="ax-ai-card" aria-labelledby="ax-nl-h">
+        <h3 class="ax-ai-card__h" id="ax-nl-h">
+          <mat-icon aria-hidden="true">auto_awesome</mat-icon> Describe what you did
+        </h3>
+        <p class="ax-ai-card__sub">Try “5 knee push-ups”, “3×10 squats”, or “jogged 2 miles”.</p>
+
+        <mat-form-field appearance="outline" class="ax-field">
+          <mat-label>What did you do?</mat-label>
+          <textarea matInput rows="2" autocomplete="off" maxlength="200"
+                    [ngModel]="nlText()" (ngModelChange)="nlText.set($event)"
+                    (keyup.enter)="$event.preventDefault(); parseNaturalLanguage()"
+                    placeholder="e.g. jogged 2 miles this morning"></textarea>
+        </mat-form-field>
+
+        <button mat-flat-button type="button" color="primary" class="ax-ai-btn"
+                [disabled]="!canParseNl()" (click)="parseNaturalLanguage()"
+                aria-label="Parse your description with AI">
+          @if (nlLoading()) {
+            <mat-progress-spinner mode="indeterminate" diameter="18" aria-hidden="true" />
+            Reading…
+          } @else {
+            <span class="ax-ai-btn-label"><mat-icon aria-hidden="true">auto_awesome</mat-icon> Parse with AI</span>
+          }
+        </button>
+
+        @if (nlResult(); as r) {
+          <div class="ax-ai-prefill" role="group" aria-label="Parsed exercise — review and edit">
+            <p class="ax-ai-prefill__tag">
+              <span class="ax-ai-chip"><mat-icon aria-hidden="true">auto_awesome</mat-icon> AI parsed — edit anything</span>
+            </p>
+            <mat-form-field appearance="outline" class="ax-field">
+              <mat-label>Exercise name</mat-label>
+              <input matInput autocomplete="off" maxlength="80"
+                     [ngModel]="nlName()" (ngModelChange)="nlName.set($event)" />
+            </mat-form-field>
+            <mat-form-field appearance="outline" class="ax-field">
+              <mat-label>Duration (optional)</mat-label>
+              <input matInput type="number" min="1" inputmode="numeric"
+                     [ngModel]="nlDuration()" (ngModelChange)="nlDuration.set($event)" />
+              <span matTextSuffix>min</span>
+            </mat-form-field>
+            <mat-form-field appearance="outline" class="ax-field">
+              <mat-label>Calories burned</mat-label>
+              <input matInput type="number" min="0" inputmode="numeric"
+                     [ngModel]="nlCalories()" (ngModelChange)="nlCalories.set($event)" />
+              <span matTextSuffix>kcal</span>
+            </mat-form-field>
+            @if (r.note) { <p class="ax-ai-note">{{ r.note }}</p> }
+            <div class="ax-ai-prefill__actions">
+              <button mat-stroked-button type="button" (click)="clearNlResult()">Clear</button>
+              <button mat-flat-button type="button" color="primary"
+                      [disabled]="!canLogNl()" (click)="logNaturalLanguage()">Log this exercise</button>
+            </div>
+          </div>
+        }
+      </section>
+
+      <!-- 2) Workout suggestion. -->
+      <section class="ax-ai-card" aria-labelledby="ax-sw-h">
+        <h3 class="ax-ai-card__h" id="ax-sw-h">
+          <mat-icon aria-hidden="true">auto_awesome</mat-icon> Suggest a workout
+        </h3>
+
+        <div class="ax-ai-row">
+          <mat-form-field appearance="outline" class="ax-field">
+            <mat-label>Focus</mat-label>
+            <input matInput autocomplete="off" maxlength="60" list="ax-sw-focus"
+                   [ngModel]="swFocus()" (ngModelChange)="swFocus.set($event)" placeholder="e.g. Full body" />
+            <datalist id="ax-sw-focus">
+              @for (f of aiFocusOptions; track f) { <option [value]="f"></option> }
+            </datalist>
+          </mat-form-field>
+          <mat-form-field appearance="outline" class="ax-field ax-ai-row__minutes">
+            <mat-label>Minutes</mat-label>
+            <input matInput type="number" min="1" inputmode="numeric"
+                   [ngModel]="swMinutes()" (ngModelChange)="swMinutes.set($event)" />
+            <span matTextSuffix>min</span>
+          </mat-form-field>
+        </div>
+
+        <mat-form-field appearance="outline" class="ax-field">
+          <mat-label>Equipment</mat-label>
+          <mat-select [ngModel]="swEquipment()" (ngModelChange)="swEquipment.set($event)">
+            <mat-option [value]="''">No equipment / bodyweight</mat-option>
+            @for (eq of aiEquipmentOptions; track eq) { <mat-option [value]="eq">{{ eq }}</mat-option> }
+          </mat-select>
+        </mat-form-field>
+
+        <button mat-flat-button type="button" color="primary" class="ax-ai-btn"
+                [disabled]="!canSuggestWorkout()" (click)="suggestWorkout()"
+                aria-label="Suggest a workout with AI">
+          @if (swLoading()) {
+            <mat-progress-spinner mode="indeterminate" diameter="18" aria-hidden="true" />
+            Building…
+          } @else {
+            <span class="ax-ai-btn-label"><mat-icon aria-hidden="true">auto_awesome</mat-icon> Suggest a workout</span>
+          }
+        </button>
+
+        @if (swResult(); as r) {
+          <div class="ax-ai-prefill" role="group" aria-label="Suggested workout — review and log">
+            <p class="ax-ai-prefill__tag">
+              <span class="ax-ai-chip"><mat-icon aria-hidden="true">auto_awesome</mat-icon> AI suggested</span>
+            </p>
+            <ol class="ax-steps" aria-label="Suggested routine">
+              @for (it of r.items; track $index) {
+                <li>
+                  <strong>{{ it.name }}</strong> — {{ it.setsReps }}
+                  @if (it.note) { <span class="ax-ai-note">{{ it.note }}</span> }
+                </li>
+              }
+            </ol>
+            <mat-form-field appearance="outline" class="ax-field">
+              <mat-label>Log as</mat-label>
+              <input matInput autocomplete="off" maxlength="80"
+                     [ngModel]="swName()" (ngModelChange)="swName.set($event)" />
+            </mat-form-field>
+            <mat-form-field appearance="outline" class="ax-field">
+              <mat-label>Estimated calories</mat-label>
+              <input matInput type="number" min="0" inputmode="numeric"
+                     [ngModel]="swCalories()" (ngModelChange)="swCalories.set($event)" />
+              <span matTextSuffix>kcal</span>
+            </mat-form-field>
+            <div class="ax-ai-prefill__actions">
+              <button mat-flat-button type="button" color="primary"
+                      [disabled]="saving() || swName().trim().length === 0 || (swCalories() ?? 0) <= 0"
+                      (click)="logSuggestedWorkout()">Log this workout</button>
+            </div>
+          </div>
+        }
+      </section>
+
+      <!-- 3) Burn-target planner. -->
+      <section class="ax-ai-card" aria-labelledby="ax-bt-h">
+        <h3 class="ax-ai-card__h" id="ax-bt-h">
+          <mat-icon aria-hidden="true">local_fire_department</mat-icon> What burns ~N calories?
+        </h3>
+
+        <div class="ax-ai-chiprow" role="group" aria-label="Quick calorie targets">
+          @for (t of aiBurnTargets; track t) {
+            <button type="button" class="ax-ai-target"
+                    [class.selected]="btTarget() === t" [attr.aria-pressed]="btTarget() === t"
+                    (click)="btTarget.set(t)">{{ t }} kcal</button>
+          }
+        </div>
+
+        <div class="ax-ai-row">
+          <mat-form-field appearance="outline" class="ax-field ax-ai-row__minutes">
+            <mat-label>Target</mat-label>
+            <input matInput type="number" min="1" inputmode="numeric"
+                   [ngModel]="btTarget()" (ngModelChange)="btTarget.set($event)" />
+            <span matTextSuffix>kcal</span>
+          </mat-form-field>
+          <mat-form-field appearance="outline" class="ax-field">
+            <mat-label>Equipment</mat-label>
+            <mat-select [ngModel]="btEquipment()" (ngModelChange)="btEquipment.set($event)">
+              <mat-option [value]="''">No equipment / bodyweight</mat-option>
+              @for (eq of aiEquipmentOptions; track eq) { <mat-option [value]="eq">{{ eq }}</mat-option> }
+            </mat-select>
+          </mat-form-field>
+        </div>
+
+        <button mat-flat-button type="button" color="primary" class="ax-ai-btn"
+                [disabled]="!canPlanBurn()" (click)="planBurn()"
+                aria-label="Find a workout that burns the target calories with AI">
+          @if (btLoading()) {
+            <mat-progress-spinner mode="indeterminate" diameter="18" aria-hidden="true" />
+            Finding…
+          } @else {
+            <span class="ax-ai-btn-label"><mat-icon aria-hidden="true">auto_awesome</mat-icon> Show me options</span>
+          }
+        </button>
+
+        @if (btResult(); as r) {
+          <div class="ax-ai-prefill" role="group" aria-label="Burn-target options — review and log">
+            <p class="ax-ai-prefill__tag">
+              <span class="ax-ai-chip"><mat-icon aria-hidden="true">auto_awesome</mat-icon> {{ r.title }} · ~{{ r.estCalories }} kcal</span>
+            </p>
+            <ol class="ax-steps" aria-label="Options">
+              @for (it of r.items; track $index) {
+                <li>
+                  <strong>{{ it.name }}</strong> — {{ it.setsReps }}
+                  @if (it.note) { <span class="ax-ai-note">{{ it.note }}</span> }
+                </li>
+              }
+            </ol>
+            <div class="ax-ai-prefill__actions">
+              <button mat-flat-button type="button" color="primary"
+                      [disabled]="saving() || r.estCalories <= 0" (click)="logBurnPlan()">
+                Log this (~{{ r.estCalories }} kcal)
+              </button>
+            </div>
+          </div>
+        }
+      </section>
+    </div>
+
+    <!-- Single polite live region for the whole AI tab. -->
+    <span class="ax-sr-status" role="status" aria-live="polite">{{ aiTabAnnounce() }}</span>
   } @else {
     <!-- "My exercises": the caller's per-user saved library (auto-built from manual logs), pickable to prefill. -->
     <div class="ax-saved">
@@ -345,5 +554,9 @@
 
 <mat-dialog-actions class="ax-actions" align="end">
   <button mat-stroked-button type="button" (click)="cancel()" [disabled]="saving()">Cancel</button>
-  <button mat-flat-button type="button" color="primary" (click)="save()" [disabled]="!canSave()">Add exercise</button>
+  <!-- The AI tab logs via each result's own "Log this" button (prefill → confirm), so the shared
+       footer "Add exercise" action doesn't apply there. -->
+  @if (mode() !== 'ai') {
+    <button mat-flat-button type="button" color="primary" (click)="save()" [disabled]="!canSave()">Add exercise</button>
+  }
 </mat-dialog-actions>

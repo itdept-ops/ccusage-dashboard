@@ -14,7 +14,8 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar } from '@angular/material/snack-bar';
 
 import { Api } from '../../core/api';
-import { ActivityLevel, Sex, TrackerGoal, TrackerProfileDto, UnitSystem } from '../../core/models';
+import { AuthService } from '../../core/auth';
+import { ActivityLevel, PERM, Sex, TrackerGoal, TrackerProfileDto, UnitSystem } from '../../core/models';
 import {
   StatsInputs, ageFrom, cmToFtIn, computeStats, ftInToCm, kgToLb, lbToKg, mlToOz, ozToMl,
 } from './units';
@@ -65,7 +66,11 @@ export class ProfileDialog {
   private ref = inject(MatDialogRef<ProfileDialog, TrackerProfileDto>);
   private api = inject(Api);
   private snack = inject(MatSnackBar);
+  private auth = inject(AuthService);
   readonly data = inject<ProfileData>(MAT_DIALOG_DATA);
+
+  /** Master gate: every AI affordance in this dialog is hidden unless the user holds tracker.ai. */
+  readonly showAi = this.auth.hasPermission(PERM.trackerAi);
 
   readonly goals = GOALS;
   readonly sexes = SEXES;
@@ -239,6 +244,58 @@ export class ProfileDialog {
       this.snack.open('AI suggestion unavailable — set your goal manually', 'OK', { duration: 4000 });
     } finally {
       this.aiLoading.set(false);
+    }
+  }
+
+  // ---- AI natural-goal ("Describe your goal" → structured plan; Gemini-backed) ----
+  /** The free-text goal the user types ("lose 10 lbs in 3 months"). */
+  readonly goalText = signal('');
+  /** True while natural-goal is in flight. */
+  readonly goalLoading = signal(false);
+  /** The parsed plan's timeline (e.g. "~0.8 lb/week over 12 weeks"), shown as helper text. Null when none. */
+  readonly goalTimeline = signal<string | null>(null);
+  /** The model's "is this realistic?" verdict for the parsed plan; null until a parse runs. */
+  readonly goalRealistic = signal<boolean | null>(null);
+  /** The model's one-line rationale for the parsed plan, shown as helper text. */
+  readonly goalRationale = signal<string | null>(null);
+
+  readonly canDescribeGoal = computed(() => this.goalText().trim().length > 0 && !this.goalLoading());
+
+  /**
+   * Turn the free-text goal into a structured plan (POST /api/ai/natural-goal) and PREFILL the editable
+   * calorie + macro goal fields — never auto-committed; the user adjusts then Saves. The timeline and a
+   * "realistic" check render as helper text. A 503/unavailable leaves the fields untouched + editable and
+   * shows a snackbar so the user can set the goal manually.
+   */
+  async describeGoalWithAi(): Promise<void> {
+    const text = this.goalText().trim();
+    if (!text || this.goalLoading()) return;
+    this.goalLoading.set(true);
+    this.aiAnnounce.set('Reading your goal with AI…');
+    try {
+      const res = await firstValueFrom(this.api.naturalGoal({ text }));
+      // Prefill the editable fields — a suggestion the user can adjust before saving.
+      this.dailyCalorieGoal.set(res.calorieTarget);
+      this.proteinGoalG.set(res.proteinG);
+      this.carbGoalG.set(res.carbsG);
+      this.fatGoalG.set(res.fatG);
+      this.goalTimeline.set(res.timeline ?? null);
+      this.goalRealistic.set(res.realistic);
+      this.goalRationale.set(res.rationale ?? null);
+      const verdict = res.realistic ? 'This timeline looks realistic.' : 'This timeline may be aggressive.';
+      this.aiAnnounce.set(
+        `AI set a goal of ${res.calorieTarget} calories per day: ${res.proteinG} grams protein, ` +
+        `${res.carbsG} grams carbs, ${res.fatG} grams fat.` +
+        (res.timeline ? ` Timeline: ${res.timeline}.` : '') + ` ${verdict}` +
+        (res.rationale ? ` ${res.rationale}` : ''));
+    } catch {
+      this.goalTimeline.set(null);
+      this.goalRealistic.set(null);
+      this.goalRationale.set(null);
+      this.aiAnnounce.set('AI could not read your goal. Set your goal manually.');
+      this.snack.open('AI unavailable — set your goal manually', 'OK', { duration: 4000 });
+    } finally {
+      this.goalLoading.set(false);
     }
   }
 

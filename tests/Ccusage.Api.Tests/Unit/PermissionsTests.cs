@@ -5,7 +5,7 @@ namespace Ccusage.Api.Tests.Unit;
 
 public class PermissionsTests
 {
-    // The full catalog of 25 keys.
+    // The full catalog of 26 keys.
     private static readonly string[] AllKeys =
     {
         "dashboard.view", "dashboard.export", "sync.run",
@@ -15,7 +15,7 @@ public class PermissionsTests
         "reporter.view", "reporter.manage", "reporter.self",
         "notifications.view", "notifications.manage",
         "chat.read", "chat.send", "chat.moderate", "chat.contacts.manage",
-        "tracker.self", "tracker.viewall",
+        "tracker.self", "tracker.viewall", "tracker.ai",
         "shares.view", "shares.manage",
         "users.view", "users.manage", "activity.view",
     };
@@ -41,6 +41,7 @@ public class PermissionsTests
     [InlineData("chat.contacts.manage")]
     [InlineData("tracker.self")]
     [InlineData("tracker.viewall")]
+    [InlineData("tracker.ai")]
     [InlineData("shares.view")]
     [InlineData("shares.manage")]
     [InlineData("users.view")]
@@ -84,6 +85,7 @@ public class PermissionsTests
         Permissions.ChatContactsManage.Should().Be("chat.contacts.manage");
         Permissions.TrackerSelf.Should().Be("tracker.self");
         Permissions.TrackerViewAll.Should().Be("tracker.viewall");
+        Permissions.TrackerAi.Should().Be("tracker.ai");
         Permissions.SharesView.Should().Be("shares.view");
         Permissions.SharesManage.Should().Be("shares.manage");
         Permissions.UsersView.Should().Be("users.view");
@@ -92,9 +94,9 @@ public class PermissionsTests
     }
 
     [Fact]
-    public void All_contains_exactly_the_twenty_five_known_keys()
+    public void All_contains_exactly_the_twenty_six_known_keys()
     {
-        Permissions.All.Should().HaveCount(25);
+        Permissions.All.Should().HaveCount(26);
         Permissions.All.Should().BeEquivalentTo(AllKeys);
     }
 
@@ -105,9 +107,9 @@ public class PermissionsTests
     }
 
     [Fact]
-    public void Catalog_has_twenty_five_entries()
+    public void Catalog_has_twenty_six_entries()
     {
-        Permissions.Catalog.Should().HaveCount(25);
+        Permissions.Catalog.Should().HaveCount(26);
     }
 
     [Fact]
@@ -175,5 +177,14 @@ public class PermissionsTests
         // deliberately; logging your own is a defaultable, per-user capability.
         Permissions.IsDefaultable(Permissions.TrackerViewAll).Should().BeFalse();
         Permissions.IsDefaultable(Permissions.TrackerSelf).Should().BeTrue();
+    }
+
+    [Fact]
+    public void TrackerAi_is_defaultable_but_is_not_a_page_view_gate()
+    {
+        // AI assists IS defaultable (so it CAN be selected into the open-signup default set), even though
+        // it is OFF by default and never seeded. It is not a page-view gate, so it is absent from Views.
+        Permissions.IsDefaultable(Permissions.TrackerAi).Should().BeTrue();
+        Permissions.Views.Should().NotContain(Permissions.TrackerAi);
     }
 }

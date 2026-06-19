@@ -1,7 +1,15 @@
-import { Component, computed, input } from '@angular/core';
+import { Component, computed, inject, input, signal } from '@angular/core';
 import type { EChartsOption } from 'echarts';
+import { firstValueFrom } from 'rxjs';
 
-import { WeightPointDto } from '../../core/models';
+import { MatButtonModule } from '@angular/material/button';
+import { MatIconModule } from '@angular/material/icon';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { MatSnackBar } from '@angular/material/snack-bar';
+
+import { Api } from '../../core/api';
+import { AuthService } from '../../core/auth';
+import { PERM, WeightPointDto } from '../../core/models';
 import { ChartComponent } from '../../shared/chart';
 import { kgToLb, weightUnit } from './units';
 
@@ -12,12 +20,36 @@ import { kgToLb, weightUnit } from './units';
  */
 @Component({
   selector: 'app-weight-trend',
-  imports: [ChartComponent],
+  imports: [ChartComponent, MatButtonModule, MatIconModule, MatProgressSpinnerModule],
   template: `
     @if (points().length > 0) {
       <div class="wt-chart-host" role="img" [attr.aria-label]="ariaLabel()">
         <app-chart class="wt-chart" [option]="option()" />
       </div>
+
+      <!-- ✨ AI weight insight — hidden unless the user holds tracker.ai. -->
+      @if (showAi) {
+        <div class="wt-ai">
+          @if (insight(); as ins) {
+            <div class="wt-ai-card" role="group" aria-label="AI weight insight">
+              <p class="wt-ai-trend"><mat-icon aria-hidden="true">{{ trendIcon() }}</mat-icon> {{ ins.trend }}</p>
+              <p class="wt-ai-text">{{ ins.insight }}</p>
+            </div>
+          } @else {
+            <button mat-stroked-button type="button" class="wt-ai-btn"
+                    [disabled]="insightLoading()" (click)="loadInsight()"
+                    aria-label="Get an AI insight on your weight trend">
+              @if (insightLoading()) {
+                <mat-progress-spinner mode="indeterminate" diameter="18" aria-hidden="true" />
+                Reading your trend…
+              } @else {
+                <span class="wt-ai-btn-label"><mat-icon aria-hidden="true">auto_awesome</mat-icon> Weight insight</span>
+              }
+            </button>
+          }
+          <span class="wt-sr-status" role="status" aria-live="polite">{{ aiAnnounce() }}</span>
+        </div>
+      }
     } @else {
       <div class="wt-empty">
         <p>No weight logged yet.</p>
@@ -32,13 +64,81 @@ import { kgToLb, weightUnit } from './units';
       gap: 2px; min-height: 180px; color: var(--tech-text-tertiary); }
     .wt-empty p { margin: 0; font-size: var(--tech-fs-body); }
     .wt-empty-sub { font-size: var(--tech-fs-label) !important; }
+
+    .wt-ai { margin-top: var(--tech-space-2); }
+    .wt-ai-btn {
+      min-height: 44px; border-radius: var(--tech-r-control); font-weight: 600;
+      display: inline-flex; align-items: center; gap: 6px;
+      mat-icon { color: var(--tech-accent); font-size: 18px; width: 18px; height: 18px; }
+      mat-progress-spinner { display: inline-block; }
+      .wt-ai-btn-label { display: inline-flex; align-items: center; gap: 6px; }
+    }
+    .wt-ai-card {
+      display: flex; flex-direction: column; gap: 2px;
+      padding: var(--tech-space-3); border: 1px solid var(--tech-border);
+      border-radius: var(--tech-r-control); background: var(--tech-bg-sunken);
+    }
+    .wt-ai-trend {
+      display: flex; align-items: center; gap: 6px; margin: 0;
+      font-weight: 700; font-size: var(--tech-fs-body); color: var(--tech-text);
+      mat-icon { color: var(--tech-accent); font-size: 18px; width: 18px; height: 18px; }
+    }
+    .wt-ai-text { margin: 0; font-size: var(--tech-fs-label); color: var(--tech-text-secondary); }
+    .wt-sr-status {
+      position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; border: 0;
+      overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap;
+    }
   `,
 })
 export class WeightTrend {
+  private api = inject(Api);
+  private auth = inject(AuthService);
+  private snack = inject(MatSnackBar);
+
   readonly points = input.required<WeightPointDto[]>();
   /** Goal weight in kg (metric), or null for no reference line. */
   readonly goalWeightKg = input<number | null | undefined>(null);
   readonly imperial = input<boolean>(false);
+
+  /** Gate: the AI weight-insight affordance is hidden unless the user holds tracker.ai. */
+  readonly showAi = this.auth.hasPermission(PERM.trackerAi);
+
+  // ---- AI weight insight (GET /api/ai/weight-insight; reads the caller's own weight stats) ----
+  /** The fetched insight (read of the morning/evening delta + trend), or null until loaded. */
+  readonly insight = signal<{ insight: string; trend: string } | null>(null);
+  /** True while weight-insight is in flight. */
+  readonly insightLoading = signal(false);
+  /** Polite sr-only announcement of the insight (or its unavailability). */
+  readonly aiAnnounce = signal('');
+
+  /** A trend-appropriate icon from the model's free-text trend label (best-effort). */
+  readonly trendIcon = computed(() => {
+    const t = (this.insight()?.trend ?? '').toLowerCase();
+    if (t.includes('up') || t.includes('gain') || t.includes('ris')) return 'trending_up';
+    if (t.includes('down') || t.includes('loss') || t.includes('los') || t.includes('fall')) return 'trending_down';
+    return 'trending_flat';
+  });
+
+  /**
+   * Fetch the AI read of the caller's weight trend (morning/evening delta + trend) and show it as a small
+   * card. A 503/unavailable leaves the card hidden and shows a snackbar — the chart stays fully usable.
+   */
+  async loadInsight(): Promise<void> {
+    if (this.insightLoading()) return;
+    this.insightLoading.set(true);
+    this.aiAnnounce.set('Reading your weight trend with AI…');
+    try {
+      const res = await firstValueFrom(this.api.weightInsight());
+      this.insight.set({ insight: res.insight, trend: res.trend });
+      this.aiAnnounce.set(`Weight trend: ${res.trend}. ${res.insight}`);
+    } catch {
+      this.insight.set(null);
+      this.aiAnnounce.set('AI weight insight unavailable.');
+      this.snack.open('AI insight unavailable — try again later', 'OK', { duration: 4000 });
+    } finally {
+      this.insightLoading.set(false);
+    }
+  }
 
   private readonly unit = computed(() => (this.imperial() ? 'lb' : 'kg'));
 

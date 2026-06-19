@@ -40,6 +40,7 @@ public static class Permissions
     // ---- Tracker ----
     public const string TrackerSelf = "tracker.self";
     public const string TrackerViewAll = "tracker.viewall";
+    public const string TrackerAi = "tracker.ai";
 
     // ---- Shares ----
     public const string SharesView = "shares.view";
@@ -79,6 +80,7 @@ public static class Permissions
 
         new PermissionInfo(TrackerSelf, "Tracker", "Track food & fitness", "Log and view your own food intake and exercises."),
         new PermissionInfo(TrackerViewAll, "Tracker", "View all trackers", "View every user’s food & fitness log (coach/admin)."),
+        new PermissionInfo(TrackerAi, "Tracker", "AI assists", "Use AI (Gemini) to estimate macros/calories, parse photos & text, and get coaching."),
 
         new PermissionInfo(SharesView, "Shares", "View shares", "View share links and access logs."),
         new PermissionInfo(SharesManage, "Shares", "Manage shares", "Create, edit, and revoke share links."),

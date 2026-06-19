@@ -121,22 +121,61 @@
     }
   }
 
-  <!-- AI goal suggestion: prefills the calorie + macro goal fields from your saved profile. -->
-  <div class="pf-ai">
-    <button mat-stroked-button type="button" class="pf-ai-btn"
-            [disabled]="aiLoading()" (click)="suggestWithAi()"
-            aria-label="Suggest a daily calorie and macro goal with AI from your profile">
-      @if (aiLoading()) {
-        <mat-progress-spinner mode="indeterminate" diameter="18" aria-hidden="true" />
-        Suggesting…
-      } @else {
-        <span class="pf-ai-btn-label"><mat-icon aria-hidden="true">auto_awesome</mat-icon> Suggest with AI</span>
-      }
-    </button>
-    <span class="pf-ai-hint">AI uses your last saved profile — save edits first. It fills the goals below; adjust as you like.</span>
-  </div>
-  @if (aiRationale(); as why) {
-    <p class="pf-ai-rationale"><mat-icon aria-hidden="true">auto_awesome</mat-icon> {{ why }}</p>
+  @if (showAi) {
+    <!-- ✨ Describe your goal: free text → structured plan that prefills the calorie + macro fields. -->
+    <div class="pf-ai-goal" role="group" aria-label="Describe your goal with AI">
+      <mat-form-field appearance="outline" class="pf-field">
+        <mat-label><mat-icon class="pf-ai-inline" aria-hidden="true">auto_awesome</mat-icon> Describe your goal</mat-label>
+        <input matInput type="text" maxlength="200" placeholder="e.g. lose 10 lbs in 3 months"
+               [ngModel]="goalText()" (ngModelChange)="goalText.set($event)"
+               (keyup.enter)="describeGoalWithAi()" />
+        <mat-hint>AI turns this into calorie + macro targets you can adjust below.</mat-hint>
+      </mat-form-field>
+      <button mat-stroked-button type="button" class="pf-ai-btn"
+              [disabled]="!canDescribeGoal()" (click)="describeGoalWithAi()"
+              aria-label="Turn your described goal into calorie and macro targets with AI">
+        @if (goalLoading()) {
+          <mat-progress-spinner mode="indeterminate" diameter="18" aria-hidden="true" />
+          Reading…
+        } @else {
+          <span class="pf-ai-btn-label"><mat-icon aria-hidden="true">auto_awesome</mat-icon> Build my plan</span>
+        }
+      </button>
+    </div>
+    @if (goalTimeline() || goalRealistic() !== null || goalRationale()) {
+      <div class="pf-ai-plan">
+        @if (goalTimeline(); as tl) {
+          <p class="pf-ai-rationale"><mat-icon aria-hidden="true">schedule</mat-icon> {{ tl }}</p>
+        }
+        @if (goalRealistic() !== null) {
+          <p class="pf-ai-realistic" [class.pf-ai-realistic--no]="goalRealistic() === false">
+            <mat-icon aria-hidden="true">{{ goalRealistic() ? 'check_circle' : 'warning' }}</mat-icon>
+            <span>{{ goalRealistic() ? 'Realistic — this pace looks sensible.' : 'Aggressive — consider a longer timeline.' }}</span>
+          </p>
+        }
+        @if (goalRationale(); as why) {
+          <p class="pf-ai-rationale"><mat-icon aria-hidden="true">auto_awesome</mat-icon> {{ why }}</p>
+        }
+      </div>
+    }
+
+    <!-- AI goal suggestion: prefills the calorie + macro goal fields from your saved profile. -->
+    <div class="pf-ai">
+      <button mat-stroked-button type="button" class="pf-ai-btn"
+              [disabled]="aiLoading()" (click)="suggestWithAi()"
+              aria-label="Suggest a daily calorie and macro goal with AI from your profile">
+        @if (aiLoading()) {
+          <mat-progress-spinner mode="indeterminate" diameter="18" aria-hidden="true" />
+          Suggesting…
+        } @else {
+          <span class="pf-ai-btn-label"><mat-icon aria-hidden="true">auto_awesome</mat-icon> Suggest with AI</span>
+        }
+      </button>
+      <span class="pf-ai-hint">AI uses your last saved profile — save edits first. It fills the goals below; adjust as you like.</span>
+    </div>
+    @if (aiRationale(); as why) {
+      <p class="pf-ai-rationale"><mat-icon aria-hidden="true">auto_awesome</mat-icon> {{ why }}</p>
+    }
   }
 
   <mat-form-field appearance="outline" class="pf-field">

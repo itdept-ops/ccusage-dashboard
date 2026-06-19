@@ -17,12 +17,25 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar } from '@angular/material/snack-bar';
 
 import { Api } from '../../core/api';
-import { AddExerciseRequest, CustomExerciseDto, ExerciseLibraryDto, WorkoutXExerciseDto } from '../../core/models';
+import { AuthService } from '../../core/auth';
+import {
+  AddExerciseRequest, CustomExerciseDto, ExerciseLibraryDto, PERM, ParseExerciseResponse,
+  SuggestWorkoutResponse, WorkoutXExerciseDto,
+} from '../../core/models';
 
 /** Curated WorkoutX filter values — the provider has no option-list endpoint, so these mirror the catalog. */
 const WX_BODY_PARTS = ['Back', 'Cardio', 'Chest', 'Lower Arms', 'Lower Legs', 'Neck', 'Shoulders', 'Upper Arms', 'Upper Legs', 'Waist'];
 const WX_EQUIPMENT = ['Body Weight', 'Barbell', 'Dumbbell', 'Cable', 'Leverage Machine', 'Kettlebell', 'Resistance Band', 'Smith Machine'];
 const WX_TARGETS = ['Abs', 'Biceps', 'Triceps', 'Pectorals', 'Quads', 'Glutes', 'Hamstrings', 'Lats', 'Delts', 'Calves'];
+
+/** Focus-area presets for the AI workout suggester (free-text is also allowed via the input). */
+const AI_FOCUS_OPTIONS = ['Full body', 'Upper body', 'Lower body', 'Core', 'Cardio', 'Push', 'Pull', 'Legs', 'Mobility'];
+
+/** Equipment presets for the AI workout suggester ('' = "No equipment / bodyweight"). */
+const AI_EQUIPMENT_OPTIONS = ['Dumbbells', 'Barbell', 'Kettlebell', 'Resistance bands', 'Pull-up bar', 'Full gym'];
+
+/** Burn-target presets (kcal) for the "What burns ~N cal?" planner. */
+const AI_BURN_TARGETS = [100, 200, 300, 500];
 
 /** Opens with the active day + whether the profile has a weight (so we can estimate from duration). */
 export interface AddExerciseData {
@@ -55,9 +68,13 @@ export class AddExerciseDialog {
   private ref = inject(MatDialogRef<AddExerciseDialog, AddExerciseRequest>);
   private injector = inject(Injector);
   private snack = inject(MatSnackBar);
+  private auth = inject(AuthService);
   readonly data = inject<AddExerciseData>(MAT_DIALOG_DATA);
 
-  readonly mode = signal<'library' | 'workoutx' | 'manual'>('library');
+  readonly mode = signal<'library' | 'workoutx' | 'manual' | 'ai'>('library');
+
+  /** Gate: every AI affordance (the whole "AI" tab) is hidden unless the caller holds tracker.ai. */
+  readonly canUseAi = this.auth.hasPermission(PERM.trackerAi);
 
   // Curated filter lists for the WorkoutX tab (no option-list endpoint exists).
   readonly wxBodyPartOptions = WX_BODY_PARTS;
@@ -201,6 +218,183 @@ export class AddExerciseDialog {
     this.aiAnnounce.set('');
   }
 
+  // ======================================================================================
+  // ---- AI tab (gated by tracker.ai) — three Gemini-backed assists, each EDITABLE before logging ----
+  // ======================================================================================
+
+  // Curated presets for the workout-suggester selects (free-text focus is also accepted).
+  readonly aiFocusOptions = AI_FOCUS_OPTIONS;
+  readonly aiEquipmentOptions = AI_EQUIPMENT_OPTIONS;
+  readonly aiBurnTargets = AI_BURN_TARGETS;
+
+  // -- 1) Natural-language logging (the headline feature): free text → parsed, editable exercise. --
+  readonly nlText = signal('');
+  readonly nlLoading = signal(false);
+  /** The parsed result; once set, the editable prefill card renders. Null until a successful parse. */
+  readonly nlResult = signal<ParseExerciseResponse | null>(null);
+  // Editable prefill fields (seeded from the parse, never auto-committed).
+  readonly nlName = signal('');
+  readonly nlCalories = signal<number | null>(null);
+  readonly nlDuration = signal<number | null>(null);
+  /** Polite sr-only announcement of the parse result (or its unavailability). */
+  readonly nlAnnounce = signal('');
+
+  readonly canParseNl = computed(() => !this.nlLoading() && this.nlText().trim().length > 0);
+  readonly canLogNl = computed(() =>
+    !this.saving() && this.nlName().trim().length > 0 && (this.nlCalories() ?? 0) > 0);
+
+  // -- 2) Workout suggestion: focus + minutes + equipment → a routine the user can log. --
+  readonly swFocus = signal('Full body');
+  readonly swMinutes = signal<number | null>(30);
+  readonly swEquipment = signal('');
+  readonly swLoading = signal(false);
+  readonly swResult = signal<SuggestWorkoutResponse | null>(null);
+  /** Editable name + calories prefilled from the suggested routine (logged as one manual entry). */
+  readonly swName = signal('');
+  readonly swCalories = signal<number | null>(null);
+  readonly swAnnounce = signal('');
+
+  readonly canSuggestWorkout = computed(() =>
+    !this.swLoading() && this.swFocus().trim().length > 0 && (this.swMinutes() ?? 0) > 0);
+
+  // -- 3) Burn-target planner: "What burns ~N cal?" → options scaled to the user (reuses suggest-workout). --
+  readonly btTarget = signal<number | null>(300);
+  readonly btEquipment = signal('');
+  readonly btLoading = signal(false);
+  readonly btResult = signal<SuggestWorkoutResponse | null>(null);
+  readonly btAnnounce = signal('');
+
+  readonly canPlanBurn = computed(() => !this.btLoading() && (this.btTarget() ?? 0) > 0);
+
+  /** A single polite live region renders the most recent AI-tab announcement. */
+  readonly aiTabAnnounce = computed(() => this.nlAnnounce() || this.swAnnounce() || this.btAnnounce());
+
+  /**
+   * Headline feature — parse a free-text log ("3x10 squats", "jogged 2 miles") into a structured
+   * exercise. Calories are computed server-side from the CALLER's own body weight. The result PREFILLS
+   * editable fields; nothing is committed until the user clicks "Log this". A 503/error keeps the box
+   * usable and surfaces a snackbar.
+   */
+  async parseNaturalLanguage(): Promise<void> {
+    if (!this.canParseNl()) return;
+    this.nlLoading.set(true);
+    this.nlResult.set(null);
+    this.nlAnnounce.set('Reading your description with AI…');
+    try {
+      const res = await firstValueFrom(this.api.parseExercise({ text: this.nlText().trim() }));
+      this.nlResult.set(res);
+      this.nlName.set(res.name);
+      this.nlCalories.set(res.calories);
+      this.nlDuration.set(res.durationMin ?? null);
+      const bits = [`${res.calories} calories`];
+      if (res.durationMin) bits.push(`${res.durationMin} minutes`);
+      this.nlAnnounce.set(`Parsed ${res.name}: ${bits.join(', ')}. Review and edit, then log it.`);
+    } catch {
+      this.nlAnnounce.set('AI is unavailable. Switch to the Manual tab to enter it yourself.');
+      this.snack.open('AI unavailable — add it manually on the Manual tab', 'OK', { duration: 4000 });
+    } finally {
+      this.nlLoading.set(false);
+    }
+  }
+
+  /** Clear the parsed-exercise card (e.g. to re-describe). */
+  clearNlResult(): void {
+    this.nlResult.set(null);
+    this.nlAnnounce.set('');
+  }
+
+  /** Log the (edited) natural-language result as a manual entry → backend auto-saves it to "My exercises". */
+  logNaturalLanguage(): void {
+    if (!this.canLogNl()) return;
+    this.ref.close({
+      date: this.data.date,
+      name: this.nlName().trim(),
+      durationMin: (this.nlDuration() ?? 0) > 0 ? this.nlDuration()! : undefined,
+      caloriesBurned: this.nlCalories() ?? 0,
+    });
+  }
+
+  /**
+   * Suggest a workout for the chosen focus + minutes + equipment. Shows the routine; the user can then
+   * log it (prefilled name + estimated calories, both editable). 503/error keeps fields usable.
+   */
+  async suggestWorkout(): Promise<void> {
+    if (!this.canSuggestWorkout()) return;
+    this.swLoading.set(true);
+    this.swResult.set(null);
+    this.swAnnounce.set('Building a workout with AI…');
+    try {
+      const res = await firstValueFrom(this.api.suggestWorkout({
+        focus: this.swFocus().trim(),
+        minutes: this.swMinutes() ?? 0,
+        equipment: this.swEquipment().trim() || undefined,
+      }));
+      this.swResult.set(res);
+      this.swName.set(res.title);
+      this.swCalories.set(res.estCalories);
+      this.swAnnounce.set(
+        `Suggested ${res.title} with ${res.items.length} exercises, about ${res.estCalories} calories. ` +
+        `Review and log it.`);
+    } catch {
+      this.swAnnounce.set('AI is unavailable. Try the Library or Manual tabs.');
+      this.snack.open('AI unavailable — use the Library or Manual tabs', 'OK', { duration: 4000 });
+    } finally {
+      this.swLoading.set(false);
+    }
+  }
+
+  /** Log the suggested workout as one manual entry (edited name + est calories). */
+  logSuggestedWorkout(): void {
+    if (this.saving() || this.swName().trim().length === 0 || (this.swCalories() ?? 0) <= 0) return;
+    this.ref.close({
+      date: this.data.date,
+      name: this.swName().trim(),
+      durationMin: (this.swMinutes() ?? 0) > 0 ? this.swMinutes()! : undefined,
+      caloriesBurned: this.swCalories() ?? 0,
+    });
+  }
+
+  /**
+   * Burn-target planner — "what burns ~N cal?". Reuses suggest-workout, asking the model to build a
+   * routine whose estimated burn matches the target; shows the scaled options. The user can log it just
+   * like a suggestion (prefilling name + the target calories, editable).
+   */
+  async planBurn(): Promise<void> {
+    if (!this.canPlanBurn()) return;
+    const target = this.btTarget() ?? 0;
+    this.btLoading.set(true);
+    this.btResult.set(null);
+    this.btAnnounce.set(`Finding a workout that burns about ${target} calories…`);
+    try {
+      // The suggester takes focus + minutes; encode the calorie target in the focus text and give it a
+      // generous time budget so the model scales the routine to the target burn (clamped server-side).
+      const res = await firstValueFrom(this.api.suggestWorkout({
+        focus: `a workout that burns about ${target} calories`,
+        minutes: 60,
+        equipment: this.btEquipment().trim() || undefined,
+      }));
+      this.btResult.set(res);
+      this.btAnnounce.set(
+        `Suggested ${res.title} burning about ${res.estCalories} calories. Review and log it.`);
+    } catch {
+      this.btAnnounce.set('AI is unavailable. Try the Library or Manual tabs.');
+      this.snack.open('AI unavailable — use the Library or Manual tabs', 'OK', { duration: 4000 });
+    } finally {
+      this.btLoading.set(false);
+    }
+  }
+
+  /** Log a burn-target suggestion (its title + estimated calories). */
+  logBurnPlan(): void {
+    const res = this.btResult();
+    if (this.saving() || !res || res.estCalories <= 0) return;
+    this.ref.close({
+      date: this.data.date,
+      name: res.title,
+      caloriesBurned: res.estCalories,
+    });
+  }
+
   /** Whether we can let the server estimate (profile weight + a chosen library item + a duration). */
   readonly canEstimate = computed(() =>
     this.data.hasWeight && !!this.selected() && (this.durationMin() ?? 0) > 0);
@@ -303,7 +497,7 @@ export class AddExerciseDialog {
     this.selected.set(this.selected()?.id === e.id ? null : e);
   }
 
-  setMode(m: 'library' | 'workoutx' | 'manual'): void {
+  setMode(m: 'library' | 'workoutx' | 'manual' | 'ai'): void {
     this.mode.set(m);
     this.error.set(null);
     // First time into the WorkoutX tab with nothing loaded yet → fetch the opening page.

@@ -639,3 +639,217 @@
 @media (prefers-reduced-motion: reduce) {
   .tracker__macro-fill { transition: none; }
 }
+
+/* ──────────────────────────────────────────────────────────────────────────
+   AI assists (gated by trackerAi). Unobtrusive surfaces that match the panel
+   chrome; a faint accent tint sets them apart as "✨ AI" without shouting.
+   ────────────────────────────────────────────────────────────────────────── */
+
+/* Shared ✨ button (used by "What should I eat?" + panel Refresh/Get actions). */
+.tracker__ai-btn,
+.tracker__ai-refresh,
+.tracker__ai-suggestion-add {
+  min-height: 44px;
+  border-radius: var(--tech-r-control);
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.tracker__ai-btn-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* The small sparkle marker beside an AI panel title. */
+.tracker__ai-spark {
+  font-size: var(--tech-fs-label);
+  line-height: 1;
+}
+
+/* ── Suggest-foods (sits under the calorie breakdown in the ring card) ── */
+.tracker__ai-suggest {
+  display: flex;
+  flex-direction: column;
+  gap: var(--tech-space-2);
+  margin-top: var(--tech-space-3);
+  width: 100%;
+}
+
+/* ── Daily coach + weekly review: two side-by-side panels ── */
+.tracker__ai-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--tech-space-4);
+}
+
+.tracker__ai-panel {
+  border: 1px solid var(--tech-border);
+  border-radius: var(--tech-radius);
+  background: color-mix(in srgb, var(--tech-accent-2) 5%, var(--tech-panel));
+  box-shadow: var(--tech-shadow-panel);
+  overflow: hidden;
+
+  .tracker__meal-title mat-icon { color: var(--tech-accent); }
+}
+
+.tracker__ai-card {
+  border: 1px solid var(--tech-border-subtle);
+  border-radius: var(--tech-radius);
+  background: var(--tech-bg-sunken);
+  padding: var(--tech-space-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--tech-space-2);
+}
+
+.tracker__ai-cardhead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+/* The "✨ AI" provenance chip. */
+.tracker__ai-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: var(--tech-fs-label);
+  font-weight: 600;
+  color: var(--tech-accent);
+
+  mat-icon { font-size: 16px; width: 16px; height: 16px; }
+}
+
+/* Body text inside the panels. */
+.tracker__ai-panel,
+.tracker__ai-suggest {
+  .tracker__ai-insight {
+    margin: var(--tech-space-3) var(--tech-space-4) 0;
+    font-size: var(--tech-fs-body);
+    color: var(--tech-text);
+    line-height: 1.5;
+  }
+
+  .tracker__ai-prompt,
+  .tracker__ai-empty {
+    margin: var(--tech-space-3) var(--tech-space-4);
+    font-size: var(--tech-fs-body);
+    color: var(--tech-text-tertiary);
+  }
+}
+
+.tracker__ai-empty { margin: 0; }
+
+.tracker__ai-tips {
+  list-style: none;
+  margin: var(--tech-space-2) 0 var(--tech-space-4);
+  padding: 0 var(--tech-space-4);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+
+  li {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    font-size: var(--tech-fs-body);
+    color: var(--tech-text-secondary);
+  }
+
+  mat-icon {
+    color: var(--tech-accent-cyan);
+    font-size: 18px;
+    width: 18px;
+    height: 18px;
+    flex: 0 0 auto;
+    margin-top: 1px;
+  }
+}
+
+.tracker__ai-suggest-line {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: var(--tech-space-2) var(--tech-space-4) var(--tech-space-4);
+  font-size: var(--tech-fs-body);
+  font-weight: 600;
+  color: var(--tech-text);
+
+  mat-icon { color: var(--tech-accent); font-size: 18px; width: 18px; height: 18px; flex: 0 0 auto; margin-top: 1px; }
+}
+
+/* The graceful "unavailable" steer — quiet, never an error banner. */
+.tracker__ai-unavailable {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: var(--tech-space-3) var(--tech-space-4);
+  font-size: var(--tech-fs-label);
+  color: var(--tech-text-tertiary);
+
+  mat-icon { font-size: 18px; width: 18px; height: 18px; flex: 0 0 auto; }
+}
+.tracker__ai-suggest .tracker__ai-unavailable { margin: 0; }
+
+/* Suggestion list (under "What should I eat?"). */
+.tracker__ai-suggestlist {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.tracker__ai-suggestion {
+  display: flex;
+  align-items: center;
+  gap: var(--tech-space-3);
+  padding: var(--tech-space-2) 0;
+  border-top: 1px solid var(--tech-border-subtle);
+
+  &:first-child { border-top: none; }
+}
+
+.tracker__ai-suggestion-id {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.tracker__ai-suggestion-name {
+  font-size: var(--tech-fs-body);
+  font-weight: 600;
+  color: var(--tech-text);
+}
+
+.tracker__ai-suggestion-why {
+  font-size: var(--tech-fs-label);
+  color: var(--tech-text-tertiary);
+}
+
+.tracker__ai-suggestion-macros {
+  font-size: var(--tech-fs-label);
+  color: var(--tech-text-secondary);
+}
+
+.tracker__ai-suggestion-add { flex: 0 0 auto; }
+
+.tracker__ai-hint {
+  margin: 2px 0 0;
+  font-size: var(--tech-fs-label);
+  color: var(--tech-text-tertiary);
+}
+
+/* Keep the spinner glyph aligned inside the small buttons. */
+.tracker__ai-btn mat-progress-spinner,
+.tracker__ai-refresh mat-progress-spinner { display: inline-block; }
+
+@media (max-width: 720px) {
+  .tracker__ai-row { grid-template-columns: 1fr; }
+}

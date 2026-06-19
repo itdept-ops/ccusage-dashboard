@@ -126,6 +126,69 @@
             <span class="tracker__cal-l">net</span>
           </div>
         </div>
+
+        <!-- AI: suggest foods for the remaining calories/macros (gated by trackerAi; own tracker only). -->
+        @if (aiEnabled()) {
+          <div class="tracker__ai-suggest">
+            <button mat-stroked-button type="button" class="tracker__ai-btn"
+                    [disabled]="suggestLoading()" (click)="suggestFoods()"
+                    aria-label="Suggest foods for my remaining calories and macros, using AI">
+              @if (suggestLoading()) {
+                <mat-progress-spinner mode="indeterminate" diameter="18" aria-hidden="true" />
+                Finding ideas…
+              } @else {
+                <span class="tracker__ai-btn-label">
+                  <mat-icon aria-hidden="true">auto_awesome</mat-icon> What should I eat?
+                </span>
+              }
+            </button>
+
+            <!-- Polite sr-only announcement of the suggestions / their unavailability. -->
+            <span class="tracker__sr-status" role="status" aria-live="polite">{{ suggestAnnounce() }}</span>
+
+            @if (suggestUnavailable()) {
+              <p class="tracker__ai-unavailable" role="status">
+                <mat-icon aria-hidden="true">cloud_off</mat-icon>
+                Suggestions are unavailable right now — add food manually below.
+              </p>
+            }
+
+            @if (suggestions(); as list) {
+              <div class="tracker__ai-card tracker__ai-card--suggest">
+                <div class="tracker__ai-cardhead">
+                  <span class="tracker__ai-chip"><mat-icon aria-hidden="true">auto_awesome</mat-icon> Food ideas</span>
+                  <button mat-icon-button type="button" class="tracker__ai-dismiss" (click)="clearSuggestions()"
+                          aria-label="Dismiss food suggestions">
+                    <mat-icon>close</mat-icon>
+                  </button>
+                </div>
+                @if (list.length > 0) {
+                  <ul class="tracker__ai-suggestlist">
+                    @for (s of list; track s.food) {
+                      <li class="tracker__ai-suggestion">
+                        <div class="tracker__ai-suggestion-id">
+                          <span class="tracker__ai-suggestion-name">{{ s.food }}</span>
+                          @if (s.why) { <span class="tracker__ai-suggestion-why">{{ s.why }}</span> }
+                          <span class="tracker__ai-suggestion-macros mono-num">
+                            {{ s.calories | number }} kcal · {{ s.proteinG | number:'1.0-0' }}P
+                          </span>
+                        </div>
+                        <button mat-stroked-button type="button" class="tracker__ai-suggestion-add"
+                                (click)="addSuggestedFood(s)"
+                                [attr.aria-label]="'Add ' + s.food + ' — opens the add-food form prefilled'">
+                          <mat-icon>add</mat-icon> Add
+                        </button>
+                      </li>
+                    }
+                  </ul>
+                  <p class="tracker__ai-hint">Pick one to open the add-food form, prefilled — review and confirm before it logs.</p>
+                } @else {
+                  <p class="tracker__ai-empty">No suggestions right now — you may already be near your targets.</p>
+                }
+              </div>
+            }
+          </div>
+        }
       </div>
 
       <div class="tracker__macros">
@@ -158,6 +221,92 @@
         }
       </div>
     </div>
+
+    <!-- ── AI insights (gated by trackerAi; own tracker only). Lazy + unobtrusive: nothing is fetched
+         until the user asks, so the rate-limited key isn't spammed. Never blocks the dashboard. ── -->
+    @if (aiEnabled()) {
+      <div class="tracker__ai-row">
+        <!-- Daily coach card. Needs data + on-demand fetch (cached server-side per day). -->
+        <section class="tracker__ai-panel" aria-label="Daily AI coach">
+          <div class="tracker__meal-head">
+            <h2 class="tracker__meal-title">
+              <mat-icon aria-hidden="true">auto_awesome</mat-icon> Daily coach
+              <span class="tracker__ai-spark">✨</span>
+            </h2>
+            @if (hasDataForAi()) {
+              <button mat-stroked-button type="button" class="tracker__ai-refresh"
+                      [disabled]="coachLoading()" (click)="loadCoach()"
+                      [attr.aria-label]="coach() ? 'Refresh daily coaching' : 'Get daily coaching'">
+                @if (coachLoading()) {
+                  <mat-progress-spinner mode="indeterminate" diameter="18" aria-hidden="true" />
+                } @else {
+                  <mat-icon>{{ coach() ? 'refresh' : 'tips_and_updates' }}</mat-icon>
+                }
+                {{ coach() ? 'Refresh' : 'Get coaching' }}
+              </button>
+            }
+          </div>
+
+          <span class="tracker__sr-status" role="status" aria-live="polite">{{ coachAnnounce() }}</span>
+
+          @if (!hasDataForAi()) {
+            <p class="tracker__ai-empty">Log a meal, drink, or workout and your coach will have something to say.</p>
+          } @else if (coachUnavailable()) {
+            <p class="tracker__ai-unavailable" role="status">
+              <mat-icon aria-hidden="true">cloud_off</mat-icon>
+              Coaching is unavailable right now — your day is logged and unaffected.
+            </p>
+          } @else if (coach(); as c) {
+            <p class="tracker__ai-insight">{{ c.insight }}</p>
+            @if (c.tips.length > 0) {
+              <ul class="tracker__ai-tips">
+                @for (t of c.tips; track t) {
+                  <li><mat-icon aria-hidden="true">check_circle</mat-icon> {{ t }}</li>
+                }
+              </ul>
+            }
+          } @else if (!coachLoading()) {
+            <p class="tracker__ai-prompt">Get a quick read on your day so far, plus a couple of tips.</p>
+          }
+        </section>
+
+        <!-- Weekly review panel. -->
+        <section class="tracker__ai-panel" aria-label="This week's AI review">
+          <div class="tracker__meal-head">
+            <h2 class="tracker__meal-title">
+              <mat-icon aria-hidden="true">insights</mat-icon> This week
+              <span class="tracker__ai-spark">✨</span>
+            </h2>
+            <button mat-stroked-button type="button" class="tracker__ai-refresh"
+                    [disabled]="weeklyLoading()" (click)="loadWeekly()"
+                    [attr.aria-label]="weekly() ? 'Refresh weekly review' : 'Get weekly review'">
+              @if (weeklyLoading()) {
+                <mat-progress-spinner mode="indeterminate" diameter="18" aria-hidden="true" />
+              } @else {
+                <mat-icon>{{ weekly() ? 'refresh' : 'calendar_view_week' }}</mat-icon>
+              }
+              {{ weekly() ? 'Refresh' : 'Review week' }}
+            </button>
+          </div>
+
+          <span class="tracker__sr-status" role="status" aria-live="polite">{{ weeklyAnnounce() }}</span>
+
+          @if (weeklyUnavailable()) {
+            <p class="tracker__ai-unavailable" role="status">
+              <mat-icon aria-hidden="true">cloud_off</mat-icon>
+              The weekly review is unavailable right now — nothing else is affected.
+            </p>
+          } @else if (weekly(); as w) {
+            <p class="tracker__ai-insight">{{ w.summary }}</p>
+            <p class="tracker__ai-suggest-line">
+              <mat-icon aria-hidden="true">arrow_forward</mat-icon> {{ w.suggestion }}
+            </p>
+          } @else if (!weeklyLoading()) {
+            <p class="tracker__ai-prompt">A short look back at your last 7 days, with one thing to try next.</p>
+          }
+        </section>
+      </div>
+    }
 
     <!-- ── Hydration card: progress ring vs goal + quick-add + today's drinks ── -->
     <section class="tracker__hydration" aria-label="Hydration">

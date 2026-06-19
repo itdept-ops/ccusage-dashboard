@@ -1,4 +1,5 @@
 using System.Net;
+using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using FluentAssertions;
@@ -6,11 +7,14 @@ using FluentAssertions;
 namespace Ccusage.Api.Tests.Integration;
 
 /// <summary>
-/// AI-assist endpoints (<c>/api/ai</c>): they are gated behind <c>tracker.self</c> exactly like the rest
-/// of the tracker (401 anonymous, 403 without the permission), and they degrade GRACEFULLY to 503 when
-/// Gemini is unconfigured — which the test host always is, because no <c>Gemini__ApiKey</c> is set (and
-/// <c>SkipLocalSettings=true</c> keeps the local secrets file out). The real Gemini API is NEVER called
-/// from tests: the 503-when-unconfigured branch is reached before any HTTP request is built.
+/// AI-assist endpoints (<c>/api/ai</c>). They are gated behind the dedicated, OFF-by-default
+/// <c>tracker.ai</c> permission (NOT <c>tracker.self</c>): 401 anonymous, 403 for a user that only holds
+/// <c>tracker.self</c>, allowed only with <c>tracker.ai</c> (admins have it via full access). They degrade
+/// GRACEFULLY to 503 when Gemini is unconfigured — which the test host always is, because no
+/// <c>Gemini__ApiKey</c> is set (and <c>SkipLocalSettings=true</c> keeps the local secrets file out). The
+/// real Gemini API is NEVER called from tests: the 503-when-unconfigured branch is reached before any HTTP
+/// request is built, and the photo routes reject a bad/oversized image with 400 before the unconfigured
+/// check even matters.
 /// </summary>
 [Collection(IntegrationCollection.Name)]
 public class AiIntegrationTests(WebAppFactory factory)
@@ -37,46 +41,150 @@ public class AiIntegrationTests(WebAppFactory factory)
         return (email, Client(email));
     }
 
-    // ---- Auth gating ----
+    /// <summary>Every POST route and its minimal valid body, plus every GET route (null body).</summary>
+    public static IEnumerable<object?[]> AllRoutes()
+    {
+        yield return new object?[] { HttpMethod.Post, "/api/ai/estimate-macros", new { description = "2 eggs" } };
+        yield return new object?[] { HttpMethod.Post, "/api/ai/suggest-goal", new { } };
+        yield return new object?[] { HttpMethod.Post, "/api/ai/estimate-exercise", new { name = "running", durationMin = 30 } };
+        yield return new object?[] { HttpMethod.Post, "/api/ai/parse-exercise", new { text = "3x10 squats" } };
+        yield return new object?[] { HttpMethod.Post, "/api/ai/suggest-workout", new { focus = "legs", minutes = 30 } };
+        yield return new object?[] { HttpMethod.Post, "/api/ai/parse-meal", new { text = "Big Mac, fries, Coke" } };
+        yield return new object?[] { HttpMethod.Post, "/api/ai/meal-feedback", new { description = "pizza" } };
+        yield return new object?[] { HttpMethod.Post, "/api/ai/recipe-macros", new { recipe = "rice and beans", servings = 4 } };
+        yield return new object?[] { HttpMethod.Post, "/api/ai/suggest-foods", new { } };
+        yield return new object?[] { HttpMethod.Post, "/api/ai/hydration-suggest", new { } };
+        yield return new object?[] { HttpMethod.Post, "/api/ai/parse-hydration", new { text = "2 coffees and a big water" } };
+        yield return new object?[] { HttpMethod.Post, "/api/ai/natural-goal", new { text = "lose 10 lbs in 3 months" } };
+        yield return new object?[] { HttpMethod.Get, "/api/ai/daily-coach", null };
+        yield return new object?[] { HttpMethod.Get, "/api/ai/weekly-review", null };
+        yield return new object?[] { HttpMethod.Get, "/api/ai/weight-insight", null };
+    }
 
-    [Fact]
-    public async Task Ai_endpoints_require_authentication()
+    /// <summary>The two multimodal photo routes; both validate the image before anything else.</summary>
+    public static IEnumerable<object[]> PhotoRoutes()
+    {
+        yield return new object[] { "/api/ai/photo-meal" };
+        yield return new object[] { "/api/ai/read-label" };
+    }
+
+    private static Task<HttpResponseMessage> Send(HttpClient client, HttpMethod method, string url, object? body) =>
+        method == HttpMethod.Get
+            ? client.GetAsync(url)
+            : client.PostAsJsonAsync(url, body ?? new { });
+
+    // ---- Auth gating: anonymous → 401 on every route ----
+
+    [Theory]
+    [MemberData(nameof(AllRoutes))]
+    public async Task Ai_route_requires_authentication(HttpMethod method, string url, object? body)
     {
         var anon = factory.CreateClient();
-        (await anon.PostAsJsonAsync("/api/ai/estimate-macros", new { description = "2 eggs" }))
-            .StatusCode.Should().Be(HttpStatusCode.Unauthorized);
-        (await anon.PostAsJsonAsync("/api/ai/suggest-goal", new { }))
-            .StatusCode.Should().Be(HttpStatusCode.Unauthorized);
-        (await anon.PostAsJsonAsync("/api/ai/estimate-exercise", new { name = "running", durationMin = 30 }))
+        (await Send(anon, method, url, body)).StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Theory]
+    [MemberData(nameof(PhotoRoutes))]
+    public async Task Ai_photo_route_requires_authentication(string url)
+    {
+        var anon = factory.CreateClient();
+        (await anon.PostAsJsonAsync(url, new { imageBase64 = "AAAA", mimeType = "image/png" }))
             .StatusCode.Should().Be(HttpStatusCode.Unauthorized);
     }
+
+    // ---- Auth gating: tracker.self alone is NOT enough (needs tracker.ai) → 403 ----
+
+    [Theory]
+    [MemberData(nameof(AllRoutes))]
+    public async Task Ai_route_requires_tracker_ai_not_tracker_self(HttpMethod method, string url, object? body)
+    {
+        var (_, selfOnly) = await ProvisionUser("tracker.self");
+        (await Send(selfOnly, method, url, body)).StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
+
+    [Theory]
+    [MemberData(nameof(PhotoRoutes))]
+    public async Task Ai_photo_route_requires_tracker_ai_not_tracker_self(string url)
+    {
+        var (_, selfOnly) = await ProvisionUser("tracker.self");
+        // A 403 from the permission filter precedes the image validation — a tracker.self user can't reach it.
+        (await selfOnly.PostAsJsonAsync(url, new { imageBase64 = "AAAA", mimeType = "image/png" }))
+            .StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
+
+    // ---- Graceful 503 when Gemini is unconfigured (no key in the test env), with tracker.ai granted ----
+
+    [Theory]
+    [MemberData(nameof(AllRoutes))]
+    public async Task Ai_route_returns_503_when_unconfigured(HttpMethod method, string url, object? body)
+    {
+        var (_, user) = await ProvisionUser("tracker.ai");
+        (await Send(user, method, url, body)).StatusCode.Should().Be(HttpStatusCode.ServiceUnavailable);
+    }
+
+    [Theory]
+    [MemberData(nameof(PhotoRoutes))]
+    public async Task Ai_photo_route_returns_503_when_unconfigured_for_a_valid_image(string url)
+    {
+        var (_, user) = await ProvisionUser("tracker.ai");
+        // A tiny but VALID base64 png payload passes image validation, so we reach the unconfigured 503.
+        var ok = await user.PostAsJsonAsync(url, new
+        {
+            imageBase64 = Convert.ToBase64String(new byte[64]),
+            mimeType = "image/png",
+        });
+        ok.StatusCode.Should().Be(HttpStatusCode.ServiceUnavailable);
+    }
+
+    // ---- Image validation: bad mime / oversized payload → 400 (before the unconfigured check) ----
+
+    [Theory]
+    [MemberData(nameof(PhotoRoutes))]
+    public async Task Ai_photo_route_rejects_wrong_mime_type(string url)
+    {
+        var (_, user) = await ProvisionUser("tracker.ai");
+        var res = await user.PostAsJsonAsync(url, new
+        {
+            imageBase64 = Convert.ToBase64String(new byte[64]),
+            mimeType = "application/pdf",
+        });
+        res.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Theory]
+    [MemberData(nameof(PhotoRoutes))]
+    public async Task Ai_photo_route_rejects_oversized_image(string url)
+    {
+        var (_, user) = await ProvisionUser("tracker.ai");
+        // ~6 MB decoded — over the ~5 MB cap.
+        var big = Convert.ToBase64String(new byte[6 * 1024 * 1024]);
+        var res = await user.PostAsJsonAsync(url, new { imageBase64 = big, mimeType = "image/jpeg" });
+        res.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Theory]
+    [MemberData(nameof(PhotoRoutes))]
+    public async Task Ai_photo_route_rejects_missing_or_unparseable_image(string url)
+    {
+        var (_, user) = await ProvisionUser("tracker.ai");
+        (await user.PostAsJsonAsync(url, new { imageBase64 = "", mimeType = "image/png" }))
+            .StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        (await user.PostAsJsonAsync(url, new { imageBase64 = "not valid base64!!!", mimeType = "image/png" }))
+            .StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    // ---- The new tracker.ai permission is surfaced by the catalog (data-driven Users matrix) ----
 
     [Fact]
-    public async Task Ai_endpoints_require_tracker_self()
+    public async Task Tracker_ai_permission_appears_in_the_catalog()
     {
-        var (_, noTracker) = await ProvisionUser("dashboard.view");
-        (await noTracker.PostAsJsonAsync("/api/ai/estimate-macros", new { description = "2 eggs" }))
-            .StatusCode.Should().Be(HttpStatusCode.Forbidden);
-        (await noTracker.PostAsJsonAsync("/api/ai/suggest-goal", new { }))
-            .StatusCode.Should().Be(HttpStatusCode.Forbidden);
-        (await noTracker.PostAsJsonAsync("/api/ai/estimate-exercise", new { name = "running", durationMin = 30 }))
-            .StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        var res = await Admin().GetAsync("/api/permissions");
+        res.StatusCode.Should().Be(HttpStatusCode.OK);
+        var keys = (await res.Content.ReadFromJsonAsync<List<PermissionRow>>())!
+            .Select(p => p.Key)
+            .ToList();
+        keys.Should().Contain("tracker.ai");
     }
 
-    // ---- Graceful 503 when Gemini is unconfigured (no key in the test env) ----
-
-    [Fact]
-    public async Task Ai_endpoints_return_503_when_unconfigured()
-    {
-        var (_, user) = await ProvisionUser("tracker.self");
-
-        var macros = await user.PostAsJsonAsync("/api/ai/estimate-macros", new { description = "2 scrambled eggs", quantity = "2 eggs" });
-        macros.StatusCode.Should().Be(HttpStatusCode.ServiceUnavailable);
-
-        var goal = await user.PostAsJsonAsync("/api/ai/suggest-goal", new { });
-        goal.StatusCode.Should().Be(HttpStatusCode.ServiceUnavailable);
-
-        var exercise = await user.PostAsJsonAsync("/api/ai/estimate-exercise", new { name = "running", durationMin = 30 });
-        exercise.StatusCode.Should().Be(HttpStatusCode.ServiceUnavailable);
-    }
+    private sealed record PermissionRow(string Key, string Group, string Label, string Description);
 }

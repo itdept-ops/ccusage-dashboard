@@ -9,23 +9,52 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatButtonModule } from '@angular/material/button';
 import { MatButtonToggleModule } from '@angular/material/button-toggle';
+import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar } from '@angular/material/snack-bar';
 
 import { Api } from '../../core/api';
-import { AddFoodRequest, CustomFoodDto, FoodSearchItemDto, Meal } from '../../core/models';
+import { AuthService } from '../../core/auth';
+import { AddFoodRequest, CustomFoodDto, FoodSearchItemDto, MealItemDto, Meal, PERM } from '../../core/models';
 import { BarcodeScanner } from './barcode-scanner';
+import { captureImage, confirmPhotoNotice } from './ai-image';
 
 /** What the dialog opens with: the active day + which meal section the user tapped "Add food" on. */
 export interface AddFoodData {
   date: string;
   meal: Meal;
+  /**
+   * Optional initial name-search term. When set, the dialog opens with the search box pre-seeded (e.g.
+   * from an AI "What should I eat?" suggestion) — a prefill the user edits/confirms; nothing auto-logs.
+   */
+  prefillQuery?: string;
+}
+
+/**
+ * What the dialog resolves with: a SINGLE food log, OR an ARRAY of logs — the multi-item flows
+ * (photo meal / "describe your meal") let the user commit several foods to the day at once. The caller
+ * handles both shapes; `undefined` === cancelled.
+ */
+export type AddFoodResult = AddFoodRequest | AddFoodRequest[];
+
+/**
+ * One reviewable row in a multi-item parse (photo-meal / describe-a-meal). Each is independently
+ * editable + toggleable before the user commits the batch — an AI prefill, never auto-logged. Macros
+ * are the model's per-item estimate.
+ */
+interface ReviewItem {
+  description: string;
+  calories: number;
+  proteinG: number;
+  carbG: number;
+  fatG: number;
+  include: boolean;
 }
 
 /** Which sub-panel of the add-food flow is showing. */
-type Mode = 'search' | 'scan' | 'saved';
+type Mode = 'search' | 'scan' | 'saved' | 'describe' | 'recipe';
 
 const MEALS: { value: Meal; label: string }[] = [
   { value: 'breakfast', label: 'Breakfast' },
@@ -45,16 +74,21 @@ const MEALS: { value: Meal; label: string }[] = [
   selector: 'app-add-food-dialog',
   imports: [
     FormsModule, MatDialogModule, MatFormFieldModule, MatInputModule, MatButtonModule,
-    MatButtonToggleModule, MatIconModule, MatProgressBarModule, MatProgressSpinnerModule, BarcodeScanner,
+    MatButtonToggleModule, MatCheckboxModule, MatIconModule, MatProgressBarModule,
+    MatProgressSpinnerModule, BarcodeScanner,
   ],
   templateUrl: './add-food-dialog.html',
   styleUrl: './add-food-dialog.scss',
 })
 export class AddFoodDialog {
   private api = inject(Api);
-  private ref = inject(MatDialogRef<AddFoodDialog, AddFoodRequest>);
+  private ref = inject(MatDialogRef<AddFoodDialog, AddFoodResult>);
   private snack = inject(MatSnackBar);
+  private auth = inject(AuthService);
   readonly data = inject<AddFoodData>(MAT_DIALOG_DATA);
+
+  /** GATE: every AI affordance (photo, label scan, describe, recipe, feedback) is hidden unless held. */
+  readonly canUseAi = this.auth.hasPermission(PERM.trackerAi);
 
   readonly meals = MEALS;
   readonly mode = signal<Mode>('search');
@@ -120,6 +154,47 @@ export class AddFoodDialog {
 
   /** Can we ask the AI? A description is required (quantity is optional free text). */
   readonly canEstimateAi = computed(() => !this.aiLoading() && this.mDesc().trim().length > 0);
+
+  // ---- Photo meal + label scan (multimodal; gated by trackerAi) ----
+  /** True while a photo is being analysed (photo-meal OR read-label) — drives a spinner + disables buttons. */
+  readonly photoLoading = signal(false);
+  /** Polite sr-only announcement of a photo result (or its unavailability). */
+  readonly photoAnnounce = signal('');
+
+  // ---- "Describe your meal" multi-item parse (gated by trackerAi) ----
+  /** Free-text meal to split into items ("Big Mac, fries, and a Coke"). */
+  readonly describeText = signal('');
+  /** True while the parse-meal call is in flight. */
+  readonly describeLoading = signal(false);
+  readonly canParseMeal = computed(() => !this.describeLoading() && this.describeText().trim().length > 0);
+
+  /**
+   * The reviewable, per-item list from a photo-meal OR parse-meal call. Each row is editable +
+   * toggleable; the user commits the checked rows as a batch. Empty === no parse yet (or all removed).
+   */
+  readonly reviewItems = signal<ReviewItem[]>([]);
+  /** Where the current review list came from, for the heading + sr announcement copy. */
+  readonly reviewSource = signal<'photo' | 'text' | null>(null);
+  /** Polite sr-only announcement of a multi-item parse result (or its unavailability). */
+  readonly reviewAnnounce = signal('');
+  /** How many review rows are currently checked (drives the "Add N items" button + its disabled state). */
+  readonly reviewSelectedCount = computed(() => this.reviewItems().filter(i => i.include).length);
+
+  // ---- Recipe → per-serving macros (gated by trackerAi) ----
+  /** Free-text ingredient list for the recipe estimator. */
+  readonly recipeText = signal('');
+  /** Number of servings the recipe yields (the AI returns PER-serving macros). */
+  readonly recipeServings = signal(1);
+  readonly recipeLoading = signal(false);
+  readonly canRecipeMacros = computed(() =>
+    !this.recipeLoading() && this.recipeText().trim().length > 0 && this.recipeServings() > 0);
+
+  // ---- Meal feedback ("Is this good for my goal? ✨") on the manual description ----
+  readonly feedbackLoading = signal(false);
+  /** The model's verdict + swap suggestions for the manual description, or null. Read-only helper text. */
+  readonly feedback = signal<{ verdict: string; goodForGoal: boolean; swaps: string[] } | null>(null);
+  readonly feedbackAnnounce = signal('');
+  readonly canGetFeedback = computed(() => !this.feedbackLoading() && this.mDesc().trim().length > 0);
 
   /** Unit hint for the quantity field, driven by the selected food's basis (manual = servings). */
   readonly quantityUnit = computed(() =>
@@ -225,6 +300,10 @@ export class AddFoodDialog {
     });
 
     effect(() => this.savedQueryStream.next(this.savedQuery()));
+
+    // Pre-seed the name search from an AI food suggestion (editable; never auto-logs).
+    const seed = this.data.prefillQuery?.trim();
+    if (seed) this.query.set(seed);
   }
 
   setMode(m: Mode): void {
@@ -290,6 +369,237 @@ export class AddFoodDialog {
   clearAiEstimate(): void {
     this.aiEstimated.set(false);
     this.aiNote.set(null);
+  }
+
+  /** Editing the description invalidates a stale meal-feedback verdict. */
+  onDescChange(v: string): void {
+    this.mDesc.set(v);
+    if (this.feedback()) this.feedback.set(null);
+  }
+
+  /**
+   * 📷 Snap / upload a meal photo → photo-meal. Shows the one-time Google notice on first use, then
+   * (on >=1 item) routes to the multi-item review list. A single item still lands in review so the user
+   * confirms before committing. A 503/error degrades gracefully: snackbar steer, fields stay usable.
+   */
+  async photoMeal(): Promise<void> {
+    if (!this.canUseAi || this.photoLoading()) return;
+    if (!(await confirmPhotoNotice())) return; // declined the privacy notice → abort, nothing sent.
+    let image;
+    try {
+      image = await captureImage();
+    } catch {
+      this.snack.open('Could not read that image — try another photo', 'OK', { duration: 4000 });
+      return;
+    }
+    if (!image) return; // picker cancelled.
+    this.photoLoading.set(true);
+    this.photoAnnounce.set('Analysing your meal photo with AI…');
+    try {
+      const res = await firstValueFrom(this.api.photoMeal(image));
+      const items = res.items ?? [];
+      if (items.length === 0) {
+        this.photoAnnounce.set('No foods found in that photo. Add the food manually.');
+        this.snack.open('No foods found in that photo — add it manually', 'OK', { duration: 4000 });
+        return;
+      }
+      this.showReview(items, 'photo');
+    } catch {
+      this.photoAnnounce.set('Photo analysis unavailable. Add the food manually.');
+      this.snack.open('AI photo unavailable — add it manually', 'OK', { duration: 4000 });
+    } finally {
+      this.photoLoading.set(false);
+    }
+  }
+
+  /**
+   * 📷 Scan a nutrition label → read-label → PREFILL the manual food fields (a sibling to the barcode
+   * scanner). Shows the one-time Google notice on first use. A 503/error degrades gracefully.
+   */
+  async scanLabel(): Promise<void> {
+    if (!this.canUseAi || this.photoLoading()) return;
+    if (!(await confirmPhotoNotice())) return;
+    let image;
+    try {
+      image = await captureImage();
+    } catch {
+      this.snack.open('Could not read that image — try another photo', 'OK', { duration: 4000 });
+      return;
+    }
+    if (!image) return;
+    this.photoLoading.set(true);
+    this.photoAnnounce.set('Reading the nutrition label with AI…');
+    try {
+      const res = await firstValueFrom(this.api.readLabel(image));
+      // Prefill the editable manual fields — the label read is per stated serving; quantity scales it.
+      this.startManual();
+      this.mDesc.set(res.description);
+      this.mCalories.set(res.calories);
+      this.mProtein.set(res.proteinG);
+      this.mCarb.set(res.carbsG);
+      this.mFat.set(res.fatG);
+      this.aiNote.set(res.servingSize ? `Label serving: ${res.servingSize}` : null);
+      this.aiEstimated.set(true);
+      this.photoAnnounce.set(
+        `Label read: ${res.calories} calories, ${res.proteinG} grams protein, ${res.carbsG} grams carbs, ` +
+        `${res.fatG} grams fat.` + (res.servingSize ? ` Serving: ${res.servingSize}.` : ''));
+    } catch {
+      this.photoAnnounce.set('Label scan unavailable. Enter the values manually.');
+      this.snack.open('AI label scan unavailable — enter manually', 'OK', { duration: 4000 });
+    } finally {
+      this.photoLoading.set(false);
+    }
+  }
+
+  /**
+   * Parse the free-text "describe your meal" box into a reviewable multi-item list. A 503/error degrades
+   * gracefully: snackbar steer + announcement; the text box stays usable.
+   */
+  async parseMeal(): Promise<void> {
+    if (!this.canParseMeal()) return;
+    this.describeLoading.set(true);
+    this.reviewAnnounce.set('Splitting your meal into items with AI…');
+    try {
+      const res = await firstValueFrom(this.api.parseMeal({ text: this.describeText().trim() }));
+      const items = res.items ?? [];
+      if (items.length === 0) {
+        this.reviewItems.set([]);
+        this.reviewSource.set(null);
+        this.reviewAnnounce.set('No items found. Add the food manually.');
+        this.snack.open('No items found — add the food manually', 'OK', { duration: 4000 });
+        return;
+      }
+      this.showReview(items, 'text');
+    } catch {
+      this.reviewAnnounce.set('Meal parsing unavailable. Add the food manually.');
+      this.snack.open('AI meal parsing unavailable — add it manually', 'OK', { duration: 4000 });
+    } finally {
+      this.describeLoading.set(false);
+    }
+  }
+
+  /** Map AI {@link MealItemDto}s into the editable review list (all checked) + announce the result. */
+  private showReview(items: MealItemDto[], from: 'photo' | 'text'): void {
+    this.reviewItems.set(items.map(i => ({
+      description: i.description,
+      calories: i.calories,
+      proteinG: i.proteinG,
+      carbG: i.carbsG,
+      fatG: i.fatG,
+      include: true,
+    })));
+    this.reviewSource.set(from);
+    this.reviewAnnounce.set(
+      `AI found ${items.length} ${items.length === 1 ? 'item' : 'items'}. Review and edit, then add to your day.`);
+  }
+
+  /** Patch one numeric field on a review row (keeps the array reference fresh for change detection). */
+  updateReviewItem(index: number, patch: Partial<ReviewItem>): void {
+    this.reviewItems.update(list => list.map((it, i) => (i === index ? { ...it, ...patch } : it)));
+  }
+
+  /** Toggle whether a review row is included in the batch add. */
+  toggleReviewItem(index: number): void {
+    this.reviewItems.update(list => list.map((it, i) => (i === index ? { ...it, include: !it.include } : it)));
+  }
+
+  /** Drop a review row entirely. */
+  removeReviewItem(index: number): void {
+    this.reviewItems.update(list => list.filter((_, i) => i !== index));
+    if (this.reviewItems().length === 0) this.discardReview();
+  }
+
+  /** Abandon the current review list and return to the chooser. */
+  discardReview(): void {
+    this.reviewItems.set([]);
+    this.reviewSource.set(null);
+    this.reviewAnnounce.set('');
+  }
+
+  /**
+   * Commit the checked review rows as a BATCH of food logs for the active meal. Each item's macros are
+   * the AI per-item estimate (quantity 1). Resolves the dialog with the array; the caller logs them all.
+   */
+  addReviewItems(): void {
+    const meal = this.meal();
+    const reqs: AddFoodRequest[] = this.reviewItems()
+      .filter(i => i.include && i.description.trim().length > 0)
+      .map(i => ({
+        date: this.data.date,
+        meal,
+        description: i.description.trim(),
+        quantity: 1,
+        servingDesc: '1 serving',
+        calories: Math.max(0, Math.round(i.calories)),
+        proteinG: Math.max(0, i.proteinG),
+        carbG: Math.max(0, i.carbG),
+        fatG: Math.max(0, i.fatG),
+        // No source → each is auto-saved to "My foods" like any manual log.
+      }));
+    if (reqs.length === 0) return;
+    this.ref.close(reqs);
+  }
+
+  /**
+   * Recipe mode: estimate PER-serving macros from a free-text ingredient list + servings, then PREFILL
+   * the manual fields (quantity = 1 serving). A 503/error degrades gracefully.
+   */
+  async recipeMacros(): Promise<void> {
+    if (!this.canRecipeMacros()) return;
+    this.recipeLoading.set(true);
+    this.aiAnnounce.set('Estimating per-serving macros with AI…');
+    try {
+      const res = await firstValueFrom(this.api.recipeMacros({
+        recipe: this.recipeText().trim(),
+        servings: this.recipeServings(),
+      }));
+      const m = res.perServing;
+      this.startManual();
+      this.mDesc.set(this.recipeFirstLine());
+      this.mCalories.set(m.calories);
+      this.mProtein.set(m.proteinG);
+      this.mCarb.set(m.carbsG);
+      this.mFat.set(m.fatG);
+      this.aiNote.set(`Per serving (recipe makes ${this.recipeServings()}).`);
+      this.aiEstimated.set(true);
+      this.aiAnnounce.set(
+        `Per-serving estimate: ${m.calories} calories, ${m.proteinG} grams protein, ${m.carbsG} grams carbs, ` +
+        `${m.fatG} grams fat.`);
+    } catch {
+      this.aiAnnounce.set('Recipe estimate unavailable. Enter the values manually.');
+      this.snack.open('AI recipe estimate unavailable — enter manually', 'OK', { duration: 4000 });
+    } finally {
+      this.recipeLoading.set(false);
+    }
+  }
+
+  /** A short description seed for a recipe prefill: the first non-empty line, capped. */
+  private recipeFirstLine(): string {
+    const first = this.recipeText().split('\n').map(l => l.trim()).find(l => l.length > 0) ?? 'Recipe';
+    return first.length > 60 ? first.slice(0, 60) : first;
+  }
+
+  /**
+   * "Is this good for my goal? ✨" — fetch a read-only verdict + swap suggestions for the manual
+   * description. A 503/error degrades gracefully: snackbar steer; the form stays usable.
+   */
+  async getMealFeedback(): Promise<void> {
+    if (!this.canGetFeedback()) return;
+    this.feedbackLoading.set(true);
+    this.feedback.set(null);
+    this.feedbackAnnounce.set('Checking this against your goal with AI…');
+    try {
+      const res = await firstValueFrom(this.api.mealFeedback({ description: this.mDesc().trim() }));
+      this.feedback.set({ verdict: res.verdict, goodForGoal: res.goodForGoal, swaps: res.swaps ?? [] });
+      this.feedbackAnnounce.set(
+        `${res.goodForGoal ? 'Good for your goal.' : 'Could be better for your goal.'} ${res.verdict}` +
+        (res.swaps?.length ? ` Swaps: ${res.swaps.join(', ')}.` : ''));
+    } catch {
+      this.feedbackAnnounce.set('Meal feedback unavailable right now.');
+      this.snack.open('AI meal feedback unavailable', 'OK', { duration: 4000 });
+    } finally {
+      this.feedbackLoading.set(false);
+    }
   }
 
   /**

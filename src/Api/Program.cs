@@ -258,6 +258,11 @@ builder.Services.AddRateLimiter(o =>
     o.AddPolicy(AiEndpoints.RateLimitPolicy, http => RateLimitPartition.GetFixedWindowLimiter(
         partitionKey: http.User.FindFirst("email")?.Value ?? http.Connection.RemoteIpAddress?.ToString() ?? "unknown",
         factory: _ => new FixedWindowRateLimiterOptions { Window = TimeSpan.FromMinutes(1), PermitLimit = 15, QueueLimit = 0 }));
+    // The multimodal photo routes (photo-meal / read-label) are the most expensive AI calls (a whole image
+    // per request); give them a tighter per-email cap (~5/min) on top of the shared "ai" group limit.
+    o.AddPolicy(AiEndpoints.PhotoRateLimitPolicy, http => RateLimitPartition.GetFixedWindowLimiter(
+        partitionKey: http.User.FindFirst("email")?.Value ?? http.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+        factory: _ => new FixedWindowRateLimiterOptions { Window = TimeSpan.FromMinutes(1), PermitLimit = 5, QueueLimit = 0 }));
 });
 
 var app = builder.Build();
