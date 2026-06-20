@@ -49,6 +49,9 @@ builder.Services.AddSingleton<TokenProtector>();
 builder.Services.AddScoped<GoogleAuthService>();
 builder.Services.AddScoped<CurrentUserAccessor>();
 builder.Services.AddScoped<CurrentHouseholdAccessor>();
+// Family Hub F2: the background tick that fires due reminders and completes finished shared timers,
+// delivering each as an in-app notification (bell + toast + unread) via ChatNotificationService.
+builder.Services.AddHostedService<FamilyReminderService>();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddSingleton<SyncCoordinator>();
 builder.Services.AddHostedService<AutoSyncBackgroundService>();
@@ -423,6 +426,7 @@ app.MapTrackerEndpoints();
 app.MapAiEndpoints();
 app.MapFamilyEndpoints();
 app.MapFamilyNotesListsEndpoints();
+app.MapFamilyRemindersTimersEndpoints();
 app.MapHub<ChatHub>("/api/hubs/chat");
 app.MapGet("/", () => app.Environment.IsDevelopment()
     ? Results.Redirect("/swagger")

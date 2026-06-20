@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Hosting;
 using Testcontainers.PostgreSql;
 
 namespace Ccusage.Api.Tests.Integration;
@@ -98,6 +99,15 @@ public sealed class WebAppFactory : WebApplicationFactory<Program>, IAsyncLifeti
         {
             services.RemoveAll<IGoogleTokenValidator>();
             services.AddSingleton<IGoogleTokenValidator, FakeGoogleTokenValidator>();
+
+            // The Family Hub reminder/timer tick runs on a 30s background loop in production. In tests we
+            // drive it deterministically (FamilyRemindersTimerTests invoke TickAsync directly with a fixed
+            // clock), so remove ONLY that hosted loop to keep per-tick notification counts exact (other
+            // hosted services — e.g. the request-log writer — stay, since some tests rely on them).
+            var familyTick = services.FirstOrDefault(d =>
+                d.ServiceType == typeof(IHostedService)
+                && d.ImplementationType == typeof(FamilyReminderService));
+            if (familyTick is not null) services.Remove(familyTick);
 
             // Stamp a deterministic client IP before the app pipeline runs (the TestServer otherwise
             // leaves RemoteIpAddress null). UseForwardedHeaders won't override it absent an X-Forwarded-For.

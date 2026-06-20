@@ -16,4 +16,10 @@ public enum NotificationType
     SystemSyncFailed = 3,
     SystemUserJoined = 4,
     SystemFleetOffline = 5,
+
+    /// <summary>A Family Hub reminder came due for its target member.</summary>
+    FamilyReminder = 6,
+
+    /// <summary>A Family Hub shared timer finished (pings the whole household).</summary>
+    FamilyTimer = 7,
 }

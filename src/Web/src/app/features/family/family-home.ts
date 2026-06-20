@@ -11,6 +11,7 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { Api } from '../../core/api';
 import { AuthService } from '../../core/auth';
 import { Household, HouseholdMember, PERM } from '../../core/models';
+import { FamilyTimerWidget } from './timer';
 
 /** One feature tile on the Family home grid. `route` is null for a not-yet-built ("Coming soon") tile. */
 interface FeatureTile {
@@ -32,8 +33,8 @@ interface FeatureTile {
 const TILES: FeatureTile[] = [
   { key: 'notes', label: 'Notes', icon: 'sticky_note_2', blurb: 'Shared notes for the whole family', route: '/family/notes' },
   { key: 'lists', label: 'Lists', icon: 'checklist', blurb: 'Groceries, to-dos, and wish lists', route: '/family/lists' },
-  { key: 'reminders', label: 'Reminders', icon: 'notifications_active', blurb: 'Nudges so nothing slips', route: null },
-  { key: 'timer', label: 'Timer', icon: 'timer', blurb: 'Shared timers and countdowns', route: null },
+  { key: 'reminders', label: 'Reminders', icon: 'notifications_active', blurb: 'Nudges so nothing slips', route: '/family/reminders' },
+  { key: 'timer', label: 'Timer', icon: 'timer', blurb: 'Shared timers and countdowns', route: '/family/timer' },
   { key: 'today', label: 'Today', icon: 'wb_sunny', blurb: "Everyone's day at a glance", route: null },
   { key: 'meals', label: 'Meal Planner', icon: 'restaurant', blurb: 'Plan the week around the table', route: null },
   { key: 'chores', label: 'Chores', icon: 'cleaning_services', blurb: 'Share the load, fairly', route: null },
@@ -51,6 +52,7 @@ const TILES: FeatureTile[] = [
   selector: 'app-family-home',
   imports: [
     RouterLink, MatIconModule, MatButtonModule, MatTooltipModule, MatProgressSpinnerModule,
+    FamilyTimerWidget,
   ],
   templateUrl: './family-home.html',
   styleUrl: './family.scss',

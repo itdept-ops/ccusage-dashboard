@@ -1333,6 +1333,44 @@ export interface FamilyList {
   items: FamilyListItem[];
 }
 
+// ---- Family Hub F2: reminders & timers ----
+
+/** How a reminder repeats. Mirrors the backend's lowercase strings. */
+export type FamilyRecurrence = 'none' | 'daily' | 'weekly' | 'weekdays';
+
+/**
+ * A household reminder (mirrors ReminderDto). People are identified by `targetUserId`/`createdByUserId`
+ * + display name only — never an email (email-privacy). `dueUtc` is an ISO UTC instant (rendered in the
+ * viewer's LOCAL time); `recurrence` drives the chip; `active` is false once a one-shot has fired (a
+ * recurring reminder stays active, its `dueUtc` advancing to the next occurrence). When it fires the alert
+ * arrives through the existing notification bell/toast — no per-reminder delivery UI here.
+ */
+export interface FamilyReminder {
+  id: number;
+  text: string;
+  dueUtc: string;
+  recurrence: FamilyRecurrence;
+  active: boolean;
+  targetUserId: number;
+  targetName: string;
+  createdByUserId: number;
+  createdByName: string;
+}
+
+/**
+ * A shared household countdown (mirrors TimerDto). `endsUtc` is an ISO UTC instant the client ticks down
+ * to; `done` is true once it has finished (and the household has been pinged via the notification bell).
+ * The starter is identified by `startedByUserId` + `startedByName` only — never an email.
+ */
+export interface FamilyTimer {
+  id: number;
+  label: string;
+  endsUtc: string;
+  done: boolean;
+  startedByUserId: number;
+  startedByName: string;
+}
+
 /** Canonical permission keys (mirror of the backend catalog — all 29 keys). */
 export const PERM = {
   dashboardView: 'dashboard.view',

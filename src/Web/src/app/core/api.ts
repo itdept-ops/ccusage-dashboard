@@ -4,7 +4,7 @@ import { Observable } from 'rxjs';
 import {
   AccessPolicy, AddExerciseRequest, AddFoodRequest, AddHydrationRequest, AuditEntry, CacheEfficiency, CalendarDay, ChatChannelDto, ChatContactDto, ChatMessageDto, CreateChannelRequest,
   CreateShareRequest, CustomExerciseDto, CustomFoodDto, DailyCoachResponse, EstimateExerciseRequest, EstimateExerciseResponse, EstimateMacrosRequest, EstimateMacrosResponse, ExerciseEntryDto, ExerciseLibraryDto, Fleet, FleetDeleteRequest,
-  FamilyList, FamilyListKind, FamilyNote, FleetDeleteResult, FleetReassignRequest, FleetReassignResult, FleetRevokeKeysRequest, FleetRevokeKeysResult, FoodEntryDto, FoodSearchItemDto, GroupBy, Household, HouseholdCandidate,
+  FamilyList, FamilyListKind, FamilyNote, FamilyRecurrence, FamilyReminder, FamilyTimer, FleetDeleteResult, FleetReassignRequest, FleetReassignResult, FleetRevokeKeysRequest, FleetRevokeKeysResult, FoodEntryDto, FoodSearchItemDto, GroupBy, Household, HouseholdCandidate,
   HeatmapCell, HydrationEntryDto, HydrationSuggestResponse, ImageRequest, IngestionSource, IngestKey, IngestKeyCreated, LogWeightRequest, LoginEvent, MachineStat, ManagedUser, MealFeedbackRequest, MealFeedbackResponse, ModelStat, NaturalGoalRequest, NaturalGoalResponse, NotificationDto, NotificationPreferenceDto, NotificationSettings,
   NotificationUpdate, PagedResult, ParseExerciseRequest, ParseExerciseResponse, ParseHydrationRequest, ParseHydrationResponse, ParseMealRequest, ParseMealResponse, PermissionItem, Presence, Pricing, ProjectDto, PublicShare, ReactionGroupDto, ReadLabelResponse, RecipeMacrosRequest, RecipeMacrosResponse, RequestLogEntry, SavedView,
   SavedViewUpsertRequest, SessionDetail, Settings, ShareAccessItem, ShareCreated, ShareListItem, SharedUserDto, SuggestFoodsResponse, SuggestGoalResponse, SuggestWorkoutRequest, SuggestWorkoutResponse, SummaryResponse,
@@ -801,5 +801,56 @@ export class Api {
   /** Remove a list's share for the given AppUser id (manage). Returns the updated list. */
   unshareFamilyList(id: number, userId: number): Observable<FamilyList> {
     return this.http.delete<FamilyList>(`${this.base}/family/lists/${id}/share/${userId}`);
+  }
+
+  // ---- Family Hub F2: reminders (due-time nudges; recurrence; target a member) ----
+
+  /** The household's reminders (active first, then by due time). When one fires it lands in the bell. */
+  familyReminders(): Observable<FamilyReminder[]> {
+    return this.http.get<FamilyReminder[]>(`${this.base}/family/reminders`);
+  }
+
+  /**
+   * Create a reminder in the caller's household. `dueUtc` is an ISO UTC instant (convert from local on the
+   * client). `targetUserId` must be a household member (defaults to the caller). Returns the created reminder.
+   */
+  createFamilyReminder(req: {
+    text: string; dueUtc: string; recurrence: FamilyRecurrence; targetUserId?: number | null;
+  }): Observable<FamilyReminder> {
+    return this.http.post<FamilyReminder>(`${this.base}/family/reminders`, req);
+  }
+
+  /** Edit a reminder (any household member). Omitted fields are unchanged. Returns the updated reminder. */
+  updateFamilyReminder(id: number, req: {
+    text?: string; dueUtc?: string; recurrence?: FamilyRecurrence; targetUserId?: number;
+  }): Observable<FamilyReminder> {
+    return this.http.put<FamilyReminder>(`${this.base}/family/reminders/${id}`, req);
+  }
+
+  /** Snooze a reminder by N minutes from now (re-activates a fired one-shot). Returns the updated reminder. */
+  snoozeFamilyReminder(id: number, minutes: number): Observable<FamilyReminder> {
+    return this.http.post<FamilyReminder>(`${this.base}/family/reminders/${id}/snooze`, { minutes });
+  }
+
+  /** Delete a reminder (any household member). */
+  deleteFamilyReminder(id: number): Observable<void> {
+    return this.http.delete<void>(`${this.base}/family/reminders/${id}`);
+  }
+
+  // ---- Family Hub F2: shared timers (live countdowns the whole household sees) ----
+
+  /** The household's timers (active soonest-ending first, then recently-finished). */
+  familyTimers(): Observable<FamilyTimer[]> {
+    return this.http.get<FamilyTimer[]>(`${this.base}/family/timers`);
+  }
+
+  /** Start a shared countdown of `durationSeconds`, with an optional label. Returns the created timer. */
+  createFamilyTimer(req: { label?: string; durationSeconds: number }): Observable<FamilyTimer> {
+    return this.http.post<FamilyTimer>(`${this.base}/family/timers`, req);
+  }
+
+  /** Cancel a timer (any household member). */
+  deleteFamilyTimer(id: number): Observable<void> {
+    return this.http.delete<void>(`${this.base}/family/timers/${id}`);
   }
 }

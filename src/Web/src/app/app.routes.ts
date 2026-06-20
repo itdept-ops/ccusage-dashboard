@@ -121,6 +121,16 @@ export const routes: Routes = [
         loadComponent: () => import('./features/family/lists').then(m => m.FamilyLists),
         title: 'Usage IQ · Family Lists',
       },
+      {
+        path: 'reminders',
+        loadComponent: () => import('./features/family/reminders').then(m => m.FamilyReminders),
+        title: 'Usage IQ · Family Reminders',
+      },
+      {
+        path: 'timer',
+        loadComponent: () => import('./features/family/timer').then(m => m.FamilyTimerWidget),
+        title: 'Usage IQ · Family Timer',
+      },
     ],
   },
   {

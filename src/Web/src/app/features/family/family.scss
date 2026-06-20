@@ -117,6 +117,27 @@
   color: var(--tech-text-tertiary);
 }
 
+/* Card header with a "see all" link (home timer embed) */
+.family__card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--tech-space-3, 12px);
+  margin-bottom: var(--tech-space-4, 16px);
+  .family__card-title { margin: 0; }
+}
+.family__card-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  font-size: var(--tech-fs-label);
+  font-weight: 600;
+  color: var(--tech-accent);
+  text-decoration: none;
+  &:hover { text-decoration: underline; }
+  mat-icon { width: 18px; height: 18px; font-size: 18px; }
+}
+
 /* ── Member strip (home) ────────────────────────────────────────────── */
 .member-strip {
   list-style: none;

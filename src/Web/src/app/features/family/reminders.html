@@ -1,0 +1,132 @@
+<section class="family">
+  <a class="family__back" routerLink="/family">
+    <mat-icon aria-hidden="true">arrow_back</mat-icon> Family Hub
+  </a>
+
+  <header class="family__hero family__hero--page">
+    <div class="family__hero-id">
+      <span class="family__crest" aria-hidden="true"><mat-icon>notifications_active</mat-icon></span>
+      <div>
+        <p class="family__eyebrow">Family Hub</p>
+        <h1 class="family__name">Reminders</h1>
+        <p class="family__sub">Gentle nudges so nothing slips through the cracks</p>
+      </div>
+    </div>
+    <button mat-flat-button color="primary" class="family__settings-btn" (click)="create()">
+      <mat-icon aria-hidden="true">add</mat-icon>
+      New reminder
+    </button>
+  </header>
+
+  @if (loading()) {
+    <div class="family__loading">
+      <mat-spinner [diameter]="28" />
+      <span>Gathering your reminders…</span>
+    </div>
+  } @else if (error()) {
+    <div class="family__error">
+      <mat-icon aria-hidden="true">error_outline</mat-icon>
+      <p>We couldn't load your reminders just now. Please try again in a moment.</p>
+    </div>
+  } @else if (upcoming().length === 0 && past().length === 0) {
+    <div class="family__empty">
+      <mat-icon aria-hidden="true">notifications_none</mat-icon>
+      <h2>No reminders yet</h2>
+      <p>Add a nudge for yourself or anyone in the family — it'll arrive in their notifications when it's time.</p>
+      <button mat-flat-button color="primary" (click)="create()">
+        <mat-icon aria-hidden="true">add</mat-icon> New reminder
+      </button>
+    </div>
+  } @else {
+    <!-- ── Upcoming (active), next-due first ───────────────────────────── -->
+    @if (upcoming().length > 0) {
+      <ul class="reminder-list">
+        @for (r of upcoming(); track r.id) {
+          <li class="reminder" [class.reminder--overdue]="isOverdue(r)">
+            <span class="reminder__bell" aria-hidden="true"><mat-icon>notifications</mat-icon></span>
+
+            <div class="reminder__main">
+              <p class="reminder__text">{{ r.text }}</p>
+              <div class="reminder__meta">
+                <span class="reminder__when">
+                  <mat-icon aria-hidden="true">schedule</mat-icon>
+                  {{ r.dueUtc | date:'EEE, MMM d · h:mm a' }}
+                  @if (isOverdue(r)) { <span class="reminder__overdue-tag">due</span> }
+                </span>
+                @if (r.recurrence !== 'none') {
+                  <span class="reminder__chip">
+                    <mat-icon aria-hidden="true">repeat</mat-icon> {{ recurrenceLabel(r.recurrence) }}
+                  </span>
+                }
+                <span class="reminder__target" [matTooltip]="'Pings ' + r.targetName">
+                  <span class="reminder__avatar" aria-hidden="true">{{ initials(r.targetName) }}</span>
+                  {{ r.targetName }}
+                </span>
+              </div>
+            </div>
+
+            <div class="reminder__actions">
+              @if (busyId() === r.id) {
+                <mat-spinner [diameter]="20" />
+              } @else {
+                <button mat-icon-button matTooltip="Snooze" [matMenuTriggerFor]="snoozeMenu">
+                  <mat-icon aria-hidden="true">snooze</mat-icon>
+                </button>
+                <mat-menu #snoozeMenu="matMenu">
+                  @for (s of snoozeOptions; track s.minutes) {
+                    <button mat-menu-item (click)="snooze(r, s.minutes)">{{ s.label }}</button>
+                  }
+                </mat-menu>
+                <button mat-icon-button matTooltip="Edit" (click)="edit(r)">
+                  <mat-icon aria-hidden="true">edit</mat-icon>
+                </button>
+                <button mat-icon-button matTooltip="Delete" class="reminder__delete" (click)="remove(r)">
+                  <mat-icon aria-hidden="true">delete_outline</mat-icon>
+                </button>
+              }
+            </div>
+          </li>
+        }
+      </ul>
+    }
+
+    <!-- ── Fired one-time reminders (kept until cleared / re-scheduled) ──── -->
+    @if (past().length > 0) {
+      <section class="reminder-past">
+        <h2 class="family__card-title reminder-past__title">Done</h2>
+        <ul class="reminder-list">
+          @for (r of past(); track r.id) {
+            <li class="reminder reminder--done">
+              <span class="reminder__bell" aria-hidden="true"><mat-icon>notifications_off</mat-icon></span>
+              <div class="reminder__main">
+                <p class="reminder__text">{{ r.text }}</p>
+                <div class="reminder__meta">
+                  <span class="reminder__when">
+                    <mat-icon aria-hidden="true">schedule</mat-icon>
+                    {{ r.dueUtc | date:'EEE, MMM d · h:mm a' }}
+                  </span>
+                  <span class="reminder__target">
+                    <span class="reminder__avatar" aria-hidden="true">{{ initials(r.targetName) }}</span>
+                    {{ r.targetName }}
+                  </span>
+                </div>
+              </div>
+              <div class="reminder__actions">
+                @if (busyId() === r.id) {
+                  <mat-spinner [diameter]="20" />
+                } @else {
+                  <button mat-icon-button matTooltip="Reschedule" (click)="edit(r)">
+                    <mat-icon aria-hidden="true">event_repeat</mat-icon>
+                  </button>
+                  <button mat-icon-button matTooltip="Delete" class="reminder__delete" (click)="remove(r)">
+                    <mat-icon aria-hidden="true">delete_outline</mat-icon>
+                  </button>
+                }
+              </div>
+            </li>
+          }
+        </ul>
+      </section>
+    }
+  }
+</section>

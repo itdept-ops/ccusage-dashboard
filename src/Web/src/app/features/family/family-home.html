@@ -53,6 +53,15 @@
       </ul>
     </section>
 
+    <!-- Live shared timers: a glanceable embed so both parents see what's counting down right now. -->
+    <section class="family__card family__timers" aria-label="Family timers">
+      <div class="family__card-head">
+        <h2 class="family__card-title">Timers</h2>
+        <a class="family__card-link" routerLink="/family/timer">Open <mat-icon aria-hidden="true">chevron_right</mat-icon></a>
+      </div>
+      <app-family-timer [embedded]="true" />
+    </section>
+
     <!-- Feature tiles: the rooms of the home. Live ones link out; the rest are gentle "Coming soon". -->
     <section class="family__rooms" aria-label="Family Hub features">
       <h2 class="family__card-title">Around the house</h2>

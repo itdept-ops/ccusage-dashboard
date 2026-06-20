@@ -1,0 +1,106 @@
+@if (!embedded()) {
+  <section class="family">
+    <a class="family__back" routerLink="/family">
+      <mat-icon aria-hidden="true">arrow_back</mat-icon> Family Hub
+    </a>
+
+    <header class="family__hero family__hero--page">
+      <div class="family__hero-id">
+        <span class="family__crest" aria-hidden="true"><mat-icon>timer</mat-icon></span>
+        <div>
+          <p class="family__eyebrow">Family Hub</p>
+          <h1 class="family__name">Timer</h1>
+          <p class="family__sub">Shared countdowns the whole house can see</p>
+        </div>
+      </div>
+    </header>
+
+    <ng-container *ngTemplateOutlet="body" />
+  </section>
+} @else {
+  <div class="timer-embed">
+    <ng-container *ngTemplateOutlet="body" />
+  </div>
+}
+
+<ng-template #body>
+  <!-- ── Start a timer: presets + custom + optional label ─────────────── -->
+  <div class="timer-start family__card">
+    <h2 class="family__card-title">Start a timer</h2>
+
+    <mat-form-field appearance="outline" class="timer-label-field" subscriptSizing="dynamic">
+      <mat-label>Label (optional)</mat-label>
+      <input matInput maxlength="120" placeholder="e.g. Lily screen time"
+             [ngModel]="label()" (ngModelChange)="label.set($event)" />
+    </mat-form-field>
+
+    <div class="preset-grid">
+      @for (p of presets; track p.label) {
+        <button type="button" class="preset" [disabled]="starting()" (click)="startPreset(p)">
+          <span class="preset__icon" aria-hidden="true"><mat-icon>{{ p.icon }}</mat-icon></span>
+          <span class="preset__label">{{ p.label }}</span>
+          <span class="preset__mins">{{ p.seconds / 60 }} min</span>
+        </button>
+      }
+    </div>
+
+    <div class="custom-row">
+      <mat-form-field appearance="outline" class="custom-row__field" subscriptSizing="dynamic">
+        <mat-label>Custom minutes</mat-label>
+        <input matInput type="number" min="1" max="1440" inputmode="numeric"
+               [ngModel]="customMinutes()" (ngModelChange)="customMinutes.set($event)"
+               (keydown.enter)="startCustom()" />
+        <span matTextSuffix>min</span>
+      </mat-form-field>
+      <button mat-flat-button color="primary" class="custom-row__btn"
+              [disabled]="starting()" (click)="startCustom()">
+        @if (starting()) { <mat-spinner [diameter]="20" /> } @else {
+          <span class="custom-row__btn-label"><mat-icon aria-hidden="true">play_arrow</mat-icon> Start</span>
+        }
+      </button>
+    </div>
+  </div>
+
+  <!-- ── Running timers: live countdowns for the whole household ──────── -->
+  @if (loading()) {
+    <div class="family__loading">
+      <mat-spinner [diameter]="28" />
+      <span>Checking the kitchen timer…</span>
+    </div>
+  } @else if (error()) {
+    <div class="family__error">
+      <mat-icon aria-hidden="true">error_outline</mat-icon>
+      <p>We couldn't load your timers just now. Please try again in a moment.</p>
+    </div>
+  } @else if (!hasActive()) {
+    <div class="family__empty">
+      <mat-icon aria-hidden="true">hourglass_empty</mat-icon>
+      <h2>No timers running</h2>
+      <p>Pick a preset above or set a custom time, and it'll show up here for everyone.</p>
+    </div>
+  } @else {
+    <div class="timer-grid">
+      @for (lt of active(); track lt.timer.id) {
+        <div class="timer-card" [class.timer-card--ending]="lt.remaining <= 10">
+          <div class="timer-card__head">
+            <span class="timer-card__label">{{ lt.timer.label }}</span>
+            <button mat-icon-button class="timer-card__cancel" matTooltip="Cancel timer"
+                    [disabled]="busyId() === lt.timer.id" (click)="cancel(lt.timer)">
+              @if (busyId() === lt.timer.id) { <mat-spinner [diameter]="18" /> }
+              @else { <mat-icon aria-hidden="true">close</mat-icon> }
+            </button>
+          </div>
+
+          <div class="timer-card__count" [attr.aria-label]="format(lt.remaining) + ' remaining'">
+            {{ format(lt.remaining) }}
+          </div>
+
+          <div class="timer-card__by">
+            <span class="timer-card__avatar" aria-hidden="true">{{ initials(lt.timer.startedByName) }}</span>
+            <span class="timer-card__by-name">Started by {{ lt.timer.startedByName }}</span>
+          </div>
+        </div>
+      }
+    </div>
+  }
+</ng-template>

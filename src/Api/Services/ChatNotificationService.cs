@@ -179,6 +179,58 @@ public sealed class ChatNotificationService(UsageDbContext db, IHubContext<ChatH
     }
 
     /// <summary>
+    /// Deliver a Family Hub alert (reminder due / shared timer finished) to a set of household members,
+    /// addressed by their AppUser id (email-privacy: the Family world never holds other-user emails — ids
+    /// are resolved to the internal email here). Persists one inbox <see cref="Notification"/> row per
+    /// recipient and pushes <c>ReceiveNotification</c> + <c>InboxUnreadChanged</c> to each — the SAME path
+    /// the chat fan-out uses, so the alert lands in their bell + toast + unread count. Unlike
+    /// <see cref="NotifySystem"/>, these are explicitly user-scheduled alerts, so they are NOT gated on a
+    /// notification preference (a reminder the user set must never be silently dropped). Returns the number
+    /// of rows actually written (recipients whose id resolved to an enabled user).
+    /// </summary>
+    public async Task<int> NotifyFamily(
+        IEnumerable<int> recipientUserIds, NotificationType type, string text, string? link,
+        CancellationToken ct = default)
+    {
+        var ids = (recipientUserIds ?? Enumerable.Empty<int>()).Where(id => id > 0).Distinct().ToArray();
+        if (ids.Length == 0) return 0;
+
+        // Resolve ids -> internal (lower-cased) email, enabled users only. The email never crosses the wire.
+        var emailById = await ResolveEmailsByIdAsync(db, ids, ct);
+        if (emailById.Count == 0) return 0;
+
+        var now = DateTime.UtcNow;
+        var clamped = text.Length > 512 ? text[..512] : text;
+        var created = new List<(string email, Notification row)>();
+        foreach (var email in emailById.Values.Select(e => e.ToLowerInvariant()).Distinct(StringComparer.Ordinal))
+        {
+            var n = new Notification
+            {
+                RecipientEmail = email,
+                Type = type,
+                Text = clamped,
+                Link = link,
+                IsRead = false,
+                CreatedUtc = now,
+            };
+            db.Notifications.Add(n);
+            created.Add((email, n));
+        }
+
+        if (created.Count == 0) return 0;
+        await db.SaveChangesAsync(ct);
+
+        // Family alerts carry no actor (the scheduler, not a person, fired them) — actor fields stay null.
+        foreach (var (email, n) in created)
+        {
+            await hub.Clients.User(email).SendAsync("ReceiveNotification", ToDto(n, (ActorIdentity?)null), ct);
+            var inboxUnread = await db.Notifications.CountAsync(x => x.RecipientEmail == email && !x.IsRead, ct);
+            await hub.Clients.User(email).SendAsync("InboxUnreadChanged", inboxUnread, ct);
+        }
+        return created.Count;
+    }
+
+    /// <summary>
     /// The single code path that toggles a caller's emoji reaction on a message and broadcasts the
     /// result. Used by BOTH the REST endpoint and the hub so they behave identically. Assumes the
     /// caller has already been authorized (chat.send) and verified as a member of the message's
@@ -416,6 +468,8 @@ public sealed class ChatNotificationService(UsageDbContext db, IHubContext<ChatH
         NotificationType.SystemSyncFailed => "systemSyncFailed",
         NotificationType.SystemUserJoined => "systemUserJoined",
         NotificationType.SystemFleetOffline => "systemFleetOffline",
+        NotificationType.FamilyReminder => "familyReminder",
+        NotificationType.FamilyTimer => "familyTimer",
         _ => "channelMessage",
     };
 }

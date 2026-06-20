@@ -45,6 +45,8 @@ public class UsageDbContext(DbContextOptions<UsageDbContext> options) : DbContex
     public DbSet<FamilyList> FamilyLists => Set<FamilyList>();
     public DbSet<FamilyListItem> FamilyListItems => Set<FamilyListItem>();
     public DbSet<FamilyShare> FamilyShares => Set<FamilyShare>();
+    public DbSet<FamilyReminder> FamilyReminders => Set<FamilyReminder>();
+    public DbSet<FamilyTimer> FamilyTimers => Set<FamilyTimer>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -505,6 +507,30 @@ public class UsageDbContext(DbContextOptions<UsageDbContext> options) : DbContex
             e.HasIndex(x => new { x.ItemType, x.ItemId, x.SharedWithUserId }).IsUnique();
             // Resolving "items shared with this caller" scans by the target user.
             e.HasIndex(x => x.SharedWithUserId);
+        });
+
+        b.Entity<FamilyReminder>(e =>
+        {
+            e.Property(x => x.Text).HasMaxLength(500);
+            e.Property(x => x.Recurrence).HasMaxLength(16);
+            e.Property(x => x.DueUtc).HasColumnType("timestamp with time zone");
+            e.Property(x => x.LastFiredUtc).HasColumnType("timestamp with time zone");
+            e.Property(x => x.CreatedUtc).HasColumnType("timestamp with time zone");
+            // The family's reminder list reads one household's reminders.
+            e.HasIndex(x => x.HouseholdId);
+            // The tick scans the soonest still-active, past-due reminders across all households.
+            e.HasIndex(x => new { x.Active, x.DueUtc });
+        });
+
+        b.Entity<FamilyTimer>(e =>
+        {
+            e.Property(x => x.Label).HasMaxLength(120);
+            e.Property(x => x.EndsUtc).HasColumnType("timestamp with time zone");
+            e.Property(x => x.CreatedUtc).HasColumnType("timestamp with time zone");
+            // The family's timer list reads one household's recent timers.
+            e.HasIndex(x => x.HouseholdId);
+            // The tick scans not-yet-done, past-end timers across all households.
+            e.HasIndex(x => new { x.Done, x.EndsUtc });
         });
     }
 }
