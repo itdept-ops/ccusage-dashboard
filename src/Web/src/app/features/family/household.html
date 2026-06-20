@@ -1,0 +1,113 @@
+<section class="family family--settings">
+  <a class="family__back" routerLink="/family">
+    <mat-icon aria-hidden="true">arrow_back</mat-icon>
+    Back to Family
+  </a>
+
+  @if (loading()) {
+    <div class="family__loading">
+      <mat-spinner [diameter]="28" />
+      <span>Loading the household…</span>
+    </div>
+  } @else if (error()) {
+    <div class="family__error">
+      <mat-icon aria-hidden="true">error_outline</mat-icon>
+      <p>We couldn't load the household just now. Please try again in a moment.</p>
+    </div>
+  } @else if (household(); as home) {
+    <header class="family__settings-head">
+      <h1 class="family__name">Household settings</h1>
+      <p class="family__sub">Manage your family's name and who's part of it.</p>
+    </header>
+
+    <!-- Rename (owner only) -->
+    <section class="family__card">
+      <h2 class="family__card-title">Family name</h2>
+      @if (isOwner()) {
+        <div class="rename-row">
+          <mat-form-field appearance="outline" class="rename-row__field">
+            <mat-label>Family name</mat-label>
+            <input matInput [ngModel]="nameDraft()" (ngModelChange)="nameDraft.set($event)"
+                   maxlength="120" placeholder="The Smith Family" (keyup.enter)="saveName()" />
+          </mat-form-field>
+          <button mat-flat-button class="rename-row__save" color="primary"
+                  [disabled]="!nameDirty() || saving()" (click)="saveName()">
+            @if (saving()) { <mat-spinner [diameter]="18" /> } @else { Save }
+          </button>
+        </div>
+      } @else {
+        <p class="family__readonly-name">{{ home.name }}</p>
+        <p class="family__hint">Only the household owner can rename the family.</p>
+      }
+    </section>
+
+    <!-- Members -->
+    <section class="family__card">
+      <h2 class="family__card-title">Members</h2>
+
+      <ul class="member-list">
+        @for (m of members(); track m.userId) {
+          <li class="member-row" [class.member-row--self]="m.isSelf">
+            @if (m.picture) {
+              <img class="member-row__avatar" [src]="m.picture" [alt]="m.name" referrerpolicy="no-referrer" />
+            } @else {
+              <span class="member-row__avatar member-row__avatar--init" aria-hidden="true">{{ initials(m.name) }}</span>
+            }
+            <span class="member-row__name">
+              {{ m.name }}
+              @if (m.isSelf) { <span class="member__you">You</span> }
+            </span>
+            <span class="member-row__role" [class.member-row__role--owner]="m.role === 'owner'">
+              {{ roleLabel(m.role) }}
+            </span>
+            @if (isOwner() && m.role !== 'owner') {
+              <button mat-icon-button class="member-row__remove" [disabled]="removingId() != null"
+                      (click)="removeMember(m)" [matTooltip]="'Remove ' + m.name"
+                      [attr.aria-label]="'Remove ' + m.name">
+                @if (removingId() === m.userId) { <mat-spinner [diameter]="18" /> }
+                @else { <mat-icon>person_remove</mat-icon> }
+              </button>
+            }
+          </li>
+        }
+      </ul>
+
+      <!-- Add-a-member people-picker (owner only) -->
+      @if (isOwner()) {
+        <div class="add-member">
+          <mat-form-field appearance="outline" class="add-member__field">
+            <mat-label>Add someone to the family</mat-label>
+            <mat-select [ngModel]="pickedUserId()" (ngModelChange)="pickedUserId.set($event)"
+                        (openedChange)="$event && loadCandidates()" panelClass="family-picker-panel"
+                        placeholder="Choose a person">
+              @if (candidatesLoading()) {
+                <mat-option [disabled]="true">Loading people…</mat-option>
+              } @else if (candidates().length === 0) {
+                <mat-option [disabled]="true">No one to add right now</mat-option>
+              } @else {
+                @for (c of candidates(); track c.userId) {
+                  <mat-option [value]="c.userId">
+                    <span class="picker-opt">
+                      @if (c.picture) {
+                        <img class="picker-opt__avatar" [src]="c.picture" [alt]="c.name" referrerpolicy="no-referrer" />
+                      } @else {
+                        <span class="picker-opt__avatar picker-opt__avatar--init" aria-hidden="true">{{ initials(c.name) }}</span>
+                      }
+                      <span class="picker-opt__name">{{ c.name }}</span>
+                    </span>
+                  </mat-option>
+                }
+              }
+            </mat-select>
+          </mat-form-field>
+          <button mat-flat-button class="add-member__btn" color="primary"
+                  [disabled]="pickedUserId() == null || adding()" (click)="addMember()">
+            @if (adding()) { <mat-spinner [diameter]="18" /> }
+            @else { <ng-container><mat-icon aria-hidden="true">person_add</mat-icon> Add</ng-container> }
+          </button>
+        </div>
+        <p class="family__hint">People you can add come from your family circle. They join by name — no email is shown.</p>
+      }
+    </section>
+  }
+</section>

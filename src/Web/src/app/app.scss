@@ -140,6 +140,16 @@
   }
 }
 
+/* Family: a small home glyph before the label (the only nav item with an icon — it reads as "home"). */
+.nav__item--family.mat-mdc-button .nav__item-icon {
+  font-size: 17px;
+  width: 17px;
+  height: 17px;
+  margin-right: 5px;
+  vertical-align: -3px;
+  color: var(--tech-accent-cyan);
+}
+
 @keyframes axon-underline {
   from { transform: scaleX(0); opacity: 0; }
   to { transform: scaleX(1); opacity: 1; }

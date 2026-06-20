@@ -45,6 +45,7 @@ export class AuthService {
       [PERM.reporterView, '/reporter'],
       [PERM.reporterManage, '/reporter'],
       [PERM.reporterSelf, '/reporter'],
+      [PERM.familyUse, '/family'],
       [PERM.usersView, '/users'],
       [PERM.activityView, '/activity'],
     ];

@@ -39,6 +39,8 @@ public class UsageDbContext(DbContextOptions<UsageDbContext> options) : DbContex
     public DbSet<CustomExercise> CustomExercises => Set<CustomExercise>();
     public DbSet<HydrationEntry> HydrationEntries => Set<HydrationEntry>();
     public DbSet<DailyActivity> DailyActivities => Set<DailyActivity>();
+    public DbSet<Household> Households => Set<Household>();
+    public DbSet<HouseholdMember> HouseholdMembers => Set<HouseholdMember>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -444,6 +446,24 @@ public class UsageDbContext(DbContextOptions<UsageDbContext> options) : DbContex
             e.HasIndex(x => new { x.UserEmail, x.LastUsedUtc });
             // One saved row per (user, normalized name); the manual-log upsert keys on this unique index.
             e.HasIndex(x => new { x.UserEmail, x.NameKey }).IsUnique();
+        });
+
+        b.Entity<Household>(e =>
+        {
+            e.Property(x => x.Name).HasMaxLength(120);
+            e.Property(x => x.CreatedUtc).HasColumnType("timestamp with time zone");
+            e.HasMany(x => x.Members).WithOne(m => m.Household!)
+                .HasForeignKey(m => m.HouseholdId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        b.Entity<HouseholdMember>(e =>
+        {
+            e.Property(x => x.Role).HasMaxLength(16);
+            e.Property(x => x.JoinedUtc).HasColumnType("timestamp with time zone");
+            // A user appears at most once in a given household.
+            e.HasIndex(x => new { x.HouseholdId, x.UserId }).IsUnique();
+            // One household per user for now — a user can't be a member of two households at once.
+            e.HasIndex(x => x.UserId).IsUnique();
         });
     }
 }

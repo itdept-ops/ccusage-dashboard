@@ -5,7 +5,7 @@ namespace Ccusage.Api.Tests.Unit;
 
 public class PermissionsTests
 {
-    // The full catalog of 27 keys.
+    // The full catalog of 29 keys.
     private static readonly string[] AllKeys =
     {
         "dashboard.view", "dashboard.export", "sync.run",
@@ -17,6 +17,7 @@ public class PermissionsTests
         "chat.read", "chat.send", "chat.moderate", "chat.contacts.manage",
         "tracker.self", "tracker.viewall", "tracker.ai",
         "shares.view", "shares.manage",
+        "family.use", "family.finance",
         "users.view", "users.manage", "activity.view",
     };
 
@@ -45,6 +46,8 @@ public class PermissionsTests
     [InlineData("tracker.ai")]
     [InlineData("shares.view")]
     [InlineData("shares.manage")]
+    [InlineData("family.use")]
+    [InlineData("family.finance")]
     [InlineData("users.view")]
     [InlineData("users.manage")]
     [InlineData("activity.view")]
@@ -90,15 +93,17 @@ public class PermissionsTests
         Permissions.TrackerAi.Should().Be("tracker.ai");
         Permissions.SharesView.Should().Be("shares.view");
         Permissions.SharesManage.Should().Be("shares.manage");
+        Permissions.FamilyUse.Should().Be("family.use");
+        Permissions.FamilyFinance.Should().Be("family.finance");
         Permissions.UsersView.Should().Be("users.view");
         Permissions.UsersManage.Should().Be("users.manage");
         Permissions.ActivityView.Should().Be("activity.view");
     }
 
     [Fact]
-    public void All_contains_exactly_the_twenty_seven_known_keys()
+    public void All_contains_exactly_the_twenty_nine_known_keys()
     {
-        Permissions.All.Should().HaveCount(27);
+        Permissions.All.Should().HaveCount(29);
         Permissions.All.Should().BeEquivalentTo(AllKeys);
     }
 
@@ -109,9 +114,9 @@ public class PermissionsTests
     }
 
     [Fact]
-    public void Catalog_has_twenty_seven_entries()
+    public void Catalog_has_twenty_nine_entries()
     {
-        Permissions.Catalog.Should().HaveCount(27);
+        Permissions.Catalog.Should().HaveCount(29);
     }
 
     [Fact]
@@ -179,6 +184,15 @@ public class PermissionsTests
         // deliberately; logging your own is a defaultable, per-user capability.
         Permissions.IsDefaultable(Permissions.TrackerViewAll).Should().BeFalse();
         Permissions.IsDefaultable(Permissions.TrackerSelf).Should().BeTrue();
+    }
+
+    [Fact]
+    public void Family_permissions_are_not_defaultable()
+    {
+        // The Family Hub holds private household data + shared finances; access must be granted
+        // deliberately per user, never inherited by every new account.
+        Permissions.IsDefaultable(Permissions.FamilyUse).Should().BeFalse();
+        Permissions.IsDefaultable(Permissions.FamilyFinance).Should().BeFalse();
     }
 
     [Fact]

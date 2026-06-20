@@ -1,0 +1,79 @@
+<section class="family">
+  @if (loading()) {
+    <div class="family__loading">
+      <mat-spinner [diameter]="28" />
+      <span>Opening the front door…</span>
+    </div>
+  } @else if (error()) {
+    <div class="family__error">
+      <mat-icon aria-hidden="true">error_outline</mat-icon>
+      <p>We couldn't reach the Family Hub just now. Please try again in a moment.</p>
+    </div>
+  } @else if (household(); as home) {
+    <!-- Hero: a warm welcome with the household name + a doorway to settings -->
+    <header class="family__hero">
+      <div class="family__hero-id">
+        <span class="family__crest" aria-hidden="true"><mat-icon>cottage</mat-icon></span>
+        <div>
+          <p class="family__eyebrow">Welcome home</p>
+          <h1 class="family__name">{{ home.name }}</h1>
+          <p class="family__sub">
+            {{ members().length }} {{ members().length === 1 ? 'person' : 'people' }} in this household
+          </p>
+        </div>
+      </div>
+      <a mat-stroked-button class="family__settings-btn" routerLink="/family/household">
+        <mat-icon aria-hidden="true">settings</mat-icon>
+        Household settings
+      </a>
+    </header>
+
+    <!-- Members: avatar + name only (NO email, ever) -->
+    <section class="family__card family__members" aria-label="Family members">
+      <h2 class="family__card-title">Our family</h2>
+      <ul class="member-strip">
+        @for (m of members(); track m.userId) {
+          <li class="member" [class.member--self]="m.isSelf">
+            @if (m.picture) {
+              <img class="member__avatar" [src]="m.picture" [alt]="m.name" referrerpolicy="no-referrer" />
+            } @else {
+              <span class="member__avatar member__avatar--init" aria-hidden="true">{{ initials(m.name) }}</span>
+            }
+            <span class="member__name">
+              {{ m.name }}
+              @if (m.isSelf) { <span class="member__you">You</span> }
+            </span>
+            @if (m.role === 'owner') {
+              <span class="member__role" matTooltip="Household owner">
+                <mat-icon aria-hidden="true">workspace_premium</mat-icon>
+              </span>
+            }
+          </li>
+        }
+      </ul>
+    </section>
+
+    <!-- Feature tiles: the rooms of the home. Live ones link out; the rest are gentle "Coming soon". -->
+    <section class="family__rooms" aria-label="Family Hub features">
+      <h2 class="family__card-title">Around the house</h2>
+      <div class="tile-grid">
+        @for (t of tiles(); track t.key) {
+          @if (t.route) {
+            <a class="tile" [routerLink]="t.route">
+              <span class="tile__icon" aria-hidden="true"><mat-icon>{{ t.icon }}</mat-icon></span>
+              <span class="tile__label">{{ t.label }}</span>
+              <span class="tile__blurb">{{ t.blurb }}</span>
+            </a>
+          } @else {
+            <div class="tile tile--soon" aria-disabled="true">
+              <span class="tile__icon" aria-hidden="true"><mat-icon>{{ t.icon }}</mat-icon></span>
+              <span class="tile__label">{{ t.label }}</span>
+              <span class="tile__blurb">{{ t.blurb }}</span>
+              <span class="tile__soon">Coming soon</span>
+            </div>
+          }
+        }
+      </div>
+    </section>
+  }
+</section>

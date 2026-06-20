@@ -53,6 +53,11 @@
       @if (auth.hasPermission('tracker.self')) {
         <a mat-button class="nav__item" routerLink="/tracker" routerLinkActive="active">Tracker</a>
       }
+      @if (auth.hasPermission('family.use')) {
+        <a mat-button class="nav__item nav__item--family" routerLink="/family" routerLinkActive="active">
+          <mat-icon class="nav__item-icon" aria-hidden="true">cottage</mat-icon>Family
+        </a>
+      }
       @if (auth.hasPermission('users.view')) {
         <a mat-button class="nav__item" routerLink="/users" routerLinkActive="active">Users</a>
       }
@@ -227,6 +232,10 @@
     @if (auth.hasPermission('tracker.self')) {
       <a class="mobile-nav__item" routerLink="/tracker" routerLinkActive="active"
          (click)="closeMobileNav()">Tracker</a>
+    }
+    @if (auth.hasPermission('family.use')) {
+      <a class="mobile-nav__item" routerLink="/family" routerLinkActive="active"
+         (click)="closeMobileNav()">Family</a>
     }
     @if (auth.hasPermission('users.view')) {
       <a class="mobile-nav__item" routerLink="/users" routerLinkActive="active"

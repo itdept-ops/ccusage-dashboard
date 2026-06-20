@@ -1229,7 +1229,44 @@ export interface CustomExerciseDto {
   useCount: number;
 }
 
-/** Canonical permission keys (mirror of the backend catalog — all 22 keys). */
+// ---- Family Hub (foundation) ----
+
+/**
+ * The caller's household with its resolved members (GET /api/family/household; auto-provisioned on first
+ * read with the caller as OWNER). Members carry display identity only — userId + name + picture + role —
+ * and NEVER an email (email-privacy; the backend stores none here). Mirrors HouseholdDto.
+ */
+export interface Household {
+  id: number;
+  name: string;
+  members: HouseholdMember[];
+}
+
+/**
+ * One member of the household. Identity is `userId` + display `name` (+ optional `picture`); no email is
+ * ever exposed. `role` is the member's household role ("owner" | "adult"); `isSelf` is true for the
+ * caller's own row (server-computed). Mirrors MemberDto.
+ */
+export interface HouseholdMember {
+  userId: number;
+  name: string;
+  picture?: string | null;
+  role: string;
+  isSelf: boolean;
+}
+
+/**
+ * A person the owner may add to the household (GET /api/family/household/candidates) — the caller's
+ * circle / family-capable users not yet in a household. Identity is `userId` + `name` (+ optional
+ * `picture`); never an email. The picker adds by `userId`. Mirrors CandidateDto.
+ */
+export interface HouseholdCandidate {
+  userId: number;
+  name: string;
+  picture?: string | null;
+}
+
+/** Canonical permission keys (mirror of the backend catalog — all 29 keys). */
 export const PERM = {
   dashboardView: 'dashboard.view',
   dashboardExport: 'dashboard.export',
@@ -1258,6 +1295,8 @@ export const PERM = {
   trackerSelf: 'tracker.self',
   trackerViewAll: 'tracker.viewall',
   trackerAi: 'tracker.ai',
+  familyUse: 'family.use',
+  familyFinance: 'family.finance',
 } as const;
 
 /**
@@ -1267,7 +1306,7 @@ export const PERM = {
  */
 export const PERM_GROUP_ORDER: readonly string[] = [
   'Dashboard', 'Calendar', 'Pricing', 'Settings', 'Reporter',
-  'Notifications', 'Chat', 'Tracker', 'Shares', 'Administration',
+  'Notifications', 'Chat', 'Tracker', 'Family', 'Shares', 'Administration',
 ];
 
 /** Maps each permission key to its UI group (mirror of the backend catalog grouping). */
@@ -1294,6 +1333,8 @@ export const PERM_GROUP_OF: Readonly<Record<string, string>> = {
   [PERM.trackerSelf]: 'Tracker',
   [PERM.trackerViewAll]: 'Tracker',
   [PERM.trackerAi]: 'Tracker',
+  [PERM.familyUse]: 'Family',
+  [PERM.familyFinance]: 'Family',
   [PERM.sharesView]: 'Shares',
   [PERM.sharesManage]: 'Shares',
   [PERM.usersView]: 'Administration',

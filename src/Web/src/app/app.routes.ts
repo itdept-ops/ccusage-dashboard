@@ -96,6 +96,24 @@ export const routes: Routes = [
     title: 'Usage IQ · Tracker',
   },
   {
+    // Family Hub — a warm, household-private section. The whole group is gated by family.use; the
+    // owner-only controls inside (rename, add/remove member) are enforced server-side too.
+    path: 'family',
+    canActivate: [permissionGuard(PERM.familyUse)],
+    children: [
+      {
+        path: '',
+        loadComponent: () => import('./features/family/family-home').then(m => m.FamilyHome),
+        title: 'Usage IQ · Family',
+      },
+      {
+        path: 'household',
+        loadComponent: () => import('./features/family/household').then(m => m.HouseholdSettings),
+        title: 'Usage IQ · Household',
+      },
+    ],
+  },
+  {
     path: 'users',
     canActivate: [permissionGuard(PERM.usersView)],
     loadComponent: () => import('./features/users/users').then(m => m.Users),

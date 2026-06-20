@@ -47,6 +47,10 @@ public static class Permissions
     public const string SharesView = "shares.view";
     public const string SharesManage = "shares.manage";
 
+    // ---- Family ----
+    public const string FamilyUse = "family.use";
+    public const string FamilyFinance = "family.finance";
+
     // ---- Administration ----
     public const string UsersView = "users.view";
     public const string UsersManage = "users.manage";
@@ -87,6 +91,9 @@ public static class Permissions
         new PermissionInfo(SharesView, "Shares", "View shares", "View share links and access logs."),
         new PermissionInfo(SharesManage, "Shares", "Manage shares", "Create, edit, and revoke share links."),
 
+        new PermissionInfo(FamilyUse, "Family", "Use Family Hub", "Access the Family Hub: see your household, its members, and shared family data."),
+        new PermissionInfo(FamilyFinance, "Family", "Manage family finances", "View and manage the household's shared finances (budgets, bills, balances)."),
+
         new PermissionInfo(UsersView, "Administration", "View users", "View the user list, permission catalog, and audit log."),
         new PermissionInfo(UsersManage, "Administration", "Manage users", "Create, edit, and delete users, set permissions, and edit the access policy."),
         new PermissionInfo(ActivityView, "Administration", "View activity", "View request logs on the Activity page."),
@@ -113,8 +120,11 @@ public static class Permissions
     /// capability that must be granted deliberately, never inherited by every new account. Likewise
     /// excludes <see cref="TrackerViewAll"/>: reading every user's food &amp; fitness log is a
     /// coach/admin capability that must be granted deliberately, never inherited by default.
+    /// Likewise excludes both Family keys (<see cref="FamilyUse"/> and <see cref="FamilyFinance"/>):
+    /// the Family Hub holds private household data and shared finances, so access must be granted
+    /// deliberately per user and never inherited by every new account.
     /// </summary>
     public static bool IsDefaultable(string key) =>
         IsValid(key) && key != UsersManage && key != ChatModerate && key != ChatContactsManage
-        && key != TrackerViewAll;
+        && key != TrackerViewAll && key != FamilyUse && key != FamilyFinance;
 }

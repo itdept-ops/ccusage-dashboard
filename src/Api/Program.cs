@@ -48,6 +48,7 @@ builder.Services.AddSingleton<IGoogleTokenValidator, GoogleTokenValidator>();
 builder.Services.AddSingleton<TokenProtector>();
 builder.Services.AddScoped<GoogleAuthService>();
 builder.Services.AddScoped<CurrentUserAccessor>();
+builder.Services.AddScoped<CurrentHouseholdAccessor>();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddSingleton<SyncCoordinator>();
 builder.Services.AddHostedService<AutoSyncBackgroundService>();
@@ -420,6 +421,7 @@ app.MapContactsEndpoints();
 app.MapInboxEndpoints();
 app.MapTrackerEndpoints();
 app.MapAiEndpoints();
+app.MapFamilyEndpoints();
 app.MapHub<ChatHub>("/api/hubs/chat");
 app.MapGet("/", () => app.Environment.IsDevelopment()
     ? Results.Redirect("/swagger")

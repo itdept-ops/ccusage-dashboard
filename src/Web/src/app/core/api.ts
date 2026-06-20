@@ -4,7 +4,7 @@ import { Observable } from 'rxjs';
 import {
   AccessPolicy, AddExerciseRequest, AddFoodRequest, AddHydrationRequest, AuditEntry, CacheEfficiency, CalendarDay, ChatChannelDto, ChatContactDto, ChatMessageDto, CreateChannelRequest,
   CreateShareRequest, CustomExerciseDto, CustomFoodDto, DailyCoachResponse, EstimateExerciseRequest, EstimateExerciseResponse, EstimateMacrosRequest, EstimateMacrosResponse, ExerciseEntryDto, ExerciseLibraryDto, Fleet, FleetDeleteRequest,
-  FleetDeleteResult, FleetReassignRequest, FleetReassignResult, FleetRevokeKeysRequest, FleetRevokeKeysResult, FoodEntryDto, FoodSearchItemDto, GroupBy,
+  FleetDeleteResult, FleetReassignRequest, FleetReassignResult, FleetRevokeKeysRequest, FleetRevokeKeysResult, FoodEntryDto, FoodSearchItemDto, GroupBy, Household, HouseholdCandidate,
   HeatmapCell, HydrationEntryDto, HydrationSuggestResponse, ImageRequest, IngestionSource, IngestKey, IngestKeyCreated, LogWeightRequest, LoginEvent, MachineStat, ManagedUser, MealFeedbackRequest, MealFeedbackResponse, ModelStat, NaturalGoalRequest, NaturalGoalResponse, NotificationDto, NotificationPreferenceDto, NotificationSettings,
   NotificationUpdate, PagedResult, ParseExerciseRequest, ParseExerciseResponse, ParseHydrationRequest, ParseHydrationResponse, ParseMealRequest, ParseMealResponse, PermissionItem, Presence, Pricing, ProjectDto, PublicShare, ReactionGroupDto, ReadLabelResponse, RecipeMacrosRequest, RecipeMacrosResponse, RequestLogEntry, SavedView,
   SavedViewUpsertRequest, SessionDetail, Settings, ShareAccessItem, ShareCreated, ShareListItem, SharedUserDto, SuggestFoodsResponse, SuggestGoalResponse, SuggestWorkoutRequest, SuggestWorkoutResponse, SummaryResponse,
@@ -682,5 +682,39 @@ export class Api {
   /** Clear the caller's watch stats for a date (owner-only; 204, no-op when no row). */
   clearActivity(date: string): Observable<unknown> {
     return this.http.delete(`${this.base}/tracker/activity`, { params: new HttpParams().set('date', date) });
+  }
+
+  // ---- Family Hub (foundation) — every call gated by family.use server-side ----
+
+  /**
+   * The caller's household with its members (auto-provisioned on first read with the caller as OWNER, so
+   * the hub is never empty). Members carry display identity only (userId + name + picture + role); never
+   * an email. There is no way to address anyone else's household — the server resolves the caller's own.
+   */
+  getHousehold(): Observable<Household> {
+    return this.http.get<Household>(`${this.base}/family/household`);
+  }
+
+  /** Rename the household (OWNER only; non-owners get 403). Returns the updated household. */
+  renameHousehold(name: string): Observable<Household> {
+    return this.http.patch<Household>(`${this.base}/family/household`, { name });
+  }
+
+  /**
+   * People the owner may add to the household — the caller's circle / family-capable users not yet in a
+   * household, by userId + display name (never an email). Drives the member people-picker.
+   */
+  householdCandidates(): Observable<HouseholdCandidate[]> {
+    return this.http.get<HouseholdCandidate[]>(`${this.base}/family/household/candidates`);
+  }
+
+  /** Add a member to the household by AppUser id (OWNER only). Returns the updated household. */
+  addMember(userId: number): Observable<Household> {
+    return this.http.post<Household>(`${this.base}/family/household/members`, { userId });
+  }
+
+  /** Remove a member from the household by AppUser id (OWNER only; the owner can't be removed). Returns the updated household. */
+  removeMember(userId: number): Observable<Household> {
+    return this.http.delete<Household>(`${this.base}/family/household/members/${userId}`);
   }
 }
