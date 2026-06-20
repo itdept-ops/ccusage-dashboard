@@ -111,6 +111,7 @@ public sealed class GoogleAuthService(
                 var (newJwt, newExpires) = IssueToken(payload.Subject, email, created.Name, created.Picture, created.SessionVersion);
                 return new SignInResult(SignInStatus.Ok, new AuthResultDto
                 {
+                    UserId = created.Id,
                     Token = newJwt,
                     Email = email,
                     Name = created.Name,
@@ -158,6 +159,7 @@ public sealed class GoogleAuthService(
 
         return new SignInResult(SignInStatus.Ok, new AuthResultDto
         {
+            UserId = user.Id,
             Token = jwt,
             Email = email,
             Name = user.Name,

@@ -359,6 +359,13 @@ export interface AuthSession {
   picture: string | null;
   expiresAtUtc: string;
   permissions: string[];
+  /**
+   * The caller's own AppUser id. Used to compute "mine"/self by id in chat (message authorship,
+   * reaction membership, typing, online-dot presence cross-reference) without exposing emails.
+   * Populated from /me (applyMe); a session restored from before this field landed gets it on the
+   * next /me poll, so it may be momentarily undefined.
+   */
+  userId?: number;
 }
 
 export interface ManagedUser {
@@ -503,7 +510,8 @@ export interface RequestLogEntry {
 
 /** A member of a chat channel/DM (minimal identity for avatars + online dots). Mirrors the member shape in ChatChannelDto. */
 export interface ChatMember {
-  email: string;
+  /** The member's AppUser id (resolved server-side; no email is exposed in member payloads). */
+  userId: number;
   name: string;
   picture?: string;
 }
@@ -527,15 +535,15 @@ export interface ChatChannelDto {
 }
 
 /**
- * One emoji reaction group on a message: the emoji, how many people used it, and the lowercased
- * emails of who reacted with it. The client derives "mine" = `reactedBy` contains my email (so no
- * server-computed Mine field is needed and the same shape serves REST and the hub broadcast).
- * Mirrors ReactionGroupDto.
+ * One emoji reaction group on a message: the emoji, how many people used it, and the AppUser ids of
+ * who reacted with it. The client derives "mine" = `reactedByUserIds` contains the caller's own
+ * userId (so no server-computed Mine field is needed and the same shape serves REST and the hub
+ * broadcast). No emails are exposed. Mirrors ReactionGroupDto.
  */
 export interface ReactionGroupDto {
   emoji: string;
   count: number;
-  reactedBy: string[];
+  reactedByUserIds: number[];
 }
 
 /**
@@ -545,7 +553,8 @@ export interface ReactionGroupDto {
 export interface ChatMessageDto {
   id: number;
   channelId: number;
-  senderEmail: string;
+  /** Author's AppUser id (resolved server-side; the sender's email is never exposed). */
+  senderUserId: number;
   senderName: string;
   senderPicture?: string;
   body: string | null;

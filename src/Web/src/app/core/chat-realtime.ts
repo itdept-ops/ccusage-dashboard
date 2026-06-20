@@ -28,9 +28,9 @@ const HUB_URL = '/api/hubs/chat';
 /** Coarse connection state surfaced to the UI for the reconnecting indicator. */
 export type ChatConnectionState = 'disconnected' | 'connecting' | 'connected' | 'reconnecting';
 
-/** One person currently typing in a channel (keyed by lower-cased email). */
+/** One person currently typing in a channel (keyed by AppUser id). */
 export interface TypingUser {
-  email: string;
+  userId: number;
   name: string;
 }
 
@@ -226,8 +226,8 @@ export class ChatRealtime {
     c.on('ReceiveMessage', (msg: ChatMessageDto) => this.onReceiveMessage(msg));
     c.on('MessageEdited', (msg: ChatMessageDto) => this.onMessageEdited(msg));
     c.on('MessageDeleted', (channelId: number, messageId: number) => this.onMessageDeleted(channelId, messageId));
-    c.on('TypingChanged', (channelId: number, userEmail: string, userName: string, isTyping: boolean) =>
-      this.onTypingChanged(channelId, userEmail, userName, isTyping));
+    c.on('TypingChanged', (channelId: number, userId: number, userName: string, isTyping: boolean) =>
+      this.onTypingChanged(channelId, userId, userName, isTyping));
     c.on('ReceiveNotification', (n: NotificationDto) => this.onReceiveNotification(n));
     c.on('UnreadChanged', (channelId: number, unreadCount: number) => this.onUnreadChanged(channelId, unreadCount));
     c.on('InboxUnreadChanged', (totalUnread: number) => this._inboxUnread.set(totalUnread));
@@ -259,33 +259,31 @@ export class ChatRealtime {
     });
   }
 
-  private onTypingChanged(channelId: number, userEmail: string, userName: string, isTyping: boolean): void {
-    const me = this.auth.session()?.email?.toLowerCase();
-    const key = userEmail.toLowerCase();
-    if (me && key === me) return; // never show yourself typing
-    this.setTyping(channelId, userEmail, userName, isTyping);
+  private onTypingChanged(channelId: number, userId: number, userName: string, isTyping: boolean): void {
+    const me = this.auth.userId();
+    if (me != null && userId === me) return; // never show yourself typing
+    this.setTyping(channelId, userId, userName, isTyping);
 
     // Safety net: a dropped StopTyping (e.g. the sender navigated away mid-typing) would otherwise
     // leave a stuck "is typing…". Auto-clear ~6s after the last true, refreshing the timer on each true.
-    const timerKey = `${channelId}|${key}`;
+    const timerKey = `${channelId}|${userId}`;
     const existing = this.typingTimers.get(timerKey);
     if (existing) clearTimeout(existing);
     if (isTyping) {
       this.typingTimers.set(timerKey, setTimeout(() => {
         this.typingTimers.delete(timerKey);
-        this.setTyping(channelId, userEmail, userName, false);
+        this.setTyping(channelId, userId, userName, false);
       }, ChatRealtime.TYPING_SAFETY_MS));
     } else {
       this.typingTimers.delete(timerKey);
     }
   }
 
-  /** Add/remove a single (channel,user) typing entry, keyed by lower-cased email. */
-  private setTyping(channelId: number, userEmail: string, userName: string, isTyping: boolean): void {
-    const key = userEmail.toLowerCase();
+  /** Add/remove a single (channel,user) typing entry, keyed by AppUser id. */
+  private setTyping(channelId: number, userId: number, userName: string, isTyping: boolean): void {
     this._typing.update(map => {
-      const current = (map[channelId] ?? []).filter(u => u.email.toLowerCase() !== key);
-      const next = isTyping ? [...current, { email: userEmail, name: userName }] : current;
+      const current = (map[channelId] ?? []).filter(u => u.userId !== userId);
+      const next = isTyping ? [...current, { userId, name: userName }] : current;
       return { ...map, [channelId]: next };
     });
   }

@@ -28,10 +28,11 @@ public sealed class ChatNotificationService(UsageDbContext db, IHubContext<ChatH
     /// (recipient, message). <paramref name="mentionedEmails"/> is validated against channel membership.
     /// </summary>
     public async Task FanOutMessageAsync(
-        ChatChannel channel, ChatMessage message, string senderName, string? senderPicture,
+        ChatChannel channel, ChatMessage message, SenderIdentity sender,
         IReadOnlyCollection<string> mentionedEmails, CancellationToken ct = default)
     {
-        var dto = ToDto(message, senderName, senderPicture);
+        var senderName = sender.Name;
+        var dto = ToDto(message, sender);
 
         // Real-time: everyone in the channel (including the sender's other connections) sees it.
         await hub.Clients.Group(GroupFor(channel.Id)).SendAsync("ReceiveMessage", dto, ct);
@@ -242,6 +243,10 @@ public sealed class ChatNotificationService(UsageDbContext db, IHubContext<ChatH
             .ToListAsync(ct);
         if (rows.Count == 0) return result;
 
+        // Resolve every distinct reactor email -> AppUser id ONCE (email-privacy: the raw reactor email
+        // never reaches the client). Emails with no AppUser row contribute id 0.
+        var userIdByEmail = await ResolveUserIdsAsync(db, rows.Select(r => r.UserEmail), ct);
+
         foreach (var byMessage in rows.GroupBy(r => r.MessageId))
         {
             var groups = byMessage
@@ -252,7 +257,8 @@ public sealed class ChatNotificationService(UsageDbContext db, IHubContext<ChatH
                     {
                         Emoji = g.Key,
                         Count = g.Count(),
-                        ReactedBy = g.OrderBy(r => r.CreatedUtc).Select(r => r.UserEmail).ToArray(),
+                        ReactedByUserIds = g.OrderBy(r => r.CreatedUtc)
+                            .Select(r => userIdByEmail.GetValueOrDefault(r.UserEmail, 0)).ToArray(),
                     },
                     FirstReacted = g.Min(r => r.CreatedUtc),
                 })
@@ -287,14 +293,21 @@ public sealed class ChatNotificationService(UsageDbContext db, IHubContext<ChatH
         return trimmed.Length <= 120 ? trimmed : trimmed[..120];
     }
 
-    /// <summary>Map a persisted message to its wire form, never leaking a soft-deleted body.</summary>
-    public static ChatMessageDto ToDto(ChatMessage m, string senderName, string? senderPicture) => new()
+    /// <summary>The server-resolved public identity of a message sender / channel member: the AppUser id
+    /// (0 when the email has no AppUser row), a display name that is NEVER an email (email-privacy), and an
+    /// optional picture.</summary>
+    public readonly record struct SenderIdentity(int Id, string Name, string? Picture);
+
+    /// <summary>Map a persisted message to its wire form, never leaking a soft-deleted body. The sender is
+    /// exposed as <see cref="ChatMessageDto.SenderUserId"/> + name/picture — the raw email never reaches
+    /// the client (email-privacy).</summary>
+    public static ChatMessageDto ToDto(ChatMessage m, SenderIdentity sender) => new()
     {
         Id = m.Id,
         ChannelId = m.ChannelId,
-        SenderEmail = m.SenderEmail,
-        SenderName = senderName,
-        SenderPicture = senderPicture,
+        SenderUserId = sender.Id,
+        SenderName = sender.Name,
+        SenderPicture = sender.Picture,
         Body = m.DeletedUtc is null ? m.Body : null,
         CreatedUtc = m.CreatedUtc,
         EditedUtc = m.EditedUtc,
@@ -349,6 +362,26 @@ public sealed class ChatNotificationService(UsageDbContext db, IHubContext<ChatH
             x => x.Email,
             x => new ActorIdentity(x.Id, string.IsNullOrEmpty(x.Name) ? "Unknown user" : x.Name),
             StringComparer.Ordinal);
+    }
+
+    /// <summary>
+    /// Resolve a set of emails to their AppUser id in ONE query (lower-cased match). Emails with no
+    /// AppUser row are simply absent from the map (callers default to id 0). Shared by the reaction
+    /// grouping (and any caller that needs only the id, not name/picture).
+    /// </summary>
+    public static async Task<Dictionary<string, int>> ResolveUserIdsAsync(
+        UsageDbContext db, IEnumerable<string> emails, CancellationToken ct = default)
+    {
+        var distinct = emails
+            .Where(e => !string.IsNullOrEmpty(e))
+            .Select(e => e.ToLowerInvariant())
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+        if (distinct.Length == 0) return new Dictionary<string, int>(StringComparer.Ordinal);
+
+        return await db.Users.AsNoTracking()
+            .Where(u => distinct.Contains(u.Email))
+            .ToDictionaryAsync(u => u.Email, u => u.Id, StringComparer.Ordinal, ct);
     }
 
     /// <summary>The camelCase wire name for a notification type (matches the enum member name).</summary>

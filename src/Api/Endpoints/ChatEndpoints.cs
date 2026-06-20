@@ -123,8 +123,8 @@ public static class ChatEndpoints
                 db, rows.Select(r => r.Id).ToArray(), ct);
             var dtos = rows.Select(m =>
             {
-                var (nm, pic) = senders.GetValueOrDefault(m.SenderEmail, (m.SenderEmail, (string?)null));
-                var dto = ChatNotificationService.ToDto(m, nm, pic);
+                var sender = senders.GetValueOrDefault(m.SenderEmail, UnknownSender);
+                var dto = ChatNotificationService.ToDto(m, sender);
                 dto.Reactions = reactions.GetValueOrDefault(m.Id, Array.Empty<ReactionGroupDto>());
                 return dto;
             }).ToArray();
@@ -155,11 +155,11 @@ public static class ChatEndpoints
             db.ChatMessages.Add(msg);
             await db.SaveChangesAsync(ct);
 
-            var (name, pic) = await SenderInfoAsync(db, user.Email, ct);
+            var sender = await SenderInfoAsync(db, user.Email, ct);
             var mentions = (req.MentionedEmails ?? Array.Empty<string>());
-            await fanout.FanOutMessageAsync(channel, msg, name, pic, mentions, ct);
+            await fanout.FanOutMessageAsync(channel, msg, sender, mentions, ct);
 
-            return Results.Ok(ChatNotificationService.ToDto(msg, name, pic));
+            return Results.Ok(ChatNotificationService.ToDto(msg, sender));
         }).RequirePermission(Permissions.ChatSend).RequireRateLimiting("chat");
 
         // ---- Edit a message (owner OR moderator) ----
@@ -185,8 +185,8 @@ public static class ChatEndpoints
             msg.EditedUtc = DateTime.UtcNow;
             await db.SaveChangesAsync(ct);
 
-            var (name, pic) = await SenderInfoAsync(db, msg.SenderEmail, ct);
-            var dto = ChatNotificationService.ToDto(msg, name, pic);
+            var sender = await SenderInfoAsync(db, msg.SenderEmail, ct);
+            var dto = ChatNotificationService.ToDto(msg, sender);
             await hub.Clients.Group(ChatNotificationService.GroupFor(msg.ChannelId)).SendAsync("MessageEdited", dto, ct);
             return Results.Ok(dto);
         }).RequireAnyPermission(Permissions.ChatSend, Permissions.ChatModerate);
@@ -414,32 +414,38 @@ public static class ChatEndpoints
             .Where(m => lastMsgIds.Contains(m.Id))
             .ToDictionaryAsync(m => m.ChannelId, ct);
 
-        // Identity lookup for every distinct participant + last-message sender.
+        // Identity lookup for every distinct participant + last-message sender (email -> AppUser id+name+pic).
         var allEmails = channels.SelectMany(c => c.Members)
             .Concat(lastMsgs.Values.Select(m => m.SenderEmail))
             .Distinct(StringComparer.Ordinal).ToArray();
         var people = await SenderLookupAsync(db, allEmails, ct);
+
+        // The caller's own AppUser id, so self/"other member" comparisons key off id, not email
+        // (0 only if the caller somehow has no AppUser row — they're always a member, so present here).
+        var myUserId = people.GetValueOrDefault(email, UnknownSender).Id;
 
         var result = new List<ChatChannelDto>();
         foreach (var c in channels)
         {
             var members = c.Members.Select(e =>
             {
-                var (nm, pic) = people.GetValueOrDefault(e, (e, (string?)null));
-                return new MemberDto { Email = e, Name = nm, Picture = pic };
+                var who = people.GetValueOrDefault(e, UnknownSender);
+                return new MemberDto { UserId = who.Id, Name = who.Name, Picture = who.Picture };
             }).ToArray();
 
             ChatMessageDto? lastDto = null;
             if (lastMsgs.TryGetValue(c.Id, out var lm))
             {
-                var (nm, pic) = people.GetValueOrDefault(lm.SenderEmail, (lm.SenderEmail, (string?)null));
-                lastDto = ChatNotificationService.ToDto(lm, nm, pic);
+                var lmSender = people.GetValueOrDefault(lm.SenderEmail, UnknownSender);
+                lastDto = ChatNotificationService.ToDto(lm, lmSender);
             }
 
             var unread = unreadById.GetValueOrDefault(c.Id, 0);
 
+            // The OTHER member of a DM is the one whose AppUser id differs from the caller's (by id, never
+            // email). Fall back to the first member when the pair can't be distinguished by id.
             string display = c.Kind == ChannelKind.Direct
-                ? (members.FirstOrDefault(m => m.Email != email) is { } other
+                ? (members.FirstOrDefault(m => m.UserId != myUserId) is { } other
                     ? (string.IsNullOrEmpty(other.Name) ? "Unknown user" : other.Name)
                     : (members.FirstOrDefault()?.Name ?? "Unknown user"))
                 : (c.Name ?? "");
@@ -466,8 +472,12 @@ public static class ChatEndpoints
             .ToList();
     }
 
-    /// <summary>Resolve display name + picture for a set of emails (falls back to the email as name).</summary>
-    public static async Task<Dictionary<string, (string Name, string? Picture)>> SenderLookupAsync(
+    /// <summary>
+    /// Resolve AppUser id + display name + picture for a set of emails in ONE query. An email with no
+    /// AppUser row is absent from the map; callers default to <c>(0, "Unknown user", null)</c> — the raw
+    /// email is NEVER used as the display identity (email-privacy).
+    /// </summary>
+    public static async Task<Dictionary<string, ChatNotificationService.SenderIdentity>> SenderLookupAsync(
         UsageDbContext db, IEnumerable<string> emails, CancellationToken ct)
     {
         var distinct = emails.Where(e => !string.IsNullOrEmpty(e)).Distinct(StringComparer.Ordinal).ToArray();
@@ -477,16 +487,22 @@ public static class ChatEndpoints
             .Where(u => distinct.Contains(u.Email))
             .ToDictionaryAsync(
                 u => u.Email,
-                u => (string.IsNullOrEmpty(u.Name) ? "Unknown user" : u.Name, u.Picture),
+                u => new ChatNotificationService.SenderIdentity(
+                    u.Id, string.IsNullOrEmpty(u.Name) ? "Unknown user" : u.Name, u.Picture),
                 StringComparer.Ordinal, ct);
     }
 
-    private static async Task<(string Name, string? Picture)> SenderInfoAsync(UsageDbContext db, string email, CancellationToken ct)
+    /// <summary>The fallback identity for an email with no AppUser row: id 0, name "Unknown user", no picture.</summary>
+    private static ChatNotificationService.SenderIdentity UnknownSender => new(0, "Unknown user", null);
+
+    private static async Task<ChatNotificationService.SenderIdentity> SenderInfoAsync(UsageDbContext db, string email, CancellationToken ct)
     {
         var u = await db.Users.AsNoTracking()
             .Where(x => x.Email == email)
-            .Select(x => new { x.Name, x.Picture })
+            .Select(x => new { x.Id, x.Name, x.Picture })
             .FirstOrDefaultAsync(ct);
-        return u is null ? ("Unknown user", null) : (string.IsNullOrEmpty(u.Name) ? "Unknown user" : u.Name, u.Picture);
+        return u is null
+            ? UnknownSender
+            : new ChatNotificationService.SenderIdentity(u.Id, string.IsNullOrEmpty(u.Name) ? "Unknown user" : u.Name, u.Picture);
     }
 }

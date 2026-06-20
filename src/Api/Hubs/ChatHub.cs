@@ -75,9 +75,9 @@ public sealed class ChatHub(IServiceScopeFactory scopeFactory) : Hub
         db.ChatMessages.Add(msg);
         await db.SaveChangesAsync(Context.ConnectionAborted);
 
-        var (name, pic) = await SenderInfoAsync(db, email);
+        var sender = await SenderInfoAsync(db, email);
         await fanout.FanOutMessageAsync(
-            channel, msg, name, pic, mentionedEmails ?? Array.Empty<string>(), Context.ConnectionAborted);
+            channel, msg, sender, mentionedEmails ?? Array.Empty<string>(), Context.ConnectionAborted);
     }
 
     /// <summary>Toggle the caller's emoji reaction on a message — the hub mirror of the REST reactions endpoint.</summary>
@@ -119,9 +119,10 @@ public sealed class ChatHub(IServiceScopeFactory scopeFactory) : Hub
         if (!await HasReadAsync(scope, email)) return;
         if (!await ChatEndpoints.IsMemberAsync(db, channelId, email, Context.ConnectionAborted)) return;
 
-        var (name, _) = await SenderInfoAsync(db, email);
+        // TypingChanged carries the typist's AppUser id + name — never their email (email-privacy).
+        var typist = await SenderInfoAsync(db, email);
         await Clients.OthersInGroup(ChatNotificationService.GroupFor(channelId))
-            .SendAsync("TypingChanged", channelId, email, name, isTyping, Context.ConnectionAborted);
+            .SendAsync("TypingChanged", channelId, typist.Id, typist.Name, isTyping, Context.ConnectionAborted);
     }
 
     /// <summary>Advance the caller's read cursor and push their fresh unread count for the channel.</summary>
@@ -184,12 +185,14 @@ public sealed class ChatHub(IServiceScopeFactory scopeFactory) : Hub
             .AnyAsync(u => u.Permissions.Any(p => p.Permission == permission));
     }
 
-    private static async Task<(string Name, string? Picture)> SenderInfoAsync(UsageDbContext db, string email)
+    private static async Task<ChatNotificationService.SenderIdentity> SenderInfoAsync(UsageDbContext db, string email)
     {
         var u = await db.Users.AsNoTracking()
             .Where(x => x.Email == email)
-            .Select(x => new { x.Name, x.Picture })
+            .Select(x => new { x.Id, x.Name, x.Picture })
             .FirstOrDefaultAsync();
-        return u is null ? ("Unknown user", null) : (string.IsNullOrEmpty(u.Name) ? "Unknown user" : u.Name, u.Picture);
+        return u is null
+            ? new ChatNotificationService.SenderIdentity(0, "Unknown user", null)
+            : new ChatNotificationService.SenderIdentity(u.Id, string.IsNullOrEmpty(u.Name) ? "Unknown user" : u.Name, u.Picture);
     }
 }

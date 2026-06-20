@@ -16,6 +16,8 @@ export class AuthService {
     return !!s && new Date(s.expiresAtUtc).getTime() > Date.now();
   });
   readonly permissions = computed(() => this._session()?.permissions ?? []);
+  /** The caller's own AppUser id (for chat "mine"/self-by-id checks), or null until /me populates it. */
+  readonly userId = computed(() => this._session()?.userId ?? null);
 
   /** True if the (non-expired) session grants the given permission. */
   hasPermission(key: string): boolean {
@@ -53,15 +55,22 @@ export class AuthService {
   }
 
   /** Live identity + permissions from the server (403 when the account is disabled/removed). */
-  me(): Observable<{ email: string; name: string; permissions: string[]; isEnabled: boolean }> {
-    return this.http.get<{ email: string; name: string; permissions: string[]; isEnabled: boolean }>('/api/auth/me');
+  me(): Observable<{ userId: number; email: string; name: string; permissions: string[]; isEnabled: boolean }> {
+    return this.http.get<{ userId: number; email: string; name: string; permissions: string[]; isEnabled: boolean }>('/api/auth/me');
   }
 
-  /** Merge a fresh /me result into the stored session so the UI reflects permission changes. */
-  applyMe(me: { name: string; permissions: string[] }): void {
+  /** Merge a fresh /me result into the stored session so the UI reflects permission/identity changes. */
+  applyMe(me: { name: string; permissions: string[]; userId?: number }): void {
     const s = this._session();
     if (!s) return;
-    const updated: AuthSession = { ...s, name: me.name || s.name, permissions: me.permissions ?? [] };
+    const updated: AuthSession = {
+      ...s,
+      name: me.name || s.name,
+      permissions: me.permissions ?? [],
+      // Carry the caller's own id so chat self-by-id checks work. Existing pre-3A sessions pick it up
+      // here on their next /me poll; keep the prior value if a response somehow omits it.
+      userId: me.userId ?? s.userId,
+    };
     this._session.set(updated);
     try { localStorage.setItem(STORAGE_KEY, JSON.stringify(updated)); } catch { /* ignore */ }
   }

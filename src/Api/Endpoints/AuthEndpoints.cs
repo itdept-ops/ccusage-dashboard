@@ -42,6 +42,7 @@ public static class AuthEndpoints
 
             return Results.Ok(new MeDto
             {
+                UserId = u.Id,
                 Email = u.Email,
                 Name = u.Name,
                 IsEnabled = u.IsEnabled,

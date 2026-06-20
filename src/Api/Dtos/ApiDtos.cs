@@ -459,6 +459,7 @@ public sealed class GoogleLoginRequest
 
 public sealed class AuthResultDto
 {
+    public int UserId { get; set; }
     public string Token { get; set; } = "";
     public string Email { get; set; } = "";
     public string Name { get; set; } = "";
@@ -474,6 +475,9 @@ public sealed class AuthConfigDto
 
 public sealed class MeDto
 {
+    /// <summary>The caller's own AppUser id — lets the client compute "mine"/self in chat by id
+    /// (e.g. message.senderUserId == me.userId) without ever comparing emails (email-privacy).</summary>
+    public int UserId { get; set; }
     public string Email { get; set; } = "";
     public string Name { get; set; } = "";
     public string? Picture { get; set; }
@@ -590,24 +594,29 @@ public sealed class SyncStatusDto
 
 // ---- Chat + Notifications ----
 
-/// <summary>A participant in a channel or DM (identity for rendering message authorship / membership).</summary>
+/// <summary>A participant in a channel or DM (identity for rendering message authorship / membership).
+/// Identity is the server-resolved <see cref="UserId"/> + <see cref="Name"/> — the raw email is NEVER
+/// exposed (email-privacy). <see cref="UserId"/> is 0 when the member email has no AppUser row.</summary>
 public sealed class MemberDto
 {
-    public string Email { get; set; } = "";
+    /// <summary>The matching AppUser id, or 0 when the member email has no AppUser row.</summary>
+    public int UserId { get; set; }
     public string Name { get; set; } = "";
     public string? Picture { get; set; }
 }
 
 /// <summary>
-/// One emoji reaction group on a message: the emoji, how many reacted with it, and the lowercased
-/// emails of who did. The client derives "mine" = <see cref="ReactedBy"/> contains my email, so the
-/// same shape serves both the REST response and the hub broadcast (no server-computed Mine field).
+/// One emoji reaction group on a message: the emoji, how many reacted with it, and the server-resolved
+/// AppUser ids of who did. The client derives "mine" = <see cref="ReactedByUserIds"/> contains my
+/// userId, so the same shape serves both the REST response and the hub broadcast (no server-computed
+/// Mine field). Raw reactor emails are NEVER exposed (email-privacy); a reactor whose email has no
+/// AppUser row contributes id 0.
 /// </summary>
 public sealed class ReactionGroupDto
 {
     public string Emoji { get; set; } = "";
     public int Count { get; set; }
-    public string[] ReactedBy { get; set; } = Array.Empty<string>();
+    public int[] ReactedByUserIds { get; set; } = Array.Empty<int>();
 }
 
 /// <summary>One chat message. <see cref="Body"/> is null and <see cref="Deleted"/> is true for soft-deleted messages — deleted text is never exposed.</summary>
@@ -615,7 +624,10 @@ public sealed class ChatMessageDto
 {
     public long Id { get; set; }
     public int ChannelId { get; set; }
-    public string SenderEmail { get; set; } = "";
+    /// <summary>The author's server-resolved AppUser id, or 0 when the sender email has no AppUser row.
+    /// The raw sender email is NEVER exposed (email-privacy); the client computes "mine" = senderUserId
+    /// == my userId.</summary>
+    public int SenderUserId { get; set; }
     public string SenderName { get; set; } = "";
     public string? SenderPicture { get; set; }
     public string? Body { get; set; }

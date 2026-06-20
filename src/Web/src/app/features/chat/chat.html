@@ -159,7 +159,7 @@
           </div>
         }
 
-        @for (g of groups(); track g.firstUtc + ':' + g.senderEmail + ':' + g.messages[0].id) {
+        @for (g of groups(); track g.firstUtc + ':' + g.senderUserId + ':' + g.messages[0].id) {
           <div class="cx-grp" [class.mine]="g.isMine">
             <span class="cx-grp__avatar-wrap">
               @if (g.senderPicture) {
@@ -258,7 +258,7 @@
         <div class="cx-composer">
           @if (mentionOpen()) {
             <div class="cx-mentions" role="listbox" id="cx-mention-list" aria-label="Mention a member">
-              @for (c of mentionCandidates(); track c.email; let i = $index) {
+              @for (c of mentionCandidates(); track c.userId; let i = $index) {
                 <button type="button" class="cx-mention" role="option"
                         [id]="'cx-mention-opt-' + i"
                         [class.active]="i === mentionIndex()"
@@ -270,7 +270,6 @@
                     <span class="cx-mention__avatar cx-mention__avatar--init">{{ c.initials }}</span>
                   }
                   <span class="cx-mention__name">{{ c.name }}</span>
-                  <span class="cx-mention__email">{{ c.email }}</span>
                 </button>
               }
             </div>

@@ -22,7 +22,7 @@ import { ChatCreateData, ChatCreateDialog, ChatPickPerson } from './chat-create-
 
 /** A run of consecutive messages from the same sender, rendered as one grouped block. */
 interface MessageGroup {
-  senderEmail: string;
+  senderUserId: number;
   senderName: string;
   senderPicture?: string;
   firstUtc: string;
@@ -82,8 +82,8 @@ export class Chat implements AfterViewChecked, OnDestroy {
   /** Admins (chat.contacts.manage) pick from the full directory so they're never boxed in by a circle. */
   readonly canManageContacts = computed(() => this.auth.hasPermission(PERM.chatContactsManage));
 
-  /** Lower-cased email of the signed-in user, for "mine" checks. */
-  private readonly myEmail = computed(() => this.auth.session()?.email?.toLowerCase() ?? '');
+  /** The signed-in user's own AppUser id, for "mine"/self-by-id checks (null until /me populates it). */
+  private readonly myUserId = computed(() => this.auth.userId());
 
   // ---- selection ----
   readonly selectedId = signal<number | null>(null);
@@ -101,15 +101,15 @@ export class Chat implements AfterViewChecked, OnDestroy {
   /** Heartbeat for relative timestamps + presence staleness; refreshed on every presence poll. */
   readonly now = signal(Date.now());
   /**
-   * Set of lower-cased display NAMES seen as online within the staleness window. The presence feed no
-   * longer carries emails (email-privacy), so the online dot is cross-referenced by display name — the
-   * only stable key shared between a presence row and a chat member/contact.
+   * Set of AppUser ids seen as online within the staleness window. Presence rows now carry `userId` and
+   * chat members carry `userId`, so the online dot is cross-referenced by id (the temporary name-based
+   * join from the presence slice is retired). Rows with no AppUser id are skipped.
    */
-  private readonly onlineNames = computed(() => {
+  private readonly onlineUserIds = computed(() => {
     const cutoff = this.now() - PRESENCE_STALE_MS;
-    const set = new Set<string>();
+    const set = new Set<number>();
     for (const p of this.presence()) {
-      if (p.name && new Date(p.lastSeenUtc).getTime() >= cutoff) set.add(p.name.toLowerCase());
+      if (p.userId != null && new Date(p.lastSeenUtc).getTime() >= cutoff) set.add(p.userId);
     }
     return set;
   });
@@ -124,22 +124,22 @@ export class Chat implements AfterViewChecked, OnDestroy {
     const id = this.selectedId();
     if (id == null) return [];
     const msgs = this.chat.messages()[id] ?? [];
-    const me = this.myEmail();
+    const me = this.myUserId();
     const out: MessageGroup[] = [];
     for (const m of msgs) {
       const prev = out[out.length - 1];
       const sameRun = prev
-        && prev.senderEmail === m.senderEmail
+        && prev.senderUserId === m.senderUserId
         && new Date(m.createdUtc).getTime() - new Date(prev.firstUtc).getTime() < 5 * 60 * 1000;
       if (sameRun) {
         prev.messages.push(m);
       } else {
         out.push({
-          senderEmail: m.senderEmail,
+          senderUserId: m.senderUserId,
           senderName: m.senderName,
           senderPicture: m.senderPicture,
           firstUtc: m.createdUtc,
-          isMine: m.senderEmail.toLowerCase() === me,
+          isMine: me != null && m.senderUserId === me,
           messages: [m],
         });
       }
@@ -255,15 +255,16 @@ export class Chat implements AfterViewChecked, OnDestroy {
   // Selection + history
   // =========================================================================
 
-  /** Online by display name (presence carries no email anymore — email-privacy). */
-  isOnline(name: string): boolean {
-    return !!name && this.onlineNames().has(name.toLowerCase());
+  /** Online by AppUser id (presence rows + chat members are both keyed on userId now). */
+  isOnline(userId: number): boolean {
+    return userId > 0 && this.onlineUserIds().has(userId);
   }
 
   /** A DM's online state = the OTHER member online (DMs have exactly two members). */
   dmOnline(ch: ChatChannelDto): boolean {
-    const me = this.myEmail();
-    return ch.members.some(m => m.email.toLowerCase() !== me && this.isOnline(m.name));
+    const me = this.myUserId();
+    if (me == null) return false; // can't tell the OTHER member apart from self until our own id is known
+    return ch.members.some(m => m.userId !== me && this.isOnline(m.userId));
   }
 
   unread(id: number): number {
@@ -494,14 +495,12 @@ export class Chat implements AfterViewChecked, OnDestroy {
     if (!match) { this.closeMentions(); return; }
     this.mentionStart = caret - match[1].length - 1; // position of the "@"
     const token = match[1].toLowerCase();
-    const me = this.myEmail();
+    const me = this.myUserId();
     const candidates = ch.members
-      .filter(m => m.email.toLowerCase() !== me)
-      .filter(m => !token
-        || m.name.toLowerCase().includes(token)
-        || m.email.toLowerCase().includes(token))
+      .filter(m => m.userId !== me)
+      .filter(m => !token || m.name.toLowerCase().includes(token))
       .slice(0, 6)
-      .map(m => ({ ...m, initials: this.initialsOf(m.name, m.email) }));
+      .map(m => ({ ...m, initials: this.initialsOf(m.name) }));
     if (candidates.length === 0) { this.closeMentions(); return; }
     this.mentionCandidates.set(candidates);
     this.mentionIndex.set(0);
@@ -545,18 +544,15 @@ export class Chat implements AfterViewChecked, OnDestroy {
     setTimeout(() => this.closeMentions(), 120);
   }
 
-  /** Resolve "@Name" tokens in the body to member emails (the backend's mentionedEmails contract). */
-  private extractMentions(body: string, ch: ChatChannelDto | null): string[] {
-    if (!ch) return [];
-    const hits = new Set<string>();
-    const lower = body.toLowerCase();
-    for (const m of ch.members) {
-      if (m.email.toLowerCase() === this.myEmail()) continue;
-      if (lower.includes(`@${m.name.toLowerCase()}`) || lower.includes(`@${m.email.toLowerCase()}`)) {
-        hits.add(m.email);
-      }
-    }
-    return [...hits];
+  /**
+   * Resolve "@Name" tokens in the body to the backend's mentionedEmails contract. Member payloads no
+   * longer carry emails (email-privacy slice 3A), so the client can't map a mentioned member to an
+   * email here — the mention→id contract is reworked in slice 3B. Until then we send no explicit mention
+   * list: the message still posts and every member still gets the normal channel-message notification;
+   * only the dedicated "you were mentioned" trigger is deferred. The "@Name" text is preserved in the body.
+   */
+  private extractMentions(_body: string, _ch: ChatChannelDto | null): string[] {
+    return [];
   }
 
   // =========================================================================
@@ -564,7 +560,8 @@ export class Chat implements AfterViewChecked, OnDestroy {
   // =========================================================================
 
   canManageMessage(m: ChatMessageDto): boolean {
-    return !m.deleted && (this.canModerate() || m.senderEmail.toLowerCase() === this.myEmail());
+    const me = this.myUserId();
+    return !m.deleted && (this.canModerate() || (me != null && m.senderUserId === me));
   }
 
   startEdit(m: ChatMessageDto): void {
@@ -604,10 +601,10 @@ export class Chat implements AfterViewChecked, OnDestroy {
   // Emoji reactions
   // =========================================================================
 
-  /** True when the signed-in user has reacted with this group's emoji (mine = reactedBy ∋ my email). */
+  /** True when the signed-in user has reacted with this group's emoji (mine = reactedByUserIds ∋ my id). */
   reactionMine(r: ReactionGroupDto): boolean {
-    const me = this.myEmail();
-    return !!me && r.reactedBy.some(e => e.toLowerCase() === me);
+    const me = this.myUserId();
+    return me != null && r.reactedByUserIds.includes(me);
   }
 
   /** aria-label for a reaction chip, e.g. "React with 👍, 3 reactions". */
@@ -621,13 +618,12 @@ export class Chat implements AfterViewChecked, OnDestroy {
    */
   reactionTooltip(r: ReactionGroupDto): string {
     const ch = this.selectedChannel();
-    const byEmail = new Map<string, string>();
-    if (ch) for (const m of ch.members) byEmail.set(m.email.toLowerCase(), m.name || m.email);
-    const me = this.myEmail();
-    const names = r.reactedBy.map(e => {
-      const key = e.toLowerCase();
-      if (key === me) return 'You';
-      return byEmail.get(key) ?? e;
+    const byUserId = new Map<number, string>();
+    if (ch) for (const m of ch.members) byUserId.set(m.userId, m.name);
+    const me = this.myUserId();
+    const names = r.reactedByUserIds.map(uid => {
+      if (me != null && uid === me) return 'You';
+      return byUserId.get(uid) ?? 'Someone';
     });
     const who = names.length <= 1
       ? (names[0] ?? '')
@@ -672,8 +668,11 @@ export class Chat implements AfterViewChecked, OnDestroy {
    * Presence is no longer the candidate source.
    */
   private pickablePeople(): ChatPickPerson[] {
-    const me = this.myEmail();
-    const online = this.onlineNames();
+    const me = this.auth.session()?.email?.toLowerCase() ?? '';
+    // The contact picker still works in emails (slice 3B): contacts carry no userId, so its online dot is
+    // cross-referenced by display name against presence — a picker-local fallback, distinct from the
+    // id-keyed member/DM presence above. This isn't the retired member name-join; it's the picker source.
+    const online = this.onlineNamesForPicker();
     return this.contacts()
       .filter(c => c.email.toLowerCase() !== me)
       .map(c => ({
@@ -683,6 +682,16 @@ export class Chat implements AfterViewChecked, OnDestroy {
         online: !!c.name && online.has(c.name.toLowerCase()),
       }))
       .sort((a, b) => Number(b.online) - Number(a.online) || (a.name || a.email).localeCompare(b.name || b.email));
+  }
+
+  /** Picker-only online-by-name set (contacts have no userId; presence still carries a display name). */
+  private onlineNamesForPicker(): Set<string> {
+    const cutoff = this.now() - PRESENCE_STALE_MS;
+    const set = new Set<string>();
+    for (const p of this.presence()) {
+      if (p.name && new Date(p.lastSeenUtc).getTime() >= cutoff) set.add(p.name.toLowerCase());
+    }
+    return set;
   }
 
   // =========================================================================
@@ -705,7 +714,7 @@ export class Chat implements AfterViewChecked, OnDestroy {
   }
 
   groupInitials(g: MessageGroup): string {
-    return this.initialsOf(g.senderName, g.senderEmail);
+    return this.initialsOf(g.senderName);
   }
 
   /**

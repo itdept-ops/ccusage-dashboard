@@ -50,6 +50,14 @@ public class ChatIntegrationTests(WebAppFactory factory)
     private static async Task<JsonElement> Json(HttpResponseMessage resp) =>
         await resp.Content.ReadFromJsonAsync<JsonElement>();
 
+    /// <summary>True when the JSON object has a property with the given name. A plain method (not a
+    /// lambda) so the <c>out</c> variable is legal — used inside FluentAssertions predicates where a
+    /// discard in an expression tree would not compile.</summary>
+    private static bool HasProperty(JsonElement el, string name)
+    {
+        return el.ValueKind == JsonValueKind.Object && el.TryGetProperty(name, out _);
+    }
+
     /// <summary>Create a channel as a chat.send user, with the given member emails.</summary>
     private static async Task<int> CreateChannel(HttpClient owner, string name, params string[] memberEmails)
     {
@@ -89,7 +97,7 @@ public class ChatIntegrationTests(WebAppFactory factory)
     [Fact]
     public async Task Member_can_send_and_read_messages_in_a_channel()
     {
-        var (_, alice) = await ProvisionUser("chat.read", "chat.send");
+        var (_, alice, aliceId) = await ProvisionUserWithId("chat.read", "chat.send");
         var (bobEmail, bob) = await ProvisionUser("chat.read", "chat.send");
 
         var channelId = await CreateChannel(alice, "general-" + Guid.NewGuid().ToString("N")[..6], bobEmail);
@@ -97,15 +105,69 @@ public class ChatIntegrationTests(WebAppFactory factory)
         var send = await alice.PostAsJsonAsync($"/api/chat/channels/{channelId}/messages",
             new { body = "hello team", mentionedEmails = (string[]?)null });
         send.StatusCode.Should().Be(HttpStatusCode.OK);
-        (await Json(send)).GetProperty("body").GetString().Should().Be("hello team");
+        var sent = await Json(send);
+        sent.GetProperty("body").GetString().Should().Be("hello team");
+        // Email-privacy: the author is exposed as senderUserId (no senderEmail property at all).
+        sent.TryGetProperty("senderEmail", out _).Should().BeFalse();
+        sent.GetProperty("senderUserId").GetInt32().Should().Be(aliceId);
 
-        // Bob (a member) reads the history and sees the message.
+        // Bob (a member) reads the history and sees the message — by senderUserId, never an email.
         var hist = await bob.GetAsync($"/api/chat/channels/{channelId}/messages");
         hist.StatusCode.Should().Be(HttpStatusCode.OK);
         var msgs = (await Json(hist)).EnumerateArray().ToList();
         msgs.Should().ContainSingle();
         msgs[0].GetProperty("body").GetString().Should().Be("hello team");
         msgs[0].GetProperty("deleted").GetBoolean().Should().BeFalse();
+        msgs[0].TryGetProperty("senderEmail", out _).Should().BeFalse();
+        msgs[0].GetProperty("senderUserId").GetInt32().Should().Be(aliceId);
+
+        // Bob derives "mine" by comparing senderUserId to his own /me userId — Alice's message is NOT his.
+        var bobMe = await Json(await bob.GetAsync("/api/auth/me"));
+        var bobUserId = bobMe.GetProperty("userId").GetInt32();
+        (msgs[0].GetProperty("senderUserId").GetInt32() == bobUserId).Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task Me_returns_the_callers_user_id_for_self_derivation()
+    {
+        var (_, alice, aliceId) = await ProvisionUserWithId("chat.read", "chat.send");
+        var channelId = await CreateChannel(alice, "self-" + Guid.NewGuid().ToString("N")[..6]);
+        var messageId = await Send(alice, channelId, "this is mine");
+
+        // /me carries the caller's own userId, matching the senderUserId of her own message ("mine").
+        var me = await Json(await alice.GetAsync("/api/auth/me"));
+        me.GetProperty("userId").GetInt32().Should().Be(aliceId);
+
+        var msg = (await Json(await alice.GetAsync($"/api/chat/channels/{channelId}/messages")))
+            .EnumerateArray().First(m => m.GetProperty("id").GetInt64() == messageId);
+        (msg.GetProperty("senderUserId").GetInt32() == me.GetProperty("userId").GetInt32())
+            .Should().BeTrue(); // "mine" derived by id, no email comparison
+    }
+
+    [Fact]
+    public async Task Channel_list_members_and_last_message_carry_user_ids_not_emails()
+    {
+        var (_, alice, aliceId) = await ProvisionUserWithId("chat.read", "chat.send");
+        var (bobEmail, bob, bobId) = await ProvisionUserWithId("chat.read", "chat.send");
+        var channelId = await CreateChannel(alice, "members-" + Guid.NewGuid().ToString("N")[..6], bobEmail);
+        await Send(alice, channelId, "latest");
+
+        var mine = (await Json(await alice.GetAsync("/api/chat/channels"))).EnumerateArray()
+            .First(c => c.GetProperty("id").GetInt32() == channelId);
+
+        // No member carries an email; members are addressed by userId.
+        var members = mine.GetProperty("members").EnumerateArray().ToList();
+        members.Should().OnlyContain(m => !HasProperty(m, "email"));
+        var memberIds = members.Select(m => m.GetProperty("userId").GetInt32()).ToList();
+        memberIds.Should().Contain(new[] { aliceId, bobId });
+
+        // The embedded last message is likewise sender-by-id with no email.
+        var last = mine.GetProperty("lastMessage");
+        last.TryGetProperty("senderEmail", out _).Should().BeFalse();
+        last.GetProperty("senderUserId").GetInt32().Should().Be(aliceId);
+
+        // Belt-and-suspenders: nowhere in the channel-list payload is there an "@".
+        mine.GetRawText().Should().NotContain("@");
     }
 
     [Fact]
@@ -275,8 +337,8 @@ public class ChatIntegrationTests(WebAppFactory factory)
     [Fact]
     public async Task Create_channel_drops_unknown_member_emails_and_keeps_the_creator()
     {
-        var (aliceEmail, alice) = await ProvisionUser("chat.read", "chat.send");
-        var (realEmail, _) = await ProvisionUser("chat.read");
+        var (aliceEmail, alice, aliceId) = await ProvisionUserWithId("chat.read", "chat.send");
+        var (realEmail, _, realId) = await ProvisionUserWithId("chat.read");
 
         var resp = await alice.PostAsJsonAsync("/api/chat/channels", new
         {
@@ -285,11 +347,15 @@ public class ChatIntegrationTests(WebAppFactory factory)
             memberEmails = new[] { realEmail, "nobody@void.local" },
         });
         resp.StatusCode.Should().Be(HttpStatusCode.OK);
-        var members = (await Json(resp)).GetProperty("members").EnumerateArray()
-            .Select(m => m.GetProperty("email").GetString()).ToList();
-        members.Should().Contain(aliceEmail);
-        members.Should().Contain(realEmail);
-        members.Should().NotContain("nobody@void.local");
+
+        // Email-privacy: members carry userId (server-resolved), never an email. The creator + the valid
+        // requested member are present by id; the unknown email is dropped (and "nobody" never resolves).
+        var members = (await Json(resp)).GetProperty("members").EnumerateArray().ToList();
+        members.Should().OnlyContain(m => !HasProperty(m, "email")); // no email property at all
+        var memberIds = members.Select(m => m.GetProperty("userId").GetInt32()).ToList();
+        memberIds.Should().Contain(aliceId);
+        memberIds.Should().Contain(realId);
+        memberIds.Should().HaveCount(2); // only the two real users — the unknown email produced no member
     }
 
     // ---- Archive (moderation) ----
@@ -516,7 +582,7 @@ public class ChatIntegrationTests(WebAppFactory factory)
     [Fact]
     public async Task JoinChannel_makes_a_new_members_group_membership_effective_for_live_broadcasts()
     {
-        var (_, alice) = await ProvisionUser("chat.read", "chat.send");
+        var (_, alice, aliceId) = await ProvisionUserWithId("chat.read", "chat.send");
         var (bobEmail, bob) = await ProvisionUser("chat.read", "chat.send");
 
         // Bob connects to the hub BEFORE any shared channel exists.
@@ -539,7 +605,33 @@ public class ChatIntegrationTests(WebAppFactory factory)
             received.Should().ContainSingle();
             received[0].GetProperty("body").GetString().Should().Be("live hello");
             received[0].GetProperty("channelId").GetInt32().Should().Be(channelId);
+            // The realtime DTO is identical to REST: sender by userId, no email leak (email-privacy).
+            received[0].TryGetProperty("senderEmail", out _).Should().BeFalse();
+            received[0].GetProperty("senderUserId").GetInt32().Should().Be(aliceId);
         }
+    }
+
+    [Fact]
+    public async Task TypingChanged_carries_the_typists_user_id_not_email()
+    {
+        var (aliceEmail, alice, aliceId) = await ProvisionUserWithId("chat.read", "chat.send");
+        var (bobEmail, bob) = await ProvisionUser("chat.read", "chat.send");
+        var channelId = await CreateChannel(alice, "typing-" + Guid.NewGuid().ToString("N")[..6], bobEmail);
+
+        // Both connect; Bob listens for TypingChanged(channelId, userId, userName, isTyping).
+        await using var aliceHub = await ConnectHub(aliceEmail);
+        await using var bobHub = await ConnectHub(bobEmail);
+
+        var got = new TaskCompletionSource<(int channelId, int userId, string name, bool isTyping)>();
+        bobHub.On<int, int, string, bool>("TypingChanged",
+            (cid, uid, name, typing) => got.TrySetResult((cid, uid, name, typing)));
+
+        await aliceHub.InvokeAsync("StartTyping", channelId);
+
+        var evt = await got.Task.WaitAsync(TimeSpan.FromSeconds(10));
+        evt.channelId.Should().Be(channelId);
+        evt.userId.Should().Be(aliceId); // the typist by id — never an email
+        evt.isTyping.Should().BeTrue();
     }
 
     [Fact]
@@ -620,19 +712,20 @@ public class ChatIntegrationTests(WebAppFactory factory)
     [Fact]
     public async Task Reacting_adds_a_group_and_toggling_the_same_emoji_removes_it()
     {
-        var (_, alice) = await ProvisionUser("chat.read", "chat.send");
+        var (_, alice, aliceId) = await ProvisionUserWithId("chat.read", "chat.send");
         var channelId = await CreateChannel(alice, "react-" + Guid.NewGuid().ToString("N")[..6]);
         var messageId = await Send(alice, channelId, "react to me");
 
-        // First toggle ADDS the reaction → one group, count 1, with the reactor in ReactedBy.
+        // First toggle ADDS the reaction → one group, count 1, with the reactor's userId in ReactedByUserIds.
         var add = await alice.PostAsJsonAsync($"/api/chat/messages/{messageId}/reactions", new { emoji = "👍" });
         add.StatusCode.Should().Be(HttpStatusCode.OK);
         var groups = (await Json(add)).EnumerateArray().ToList();
         groups.Should().ContainSingle();
         groups[0].GetProperty("emoji").GetString().Should().Be("👍");
         groups[0].GetProperty("count").GetInt32().Should().Be(1);
-        groups[0].GetProperty("reactedBy").EnumerateArray().Select(e => e.GetString())
-            .Should().ContainSingle(); // exactly the caller
+        groups[0].TryGetProperty("reactedBy", out _).Should().BeFalse(); // email-privacy: no email list
+        groups[0].GetProperty("reactedByUserIds").EnumerateArray().Select(e => e.GetInt32())
+            .Should().ContainSingle().And.Contain(aliceId); // exactly the caller, by id
 
         // Second toggle of the SAME emoji REMOVES it → no groups left.
         var remove = await alice.PostAsJsonAsync($"/api/chat/messages/{messageId}/reactions", new { emoji = "👍" });
@@ -641,10 +734,10 @@ public class ChatIntegrationTests(WebAppFactory factory)
     }
 
     [Fact]
-    public async Task Two_users_reacting_with_the_same_emoji_yields_count_two_with_both_in_reactedBy()
+    public async Task Two_users_reacting_with_the_same_emoji_yields_count_two_with_both_in_reactedByUserIds()
     {
-        var (aliceEmail, alice) = await ProvisionUser("chat.read", "chat.send");
-        var (bobEmail, bob) = await ProvisionUser("chat.read", "chat.send");
+        var (aliceEmail, alice, aliceId) = await ProvisionUserWithId("chat.read", "chat.send");
+        var (bobEmail, bob, bobId) = await ProvisionUserWithId("chat.read", "chat.send");
         var channelId = await CreateChannel(alice, "react2-" + Guid.NewGuid().ToString("N")[..6], bobEmail);
         var messageId = await Send(alice, channelId, "double react");
 
@@ -655,30 +748,34 @@ public class ChatIntegrationTests(WebAppFactory factory)
         var groups = (await Json(second)).EnumerateArray().ToList();
         groups.Should().ContainSingle();
         groups[0].GetProperty("count").GetInt32().Should().Be(2);
-        var reactedBy = groups[0].GetProperty("reactedBy").EnumerateArray().Select(e => e.GetString()).ToList();
-        reactedBy.Should().Contain(aliceEmail);
-        reactedBy.Should().Contain(bobEmail);
+        // Email-privacy: both reactors are exposed by userId, never email — no "@" in the payload.
+        groups[0].TryGetProperty("reactedBy", out _).Should().BeFalse();
+        var reactedBy = groups[0].GetProperty("reactedByUserIds").EnumerateArray().Select(e => e.GetInt32()).ToList();
+        reactedBy.Should().Contain(aliceId);
+        reactedBy.Should().Contain(bobId);
     }
 
     [Fact]
     public async Task Reactions_appear_in_the_message_history_dto()
     {
-        var (aliceEmail, alice) = await ProvisionUser("chat.read", "chat.send");
+        var (aliceEmail, alice, aliceId) = await ProvisionUserWithId("chat.read", "chat.send");
         var (bobEmail, bob) = await ProvisionUser("chat.read", "chat.send");
         var channelId = await CreateChannel(alice, "histreact-" + Guid.NewGuid().ToString("N")[..6], bobEmail);
         var messageId = await Send(alice, channelId, "history reaction");
 
         await alice.PostAsJsonAsync($"/api/chat/messages/{messageId}/reactions", new { emoji = "🔥" });
 
-        // Bob (a member) reads history and sees the reaction group attached to the message.
+        // Bob (a member) reads history and sees the reaction group attached to the message — the reactor is
+        // exposed by userId only (email-privacy).
         var hist = (await Json(await bob.GetAsync($"/api/chat/channels/{channelId}/messages")))
             .EnumerateArray().First(m => m.GetProperty("id").GetInt64() == messageId);
         var reactions = hist.GetProperty("reactions").EnumerateArray().ToList();
         reactions.Should().ContainSingle();
         reactions[0].GetProperty("emoji").GetString().Should().Be("🔥");
         reactions[0].GetProperty("count").GetInt32().Should().Be(1);
-        reactions[0].GetProperty("reactedBy").EnumerateArray().Select(e => e.GetString())
-            .Should().Contain(aliceEmail);
+        reactions[0].TryGetProperty("reactedBy", out _).Should().BeFalse();
+        reactions[0].GetProperty("reactedByUserIds").EnumerateArray().Select(e => e.GetInt32())
+            .Should().Contain(aliceId);
 
         // A message with no reactions still carries an (empty) reactions array — never null.
         var plainId = await Send(alice, channelId, "no reactions here");
@@ -721,7 +818,7 @@ public class ChatIntegrationTests(WebAppFactory factory)
     [Fact]
     public async Task Concurrent_toggle_of_the_same_reaction_converges_without_throwing()
     {
-        var (aliceEmail, alice) = await ProvisionUser("chat.read", "chat.send");
+        var (aliceEmail, alice, aliceId) = await ProvisionUserWithId("chat.read", "chat.send");
         var channelId = await CreateChannel(alice, "race-react-" + Guid.NewGuid().ToString("N")[..6]);
         var messageId = await Send(alice, channelId, "race to react");
 
@@ -743,8 +840,8 @@ public class ChatIntegrationTests(WebAppFactory factory)
         reactions.Should().ContainSingle();
         reactions[0].GetProperty("emoji").GetString().Should().Be("👍");
         reactions[0].GetProperty("count").GetInt32().Should().Be(1);
-        reactions[0].GetProperty("reactedBy").EnumerateArray().Select(e => e.GetString())
-            .Should().ContainSingle().And.Contain(aliceEmail);
+        reactions[0].GetProperty("reactedByUserIds").EnumerateArray().Select(e => e.GetInt32())
+            .Should().ContainSingle().And.Contain(aliceId);
     }
 
     [Fact]
