@@ -190,6 +190,6 @@ public sealed class ChatHub(IServiceScopeFactory scopeFactory) : Hub
             .Where(x => x.Email == email)
             .Select(x => new { x.Name, x.Picture })
             .FirstOrDefaultAsync();
-        return u is null ? (email, null) : (string.IsNullOrEmpty(u.Name) ? email : u.Name, u.Picture);
+        return u is null ? ("Unknown user", null) : (string.IsNullOrEmpty(u.Name) ? "Unknown user" : u.Name, u.Picture);
     }
 }

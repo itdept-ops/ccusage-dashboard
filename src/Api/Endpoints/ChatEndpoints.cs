@@ -440,8 +440,8 @@ public static class ChatEndpoints
 
             string display = c.Kind == ChannelKind.Direct
                 ? (members.FirstOrDefault(m => m.Email != email) is { } other
-                    ? (string.IsNullOrEmpty(other.Name) ? other.Email : other.Name)
-                    : (members.FirstOrDefault()?.Name ?? email))
+                    ? (string.IsNullOrEmpty(other.Name) ? "Unknown user" : other.Name)
+                    : (members.FirstOrDefault()?.Name ?? "Unknown user"))
                 : (c.Name ?? "");
 
             result.Add(new ChatChannelDto
@@ -477,7 +477,7 @@ public static class ChatEndpoints
             .Where(u => distinct.Contains(u.Email))
             .ToDictionaryAsync(
                 u => u.Email,
-                u => (string.IsNullOrEmpty(u.Name) ? u.Email : u.Name, u.Picture),
+                u => (string.IsNullOrEmpty(u.Name) ? "Unknown user" : u.Name, u.Picture),
                 StringComparer.Ordinal, ct);
     }
 
@@ -487,6 +487,6 @@ public static class ChatEndpoints
             .Where(x => x.Email == email)
             .Select(x => new { x.Name, x.Picture })
             .FirstOrDefaultAsync(ct);
-        return u is null ? (email, null) : (string.IsNullOrEmpty(u.Name) ? email : u.Name, u.Picture);
+        return u is null ? ("Unknown user", null) : (string.IsNullOrEmpty(u.Name) ? "Unknown user" : u.Name, u.Picture);
     }
 }

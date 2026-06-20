@@ -29,7 +29,12 @@ public static class InboxEndpoints
             if (unreadOnly == true) q = q.Where(n => !n.IsRead);
 
             var rows = await q.OrderByDescending(n => n.Id).Take(take).ToListAsync(ct);
-            return Results.Ok(rows.Select(ToDto));
+
+            // Resolve the actor emails on this page to AppUser id + name in one query — the raw actor email
+            // is never put on the wire (email-privacy); the client gets ActorUserId + ActorName instead.
+            var actors = await ChatNotificationService.ResolveActorsAsync(
+                db, rows.Where(n => n.ActorEmail != null).Select(n => n.ActorEmail!).ToArray(), ct);
+            return Results.Ok(rows.Select(n => ToDto(n, ActorFor(n, actors))));
         });
 
         // ---- Unread count ----
@@ -100,17 +105,14 @@ public static class InboxEndpoints
         });
     }
 
-    private static NotificationDto ToDto(Notification n) => new()
-    {
-        Id = n.Id,
-        Type = ChatNotificationService.NotificationTypeName(n.Type),
-        Text = n.Text,
-        Link = n.Link,
-        ActorEmail = n.ActorEmail,
-        ActorName = n.ActorName,
-        IsRead = n.IsRead,
-        CreatedUtc = n.CreatedUtc,
-    };
+    /// <summary>The actor's resolved identity from a pre-built map (null when no actor / no AppUser row).</summary>
+    private static ChatNotificationService.ActorIdentity? ActorFor(
+        Notification n, IReadOnlyDictionary<string, ChatNotificationService.ActorIdentity> actors) =>
+        n.ActorEmail is { } e && actors.TryGetValue(e.ToLowerInvariant(), out var a)
+            ? a : (ChatNotificationService.ActorIdentity?)null;
+
+    private static NotificationDto ToDto(Notification n, ChatNotificationService.ActorIdentity? actor) =>
+        ChatNotificationService.ToDto(n, actor);
 
     private static NotificationPreferenceDto ToDto(NotificationPreference p) => new()
     {

@@ -53,8 +53,8 @@
           <span class="nb-item__body">
             <span class="nb-item__text">{{ n.text }}</span>
             <span class="nb-item__meta">
-              @if (n.actorName || n.actorEmail) {
-                <span class="nb-item__actor">{{ n.actorName || n.actorEmail }}</span>
+              @if (n.actorName) {
+                <span class="nb-item__actor">{{ n.actorName }}</span>
                 <span class="nb-item__sep" aria-hidden="true">·</span>
               }
               <span class="nb-item__time">{{ timeAgo(n.createdUtc, now()) }}</span>

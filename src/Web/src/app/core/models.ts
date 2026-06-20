@@ -562,7 +562,7 @@ export interface NotificationDto {
   type: string;
   text: string;
   link?: string;
-  actorEmail?: string;
+  actorUserId?: number | null;
   actorName?: string;
   isRead: boolean;
   createdUtc: string;

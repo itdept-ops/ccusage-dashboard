@@ -107,10 +107,14 @@ public sealed class ChatNotificationService(UsageDbContext db, IHubContext<ChatH
                 .SendAsync("UnreadChanged", channel.Id, unreadMessages, ct);
         }
 
+        // Resolve the actor (the sender) to AppUser id + name once — the raw email never reaches the client.
+        var actor = (await ResolveActorsAsync(db, new[] { message.SenderEmail }, ct))
+            .TryGetValue(message.SenderEmail.ToLowerInvariant(), out var ai) ? ai : (ActorIdentity?)null;
+
         // Recipients who actually got an inbox notification row also get their global inbox total.
         foreach (var (email, n) in created)
         {
-            await hub.Clients.User(email).SendAsync("ReceiveNotification", ToDto(n), ct);
+            await hub.Clients.User(email).SendAsync("ReceiveNotification", ToDto(n, actor), ct);
             var inboxUnread = await db.Notifications.CountAsync(x => x.RecipientEmail == email && !x.IsRead, ct);
             await hub.Clients.User(email).SendAsync("InboxUnreadChanged", inboxUnread, ct);
         }
@@ -159,9 +163,10 @@ public sealed class ChatNotificationService(UsageDbContext db, IHubContext<ChatH
         if (created.Count == 0) return;
         await db.SaveChangesAsync(ct);
 
+        // System events carry no actor (ActorEmail is null) — the actor fields stay null.
         foreach (var (email, n) in created)
         {
-            await hub.Clients.User(email).SendAsync("ReceiveNotification", ToDto(n), ct);
+            await hub.Clients.User(email).SendAsync("ReceiveNotification", ToDto(n, (ActorIdentity?)null), ct);
             var inboxUnread = await db.Notifications.CountAsync(x => x.RecipientEmail == email && !x.IsRead, ct);
             await hub.Clients.User(email).SendAsync("InboxUnreadChanged", inboxUnread, ct);
         }
@@ -296,17 +301,55 @@ public sealed class ChatNotificationService(UsageDbContext db, IHubContext<ChatH
         Deleted = m.DeletedUtc is not null,
     };
 
-    private static NotificationDto ToDto(Notification n) => new()
+    /// <summary>The server-resolved public identity of a notification's actor: the AppUser id and a
+    /// display name that is NEVER an email (email-privacy).</summary>
+    public readonly record struct ActorIdentity(int Id, string Name);
+
+    /// <summary>
+    /// Map a notification to its wire form. The actor is exposed as <see cref="NotificationDto.ActorUserId"/>
+    /// + <see cref="NotificationDto.ActorName"/>, both server-resolved from the actor email — the raw
+    /// <see cref="Notification.ActorEmail"/> is NEVER put on the wire (email-privacy). <paramref name="actor"/>
+    /// is null when there is no actor (system event) or the actor email has no AppUser row; in that case the
+    /// actor fields are null rather than ever falling back to the email.
+    /// </summary>
+    public static NotificationDto ToDto(Notification n, ActorIdentity? actor) => new()
     {
         Id = n.Id,
         Type = NotificationTypeName(n.Type),
         Text = n.Text,
         Link = n.Link,
-        ActorEmail = n.ActorEmail,
-        ActorName = n.ActorName,
+        ActorUserId = actor?.Id,
+        ActorName = actor?.Name,
         IsRead = n.IsRead,
         CreatedUtc = n.CreatedUtc,
     };
+
+    /// <summary>
+    /// Resolve a set of actor emails to their AppUser id + display name in one query (lower-cased match).
+    /// The name is the AppUser.Name, falling back to "Unknown user" — NEVER the email (email-privacy).
+    /// Emails with no AppUser row are simply absent from the map. Shared by the inbox load and the realtime
+    /// fan-out so the actor identity is resolved identically.
+    /// </summary>
+    public static async Task<Dictionary<string, ActorIdentity>> ResolveActorsAsync(
+        UsageDbContext db, IReadOnlyCollection<string> actorEmails, CancellationToken ct = default)
+    {
+        var emails = actorEmails
+            .Where(e => !string.IsNullOrEmpty(e))
+            .Select(e => e.ToLowerInvariant())
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+        if (emails.Length == 0) return new Dictionary<string, ActorIdentity>(StringComparer.Ordinal);
+
+        var rows = await db.Users.AsNoTracking()
+            .Where(u => emails.Contains(u.Email))
+            .Select(u => new { u.Email, u.Id, u.Name })
+            .ToListAsync(ct);
+
+        return rows.ToDictionary(
+            x => x.Email,
+            x => new ActorIdentity(x.Id, string.IsNullOrEmpty(x.Name) ? "Unknown user" : x.Name),
+            StringComparer.Ordinal);
+    }
 
     /// <summary>The camelCase wire name for a notification type (matches the enum member name).</summary>
     public static string NotificationTypeName(NotificationType type) => type switch

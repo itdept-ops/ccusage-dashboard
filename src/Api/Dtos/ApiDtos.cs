@@ -661,7 +661,14 @@ public sealed class NotificationDto
 
     public string Text { get; set; } = "";
     public string? Link { get; set; }
-    public string? ActorEmail { get; set; }
+
+    /// <summary>The actor (the user who triggered this) resolved to their AppUser.Id, or null when the
+    /// actor email has no AppUser row (or there is no actor, e.g. a system event). The raw actor email is
+    /// NEVER exposed — other-user emails live only in the admin Users table (email-privacy).</summary>
+    public int? ActorUserId { get; set; }
+
+    /// <summary>The actor's display name, resolved server-side (the matching AppUser.Name, falling back to
+    /// the name snapshotted at event time). Null when there is no actor.</summary>
     public string? ActorName { get; set; }
     public bool IsRead { get; set; }
     public DateTime CreatedUtc { get; set; }

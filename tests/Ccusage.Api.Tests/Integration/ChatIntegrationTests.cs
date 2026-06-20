@@ -32,10 +32,19 @@ public class ChatIntegrationTests(WebAppFactory factory)
 
     private async Task<(string email, HttpClient client)> ProvisionUser(params string[] permissions)
     {
+        var (email, client, _) = await ProvisionUserWithId(permissions);
+        return (email, client);
+    }
+
+    /// <summary>Like <see cref="ProvisionUser"/> but also returns the created AppUser id (from the
+    /// create-user response) — for asserting server-resolved actor identity.</summary>
+    private async Task<(string email, HttpClient client, int id)> ProvisionUserWithId(params string[] permissions)
+    {
         var email = $"chat-{Guid.NewGuid():N}@test.local";
         var res = await Admin().PostAsJsonAsync("/api/users", new { email, isEnabled = true, permissions });
         res.StatusCode.Should().Be(HttpStatusCode.Created);
-        return (email, Client(email));
+        var id = (await Json(res)).GetProperty("id").GetInt32();
+        return (email, Client(email), id);
     }
 
     private static async Task<JsonElement> Json(HttpResponseMessage resp) =>
@@ -154,8 +163,11 @@ public class ChatIntegrationTests(WebAppFactory factory)
         var fromBobJson = await Json(await bob.PostAsJsonAsync("/api/chat/direct", new { userEmail = aliceEmail }));
         fromBobJson.GetProperty("id").GetInt32().Should().Be(firstId);
 
-        // The DM's display name for Alice is the OTHER member (Bob).
-        againJson.GetProperty("displayName").GetString().Should().Be(bobEmail);
+        // The DM's display name for Alice is the OTHER member (Bob), by NAME — never his email.
+        // These test users have no name, so it falls back to "Unknown user" (privacy: not the email).
+        var dmName = againJson.GetProperty("displayName").GetString();
+        dmName.Should().Be("Unknown user");
+        dmName.Should().NotContain("@");
     }
 
     [Fact]
@@ -306,7 +318,7 @@ public class ChatIntegrationTests(WebAppFactory factory)
     [Fact]
     public async Task Direct_message_creates_a_notification_for_the_recipient()
     {
-        var (_, alice) = await ProvisionUser("chat.read", "chat.send");
+        var (aliceEmail, alice, aliceId) = await ProvisionUserWithId("chat.read", "chat.send");
         var (bobEmail, bob) = await ProvisionUser("chat.read", "chat.send");
 
         var dm = await alice.PostAsJsonAsync("/api/chat/direct", new { userEmail = bobEmail });
@@ -316,7 +328,15 @@ public class ChatIntegrationTests(WebAppFactory factory)
 
         // Bob's inbox gets a directMessage notification (NotifyDirectMessages defaults to true).
         var inbox = (await Json(await bob.GetAsync("/api/inbox"))).EnumerateArray().ToList();
-        inbox.Should().Contain(n => n.GetProperty("type").GetString() == "directMessage");
+        var notif = inbox.Single(n => n.GetProperty("type").GetString() == "directMessage");
+
+        // Email-privacy: the actor is exposed as ActorUserId + ActorName, never as an email. No "@" leaks in
+        // the actor fields (and there is no actorEmail property at all).
+        notif.TryGetProperty("actorEmail", out _).Should().BeFalse();
+        notif.GetProperty("actorUserId").GetInt32().Should().Be(aliceId);
+        var actorName = notif.GetProperty("actorName").GetString();
+        actorName.Should().NotBeNullOrEmpty();
+        actorName.Should().NotContain("@");
 
         var count = (await Json(await bob.GetAsync("/api/inbox/unread-count"))).GetProperty("count").GetInt32();
         count.Should().BeGreaterThanOrEqualTo(1);
