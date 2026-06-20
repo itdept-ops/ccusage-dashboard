@@ -4,7 +4,7 @@ import { Observable } from 'rxjs';
 import {
   AccessPolicy, AddExerciseRequest, AddFoodRequest, AddHydrationRequest, AuditEntry, CacheEfficiency, CalendarDay, ChatChannelDto, ChatContactDto, ChatMessageDto, CreateChannelRequest,
   CreateShareRequest, CustomExerciseDto, CustomFoodDto, DailyCoachResponse, EstimateExerciseRequest, EstimateExerciseResponse, EstimateMacrosRequest, EstimateMacrosResponse, ExerciseEntryDto, ExerciseLibraryDto, Fleet, FleetDeleteRequest,
-  FamilyChore, FamilyChoreRecurrence, FamilyChores, FamilyList, FamilyListKind, FamilyMeal, FamilyMealDay, FamilyMealSlot, FamilyNote, FamilyRecurrence, FamilyReminder, FamilySettings, FamilySettingsUpdate, FamilyTimer, FamilyToday, FleetDeleteResult, FleetReassignRequest, FleetReassignResult, FleetRevokeKeysRequest, FleetRevokeKeysResult, FoodEntryDto, FoodSearchItemDto, GroupBy, Household, HouseholdCandidate,
+  FamilyChore, FamilyChoreRecurrence, FamilyChores, FamilyList, FamilyListKind, FamilyMeal, FamilyMealDay, FamilyMealSlot, FamilyNote, FamilyRecurrence, FamilyReminder, FamilySettings, FamilySettingsUpdate, FamilyTimer, FamilyToday, FinanceAccount, FinanceAccountPatch, FinanceAccountSummary, FinanceImportBatch, FinanceImportResult, FinanceSummary, FinanceTransactionsPage, FinanceTxnKind, FinanceOwner, FleetDeleteResult, FleetReassignRequest, FleetReassignResult, FleetRevokeKeysRequest, FleetRevokeKeysResult, FoodEntryDto, FoodSearchItemDto, GroupBy, Household, HouseholdCandidate,
   HeatmapCell, HydrationEntryDto, HydrationSuggestResponse, ImageRequest, IngestionSource, IngestKey, IngestKeyCreated, LogWeightRequest, LoginEvent, MachineStat, ManagedUser, MealFeedbackRequest, MealFeedbackResponse, ModelStat, NaturalGoalRequest, NaturalGoalResponse, NotificationDto, NotificationPreferenceDto, NotificationSettings,
   NotificationUpdate, PagedResult, ParseExerciseRequest, ParseExerciseResponse, ParseHydrationRequest, ParseHydrationResponse, ParseMealRequest, ParseMealResponse, PermissionItem, Presence, Pricing, ProjectDto, PublicShare, ReactionGroupDto, ReadLabelResponse, RecipeMacrosRequest, RecipeMacrosResponse, RequestLogEntry, SavedView,
   SavedViewUpsertRequest, SessionDetail, Settings, ShareAccessItem, ShareCreated, ShareListItem, SharedUserDto, SuggestFoodsResponse, SuggestGoalResponse, SuggestWorkoutRequest, SuggestWorkoutResponse, SummaryResponse,
@@ -949,5 +949,63 @@ export class Api {
   /** Delete a chore (any household member); its completion ledger cascades. Returns nothing (the page reloads). */
   deleteFamilyChore(id: number): Observable<void> {
     return this.http.delete<void>(`${this.base}/family/chores/${id}`);
+  }
+
+  // ---- Family Hub F5: FINANCE (Rocket Money CSV) — gated by family.use AND family.finance server-side ----
+
+  /**
+   * Import a Rocket Money CSV. The file is read as TEXT in the browser and POSTed as `{ fileName, content }`;
+   * the server parses it, find-or-creates accounts, and inserts DEDUPED transactions (re-imports add nothing).
+   * Returns the import counts + touched accounts so the page can toast and refresh.
+   */
+  importFinanceCsv(fileName: string, content: string): Observable<FinanceImportResult> {
+    return this.http.post<FinanceImportResult>(`${this.base}/family/finance/import`, { fileName, content });
+  }
+
+  /** The household's finance accounts with per-account txn count + total spend (for the Accounts panel). */
+  financeAccounts(): Observable<FinanceAccount[]> {
+    return this.http.get<FinanceAccount[]>(`${this.base}/family/finance/accounts`);
+  }
+
+  /**
+   * Relabel an account — set its `owner` (his/hers/joint/unassigned), `kind` (bank/credit/other), and/or
+   * `name`. This is how the two SoFi accounts get tagged his vs hers; the his/hers split re-flows from it.
+   * Send only the fields you're changing. Returns the updated account summary.
+   */
+  updateFinanceAccount(id: number, patch: FinanceAccountPatch): Observable<FinanceAccountSummary> {
+    return this.http.put<FinanceAccountSummary>(`${this.base}/family/finance/accounts/${id}`, patch);
+  }
+
+  /**
+   * A page of transactions, filterable by month (`yyyy-MM`), accountId, category, owner, and kind. `page` is
+   * 1-based; the server fixes the page size. Newest-first.
+   */
+  financeTransactions(filter: {
+    month?: string | null; accountId?: number | null; category?: string | null;
+    owner?: FinanceOwner | null; kind?: FinanceTxnKind | null; page?: number | null;
+  } = {}): Observable<FinanceTransactionsPage> {
+    let p = new HttpParams();
+    if (filter.month) p = p.set('month', filter.month);
+    if (filter.accountId != null) p = p.set('accountId', filter.accountId);
+    if (filter.category) p = p.set('category', filter.category);
+    if (filter.owner) p = p.set('owner', filter.owner);
+    if (filter.kind) p = p.set('kind', filter.kind);
+    if (filter.page != null) p = p.set('page', filter.page);
+    return this.http.get<FinanceTransactionsPage>(`${this.base}/family/finance/transactions`, { params: p });
+  }
+
+  /**
+   * The dashboard summary for a month (`yyyy-MM`; omit to let the server pick the most recent month with
+   * data): headline totals, by-category/by-account/by-owner breakdowns, and a rolling 12-month trend.
+   */
+  financeSummary(month?: string | null): Observable<FinanceSummary> {
+    let p = new HttpParams();
+    if (month) p = p.set('month', month);
+    return this.http.get<FinanceSummary>(`${this.base}/family/finance/summary`, { params: p });
+  }
+
+  /** Recent import batches (file, counts, who-by-name, when) for the import-history strip. */
+  financeImports(): Observable<FinanceImportBatch[]> {
+    return this.http.get<FinanceImportBatch[]>(`${this.base}/family/finance/imports`);
   }
 }

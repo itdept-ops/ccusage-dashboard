@@ -1,0 +1,312 @@
+<section class="family fin">
+  <a class="family__back" routerLink="/family">
+    <mat-icon aria-hidden="true">arrow_back</mat-icon> Family Hub
+  </a>
+
+  <header class="family__hero family__hero--page family__hero--finance">
+    <div class="family__hero-id">
+      <span class="family__crest" aria-hidden="true"><mat-icon>savings</mat-icon></span>
+      <div>
+        <p class="family__eyebrow">Family Hub · Private</p>
+        <h1 class="family__name">Finances</h1>
+        <p class="family__sub">Your household's money, in one calm place</p>
+      </div>
+    </div>
+    <span class="fin__lock" matTooltip="Finance is household-private and never shared outside the family">
+      <mat-icon aria-hidden="true">lock</mat-icon> Private to your household
+    </span>
+  </header>
+
+  @if (loading()) {
+    <div class="family__loading">
+      <mat-spinner [diameter]="28" />
+      <span>Opening your books…</span>
+    </div>
+  } @else if (error()) {
+    <div class="family__error">
+      <mat-icon aria-hidden="true">error_outline</mat-icon>
+      <p>We couldn't load your finances just now. Please try again in a moment.</p>
+    </div>
+  } @else {
+
+    <!-- ══ IMPORT dropzone ══════════════════════════════════════════════ -->
+    <section class="fin-card fin-import"
+             [class.fin-import--over]="dragOver()"
+             (dragover)="onDragOver($event)" (dragleave)="onDragLeave($event)" (drop)="onDrop($event)">
+      <div class="fin-import__icon" aria-hidden="true">
+        @if (importing()) { <mat-spinner [diameter]="32" /> }
+        @else { <mat-icon>cloud_upload</mat-icon> }
+      </div>
+      <div class="fin-import__body">
+        <h2 class="fin-import__title">Import a Rocket Money CSV</h2>
+        <p class="fin-import__hint">
+          Export your transactions from Rocket Money and drop the <code>.csv</code> here (or pick a file).
+          Re-imports are de-duped, so it's safe to drop overlapping exports.
+        </p>
+        <div class="fin-import__actions">
+          <label class="fin-import__pick" [class.is-busy]="importing()">
+            <input type="file" accept=".csv,text/csv" (change)="onPick($event)" [disabled]="importing()" hidden />
+            <mat-icon aria-hidden="true">attach_file</mat-icon>
+            {{ importing() ? 'Importing…' : 'Choose CSV' }}
+          </label>
+        </div>
+      </div>
+    </section>
+
+    <!-- First-run nudge when nothing has been imported yet. -->
+    @if (!hasData()) {
+      <div class="family__empty fin-empty">
+        <mat-icon aria-hidden="true">account_balance_wallet</mat-icon>
+        <h2>No transactions yet</h2>
+        <p>Import a Rocket Money export above to see your spending, income, and the his/hers split.</p>
+      </div>
+    } @else {
+
+      <!-- ══ MONTH stepper ══════════════════════════════════════════════ -->
+      <div class="fin-monthnav" role="group" aria-label="Choose month">
+        <button mat-icon-button matTooltip="Previous month" (click)="stepMonth(-1)">
+          <mat-icon aria-hidden="true">chevron_left</mat-icon>
+        </button>
+        <span class="fin-monthnav__label">{{ monthLabel() }}</span>
+        <button mat-icon-button matTooltip="Next month" (click)="stepMonth(1)">
+          <mat-icon aria-hidden="true">chevron_right</mat-icon>
+        </button>
+      </div>
+
+      @if (summary(); as s) {
+        <!-- ══ HEADLINE cards ═══════════════════════════════════════════ -->
+        <div class="fin-cards">
+          <div class="fin-stat fin-stat--spent">
+            <span class="fin-stat__label">Total spent</span>
+            <span class="fin-stat__value">{{ money(s.totalSpent) }}</span>
+          </div>
+          <div class="fin-stat fin-stat--income">
+            <span class="fin-stat__label">Total income</span>
+            <span class="fin-stat__value">{{ money(s.totalIncome) }}</span>
+          </div>
+          <div class="fin-stat" [class.fin-stat--pos]="net() >= 0" [class.fin-stat--neg]="net() < 0">
+            <span class="fin-stat__label">Net</span>
+            <span class="fin-stat__value">{{ money(net()) }}</span>
+          </div>
+        </div>
+
+        <!-- ══ CHARTS: by-category donut + his/hers split ═══════════════ -->
+        <div class="fin-grid">
+          <section class="fin-card fin-chartcard">
+            <h2 class="fin-card__title">Where it went</h2>
+            @if (s.byCategory.length > 0) {
+              <div class="fin-chart fin-chart--donut"><app-chart [option]="categoryOption()" /></div>
+            } @else {
+              <p class="fin-card__empty">No spending recorded this month.</p>
+            }
+          </section>
+
+          <section class="fin-card fin-chartcard">
+            <h2 class="fin-card__title">His vs Hers</h2>
+            @if (s.byOwner.length > 0) {
+              <div class="fin-chart fin-chart--owner"><app-chart [option]="ownerOption()" /></div>
+              <p class="fin-card__foot">Set an account's owner below to move it between His, Hers, and Joint.</p>
+            } @else {
+              <p class="fin-card__empty">Tag your accounts' owners below to see the split.</p>
+            }
+          </section>
+        </div>
+
+        <!-- ══ by-account list + 12-month trend ═════════════════════════ -->
+        <div class="fin-grid">
+          <section class="fin-card">
+            <h2 class="fin-card__title">By account</h2>
+            @if (s.byAccount.length > 0) {
+              <ul class="fin-acctspend">
+                @for (a of s.byAccount; track a.accountId) {
+                  <li class="fin-acctspend__row">
+                    <span class="fin-owner-dot" [attr.data-owner]="a.owner" aria-hidden="true"></span>
+                    <span class="fin-acctspend__name">{{ a.name }}</span>
+                    <span class="fin-acctspend__owner">{{ ownerLabel(a.owner) }}</span>
+                    <span class="fin-acctspend__amt">{{ money(a.amount) }}</span>
+                  </li>
+                }
+              </ul>
+            } @else {
+              <p class="fin-card__empty">No spending by account this month.</p>
+            }
+          </section>
+
+          <section class="fin-card fin-chartcard">
+            <h2 class="fin-card__title">12-month trend</h2>
+            <div class="fin-chart fin-chart--trend"><app-chart [option]="trendOption()" /></div>
+          </section>
+        </div>
+      }
+
+      <!-- ══ ACCOUNTS — tag owner / kind / name ═══════════════════════════ -->
+      <section class="fin-card">
+        <div class="fin-card__head">
+          <h2 class="fin-card__title">Accounts</h2>
+          <p class="fin-card__sub">Tag each account His, Hers, or Joint — this is how the his/hers split is built.</p>
+        </div>
+        @if (accounts().length > 0) {
+          <ul class="fin-accts">
+            @for (a of accounts(); track a.id) {
+              <li class="fin-acct">
+                <div class="fin-acct__id">
+                  <span class="fin-owner-dot" [attr.data-owner]="a.owner" aria-hidden="true"></span>
+                  <div class="fin-acct__names">
+                    <button class="fin-acct__name" (click)="rename(a)" matTooltip="Rename account">
+                      {{ a.name }} <mat-icon aria-hidden="true">edit</mat-icon>
+                    </button>
+                    @if (a.institution) { <span class="fin-acct__inst">{{ a.institution }}</span> }
+                  </div>
+                </div>
+
+                <div class="fin-acct__controls">
+                  <label class="fin-field">
+                    <span class="fin-field__lbl">Owner</span>
+                    <select class="fin-select" [value]="a.owner"
+                            (change)="setOwner(a, $any($event.target).value)">
+                      @for (o of ownerOptions; track o) {
+                        <option [value]="o">{{ ownerLabel(o) }}</option>
+                      }
+                    </select>
+                  </label>
+                  <label class="fin-field">
+                    <span class="fin-field__lbl">Kind</span>
+                    <select class="fin-select" [value]="a.kind"
+                            (change)="setKind(a, $any($event.target).value)">
+                      @for (k of kindOptions; track k) {
+                        <option [value]="k">{{ kindLabel(k) }}</option>
+                      }
+                    </select>
+                  </label>
+                </div>
+
+                <div class="fin-acct__stats">
+                  <span class="fin-acct__count">{{ a.txnCount }} txns</span>
+                  <span class="fin-acct__spent">{{ money(a.totalSpentMagnitude) }} spent</span>
+                </div>
+              </li>
+            }
+          </ul>
+        } @else {
+          <p class="fin-card__empty">No accounts yet — import a CSV to populate them.</p>
+        }
+      </section>
+
+      <!-- ══ TRANSACTIONS — filterable, paged table ═══════════════════════ -->
+      <section class="fin-card">
+        <div class="fin-card__head">
+          <h2 class="fin-card__title">Transactions</h2>
+          <span class="fin-card__count">{{ txnTotal() }} in {{ monthLabel() }}</span>
+        </div>
+
+        <div class="fin-filters" role="group" aria-label="Filter transactions">
+          <select class="fin-select" [value]="fAccount() ?? ''"
+                  (change)="setAccountFilter($any($event.target).value ? +$any($event.target).value : null)">
+            <option value="">All accounts</option>
+            @for (a of accounts(); track a.id) { <option [value]="a.id">{{ a.name }}</option> }
+          </select>
+
+          <select class="fin-select" [value]="fCategory() ?? ''"
+                  (change)="setCategoryFilter($any($event.target).value || null)">
+            <option value="">All categories</option>
+            @for (c of categories(); track c) { <option [value]="c">{{ c }}</option> }
+          </select>
+
+          <select class="fin-select" [value]="fOwner() ?? ''"
+                  (change)="setOwnerFilter($any($event.target).value || null)">
+            <option value="">His & Hers</option>
+            @for (o of ownerOptions; track o) { <option [value]="o">{{ ownerLabel(o) }}</option> }
+          </select>
+
+          <select class="fin-select" [value]="fKind() ?? ''"
+                  (change)="setKindFilter($any($event.target).value || null)">
+            <option value="">All kinds</option>
+            @for (k of txnKindOptions; track k) { <option [value]="k">{{ k }}</option> }
+          </select>
+
+          @if (hasFilters()) {
+            <button mat-stroked-button class="fin-filters__clear" (click)="clearFilters()">
+              <mat-icon aria-hidden="true">close</mat-icon> Clear
+            </button>
+          }
+        </div>
+
+        @if (txnLoading()) {
+          <div class="fin-table__busy"><mat-spinner [diameter]="22" /> <span>Loading…</span></div>
+        } @else if (txns().length === 0) {
+          <p class="fin-card__empty">No transactions match these filters.</p>
+        } @else {
+          <div class="fin-table-wrap">
+            <table class="fin-table">
+              <thead>
+                <tr>
+                  <th class="fin-table__date">Date</th>
+                  <th>Merchant</th>
+                  <th class="fin-table__cat">Category</th>
+                  <th class="fin-table__acct">Account</th>
+                  <th class="fin-table__amt">Amount</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (t of txns(); track t.id) {
+                  <tr>
+                    <td class="fin-table__date">{{ txnDate(t.date) }}</td>
+                    <td class="fin-table__merchant">
+                      <span class="fin-merchant">{{ t.merchant }}</span>
+                    </td>
+                    <td class="fin-table__cat">
+                      @if (t.category) { <span class="fin-chip">{{ t.category }}</span> }
+                      @else { <span class="fin-muted">—</span> }
+                    </td>
+                    <td class="fin-table__acct">
+                      <span class="fin-owner-dot fin-owner-dot--sm" [attr.data-owner]="t.owner" aria-hidden="true"></span>
+                      {{ t.accountName }}
+                    </td>
+                    <td class="fin-table__amt"
+                        [class.fin-amt--income]="t.kind === 'income'"
+                        [class.fin-amt--expense]="t.kind === 'expense'"
+                        [class.fin-amt--transfer]="t.kind === 'transfer'">
+                      {{ t.kind === 'income' ? '+' : t.kind === 'expense' ? '−' : '' }}{{ money(t.magnitude) }}
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+
+          <div class="fin-pager">
+            <button mat-icon-button matTooltip="Previous page" [disabled]="txnPage() <= 1" (click)="stepPage(-1)">
+              <mat-icon aria-hidden="true">chevron_left</mat-icon>
+            </button>
+            <span class="fin-pager__label">Page {{ txnPage() }} of {{ txnPages() }}</span>
+            <button mat-icon-button matTooltip="Next page" [disabled]="txnPage() >= txnPages()" (click)="stepPage(1)">
+              <mat-icon aria-hidden="true">chevron_right</mat-icon>
+            </button>
+          </div>
+        }
+      </section>
+
+      <!-- ══ IMPORT history strip (by NAME, never email) ══════════════════ -->
+      @if (imports().length > 0) {
+        <section class="fin-card">
+          <h2 class="fin-card__title">Recent imports</h2>
+          <ul class="fin-history">
+            @for (i of imports(); track i.id) {
+              <li class="fin-history__row">
+                <span class="fin-history__file"><mat-icon aria-hidden="true">description</mat-icon> {{ i.fileName }}</span>
+                <span class="fin-history__counts">
+                  <strong>{{ i.importedCount }}</strong> imported · {{ i.skippedCount }} skipped
+                </span>
+                <span class="fin-history__who" [matTooltip]="'Imported by ' + i.importedByName">
+                  <span class="fin-history__avatar" aria-hidden="true">{{ initials(i.importedByName) }}</span>
+                  {{ i.importedByName }}
+                </span>
+                <span class="fin-history__when">{{ importWhen(i.createdUtc) }}</span>
+              </li>
+            }
+          </ul>
+        </section>
+      }
+    }
+  }
+</section>

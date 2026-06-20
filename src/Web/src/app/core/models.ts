@@ -1543,6 +1543,145 @@ export interface FamilyChores {
   tally: FamilyChoreTally[];
 }
 
+// ── Family Hub F5: FINANCE (Rocket Money CSV import) ──────────────────────────────────────────────
+// Extra-sensitive: every endpoint is gated by BOTH family.use AND family.finance, household-private, and
+// NOT shareable to outside contacts. People (the importer) are by userId + name only — never an email.
+
+/** Who an account belongs to: "his" | "hers" | "joint", or "unassigned" until the family labels it. */
+export type FinanceOwner = 'his' | 'hers' | 'joint' | 'unassigned';
+
+/** Account flavor inferred from the CSV, editable by the family: "bank" | "credit" | "other". */
+export type FinanceAccountKind = 'bank' | 'credit' | 'other';
+
+/** Classified money flow. Spending math sums "expense" only; transfers never count as spending. */
+export type FinanceTxnKind = 'expense' | 'income' | 'transfer';
+
+/** A thumbnail of an account as returned on an import (mirrors AccountSummaryDto). */
+export interface FinanceAccountSummary {
+  id: number;
+  name: string;
+  institution?: string | null;
+  owner: FinanceOwner;
+  kind: FinanceAccountKind;
+}
+
+/**
+ * The outcome of importing a Rocket Money CSV (mirrors ImportResultDto): how many rows the file held,
+ * how many new transactions were inserted vs skipped (dupes + unparseable), and the accounts it touched.
+ */
+export interface FinanceImportResult {
+  importId: number;
+  rowCount: number;
+  imported: number;
+  skipped: number;
+  accounts: FinanceAccountSummary[];
+}
+
+/**
+ * A finance account (mirrors AccountDto) with its rollups: how many transactions hang on it and its total
+ * EXPENSE magnitude (spending). The family sets `owner`/`kind`/`name` to tag the two SoFi accounts apart.
+ */
+export interface FinanceAccount {
+  id: number;
+  name: string;
+  institution?: string | null;
+  owner: FinanceOwner;
+  kind: FinanceAccountKind;
+  txnCount: number;
+  totalSpentMagnitude: number;
+}
+
+/** A relabel of an account (mirrors AccountPatchRequest); send only the fields you're changing. */
+export interface FinanceAccountPatch {
+  owner?: FinanceOwner;
+  kind?: FinanceAccountKind;
+  name?: string;
+}
+
+/**
+ * One transaction row (mirrors TransactionDto). `magnitude` is the non-negative size of the movement and
+ * `rawAmount` is the signed CSV value (negative = money out). `kind` styles expense vs income vs transfer.
+ * `owner` is the account's owner (denormalized for the table's his/hers styling). Date is an ISO `yyyy-MM-dd`.
+ */
+export interface FinanceTransaction {
+  id: number;
+  date: string;
+  merchant: string;
+  category?: string | null;
+  magnitude: number;
+  rawAmount: number;
+  kind: FinanceTxnKind;
+  accountId: number;
+  accountName: string;
+  owner: FinanceOwner;
+}
+
+/** A page of transactions (mirrors TransactionsPageDto) for the filterable, paged table. */
+export interface FinanceTransactionsPage {
+  page: number;
+  pageSize: number;
+  total: number;
+  items: FinanceTransaction[];
+}
+
+/** A spending slice by category (mirrors CategoryAmountDto); `pct` is the share of the month's spend. */
+export interface FinanceCategoryAmount {
+  category: string;
+  amount: number;
+  pct: number;
+}
+
+/** A spending slice by account (mirrors AccountAmountDto), carrying the account's owner for grouping. */
+export interface FinanceAccountAmount {
+  accountId: number;
+  name: string;
+  owner: FinanceOwner;
+  amount: number;
+}
+
+/** A spending slice by owner (mirrors OwnerAmountDto) — the his/hers/joint split. */
+export interface FinanceOwnerAmount {
+  owner: FinanceOwner;
+  amount: number;
+}
+
+/** One month on the rolling trend (mirrors TrendPointDto): spent + income for that `yyyy-MM`. */
+export interface FinanceTrendPoint {
+  month: string;
+  spent: number;
+  income: number;
+}
+
+/**
+ * The dashboard summary for a month (mirrors SummaryDto): headline totals plus the by-category, by-account,
+ * and by-owner breakdowns and a rolling 12-month trend. `month` is the resolved `yyyy-MM` (the server falls
+ * back to the most recent month with data when none is requested). Spending is expense-only.
+ */
+export interface FinanceSummary {
+  month: string;
+  totalSpent: number;
+  totalIncome: number;
+  byCategory: FinanceCategoryAmount[];
+  byAccount: FinanceAccountAmount[];
+  byOwner: FinanceOwnerAmount[];
+  monthlyTrend: FinanceTrendPoint[];
+}
+
+/**
+ * One import batch in the history strip (mirrors ImportBatchDto): the file, its counts, and WHO ran it —
+ * by userId + display name only, never an email — and when (UTC ISO).
+ */
+export interface FinanceImportBatch {
+  id: number;
+  fileName: string;
+  rowCount: number;
+  importedCount: number;
+  skippedCount: number;
+  importedByUserId: number;
+  importedByName: string;
+  createdUtc: string;
+}
+
 /** Canonical permission keys (mirror of the backend catalog — all 29 keys). */
 export const PERM = {
   dashboardView: 'dashboard.view',

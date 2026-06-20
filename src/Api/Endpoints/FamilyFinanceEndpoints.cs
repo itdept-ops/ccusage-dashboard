@@ -1,0 +1,554 @@
+using System.Globalization;
+using Ccusage.Api.Auth;
+using Ccusage.Api.Data;
+using Ccusage.Api.Data.Entities;
+using Ccusage.Api.Services;
+using Microsoft.EntityFrameworkCore;
+
+namespace Ccusage.Api.Endpoints;
+
+/// <summary>
+/// Family Hub F5 — household FINANCE from a Rocket Money CSV import (/api/family/finance). Finance is the
+/// most sensitive corner of the hub, so EVERY route here is gated by BOTH <see cref="Permissions.FamilyUse"/>
+/// AND <see cref="Permissions.FamilyFinance"/> (the extra money gate) on top of <c>.RequireAuthorization()</c>,
+/// and obeys the Family Hub privacy rules:
+///
+/// <list type="bullet">
+///   <item>Everything is private to the owning HOUSEHOLD; a cross-household id is a 404 (existence is never
+///   leaked). Finance data is NOT shareable to outside contacts — there is no FamilyShare path here.</item>
+///   <item>People are exposed by AppUser id + display name ONLY — an email is NEVER put on the wire.</item>
+/// </list>
+///
+/// The importer parses a Rocket Money export (see <see cref="RocketMoneyCsv"/>), find-or-creates a
+/// <see cref="FinanceAccount"/> per distinct (Account Name, Institution) — never assuming whose account it
+/// is (every account starts owner="unassigned"; the family LABELS each one afterward via PUT /accounts/{id},
+/// which is how the two SoFi accounts get told apart) — and inserts DEDUPED <see cref="FinanceTransaction"/>
+/// rows so re-importing the same/overlapping export adds nothing. Spending math is EXPENSE-only; income and
+/// transfers (incl. credit-card payments) are separated so moving money between your own accounts never
+/// looks like spending.
+/// </summary>
+public static class FamilyFinanceEndpoints
+{
+    // ---- DTOs (people by userId + name; never email) ----
+
+    public sealed record ImportRequest(string? FileName, string? Content);
+
+    public sealed record AccountSummaryDto(int Id, string Name, string? Institution, string Owner, string Kind);
+
+    public sealed record ImportResultDto(
+        long ImportId, int RowCount, int Imported, int Skipped, IReadOnlyList<AccountSummaryDto> Accounts);
+
+    public sealed record AccountDto(
+        int Id, string Name, string? Institution, string Owner, string Kind,
+        int TxnCount, decimal TotalSpentMagnitude);
+
+    public sealed record AccountPatchRequest(string? Owner, string? Kind, string? Name);
+
+    public sealed record TransactionDto(
+        long Id, string Date, string Merchant, string? Category,
+        decimal Magnitude, decimal RawAmount, string Kind,
+        int AccountId, string AccountName, string Owner);
+
+    public sealed record TransactionsPageDto(
+        int Page, int PageSize, int Total, IReadOnlyList<TransactionDto> Items);
+
+    public sealed record CategoryAmountDto(string Category, decimal Amount, double Pct);
+    public sealed record AccountAmountDto(int AccountId, string Name, string Owner, decimal Amount);
+    public sealed record OwnerAmountDto(string Owner, decimal Amount);
+    public sealed record TrendPointDto(string Month, decimal Spent, decimal Income);
+
+    public sealed record SummaryDto(
+        string Month, decimal TotalSpent, decimal TotalIncome,
+        IReadOnlyList<CategoryAmountDto> ByCategory,
+        IReadOnlyList<AccountAmountDto> ByAccount,
+        IReadOnlyList<OwnerAmountDto> ByOwner,
+        IReadOnlyList<TrendPointDto> MonthlyTrend);
+
+    public sealed record ImportBatchDto(
+        long Id, string FileName, int RowCount, int ImportedCount, int SkippedCount,
+        int ImportedByUserId, string ImportedByName, DateTime CreatedUtc);
+
+    private static readonly string[] Owners = { "his", "hers", "joint", "unassigned" };
+    private static readonly string[] Kinds = { "bank", "credit", "other" };
+
+    // Cap the uploaded CSV at a sane size (a Rocket Money export of many years is well under this).
+    private const int MaxContentBytes = 8 * 1024 * 1024; // 8 MiB
+    private const int DefaultPageSize = 50;
+    private const int MaxPageSize = 200;
+
+    public static void MapFamilyFinanceEndpoints(this WebApplication app)
+    {
+        // BOTH gates: family.use AND family.finance. Chaining two RequirePermission filters ANDs them — a
+        // caller must clear both to reach any finance route.
+        var g = app.MapGroup("/api/family/finance")
+            .RequireAuthorization()
+            .RequirePermission(Permissions.FamilyUse)
+            .RequirePermission(Permissions.FamilyFinance);
+
+        MapImport(g);
+        MapAccounts(g);
+        MapTransactions(g);
+        MapSummary(g);
+        MapImportsList(g);
+    }
+
+    // =====================================================================================
+    // IMPORT — parse a Rocket Money CSV, find-or-create accounts, insert deduped transactions
+    // =====================================================================================
+
+    private static void MapImport(RouteGroupBuilder g)
+    {
+        g.MapPost("/import", async (
+            ImportRequest req, CurrentUserAccessor me, CurrentHouseholdAccessor households,
+            UsageDbContext db, CancellationToken ct) =>
+        {
+            var caller = (await me.GetUserAsync(ct))!;
+            var household = (await households.GetOrCreateForCallerAsync(caller, ct))!;
+
+            var content = req.Content ?? "";
+            if (string.IsNullOrWhiteSpace(content))
+                return Results.BadRequest(new { message = "Paste or upload the Rocket Money CSV to import." });
+            if (System.Text.Encoding.UTF8.GetByteCount(content) > MaxContentBytes)
+                return Results.BadRequest(new { message = "That CSV is too large to import." });
+
+            var fileName = Clamp(string.IsNullOrWhiteSpace(req.FileName) ? "import.csv" : req.FileName!, 260);
+
+            var parsed = RocketMoneyCsv.Parse(content);
+
+            var now = DateTime.UtcNow;
+
+            // Write the import batch first so transactions can carry its id.
+            var batch = new FinanceImport
+            {
+                HouseholdId = household.Id,
+                FileName = fileName,
+                RowCount = parsed.RowCount,
+                ImportedCount = 0,
+                SkippedCount = parsed.SkippedCount,
+                ImportedByUserId = caller.Id,
+                CreatedUtc = now,
+            };
+            db.FinanceImports.Add(batch);
+            await db.SaveChangesAsync(ct);
+
+            // Find-or-create an account per distinct (name, institution). Load the household's existing
+            // accounts once and key them the same way the CSV groups (lower-cased name|institution).
+            var existingAccounts = await db.FinanceAccounts
+                .Where(a => a.HouseholdId == household.Id)
+                .ToListAsync(ct);
+            var byKey = existingAccounts.ToDictionary(
+                a => RocketMoneyCsv.AccountKey(a.Name, a.Institution ?? ""), a => a);
+
+            // The set of account keys touched by this import (for the response).
+            var touched = new HashSet<string>(StringComparer.Ordinal);
+
+            // Pre-load this household's existing dedup hashes so we can skip in-memory and also guard the
+            // unique index (a concurrent or overlapping import). We additionally de-dup WITHIN this file.
+            var existingHashes = await db.FinanceTransactions
+                .Where(t => t.HouseholdId == household.Id)
+                .Select(t => t.DedupHash)
+                .ToListAsync(ct);
+            var seenHashes = new HashSet<string>(existingHashes, StringComparer.Ordinal);
+
+            var imported = 0;
+            // Track a running skip count seeded from unparseable rows; dedup hits add to it.
+            var skipped = parsed.SkippedCount;
+
+            foreach (var row in parsed.Rows)
+            {
+                var key = RocketMoneyCsv.AccountKey(row.AccountName, row.Institution);
+                touched.Add(key);
+
+                if (!byKey.TryGetValue(key, out var account))
+                {
+                    account = new FinanceAccount
+                    {
+                        HouseholdId = household.Id,
+                        Name = Clamp(string.IsNullOrWhiteSpace(row.AccountName) ? "Unnamed account" : row.AccountName, 200),
+                        // Normalize a missing institution to null on the entity, but key on "" so two rows
+                        // with no institution collapse to one account.
+                        Institution = string.IsNullOrWhiteSpace(row.Institution) ? null : Clamp(row.Institution, 200),
+                        Owner = "unassigned",
+                        Kind = RocketMoneyCsv.AccountKind(row.AccountTypeRaw),
+                        CreatedUtc = now,
+                    };
+                    db.FinanceAccounts.Add(account);
+                    // Persist immediately so the account gets an Id we can FK the transactions to, and so a
+                    // later row for the same account reuses it.
+                    await db.SaveChangesAsync(ct);
+                    byKey[key] = account;
+                }
+
+                var hash = RocketMoneyCsv.DedupHash(key, row.Date, row.RawAmount, row.Merchant, row.Description);
+                if (!seenHashes.Add(hash))
+                {
+                    skipped++; // already present (prior import) or a duplicate within this file
+                    continue;
+                }
+
+                db.FinanceTransactions.Add(new FinanceTransaction
+                {
+                    HouseholdId = household.Id,
+                    AccountId = account.Id,
+                    Date = row.Date,
+                    Merchant = row.Merchant,
+                    Description = row.Description,
+                    Magnitude = row.Magnitude,
+                    RawAmount = row.RawAmount,
+                    Kind = KindString(row.Kind),
+                    Category = row.Category,
+                    Note = row.Note,
+                    DedupHash = hash,
+                    ImportId = batch.Id,
+                    CreatedUtc = now,
+                });
+                imported++;
+            }
+
+            // Update the batch's final counts, then persist the transactions.
+            batch.ImportedCount = imported;
+            batch.SkippedCount = skipped;
+            await db.SaveChangesAsync(ct);
+
+            var accounts = byKey.Values
+                .Where(a => touched.Contains(RocketMoneyCsv.AccountKey(a.Name, a.Institution ?? "")))
+                .OrderBy(a => a.Name, StringComparer.OrdinalIgnoreCase).ThenBy(a => a.Id)
+                .Select(a => new AccountSummaryDto(a.Id, a.Name, a.Institution, a.Owner, a.Kind))
+                .ToList();
+
+            return Results.Ok(new ImportResultDto(batch.Id, parsed.RowCount, imported, skipped, accounts));
+        });
+    }
+
+    // =====================================================================================
+    // ACCOUNTS — list + relabel (his/hers/joint, kind, name)
+    // =====================================================================================
+
+    private static void MapAccounts(RouteGroupBuilder g)
+    {
+        g.MapGet("/accounts", async (
+            CurrentUserAccessor me, CurrentHouseholdAccessor households, UsageDbContext db, CancellationToken ct) =>
+        {
+            var caller = (await me.GetUserAsync(ct))!;
+            var household = (await households.GetOrCreateForCallerAsync(caller, ct))!;
+
+            var accounts = await db.FinanceAccounts.AsNoTracking()
+                .Where(a => a.HouseholdId == household.Id)
+                .ToListAsync(ct);
+
+            // Per-account txn count + total EXPENSE magnitude (spending), computed in one grouped read.
+            var stats = await db.FinanceTransactions.AsNoTracking()
+                .Where(t => t.HouseholdId == household.Id)
+                .GroupBy(t => t.AccountId)
+                .Select(grp => new
+                {
+                    AccountId = grp.Key,
+                    Count = grp.Count(),
+                    Spent = grp.Where(t => t.Kind == "expense").Sum(t => (decimal?)t.Magnitude) ?? 0m,
+                })
+                .ToListAsync(ct);
+            var statByAccount = stats.ToDictionary(s => s.AccountId, s => s);
+
+            var dtos = accounts
+                .OrderBy(a => a.Name, StringComparer.OrdinalIgnoreCase).ThenBy(a => a.Id)
+                .Select(a =>
+                {
+                    statByAccount.TryGetValue(a.Id, out var s);
+                    return new AccountDto(a.Id, a.Name, a.Institution, a.Owner, a.Kind,
+                        s?.Count ?? 0, s?.Spent ?? 0m);
+                })
+                .ToList();
+
+            return Results.Ok(dtos);
+        });
+
+        g.MapPut("/accounts/{id:int}", async (
+            int id, AccountPatchRequest req, CurrentUserAccessor me, CurrentHouseholdAccessor households,
+            UsageDbContext db, CancellationToken ct) =>
+        {
+            var caller = (await me.GetUserAsync(ct))!;
+            var household = (await households.GetOrCreateForCallerAsync(caller, ct))!;
+
+            var account = await db.FinanceAccounts.FirstOrDefaultAsync(a => a.Id == id, ct);
+            if (account is null || account.HouseholdId != household.Id) return NotFound();
+
+            if (req.Owner is not null)
+            {
+                var owner = req.Owner.Trim().ToLowerInvariant();
+                if (!Owners.Contains(owner))
+                    return Results.BadRequest(new { message = "Owner must be his, hers, joint, or unassigned." });
+                account.Owner = owner;
+            }
+            if (req.Kind is not null)
+            {
+                var kind = req.Kind.Trim().ToLowerInvariant();
+                if (!Kinds.Contains(kind))
+                    return Results.BadRequest(new { message = "Kind must be bank, credit, or other." });
+                account.Kind = kind;
+            }
+            if (req.Name is not null)
+            {
+                var name = req.Name.Trim();
+                if (name.Length == 0)
+                    return Results.BadRequest(new { message = "An account name is required." });
+                account.Name = Clamp(name, 200);
+            }
+
+            try
+            {
+                await db.SaveChangesAsync(ct);
+            }
+            catch (DbUpdateException) // renamed onto an existing (household, name, institution)
+            {
+                return Results.BadRequest(new { message = "Another account already uses that name." });
+            }
+
+            return Results.Ok(new AccountSummaryDto(
+                account.Id, account.Name, account.Institution, account.Owner, account.Kind));
+        });
+    }
+
+    // =====================================================================================
+    // TRANSACTIONS — paged, filterable by month/account/category/owner/kind
+    // =====================================================================================
+
+    private static void MapTransactions(RouteGroupBuilder g)
+    {
+        g.MapGet("/transactions", async (
+            string? month, int? accountId, string? category, string? owner, string? kind, int? page,
+            CurrentUserAccessor me, CurrentHouseholdAccessor households, UsageDbContext db, CancellationToken ct) =>
+        {
+            var caller = (await me.GetUserAsync(ct))!;
+            var household = (await households.GetOrCreateForCallerAsync(caller, ct))!;
+
+            var q = db.FinanceTransactions.AsNoTracking()
+                .Where(t => t.HouseholdId == household.Id);
+
+            if (TryParseMonth(month, out var from, out var toExclusive))
+                q = q.Where(t => t.Date >= from && t.Date < toExclusive);
+            if (accountId is int aId)
+                q = q.Where(t => t.AccountId == aId);
+            if (!string.IsNullOrWhiteSpace(category))
+                q = q.Where(t => t.Category == category);
+            if (!string.IsNullOrWhiteSpace(kind))
+            {
+                var k = kind.Trim().ToLowerInvariant();
+                q = q.Where(t => t.Kind == k);
+            }
+            if (!string.IsNullOrWhiteSpace(owner))
+            {
+                var o = owner.Trim().ToLowerInvariant();
+                // Owner lives on the account; filter via a join to the household's accounts.
+                var ownerAccountIds = db.FinanceAccounts
+                    .Where(a => a.HouseholdId == household.Id && a.Owner == o)
+                    .Select(a => a.Id);
+                q = q.Where(t => ownerAccountIds.Contains(t.AccountId));
+            }
+
+            var total = await q.CountAsync(ct);
+
+            var pageNum = page is int p && p > 0 ? p : 1;
+            var skip = (pageNum - 1) * DefaultPageSize;
+
+            var rows = await q
+                .OrderByDescending(t => t.Date).ThenByDescending(t => t.Id)
+                .Skip(skip).Take(DefaultPageSize)
+                .Select(t => new { t.Id, t.Date, t.Merchant, t.Category, t.Magnitude, t.RawAmount, t.Kind, t.AccountId })
+                .ToListAsync(ct);
+
+            // Resolve account name + owner for the page in one read.
+            var acctIds = rows.Select(r => r.AccountId).Distinct().ToList();
+            var accounts = await db.FinanceAccounts.AsNoTracking()
+                .Where(a => a.HouseholdId == household.Id && acctIds.Contains(a.Id))
+                .Select(a => new { a.Id, a.Name, a.Owner })
+                .ToListAsync(ct);
+            var acctById = accounts.ToDictionary(a => a.Id, a => a);
+
+            var items = rows.Select(r =>
+            {
+                acctById.TryGetValue(r.AccountId, out var acct);
+                return new TransactionDto(
+                    r.Id, r.Date.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
+                    r.Merchant, r.Category, r.Magnitude, r.RawAmount, r.Kind,
+                    r.AccountId, acct?.Name ?? "Unknown account", acct?.Owner ?? "unassigned");
+            }).ToList();
+
+            return Results.Ok(new TransactionsPageDto(pageNum, DefaultPageSize, total, items));
+        });
+    }
+
+    // =====================================================================================
+    // SUMMARY — totals + byCategory/byAccount/byOwner + a multi-month trend (expense-only spending)
+    // =====================================================================================
+
+    private static void MapSummary(RouteGroupBuilder g)
+    {
+        g.MapGet("/summary", async (
+            string? month, CurrentUserAccessor me, CurrentHouseholdAccessor households,
+            UsageDbContext db, CancellationToken ct) =>
+        {
+            var caller = (await me.GetUserAsync(ct))!;
+            var household = (await households.GetOrCreateForCallerAsync(caller, ct))!;
+
+            // The summary month: the requested YYYY-MM, else the most recent month with data, else now.
+            DateOnly from, toExclusive;
+            if (!TryParseMonth(month, out from, out toExclusive))
+            {
+                var maxDate = await db.FinanceTransactions.AsNoTracking()
+                    .Where(t => t.HouseholdId == household.Id)
+                    .OrderByDescending(t => t.Date)
+                    .Select(t => (DateOnly?)t.Date)
+                    .FirstOrDefaultAsync(ct);
+                var anchor = maxDate ?? DateOnly.FromDateTime(DateTime.UtcNow);
+                from = new DateOnly(anchor.Year, anchor.Month, 1);
+                toExclusive = from.AddMonths(1);
+            }
+            var monthLabel = from.ToString("yyyy-MM", CultureInfo.InvariantCulture);
+
+            // Accounts (for owner/name resolution).
+            var accounts = await db.FinanceAccounts.AsNoTracking()
+                .Where(a => a.HouseholdId == household.Id)
+                .Select(a => new { a.Id, a.Name, a.Owner })
+                .ToListAsync(ct);
+            var acctById = accounts.ToDictionary(a => a.Id, a => a);
+
+            // The month's transactions (we shape totals in memory — a month is small).
+            var monthTxns = await db.FinanceTransactions.AsNoTracking()
+                .Where(t => t.HouseholdId == household.Id && t.Date >= from && t.Date < toExclusive)
+                .Select(t => new { t.AccountId, t.Magnitude, t.Kind, t.Category })
+                .ToListAsync(ct);
+
+            var expenses = monthTxns.Where(t => t.Kind == "expense").ToList();
+            var totalSpent = expenses.Sum(t => t.Magnitude);
+            var totalIncome = monthTxns.Where(t => t.Kind == "income").Sum(t => t.Magnitude);
+
+            var byCategory = expenses
+                .GroupBy(t => string.IsNullOrWhiteSpace(t.Category) ? "Uncategorized" : t.Category!)
+                .Select(grp => new { Category = grp.Key, Amount = grp.Sum(x => x.Magnitude) })
+                .OrderByDescending(x => x.Amount).ThenBy(x => x.Category, StringComparer.OrdinalIgnoreCase)
+                .Select(x => new CategoryAmountDto(
+                    x.Category, x.Amount, totalSpent > 0 ? Math.Round((double)(x.Amount / totalSpent) * 100.0, 1) : 0.0))
+                .ToList();
+
+            var byAccount = expenses
+                .GroupBy(t => t.AccountId)
+                .Select(grp =>
+                {
+                    acctById.TryGetValue(grp.Key, out var acct);
+                    return new AccountAmountDto(grp.Key, acct?.Name ?? "Unknown account",
+                        acct?.Owner ?? "unassigned", grp.Sum(x => x.Magnitude));
+                })
+                .OrderByDescending(x => x.Amount).ThenBy(x => x.Name, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            var byOwner = expenses
+                .GroupBy(t => acctById.TryGetValue(t.AccountId, out var acct) ? acct.Owner : "unassigned")
+                .Select(grp => new OwnerAmountDto(grp.Key, grp.Sum(x => x.Magnitude)))
+                .OrderByDescending(x => x.Amount).ThenBy(x => x.Owner, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            // A rolling 12-month trend ending on the summary month (spent + income per month, expense-only spending).
+            var trendStart = from.AddMonths(-11);
+            var trendTxns = await db.FinanceTransactions.AsNoTracking()
+                .Where(t => t.HouseholdId == household.Id && t.Date >= trendStart && t.Date < toExclusive)
+                .Select(t => new { t.Date, t.Magnitude, t.Kind })
+                .ToListAsync(ct);
+
+            var trendByMonth = trendTxns
+                .GroupBy(t => new DateOnly(t.Date.Year, t.Date.Month, 1))
+                .ToDictionary(
+                    grp => grp.Key,
+                    grp => (Spent: grp.Where(x => x.Kind == "expense").Sum(x => x.Magnitude),
+                            Income: grp.Where(x => x.Kind == "income").Sum(x => x.Magnitude)));
+
+            var monthlyTrend = new List<TrendPointDto>(12);
+            for (var i = 0; i < 12; i++)
+            {
+                var m = trendStart.AddMonths(i);
+                trendByMonth.TryGetValue(m, out var pair);
+                monthlyTrend.Add(new TrendPointDto(
+                    m.ToString("yyyy-MM", CultureInfo.InvariantCulture), pair.Spent, pair.Income));
+            }
+
+            return Results.Ok(new SummaryDto(
+                monthLabel, totalSpent, totalIncome, byCategory, byAccount, byOwner, monthlyTrend));
+        });
+    }
+
+    // =====================================================================================
+    // IMPORTS — recent import batches (importer by userId + name; never email)
+    // =====================================================================================
+
+    private static void MapImportsList(RouteGroupBuilder g)
+    {
+        g.MapGet("/imports", async (
+            CurrentUserAccessor me, CurrentHouseholdAccessor households, UsageDbContext db, CancellationToken ct) =>
+        {
+            var caller = (await me.GetUserAsync(ct))!;
+            var household = (await households.GetOrCreateForCallerAsync(caller, ct))!;
+
+            var imports = await db.FinanceImports.AsNoTracking()
+                .Where(i => i.HouseholdId == household.Id)
+                .OrderByDescending(i => i.CreatedUtc).ThenByDescending(i => i.Id)
+                .Take(100)
+                .ToListAsync(ct);
+
+            var names = await NamesAsync(db, imports.Select(i => i.ImportedByUserId), ct);
+
+            var dtos = imports.Select(i => new ImportBatchDto(
+                i.Id, i.FileName, i.RowCount, i.ImportedCount, i.SkippedCount,
+                i.ImportedByUserId, Name(names, i.ImportedByUserId), i.CreatedUtc)).ToList();
+
+            return Results.Ok(dtos);
+        });
+    }
+
+    // =====================================================================================
+    // HELPERS
+    // =====================================================================================
+
+    private static string KindString(RocketMoneyCsv.ParsedKind kind) => kind switch
+    {
+        RocketMoneyCsv.ParsedKind.Income => "income",
+        RocketMoneyCsv.ParsedKind.Transfer => "transfer",
+        _ => "expense",
+    };
+
+    /// <summary>Parse a "YYYY-MM" month into a [from, toExclusive) date window; false if blank/invalid.</summary>
+    private static bool TryParseMonth(string? month, out DateOnly from, out DateOnly toExclusive)
+    {
+        from = default;
+        toExclusive = default;
+        if (string.IsNullOrWhiteSpace(month)) return false;
+        if (!DateTime.TryParseExact(month.Trim(), "yyyy-MM", CultureInfo.InvariantCulture,
+                DateTimeStyles.None, out var dt))
+            return false;
+        from = new DateOnly(dt.Year, dt.Month, 1);
+        toExclusive = from.AddMonths(1);
+        return true;
+    }
+
+    private static async Task<Dictionary<int, string>> NamesAsync(
+        UsageDbContext db, IEnumerable<int> userIds, CancellationToken ct)
+    {
+        var ids = userIds.Distinct().ToList();
+        if (ids.Count == 0) return new Dictionary<int, string>();
+        return await db.Users.AsNoTracking()
+            .Where(u => ids.Contains(u.Id))
+            .ToDictionaryAsync(
+                u => u.Id,
+                u => string.IsNullOrEmpty(u.Name) ? "Unknown user" : u.Name, ct);
+    }
+
+    private static string Name(Dictionary<int, string> names, int userId) =>
+        names.TryGetValue(userId, out var n) ? n : "Unknown user";
+
+    private static string Clamp(string? s, int max)
+    {
+        s = (s ?? "").Trim();
+        return s.Length > max ? s[..max] : s;
+    }
+
+    private static IResult NotFound() =>
+        Results.NotFound(new { message = "That account doesn't exist." });
+}

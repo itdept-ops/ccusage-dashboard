@@ -50,6 +50,9 @@ public class UsageDbContext(DbContextOptions<UsageDbContext> options) : DbContex
     public DbSet<FamilyMeal> FamilyMeals => Set<FamilyMeal>();
     public DbSet<FamilyChore> FamilyChores => Set<FamilyChore>();
     public DbSet<FamilyChoreCompletion> FamilyChoreCompletions => Set<FamilyChoreCompletion>();
+    public DbSet<FinanceAccount> FinanceAccounts => Set<FinanceAccount>();
+    public DbSet<FinanceTransaction> FinanceTransactions => Set<FinanceTransaction>();
+    public DbSet<FinanceImport> FinanceImports => Set<FinanceImport>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -574,6 +577,50 @@ public class UsageDbContext(DbContextOptions<UsageDbContext> options) : DbContex
             // A completion belongs to a chore; cascade-deletes with it (the chore owns its ledger).
             e.HasOne(x => x.Chore).WithMany()
                 .HasForeignKey(x => x.ChoreId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        b.Entity<FinanceAccount>(e =>
+        {
+            e.Property(x => x.Name).HasMaxLength(200);
+            e.Property(x => x.Institution).HasMaxLength(200);
+            e.Property(x => x.Owner).HasMaxLength(16).HasDefaultValue("unassigned");
+            e.Property(x => x.Kind).HasMaxLength(16).HasDefaultValue("other");
+            e.Property(x => x.CreatedUtc).HasColumnType("timestamp with time zone");
+            // The accounts list reads one household's accounts.
+            e.HasIndex(x => x.HouseholdId);
+            // One account per distinct (household, name, institution); the find-or-create import keys on this.
+            // Institution can be null, so the unique constraint treats nulls per Postgres semantics — the
+            // importer normalizes a missing institution to "" to keep the key stable.
+            e.HasIndex(x => new { x.HouseholdId, x.Name, x.Institution }).IsUnique();
+        });
+
+        b.Entity<FinanceTransaction>(e =>
+        {
+            e.Property(x => x.Merchant).HasMaxLength(300);
+            e.Property(x => x.Description).HasMaxLength(500);
+            e.Property(x => x.Magnitude).HasPrecision(18, 2);
+            e.Property(x => x.RawAmount).HasPrecision(18, 2);
+            e.Property(x => x.Kind).HasMaxLength(16).HasDefaultValue("expense");
+            e.Property(x => x.Category).HasMaxLength(120);
+            e.Property(x => x.Note).HasMaxLength(1000);
+            e.Property(x => x.DedupHash).HasMaxLength(64);
+            e.Property(x => x.CreatedUtc).HasColumnType("timestamp with time zone");
+            // The transactions/summary reads filter one household by date (month window) then account/etc.
+            e.HasIndex(x => new { x.HouseholdId, x.Date });
+            e.HasIndex(x => x.AccountId);
+            // Re-importing the same export is a no-op: a duplicate (household, dedupHash) is skipped.
+            e.HasIndex(x => new { x.HouseholdId, x.DedupHash }).IsUnique();
+            // Deleting an account deletes its transactions (the account owns its ledger).
+            e.HasOne(x => x.Account).WithMany()
+                .HasForeignKey(x => x.AccountId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        b.Entity<FinanceImport>(e =>
+        {
+            e.Property(x => x.FileName).HasMaxLength(260);
+            e.Property(x => x.CreatedUtc).HasColumnType("timestamp with time zone");
+            // The imports list reads one household's recent batches newest-first.
+            e.HasIndex(x => new { x.HouseholdId, x.CreatedUtc });
         });
     }
 }

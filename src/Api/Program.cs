@@ -443,6 +443,7 @@ app.MapFamilyNotesListsEndpoints();
 app.MapFamilyRemindersTimersEndpoints();
 app.MapFamilyTodayEndpoints();
 app.MapFamilyMealsChoresEndpoints();
+app.MapFamilyFinanceEndpoints();
 app.MapHub<ChatHub>("/api/hubs/chat");
 app.MapGet("/", () => app.Environment.IsDevelopment()
     ? Results.Redirect("/swagger")
