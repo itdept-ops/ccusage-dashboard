@@ -11,9 +11,15 @@ ingest contract (`POST /api/ingest` with the `X-Ingest-Key` header), so the two 
 
 ## What it gives you
 
-- **System-tray presence.** A tray icon with a right-click menu — **Open**, **Pause/Resume**,
-  **Sync now**, **Settings**, **Quit** — and a tooltip that shows live status
+- **System-tray presence.** A tray icon with a right-click menu — **Open**, **Quick add…**,
+  **Pause/Resume**, **Sync now**, **Settings**, **Quit** — and a tooltip that shows live status
   (e.g. *"Usage IQ — synced 14.2M tokens"*). Double-click the icon to open the window.
+- **Family Quick-Add.** The tray menu's **Quick add…** opens a one-line capture box: type something
+  (e.g. *"milk"*, *"remind me to call the dentist tomorrow 9am"*, *"note: wifi code"*) and it's filed
+  into your Family Hub as a list item, reminder, or note — no browser needed. It posts to
+  `/api/family/quick-add` with the **same server URL + ingest key** the agent already uses to report
+  usage (no extra config); the server resolves *you* from that key's owner and the result is shown as a
+  tray balloon. Requires your account to hold the `family.use` permission (otherwise the balloon says so).
 - **Transparency-first window.** A live, scrolling, timestamped activity log bound to the engine's
   events: what's being scanned, and every POST (endpoint, row count, HTTP status, tokens synced). The
   ingest key is **never** shown. A status header tracks connection state, last sync, session

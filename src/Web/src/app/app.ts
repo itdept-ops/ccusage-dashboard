@@ -1,4 +1,4 @@
-import { Component, computed, effect, inject, signal } from '@angular/core';
+import { Component, computed, effect, HostListener, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { RouterOutlet, RouterLink, RouterLinkActive, Router, NavigationEnd } from '@angular/router';
 import { timer, switchMap, catchError, of, filter } from 'rxjs';
@@ -8,11 +8,14 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatMenuModule } from '@angular/material/menu';
 import { MatSnackBar } from '@angular/material/snack-bar';
+import { MatDialog } from '@angular/material/dialog';
+
+import { QuickAddDialog } from './features/family/quick-add-dialog';
 
 import { Api } from './core/api';
 import { AuthService } from './core/auth';
 import { ChatRealtime } from './core/chat-realtime';
-import { Presence, SyncStatus, PERM } from './core/models';
+import { Presence, SyncStatus, PERM, QuickAddResult } from './core/models';
 import { timeAgo, humanizeInterval } from './shared/format';
 import { NotificationBell } from './features/notifications/notification-bell';
 
@@ -46,6 +49,10 @@ export class App {
   readonly auth = inject(AuthService);
   private chat = inject(ChatRealtime);
   private snack = inject(MatSnackBar);
+  private dialog = inject(MatDialog);
+
+  /** Whether the quick-add dialog is currently open (so the shortcut + FAB don't stack copies). */
+  private quickAddOpen = false;
 
   /** Last session-revoke seq we acted on — so a re-login can't re-trigger a stale forced logout. */
   private lastRevokeSeq = 0;
@@ -151,6 +158,14 @@ export class App {
    */
   readonly roleLabel = computed(() =>
     this.auth.permissions().includes(PERM.usersManage) ? 'Administrator' : 'Member',
+  );
+
+  /**
+   * Whether to show the global family Quick-Add affordance (FAB + keyboard shortcut). Gated on a signed-in
+   * session holding family.use, and hidden on the bare/public chrome where the toolbar isn't shown.
+   */
+  readonly showQuickAdd = computed(() =>
+    this.auth.isAuthenticated() && !this.bareLayout() && this.auth.hasPermission(PERM.familyUse),
   );
 
   /** Account-menu shortcuts, filtered to the pages the current session is allowed to view. */
@@ -272,6 +287,52 @@ export class App {
     this.userCount.set(null);
     this.snack.open('You were signed out by an administrator.', 'OK', { duration: 6000 });
     this.router.navigate(['/login']);
+  }
+
+  /**
+   * Global Quick-Add shortcut for family.use holders: a bare "q" OR Ctrl/Cmd-Shift-A opens the capture
+   * dialog. We ignore the keystroke while the user is typing in a field (input/textarea/select or any
+   * contenteditable) so "q" stays a normal letter there; the chord still works everywhere. No-op for users
+   * without family.use or on the bare/public chrome.
+   */
+  @HostListener('document:keydown', ['$event'])
+  onGlobalKeydown(e: KeyboardEvent): void {
+    if (!this.showQuickAdd() || this.quickAddOpen) return;
+
+    const chord = (e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'A' || e.key === 'a');
+    const bareQ = e.key === 'q' && !e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey
+      && !App.isTypingTarget(e.target);
+    if (!chord && !bareQ) return;
+
+    e.preventDefault();
+    this.openQuickAdd();
+  }
+
+  /** True when the event target is a text field / editable element where a bare "q" should type normally. */
+  private static isTypingTarget(target: EventTarget | null): boolean {
+    const el = target as HTMLElement | null;
+    if (!el) return false;
+    const tag = el.tagName;
+    return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || el.isContentEditable;
+  }
+
+  /** Open the compact family Quick-Add dialog; on success, toast the warm summary the server returned. */
+  openQuickAdd(): void {
+    if (!this.showQuickAdd() || this.quickAddOpen) return;
+    this.quickAddOpen = true;
+    this.closeMobileNav();
+    this.dialog
+      .open<QuickAddDialog, void, QuickAddResult>(QuickAddDialog, {
+        width: '460px',
+        maxWidth: '94vw',
+        autoFocus: 'first-tabbable',
+        restoreFocus: true,
+      })
+      .afterClosed()
+      .subscribe(result => {
+        this.quickAddOpen = false;
+        if (result) this.snack.open(result.summary, 'OK', { duration: 4000 });
+      });
   }
 
   logout(): void {

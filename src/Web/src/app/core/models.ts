@@ -1333,6 +1333,37 @@ export interface FamilyList {
   items: FamilyListItem[];
 }
 
+// ---- Family Hub F7: Quick-Add (one-line capture → list item / reminder / note) ----
+
+/**
+ * What kind a quick-add line should become. `auto` (the default) lets the server route by the text's
+ * leading keyword/time phrase; the rest force a specific kind. Mirrors the backend's lowercase strings.
+ */
+export type QuickAddKind = 'auto' | 'list' | 'reminder' | 'note';
+
+/**
+ * Request body for POST /api/family/quick-add. `text` is the captured line; `kind` defaults to `auto`;
+ * `listName` is only honoured when `kind` resolves to a list (else the server uses its "Quick Capture"
+ * default). No identity travels on the wire — the acting user is the caller's JWT (web) or ingest-key
+ * owner (desktop agent), resolved server-side.
+ */
+export interface QuickAddRequest {
+  text: string;
+  kind?: QuickAddKind;
+  listName?: string;
+}
+
+/**
+ * Result of a quick-add (mirrors QuickAddResult): the RESOLVED `kind` ("list" | "reminder" | "note"),
+ * the new item's `createdId`, and a warm one-line `summary` ready to show in a toast — e.g.
+ * `Added "milk" to Quick Capture.` or `I'll remind you to call the dentist.`
+ */
+export interface QuickAddResult {
+  kind: 'list' | 'reminder' | 'note';
+  createdId: number;
+  summary: string;
+}
+
 // ---- Family Hub F2: reminders & timers ----
 
 /** How a reminder repeats. Mirrors the backend's lowercase strings. */
