@@ -592,7 +592,16 @@ public class AuthIntegrationTests(WebAppFactory factory)
 
         entry.GetProperty("method").GetString().Should().Be("GET");
         entry.GetProperty("statusCode").GetInt32().Should().Be(200);
-        entry.GetProperty("userEmail").GetString().Should().Be(WebAppFactory.AdminEmail);
+
+        // Email-privacy: the request log carries the acting user's resolved id + name, never the email.
+        int adminId;
+        using (var scope = factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<UsageDbContext>();
+            adminId = (await db.Users.AsNoTracking().FirstAsync(u => u.Email == WebAppFactory.AdminEmail)).Id;
+        }
+        entry.GetProperty("userId").GetInt32().Should().Be(adminId);
+        entry.TryGetProperty("userEmail", out _).Should().BeFalse();
         entry.GetProperty("durationMs").GetInt32().Should().BeGreaterThanOrEqualTo(0);
     }
 
@@ -916,6 +925,17 @@ public class AuthIntegrationTests(WebAppFactory factory)
         var item = list.EnumerateArray().First(e => e.GetProperty("id").GetInt32() == id);
         var path = item.GetProperty("path").GetString()!;
         path.Should().StartWith("/share/");
+
+        // Email-privacy: the share carries the creator's resolved userId + name, never the email.
+        int adminId;
+        using (var scope = factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<UsageDbContext>();
+            adminId = (await db.Users.AsNoTracking().FirstAsync(u => u.Email == WebAppFactory.AdminEmail)).Id;
+        }
+        item.GetProperty("createdByUserId").GetInt32().Should().Be(adminId);
+        item.GetProperty("createdByName").GetString().Should().NotBeNullOrEmpty();
+        item.TryGetProperty("createdByEmail", out _).Should().BeFalse();
 
         // The re-derived token still resolves the public link.
         var token = path["/share/".Length..];

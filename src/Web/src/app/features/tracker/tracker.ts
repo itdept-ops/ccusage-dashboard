@@ -317,13 +317,15 @@ export class Tracker {
 
   // ---- shared view ----
   get viewingUser(): SharedUserDto | null {
-    const email = this.store.viewUser();
-    if (!email) return null;
-    return this.store.shared().find(s => s.email === email) ?? { email, name: email };
+    const userId = this.store.viewUser();
+    if (userId == null) return null;
+    // Fall back to the server-resolved name on the loaded day when the picker list lacks the row.
+    return this.store.shared().find(s => s.userId === userId)
+      ?? { userId, name: this.store.day()?.userName ?? 'Unknown user' };
   }
 
   viewSelf(): void { void this.store.viewUserTracker(null); }
-  viewOther(email: string): void { void this.store.viewUserTracker(email); }
+  viewOther(userId: number): void { void this.store.viewUserTracker(userId); }
 
   // ---- dialogs ----
   openAddFood(meal: Meal): void {
@@ -707,9 +709,9 @@ export class Tracker {
       .catch(() => this.snack.open('Could not remove entry', 'Dismiss', { duration: 4000 }));
   }
 
-  /** Two-letter initials for the shared-user avatar fallback. */
-  initials(u: { name?: string; email: string }): string {
-    const parts = (u.name || u.email).split(/[\s@.]+/).filter(Boolean);
+  /** Two-letter initials for the shared-user avatar fallback (name only; no email — email-privacy). */
+  initials(u: { name?: string }): string {
+    const parts = (u.name || '').split(/[\s@.]+/).filter(Boolean);
     return ((parts[0]?.[0] ?? '') + (parts[1]?.[0] ?? '')).toUpperCase() || 'U';
   }
 }

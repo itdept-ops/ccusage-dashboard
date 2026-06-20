@@ -17,9 +17,11 @@ public static class ShareEndpoints
         var shares = app.MapGroup("/api/shares").RequireAuthorization();
 
         shares.MapGet("/", async (UsageDbContext db, TokenProtector protector, CancellationToken ct) =>
-            Results.Ok((await db.ShareLinks.AsNoTracking().OrderByDescending(s => s.Id).ToListAsync(ct))
-                .Select(s => ToDto(s, protector))))
-            .RequireAnyPermission(Permissions.SharesView, Permissions.SharesManage);
+        {
+            var list = await db.ShareLinks.AsNoTracking().OrderByDescending(s => s.Id).ToListAsync(ct);
+            var resolver = await BuildOwnerResolverAsync(db, list.Select(s => s.CreatedByEmail), ct);
+            return Results.Ok(list.Select(s => ToDto(s, protector, resolver)));
+        }).RequireAnyPermission(Permissions.SharesView, Permissions.SharesManage);
 
         shares.MapPost("/", async (CreateShareRequest req, UsageDbContext db, CurrentUserAccessor me, TokenProtector protector, CancellationToken ct) =>
         {
@@ -62,7 +64,8 @@ public static class ShareEndpoints
             var lbl = req.Label?.Trim();
             s.Label = string.IsNullOrEmpty(lbl) ? null : (lbl.Length > 120 ? lbl[..120] : lbl);
             await db.SaveChangesAsync(ct);
-            return Results.Ok(ToDto(s, protector));
+            var resolver = await BuildOwnerResolverAsync(db, new[] { s.CreatedByEmail }, ct);
+            return Results.Ok(ToDto(s, protector, resolver));
         }).RequirePermission(Permissions.SharesManage);
 
         shares.MapDelete("/{id:int}", async (int id, UsageDbContext db, CancellationToken ct) =>
@@ -139,17 +142,46 @@ public static class ShareEndpoints
     private static string Normalize(string? g) =>
         (g?.ToLowerInvariant()) is "day" or "month" or "project" or "model" or "source" or "session" ? g!.ToLowerInvariant() : "day";
 
-    private static ShareDto ToDto(ShareLink s, TokenProtector protector)
+    private static ShareDto ToDto(ShareLink s, TokenProtector protector,
+        IReadOnlyDictionary<string, (int Id, string Name)> owners)
     {
         var token = protector.Unprotect(s.TokenEnc);
+        var (id, name) = ResolveOwner(s.CreatedByEmail, owners);
         return new()
         {
             Id = s.Id, Label = s.Label,
             Path = token is null ? null : $"/share/{token}",
-            CreatedByEmail = s.CreatedByEmail,
+            CreatedByUserId = id,
+            CreatedByName = name,
             CreatedUtc = s.CreatedUtc, ExpiresUtc = s.ExpiresUtc, Expired = s.ExpiresUtc <= DateTime.UtcNow,
             AccessCount = s.AccessCount, LastAccessedUtc = s.LastAccessedUtc, Scope = Describe(s),
         };
+    }
+
+    /// <summary>Resolve a set of RAW creator emails to {AppUser.Id, AppUser.Name}. The raw email is NEVER
+    /// exposed (email-privacy); the dictionary is keyed case-insensitively on the stored (lower-cased) email.</summary>
+    private static async Task<IReadOnlyDictionary<string, (int Id, string Name)>> BuildOwnerResolverAsync(
+        UsageDbContext db, IEnumerable<string> emails, CancellationToken ct)
+    {
+        var lower = emails.Where(e => !string.IsNullOrEmpty(e))
+            .Select(e => e.ToLowerInvariant()).Distinct().ToList();
+        if (lower.Count == 0)
+            return new Dictionary<string, (int, string)>(StringComparer.OrdinalIgnoreCase);
+        return (await db.Users.AsNoTracking()
+                .Where(u => lower.Contains(u.Email))
+                .Select(u => new { u.Id, u.Email, u.Name }).ToListAsync(ct))
+            .GroupBy(u => u.Email, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(g => g.Key, g => (g.First().Id, g.First().Name), StringComparer.OrdinalIgnoreCase);
+    }
+
+    /// <summary>Map a raw creator email to {id, name}: the matching AppUser, else {null, "Unknown user"} for
+    /// an orphaned/legacy email with no AppUser row. Never returns an email.</summary>
+    private static (int? Id, string Name) ResolveOwner(
+        string email, IReadOnlyDictionary<string, (int Id, string Name)> owners)
+    {
+        if (!string.IsNullOrEmpty(email) && owners.TryGetValue(email, out var u))
+            return (u.Id, string.IsNullOrEmpty(u.Name) ? "Unknown user" : u.Name);
+        return (null, "Unknown user");
     }
 
     private static string Describe(ShareLink s)

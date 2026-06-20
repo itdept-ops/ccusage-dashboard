@@ -46,6 +46,8 @@ public class TrackerIntegrationTests(WebAppFactory factory)
     private static async Task<JsonElement> Json(HttpResponseMessage resp) =>
         await resp.Content.ReadFromJsonAsync<JsonElement>();
 
+    private static bool HasProperty(JsonElement e, string name) => e.TryGetProperty(name, out _);
+
     /// <summary>Make A and B mutual chat contacts (admin-managed, writes both directions). The contacts
     /// admin endpoint is keyed by AppUser id (email-privacy), so resolve each email -> id first.</summary>
     private async Task MakeContacts(string aEmail, string bEmail)
@@ -296,9 +298,11 @@ public class TrackerIntegrationTests(WebAppFactory factory)
     public async Task Own_day_is_always_readable_and_writable()
     {
         var (email, user) = await ProvisionUser("tracker.self");
-        var day = await Json(await user.GetAsync($"/api/tracker/day?date={Today}&user={email}"));
+        var userId = await UserIdFor(email);
+        var day = await Json(await user.GetAsync($"/api/tracker/day?date={Today}&user={userId}"));
         day.GetProperty("readOnly").GetBoolean().Should().BeFalse();
-        day.GetProperty("userEmail").GetString().Should().Be(email);
+        day.GetProperty("userId").GetInt32().Should().Be(userId);
+        day.TryGetProperty("userEmail", out _).Should().BeFalse();
     }
 
     // ---- Visibility: a non-sharing user's day is 404 to a contact ----
@@ -314,7 +318,8 @@ public class TrackerIntegrationTests(WebAppFactory factory)
         await alice.PutAsJsonAsync("/api/tracker/profile", new { goal = "Maintain", shareWithContacts = false });
 
         // Bob (a mutual contact) cannot see Alice's day → 404 (don't leak existence).
-        (await bob.GetAsync($"/api/tracker/day?date={Today}&user={aliceEmail}"))
+        var aliceId = await UserIdFor(aliceEmail);
+        (await bob.GetAsync($"/api/tracker/day?date={Today}&user={aliceId}"))
             .StatusCode.Should().Be(HttpStatusCode.NotFound);
     }
 
@@ -334,14 +339,16 @@ public class TrackerIntegrationTests(WebAppFactory factory)
             calories = 500, proteinG = 18.0, carbG = 80.0, fatG = 10.0,
         });
 
-        var day = await Json(await bob.GetAsync($"/api/tracker/day?date={Today}&user={aliceEmail}"));
+        var aliceId = await UserIdFor(aliceEmail);
+        var day = await Json(await bob.GetAsync($"/api/tracker/day?date={Today}&user={aliceId}"));
         day.GetProperty("readOnly").GetBoolean().Should().BeTrue();
-        day.GetProperty("userEmail").GetString().Should().Be(aliceEmail);
+        day.GetProperty("userId").GetInt32().Should().Be(aliceId);
+        day.TryGetProperty("userEmail", out _).Should().BeFalse();
         day.GetProperty("caloriesIn").GetInt32().Should().Be(500);
 
         // A non-contact (sharing on, but no mutual circle) still gets 404.
         var (_, stranger) = await ProvisionUser("tracker.self");
-        (await stranger.GetAsync($"/api/tracker/day?date={Today}&user={aliceEmail}"))
+        (await stranger.GetAsync($"/api/tracker/day?date={Today}&user={aliceId}"))
             .StatusCode.Should().Be(HttpStatusCode.NotFound);
     }
 
@@ -361,9 +368,34 @@ public class TrackerIntegrationTests(WebAppFactory factory)
             calories = 95, proteinG = 0.5, carbG = 25.0, fatG = 0.3,
         });
 
-        var day = await Json(await coach.GetAsync($"/api/tracker/day?date={Today}&user={aliceEmail}"));
+        var aliceId = await UserIdFor(aliceEmail);
+        var day = await Json(await coach.GetAsync($"/api/tracker/day?date={Today}&user={aliceId}"));
         day.GetProperty("readOnly").GetBoolean().Should().BeTrue();
         day.GetProperty("caloriesIn").GetInt32().Should().Be(95);
+    }
+
+    // ---- Inbound ?user={userId} validation: bad id 400, non-user/forbidden 404 ----
+
+    [Fact]
+    public async Task Day_user_param_validates_the_user_id()
+    {
+        var (_, user) = await ProvisionUser("tracker.self");
+
+        // A non-positive id is a bad request (the param is a user id, not an email).
+        (await user.GetAsync($"/api/tracker/day?date={Today}&user=0"))
+            .StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        (await user.GetAsync($"/api/tracker/day?date={Today}&user=-3"))
+            .StatusCode.Should().Be(HttpStatusCode.BadRequest);
+
+        // An id that resolves to no user is a 404 (never leak existence).
+        (await user.GetAsync($"/api/tracker/day?date={Today}&user=999999999"))
+            .StatusCode.Should().Be(HttpStatusCode.NotFound);
+
+        // A real, existing user the caller may NOT view is also 404 (forbidden == non-existent).
+        var (otherEmail, _) = await ProvisionUser("tracker.self");
+        var otherId = await UserIdFor(otherEmail);
+        (await user.GetAsync($"/api/tracker/day?date={Today}&user={otherId}"))
+            .StatusCode.Should().Be(HttpStatusCode.NotFound);
     }
 
     // ---- Visibility: writes are owner-only (viewall does not grant write) ----
@@ -385,7 +417,8 @@ public class TrackerIntegrationTests(WebAppFactory factory)
         var aliceDay = await Json(await alice.GetAsync($"/api/tracker/day?date={Today}"));
         aliceDay.GetProperty("foods").EnumerateArray().Should().BeEmpty();
 
-        var coachDay = await Json(await coach.GetAsync($"/api/tracker/day?date={Today}&user={coachEmail}"));
+        var coachId = await UserIdFor(coachEmail);
+        var coachDay = await Json(await coach.GetAsync($"/api/tracker/day?date={Today}&user={coachId}"));
         coachDay.GetProperty("foods").EnumerateArray().Should().ContainSingle();
     }
 
@@ -398,22 +431,26 @@ public class TrackerIntegrationTests(WebAppFactory factory)
         var (bobEmail, bob) = await ProvisionUser("tracker.self");
         await MakeContacts(aliceEmail, bobEmail);
 
-        // Alice shares → Bob's shared list includes Alice.
+        var aliceId = await UserIdFor(aliceEmail);
+        var bobId = await UserIdFor(bobEmail);
+
+        // Alice shares → Bob's shared list includes Alice. The shared list identifies people by userId +
+        // name + picture — never an email (email-privacy).
         await alice.PutAsJsonAsync("/api/tracker/profile", new { goal = "Maintain", shareWithContacts = true });
-        var bobShared = (await Json(await bob.GetAsync("/api/tracker/shared")))
-            .EnumerateArray().Select(u => u.GetProperty("email").GetString()).ToList();
-        bobShared.Should().Contain(aliceEmail);
+        var bobShared = (await Json(await bob.GetAsync("/api/tracker/shared"))).EnumerateArray().ToList();
+        bobShared.Select(u => u.GetProperty("userId").GetInt32()).Should().Contain(aliceId);
+        bobShared.Should().NotContain(u => HasProperty(u, "email"));
 
         // Alice does NOT see Bob (Bob isn't sharing).
         var aliceShared = (await Json(await alice.GetAsync("/api/tracker/shared")))
-            .EnumerateArray().Select(u => u.GetProperty("email").GetString()).ToList();
-        aliceShared.Should().NotContain(bobEmail);
+            .EnumerateArray().Select(u => u.GetProperty("userId").GetInt32()).ToList();
+        aliceShared.Should().NotContain(bobId);
 
         // A viewall coach sees everyone (including non-sharing, non-contact users).
         var (_, coach) = await ProvisionUser("tracker.self", "tracker.viewall");
         var coachShared = (await Json(await coach.GetAsync("/api/tracker/shared")))
-            .EnumerateArray().Select(u => u.GetProperty("email").GetString()).ToList();
-        coachShared.Should().Contain(aliceEmail).And.Contain(bobEmail);
+            .EnumerateArray().Select(u => u.GetProperty("userId").GetInt32()).ToList();
+        coachShared.Should().Contain(aliceId).And.Contain(bobId);
     }
 
     // ---- Profile: the full-fitness body fields round-trip ----
@@ -511,15 +548,19 @@ public class TrackerIntegrationTests(WebAppFactory factory)
         own.ValueKind.Should().Be(JsonValueKind.Object);
 
         // Bob (a sharing mutual contact) sees the day, but stats are NULL — body metrics don't leak.
-        var viewed = await Json(await bob.GetAsync($"/api/tracker/day?date={Today}&user={aliceEmail}"));
+        var aliceId = await UserIdFor(aliceEmail);
+        var viewed = await Json(await bob.GetAsync($"/api/tracker/day?date={Today}&user={aliceId}"));
         viewed.GetProperty("readOnly").GetBoolean().Should().BeTrue();
         viewed.GetProperty("stats").ValueKind.Should().Be(JsonValueKind.Null);
+        // The owner is identified by userId + name, never an email (email-privacy).
+        viewed.GetProperty("userId").GetInt32().Should().Be(aliceId);
+        viewed.TryGetProperty("userEmail", out _).Should().BeFalse();
         // Weight is nulled too (existing rule).
         viewed.GetProperty("profile").GetProperty("weightKg").ValueKind.Should().Be(JsonValueKind.Null);
 
         // A coach with viewall also gets NULL stats.
         var (_, coach) = await ProvisionUser("tracker.self", "tracker.viewall");
-        var coachView = await Json(await coach.GetAsync($"/api/tracker/day?date={Today}&user={aliceEmail}"));
+        var coachView = await Json(await coach.GetAsync($"/api/tracker/day?date={Today}&user={aliceId}"));
         coachView.GetProperty("stats").ValueKind.Should().Be(JsonValueKind.Null);
     }
 
@@ -1107,7 +1148,8 @@ public class TrackerIntegrationTests(WebAppFactory factory)
         await alice.PostAsJsonAsync("/api/tracker/hydration", new { date = Today, amountMl = 750, label = "Tea" });
 
         // Bob (a sharing mutual contact) sees Alice's hydration total + entries + resolved goal.
-        var viewed = await Json(await bob.GetAsync($"/api/tracker/day?date={Today}&user={aliceEmail}"));
+        var aliceId = await UserIdFor(aliceEmail);
+        var viewed = await Json(await bob.GetAsync($"/api/tracker/day?date={Today}&user={aliceId}"));
         viewed.GetProperty("readOnly").GetBoolean().Should().BeTrue();
         viewed.GetProperty("hydrationMl").GetInt32().Should().Be(750);
         viewed.GetProperty("hydrationGoalMl").GetInt32().Should().Be(2500);
@@ -1333,7 +1375,8 @@ public class TrackerIntegrationTests(WebAppFactory factory)
         });
 
         // Bob (a sharing mutual contact) sees Alice's activity stats + the RESOLVED burn (override → 600).
-        var viewed = await Json(await bob.GetAsync($"/api/tracker/day?date={Today}&user={aliceEmail}"));
+        var aliceId = await UserIdFor(aliceEmail);
+        var viewed = await Json(await bob.GetAsync($"/api/tracker/day?date={Today}&user={aliceId}"));
         viewed.GetProperty("readOnly").GetBoolean().Should().BeTrue();
         var act = viewed.GetProperty("activity");
         act.GetProperty("steps").GetInt32().Should().Be(9400);

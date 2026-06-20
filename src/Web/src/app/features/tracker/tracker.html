@@ -18,8 +18,8 @@
           <button mat-menu-item type="button" (click)="viewSelf()">
             <mat-icon>person</mat-icon> My tracker
           </button>
-          @for (u of store.shared(); track u.email) {
-            <button mat-menu-item type="button" (click)="viewOther(u.email)">
+          @for (u of store.shared(); track u.userId) {
+            <button mat-menu-item type="button" (click)="viewOther(u.userId)">
               <mat-icon>group</mat-icon> {{ u.name }}
             </button>
           }

@@ -440,10 +440,13 @@ export class Api {
     return this.http.get<FoodSearchItemDto>(`${this.base}/foods/${fdcId}`);
   }
 
-  /** A full tracker day. Omit `user` for self; pass `user` to view someone you may (read-only). */
-  trackerDay(date: string, user?: string): Observable<TrackerDayDto> {
+  /**
+   * A full tracker day. Omit `user` for self; pass the target's AppUser id to view someone you may
+   * (read-only). The client holds no other-user emails (email-privacy) — the server resolves the id.
+   */
+  trackerDay(date: string, user?: number): Observable<TrackerDayDto> {
     let p = new HttpParams().set('date', date);
-    if (user) p = p.set('user', user);
+    if (user != null) p = p.set('user', String(user));
     return this.http.get<TrackerDayDto>(`${this.base}/tracker/day`, { params: p });
   }
 

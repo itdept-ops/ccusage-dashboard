@@ -28,10 +28,11 @@ export class TrackerStore {
   readonly date = signal<string>(toLocalDate(new Date()));
 
   /**
-   * Whose tracker is being viewed: null = the caller's own (editable), otherwise another user's email
-   * (read-only). Pairs with {@link readOnly} which the server confirms on each load.
+   * Whose tracker is being viewed: null = the caller's own (editable), otherwise another user's AppUser
+   * id (read-only). The client holds no other-user emails (email-privacy). Pairs with {@link readOnly}
+   * which the server confirms on each load.
    */
-  readonly viewUser = signal<string | null>(null);
+  readonly viewUser = signal<number | null>(null);
 
   /** The loaded day, or null before the first load. */
   readonly day = signal<TrackerDayDto | null>(null);
@@ -92,9 +93,9 @@ export class TrackerStore {
     await this.setDate(toLocalDate(new Date()));
   }
 
-  /** Switch the view target (null = own tracker) and reload. */
-  async viewUserTracker(email: string | null): Promise<void> {
-    this.viewUser.set(email);
+  /** Switch the view target (null = own tracker, else the target's AppUser id) and reload. */
+  async viewUserTracker(userId: number | null): Promise<void> {
+    this.viewUser.set(userId);
     await this.load();
   }
 

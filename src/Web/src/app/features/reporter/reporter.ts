@@ -76,10 +76,10 @@ export class ReporterPage {
     this.loadIngestKeys();
   }
 
-  /** True when a key is owned by the signed-in caller (case-insensitive email match). */
+  /** True when a key is owned by the signed-in caller (matched by AppUser id; no email is exposed). */
   isMine(k: IngestKey): boolean {
-    const me = this.auth.session()?.email?.toLowerCase();
-    return !!me && k.ownerEmail?.toLowerCase() === me;
+    const me = this.auth.userId();
+    return me != null && k.ownerUserId === me;
   }
 
   private loadIngestKeys(): void {

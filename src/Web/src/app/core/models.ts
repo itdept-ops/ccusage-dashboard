@@ -43,7 +43,10 @@ export interface ShareListItem {
   id: number;
   label: string | null;
   path: string | null;
-  createdByEmail: string;
+  /** The creator's AppUser id, or null for an orphaned legacy link (no matching AppUser). Never an email (email-privacy). */
+  createdByUserId: number | null;
+  /** The creator's display name ("Unknown user" when unresolved). Never an email. */
+  createdByName: string;
   createdUtc: string;
   expiresUtc: string;
   expired: boolean;
@@ -306,9 +309,14 @@ export interface IngestKey {
   name: string;
   prefix: string;
   createdUtc: string;
-  createdByEmail: string;
-  /** Email of the owning user; null for orphaned legacy keys (no linked user). */
-  ownerEmail: string | null;
+  /** The creator's AppUser id, or null when the creator email has no AppUser row. Never an email (email-privacy). */
+  createdByUserId: number | null;
+  /** The creator's display name ("Unknown user" when unresolved). Never an email. */
+  createdByName: string;
+  /** The owning user's AppUser id; null for orphaned legacy keys (no linked user). Never an email. */
+  ownerUserId: number | null;
+  /** The owner's display name; null for orphaned legacy keys (no linked user). Never an email. */
+  ownerName: string | null;
   lastUsedUtc: string | null;
   lastUsedIp: string | null;
   revoked: boolean;
@@ -498,7 +506,10 @@ export interface RequestLogEntry {
   queryString: string | null;
   statusCode: number;
   durationMs: number;
-  userEmail: string | null;
+  /** The acting user's AppUser id, or null for an anonymous/unauthenticated request. Never an email (email-privacy). */
+  userId: number | null;
+  /** The acting user's display name, or null for an anonymous row. Never an email. */
+  userName: string | null;
   clientIp: string | null;
   requestBytes: number | null;
   responseBytes: number | null;
@@ -1104,7 +1115,10 @@ export interface AddHydrationRequest {
  */
 export interface TrackerDayDto {
   date: string;
-  userEmail: string;
+  /** The day owner's AppUser id (the caller's own id for the caller's day). Never an email (email-privacy). */
+  userId: number;
+  /** The day owner's display name. Never an email. */
+  userName: string;
   readOnly: boolean;
   profile: TrackerProfileDto;
   /** Computed body/metabolic stats from the profile; null when viewing someone else (privacy). */
@@ -1140,7 +1154,8 @@ export interface TrackerDayDto {
 
 /** Someone whose tracker the caller may view read-only (GET /api/tracker/shared). Mirrors SharedUserDto. */
 export interface SharedUserDto {
-  email: string;
+  /** The shared user's AppUser id (the client opens their tracker via GET /day?user={userId}). Never an email (email-privacy). */
+  userId: number;
   name: string;
   picture?: string;
 }

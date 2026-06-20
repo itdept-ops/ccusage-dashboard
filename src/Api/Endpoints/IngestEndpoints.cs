@@ -50,14 +50,51 @@ public static class IngestEndpoints
             var q = db.IngestKeys.AsNoTracking().OrderByDescending(k => k.Id).AsQueryable();
             if (!canManage) q = q.Where(k => k.UserId == caller.Id); // self/view: only my keys
 
-            return Results.Ok(await q.Select(k => new IngestKeyDto
+            // Project the owner identity from the linked user (k.User), and carry the raw creator email
+            // only as far as this query so it can be resolved to {id, name} server-side below — it is
+            // NEVER put on the wire (email-privacy).
+            var rows = await q.Select(k => new
             {
-                Id = k.Id, Name = k.Name, Prefix = k.Prefix,
-                CreatedUtc = k.CreatedUtc, CreatedByEmail = k.CreatedByEmail,
-                OwnerEmail = k.User != null ? k.User.Email : null,
-                LastUsedUtc = k.LastUsedUtc, LastUsedIp = k.LastUsedIp,
+                k.Id, k.Name, k.Prefix, k.CreatedUtc, k.CreatedByEmail,
+                OwnerUserId = k.User != null ? (int?)k.User.Id : null,
+                OwnerName = k.User != null ? k.User.Name : null,
+                k.LastUsedUtc, k.LastUsedIp,
                 Revoked = k.RevokedUtc != null,
-            }).ToListAsync(ct));
+            }).ToListAsync(ct);
+
+            // Resolve each RAW creator email -> {AppUser.Id, Name}. A creator email with no AppUser row
+            // (orphaned legacy key) resolves to {null, "Unknown user"}. db.Users.Email is stored lower-cased.
+            var lowerCreators = rows.Select(r => r.CreatedByEmail)
+                .Where(e => !string.IsNullOrEmpty(e)).Select(e => e.ToLowerInvariant()).Distinct().ToList();
+            var creatorsByEmail = (await db.Users.AsNoTracking()
+                    .Where(u => lowerCreators.Contains(u.Email))
+                    .Select(u => new { u.Id, u.Email, u.Name }).ToListAsync(ct))
+                .GroupBy(u => u.Email, StringComparer.OrdinalIgnoreCase)
+                .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
+
+            return Results.Ok(rows.Select(r =>
+            {
+                int? createdById = null;
+                var createdByName = "Unknown user";
+                if (!string.IsNullOrEmpty(r.CreatedByEmail)
+                    && creatorsByEmail.TryGetValue(r.CreatedByEmail, out var c))
+                {
+                    createdById = c.Id;
+                    createdByName = string.IsNullOrEmpty(c.Name) ? "Unknown user" : c.Name;
+                }
+                return new IngestKeyDto
+                {
+                    Id = r.Id, Name = r.Name, Prefix = r.Prefix,
+                    CreatedUtc = r.CreatedUtc,
+                    CreatedByUserId = createdById,
+                    CreatedByName = createdByName,
+                    OwnerUserId = r.OwnerUserId,
+                    OwnerName = r.OwnerUserId is null ? null
+                        : (string.IsNullOrEmpty(r.OwnerName) ? "Unknown user" : r.OwnerName),
+                    LastUsedUtc = r.LastUsedUtc, LastUsedIp = r.LastUsedIp,
+                    Revoked = r.Revoked,
+                };
+            }).ToList());
         }).RequireAnyPermission(Permissions.ReporterView, Permissions.ReporterManage, Permissions.ReporterSelf);
 
         keys.MapPost("/", async (CreateIngestKeyRequest req, UsageDbContext db, CurrentUserAccessor me, AuditLogger audit, CancellationToken ct) =>

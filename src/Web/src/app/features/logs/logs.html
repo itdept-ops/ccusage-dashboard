@@ -65,7 +65,7 @@
             </td>
             <td class="c-status" data-label="Status"><span class="status-badge" [class]="statusClass(r.statusCode)">{{ r.statusCode }}</span></td>
             <td class="c-dur mono-num" data-label="Duration">{{ r.durationMs }} ms</td>
-            <td class="c-user mono-num" data-label="User">{{ r.userEmail || '—' }}</td>
+            <td class="c-user mono-num" data-label="User">{{ r.userName || '—' }}</td>
             <td class="c-ip mono-num" data-label="IP">{{ r.clientIp || '—' }}</td>
             <td class="c-exp"><mat-icon>{{ expandedId() === r.id ? 'expand_less' : 'expand_more' }}</mat-icon></td>
           </tr>

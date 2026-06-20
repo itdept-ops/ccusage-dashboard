@@ -346,13 +346,22 @@ public class IngestIntegrationTests(WebAppFactory factory)
         var (aKeyId, _) = await CreateKeyAs(a, "owned-by-a");
         var (bKeyId, _) = await CreateKeyAs(b, "owned-by-b");
 
-        // A's list shows only A's key, with A's owner email.
+        // A's list shows only A's key, identified by owner userId — never an email (email-privacy).
+        int aUserId;
+        using (var scope = factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<UsageDbContext>();
+            aUserId = (await db.Users.AsNoTracking().FirstAsync(u => u.Email == emailA)).Id;
+        }
         var list = await (await a.GetAsync("/api/ingest-keys")).Content.ReadFromJsonAsync<JsonElement>();
         var ids = list.EnumerateArray().Select(e => e.GetProperty("id").GetInt32()).ToList();
         ids.Should().Contain(aKeyId);
         ids.Should().NotContain(bKeyId);
-        list.EnumerateArray().First(e => e.GetProperty("id").GetInt32() == aKeyId)
-            .GetProperty("ownerEmail").GetString().Should().Be(emailA);
+        var aKeyDto = list.EnumerateArray().First(e => e.GetProperty("id").GetInt32() == aKeyId);
+        aKeyDto.GetProperty("ownerUserId").GetInt32().Should().Be(aUserId);
+        aKeyDto.GetProperty("createdByUserId").GetInt32().Should().Be(aUserId);
+        aKeyDto.TryGetProperty("ownerEmail", out _).Should().BeFalse();
+        aKeyDto.TryGetProperty("createdByEmail", out _).Should().BeFalse();
 
         // A cannot delete B's key (403) but can delete their own (204).
         (await a.DeleteAsync($"/api/ingest-keys/{bKeyId}")).StatusCode.Should().Be(HttpStatusCode.Forbidden);
@@ -371,6 +380,34 @@ public class IngestIntegrationTests(WebAppFactory factory)
         key.CreatedByEmail.Should().Be(email);
         var user = await db.Users.AsNoTracking().FirstAsync(u => u.Email == email);
         key.UserId.Should().Be(user.Id);
+    }
+
+    [Fact]
+    public async Task Ingest_key_list_carries_owner_and_creator_names_not_emails()
+    {
+        // A reporter WITH a display name; the key list must surface that NAME + userId, never the email.
+        var email = $"u-{Guid.NewGuid():N}@test.local";
+        var name = "Key Owner " + Guid.NewGuid().ToString("N")[..6];
+        var res = await Admin().PostAsJsonAsync("/api/users",
+            new { email, name, isEnabled = true, permissions = new[] { "reporter.self" } });
+        res.StatusCode.Should().Be(HttpStatusCode.Created);
+        var userId = (await res.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("id").GetInt32();
+
+        var c = factory.CreateClient();
+        c.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", TestJwt.For(email));
+        var (keyId, _) = await CreateKeyAs(c, "named");
+
+        var raw = await (await c.GetAsync("/api/ingest-keys")).Content.ReadAsStringAsync();
+        raw.Should().NotContain(email); // adversarial: no email anywhere in the payload
+
+        var dto = JsonDocument.Parse(raw).RootElement.EnumerateArray()
+            .First(e => e.GetProperty("id").GetInt32() == keyId);
+        dto.GetProperty("createdByUserId").GetInt32().Should().Be(userId);
+        dto.GetProperty("createdByName").GetString().Should().Be(name);
+        dto.GetProperty("ownerUserId").GetInt32().Should().Be(userId);
+        dto.GetProperty("ownerName").GetString().Should().Be(name);
+        dto.TryGetProperty("createdByEmail", out _).Should().BeFalse();
+        dto.TryGetProperty("ownerEmail", out _).Should().BeFalse();
     }
 
     [Fact]

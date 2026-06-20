@@ -110,13 +110,36 @@ public static class TrackerEndpoints
 
         // ---- A whole day's tracker (own, or someone else's read-only when permitted) ----
         g.MapGet("/day", async (
-            string? date, string? user, CurrentUserAccessor me, UsageDbContext db, CancellationToken ct) =>
+            string? date, int? user, CurrentUserAccessor me, UsageDbContext db, CancellationToken ct) =>
         {
             var caller = (await me.GetUserAsync(ct))!; // tracker.self filter guarantees non-null
-            var target = NormalizeEmail(user) ?? caller.Email;
+
+            // The client holds no other-user emails (email-privacy): it sends ?user={userId}. Resolve the
+            // id -> email server-side. No param => self. A non-positive id is a bad request; an id that
+            // resolves to nobody is a 404 (same as a forbidden target — never leak existence).
+            string target;
+            bool isSelf;
+            if (user is int targetId)
+            {
+                if (targetId <= 0)
+                    return Results.BadRequest(new { message = "`user` must be a positive user id." });
+
+                var targetEmail = await db.Users.AsNoTracking()
+                    .Where(u => u.Id == targetId).Select(u => u.Email).FirstOrDefaultAsync(ct);
+                if (string.IsNullOrEmpty(targetEmail))
+                    return Results.NotFound();
+
+                target = targetEmail;
+                isSelf = string.Equals(target, caller.Email, StringComparison.OrdinalIgnoreCase);
+            }
+            else
+            {
+                target = caller.Email;
+                isSelf = true;
+            }
+
             var localDate = await ResolveDateAsync(db, date, ct);
 
-            var isSelf = target == caller.Email;
             if (!isSelf && !await CanViewAsync(db, caller, target, ct))
                 return Results.NotFound(); // never leak that the user / their tracker exists
 
@@ -718,8 +741,8 @@ public static class TrackerEndpoints
                 .OrderBy(u => u.Name == "" ? u.Email : u.Name)
                 .Select(u => new SharedUserDto
                 {
-                    Email = u.Email,
-                    Name = string.IsNullOrEmpty(u.Name) ? u.Email : u.Name,
+                    UserId = u.Id,
+                    Name = string.IsNullOrEmpty(u.Name) ? "Unknown user" : u.Name,
                     Picture = u.Picture,
                 })
                 .ToListAsync(ct);
@@ -828,10 +851,18 @@ public static class TrackerEndpoints
         // The resolved goal: the profile's goal when set, else the 2000 ml default.
         var hydrationGoalMl = profile?.HydrationGoalMl ?? DefaultHydrationGoalMl;
 
+        // Resolve the day owner's email -> {AppUser.Id, Name}; the raw owner email is NEVER put on the wire
+        // (email-privacy). db.Users.Email is stored lower-cased.
+        var owner = await db.Users.AsNoTracking()
+            .Where(u => u.Email == email)
+            .Select(u => new { u.Id, u.Name })
+            .FirstOrDefaultAsync(ct);
+
         return new TrackerDayDto
         {
             Date = date.ToString("yyyy-MM-dd"),
-            UserEmail = email,
+            UserId = owner?.Id ?? 0,
+            UserName = owner is null || string.IsNullOrEmpty(owner.Name) ? "Unknown user" : owner.Name,
             ReadOnly = readOnly,
             Profile = profileDto,
             Stats = stats,
@@ -1224,12 +1255,6 @@ public static class TrackerEndpoints
     private static bool TryParseMeal(string? value, out MealType meal) =>
         Enum.TryParse((value ?? "").Trim(), ignoreCase: true, out meal)
         && Enum.IsDefined(meal);
-
-    private static string? NormalizeEmail(string? email)
-    {
-        var e = (email ?? "").Trim().ToLowerInvariant();
-        return e.Length == 0 ? null : e;
-    }
 
     private static IResult UsdaUnconfigured() => Results.Problem(
         title: "USDA FoodData Central is not configured.",

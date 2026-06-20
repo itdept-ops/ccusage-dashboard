@@ -69,9 +69,15 @@ public sealed class IngestKeyDto
     public string Name { get; set; } = "";
     public string Prefix { get; set; } = "";
     public DateTime CreatedUtc { get; set; }
-    public string CreatedByEmail { get; set; } = "";
-    /// <summary>Email of the owning user; null for orphaned legacy keys (no linked user).</summary>
-    public string? OwnerEmail { get; set; }
+    /// <summary>The creator resolved to their AppUser id, or null when the stored creator email has no
+    /// AppUser row. The raw creator email is NEVER exposed (email-privacy).</summary>
+    public int? CreatedByUserId { get; set; }
+    /// <summary>The creator's display name (the matching AppUser.Name, "Unknown user" when unresolved).</summary>
+    public string CreatedByName { get; set; } = "";
+    /// <summary>The owning user's AppUser id; null for orphaned legacy keys (no linked user).</summary>
+    public int? OwnerUserId { get; set; }
+    /// <summary>The owning user's display name; null for orphaned legacy keys (no linked user).</summary>
+    public string? OwnerName { get; set; }
     public DateTime? LastUsedUtc { get; set; }
     public string? LastUsedIp { get; set; }
     public bool Revoked { get; set; }

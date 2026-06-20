@@ -28,10 +28,37 @@ public static class ObservabilityEndpoints
                 if (!string.IsNullOrWhiteSpace(q))
                     query = query.Where(r => EF.Functions.ILike(r.Path, $"%{q}%"));
 
-                var rows = await query
+                var raw = await query
                     .OrderByDescending(r => r.Id)
                     .Take(Math.Clamp(take ?? 200, 1, 1000))
-                    .Select(r => new RequestLogDto
+                    .Select(r => new
+                    {
+                        r.Id, r.WhenUtc, r.Method, r.Path, r.QueryString, r.StatusCode, r.DurationMs,
+                        r.UserEmail, r.ClientIp, r.RequestBytes, r.ResponseBytes, r.RequestBody, r.ResponseBody,
+                    })
+                    .ToListAsync(ct);
+
+                // Resolve each RAW request-user email -> {AppUser.Id, Name}; anonymous rows (null/empty
+                // email) and emails with no AppUser stay {null, null}. The raw email is NEVER exposed
+                // (email-privacy). db.Users.Email is stored lower-cased.
+                var lowerEmails = raw.Select(r => r.UserEmail)
+                    .Where(e => !string.IsNullOrEmpty(e)).Select(e => e!.ToLowerInvariant()).Distinct().ToList();
+                var usersByEmail = (await db.Users.AsNoTracking()
+                        .Where(u => lowerEmails.Contains(u.Email))
+                        .Select(u => new { u.Id, u.Email, u.Name }).ToListAsync(ct))
+                    .GroupBy(u => u.Email, StringComparer.OrdinalIgnoreCase)
+                    .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
+
+                var rows = raw.Select(r =>
+                {
+                    int? userId = null;
+                    string? userName = null;
+                    if (!string.IsNullOrEmpty(r.UserEmail) && usersByEmail.TryGetValue(r.UserEmail, out var u))
+                    {
+                        userId = u.Id;
+                        userName = string.IsNullOrEmpty(u.Name) ? null : u.Name;
+                    }
+                    return new RequestLogDto
                     {
                         Id = r.Id,
                         WhenUtc = r.WhenUtc,
@@ -40,14 +67,15 @@ public static class ObservabilityEndpoints
                         QueryString = r.QueryString,
                         StatusCode = r.StatusCode,
                         DurationMs = r.DurationMs,
-                        UserEmail = r.UserEmail,
+                        UserId = userId,
+                        UserName = userName,
                         ClientIp = r.ClientIp,
                         RequestBytes = r.RequestBytes,
                         ResponseBytes = r.ResponseBytes,
                         RequestBody = r.RequestBody,
                         ResponseBody = r.ResponseBody,
-                    })
-                    .ToListAsync(ct);
+                    };
+                }).ToList();
 
                 return Results.Ok(rows);
             })

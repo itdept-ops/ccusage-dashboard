@@ -137,9 +137,9 @@
           <span class="key-dot" [class.off]="k.revoked"></span>
           <span class="key-name">{{ k.name }}</span>
           <code class="key-prefix mono">{{ k.prefix }}</code>
-          <span class="key-owner" [class.mine]="isMine(k)" [title]="k.ownerEmail || 'unlinked legacy key'">
+          <span class="key-owner" [class.mine]="isMine(k)" [title]="k.ownerName || 'unlinked legacy key'">
             <mat-icon>person</mat-icon>
-            {{ k.ownerEmail || 'unlinked' }}
+            {{ k.ownerName || 'unlinked' }}
             @if (isMine(k)) { <span class="you-badge">you</span> }
           </span>
           @if (k.revoked) { <span class="key-badge revoked">revoked</span> }

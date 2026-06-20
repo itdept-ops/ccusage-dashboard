@@ -70,7 +70,12 @@ public sealed class ShareDto
     public int Id { get; set; }
     public string? Label { get; set; }
     public string? Path { get; set; }   // /share/<token>, decrypted for re-copy (null for legacy links)
-    public string CreatedByEmail { get; set; } = "";
+    /// <summary>The creator resolved to their AppUser id, or null when the stored creator email has no
+    /// AppUser row (orphaned legacy links). The raw creator email is NEVER exposed (email-privacy).</summary>
+    public int? CreatedByUserId { get; set; }
+    /// <summary>The creator's display name (the matching AppUser.Name, "Unknown user" when unresolved).
+    /// Never an email.</summary>
+    public string CreatedByName { get; set; } = "";
     public DateTime CreatedUtc { get; set; }
     public DateTime ExpiresUtc { get; set; }
     public bool Expired { get; set; }
@@ -571,7 +576,13 @@ public sealed class RequestLogDto
     public string? QueryString { get; set; }
     public int StatusCode { get; set; }
     public int DurationMs { get; set; }
-    public string? UserEmail { get; set; }
+    /// <summary>The acting user resolved to their AppUser id, or null for an anonymous/unauthenticated
+    /// request or when the logged email has no AppUser row. The raw user email is NEVER exposed
+    /// (email-privacy).</summary>
+    public int? UserId { get; set; }
+    /// <summary>The acting user's display name (the matching AppUser.Name), or null for an anonymous row
+    /// or an email with no AppUser. Never an email.</summary>
+    public string? UserName { get; set; }
     public string? ClientIp { get; set; }
     public long? RequestBytes { get; set; }
     public long? ResponseBytes { get; set; }
@@ -916,7 +927,11 @@ public sealed class TrackerStatsDto
 public sealed class TrackerDayDto
 {
     public string Date { get; set; } = "";
-    public string UserEmail { get; set; } = "";
+    /// <summary>The day owner resolved to their AppUser id. The raw owner email is NEVER exposed
+    /// (email-privacy); for the caller's OWN day this is the caller's id.</summary>
+    public int UserId { get; set; }
+    /// <summary>The day owner's display name (the matching AppUser.Name). Never an email.</summary>
+    public string UserName { get; set; } = "";
     public bool ReadOnly { get; set; }
     public TrackerProfileDto Profile { get; set; } = new();
     /// <summary>Computed body-metric estimates for the owner. NULL in the read-only (viewer) branch —
@@ -981,7 +996,9 @@ public sealed class HydrationEntryDto
 /// caller has tracker.viewall).</summary>
 public sealed class SharedUserDto
 {
-    public string Email { get; set; } = "";
+    /// <summary>The shared user's AppUser id (the client opens their tracker via GET /day?user={userId}).
+    /// The raw email is NEVER exposed (email-privacy).</summary>
+    public int UserId { get; set; }
     public string Name { get; set; } = "";
     public string? Picture { get; set; }
 }
