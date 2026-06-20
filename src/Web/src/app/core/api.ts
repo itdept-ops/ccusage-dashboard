@@ -4,7 +4,7 @@ import { Observable } from 'rxjs';
 import {
   AccessPolicy, AddExerciseRequest, AddFoodRequest, AddHydrationRequest, AuditEntry, CacheEfficiency, CalendarDay, ChatChannelDto, ChatContactDto, ChatMessageDto, CreateChannelRequest,
   CreateShareRequest, CustomExerciseDto, CustomFoodDto, DailyCoachResponse, EstimateExerciseRequest, EstimateExerciseResponse, EstimateMacrosRequest, EstimateMacrosResponse, ExerciseEntryDto, ExerciseLibraryDto, Fleet, FleetDeleteRequest,
-  FleetDeleteResult, FleetReassignRequest, FleetReassignResult, FleetRevokeKeysRequest, FleetRevokeKeysResult, FoodEntryDto, FoodSearchItemDto, GroupBy, Household, HouseholdCandidate,
+  FamilyList, FamilyListKind, FamilyNote, FleetDeleteResult, FleetReassignRequest, FleetReassignResult, FleetRevokeKeysRequest, FleetRevokeKeysResult, FoodEntryDto, FoodSearchItemDto, GroupBy, Household, HouseholdCandidate,
   HeatmapCell, HydrationEntryDto, HydrationSuggestResponse, ImageRequest, IngestionSource, IngestKey, IngestKeyCreated, LogWeightRequest, LoginEvent, MachineStat, ManagedUser, MealFeedbackRequest, MealFeedbackResponse, ModelStat, NaturalGoalRequest, NaturalGoalResponse, NotificationDto, NotificationPreferenceDto, NotificationSettings,
   NotificationUpdate, PagedResult, ParseExerciseRequest, ParseExerciseResponse, ParseHydrationRequest, ParseHydrationResponse, ParseMealRequest, ParseMealResponse, PermissionItem, Presence, Pricing, ProjectDto, PublicShare, ReactionGroupDto, ReadLabelResponse, RecipeMacrosRequest, RecipeMacrosResponse, RequestLogEntry, SavedView,
   SavedViewUpsertRequest, SessionDetail, Settings, ShareAccessItem, ShareCreated, ShareListItem, SharedUserDto, SuggestFoodsResponse, SuggestGoalResponse, SuggestWorkoutRequest, SuggestWorkoutResponse, SummaryResponse,
@@ -716,5 +716,90 @@ export class Api {
   /** Remove a member from the household by AppUser id (OWNER only; the owner can't be removed). Returns the updated household. */
   removeMember(userId: number): Observable<Household> {
     return this.http.delete<Household>(`${this.base}/family/household/members/${userId}`);
+  }
+
+  // ---- Family Hub F1: shared notes (markdown body; pin; share to contacts) ----
+
+  /** Notes the caller can see: their household's notes + notes shared directly with them (pinned first, then most-recently-updated). */
+  familyNotes(): Observable<FamilyNote[]> {
+    return this.http.get<FamilyNote[]>(`${this.base}/family/notes`);
+  }
+
+  /** Create a note in the caller's household. Returns the created note. */
+  createFamilyNote(req: { title?: string; body?: string; pinned: boolean }): Observable<FamilyNote> {
+    return this.http.post<FamilyNote>(`${this.base}/family/notes`, req);
+  }
+
+  /** Edit a note (household member or a canEdit-share). Returns the updated note. */
+  updateFamilyNote(id: number, req: { title?: string; body?: string; pinned: boolean }): Observable<FamilyNote> {
+    return this.http.put<FamilyNote>(`${this.base}/family/notes/${id}`, req);
+  }
+
+  /** Delete a note (creator or any household member). */
+  deleteFamilyNote(id: number): Observable<void> {
+    return this.http.delete<void>(`${this.base}/family/notes/${id}`);
+  }
+
+  /** Share a note with a contact by AppUser id (manage: creator or member). Returns the updated note. */
+  shareFamilyNote(id: number, userId: number, canEdit: boolean): Observable<FamilyNote> {
+    return this.http.post<FamilyNote>(`${this.base}/family/notes/${id}/share`, { userId, canEdit });
+  }
+
+  /** Remove a note's share for the given AppUser id (manage). Returns the updated note. */
+  unshareFamilyNote(id: number, userId: number): Observable<FamilyNote> {
+    return this.http.delete<FamilyNote>(`${this.base}/family/notes/${id}/share/${userId}`);
+  }
+
+  // ---- Family Hub F1: shared lists (shopping / to-do; checkable items; assignees; share) ----
+
+  /** Lists the caller can see (household + shared-with-me), each with its items (most-recently-updated first). */
+  familyLists(): Observable<FamilyList[]> {
+    return this.http.get<FamilyList[]>(`${this.base}/family/lists`);
+  }
+
+  /** Create a list of the given kind in the caller's household. Returns the created list. */
+  createFamilyList(name: string, kind: FamilyListKind): Observable<FamilyList> {
+    return this.http.post<FamilyList>(`${this.base}/family/lists`, { name, kind });
+  }
+
+  /** Rename a list (edit access). Returns the updated list. */
+  renameFamilyList(id: number, name: string): Observable<FamilyList> {
+    return this.http.put<FamilyList>(`${this.base}/family/lists/${id}`, { name });
+  }
+
+  /** Delete a list (creator or any household member); its items cascade. */
+  deleteFamilyList(id: number): Observable<void> {
+    return this.http.delete<void>(`${this.base}/family/lists/${id}`);
+  }
+
+  /** Add an item to a list (edit access); optionally assigned to a household member / shared person by AppUser id. Returns the updated list. */
+  addFamilyListItem(listId: number, text: string, assignedToUserId?: number | null): Observable<FamilyList> {
+    return this.http.post<FamilyList>(`${this.base}/family/lists/${listId}/items`,
+      { text, assignedToUserId: assignedToUserId ?? null });
+  }
+
+  /**
+   * Patch a list item (edit access): toggle `done` (stamps/clears who checked it), rename `text`, or set
+   * `assignedToUserId`. Omitted fields are unchanged. Returns the updated list.
+   */
+  patchFamilyListItem(
+    listId: number, itemId: number,
+    req: { text?: string; done?: boolean; assignedToUserId?: number }): Observable<FamilyList> {
+    return this.http.patch<FamilyList>(`${this.base}/family/lists/${listId}/items/${itemId}`, req);
+  }
+
+  /** Delete a list item (edit access). Returns the updated list. */
+  deleteFamilyListItem(listId: number, itemId: number): Observable<FamilyList> {
+    return this.http.delete<FamilyList>(`${this.base}/family/lists/${listId}/items/${itemId}`);
+  }
+
+  /** Share a list with a contact by AppUser id (manage). Returns the updated list. */
+  shareFamilyList(id: number, userId: number, canEdit: boolean): Observable<FamilyList> {
+    return this.http.post<FamilyList>(`${this.base}/family/lists/${id}/share`, { userId, canEdit });
+  }
+
+  /** Remove a list's share for the given AppUser id (manage). Returns the updated list. */
+  unshareFamilyList(id: number, userId: number): Observable<FamilyList> {
+    return this.http.delete<FamilyList>(`${this.base}/family/lists/${id}/share/${userId}`);
   }
 }

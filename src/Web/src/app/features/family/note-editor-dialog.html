@@ -1,0 +1,41 @@
+<h2 mat-dialog-title class="note-edit__title">
+  <mat-icon aria-hidden="true">{{ isEdit ? 'edit_note' : 'note_add' }}</mat-icon>
+  {{ isEdit ? 'Edit note' : 'New note' }}
+</h2>
+
+<mat-dialog-content class="note-edit__body">
+  <mat-form-field appearance="outline" class="note-edit__field">
+    <mat-label>Title</mat-label>
+    <input matInput cdkFocusInitial [ngModel]="title()" (ngModelChange)="title.set($event)"
+           maxlength="200" placeholder="Give it a friendly title" />
+  </mat-form-field>
+
+  <div class="note-edit__split">
+    <mat-form-field appearance="outline" class="note-edit__field note-edit__editor">
+      <mat-label>Note</mat-label>
+      <textarea matInput rows="9" [ngModel]="body()" (ngModelChange)="body.set($event)"
+                placeholder="Write anything… **bold**, *italic*, - lists, # headings, [links](https://…)"></textarea>
+      <mat-hint>Markdown supported</mat-hint>
+    </mat-form-field>
+
+    <div class="note-edit__preview" aria-label="Preview">
+      <span class="note-edit__preview-tag">Preview</span>
+      @if (body().trim()) {
+        <div class="md" [innerHTML]="preview()"></div>
+      } @else {
+        <p class="note-edit__preview-empty">Your note will appear here as you type.</p>
+      }
+    </div>
+  </div>
+
+  <mat-slide-toggle [ngModel]="pinned()" (ngModelChange)="pinned.set($event)" class="note-edit__pin">
+    <span class="note-edit__pin-label"><mat-icon aria-hidden="true">push_pin</mat-icon> Pin to the top</span>
+  </mat-slide-toggle>
+</mat-dialog-content>
+
+<mat-dialog-actions align="end" class="note-edit__actions">
+  <button mat-stroked-button type="button" (click)="cancel()">Cancel</button>
+  <button mat-flat-button color="primary" type="button" [disabled]="!canSave()" (click)="save()">
+    {{ isEdit ? 'Save' : 'Create note' }}
+  </button>
+</mat-dialog-actions>

@@ -111,6 +111,16 @@ export const routes: Routes = [
         loadComponent: () => import('./features/family/household').then(m => m.HouseholdSettings),
         title: 'Usage IQ · Household',
       },
+      {
+        path: 'notes',
+        loadComponent: () => import('./features/family/notes').then(m => m.FamilyNotes),
+        title: 'Usage IQ · Family Notes',
+      },
+      {
+        path: 'lists',
+        loadComponent: () => import('./features/family/lists').then(m => m.FamilyLists),
+        title: 'Usage IQ · Family Lists',
+      },
     ],
   },
   {

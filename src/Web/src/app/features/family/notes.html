@@ -1,0 +1,118 @@
+<section class="family">
+  <a class="family__back" routerLink="/family">
+    <mat-icon aria-hidden="true">arrow_back</mat-icon> Family Hub
+  </a>
+
+  <header class="family__hero family__hero--page">
+    <div class="family__hero-id">
+      <span class="family__crest" aria-hidden="true"><mat-icon>sticky_note_2</mat-icon></span>
+      <div>
+        <p class="family__eyebrow">Family Hub</p>
+        <h1 class="family__name">Notes</h1>
+        <p class="family__sub">Shared notes for the whole family</p>
+      </div>
+    </div>
+    <button mat-flat-button color="primary" class="family__settings-btn" (click)="create()">
+      <mat-icon aria-hidden="true">add</mat-icon> New note
+    </button>
+  </header>
+
+  @if (loading()) {
+    <div class="family__loading">
+      <mat-spinner [diameter]="28" />
+      <span>Gathering your notes…</span>
+    </div>
+  } @else if (error()) {
+    <div class="family__error">
+      <mat-icon aria-hidden="true">error_outline</mat-icon>
+      <p>We couldn't load your notes just now. Please try again in a moment.</p>
+    </div>
+  } @else if (board().length === 0) {
+    <div class="family__empty">
+      <mat-icon aria-hidden="true">edit_note</mat-icon>
+      <h2>No notes yet</h2>
+      <p>Jot down a reminder, a recipe, or a little love note for the family.</p>
+      <button mat-flat-button color="primary" (click)="create()">
+        <mat-icon aria-hidden="true">add</mat-icon> Write the first note
+      </button>
+    </div>
+  } @else {
+    <div class="note-board">
+      @for (note of board(); track note.id) {
+        <article class="note-card" [class.note-card--pinned]="note.pinned">
+          <header class="note-card__head">
+            @if (note.title) {
+              <h2 class="note-card__title">{{ note.title }}</h2>
+            } @else {
+              <h2 class="note-card__title note-card__title--untitled">Untitled note</h2>
+            }
+            <div class="note-card__head-actions">
+              @if (note.pinned) {
+                <span class="note-card__pinned-flag" matTooltip="Pinned" aria-label="Pinned">
+                  <mat-icon aria-hidden="true">push_pin</mat-icon>
+                </span>
+              }
+              @if (note.canEdit || canManage(note)) {
+                <button mat-icon-button [matMenuTriggerFor]="menu" aria-label="Note actions"
+                        [disabled]="busyId() === note.id">
+                  @if (busyId() === note.id) { <mat-spinner [diameter]="18" /> }
+                  @else { <mat-icon aria-hidden="true">more_vert</mat-icon> }
+                </button>
+                <mat-menu #menu="matMenu">
+                  @if (note.canEdit) {
+                    <button mat-menu-item (click)="edit(note)">
+                      <mat-icon aria-hidden="true">edit</mat-icon><span>Edit</span>
+                    </button>
+                    <button mat-menu-item (click)="togglePin(note)">
+                      <mat-icon aria-hidden="true">push_pin</mat-icon>
+                      <span>{{ note.pinned ? 'Unpin' : 'Pin to top' }}</span>
+                    </button>
+                  }
+                  <!-- Only a household member manages shares + deletes (server-enforced). -->
+                  @if (canManage(note)) {
+                    <button mat-menu-item (click)="share(note)">
+                      <mat-icon aria-hidden="true">group_add</mat-icon><span>Share…</span>
+                    </button>
+                    <button mat-menu-item class="note-card__delete" (click)="remove(note)">
+                      <mat-icon aria-hidden="true">delete_outline</mat-icon><span>Delete</span>
+                    </button>
+                  }
+                </mat-menu>
+              } @else {
+                <span class="note-card__readonly" matTooltip="You can view this note">
+                  <mat-icon aria-hidden="true">visibility</mat-icon>
+                </span>
+              }
+            </div>
+          </header>
+
+          @if (note.body.trim()) {
+            <div class="md note-card__body" [innerHTML]="bodyHtml(note.body)"></div>
+          } @else {
+            <p class="note-card__empty-body">No details yet.</p>
+          }
+
+          <footer class="note-card__foot">
+            <span class="note-card__author">
+              <span class="note-card__avatar note-card__avatar--init" aria-hidden="true">{{ initials(note.createdByName) }}</span>
+              <span class="note-card__author-name">{{ note.createdByName }}{{ note.isMine ? ' (you)' : '' }}</span>
+            </span>
+
+            @if (note.sharedWith.length) {
+              <span class="note-card__shared" [matTooltip]="'Shared with ' + note.sharedWith.length + ' person' + (note.sharedWith.length === 1 ? '' : 's')">
+                <span class="share-stack">
+                  @for (s of visibleShares(note.sharedWith); track s.userId) {
+                    <span class="share-stack__avatar" [attr.aria-label]="s.name">{{ initials(s.name) }}</span>
+                  }
+                  @if (extraShares(note.sharedWith); as more) {
+                    <span class="share-stack__avatar share-stack__avatar--more">+{{ more }}</span>
+                  }
+                </span>
+              </span>
+            }
+          </footer>
+        </article>
+      }
+    </div>
+  }
+</section>

@@ -422,6 +422,7 @@ app.MapInboxEndpoints();
 app.MapTrackerEndpoints();
 app.MapAiEndpoints();
 app.MapFamilyEndpoints();
+app.MapFamilyNotesListsEndpoints();
 app.MapHub<ChatHub>("/api/hubs/chat");
 app.MapGet("/", () => app.Environment.IsDevelopment()
     ? Results.Redirect("/swagger")

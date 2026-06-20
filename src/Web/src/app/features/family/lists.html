@@ -1,0 +1,186 @@
+<section class="family">
+  <a class="family__back" routerLink="/family">
+    <mat-icon aria-hidden="true">arrow_back</mat-icon> Family Hub
+  </a>
+
+  <header class="family__hero family__hero--page">
+    <div class="family__hero-id">
+      <span class="family__crest" aria-hidden="true"><mat-icon>checklist</mat-icon></span>
+      <div>
+        <p class="family__eyebrow">Family Hub</p>
+        <h1 class="family__name">Lists</h1>
+        <p class="family__sub">Groceries, to-dos, and everything in between</p>
+      </div>
+    </div>
+  </header>
+
+  @if (loading()) {
+    <div class="family__loading">
+      <mat-spinner [diameter]="28" />
+      <span>Gathering your lists…</span>
+    </div>
+  } @else if (error()) {
+    <div class="family__error">
+      <mat-icon aria-hidden="true">error_outline</mat-icon>
+      <p>We couldn't load your lists just now. Please try again in a moment.</p>
+    </div>
+  } @else {
+    <mat-tab-group class="lists-tabs" animationDuration="160ms" mat-stretch-tabs="false">
+      <!-- ── Shopping ───────────────────────────────────────────────── -->
+      <mat-tab>
+        <ng-template mat-tab-label>
+          <mat-icon aria-hidden="true">shopping_cart</mat-icon> Shopping
+        </ng-template>
+        <ng-container [ngTemplateOutlet]="kindPane" [ngTemplateOutletContext]="{ lists: shoppingLists(), kind: 'shopping' }" />
+      </mat-tab>
+
+      <!-- ── To-do ──────────────────────────────────────────────────── -->
+      <mat-tab>
+        <ng-template mat-tab-label>
+          <mat-icon aria-hidden="true">task_alt</mat-icon> To-do
+        </ng-template>
+        <ng-container [ngTemplateOutlet]="kindPane" [ngTemplateOutletContext]="{ lists: todoLists(), kind: 'todo' }" />
+      </mat-tab>
+    </mat-tab-group>
+  }
+</section>
+
+<!-- One pane of lists for a kind (shopping | todo) -->
+<ng-template #kindPane let-lists="lists" let-kind="kind">
+  <div class="lists-pane">
+    <div class="lists-pane__head">
+      <button mat-flat-button color="primary" (click)="createList(kind)">
+        <mat-icon aria-hidden="true">add</mat-icon>
+        {{ kind === 'shopping' ? 'New shopping list' : 'New to-do list' }}
+      </button>
+    </div>
+
+    @if (lists.length === 0) {
+      <div class="family__empty">
+        <mat-icon aria-hidden="true">{{ kind === 'shopping' ? 'shopping_basket' : 'fact_check' }}</mat-icon>
+        <h2>No {{ kind === 'shopping' ? 'shopping' : 'to-do' }} lists yet</h2>
+        <p>
+          {{ kind === 'shopping'
+            ? 'Start a list and add things as you think of them — everyone can check them off.'
+            : 'Create a list and share the load. You can even assign tasks to each other.' }}
+        </p>
+      </div>
+    } @else {
+      <div class="list-grid">
+        @for (list of lists; track list.id) {
+          <article class="list-card">
+            <header class="list-card__head">
+              <div class="list-card__id">
+                <h2 class="list-card__name">{{ list.name }}</h2>
+                <span class="list-card__count">
+                  {{ doneCount(list) }}/{{ list.items.length }} done
+                  @if (!list.canEdit) { <span class="list-card__ro" matTooltip="You can view this list">· view only</span> }
+                </span>
+              </div>
+              <div class="list-card__actions">
+                @if (list.sharedWith.length) {
+                  <span class="share-stack" [matTooltip]="'Shared with ' + list.sharedWith.length + ' person' + (list.sharedWith.length === 1 ? '' : 's')">
+                    @for (s of visibleShares(list.sharedWith); track s.userId) {
+                      <span class="share-stack__avatar" [attr.aria-label]="s.name">{{ initials(s.name) }}</span>
+                    }
+                    @if (extraShares(list.sharedWith); as more) {
+                      <span class="share-stack__avatar share-stack__avatar--more">+{{ more }}</span>
+                    }
+                  </span>
+                }
+                @if (list.canEdit || canManage(list)) {
+                  <button mat-icon-button [matMenuTriggerFor]="listMenu" aria-label="List actions">
+                    <mat-icon aria-hidden="true">more_vert</mat-icon>
+                  </button>
+                  <mat-menu #listMenu="matMenu">
+                    @if (list.canEdit) {
+                      <button mat-menu-item (click)="renameList(list)">
+                        <mat-icon aria-hidden="true">edit</mat-icon><span>Rename</span>
+                      </button>
+                    }
+                    @if (canManage(list)) {
+                      <button mat-menu-item (click)="share(list)">
+                        <mat-icon aria-hidden="true">group_add</mat-icon><span>Share…</span>
+                      </button>
+                      <button mat-menu-item (click)="deleteList(list)">
+                        <mat-icon aria-hidden="true">delete_outline</mat-icon><span>Delete list</span>
+                      </button>
+                    }
+                  </mat-menu>
+                }
+              </div>
+            </header>
+
+            <!-- Items -->
+            <ul class="item-list">
+              @for (item of list.items; track item.id) {
+                <li class="item" [class.item--done]="item.done">
+                  <mat-checkbox class="item__check" [checked]="item.done" [disabled]="!list.canEdit"
+                                (change)="toggleItem(list, item)" [attr.aria-label]="item.text"></mat-checkbox>
+                  <div class="item__main">
+                    <span class="item__text">{{ item.text }}</span>
+                    @if (item.done && item.doneByName) {
+                      <span class="item__meta">checked by {{ item.doneByName }}</span>
+                    }
+                  </div>
+
+                  <!-- To-do assignee avatar / picker -->
+                  @if (kind === 'todo') {
+                    @if (list.canEdit) {
+                      <button class="item__assignee" [matMenuTriggerFor]="assignMenu"
+                              [matTooltip]="item.assignedToName ? 'Assigned to ' + item.assignedToName : 'Assign to someone'"
+                              aria-label="Assign">
+                        @if (item.assignedToName) {
+                          <span class="item__assignee-avatar" aria-hidden="true">{{ initials(item.assignedToName) }}</span>
+                        } @else {
+                          <mat-icon aria-hidden="true">person_add_alt</mat-icon>
+                        }
+                      </button>
+                      <mat-menu #assignMenu="matMenu">
+                        @for (a of assignees(); track a.userId) {
+                          <button mat-menu-item (click)="assign(list, item, a.userId)">
+                            <span class="assign-opt__avatar" aria-hidden="true">{{ initials(a.name) }}</span>
+                            <span>{{ a.name }}</span>
+                            @if (item.assignedToUserId === a.userId) {
+                              <mat-icon class="assign-opt__check" aria-hidden="true">check</mat-icon>
+                            }
+                          </button>
+                        }
+                      </mat-menu>
+                    } @else if (item.assignedToName) {
+                      <span class="item__assignee-avatar" [matTooltip]="'Assigned to ' + item.assignedToName"
+                            aria-hidden="true">{{ initials(item.assignedToName) }}</span>
+                    }
+                  }
+
+                  @if (list.canEdit) {
+                    <button mat-icon-button class="item__remove" (click)="deleteItem(list, item)" aria-label="Remove item">
+                      <mat-icon aria-hidden="true">close</mat-icon>
+                    </button>
+                  }
+                </li>
+              } @empty {
+                <li class="item item--empty">Nothing here yet.</li>
+              }
+            </ul>
+
+            <!-- Add item (edit access only) -->
+            @if (list.canEdit) {
+              <form class="add-item" (ngSubmit)="addItem(list)">
+                <input class="add-item__input" [ngModel]="draftFor(list.id)" name="newItem"
+                       (ngModelChange)="setDraft(list.id, $event)" maxlength="500"
+                       [placeholder]="kind === 'shopping' ? 'Add an item…' : 'Add a task…'"
+                       [disabled]="busyListId() === list.id" autocomplete="off" />
+                <button mat-icon-button type="submit" class="add-item__btn" aria-label="Add item"
+                        [disabled]="!draftFor(list.id).trim() || busyListId() === list.id">
+                  @if (busyListId() === list.id) { <mat-spinner [diameter]="18" /> }
+                  @else { <mat-icon aria-hidden="true">add</mat-icon> }
+                </button>
+              </form>
+            }
+          </article>
+        }
+      </div>
+    }
+  </div>
+</ng-template>

@@ -41,6 +41,10 @@ public class UsageDbContext(DbContextOptions<UsageDbContext> options) : DbContex
     public DbSet<DailyActivity> DailyActivities => Set<DailyActivity>();
     public DbSet<Household> Households => Set<Household>();
     public DbSet<HouseholdMember> HouseholdMembers => Set<HouseholdMember>();
+    public DbSet<FamilyNote> FamilyNotes => Set<FamilyNote>();
+    public DbSet<FamilyList> FamilyLists => Set<FamilyList>();
+    public DbSet<FamilyListItem> FamilyListItems => Set<FamilyListItem>();
+    public DbSet<FamilyShare> FamilyShares => Set<FamilyShare>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -464,6 +468,43 @@ public class UsageDbContext(DbContextOptions<UsageDbContext> options) : DbContex
             e.HasIndex(x => new { x.HouseholdId, x.UserId }).IsUnique();
             // One household per user for now — a user can't be a member of two households at once.
             e.HasIndex(x => x.UserId).IsUnique();
+        });
+
+        b.Entity<FamilyNote>(e =>
+        {
+            e.Property(x => x.Title).HasMaxLength(200);
+            e.Property(x => x.CreatedUtc).HasColumnType("timestamp with time zone");
+            e.Property(x => x.UpdatedUtc).HasColumnType("timestamp with time zone");
+            // The family's note list reads one household's notes.
+            e.HasIndex(x => x.HouseholdId);
+        });
+
+        b.Entity<FamilyList>(e =>
+        {
+            e.Property(x => x.Name).HasMaxLength(200);
+            e.Property(x => x.Kind).HasMaxLength(16);
+            e.Property(x => x.CreatedUtc).HasColumnType("timestamp with time zone");
+            e.Property(x => x.UpdatedUtc).HasColumnType("timestamp with time zone");
+            e.HasMany(x => x.Items).WithOne(i => i.List!)
+                .HasForeignKey(i => i.ListId).OnDelete(DeleteBehavior.Cascade);
+            e.HasIndex(x => x.HouseholdId);
+        });
+
+        b.Entity<FamilyListItem>(e =>
+        {
+            e.Property(x => x.Text).HasMaxLength(500);
+            e.Property(x => x.CreatedUtc).HasColumnType("timestamp with time zone");
+            e.HasIndex(x => x.ListId);
+        });
+
+        b.Entity<FamilyShare>(e =>
+        {
+            e.Property(x => x.ItemType).HasMaxLength(16);
+            e.Property(x => x.CreatedUtc).HasColumnType("timestamp with time zone");
+            // A person is shared a given item at most once; also the lookup key for "shared-with-me".
+            e.HasIndex(x => new { x.ItemType, x.ItemId, x.SharedWithUserId }).IsUnique();
+            // Resolving "items shared with this caller" scans by the target user.
+            e.HasIndex(x => x.SharedWithUserId);
         });
     }
 }

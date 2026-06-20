@@ -1266,6 +1266,73 @@ export interface HouseholdCandidate {
   picture?: string | null;
 }
 
+// ---- Family Hub F1: shared notes & lists ----
+
+/**
+ * A person a family item is shared with (mirrors ShareTargetDto). Identity is `userId` + display `name`;
+ * never an email (email-privacy). `canEdit` is the share's edit flag. Only populated on items the caller
+ * manages (a household member) — shared-in contacts never see the full share roster.
+ */
+export interface FamilyShareTarget {
+  userId: number;
+  name: string;
+  canEdit: boolean;
+}
+
+/**
+ * A shared family note (mirrors NoteDto). Body is markdown text (rendered client-side). Author identity is
+ * `createdByUserId` + `createdByName`; no email. `isMine` is true when the caller authored it; `canEdit` is
+ * true for household members or canEdit-shares (read-only otherwise). `sharedWith` lists the share targets
+ * (only for items the caller manages).
+ */
+export interface FamilyNote {
+  id: number;
+  title: string;
+  body: string;
+  pinned: boolean;
+  createdByUserId: number;
+  createdByName: string;
+  updatedUtc: string;
+  isMine: boolean;
+  canEdit: boolean;
+  sharedWith: FamilyShareTarget[];
+}
+
+/** A list's kind — fast add+check-off groceries, or assignable to-dos. Mirrors the backend "shopping"/"todo". */
+export type FamilyListKind = 'shopping' | 'todo';
+
+/**
+ * One item on a family list (mirrors ListItemDto). `done` strikes it through; `doneByName` is who checked
+ * it (identity by userId + name, never email). To-do items may carry an `assignedToUserId` + name (a
+ * household member / shared person), shown as an assignee avatar.
+ */
+export interface FamilyListItem {
+  id: number;
+  text: string;
+  done: boolean;
+  doneByUserId?: number | null;
+  doneByName?: string | null;
+  assignedToUserId?: number | null;
+  assignedToName?: string | null;
+  sortOrder: number;
+}
+
+/**
+ * A shared family list with its items (mirrors ListDto). `kind` groups Shopping vs To-do. Same identity +
+ * access rules as a note: `canEdit` gates writes, `sharedWith` lists share targets for managers only.
+ */
+export interface FamilyList {
+  id: number;
+  name: string;
+  kind: FamilyListKind;
+  createdByUserId: number;
+  createdByName: string;
+  isMine: boolean;
+  canEdit: boolean;
+  sharedWith: FamilyShareTarget[];
+  items: FamilyListItem[];
+}
+
 /** Canonical permission keys (mirror of the backend catalog — all 29 keys). */
 export const PERM = {
   dashboardView: 'dashboard.view',

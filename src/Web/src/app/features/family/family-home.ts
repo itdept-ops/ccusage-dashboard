@@ -30,8 +30,8 @@ interface FeatureTile {
  * rooms still being furnished. Finance is additionally gated on family.finance.
  */
 const TILES: FeatureTile[] = [
-  { key: 'notes', label: 'Notes', icon: 'sticky_note_2', blurb: 'Shared notes for the whole family', route: null },
-  { key: 'lists', label: 'Lists', icon: 'checklist', blurb: 'Groceries, to-dos, and wish lists', route: null },
+  { key: 'notes', label: 'Notes', icon: 'sticky_note_2', blurb: 'Shared notes for the whole family', route: '/family/notes' },
+  { key: 'lists', label: 'Lists', icon: 'checklist', blurb: 'Groceries, to-dos, and wish lists', route: '/family/lists' },
   { key: 'reminders', label: 'Reminders', icon: 'notifications_active', blurb: 'Nudges so nothing slips', route: null },
   { key: 'timer', label: 'Timer', icon: 'timer', blurb: 'Shared timers and countdowns', route: null },
   { key: 'today', label: 'Today', icon: 'wb_sunny', blurb: "Everyone's day at a glance", route: null },

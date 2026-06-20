@@ -1,0 +1,85 @@
+<h2 mat-dialog-title class="share-dlg__title">
+  <mat-icon aria-hidden="true">group_add</mat-icon>
+  Share
+</h2>
+
+<mat-dialog-content class="share-dlg__body">
+  <p class="share-dlg__sub">
+    “{{ data.itemLabel || 'Untitled' }}” — share with someone in your circle. They’ll see only this item,
+    not the rest of your family’s things.
+  </p>
+
+  <!-- Current shares -->
+  @if (shares().length) {
+    <ul class="share-list">
+      @for (s of shares(); track s.userId) {
+        <li class="share-list__row">
+          <span class="share-list__avatar share-list__avatar--init" aria-hidden="true">{{ initials(s.name) }}</span>
+          <span class="share-list__name">{{ s.name }}</span>
+          <button type="button" class="share-list__edit-pill" [class.is-on]="s.canEdit"
+                  (click)="toggleCanEdit(s)" [disabled]="busy()"
+                  [matTooltip]="s.canEdit ? 'Can edit — tap to make view-only' : 'View only — tap to allow editing'">
+            <mat-icon aria-hidden="true">{{ s.canEdit ? 'edit' : 'visibility' }}</mat-icon>
+            {{ s.canEdit ? 'Can edit' : 'View only' }}
+          </button>
+          <button mat-icon-button type="button" class="share-list__remove" (click)="remove(s)"
+                  [disabled]="removingId() === s.userId" aria-label="Remove share">
+            @if (removingId() === s.userId) {
+              <mat-spinner [diameter]="18" />
+            } @else {
+              <mat-icon aria-hidden="true">close</mat-icon>
+            }
+          </button>
+        </li>
+      }
+    </ul>
+  } @else {
+    <p class="share-dlg__empty">Not shared with anyone yet.</p>
+  }
+
+  <!-- Add a contact -->
+  <div class="share-add">
+    @if (contactsLoading()) {
+      <div class="share-add__loading"><mat-spinner [diameter]="20" /><span>Finding your contacts…</span></div>
+    } @else if (addable().length === 0) {
+      <p class="share-dlg__empty">
+        @if (contacts().length === 0) {
+          You don’t have any contacts yet. Ask an admin to add people to your circle.
+        } @else {
+          Everyone in your circle already has access.
+        }
+      </p>
+    } @else {
+      <mat-form-field appearance="outline" class="share-add__field">
+        <mat-label>Add a contact</mat-label>
+        <mat-select [ngModel]="pickedUserId()" (ngModelChange)="pickedUserId.set($event)" panelClass="share-add__panel">
+          @for (c of addable(); track c.userId) {
+            <mat-option [value]="c.userId">
+              <span class="picker-opt">
+                <span class="picker-opt__avatar picker-opt__avatar--init" aria-hidden="true">{{ initials(c.name) }}</span>
+                <span class="picker-opt__name">{{ c.name }}</span>
+              </span>
+            </mat-option>
+          }
+        </mat-select>
+      </mat-form-field>
+
+      <div class="share-add__controls">
+        <mat-slide-toggle [ngModel]="canEdit()" (ngModelChange)="canEdit.set($event)">Can edit</mat-slide-toggle>
+        <button mat-flat-button color="primary" type="button" class="share-add__btn"
+                [disabled]="pickedUserId() == null || busy()" (click)="add()">
+          @if (busy()) { <mat-spinner [diameter]="18" /> } @else { <mat-icon aria-hidden="true">person_add</mat-icon> }
+          Share
+        </button>
+      </div>
+    }
+  </div>
+
+  @if (errorMsg(); as err) {
+    <p class="share-dlg__error"><mat-icon aria-hidden="true">error_outline</mat-icon>{{ err }}</p>
+  }
+</mat-dialog-content>
+
+<mat-dialog-actions align="end" class="share-dlg__actions">
+  <button mat-flat-button color="primary" type="button" (click)="done()">Done</button>
+</mat-dialog-actions>
