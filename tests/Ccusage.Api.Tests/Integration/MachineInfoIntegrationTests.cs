@@ -166,7 +166,7 @@ public class MachineInfoIntegrationTests(WebAppFactory factory)
     [Fact]
     public async Task Fleet_machine_row_surfaces_the_metadata()
     {
-        var (_, ownerClient) = await ProvisionUser("reporter.self", "dashboard.view");
+        var (_, ownerClient) = await ProvisionUser("reporter.self", "fleet.view");
         var key = await CreateKeyAs(ownerClient, "mi-fleet");
         var machine = "mi-fleet-" + Guid.NewGuid().ToString("N")[..8];
 
@@ -200,7 +200,7 @@ public class MachineInfoIntegrationTests(WebAppFactory factory)
     {
         // A legacy machine has usage rows but no MachineInfos row. Produce that state the honest way:
         // ingest normally (which creates both), then drop just the metadata row, leaving the usage rows.
-        var (_, ownerClient) = await ProvisionUser("reporter.self", "dashboard.view");
+        var (_, ownerClient) = await ProvisionUser("reporter.self", "fleet.view");
         var key = await CreateKeyAs(ownerClient, "mi-legacy");
         var machine = "mi-legacy-" + Guid.NewGuid().ToString("N")[..8];
 

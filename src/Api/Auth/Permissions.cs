@@ -26,6 +26,7 @@ public static class Permissions
     public const string ReporterView = "reporter.view";
     public const string ReporterManage = "reporter.manage";
     public const string ReporterSelf = "reporter.self";
+    public const string FleetView = "fleet.view";
 
     // ---- Notifications ----
     public const string NotificationsView = "notifications.view";
@@ -69,6 +70,7 @@ public static class Permissions
         new PermissionInfo(ReporterView, "Reporter", "View reporter", "View ingest keys and reporter docs."),
         new PermissionInfo(ReporterManage, "Reporter", "Manage reporter", "Create and revoke ingest keys."),
         new PermissionInfo(ReporterSelf, "Reporter", "Manage own reporter keys", "Create and revoke your own ingest keys to report your own usage."),
+        new PermissionInfo(FleetView, "Reporter", "View fleet", "View the fleet leaderboard (per-machine and per-user usage attribution)."),
 
         new PermissionInfo(NotificationsView, "Notifications", "View notifications", "View the Discord/notification config."),
         new PermissionInfo(NotificationsManage, "Notifications", "Manage notifications", "Edit notifications and send a test."),
@@ -96,7 +98,7 @@ public static class Permissions
     public static readonly string[] Views =
     {
         DashboardView, CalendarView, PricingView, SettingsView,
-        ReporterView, NotificationsView, ChatRead, TrackerSelf, SharesView, UsersView, ActivityView,
+        ReporterView, FleetView, NotificationsView, ChatRead, TrackerSelf, SharesView, UsersView, ActivityView,
     };
 
     public static bool IsValid(string key) => All.Contains(key);

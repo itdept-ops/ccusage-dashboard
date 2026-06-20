@@ -30,11 +30,31 @@ public static class FleetEndpoints
             if (!IsValidDimension(req.Dimension, out var dimension))
                 return BadDimension();
 
-            var from = (req.From ?? Array.Empty<string>()).Distinct().ToArray();
+            // For the user dimension the client holds no emails — it sends user IDs. Resolve them to the
+            // raw owner emails (the attribution values) here; the machine dimension uses raw names as-is.
+            string[] from;
+            string to;
+            if (dimension == User)
+            {
+                var ids = (req.UserIds ?? Array.Empty<int>()).Distinct().ToArray();
+                if (ids.Length == 0)
+                    return Results.BadRequest(new { message = "`userIds` must contain at least one value." });
+
+                from = await ResolveUserEmailsAsync(db, ids, ct);
+                if (from.Length == 0)
+                    return Results.BadRequest(new { message = "None of the given `userIds` resolve to a user." });
+
+                to = req.ToUserId is int toId ? await ResolveUserEmailAsync(db, toId, ct) ?? "" : "";
+            }
+            else
+            {
+                from = (req.From ?? Array.Empty<string>()).Distinct().ToArray();
+                to = req.To ?? "";
+            }
+
             if (from.Length == 0)
                 return Results.BadRequest(new { message = "`from` must contain at least one value." });
 
-            var to = req.To ?? "";
             if (from.Length == 1 && from[0] == to)
                 return Results.BadRequest(new { message = "Nothing to reassign: the only source equals the target." });
 
@@ -56,9 +76,24 @@ public static class FleetEndpoints
             if (!IsValidDimension(req.Dimension, out var dimension))
                 return BadDimension();
 
-            var names = (req.Names ?? Array.Empty<string>()).Distinct().ToArray();
-            if (names.Length == 0)
-                return Results.BadRequest(new { message = "`names` must contain at least one value." });
+            // User dimension: the client sends user IDs — resolve to raw owner emails before deleting.
+            string[] names;
+            if (dimension == User)
+            {
+                var ids = (req.UserIds ?? Array.Empty<int>()).Distinct().ToArray();
+                if (ids.Length == 0)
+                    return Results.BadRequest(new { message = "`userIds` must contain at least one value." });
+
+                names = await ResolveUserEmailsAsync(db, ids, ct);
+                if (names.Length == 0)
+                    return Results.BadRequest(new { message = "None of the given `userIds` resolve to a user." });
+            }
+            else
+            {
+                names = (req.Names ?? Array.Empty<string>()).Distinct().ToArray();
+                if (names.Length == 0)
+                    return Results.BadRequest(new { message = "`names` must contain at least one value." });
+            }
 
             long deleted = dimension == Machine
                 ? await db.UsageRecords.Where(r => names.Contains(r.MachineName)).ExecuteDeleteAsync(ct)
@@ -74,13 +109,17 @@ public static class FleetEndpoints
         // (case-insensitive), so legacy keys with no user link are covered.
         g.MapPost("/revoke-keys", async (FleetRevokeKeysRequest req, UsageDbContext db, AuditLogger audit, CancellationToken ct) =>
         {
-            var email = (req.Email ?? "").Trim();
-            if (email.Length == 0)
-                return Results.BadRequest(new { message = "`email` is required." });
+            // The client sends a user id (no email). Resolve it to the owner email here; revocation then
+            // matches that user's keys by UserId OR legacy CreatedByEmail (case-insensitive), as before.
+            if (req.UserId <= 0)
+                return Results.BadRequest(new { message = "`userId` is required." });
+
+            var email = await ResolveUserEmailAsync(db, req.UserId, ct);
+            if (email is null)
+                return Results.BadRequest(new { message = "`userId` does not resolve to a user." });
 
             var lower = email.ToLowerInvariant();
-            var userId = await db.Users.AsNoTracking()
-                .Where(u => u.Email == lower).Select(u => (int?)u.Id).FirstOrDefaultAsync(ct);
+            int? userId = req.UserId;
 
             var now = DateTime.UtcNow;
             var revoked = await db.IngestKeys
@@ -92,6 +131,22 @@ public static class FleetEndpoints
             return Results.Ok(new FleetRevokeKeysResultDto { Revoked = revoked });
         });
     }
+
+    /// <summary>Resolve a set of user IDs to their RAW owner emails (the attribution values). Ids with no
+    /// matching user are silently dropped; the result is the distinct set of resolved emails.</summary>
+    private static async Task<string[]> ResolveUserEmailsAsync(UsageDbContext db, int[] ids, CancellationToken ct) =>
+        await db.Users.AsNoTracking()
+            .Where(u => ids.Contains(u.Id))
+            .Select(u => u.Email)
+            .Distinct()
+            .ToArrayAsync(ct);
+
+    /// <summary>Resolve a single user id to its RAW owner email, or null when no such user exists.</summary>
+    private static async Task<string?> ResolveUserEmailAsync(UsageDbContext db, int id, CancellationToken ct) =>
+        await db.Users.AsNoTracking()
+            .Where(u => u.Id == id)
+            .Select(u => u.Email)
+            .FirstOrDefaultAsync(ct);
 
     private static bool IsValidDimension(string? value, out string normalized)
     {

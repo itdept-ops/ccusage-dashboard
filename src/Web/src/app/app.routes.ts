@@ -79,7 +79,7 @@ export const routes: Routes = [
   },
   {
     path: 'fleet',
-    canActivate: [anyPermissionGuard(PERM.dashboardView, PERM.reporterView, PERM.reporterManage)],
+    canActivate: [anyPermissionGuard(PERM.fleetView, PERM.reporterManage)],
     loadComponent: () => import('./features/fleet/fleet').then(m => m.Fleet),
     title: 'Usage IQ · Fleet',
   },

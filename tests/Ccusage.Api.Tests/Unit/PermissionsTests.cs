@@ -5,14 +5,14 @@ namespace Ccusage.Api.Tests.Unit;
 
 public class PermissionsTests
 {
-    // The full catalog of 26 keys.
+    // The full catalog of 27 keys.
     private static readonly string[] AllKeys =
     {
         "dashboard.view", "dashboard.export", "sync.run",
         "calendar.view",
         "pricing.view", "pricing.manage",
         "settings.view", "settings.manage", "sources.manage",
-        "reporter.view", "reporter.manage", "reporter.self",
+        "reporter.view", "reporter.manage", "reporter.self", "fleet.view",
         "notifications.view", "notifications.manage",
         "chat.read", "chat.send", "chat.moderate", "chat.contacts.manage",
         "tracker.self", "tracker.viewall", "tracker.ai",
@@ -33,6 +33,7 @@ public class PermissionsTests
     [InlineData("reporter.view")]
     [InlineData("reporter.manage")]
     [InlineData("reporter.self")]
+    [InlineData("fleet.view")]
     [InlineData("notifications.view")]
     [InlineData("notifications.manage")]
     [InlineData("chat.read")]
@@ -77,6 +78,7 @@ public class PermissionsTests
         Permissions.ReporterView.Should().Be("reporter.view");
         Permissions.ReporterManage.Should().Be("reporter.manage");
         Permissions.ReporterSelf.Should().Be("reporter.self");
+        Permissions.FleetView.Should().Be("fleet.view");
         Permissions.NotificationsView.Should().Be("notifications.view");
         Permissions.NotificationsManage.Should().Be("notifications.manage");
         Permissions.ChatRead.Should().Be("chat.read");
@@ -94,9 +96,9 @@ public class PermissionsTests
     }
 
     [Fact]
-    public void All_contains_exactly_the_twenty_six_known_keys()
+    public void All_contains_exactly_the_twenty_seven_known_keys()
     {
-        Permissions.All.Should().HaveCount(26);
+        Permissions.All.Should().HaveCount(27);
         Permissions.All.Should().BeEquivalentTo(AllKeys);
     }
 
@@ -107,9 +109,9 @@ public class PermissionsTests
     }
 
     [Fact]
-    public void Catalog_has_twenty_six_entries()
+    public void Catalog_has_twenty_seven_entries()
     {
-        Permissions.Catalog.Should().HaveCount(26);
+        Permissions.Catalog.Should().HaveCount(27);
     }
 
     [Fact]
@@ -142,9 +144,9 @@ public class PermissionsTests
     public void Views_are_the_page_view_gates_and_all_valid()
     {
         // The page-view gates: every *.view key plus chat.read (the Chat page gate) and tracker.self
-        // (the Tracker page gate) — both page gates without a *.view suffix. 9 *.view keys + chat.read
-        // + tracker.self = 11.
-        Permissions.Views.Should().HaveCount(11);
+        // (the Tracker page gate) — both page gates without a *.view suffix. 10 *.view keys + chat.read
+        // + tracker.self = 12.
+        Permissions.Views.Should().HaveCount(12);
         Permissions.Views.Should().OnlyContain(k => Permissions.IsValid(k));
         Permissions.Views.Should().OnlyContain(k =>
             k.EndsWith(".view") || k == Permissions.ChatRead || k == Permissions.TrackerSelf);

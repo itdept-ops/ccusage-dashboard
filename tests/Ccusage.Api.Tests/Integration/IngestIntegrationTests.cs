@@ -274,37 +274,66 @@ public class IngestIntegrationTests(WebAppFactory factory)
     }
 
     [Fact]
-    public async Task Fleet_endpoint_returns_per_machine_and_per_user_buckets()
+    public async Task Fleet_endpoint_returns_per_machine_and_per_user_buckets_with_names_not_emails()
     {
-        var (owner, ownerClient) = await ProvisionUser("reporter.self", "dashboard.view");
+        // The reporting owner has a display name; the fleet view must surface that NAME, never the email.
+        var ownerEmail = $"u-{Guid.NewGuid():N}@test.local";
+        var ownerName = "Fleet Owner " + Guid.NewGuid().ToString("N")[..6];
+        var created = await Admin().PostAsJsonAsync("/api/users",
+            new { email = ownerEmail, name = ownerName, isEnabled = true, permissions = new[] { "reporter.self", "fleet.view" } });
+        created.StatusCode.Should().Be(HttpStatusCode.Created);
+        var ownerId = (await created.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("id").GetInt32();
+
+        var ownerClient = factory.CreateClient();
+        ownerClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", TestJwt.For(ownerEmail));
+
         var (_, key) = await CreateKeyAs(ownerClient, "fleet");
         var machine = "fleet-box-" + Guid.NewGuid().ToString("N")[..6];
 
         await WithKey(key).PostAsJsonAsync("/api/ingest",
             new { source = "claude", machine, rows = new[] { Row(Guid.NewGuid().ToString("N")) } });
 
-        var fleet = await (await ownerClient.GetAsync("/api/fleet")).Content.ReadFromJsonAsync<JsonElement>();
+        var resp = await ownerClient.GetAsync("/api/fleet");
+        resp.StatusCode.Should().Be(HttpStatusCode.OK);
+        var raw = await resp.Content.ReadAsStringAsync();
+        // Adversarial check: no email anywhere in the fleet payload (no "@", and not the owner email).
+        raw.Should().NotContain("@");
+        raw.Should().NotContain(ownerEmail);
+
+        var fleet = JsonDocument.Parse(raw).RootElement;
 
         var m = fleet.GetProperty("machines").EnumerateArray()
             .First(x => x.GetProperty("name").GetString() == machine);
         m.GetProperty("records").GetInt32().Should().BeGreaterThanOrEqualTo(1);
         m.GetProperty("tokens").GetInt64().Should().BeGreaterThan(0);
         m.TryGetProperty("lastSeenUtc", out _).Should().BeTrue();
-        m.GetProperty("users").EnumerateArray().Select(e => e.GetString()).Should().Contain(owner);
+        // machine.users carries NAMES, not emails.
+        m.GetProperty("users").EnumerateArray().Select(e => e.GetString()).Should().Contain(ownerName);
 
+        // The user row identifies by userId + name; there is no email field.
         var u = fleet.GetProperty("users").EnumerateArray()
-            .First(x => x.GetProperty("email").GetString() == owner);
+            .First(x => x.GetProperty("userId").ValueKind == JsonValueKind.Number
+                        && x.GetProperty("userId").GetInt32() == ownerId);
+        u.GetProperty("name").GetString().Should().Be(ownerName);
+        u.TryGetProperty("email", out _).Should().BeFalse();
         u.GetProperty("machines").EnumerateArray().Select(e => e.GetString()).Should().Contain(machine);
     }
 
     [Fact]
-    public async Task Fleet_endpoint_requires_a_qualifying_permission()
+    public async Task Fleet_endpoint_requires_fleet_view_or_reporter_manage()
     {
-        var (_, noPerm) = await ProvisionUser("calendar.view"); // none of dashboard/reporter view|manage
-        (await noPerm.GetAsync("/api/fleet")).StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        // dashboard.view / reporter.view no longer qualify — the broad dashboard crowd can't see Fleet.
+        var (_, dashOnly) = await ProvisionUser("dashboard.view");
+        (await dashOnly.GetAsync("/api/fleet")).StatusCode.Should().Be(HttpStatusCode.Forbidden);
 
         var (_, reporterViewer) = await ProvisionUser("reporter.view");
-        (await reporterViewer.GetAsync("/api/fleet")).StatusCode.Should().Be(HttpStatusCode.OK);
+        (await reporterViewer.GetAsync("/api/fleet")).StatusCode.Should().Be(HttpStatusCode.Forbidden);
+
+        var (_, fleetViewer) = await ProvisionUser("fleet.view");
+        (await fleetViewer.GetAsync("/api/fleet")).StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var (_, reporterMgr) = await ProvisionUser("reporter.manage");
+        (await reporterMgr.GetAsync("/api/fleet")).StatusCode.Should().Be(HttpStatusCode.OK);
     }
 
     [Fact]

@@ -17,18 +17,24 @@ import { FleetDimension } from '../../core/models';
 export type FleetAction = 'reassign' | 'delete' | 'revoke';
 
 /**
- * Input contract. `rawValue` is the RAW dimension value to act on (already mapped from the "local"
- * display row to the empty string by the caller). `label` is the friendly name for prose. `others`
- * are the OTHER buckets in the same board (as { rawValue, label }) — the reassign picker's options.
+ * Input contract. For the MACHINE dimension `rawValue` is the RAW machine name to act on (already mapped
+ * from the "local" display row to the empty string by the caller). For the USER dimension the client
+ * holds no emails — `userId` is the row's AppUser id (or null for the local/orphan bucket) and the server
+ * resolves it to the raw owner email. `label` is the friendly name for prose. `others` are the OTHER
+ * buckets in the same board — the reassign picker's options (each carries `userId` for user targets).
  */
 export interface FleetActionData {
   action: FleetAction;
   dimension: FleetDimension;
+  /** Machine dimension: the raw machine name. Unused (empty) for the user dimension. */
   rawValue: string;
+  /** User dimension: the row's AppUser id, or null for the local/orphan bucket. */
+  userId?: number | null;
   label: string;
   records: number;
-  /** Other existing buckets on this board — combine/transfer targets (reassign only). */
-  others: { rawValue: string; label: string }[];
+  /** Other existing buckets on this board — combine/transfer targets (reassign only). `userId` is set
+   * for user targets (null = local); `rawValue` is the raw name for machine targets. */
+  others: { rawValue: string; label: string; userId?: number | null }[];
 }
 
 /** What the dialog resolves with on success — fed straight into the page's snackbar. */
@@ -62,16 +68,32 @@ export class FleetActionDialog {
   // ---- reassign target selection ----
   /** 'existing' = pick another bucket; 'new' = type a fresh/another name. */
   readonly targetMode = signal<'existing' | 'new'>(this.data.others.length ? 'existing' : 'new');
-  /** Selected existing target (its RAW value). */
-  readonly targetExisting = signal<string>(this.data.others[0]?.rawValue ?? '');
-  /** Free-text new/another name. */
+  /** Index into `data.others` of the selected existing target (dimension-agnostic; user targets share an
+   * empty rawValue, so we key the picker by index rather than value). */
+  readonly targetExistingIdx = signal<number>(0);
+  /** Free-text new/another name (MACHINE dimension only — users can't be typed since there's no email). */
   readonly targetNew = signal<string>('');
 
   readonly kindNoun = computed(() => this.data.dimension === 'machine' ? 'machine' : 'user');
 
-  /** The resolved RAW target value for a reassign. */
-  private resolvedTarget(): string {
-    return this.targetMode() === 'existing' ? this.targetExisting() : this.targetNew().trim();
+  /** The chosen existing target entry, or undefined when none. */
+  private chosenExisting() {
+    return this.data.others[this.targetExistingIdx()];
+  }
+
+  /** The resolved RAW machine target for a machine reassign. */
+  private resolvedMachineTarget(): string {
+    return this.targetMode() === 'existing' ? (this.chosenExisting()?.rawValue ?? '') : this.targetNew().trim();
+  }
+
+  /** The resolved target user id for a user reassign (null = local). Existing pick only; users can't be typed. */
+  private resolvedUserTargetId(): number | null {
+    return this.chosenExisting()?.userId ?? null;
+  }
+
+  /** The source user id(s) for a user mutation: the row's id when present (the local/orphan bucket has none). */
+  private userIds(): number[] {
+    return this.data.userId != null ? [this.data.userId] : [];
   }
 
   /** Whether the reassign target is a valid, non-self choice. */
@@ -80,6 +102,8 @@ export class FleetActionDialog {
       // An existing pick is always a different bucket; still guard against an empty option list.
       return this.data.others.length > 0;
     }
+    // Free-text "new name" is MACHINE-only (a user has no typeable email on the client).
+    if (this.data.dimension !== 'machine') return false;
     const t = this.targetNew().trim();
     // A new name must be non-empty and not just rename the bucket onto itself.
     return t.length > 0 && t.toLowerCase() !== this.data.label.toLowerCase();
@@ -88,7 +112,7 @@ export class FleetActionDialog {
   /** Friendly label for the chosen reassign target (for the confirm prose). */
   readonly targetLabel = computed(() => {
     if (this.targetMode() === 'existing') {
-      return this.data.others.find(o => o.rawValue === this.targetExisting())?.label ?? '';
+      return this.chosenExisting()?.label ?? '';
     }
     return this.targetNew().trim();
   });
@@ -103,14 +127,25 @@ export class FleetActionDialog {
       this.error.set(e.error?.message ?? 'The action could not be completed. Please try again.');
     };
 
+    const isUser = this.data.dimension === 'user';
+
     if (this.data.action === 'reassign') {
-      this.api.reassignFleet({ dimension: this.data.dimension, from: [this.data.rawValue], to: this.resolvedTarget() })
+      // User dimension: source + target are user IDs (the server resolves id -> owner email). Machine
+      // dimension: raw names, with a "" target meaning re-label to local.
+      const body = isUser
+        ? { dimension: 'user' as const, userIds: this.userIds(), toUserId: this.resolvedUserTargetId() }
+        : { dimension: 'machine' as const, from: [this.data.rawValue], to: this.resolvedMachineTarget() };
+      this.api.reassignFleet(body)
         .subscribe({ next: r => this.ref.close({ action: 'reassign', count: r.affected }), error: fail });
     } else if (this.data.action === 'delete') {
-      this.api.deleteFleet({ dimension: this.data.dimension, names: [this.data.rawValue] })
+      const body = isUser
+        ? { dimension: 'user' as const, userIds: this.userIds() }
+        : { dimension: 'machine' as const, names: [this.data.rawValue] };
+      this.api.deleteFleet(body)
         .subscribe({ next: r => this.ref.close({ action: 'delete', count: r.deleted }), error: fail });
     } else {
-      this.api.revokeFleetKeys({ email: this.data.rawValue })
+      // Revoke is user-only; send the row's user id (server resolves it to the owner email).
+      this.api.revokeFleetKeys({ userId: this.data.userId ?? 0 })
         .subscribe({ next: r => this.ref.close({ action: 'revoke', count: r.revoked }), error: fail });
     }
   }

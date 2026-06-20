@@ -14,7 +14,9 @@
       <div class="fa-target">
         <span class="fa-target-lbl micro-label">Target {{ kindNoun() }}</span>
 
-        @if (data.others.length) {
+        <!-- "New / other name" typing is MACHINE-only: a user has no email to type on the client, so
+             the user picker offers only the existing-bucket dropdown. -->
+        @if (data.others.length && data.dimension === 'machine') {
           <div class="fa-mode">
             <button mat-button type="button" class="fa-mode-btn" [class.active]="targetMode() === 'existing'"
                     (click)="targetMode.set('existing')">
@@ -30,22 +32,22 @@
         @if (targetMode() === 'existing' && data.others.length) {
           <mat-form-field appearance="outline" subscriptSizing="dynamic" class="fa-field">
             <mat-label>Combine into</mat-label>
-            <mat-select [ngModel]="targetExisting()" (ngModelChange)="targetExisting.set($event)">
-              @for (o of data.others; track o.rawValue) {
-                <mat-option [value]="o.rawValue">{{ o.label }}</mat-option>
+            <mat-select [ngModel]="targetExistingIdx()" (ngModelChange)="targetExistingIdx.set($event)">
+              @for (o of data.others; track $index) {
+                <mat-option [value]="$index">{{ o.label }}</mat-option>
               }
             </mat-select>
           </mat-form-field>
-        } @else {
+        } @else if (data.dimension === 'machine') {
           <mat-form-field appearance="outline" subscriptSizing="dynamic" class="fa-field">
-            <mat-label>New {{ kindNoun() }} name</mat-label>
+            <mat-label>New machine name</mat-label>
             <input matInput maxlength="200" [ngModel]="targetNew()" (ngModelChange)="targetNew.set($event)"
-                   (keyup.enter)="canReassign() && confirm()"
-                   [placeholder]="data.dimension === 'machine' ? 'e.g. build-server' : 'e.g. dev@example.com'" />
+                   (keyup.enter)="canReassign() && confirm()" placeholder="e.g. build-server" />
           </mat-form-field>
-          @if (data.dimension === 'machine') {
-            <p class="fa-tip micro-label"><mat-icon>info</mat-icon> Leave empty to re-label to the local (file-sync) bucket.</p>
-          }
+          <p class="fa-tip micro-label"><mat-icon>info</mat-icon> Leave empty to re-label to the local (file-sync) bucket.</p>
+        } @else {
+          <!-- User dimension with no other users to combine into: nothing to pick. -->
+          <p class="fa-tip micro-label"><mat-icon>info</mat-icon> No other users to combine into.</p>
         }
       </div>
 

@@ -91,7 +91,7 @@ public static class ApiEndpoints
         api.MapGet("/fleet", async (
             [AsParameters] UsageFilterQuery filter, UsageQueries q, CancellationToken ct) =>
             Results.Ok(await q.FleetAsync(filter, ct)))
-            .RequireAnyPermission(Permissions.DashboardView, Permissions.ReporterView, Permissions.ReporterManage);
+            .RequireAnyPermission(Permissions.FleetView, Permissions.ReporterManage);
 
         // ---- Filter options ----
         api.MapGet("/projects", async (UsageQueries q, CancellationToken ct) =>

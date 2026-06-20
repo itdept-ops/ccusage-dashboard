@@ -24,7 +24,7 @@ type Board = 'machines' | 'users';
 
 /**
  * Fleet leaderboards: two cost-ranked tables — Machines and Users — over the filtered range, each row
- * expandable to reveal the linked users/machines. Reachable by dashboard.view or reporter.view|manage.
+ * expandable to reveal the linked users/machines. Reachable by fleet.view or reporter.manage.
  * A lightweight date-range filter (reusing the dashboard's quick-range conventions) scopes the rollup.
  */
 @Component({
@@ -61,9 +61,12 @@ export class Fleet {
   /** Which leaderboard the table shows; both come from the same payload. */
   readonly board = signal<Board>('machines');
 
-  /** Expanded row keys per board (machine name / user email). */
+  /** Expanded row keys per board (machine name / stable user key). */
   private readonly expandedMachines = signal<Set<string>>(new Set());
   private readonly expandedUsers = signal<Set<string>>(new Set());
+
+  /** Stable, non-email key for a user row (the userId when present, else the local/orphan bucket). */
+  userKey(u: FleetUser): string { return u.userId != null ? 'u' + u.userId : 'local'; }
 
   // Cost-desc ordering (the API may already sort, but we enforce it for a stable view).
   readonly machines = computed<FleetMachine[]>(() =>
@@ -150,7 +153,8 @@ export class Fleet {
 
   seen(iso: string | null): string { return timeAgo(iso); }
 
-  /** "local" is the synthetic file-sync bucket — surface it as such rather than a real host/user. */
+  /** "local" is the synthetic file-sync bucket — surface it as such rather than a real host/user.
+   * For users this matches the resolved display name; for machines, the literal "local" row. */
   isLocal(name: string): boolean { return name === 'local'; }
 
   /**
@@ -181,26 +185,50 @@ export class Fleet {
     return this.isLocal(displayName) ? 'local (file sync)' : displayName;
   }
 
-  /** The OTHER buckets on the current board — combine/transfer targets for the reassign picker. */
-  private otherTargets(dimension: FleetDimension, selfDisplay: string): { rawValue: string; label: string }[] {
-    const rows = dimension === 'machine'
-      ? this.machines().map(m => m.name)
-      : this.users().map(u => u.email);
-    return rows
-      .filter(name => name !== selfDisplay)
+  /** The OTHER MACHINE buckets — combine/transfer targets for the machine reassign picker (raw names). */
+  private otherMachineTargets(selfName: string): { rawValue: string; label: string; userId?: number | null }[] {
+    return this.machines()
+      .map(m => m.name)
+      .filter(name => name !== selfName)
       .map(name => ({ rawValue: this.rawValue(name), label: this.friendly(name) }));
   }
 
-  /** Open a fleet management dialog for one row; on success refresh the data and toast the count. */
-  private openAction(action: FleetAction, dimension: FleetDimension, displayName: string, records: number): void {
+  /** The OTHER USER buckets — combine/transfer targets for the user reassign picker (keyed by userId). */
+  private otherUserTargets(self: FleetUser): { rawValue: string; label: string; userId?: number | null }[] {
+    return this.users()
+      .filter(u => this.userKey(u) !== this.userKey(self))
+      .map(u => ({ rawValue: '', label: this.friendly(u.name), userId: u.userId ?? null }));
+  }
+
+  /** Open a MACHINE management dialog (raw machine names). */
+  private openMachineAction(action: FleetAction, m: FleetMachine): void {
     if (!this.canManage()) return;
     const data: FleetActionData = {
-      action, dimension,
-      rawValue: this.rawValue(displayName),
-      label: this.friendly(displayName),
-      records,
-      others: action === 'reassign' ? this.otherTargets(dimension, displayName) : [],
+      action, dimension: 'machine',
+      rawValue: this.rawValue(m.name),
+      label: this.friendly(m.name),
+      records: m.records,
+      others: action === 'reassign' ? this.otherMachineTargets(m.name) : [],
     };
+    this.runDialog(data);
+  }
+
+  /** Open a USER management dialog (keyed by userId; no email reaches the client). */
+  private openUserAction(action: FleetAction, u: FleetUser): void {
+    if (!this.canManage()) return;
+    const data: FleetActionData = {
+      action, dimension: 'user',
+      rawValue: '',
+      userId: u.userId ?? null,
+      label: this.friendly(u.name),
+      records: u.records,
+      others: action === 'reassign' ? this.otherUserTargets(u) : [],
+    };
+    this.runDialog(data);
+  }
+
+  /** Open the dialog with the prepared data; on success refresh the data and toast the count. */
+  private runDialog(data: FleetActionData): void {
     this.dialog.open(FleetActionDialog, { data, width: '520px', maxWidth: '94vw', autoFocus: false })
       .afterClosed().subscribe((res: FleetActionResult | undefined) => {
         if (!res) return;
@@ -220,9 +248,9 @@ export class Fleet {
   }
 
   // Per-row entry points used by the row menu.
-  combineMachine(m: FleetMachine): void { this.openAction('reassign', 'machine', m.name, m.records); }
-  deleteMachine(m: FleetMachine): void { this.openAction('delete', 'machine', m.name, m.records); }
-  combineUser(u: FleetUser): void { this.openAction('reassign', 'user', u.email, u.records); }
-  deleteUser(u: FleetUser): void { this.openAction('delete', 'user', u.email, u.records); }
-  revokeUser(u: FleetUser): void { this.openAction('revoke', 'user', u.email, u.records); }
+  combineMachine(m: FleetMachine): void { this.openMachineAction('reassign', m); }
+  deleteMachine(m: FleetMachine): void { this.openMachineAction('delete', m); }
+  combineUser(u: FleetUser): void { this.openUserAction('reassign', u); }
+  deleteUser(u: FleetUser): void { this.openUserAction('delete', u); }
+  revokeUser(u: FleetUser): void { this.openUserAction('revoke', u); }
 }

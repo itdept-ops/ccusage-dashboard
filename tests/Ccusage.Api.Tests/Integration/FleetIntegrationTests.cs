@@ -85,6 +85,14 @@ public class FleetIntegrationTests(WebAppFactory factory)
         return (owner, dedup);
     }
 
+    /// <summary>The AppUser id for an email (the user-dimension mutations now key off ids, not emails).</summary>
+    private async Task<int> UserIdFor(string email)
+    {
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<UsageDbContext>();
+        return await db.Users.AsNoTracking().Where(u => u.Email == email).Select(u => u.Id).FirstAsync();
+    }
+
     private static async Task<bool> AuditContains(HttpClient admin, string action, string detailFragment)
     {
         var audit = await (await admin.GetAsync("/api/audit")).Content.ReadFromJsonAsync<JsonElement>();
@@ -108,7 +116,7 @@ public class FleetIntegrationTests(WebAppFactory factory)
             new { dimension = "machine", names = new[] { "x" } });
         del.StatusCode.Should().Be(HttpStatusCode.Forbidden);
 
-        var revoke = await noPerm.PostAsJsonAsync("/api/fleet/revoke-keys", new { email = "x@test.local" });
+        var revoke = await noPerm.PostAsJsonAsync("/api/fleet/revoke-keys", new { userId = 1 });
         revoke.StatusCode.Should().Be(HttpStatusCode.Forbidden);
     }
 
@@ -120,7 +128,7 @@ public class FleetIntegrationTests(WebAppFactory factory)
             .StatusCode.Should().Be(HttpStatusCode.Unauthorized);
         (await anon.PostAsJsonAsync("/api/fleet/delete", new { dimension = "machine", names = new[] { "x" } }))
             .StatusCode.Should().Be(HttpStatusCode.Unauthorized);
-        (await anon.PostAsJsonAsync("/api/fleet/revoke-keys", new { email = "x@test.local" }))
+        (await anon.PostAsJsonAsync("/api/fleet/revoke-keys", new { userId = 1 }))
             .StatusCode.Should().Be(HttpStatusCode.Unauthorized);
     }
 
@@ -191,9 +199,11 @@ public class FleetIntegrationTests(WebAppFactory factory)
         var (fromUser, dedup) = await IngestOne(fromMachine);
         var (toUser, _) = await ProvisionUser("reporter.self");
 
+        var fromId = await UserIdFor(fromUser);
+        var toId = await UserIdFor(toUser);
         var (_, mgr) = await ProvisionUser("reporter.manage", "dashboard.view");
         var resp = await mgr.PostAsJsonAsync("/api/fleet/reassign",
-            new { dimension = "user", from = new[] { fromUser }, to = toUser });
+            new { dimension = "user", userIds = new[] { fromId }, toUserId = toId });
         resp.StatusCode.Should().Be(HttpStatusCode.OK);
         (await resp.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("affected").GetInt64().Should().Be(1);
 
@@ -303,7 +313,7 @@ public class FleetIntegrationTests(WebAppFactory factory)
         }
 
         var (_, mgr) = await ProvisionUser("reporter.manage");
-        var resp = await mgr.PostAsJsonAsync("/api/fleet/revoke-keys", new { email = victim });
+        var resp = await mgr.PostAsJsonAsync("/api/fleet/revoke-keys", new { userId = await UserIdFor(victim) });
         resp.StatusCode.Should().Be(HttpStatusCode.OK);
         (await resp.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("revoked").GetInt32().Should().Be(2);
 
@@ -328,21 +338,26 @@ public class FleetIntegrationTests(WebAppFactory factory)
     {
         var (owner, ownerClient) = await ProvisionUser("reporter.self");
         await CreateKeyAs(ownerClient, "once");
+        var ownerId = await UserIdFor(owner);
 
         var (_, mgr) = await ProvisionUser("reporter.manage");
-        (await (await mgr.PostAsJsonAsync("/api/fleet/revoke-keys", new { email = owner }))
+        (await (await mgr.PostAsJsonAsync("/api/fleet/revoke-keys", new { userId = ownerId }))
             .Content.ReadFromJsonAsync<JsonElement>()).GetProperty("revoked").GetInt32().Should().Be(1);
 
         // Second call finds nothing still-active → 0.
-        (await (await mgr.PostAsJsonAsync("/api/fleet/revoke-keys", new { email = owner }))
+        (await (await mgr.PostAsJsonAsync("/api/fleet/revoke-keys", new { userId = ownerId }))
             .Content.ReadFromJsonAsync<JsonElement>()).GetProperty("revoked").GetInt32().Should().Be(0);
     }
 
     [Fact]
-    public async Task Revoke_keys_rejects_an_empty_email()
+    public async Task Revoke_keys_rejects_a_missing_userid()
     {
         var (_, mgr) = await ProvisionUser("reporter.manage");
-        (await mgr.PostAsJsonAsync("/api/fleet/revoke-keys", new { email = "" }))
+        // Zero/absent id is rejected before any DB work.
+        (await mgr.PostAsJsonAsync("/api/fleet/revoke-keys", new { userId = 0 }))
+            .StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        // A non-existent id resolves to no user → BadRequest.
+        (await mgr.PostAsJsonAsync("/api/fleet/revoke-keys", new { userId = 999999 }))
             .StatusCode.Should().Be(HttpStatusCode.BadRequest);
     }
 

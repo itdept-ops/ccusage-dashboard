@@ -74,6 +74,8 @@ export interface FleetMachine {
   records: number;
   tokens: number;
   costUsd: number;
+  /** Display NAMES of the users who reported from this machine (resolved server-side from the raw owner
+   * email: AppUser.Name, "Unknown user" when no AppUser, "local" for the file-sync owner). Never an email. */
   users: string[];
 
   // System metadata from the matching MachineInfos row (LEFT-joined by raw machine name). All null
@@ -92,9 +94,16 @@ export interface FleetMachine {
   metadataLastSeenUtc: string | null;
 }
 
-/** One reporting user in the fleet view: spend/volume plus the machines they reported from. */
+/**
+ * One reporting user in the fleet view: spend/volume plus the machines they reported from. Identity is
+ * the resolved `userId` + display `name` — the raw owner email is NEVER exposed. Mutations targeting this
+ * user send the `userId` back (the server resolves it to the raw owner email internally). Mirrors FleetUserDto.
+ */
 export interface FleetUser {
-  email: string;
+  /** The matching AppUser id, or null for the local/file-sync bucket and for an orphaned attribution email. */
+  userId?: number | null;
+  /** Display name: AppUser.Name; "local" for the file-sync bucket; "Unknown user" when no AppUser. Never an email. */
+  name: string;
   lastSeenUtc: string | null;
   records: number;
   tokens: number;
@@ -121,32 +130,51 @@ export interface MachineStat {
 export type FleetDimension = 'machine' | 'user';
 
 /**
- * Reassign (combine/transfer) every usage record in `from` to a single `to` value.
- * `to` may be "" to re-label to the local bucket. Mirrors FleetReassignRequest.
+ * Reassign (combine/transfer) every usage record in a source set to a single target. For the `machine`
+ * dimension the values are raw machine names (`from` / `to`, `to` may be "" to re-label to local). For
+ * the `user` dimension the client holds no emails, so it sends user IDs instead (`userIds` sources,
+ * `toUserId` target, null/undefined = local); the server resolves each id to the raw owner email.
+ * Mirrors FleetReassignRequest.
  */
 export interface FleetReassignRequest {
   dimension: FleetDimension;
-  from: string[];
-  to: string;
+  // machine dimension: raw machine names.
+  from?: string[];
+  to?: string;
+  // user dimension: user IDs (no emails).
+  userIds?: number[];
+  /** Target user id for a "user" reassign, or null/undefined = local. */
+  toUserId?: number | null;
 }
 
 export interface FleetReassignResult {
   affected: number;
 }
 
-/** Permanently delete every usage record whose dimension value is one of `names`. Mirrors FleetDeleteRequest. */
+/**
+ * Permanently delete every usage record whose dimension value is one of the named buckets. For `machine`
+ * the buckets are raw machine names (`names`); for `user` the client sends user IDs (`userIds`) which the
+ * server resolves to raw owner emails before deleting. Mirrors FleetDeleteRequest.
+ */
 export interface FleetDeleteRequest {
   dimension: FleetDimension;
-  names: string[];
+  // machine dimension: raw machine names.
+  names?: string[];
+  // user dimension: user IDs (no emails).
+  userIds?: number[];
 }
 
 export interface FleetDeleteResult {
   deleted: number;
 }
 
-/** Revoke every currently-active ingest key owned by a user. USER dimension only. Mirrors FleetRevokeKeysRequest. */
+/**
+ * Revoke every currently-active ingest key owned by a user. USER dimension only. The client sends the
+ * `userId` (no email); the server resolves it to the owner email then revokes that owner's keys.
+ * Mirrors FleetRevokeKeysRequest.
+ */
 export interface FleetRevokeKeysRequest {
-  email: string;
+  userId: number;
 }
 
 export interface FleetRevokeKeysResult {
@@ -1183,6 +1211,7 @@ export const PERM = {
   reporterView: 'reporter.view',
   reporterManage: 'reporter.manage',
   reporterSelf: 'reporter.self',
+  fleetView: 'fleet.view',
   notificationsView: 'notifications.view',
   notificationsManage: 'notifications.manage',
   sharesView: 'shares.view',
@@ -1223,6 +1252,7 @@ export const PERM_GROUP_OF: Readonly<Record<string, string>> = {
   [PERM.reporterView]: 'Reporter',
   [PERM.reporterManage]: 'Reporter',
   [PERM.reporterSelf]: 'Reporter',
+  [PERM.fleetView]: 'Reporter',
   [PERM.notificationsView]: 'Notifications',
   [PERM.notificationsManage]: 'Notifications',
   [PERM.chatRead]: 'Chat',

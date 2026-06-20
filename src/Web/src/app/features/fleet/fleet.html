@@ -199,14 +199,14 @@
       <div class="lb-empty">No machines have reported in this range.</div>
     }
   } @else {
-    @for (u of users(); track u.email; let i = $index) {
-      <div class="lb-row" [class.open]="isExpanded(u.email)" [class.has-actions]="canManage()">
-        <button class="lb-main" (click)="toggle(u.email)" [attr.aria-expanded]="isExpanded(u.email)">
+    @for (u of users(); track userKey(u); let i = $index) {
+      <div class="lb-row" [class.open]="isExpanded(userKey(u))" [class.has-actions]="canManage()">
+        <button class="lb-main" (click)="toggle(userKey(u))" [attr.aria-expanded]="isExpanded(userKey(u))">
           <span class="lb-rank mono-num">{{ i + 1 }}</span>
           <span class="lb-name">
-            <mat-icon class="lb-chev">{{ isExpanded(u.email) ? 'expand_more' : 'chevron_right' }}</mat-icon>
-            <mat-icon class="lb-kind">{{ isLocal(u.email) ? 'home' : 'person' }}</mat-icon>
-            <span class="lb-label" [title]="u.email">{{ isLocal(u.email) ? 'local (file sync)' : u.email }}</span>
+            <mat-icon class="lb-chev">{{ isExpanded(userKey(u)) ? 'expand_more' : 'chevron_right' }}</mat-icon>
+            <mat-icon class="lb-kind">{{ isLocal(u.name) ? 'home' : 'person' }}</mat-icon>
+            <span class="lb-label" [title]="u.name">{{ isLocal(u.name) ? 'local (file sync)' : u.name }}</span>
             <span class="lb-tag micro-label">{{ u.machines.length }} machine{{ u.machines.length === 1 ? '' : 's' }}</span>
           </span>
           <span class="lb-seen mono-num" data-label="Last seen" [title]="(u.lastSeenUtc | date: 'medium') || 'never'">{{ seen(u.lastSeenUtc) }}</span>
@@ -234,7 +234,7 @@
             </button>
           </mat-menu>
         }
-        @if (isExpanded(u.email)) {
+        @if (isExpanded(userKey(u))) {
           <div class="lb-detail">
             <span class="lb-detail-lbl micro-label">Machines this user reported from</span>
             @if (u.machines.length) {

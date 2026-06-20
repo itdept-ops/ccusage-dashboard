@@ -370,6 +370,32 @@ public sealed class UsageQueries(UsageDbContext db)
 
         static string Label(string s) => string.IsNullOrEmpty(s) ? "local" : s;
 
+        // Resolve each RAW owner email -> {AppUser.Id, Name}, so neither the user rows nor the machine
+        // .Users arrays ever expose an email. The empty owner is the local/file-sync bucket; an owner
+        // email with no AppUser is "Unknown user" with a null id. (db.Users.Email is stored lower-cased.)
+        var rawOwners = cells.Select(c => c.ReportedByUser)
+            .Where(e => !string.IsNullOrEmpty(e)).Distinct().ToList();
+        var lowerOwners = rawOwners.Select(e => e.ToLowerInvariant()).Distinct().ToList();
+        var usersByEmail = (await db.Users.AsNoTracking()
+                .Where(u => lowerOwners.Contains(u.Email))
+                .Select(u => new { u.Id, u.Email, u.Name }).ToListAsync(ct))
+            .GroupBy(u => u.Email, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
+
+        // Resolve a raw owner email to its display NAME (never the email).
+        string ResolveName(string ownerEmail)
+        {
+            if (string.IsNullOrEmpty(ownerEmail)) return "local";
+            if (usersByEmail.TryGetValue(ownerEmail, out var u) && !string.IsNullOrEmpty(u.Name))
+                return u.Name;
+            return "Unknown user";
+        }
+
+        // Resolve a raw owner email to the matching AppUser id (null for local / orphaned email).
+        int? ResolveId(string ownerEmail) =>
+            !string.IsNullOrEmpty(ownerEmail) && usersByEmail.TryGetValue(ownerEmail, out var u)
+                ? u.Id : (int?)null;
+
         // LEFT-join system metadata by RAW machine name (the value the ingest upsert keys on). Only the
         // machine names present in this rollup are fetched. Machines with no metadata row stay null.
         var rawNames = cells.Select(c => c.MachineName).Distinct().ToList();
@@ -390,7 +416,7 @@ public sealed class UsageQueries(UsageDbContext db)
                 Records = g.Sum(x => x.Records),
                 Tokens = g.Sum(x => x.Tokens),
                 CostUsd = g.Sum(x => x.Cost),
-                Users = g.Select(x => Label(x.ReportedByUser)).Distinct().OrderBy(u => u).ToArray(),
+                Users = g.Select(x => ResolveName(x.ReportedByUser)).Distinct().OrderBy(u => u).ToArray(),
                 LocalIp = meta?.LocalIp,
                 PublicIp = meta?.PublicIp,
                 Os = meta?.Os,
@@ -404,9 +430,13 @@ public sealed class UsageQueries(UsageDbContext db)
             };
         }).OrderByDescending(m => m.CostUsd).ToList();
 
-        var users = cells.GroupBy(c => Label(c.ReportedByUser)).Select(g => new FleetUserDto
+        // Group by the RAW owner email (the attribution value) so distinct owners stay distinct rows —
+        // even two orphaned emails that both display as "Unknown user". The raw email stays server-side;
+        // only the resolved id + name reach the DTO.
+        var users = cells.GroupBy(c => c.ReportedByUser).Select(g => new FleetUserDto
         {
-            Email = g.Key,
+            UserId = ResolveId(g.Key),
+            Name = ResolveName(g.Key),
             LastSeenUtc = g.Max(x => x.LastSeenUtc),
             Records = g.Sum(x => x.Records),
             Tokens = g.Sum(x => x.Tokens),

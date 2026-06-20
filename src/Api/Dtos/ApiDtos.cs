@@ -200,6 +200,9 @@ public sealed class FleetMachineDto
     public int Records { get; set; }
     public long Tokens { get; set; }                 // combined total across all tiers
     public decimal CostUsd { get; set; }
+    /// <summary>Display NAMES of the users who reported from this machine (resolved from the raw owner
+    /// email server-side: AppUser.Name, "Unknown user" when no AppUser, "local" for the file-sync owner).
+    /// Never an email — owner emails stay server-side.</summary>
     public string[] Users { get; set; } = Array.Empty<string>();
 
     // System metadata from the matching MachineInfos row (LEFT-joined by raw machine name). All null
@@ -217,10 +220,19 @@ public sealed class FleetMachineDto
     public DateTime? MetadataLastSeenUtc { get; set; }
 }
 
-/// <summary>One reporting user in the fleet view: spend/volume plus the machines they reported from.</summary>
+/// <summary>One reporting user in the fleet view: spend/volume plus the machines they reported from.
+/// Identity is the resolved <see cref="UserId"/> + display <see cref="Name"/> — the raw owner email is
+/// NEVER exposed. Mutations targeting this user send the <see cref="UserId"/> back (the server resolves
+/// it to the raw owner email internally).</summary>
 public sealed class FleetUserDto
 {
-    public string Email { get; set; } = "";          // "local" for the file-sync path
+    /// <summary>The matching AppUser id, or null for the local/file-sync bucket and for an orphaned
+    /// attribution email that has no AppUser. The "user" dimension mutations key off this id.</summary>
+    public int? UserId { get; set; }
+
+    /// <summary>Display name: the matching AppUser.Name; "local" for the file-sync bucket; "Unknown user"
+    /// when an attribution email has no AppUser (or the AppUser has no name). Never an email.</summary>
+    public string Name { get; set; } = "";
     public DateTime? LastSeenUtc { get; set; }
     public int Records { get; set; }
     public long Tokens { get; set; }
@@ -296,12 +308,23 @@ public sealed class MachineStatDto
 
 // ---- Fleet management (reporter.manage) ----
 
-/// <summary>Reassign (combine/transfer) every record in <c>From</c> to a single <c>To</c> value.</summary>
+/// <summary>Reassign (combine/transfer) every record in the source set to a single target.
+/// For the <c>machine</c> dimension the values are raw machine names (<see cref="From"/> / <see cref="To"/>).
+/// For the <c>user</c> dimension the client holds no emails, so it sends user IDs instead
+/// (<see cref="UserIds"/> sources, <see cref="ToUserId"/> target); the server resolves each id to the
+/// raw owner email before the bulk update. A null/empty <see cref="ToUserId"/> means local ("").</summary>
 public sealed class FleetReassignRequest
 {
     public string Dimension { get; set; } = "";       // "machine" or "user"
+
+    // machine dimension: raw machine names.
     public string[] From { get; set; } = Array.Empty<string>();
     public string To { get; set; } = "";              // may be "" (re-label to local)
+
+    // user dimension: the client sends user IDs (no emails); the server resolves id -> owner email.
+    public int[] UserIds { get; set; } = Array.Empty<int>();
+    /// <summary>Target user id for a "user" reassign, or null = local ("").</summary>
+    public int? ToUserId { get; set; }
 }
 
 public sealed class FleetReassignResultDto
@@ -309,11 +332,18 @@ public sealed class FleetReassignResultDto
     public long Affected { get; set; }
 }
 
-/// <summary>Permanently delete every record whose dimension value is one of <c>Names</c>.</summary>
+/// <summary>Permanently delete every record whose dimension value is one of the named buckets.
+/// For <c>machine</c> the buckets are raw machine names (<see cref="Names"/>); for <c>user</c> the client
+/// sends user IDs (<see cref="UserIds"/>) which the server resolves to raw owner emails before deleting.</summary>
 public sealed class FleetDeleteRequest
 {
     public string Dimension { get; set; } = "";       // "machine" or "user"
+
+    // machine dimension: raw machine names.
     public string[] Names { get; set; } = Array.Empty<string>();
+
+    // user dimension: the client sends user IDs (no emails); the server resolves id -> owner email.
+    public int[] UserIds { get; set; } = Array.Empty<int>();
 }
 
 public sealed class FleetDeleteResultDto
@@ -321,10 +351,12 @@ public sealed class FleetDeleteResultDto
     public long Deleted { get; set; }
 }
 
-/// <summary>Revoke every currently-active ingest key owned by a user (by id or legacy email).</summary>
+/// <summary>Revoke every currently-active ingest key owned by a user. The client sends the
+/// <see cref="UserId"/> (no email); the server resolves it to the owner email, then revokes by
+/// UserId OR legacy CreatedByEmail.</summary>
 public sealed class FleetRevokeKeysRequest
 {
-    public string Email { get; set; } = "";
+    public int UserId { get; set; }
 }
 
 public sealed class FleetRevokeKeysResultDto
