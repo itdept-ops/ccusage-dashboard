@@ -25,4 +25,7 @@ public enum NotificationType
 
     /// <summary>The Family Hub daily morning briefing (pings every household member's bell).</summary>
     FamilyBriefing = 8,
+
+    /// <summary>A Family Hub calendar event is starting soon (pings every household member's bell).</summary>
+    FamilyHeadsUp = 9,
 }

@@ -1,0 +1,77 @@
+<h2 mat-dialog-title class="note-edit__title">
+  <mat-icon aria-hidden="true">how_to_vote</mat-icon>
+  New poll
+</h2>
+
+<mat-dialog-content class="note-edit__body poll-create__body">
+  <mat-form-field appearance="outline" class="note-edit__field">
+    <mat-label>What are we deciding?</mat-label>
+    <input matInput maxlength="200" cdkFocusInitial placeholder="e.g. Saturday outing"
+           [ngModel]="title()" (ngModelChange)="title.set($event)" />
+  </mat-form-field>
+
+  <mat-button-toggle-group class="poll-create__kind" [value]="kind()" hideSingleSelectionIndicator
+                           aria-label="Poll kind">
+    <mat-button-toggle value="time" (click)="kind.set('time')">
+      <mat-icon aria-hidden="true">schedule</mat-icon> Time
+    </mat-button-toggle>
+    <mat-button-toggle value="text" (click)="kind.set('text')">
+      <mat-icon aria-hidden="true">list</mat-icon> Choices
+    </mat-button-toggle>
+  </mat-button-toggle-group>
+
+  @if (kind() === 'time') {
+    <p class="poll-create__hint">Add a few candidate slots. Everyone votes for the ones that work for them.</p>
+    @for (t of timeDrafts(); track t.id) {
+      <div class="poll-opt poll-opt--time">
+        <mat-form-field appearance="outline" class="poll-opt__date">
+          <mat-label>Day</mat-label>
+          <input matInput type="date" [ngModel]="t.date" (ngModelChange)="setTime(t.id, 'date', $event)" />
+        </mat-form-field>
+        <mat-form-field appearance="outline" class="poll-opt__time">
+          <mat-label>From</mat-label>
+          <input matInput type="time" [ngModel]="t.start" (ngModelChange)="setTime(t.id, 'start', $event)" />
+        </mat-form-field>
+        <mat-form-field appearance="outline" class="poll-opt__time">
+          <mat-label>To</mat-label>
+          <input matInput type="time" [ngModel]="t.end" (ngModelChange)="setTime(t.id, 'end', $event)" />
+        </mat-form-field>
+        <button mat-icon-button type="button" class="poll-opt__remove" aria-label="Remove slot"
+                [disabled]="timeDrafts().length <= 1" (click)="removeTime(t.id)">
+          <mat-icon aria-hidden="true">close</mat-icon>
+        </button>
+      </div>
+    }
+    <button mat-stroked-button type="button" class="poll-create__add"
+            [disabled]="timeDrafts().length >= 30" (click)="addTime()">
+      <mat-icon aria-hidden="true">add</mat-icon> Add slot
+    </button>
+  } @else {
+    <p class="poll-create__hint">Add the choices (like “Zoo” or “Beach”). Everyone picks the ones they like.</p>
+    @for (t of textDrafts(); track t.id) {
+      <div class="poll-opt poll-opt--text">
+        <mat-form-field appearance="outline" class="poll-opt__label">
+          <mat-label>Choice</mat-label>
+          <input matInput maxlength="200" placeholder="e.g. Zoo"
+                 [ngModel]="t.label" (ngModelChange)="setText(t.id, $event)" />
+        </mat-form-field>
+        <button mat-icon-button type="button" class="poll-opt__remove" aria-label="Remove choice"
+                [disabled]="textDrafts().length <= 1" (click)="removeText(t.id)">
+          <mat-icon aria-hidden="true">close</mat-icon>
+        </button>
+      </div>
+    }
+    <button mat-stroked-button type="button" class="poll-create__add"
+            [disabled]="textDrafts().length >= 30" (click)="addText()">
+      <mat-icon aria-hidden="true">add</mat-icon> Add choice
+    </button>
+  }
+</mat-dialog-content>
+
+<mat-dialog-actions class="note-edit__actions poll-create__actions">
+  <span class="poll-create__spacer"></span>
+  <button mat-stroked-button type="button" (click)="ref.close()">Cancel</button>
+  <button mat-flat-button color="primary" type="button" [disabled]="!canSave()" (click)="save()">
+    Create poll
+  </button>
+</mat-dialog-actions>

@@ -634,6 +634,31 @@ a.tile:focus-visible {
   font-style: italic;
 }
 
+/* Plans card (doorway to family polls) */
+.today-card__plans-blurb {
+  margin: 0;
+  font-size: var(--tech-fs-body);
+  color: var(--tech-text-secondary);
+  line-height: 1.45;
+}
+.today-plans-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  align-self: flex-start;
+  padding: 8px 14px;
+  border-radius: 999px;
+  font-weight: 600;
+  font-size: var(--tech-fs-label);
+  text-decoration: none;
+  color: var(--tech-text-on-accent);
+  background: linear-gradient(135deg, var(--tech-accent), var(--tech-accent-2));
+  transition: transform 120ms ease, filter 120ms ease;
+  mat-icon { width: 18px; height: 18px; font-size: 18px; }
+  &:hover { transform: translateY(-1px); filter: brightness(1.05); }
+  &:focus-visible { outline: none; box-shadow: var(--tech-focus-ring); }
+}
+
 /* Today's reminders */
 .today-reminders { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
 .today-reminder {

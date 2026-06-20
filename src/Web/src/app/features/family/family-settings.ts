@@ -57,6 +57,18 @@ const HOURS: { value: number; label: string }[] = Array.from({ length: 24 }, (_,
   return { value: h, label: `${twelve}:00 ${ampm}` };
 });
 
+/** Lead-time choices for the event heads-up (mirrors the server's 1–120 minute range). */
+const LEAD_MINUTES: { value: number; label: string }[] = [
+  { value: 5, label: '5 minutes before' },
+  { value: 10, label: '10 minutes before' },
+  { value: 15, label: '15 minutes before' },
+  { value: 30, label: '30 minutes before' },
+  { value: 45, label: '45 minutes before' },
+  { value: 60, label: '1 hour before' },
+  { value: 90, label: '90 minutes before' },
+  { value: 120, label: '2 hours before' },
+];
+
 /**
  * Family settings — the household's "how the hub behaves" room. The OWNER may toggle the morning briefing,
  * pick the briefing hour, choose the household timezone (used for all "today" math + the briefing), and set
@@ -79,6 +91,7 @@ export class FamilySettingsPanel {
 
   readonly timezones = TIMEZONES;
   readonly hours = HOURS;
+  readonly leadMinutes = LEAD_MINUTES;
 
   readonly settings = signal<FamilySettings | null>(null);
   readonly loading = signal(true);
@@ -90,6 +103,8 @@ export class FamilySettingsPanel {
   readonly briefingHour = signal(7);
   readonly timeZone = signal('Etc/UTC');
   readonly weatherLocation = signal('');
+  readonly headsUpEnabled = signal(false);
+  readonly headsUpLead = signal(15);
 
   /** True when the caller is the household owner — gates every control (mirrors the server). */
   readonly canEdit = computed(() => this.settings()?.canEdit ?? false);
@@ -102,6 +117,13 @@ export class FamilySettingsPanel {
     return TIMEZONES;
   });
 
+  /** If the saved lead time isn't one of the presets, surface it so the select still shows the real value. */
+  readonly leadOptions = computed<{ value: number; label: string }[]>(() => {
+    const lead = this.headsUpLead();
+    if (LEAD_MINUTES.some(o => o.value === lead)) return LEAD_MINUTES;
+    return [...LEAD_MINUTES, { value: lead, label: `${lead} minutes before` }].sort((a, b) => a.value - b.value);
+  });
+
   /** True once any draft field differs from the saved settings (enables the Save button). */
   readonly dirty = computed(() => {
     const s = this.settings();
@@ -109,7 +131,9 @@ export class FamilySettingsPanel {
     return this.briefingEnabled() !== s.briefingEnabled
       || this.briefingHour() !== s.briefingHourLocal
       || this.timeZone() !== s.timeZone
-      || this.weatherLocation().trim() !== (s.weatherLocation ?? '');
+      || this.weatherLocation().trim() !== (s.weatherLocation ?? '')
+      || this.headsUpEnabled() !== s.eventHeadsUpEnabled
+      || this.headsUpLead() !== s.eventHeadsUpLeadMinutes;
   });
 
   constructor() {
@@ -124,6 +148,8 @@ export class FamilySettingsPanel {
     this.briefingHour.set(s.briefingHourLocal);
     this.timeZone.set(s.timeZone);
     this.weatherLocation.set(s.weatherLocation ?? '');
+    this.headsUpEnabled.set(s.eventHeadsUpEnabled);
+    this.headsUpLead.set(s.eventHeadsUpLeadMinutes);
   }
 
   /** Persist the draft (owner only). Sends only what changed; resets the form to the saved result. */
@@ -139,6 +165,8 @@ export class FamilySettingsPanel {
         briefingHourLocal: this.briefingHour(),
         timeZone: this.timeZone(),
         weatherLocation: loc.length ? loc : null,
+        eventHeadsUpEnabled: this.headsUpEnabled(),
+        eventHeadsUpLeadMinutes: this.headsUpLead(),
       }));
       this.apply(saved);
       this.snack.open('Family settings saved.', 'OK', { duration: 3000 });

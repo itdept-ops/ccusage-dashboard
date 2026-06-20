@@ -51,5 +51,18 @@ public class Household
     /// </summary>
     public int? FamilyChannelId { get; set; }
 
+    // ---- F6b settings: calendar event heads-ups (owner-editable) ----
+
+    /// <summary>
+    /// Whether the background tick posts a "starts soon" heads-up to the Family channel + members' bells
+    /// for each connected member's upcoming calendar events. Owner-editable; default OFF.
+    /// </summary>
+    public bool EventHeadsUpEnabled { get; set; } = false;
+
+    /// <summary>
+    /// How many minutes ahead of an event's start the heads-up fires (1–120). Default 15.
+    /// </summary>
+    public int EventHeadsUpLeadMinutes { get; set; } = 15;
+
     public List<HouseholdMember> Members { get; set; } = new();
 }

@@ -102,6 +102,20 @@
           </article>
         }
 
+        <!-- Plans: a doorway to family polls (find a time / settle a plan together) -->
+        <article class="today-card today-card--plans" aria-label="Plans">
+          <div class="today-card__head">
+            <h2 class="today-card__title"><mat-icon aria-hidden="true">how_to_vote</mat-icon> Plans</h2>
+            <a class="family__card-link" routerLink="/family/polls">Polls <mat-icon aria-hidden="true">chevron_right</mat-icon></a>
+          </div>
+          <p class="today-card__plans-blurb">Can't agree on a time or a plan? Float a quick poll and let the
+            family vote.</p>
+          <a class="today-plans-cta" routerLink="/family/polls">
+            <mat-icon aria-hidden="true">add</mat-icon>
+            <span>Start a poll</span>
+          </a>
+        </article>
+
         <!-- Lists peek -->
         <article class="today-card" aria-label="Lists">
           <div class="today-card__head">

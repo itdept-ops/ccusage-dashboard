@@ -12,9 +12,10 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 
 import { Api } from '../../core/api';
 import { AuthService } from '../../core/auth';
-import { CalendarEvent, CalendarStatus } from '../../core/models';
+import { CalendarEvent, CalendarStatus, HouseholdMember } from '../../core/models';
 import { FamilyConfirmDialog, ConfirmData } from './confirm-dialog';
 import { EventEditorDialog, EventEditorData, EventEditorResult } from './event-editor-dialog';
+import { FindTimeData, FindTimeDialog, FindTimeResultSlot } from './find-time-dialog';
 
 /* The Google OAuth code client (loaded via the GIS script in index.html). */
 declare const google: any;
@@ -74,6 +75,9 @@ export class FamilyCalendar {
   readonly events = signal<CalendarEvent[]>([]);
   readonly loadingEvents = signal(false);
   readonly eventsError = signal(false);
+
+  /** Household members for the Find-a-time picker (avatar + name only; never an email). */
+  readonly members = signal<HouseholdMember[]>([]);
 
   readonly view = signal<ViewMode>('week');
 
@@ -138,11 +142,24 @@ export class FamilyCalendar {
     try {
       const s = await firstValueFrom(this.api.calendarStatus());
       this.status.set(s);
-      if (s.connected) await this.loadEvents();
+      if (s.connected) {
+        await this.loadEvents();
+        void this.loadMembers();
+      }
     } catch {
       this.statusError.set(true);
     } finally {
       this.loadingStatus.set(false);
+    }
+  }
+
+  /** Best-effort: load household members so Find-a-time can offer them as chips. A failure just hides them. */
+  private async loadMembers(): Promise<void> {
+    try {
+      const household = await firstValueFrom(this.api.getHousehold());
+      this.members.set(household.members ?? []);
+    } catch {
+      this.members.set([]);
     }
   }
 
@@ -161,6 +178,7 @@ export class FamilyCalendar {
       await firstValueFrom(this.api.connectCalendar(code, 'postmessage'));
       this.status.set({ configured: true, connected: true });
       await this.loadEvents();
+      void this.loadMembers();
       this.snack.open('Calendar connected.', undefined, { duration: 2000 });
     } catch (e) {
       // A user-cancelled popup is not an error worth shouting about.
@@ -272,6 +290,33 @@ export class FamilyCalendar {
   /** Open the editor to create a new event, optionally seeded to a clicked day. */
   async create(seedDate?: string): Promise<void> {
     const result = await this.openEditor({ event: null, seedDate });
+    if (result?.kind === 'save') {
+      try {
+        await firstValueFrom(this.api.createEvent(result.input));
+        await this.loadEvents();
+      } catch (e) {
+        this.snack.open(this.messageOf(e, "Couldn't save that event. Please try again."), 'OK', { duration: 4000 });
+      }
+    }
+  }
+
+  /**
+   * Open the Find-a-time tool. When the caller picks a candidate slot, flow straight into the event editor
+   * prefilled to that slot so they can name + create it. Degrades cleanly when no members/calendars connect.
+   */
+  async openFindTime(): Promise<void> {
+    const ref = this.dialog.open<FindTimeDialog, FindTimeData, FindTimeResultSlot>(
+      FindTimeDialog, { data: { members: this.members() }, width: '520px', maxWidth: '94vw', autoFocus: false });
+    const slot = await firstValueFrom(ref.afterClosed());
+    if (!slot) return;
+    await this.createFromSlot(slot);
+  }
+
+  /** Open the event editor seeded to a Find-a-time slot, then create it on save. */
+  private async createFromSlot(slot: FindTimeResultSlot): Promise<void> {
+    const result = await this.openEditor({
+      event: null, seedStartUtc: slot.startUtc, seedEndUtc: slot.endUtc,
+    });
     if (result?.kind === 'save') {
       try {
         await firstValueFrom(this.api.createEvent(result.input));

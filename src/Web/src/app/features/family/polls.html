@@ -1,0 +1,118 @@
+<section class="family">
+  <!-- Hero -->
+  <header class="family__hero family__hero--today">
+    <div class="family__hero-id">
+      <span class="family__crest" aria-hidden="true"><mat-icon>how_to_vote</mat-icon></span>
+      <div>
+        <p class="family__eyebrow">Family Hub</p>
+        <h1 class="family__name">Polls</h1>
+        <p class="family__sub">Decide together — pick a time or settle on a plan</p>
+      </div>
+    </div>
+    <a mat-stroked-button class="family__settings-btn" routerLink="/family">
+      <mat-icon aria-hidden="true">arrow_back</mat-icon>
+      Home
+    </a>
+  </header>
+
+  <div class="polls-toolbar">
+    <button mat-flat-button color="primary" (click)="create()">
+      <mat-icon aria-hidden="true">add</mat-icon> New poll
+    </button>
+  </div>
+
+  @if (loading()) {
+    <div class="family__loading">
+      <mat-spinner [diameter]="28" />
+      <span>Gathering the polls…</span>
+    </div>
+  } @else if (error()) {
+    <div class="family__error">
+      <mat-icon aria-hidden="true">error_outline</mat-icon>
+      <p>We couldn't load the polls just now. Please try again in a moment.</p>
+    </div>
+  } @else if (!polls().length) {
+    <div class="polls-empty">
+      <mat-icon aria-hidden="true">ballot</mat-icon>
+      <h2>No polls yet</h2>
+      <p>Float a question to the family — a few times to meet, or a list of ideas to choose from.</p>
+      <button mat-stroked-button (click)="create()">
+        <mat-icon aria-hidden="true">add</mat-icon> Start a poll
+      </button>
+    </div>
+  } @else {
+    <div class="polls-list">
+      @for (poll of polls(); track poll.id) {
+        <article class="poll" [class.poll--closed]="poll.closed">
+          <header class="poll__head">
+            <div class="poll__id">
+              <span class="poll__kind" [attr.aria-label]="poll.kind === 'time' ? 'Time poll' : 'Choices poll'">
+                <mat-icon aria-hidden="true">{{ poll.kind === 'time' ? 'schedule' : 'list' }}</mat-icon>
+              </span>
+              <div>
+                <h2 class="poll__title">{{ poll.title }}</h2>
+                <p class="poll__meta">
+                  Started by {{ poll.createdByName }} · {{ createdLabel(poll) }}
+                  @if (poll.closed) { <span class="poll__badge">Closed</span> }
+                </p>
+              </div>
+            </div>
+            <div class="poll__head-actions">
+              @if (!poll.closed) {
+                <button mat-stroked-button class="poll__close" [disabled]="isBusy(poll.id)" (click)="close(poll)">
+                  <mat-icon aria-hidden="true">lock</mat-icon> Close
+                </button>
+              }
+              @if (isMine(poll)) {
+                <button mat-icon-button aria-label="Delete poll" matTooltip="Delete poll" (click)="remove(poll)">
+                  <mat-icon>delete_outline</mat-icon>
+                </button>
+              }
+            </div>
+          </header>
+
+          @if (!poll.closed) {
+            <p class="poll__instruction">Tap every option that works for you.</p>
+          }
+
+          <ul class="poll-options">
+            @for (o of poll.options; track o.id) {
+              <li class="poll-option" [class.poll-option--mine]="poll.myVotes.includes(o.id)"
+                  [class.poll-option--winner]="isWinner(poll, o)">
+                <button type="button" class="poll-option__main" [disabled]="poll.closed"
+                        [attr.aria-pressed]="poll.myVotes.includes(o.id)" (click)="toggleVote(poll, o)">
+                  <span class="poll-option__check" aria-hidden="true">
+                    <mat-icon>{{ poll.myVotes.includes(o.id) ? 'check_circle' : 'radio_button_unchecked' }}</mat-icon>
+                  </span>
+                  <span class="poll-option__label">
+                    {{ optionLabel(poll, o) }}
+                    @if (isWinner(poll, o)) {
+                      <span class="poll-option__win"><mat-icon aria-hidden="true">emoji_events</mat-icon> Winner</span>
+                    }
+                  </span>
+                  <span class="poll-option__count" [matTooltip]="votersLabel(o.voters)">
+                    {{ o.voteCount }}
+                  </span>
+                </button>
+
+                <!-- Voter avatars (name/initials only — never an email) -->
+                <div class="poll-option__voters" [attr.aria-label]="votersLabel(o.voters)">
+                  @for (v of o.voters; track v.userId) {
+                    <span class="voter" [matTooltip]="v.name">{{ initials(v.name) }}</span>
+                  }
+                </div>
+
+                @if (canBook(poll, o)) {
+                  <button mat-flat-button color="primary" class="poll-option__book"
+                          [disabled]="isBusy(poll.id)" (click)="book(poll, o)">
+                    <mat-icon aria-hidden="true">event_available</mat-icon> Add to calendar
+                  </button>
+                }
+              </li>
+            }
+          </ul>
+        </article>
+      }
+    </div>
+  }
+</section>

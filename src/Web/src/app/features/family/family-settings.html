@@ -92,6 +92,34 @@
       }
     </section>
 
+    <!-- Event heads-ups -->
+    <section class="family__card">
+      <h2 class="family__card-title">Event heads-ups</h2>
+      <div class="setting-row">
+        <mat-slide-toggle
+          [checked]="headsUpEnabled()" (change)="headsUpEnabled.set($event.checked)"
+          [disabled]="!canEdit()">
+          Post event heads-ups to family chat
+        </mat-slide-toggle>
+      </div>
+
+      <div class="setting-row">
+        <mat-form-field appearance="outline" class="setting-row__field">
+          <mat-label>How early</mat-label>
+          <mat-select [value]="headsUpLead()" (selectionChange)="headsUpLead.set($event.value)"
+                      [disabled]="!canEdit() || !headsUpEnabled()">
+            @for (l of leadOptions(); track l.value) {
+              <mat-option [value]="l.value">{{ l.label }}</mat-option>
+            }
+          </mat-select>
+        </mat-form-field>
+      </div>
+      <p class="family__hint">
+        A little before each calendar event, the hub drops a friendly heads-up in your family chat. Only events
+        from members who've connected their calendar are included — no one else is ever surprised.
+      </p>
+    </section>
+
     @if (canEdit()) {
       <div class="settings-actions">
         <button mat-stroked-button (click)="reset()" [disabled]="!dirty() || saving()">Reset</button>

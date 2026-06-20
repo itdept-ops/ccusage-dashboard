@@ -471,6 +471,7 @@ public sealed class ChatNotificationService(UsageDbContext db, IHubContext<ChatH
         NotificationType.FamilyReminder => "familyReminder",
         NotificationType.FamilyTimer => "familyTimer",
         NotificationType.FamilyBriefing => "familyBriefing",
+        NotificationType.FamilyHeadsUp => "familyHeadsUp",
         _ => "channelMessage",
     };
 }

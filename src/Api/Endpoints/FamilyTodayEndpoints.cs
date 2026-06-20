@@ -25,10 +25,11 @@ public static class FamilyTodayEndpoints
 {
     public sealed record SettingsDto(
         string TimeZone, bool BriefingEnabled, int BriefingHourLocal, string? WeatherLocation,
-        bool WeatherConfigured, bool CanEdit);
+        bool WeatherConfigured, bool EventHeadsUpEnabled, int EventHeadsUpLeadMinutes, bool CanEdit);
 
     public sealed record SettingsUpdateRequest(
-        string? TimeZone, bool? BriefingEnabled, int? BriefingHourLocal, string? WeatherLocation);
+        string? TimeZone, bool? BriefingEnabled, int? BriefingHourLocal, string? WeatherLocation,
+        bool? EventHeadsUpEnabled, int? EventHeadsUpLeadMinutes);
 
     public static void MapFamilyTodayEndpoints(this WebApplication app)
     {
@@ -97,13 +98,24 @@ public static class FamilyTodayEndpoints
                 entity.WeatherLocation = loc.Length == 0 ? null : loc;
             }
 
+            if (req.EventHeadsUpEnabled is bool headsUp)
+                entity.EventHeadsUpEnabled = headsUp;
+
+            if (req.EventHeadsUpLeadMinutes is int lead)
+            {
+                if (lead is < 1 or > 120)
+                    return Results.BadRequest(new { message = "Heads-up lead must be between 1 and 120 minutes." });
+                entity.EventHeadsUpLeadMinutes = lead;
+            }
+
             await db.SaveChangesAsync(ct);
             return Results.Ok(ToSettingsDto(entity, weather.IsConfigured, canEdit: true));
         });
     }
 
     private static SettingsDto ToSettingsDto(Household h, bool weatherConfigured, bool canEdit) =>
-        new(h.TimeZone, h.BriefingEnabled, h.BriefingHourLocal, h.WeatherLocation, weatherConfigured, canEdit);
+        new(h.TimeZone, h.BriefingEnabled, h.BriefingHourLocal, h.WeatherLocation, weatherConfigured,
+            h.EventHeadsUpEnabled, h.EventHeadsUpLeadMinutes, canEdit);
 
     private static async Task<bool> IsOwnerAsync(UsageDbContext db, int householdId, int userId, CancellationToken ct) =>
         await db.HouseholdMembers.AsNoTracking()

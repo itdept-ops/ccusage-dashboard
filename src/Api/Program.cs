@@ -457,6 +457,7 @@ app.MapFamilyTodayEndpoints();
 app.MapFamilyMealsChoresEndpoints();
 app.MapFamilyFinanceEndpoints();
 app.MapFamilyCalendarEndpoints();
+app.MapFamilyPollsEndpoints();
 app.MapFamilyQuickAddEndpoints();
 app.MapHub<ChatHub>("/api/hubs/chat");
 app.MapGet("/", () => app.Environment.IsDevelopment()

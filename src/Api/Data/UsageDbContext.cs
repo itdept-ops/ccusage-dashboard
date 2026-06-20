@@ -54,6 +54,10 @@ public class UsageDbContext(DbContextOptions<UsageDbContext> options) : DbContex
     public DbSet<FinanceTransaction> FinanceTransactions => Set<FinanceTransaction>();
     public DbSet<FinanceImport> FinanceImports => Set<FinanceImport>();
     public DbSet<GoogleCalendarConnection> GoogleCalendarConnections => Set<GoogleCalendarConnection>();
+    public DbSet<FamilyPlanPoll> FamilyPlanPolls => Set<FamilyPlanPoll>();
+    public DbSet<FamilyPlanPollOption> FamilyPlanPollOptions => Set<FamilyPlanPollOption>();
+    public DbSet<FamilyPlanPollVote> FamilyPlanPollVotes => Set<FamilyPlanPollVote>();
+    public DbSet<FamilyEventAnnouncement> FamilyEventAnnouncements => Set<FamilyEventAnnouncement>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -470,6 +474,9 @@ public class UsageDbContext(DbContextOptions<UsageDbContext> options) : DbContex
             e.Property(x => x.BriefingEnabled).HasDefaultValue(true);
             e.Property(x => x.BriefingHourLocal).HasDefaultValue(7);
             e.Property(x => x.WeatherLocation).HasMaxLength(120);
+            // F6b settings: calendar event heads-ups (defaults match the entity so an existing row migrates).
+            e.Property(x => x.EventHeadsUpEnabled).HasDefaultValue(false);
+            e.Property(x => x.EventHeadsUpLeadMinutes).HasDefaultValue(15);
             e.HasMany(x => x.Members).WithOne(m => m.Household!)
                 .HasForeignKey(m => m.HouseholdId).OnDelete(DeleteBehavior.Cascade);
         });
@@ -634,6 +641,44 @@ public class UsageDbContext(DbContextOptions<UsageDbContext> options) : DbContex
             e.Property(x => x.LastUsedUtc).HasColumnType("timestamp with time zone");
             // One calendar connection per user; also the lookup for "is this caller connected".
             e.HasIndex(x => x.UserId).IsUnique();
+        });
+
+        b.Entity<FamilyPlanPoll>(e =>
+        {
+            e.Property(x => x.Title).HasMaxLength(200);
+            e.Property(x => x.Kind).HasMaxLength(16).HasDefaultValue("time");
+            e.Property(x => x.CreatedUtc).HasColumnType("timestamp with time zone");
+            // The family's poll list reads one household's polls (newest first by id).
+            e.HasIndex(x => x.HouseholdId);
+            e.HasMany(x => x.Options).WithOne(o => o.Poll!)
+                .HasForeignKey(o => o.PollId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        b.Entity<FamilyPlanPollOption>(e =>
+        {
+            e.Property(x => x.Label).HasMaxLength(200);
+            e.Property(x => x.StartUtc).HasColumnType("timestamp with time zone");
+            e.Property(x => x.EndUtc).HasColumnType("timestamp with time zone");
+            // Load a poll's options + tally votes by option.
+            e.HasIndex(x => x.PollId);
+            e.HasMany(x => x.Votes).WithOne(v => v.Option!)
+                .HasForeignKey(v => v.OptionId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        b.Entity<FamilyPlanPollVote>(e =>
+        {
+            e.Property(x => x.CreatedUtc).HasColumnType("timestamp with time zone");
+            // One vote per (option, member); also the lookup for "did this member already vote here".
+            e.HasIndex(x => new { x.OptionId, x.UserId }).IsUnique();
+        });
+
+        b.Entity<FamilyEventAnnouncement>(e =>
+        {
+            e.Property(x => x.GoogleEventId).HasMaxLength(1024);
+            e.Property(x => x.EventStartUtc).HasColumnType("timestamp with time zone");
+            e.Property(x => x.AnnouncedUtc).HasColumnType("timestamp with time zone");
+            // Announce-once: at most one row per (household, event). Also the dedup lookup in the tick.
+            e.HasIndex(x => new { x.HouseholdId, x.GoogleEventId }).IsUnique();
         });
     }
 }

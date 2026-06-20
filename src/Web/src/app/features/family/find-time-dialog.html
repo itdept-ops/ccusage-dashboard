@@ -1,0 +1,132 @@
+<h2 mat-dialog-title class="note-edit__title">
+  <mat-icon aria-hidden="true">schedule</mat-icon>
+  Find a time
+</h2>
+
+<mat-dialog-content class="note-edit__body find-time__body">
+  <p class="find-time__intro">
+    Pick who needs to be there and a window, and we'll find slots that work for everyone whose calendar is
+    connected.
+  </p>
+
+  <!-- Members (chips; avatar + name only, never an email) -->
+  <div class="find-time__section">
+    <span class="find-time__label">Who</span>
+    <div class="find-time__chips">
+      @for (m of members; track m.userId) {
+        <button type="button" class="ft-chip" [class.ft-chip--on]="isSelected(m.userId)"
+                (click)="toggle(m.userId)" [attr.aria-pressed]="isSelected(m.userId)">
+          @if (m.picture) {
+            <img class="ft-chip__avatar" [src]="m.picture" [alt]="m.name" referrerpolicy="no-referrer" />
+          } @else {
+            <span class="ft-chip__avatar ft-chip__avatar--init" aria-hidden="true">{{ initials(m.name) }}</span>
+          }
+          <span class="ft-chip__name">{{ m.name }}</span>
+          @if (isSelected(m.userId)) { <mat-icon class="ft-chip__check" aria-hidden="true">check</mat-icon> }
+        </button>
+      }
+    </div>
+  </div>
+
+  <!-- Duration + window -->
+  <div class="find-time__row">
+    <mat-form-field appearance="outline" class="note-edit__field">
+      <mat-label>How long</mat-label>
+      <mat-select [value]="durationMinutes()" (selectionChange)="durationMinutes.set($event.value)">
+        @for (d of durations; track d.value) {
+          <mat-option [value]="d.value">{{ d.label }}</mat-option>
+        }
+      </mat-select>
+    </mat-form-field>
+  </div>
+
+  <div class="find-time__row">
+    <mat-form-field appearance="outline" class="note-edit__field">
+      <mat-label>From</mat-label>
+      <input matInput type="date" [ngModel]="fromDate()" (ngModelChange)="fromDate.set($event)" />
+    </mat-form-field>
+    <mat-form-field appearance="outline" class="note-edit__field">
+      <mat-label>To</mat-label>
+      <input matInput type="date" [ngModel]="toDate()" (ngModelChange)="toDate.set($event)" />
+    </mat-form-field>
+  </div>
+
+  <!-- Optional workday hours -->
+  <div class="find-time__row">
+    <mat-form-field appearance="outline" class="note-edit__field">
+      <mat-label>Between (from)</mat-label>
+      <mat-select [value]="dayStartHour()" (selectionChange)="dayStartHour.set($event.value)">
+        @for (h of hours; track h.value) {
+          <mat-option [value]="h.value">{{ h.label }}</mat-option>
+        }
+      </mat-select>
+    </mat-form-field>
+    <mat-form-field appearance="outline" class="note-edit__field">
+      <mat-label>and</mat-label>
+      <mat-select [value]="dayEndHour()" (selectionChange)="dayEndHour.set($event.value)">
+        @for (h of hours; track h.value) {
+          <mat-option [value]="h.value">{{ h.label }}</mat-option>
+        }
+      </mat-select>
+    </mat-form-field>
+  </div>
+  <p class="find-time__hint">Times are in your household's timezone.</p>
+
+  @if (error()) {
+    <p class="find-time__error"><mat-icon aria-hidden="true">error_outline</mat-icon>{{ error() }}</p>
+  }
+
+  <!-- Results -->
+  @if (result()) {
+    @if (noneConnected()) {
+      <div class="find-time__empty">
+        <mat-icon aria-hidden="true">link_off</mat-icon>
+        <p>No one you picked has connected their calendar yet, so we can't check availability. Once someone
+          connects in the Calendar, find-a-time will light up.</p>
+      </div>
+    } @else {
+      @if (notConnected().length) {
+        <p class="find-time__note">
+          <mat-icon aria-hidden="true">info</mat-icon>
+          Not counting
+          @for (m of notConnected(); track m.userId; let last = $last) {
+            <strong>{{ m.name }}</strong>{{ last ? '' : ', ' }}
+          }
+          — their calendar isn't connected, so their availability is unknown.
+        </p>
+      }
+
+      @if (slots().length) {
+        <span class="find-time__label">Open slots</span>
+        <ul class="ft-slots">
+          @for (s of slots(); track s.startUtc) {
+            <li>
+              <button type="button" class="ft-slot" (click)="pick(s)">
+                <span class="ft-slot__day">{{ slotDay(s) }}</span>
+                <span class="ft-slot__time">{{ slotRange(s) }}</span>
+                <mat-icon class="ft-slot__go" aria-hidden="true">chevron_right</mat-icon>
+              </button>
+            </li>
+          }
+        </ul>
+        <p class="find-time__hint">Pick a slot to create the event prefilled.</p>
+      } @else {
+        <div class="find-time__empty">
+          <mat-icon aria-hidden="true">event_busy</mat-icon>
+          <p>No common openings in that window. Try a wider date range, a shorter duration, or broader hours.</p>
+        </div>
+      }
+    }
+  }
+</mat-dialog-content>
+
+<mat-dialog-actions class="note-edit__actions find-time__actions">
+  <button mat-stroked-button type="button" (click)="ref.close()">Close</button>
+  <button mat-flat-button color="primary" type="button" [disabled]="!canSearch()" (click)="search()">
+    @if (searching()) {
+      <mat-spinner [diameter]="18" />
+    } @else {
+      <ng-container><mat-icon aria-hidden="true">search</mat-icon> Find times</ng-container>
+    }
+  </button>
+</mat-dialog-actions>

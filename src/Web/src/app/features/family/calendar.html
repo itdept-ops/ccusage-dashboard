@@ -83,6 +83,10 @@
             <mat-icon>view_agenda</mat-icon>
           </mat-button-toggle>
         </mat-button-toggle-group>
+        <button mat-stroked-button class="cal-toolbar__findtime" (click)="openFindTime()"
+                matTooltip="Find a time that works for everyone">
+          <mat-icon aria-hidden="true">schedule</mat-icon> Find a time
+        </button>
         <button mat-flat-button color="primary" (click)="create()">
           <mat-icon aria-hidden="true">add</mat-icon> Event
         </button>

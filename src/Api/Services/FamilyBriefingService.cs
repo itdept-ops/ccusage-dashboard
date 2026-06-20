@@ -98,6 +98,24 @@ public sealed class FamilyBriefingService(
     }
 
     /// <summary>
+    /// Public entry point reused by the F6b event heads-up tick: ensure the household's Family channel and
+    /// post <paramref name="text"/> into it authored by the household OWNER (resolved here). Best-effort and
+    /// never throws on the chat side — returns silently when no channel/owner email can be resolved.
+    /// </summary>
+    public async Task PostToFamilyChannelAsync(Household household, string text, CancellationToken ct = default)
+    {
+        var members = await db.HouseholdMembers.AsNoTracking()
+            .Where(m => m.HouseholdId == household.Id)
+            .Select(m => new { m.UserId, m.Role })
+            .ToListAsync(ct);
+        var ownerId = members.FirstOrDefault(m => m.Role == "owner")?.UserId
+            ?? members.Select(m => (int?)m.UserId).FirstOrDefault()
+            ?? household.CreatedByUserId;
+        var owner = await ResolveCallerAsync(ownerId, ct);
+        await PostToFamilyChannelAsync(household, owner, text, ct);
+    }
+
+    /// <summary>
     /// Ensure the household's private "Family" chat channel exists (members = the household members, by
     /// resolved email), remember its id on the household, then post the briefing authored by the owner and
     /// fan it out via the existing chat path so it lands in the channel timeline + unread badges.

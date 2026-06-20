@@ -1551,12 +1551,119 @@ export interface CalendarMemberBusy {
   busy: CalendarBusyBlock[];
 }
 
+// ---- Family Hub F6b: Find-a-time ----
+
+/**
+ * The find-a-time request (POST /api/family/calendar/find-time; mirrors FindTimeRequest). Which household
+ * members to consider (by `userId` only — the server constrains them to the caller's own household), how
+ * long the meeting is, the date window (ISO UTC instants), and optional workday hours (0–23, local to the
+ * household timezone). Omit `memberUserIds` to consider the whole household.
+ */
+export interface FindTimeRequest {
+  memberUserIds?: number[];
+  durationMinutes: number;
+  fromUtc: string;
+  toUtc: string;
+  dayStartHourLocal?: number | null;
+  dayEndHourLocal?: number | null;
+}
+
+/** A candidate free slot the find-a-time helper found — free for every CONNECTED member (mirrors SlotDto). */
+export interface FindTimeSlot {
+  startUtc: string;
+  endUtc: string;
+}
+
+/**
+ * A member the find-a-time helper considered, and whether their Google Calendar was connected (mirrors
+ * ConsideredMemberDto). Identity is `userId` + display `name` only — NEVER an email. An unconnected member
+ * doesn't constrain the search; we surface a gentle note so the family knows their availability is unknown.
+ */
+export interface FindTimeConsideredMember {
+  userId: number;
+  name: string;
+  connected: boolean;
+}
+
+/**
+ * The find-a-time response (mirrors FindTimeDto): the candidate `slots` plus the `consideredMembers` (who
+ * was looked at, and whether each was connected). When nobody is connected the slot list is empty and every
+ * member reads connected:false — the UI degrades to a warm "no one's connected yet" message.
+ */
+export interface FindTimeResult {
+  slots: FindTimeSlot[];
+  consideredMembers: FindTimeConsideredMember[];
+}
+
+// ---- Family Hub F6b: Plan polls (Doodle-style) ----
+
+/** Whether a poll's options are candidate TIME slots or free-`text` labels (mirrors the API's poll kind). */
+export type FamilyPollKind = 'time' | 'text';
+
+/**
+ * Someone who voted for a poll option (mirrors VoterDto). Identity is `userId` + display `name` ONLY —
+ * never an email (email-privacy). Voter avatars render from the name's initials.
+ */
+export interface FamilyPollVoter {
+  userId: number;
+  name: string;
+}
+
+/**
+ * One option on a family poll (mirrors PollOptionDto). For a TIME poll `startUtc`/`endUtc` are the candidate
+ * slot (ISO UTC); for a TEXT poll `label` is the choice (e.g. "Zoo"). `voteCount` + `voters` are live; the
+ * winning option is highlighted on a closed poll.
+ */
+export interface FamilyPollOption {
+  id: number;
+  startUtc: string | null;
+  endUtc: string | null;
+  label: string | null;
+  sortOrder: number;
+  voteCount: number;
+  voters: FamilyPollVoter[];
+}
+
+/**
+ * A household plan poll (GET /api/family/polls; mirrors PollDto). `kind` is time/text; `myVotes` are the
+ * caller's currently-selected option ids (voting REPLACES the prior set, so multi-select is "every option
+ * that works for me"). When `closed`, `winningOptionId` is highlighted; a closed TIME poll can be booked
+ * onto the caller's connected calendar. Creator identity is `createdByUserId` + `createdByName` (never email).
+ */
+export interface FamilyPoll {
+  id: number;
+  title: string;
+  kind: FamilyPollKind;
+  closed: boolean;
+  winningOptionId: number | null;
+  createdByUserId: number;
+  createdByName: string;
+  createdUtc: string;
+  options: FamilyPollOption[];
+  myVotes: number[];
+}
+
+/** One option in a create-poll request. TIME polls send `startUtc`+`endUtc`; TEXT polls send `label`. */
+export interface FamilyPollOptionInput {
+  startUtc?: string | null;
+  endUtc?: string | null;
+  label?: string | null;
+}
+
+/** Create-poll payload (POST /api/family/polls). 2–30 options; `kind` defaults to "time" server-side. */
+export interface FamilyPollCreate {
+  title: string;
+  kind: FamilyPollKind;
+  options: FamilyPollOptionInput[];
+}
+
 /**
  * The household's Family Hub settings (GET /api/family/settings; mirrors SettingsDto). Every member may
  * read; only the OWNER may edit (`canEdit`). `timeZone` is an IANA id used for all "today" math; the daily
  * `briefingEnabled` morning briefing posts at `briefingHourLocal` (0–23) in that zone. `weatherLocation`
  * is free text (e.g. "Tampa,FL,US"); the weather card only appears once an OpenWeather key is configured
- * server-side (`weatherConfigured`).
+ * server-side (`weatherConfigured`). F6b adds event heads-ups: when `eventHeadsUpEnabled`, the hub posts a
+ * note to the family chat `eventHeadsUpLeadMinutes` (1–120) before each connected member's calendar events.
  */
 export interface FamilySettings {
   timeZone: string;
@@ -1564,6 +1671,8 @@ export interface FamilySettings {
   briefingHourLocal: number;
   weatherLocation: string | null;
   weatherConfigured: boolean;
+  eventHeadsUpEnabled: boolean;
+  eventHeadsUpLeadMinutes: number;
   canEdit: boolean;
 }
 
@@ -1573,6 +1682,8 @@ export interface FamilySettingsUpdate {
   briefingEnabled?: boolean;
   briefingHourLocal?: number;
   weatherLocation?: string | null;
+  eventHeadsUpEnabled?: boolean;
+  eventHeadsUpLeadMinutes?: number;
 }
 
 // ---- Family Hub F4: meal planner & chore board ----

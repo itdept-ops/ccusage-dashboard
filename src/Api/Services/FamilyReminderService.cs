@@ -38,7 +38,8 @@ public sealed class FamilyReminderService(
                 var db = scope.ServiceProvider.GetRequiredService<UsageDbContext>();
                 var notifier = scope.ServiceProvider.GetRequiredService<ChatNotificationService>();
                 var briefing = scope.ServiceProvider.GetRequiredService<FamilyBriefingService>();
-                await TickAsync(db, notifier, DateTime.UtcNow, stoppingToken, briefing);
+                var calendar = scope.ServiceProvider.GetRequiredService<GoogleCalendarService>();
+                await TickAsync(db, notifier, DateTime.UtcNow, stoppingToken, briefing, calendar);
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested) { break; }
             catch (Exception ex) { logger.LogError(ex, "Family reminder/timer tick failed."); }
@@ -55,19 +56,21 @@ public sealed class FamilyReminderService(
     /// </summary>
     public async Task<TickResult> TickAsync(
         UsageDbContext db, ChatNotificationService notifier, DateTime now, CancellationToken ct = default,
-        FamilyBriefingService? briefing = null)
+        FamilyBriefingService? briefing = null, GoogleCalendarService? calendar = null)
     {
         var reminders = await FireDueRemindersAsync(db, notifier, now, ct);
         var timers = await CompleteFinishedTimersAsync(db, notifier, now, ct);
         var briefings = briefing is null ? 0 : await DeliverDueBriefingsAsync(db, briefing, now, ct);
         var choreResets = await ResetRecurringChoresAsync(db, now, ct);
-        return new TickResult(reminders, timers, briefings, choreResets);
+        var headsUps = (briefing is null || calendar is null)
+            ? 0 : await AnnounceUpcomingEventsAsync(db, notifier, briefing, calendar, now, ct);
+        return new TickResult(reminders, timers, briefings, choreResets, headsUps);
     }
 
-    /// <summary>The count of reminders fired, timers completed, briefings delivered, and recurring chores
-    /// reset for the new period in a tick.</summary>
+    /// <summary>The count of reminders fired, timers completed, briefings delivered, recurring chores reset,
+    /// and calendar event heads-ups announced in a tick.</summary>
     public readonly record struct TickResult(
-        int RemindersFired, int TimersCompleted, int BriefingsDelivered, int ChoresReset);
+        int RemindersFired, int TimersCompleted, int BriefingsDelivered, int ChoresReset, int HeadsUpsAnnounced);
 
     // ---- Daily briefing ----
 
@@ -100,6 +103,158 @@ public sealed class FamilyReminderService(
         }
         return delivered;
     }
+
+    // ---- Calendar event heads-ups (F6b) ----
+
+    /// <summary>
+    /// For every household with <see cref="Household.EventHeadsUpEnabled"/>, list each CONNECTED member's
+    /// events starting within the next <see cref="Household.EventHeadsUpLeadMinutes"/>, and for any not
+    /// already announced (no <see cref="FamilyEventAnnouncement"/> row for that household+event), post a
+    /// heads-up to the Family chat channel + a <see cref="NotificationType.FamilyHeadsUp"/> bell to all
+    /// members, then RECORD the announcement so a later tick never re-announces it (announce-once).
+    ///
+    /// Bounded + try/catch per household/member so a calendar hiccup or an unconnected member never breaks
+    /// the tick. Returns the number of events newly announced this tick.
+    /// </summary>
+    private static async Task<int> AnnounceUpcomingEventsAsync(
+        UsageDbContext db, ChatNotificationService notifier, FamilyBriefingService briefing,
+        GoogleCalendarService calendar, DateTime now, CancellationToken ct)
+    {
+        // Nothing to do if calendar isn't configured at all (every member is "not connected").
+        if (!calendar.IsConfigured) return 0;
+
+        var households = await db.Households.AsNoTracking()
+            .Where(h => h.EventHeadsUpEnabled)
+            .ToListAsync(ct);
+        if (households.Count == 0) return 0;
+
+        var announced = 0;
+        foreach (var household in households)
+        {
+            try
+            {
+                var lead = household.EventHeadsUpLeadMinutes is > 0 and <= 120
+                    ? household.EventHeadsUpLeadMinutes : 15;
+                var windowEnd = now.AddMinutes(lead);
+
+                var memberIds = await db.HouseholdMembers.AsNoTracking()
+                    .Where(m => m.HouseholdId == household.Id)
+                    .Select(m => m.UserId)
+                    .ToListAsync(ct);
+                if (memberIds.Count == 0) continue;
+
+                // Collect upcoming events across all members, de-duped by Google event id (a shared event on
+                // multiple members' calendars is announced once per household).
+                var upcoming = new Dictionary<string, UpcomingEvent>(StringComparer.Ordinal);
+                foreach (var memberId in memberIds)
+                {
+                    var result = await calendar.ListEventsAsync(memberId, now, windowEnd, ct);
+                    if (!result.Ok || result.Value is null) continue; // skip unconnected/errored members
+                    foreach (var ev in result.Value)
+                    {
+                        if (string.IsNullOrEmpty(ev.Id) || ev.StartUtc is not DateTime startUtc) continue;
+                        if (!upcoming.ContainsKey(ev.Id))
+                            upcoming[ev.Id] = new UpcomingEvent(
+                                ev.Id, ev.Title, DateTime.SpecifyKind(startUtc, DateTimeKind.Utc));
+                    }
+                }
+                if (upcoming.Count == 0) continue;
+
+                announced += await AnnounceEventsForHouseholdAsync(
+                    db, notifier, briefing, household.Id, memberIds, upcoming.Values, now, windowEnd, ct);
+            }
+            catch (Exception)
+            {
+                // Swallow per-household so one bad household (or a calendar hiccup) can't block the rest;
+                // the background ExecuteAsync wrapper logs unexpected tick failures.
+            }
+        }
+        return announced;
+    }
+
+    /// <summary>A calendar event the heads-up may announce (Google id + title + UTC start).</summary>
+    public readonly record struct UpcomingEvent(string Id, string Title, DateTime StartUtc);
+
+    /// <summary>
+    /// The PURE, Google-free core of the heads-up announce: given the candidate <paramref name="events"/> for
+    /// a household, announce each one that (a) genuinely STARTS within [<paramref name="now"/>,
+    /// <paramref name="windowEnd"/>] and (b) hasn't already been announced (no <see cref="FamilyEventAnnouncement"/>
+    /// row). Records FIRST (announce-once, race-safe on the unique index), then bells every member +
+    /// best-effort posts to the Family channel. Tests drive this directly with a faked event list (and a
+    /// seeded announcement) — no real Google. Returns how many events were newly announced.
+    /// </summary>
+    public static async Task<int> AnnounceEventsForHouseholdAsync(
+        UsageDbContext db, ChatNotificationService notifier, FamilyBriefingService briefing,
+        int householdId, IReadOnlyList<int> memberIds, IEnumerable<UpcomingEvent> events,
+        DateTime now, DateTime windowEnd, CancellationToken ct)
+    {
+        // Keep only events that genuinely START within the window (an in-progress event whose start is already
+        // past is not a "starts soon"), de-duped by id, earliest first.
+        var candidates = events
+            .Where(e => !string.IsNullOrEmpty(e.Id))
+            .Where(e => e.StartUtc >= now && e.StartUtc <= windowEnd)
+            .GroupBy(e => e.Id, StringComparer.Ordinal)
+            .Select(g => g.First())
+            .OrderBy(e => e.StartUtc)
+            .ToList();
+        if (candidates.Count == 0) return 0;
+
+        // Which of these have we already announced for this household? (announce-once)
+        var ids = candidates.Select(e => e.Id).ToList();
+        var alreadySet = (await db.FamilyEventAnnouncements.AsNoTracking()
+            .Where(a => a.HouseholdId == householdId && ids.Contains(a.GoogleEventId))
+            .Select(a => a.GoogleEventId)
+            .ToListAsync(ct)).ToHashSet(StringComparer.Ordinal);
+
+        var announced = 0;
+        foreach (var ev in candidates)
+        {
+            if (alreadySet.Contains(ev.Id)) continue;
+
+            // RECORD FIRST (idempotency): the unique (HouseholdId, GoogleEventId) index means a concurrent/
+            // duplicate record loses the race and we skip notifying — never double-announce.
+            db.FamilyEventAnnouncements.Add(new FamilyEventAnnouncement
+            {
+                HouseholdId = householdId,
+                GoogleEventId = ev.Id.Length > 1024 ? ev.Id[..1024] : ev.Id,
+                EventStartUtc = ev.StartUtc,
+                AnnouncedUtc = now,
+            });
+            try
+            {
+                await db.SaveChangesAsync(ct);
+            }
+            catch (DbUpdateException ex) when (IsUniqueViolation(ex))
+            {
+                db.ChangeTracker.Clear();
+                continue;
+            }
+
+            var mins = Math.Max(1, (int)Math.Round((ev.StartUtc - now).TotalMinutes));
+            var title = string.IsNullOrWhiteSpace(ev.Title) ? "An event" : ev.Title.Trim();
+            var text = $"⏰ {title} starts in ~{mins} min";
+
+            // (1) bell to every member.
+            await notifier.NotifyFamily(memberIds, NotificationType.FamilyHeadsUp, text, "/family/calendar", ct);
+
+            // (2) best-effort post into the Family chat channel (a hiccup must never break the tick).
+            try
+            {
+                var household = await db.Households.AsNoTracking().FirstOrDefaultAsync(h => h.Id == householdId, ct);
+                if (household is not null) await briefing.PostToFamilyChannelAsync(household, text, ct);
+            }
+            catch (Exception)
+            {
+                // The bell already landed; swallow a chat hiccup.
+            }
+
+            announced++;
+        }
+        return announced;
+    }
+
+    private static bool IsUniqueViolation(DbUpdateException ex) =>
+        ex.InnerException is Npgsql.PostgresException pg && pg.SqlState == Npgsql.PostgresErrorCodes.UniqueViolation;
 
     // ---- Recurring chore reset (F4) ----
 

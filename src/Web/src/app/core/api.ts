@@ -4,7 +4,7 @@ import { Observable } from 'rxjs';
 import {
   AccessPolicy, AddExerciseRequest, AddFoodRequest, AddHydrationRequest, AuditEntry, CacheEfficiency, CalendarDay, CalendarEvent, CalendarEventInput, CalendarMemberBusy, CalendarStatus, ChatChannelDto, ChatContactDto, ChatMessageDto, CreateChannelRequest,
   CreateShareRequest, CustomExerciseDto, CustomFoodDto, DailyCoachResponse, EstimateExerciseRequest, EstimateExerciseResponse, EstimateMacrosRequest, EstimateMacrosResponse, ExerciseEntryDto, ExerciseLibraryDto, Fleet, FleetDeleteRequest,
-  FamilyChore, FamilyChoreRecurrence, FamilyChores, FamilyList, FamilyListKind, FamilyMeal, FamilyMealDay, FamilyMealSlot, FamilyNote, FamilyRecurrence, FamilyReminder, FamilySettings, FamilySettingsUpdate, FamilyTimer, FamilyToday, QuickAddKind, QuickAddRequest, QuickAddResult, FinanceAccount, FinanceAccountPatch, FinanceAccountSummary, FinanceImportBatch, FinanceImportResult, FinanceSummary, FinanceTransactionsPage, FinanceTxnKind, FinanceOwner, FleetDeleteResult, FleetReassignRequest, FleetReassignResult, FleetRevokeKeysRequest, FleetRevokeKeysResult, FoodEntryDto, FoodSearchItemDto, GroupBy, Household, HouseholdCandidate,
+  FamilyChore, FamilyChoreRecurrence, FamilyChores, FamilyList, FamilyListKind, FamilyMeal, FamilyMealDay, FamilyMealSlot, FamilyNote, FamilyPoll, FamilyPollCreate, FamilyRecurrence, FamilyReminder, FamilySettings, FamilySettingsUpdate, FamilyTimer, FamilyToday, FindTimeRequest, FindTimeResult, QuickAddKind, QuickAddRequest, QuickAddResult, FinanceAccount, FinanceAccountPatch, FinanceAccountSummary, FinanceImportBatch, FinanceImportResult, FinanceSummary, FinanceTransactionsPage, FinanceTxnKind, FinanceOwner, FleetDeleteResult, FleetReassignRequest, FleetReassignResult, FleetRevokeKeysRequest, FleetRevokeKeysResult, FoodEntryDto, FoodSearchItemDto, GroupBy, Household, HouseholdCandidate,
   HeatmapCell, HydrationEntryDto, HydrationSuggestResponse, ImageRequest, IngestionSource, IngestKey, IngestKeyCreated, LogWeightRequest, LoginEvent, MachineStat, ManagedUser, MealFeedbackRequest, MealFeedbackResponse, ModelStat, NaturalGoalRequest, NaturalGoalResponse, NotificationDto, NotificationPreferenceDto, NotificationSettings,
   NotificationUpdate, PagedResult, ParseExerciseRequest, ParseExerciseResponse, ParseHydrationRequest, ParseHydrationResponse, ParseMealRequest, ParseMealResponse, PermissionItem, Presence, Pricing, ProjectDto, PublicShare, ReactionGroupDto, ReadLabelResponse, RecipeMacrosRequest, RecipeMacrosResponse, RequestLogEntry, SavedView,
   SavedViewUpsertRequest, SessionDetail, Settings, ShareAccessItem, ShareCreated, ShareListItem, SharedUserDto, SuggestFoodsResponse, SuggestGoalResponse, SuggestWorkoutRequest, SuggestWorkoutResponse, SummaryResponse,
@@ -1073,5 +1073,52 @@ export class Api {
   freeBusy(startUtc: string, endUtc: string, memberUserIds?: number[]): Observable<CalendarMemberBusy[]> {
     return this.http.post<CalendarMemberBusy[]>(`${this.base}/family/calendar/freebusy`,
       { startUtc, endUtc, memberUserIds: memberUserIds ?? [] });
+  }
+
+  // ---- Family Hub F6b: Find-a-time (candidate slots free for every selected CONNECTED member) ----
+
+  /**
+   * Find candidate meeting slots free for every selected member who has a connected calendar, within the
+   * window + optional workday hours. Unconnected members don't constrain the search; the response lists who
+   * was considered (and whether each was connected) so the UI can note them. Degrades cleanly (never 500).
+   */
+  findTime(req: FindTimeRequest): Observable<FindTimeResult> {
+    return this.http.post<FindTimeResult>(`${this.base}/family/calendar/find-time`, req);
+  }
+
+  // ---- Family Hub F6b: Plan polls (Doodle-style; time/text; vote/close/book) ----
+
+  /** The household's plan polls (newest first), each with live vote counts + the caller's own selections. */
+  familyPolls(): Observable<FamilyPoll[]> {
+    return this.http.get<FamilyPoll[]>(`${this.base}/family/polls`);
+  }
+
+  /** Create a time or text poll with its options (2–30). Returns the created poll. */
+  createFamilyPoll(req: FamilyPollCreate): Observable<FamilyPoll> {
+    return this.http.post<FamilyPoll>(`${this.base}/family/polls`, req);
+  }
+
+  /** Replace the caller's votes for a poll with `optionIds` (every option that works for them). Returns the poll. */
+  voteFamilyPoll(id: number, optionIds: number[]): Observable<FamilyPoll> {
+    return this.http.post<FamilyPoll>(`${this.base}/family/polls/${id}/vote`, { optionIds });
+  }
+
+  /** Close a poll, picking a winner (defaults to the most-voted option when `winningOptionId` is omitted). */
+  closeFamilyPoll(id: number, winningOptionId?: number | null): Observable<FamilyPoll> {
+    return this.http.post<FamilyPoll>(`${this.base}/family/polls/${id}/close`, { winningOptionId: winningOptionId ?? null });
+  }
+
+  /**
+   * Book a closed TIME poll's option onto the caller's connected Google Calendar. Returns a slim booked-event
+   * payload; degrades to a clear 400 when the caller has no connected calendar (never a 500).
+   */
+  bookFamilyPoll(id: number, optionId: number): Observable<{ id: string; title: string; startUtc: string | null; endUtc: string | null; htmlLink: string | null }> {
+    return this.http.post<{ id: string; title: string; startUtc: string | null; endUtc: string | null; htmlLink: string | null }>(
+      `${this.base}/family/polls/${id}/book`, { optionId });
+  }
+
+  /** Delete a household poll (options + votes cascade). */
+  deleteFamilyPoll(id: number): Observable<void> {
+    return this.http.delete<void>(`${this.base}/family/polls/${id}`);
   }
 }

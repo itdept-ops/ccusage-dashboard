@@ -10,11 +10,14 @@ import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 
 import { CalendarEvent, CalendarEventInput } from '../../core/models';
 
-/** Data passed into the event editor: the event being edited (null = create), and an optional seed date. */
+/** Data passed into the event editor: the event being edited (null = create), and optional seed inputs. */
 export interface EventEditorData {
   event: CalendarEvent | null;
   /** A "YYYY-MM-DD" local date to pre-seed a NEW event with (e.g. the day a "+" was clicked). */
   seedDate?: string;
+  /** ISO UTC instants to pre-seed a NEW timed event with (e.g. a slot chosen in Find-a-time). Wins over seedDate. */
+  seedStartUtc?: string;
+  seedEndUtc?: string;
 }
 
 /** The editor result: either a save payload (local→UTC already applied) or a delete request. */
@@ -65,9 +68,13 @@ export class EventEditorDialog {
 
   // ---- Seeding from the event (or sensible defaults) ----
 
-  /** Local Date for the event's start, or the seed/today for a new event. */
+  /** Local Date for the event's start, or the seed slot/seed date/today for a new event. */
   private startBasis(): Date {
     if (this.data.event?.startUtc) return new Date(this.data.event.startUtc);
+    if (this.data.seedStartUtc) {
+      const d = new Date(this.data.seedStartUtc);
+      if (!Number.isNaN(d.getTime())) return d;
+    }
     if (this.data.seedDate) {
       const d = new Date(`${this.data.seedDate}T09:00:00`);
       if (!Number.isNaN(d.getTime())) return d;
@@ -79,6 +86,10 @@ export class EventEditorDialog {
 
   private endBasis(): Date {
     if (this.data.event?.endUtc) return new Date(this.data.event.endUtc);
+    if (this.data.seedEndUtc) {
+      const d = new Date(this.data.seedEndUtc);
+      if (!Number.isNaN(d.getTime())) return d;
+    }
     // Default a new timed event to one hour; all-day to the same day.
     const start = this.startBasis();
     return new Date(start.getTime() + 60 * 60 * 1000);

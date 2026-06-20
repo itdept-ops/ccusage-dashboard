@@ -152,6 +152,11 @@ export const routes: Routes = [
         title: 'Usage IQ · Family Calendar',
       },
       {
+        path: 'polls',
+        loadComponent: () => import('./features/family/polls').then(m => m.FamilyPolls),
+        title: 'Usage IQ · Family Polls',
+      },
+      {
         // Finance — extra-sensitive: gated by family.finance ON TOP OF the group's family.use. Every
         // /api/family/finance route is double-gated server-side too (family.use AND family.finance).
         path: 'finance',

@@ -29,6 +29,11 @@ public static class FamilyCalendarEndpoints
         string? Title, DateTime StartUtc, DateTime EndUtc, bool AllDay, string? Location, string? Description);
     public sealed record FreeBusyRequest(int[]? MemberUserIds, DateTime StartUtc, DateTime EndUtc);
 
+    /// <summary>The find-a-time request: which members, how long, the window, and the optional workday bounds.</summary>
+    public sealed record FindTimeRequest(
+        int[]? MemberUserIds, int DurationMinutes, DateTime FromUtc, DateTime ToUtc,
+        int? DayStartHourLocal, int? DayEndHourLocal);
+
     // ---- Response DTOs ----
     public sealed record StatusDto(bool Configured, bool Connected);
     public sealed record ConnectedDto(bool Connected);
@@ -41,6 +46,16 @@ public static class FamilyCalendarEndpoints
     /// <summary>One member's busy blocks for the find-a-time helper (userId + name; NEVER an email).</summary>
     public sealed record MemberBusyDto(int UserId, string Name, IReadOnlyList<BusyBlockDto> Busy);
     public sealed record BusyBlockDto(DateTime StartUtc, DateTime EndUtc);
+
+    /// <summary>A candidate free slot the find-a-time helper found (works for every connected member).</summary>
+    public sealed record SlotDto(DateTime StartUtc, DateTime EndUtc);
+
+    /// <summary>A member the find-a-time helper considered, and whether their calendar was connected.</summary>
+    public sealed record ConsideredMemberDto(int UserId, string Name, bool Connected);
+
+    /// <summary>The find-a-time response: candidate slots + which members were considered (connected or not).</summary>
+    public sealed record FindTimeDto(
+        IReadOnlyList<SlotDto> Slots, IReadOnlyList<ConsideredMemberDto> ConsideredMembers);
 
     public static void MapFamilyCalendarEndpoints(this WebApplication app)
     {
@@ -168,6 +183,57 @@ public static class FamilyCalendarEndpoints
                 mb.UserId, mb.Name,
                 mb.Busy.Select(b => new BusyBlockDto(b.StartUtc, b.EndUtc)).ToList())).ToList();
             return Results.Ok(dtos);
+        });
+
+        // ---- POST /find-time : candidate slots free for every selected CONNECTED member in the workday ----
+        g.MapPost("/find-time", async (
+            FindTimeRequest req, CurrentUserAccessor me, CurrentHouseholdAccessor households,
+            UsageDbContext db, GoogleCalendarService cal, CancellationToken ct) =>
+        {
+            if (req.DurationMinutes <= 0)
+                return Results.BadRequest(new { message = "A positive durationMinutes is required." });
+            if (req.DurationMinutes > 24 * 60)
+                return Results.BadRequest(new { message = "That meeting is too long (max 24 hours)." });
+
+            var caller = (await me.GetUserAsync(ct))!;
+            var household = (await households.GetOrCreateForCallerAsync(caller, ct))!;
+            var (start, end) = Window(req.FromUtc == default ? null : req.FromUtc,
+                req.ToUtc == default ? null : req.ToUtc);
+
+            // Constrain the requested ids to ACTUAL members of the caller's own household (privacy). Default
+            // to the whole household when none are given. Resolve display identity (never email).
+            var requested = (req.MemberUserIds ?? Array.Empty<int>()).Distinct().ToHashSet();
+            var members = await db.HouseholdMembers.AsNoTracking()
+                .Where(m => m.HouseholdId == household.Id)
+                .Join(db.Users.AsNoTracking(), m => m.UserId, u => u.Id, (m, u) => new { u.Id, u.Name })
+                .Where(x => requested.Count == 0 || requested.Contains(x.Id))
+                .ToListAsync(ct);
+
+            // FreeBusyAsync SKIPS any member without a connected calendar; the members it returns ARE the
+            // connected ones. Anyone considered but absent from the result is reported connected:false (and
+            // simply doesn't constrain the search — degrade cleanly, never 500).
+            var busy = await cal.FreeBusyAsync(
+                members.Select(m => (m.Id, string.IsNullOrEmpty(m.Name) ? "Unknown user" : m.Name)), start, end, ct);
+            var connectedIds = busy.Select(b => b.UserId).ToHashSet();
+
+            var considered = members
+                .Select(m => new ConsideredMemberDto(
+                    m.Id, string.IsNullOrEmpty(m.Name) ? "Unknown user" : m.Name, connectedIds.Contains(m.Id)))
+                .ToList();
+
+            // Workday bounds: caller-supplied or the sensible default 9–17 local. The household timezone does
+            // the local-day clipping.
+            var dayStart = req.DayStartHourLocal ?? 9;
+            var dayEnd = req.DayEndHourLocal ?? 17;
+            var tz = FamilyTodayService.ResolveTimeZone(household.TimeZone);
+
+            var found = SlotFinder.FindFreeSlots(
+                busy.Select(b => new SlotFinder.MemberBusy(
+                    b.Busy.Select(x => (x.StartUtc, x.EndUtc)).ToList())),
+                start, end, req.DurationMinutes, dayStart, dayEnd, tz);
+
+            var slots = found.Select(s => new SlotDto(s.StartUtc, s.EndUtc)).ToList();
+            return Results.Ok(new FindTimeDto(slots, considered));
         });
     }
 
