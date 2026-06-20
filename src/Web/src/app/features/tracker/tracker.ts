@@ -443,11 +443,11 @@ export class Tracker {
     return formatVolume(ml, this.imperial()) ?? '—';
   }
 
-  /** Quick-add a fixed amount of water (Glass/Bottle/Large) to today's hydration. */
-  quickHydration(amountMl: number): void {
+  /** Quick-add a fixed amount (Glass/Bottle/Large/Seltzer) to today's hydration, with an optional drink label. */
+  quickHydration(amountMl: number, label?: string): void {
     if (this.store.readOnly()) return;
-    this.store.addHydration({ date: this.store.date(), amountMl })
-      .then(() => this.announceHydration(`Added ${this.volumeLabel(amountMl)}`))
+    this.store.addHydration({ date: this.store.date(), amountMl, label: label || undefined })
+      .then(() => this.announceHydration(`Added ${label ? label + ', ' : ''}${this.volumeLabel(amountMl)}`))
       .catch(() => this.snack.open('Could not log drink', 'Dismiss', { duration: 4000 }));
   }
 

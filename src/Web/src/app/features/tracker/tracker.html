@@ -344,6 +344,11 @@
                 <mat-icon>sports_bar</mat-icon> Large
                 <span class="tracker__hydbtn-amt">+{{ volumeLabel(750) }}</span>
               </button>
+              <button mat-stroked-button type="button" class="tracker__hydbtn"
+                      (click)="quickHydration(355, 'Polar Seltzer')" [attr.aria-label]="'Add a 12 oz Polar Seltzer, ' + volumeLabel(355)">
+                <mat-icon>bubble_chart</mat-icon> Seltzer
+                <span class="tracker__hydbtn-amt">+{{ volumeLabel(355) }}</span>
+              </button>
               <button mat-stroked-button type="button" class="tracker__hydbtn tracker__hydbtn--custom"
                       (click)="openAddHydration()" aria-label="Add a custom drink">
                 <mat-icon>add</mat-icon> Custom
