@@ -162,13 +162,18 @@ public static class RocketMoneyCsv
         var cat = (category ?? "").Trim();
         if (cat.Length > 0)
         {
+            // The CATEGORY is the ground truth for what a transaction IS — trust it over the amount sign
+            // (Rocket Money's sign convention varies by account type, so a positive "Groceries" row is still
+            // spending). Only the explicit income/transfer categories pull a row out of spending; every
+            // other named category (Groceries, Shopping, Gas, …) is an expense regardless of sign.
             if (TransferCategories.Contains(cat)) return ParsedKind.Transfer;
             if (IncomeCategories.Contains(cat)) return ParsedKind.Income;
+            return ParsedKind.Expense;
         }
 
-        // No income/transfer category: a positive (credit) amount landing in a BANK account is income
-        // (e.g. a deposit/paycheck with no category). On a credit card, a positive amount is typically a
-        // payment/refund — treat as a transfer so it never counts as "spending".
+        // No category at all: fall back to the amount sign. A positive (credit) amount landing in a BANK
+        // account looks like an uncategorized deposit (income); a positive amount on a credit card looks
+        // like a payment/refund — treat it as a transfer so it never counts as "spending".
         if (raw > 0)
             return AccountKind(accountType) == "bank" ? ParsedKind.Income : ParsedKind.Transfer;
 
