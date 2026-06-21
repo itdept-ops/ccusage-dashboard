@@ -10,6 +10,59 @@
            maxlength="200" placeholder="Give it a friendly title" />
   </mat-form-field>
 
+  <!-- ✨ Draft / rewrite with AI -->
+  <div class="note-ai">
+    <button type="button" class="note-ai__toggle" [class.note-ai__toggle--open]="aiOpen()"
+            (click)="toggleAi()" [attr.aria-expanded]="aiOpen()">
+      <mat-icon class="note-ai__spark" aria-hidden="true">auto_awesome</mat-icon>
+      <span>{{ aiRewrites() ? 'Rewrite or clean with AI' : 'Draft with AI' }}</span>
+      <mat-icon class="note-ai__chev" aria-hidden="true">{{ aiOpen() ? 'expand_less' : 'expand_more' }}</mat-icon>
+    </button>
+
+    @if (aiOpen()) {
+      <div class="note-ai__panel">
+        <div class="note-ai__bar">
+          <input class="note-ai__input" maxlength="1000" [ngModel]="aiPrompt()"
+                 (ngModelChange)="aiPrompt.set($event)" (keydown.enter)="runAi()" [disabled]="aiBusy()"
+                 [placeholder]="aiRewrites()
+                   ? 'How should I change it? e.g. make it a checklist, tighten it up'
+                   : 'What should the note be about? e.g. a weekend packing list'" />
+          <button mat-flat-button color="primary" type="button" class="note-ai__go"
+                  [disabled]="aiBusy() || !aiPrompt().trim()" (click)="runAi()">
+            @if (aiBusy()) {
+              <mat-spinner [diameter]="16" />
+              <span>Thinking…</span>
+            } @else {
+              <span>{{ aiRewrites() ? 'Rewrite' : 'Draft' }}</span>
+            }
+          </button>
+        </div>
+
+        @if (aiStatus(); as msg) {
+          <p class="note-ai__status" aria-live="polite">{{ msg }}</p>
+        }
+
+        @if (aiDraft(); as draft) {
+          <div class="note-ai__draft">
+            @if (draft.title.trim()) {
+              <p class="note-ai__draft-title">{{ draft.title }}</p>
+            }
+            <div class="md note-ai__draft-body" [innerHTML]="draft.preview"></div>
+            @if (draft.note) {
+              <p class="note-ai__draft-note"><mat-icon aria-hidden="true">info</mat-icon>{{ draft.note }}</p>
+            }
+            <div class="note-ai__draft-actions">
+              <button mat-button type="button" (click)="discardAiDraft()">Try again</button>
+              <button mat-flat-button color="primary" type="button" (click)="useAiDraft()">
+                <mat-icon aria-hidden="true">check</mat-icon> Use this
+              </button>
+            </div>
+          </div>
+        }
+      </div>
+    }
+  </div>
+
   <div class="note-edit__split">
     <mat-form-field appearance="outline" class="note-edit__field note-edit__editor">
       <mat-label>Note</mat-label>

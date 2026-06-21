@@ -164,6 +164,80 @@
               }
             </ul>
 
+            <!-- ✨ Add several with AI (edit access only) -->
+            @if (list.canEdit) {
+              @let panel = aiPanel(list.id);
+              <div class="list-ai">
+                <button type="button" class="list-ai__toggle" [class.list-ai__toggle--open]="panel.open"
+                        (click)="toggleAi(list)" [attr.aria-expanded]="panel.open">
+                  <mat-icon class="list-ai__spark" aria-hidden="true">auto_awesome</mat-icon>
+                  <span>Add several</span>
+                  <mat-icon class="list-ai__chev" aria-hidden="true">{{ panel.open ? 'expand_less' : 'expand_more' }}</mat-icon>
+                </button>
+
+                @if (panel.open) {
+                  <div class="list-ai__panel">
+                    <div class="list-ai__bar">
+                      <textarea class="list-ai__input" rows="2" maxlength="2000"
+                                [ngModel]="panel.text" (ngModelChange)="setAiText(list.id, $event)"
+                                [disabled]="panel.busy || panel.adding"
+                                placeholder="milk, eggs, bread… or paste a recipe"></textarea>
+                      <div class="list-ai__bar-actions">
+                        <button mat-flat-button color="primary" type="button" class="list-ai__go"
+                                [disabled]="panel.busy || panel.adding || !panel.text.trim()" (click)="parseAi(list)">
+                          @if (panel.busy) {
+                            <mat-spinner [diameter]="16" />
+                            <span>Thinking…</span>
+                          } @else {
+                            <span>Suggest items</span>
+                          }
+                        </button>
+                        @if (panel.text || panel.items) {
+                          <button mat-button type="button" (click)="clearAi(list.id)"
+                                  [disabled]="panel.busy || panel.adding">Clear</button>
+                        }
+                      </div>
+                    </div>
+
+                    @if (panel.status) {
+                      <p class="list-ai__status" aria-live="polite">{{ panel.status }}</p>
+                    }
+
+                    @if (panel.items; as items) {
+                      @if (items.length) {
+                        <ul class="list-ai__chips">
+                          @for (it of items; track $index) {
+                            <li class="list-ai-chip" [class.list-ai-chip--off]="!it.keep">
+                              <button type="button" class="list-ai-chip__toggle" (click)="toggleProposed(list.id, $index)"
+                                      [attr.aria-pressed]="it.keep" [attr.aria-label]="(it.keep ? 'Skip ' : 'Add ') + it.text">
+                                <mat-icon aria-hidden="true">{{ it.keep ? 'check_box' : 'check_box_outline_blank' }}</mat-icon>
+                                <span>{{ it.text }}</span>
+                              </button>
+                              <button type="button" class="list-ai-chip__remove" (click)="removeProposed(list.id, $index)"
+                                      aria-label="Remove">
+                                <mat-icon aria-hidden="true">close</mat-icon>
+                              </button>
+                            </li>
+                          }
+                        </ul>
+                        <div class="list-ai__confirm">
+                          <button mat-flat-button color="primary" type="button"
+                                  [disabled]="panel.adding || keepCount(list.id) === 0" (click)="addProposed(list)">
+                            @if (panel.adding) {
+                              <mat-spinner [diameter]="16" />
+                            } @else {
+                              <mat-icon aria-hidden="true">playlist_add</mat-icon>
+                            }
+                            Add {{ keepCount(list.id) }} item{{ keepCount(list.id) === 1 ? '' : 's' }}
+                          </button>
+                        </div>
+                      }
+                    }
+                  </div>
+                }
+              </div>
+            }
+
             <!-- Add item (edit access only) -->
             @if (list.canEdit) {
               <form class="add-item" (ngSubmit)="addItem(list)">

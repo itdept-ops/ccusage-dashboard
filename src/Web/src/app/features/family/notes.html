@@ -52,6 +52,14 @@
                   <mat-icon aria-hidden="true">push_pin</mat-icon>
                 </span>
               }
+              @if (note.body.trim()) {
+                <button mat-icon-button class="note-card__ai" matTooltip="Summarize with AI"
+                        aria-label="Summarize with AI" [disabled]="summarizingId() !== null"
+                        (click)="summarize(note)">
+                  @if (summarizingId() === note.id) { <mat-spinner [diameter]="18" /> }
+                  @else { <mat-icon aria-hidden="true">auto_awesome</mat-icon> }
+                </button>
+              }
               @if (note.canEdit || canManage(note)) {
                 <button mat-icon-button [matMenuTriggerFor]="menu" aria-label="Note actions"
                         [disabled]="busyId() === note.id">
@@ -90,6 +98,71 @@
             <div class="md note-card__body" [innerHTML]="bodyHtml(note.body)"></div>
           } @else {
             <p class="note-card__empty-body">No details yet.</p>
+          }
+
+          <!-- ✨ Summary + action items (read-only until the user picks an action) -->
+          @if (summaryFor(note.id); as sum) {
+            <section class="note-sum" aria-label="AI summary">
+              <header class="note-sum__head">
+                <span class="note-sum__tag"><mat-icon aria-hidden="true">auto_awesome</mat-icon> Summary</span>
+                <button mat-icon-button class="note-sum__close" aria-label="Close summary"
+                        (click)="closeSummary(note.id)" [disabled]="sum.acting">
+                  <mat-icon aria-hidden="true">close</mat-icon>
+                </button>
+              </header>
+
+              @if (sum.summary.trim()) {
+                <p class="note-sum__text">{{ sum.summary }}</p>
+              }
+
+              @if (sum.actions.length) {
+                <ul class="note-sum__actions">
+                  @for (a of sum.actions; track $index) {
+                    <li class="note-sum-action" [class.note-sum-action--off]="!a.keep">
+                      <button type="button" class="note-sum-action__toggle" (click)="toggleAction(note.id, $index)"
+                              [attr.aria-pressed]="a.keep">
+                        <mat-icon aria-hidden="true">{{ a.keep ? 'check_box' : 'check_box_outline_blank' }}</mat-icon>
+                        <span class="note-sum-action__text">{{ a.text }}</span>
+                        @if (a.duePhrase) {
+                          <span class="note-sum-action__due"><mat-icon aria-hidden="true">schedule</mat-icon>{{ a.duePhrase }}</span>
+                        }
+                      </button>
+                    </li>
+                  }
+                </ul>
+
+                <div class="note-sum__bar">
+                  @if (sum.acting) {
+                    <span class="note-sum__working"><mat-spinner [diameter]="16" /> Working…</span>
+                  } @else {
+                    <button mat-stroked-button type="button" [matMenuTriggerFor]="listMenu"
+                            [disabled]="keptActions(note.id).length === 0">
+                      <mat-icon aria-hidden="true">playlist_add</mat-icon> Add to a list
+                    </button>
+                    <mat-menu #listMenu="matMenu">
+                      @for (l of editableLists(); track l.id) {
+                        <button mat-menu-item (click)="addActionsToList(note, l)">
+                          <mat-icon aria-hidden="true">{{ l.kind === 'shopping' ? 'shopping_cart' : 'task_alt' }}</mat-icon>
+                          <span>{{ l.name }}</span>
+                        </button>
+                      } @empty {
+                        <button mat-menu-item disabled>No lists yet — create one on Lists</button>
+                      }
+                    </mat-menu>
+                    <button mat-flat-button color="primary" type="button"
+                            [disabled]="keptActions(note.id).length === 0" (click)="makeReminders(note)">
+                      <mat-icon aria-hidden="true">notifications_active</mat-icon> Make reminders
+                    </button>
+                  }
+                </div>
+              } @else {
+                <p class="note-sum__none">No action items in this note.</p>
+              }
+
+              @if (sum.status) {
+                <p class="note-sum__status" aria-live="polite">{{ sum.status }}</p>
+              }
+            </section>
           }
 
           <footer class="note-card__foot">

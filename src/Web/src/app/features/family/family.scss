@@ -486,6 +486,57 @@ a.tile:focus-visible {
 .note-card__readonly { display: inline-flex; padding: 8px; mat-icon { color: var(--tech-text-tertiary);
   width: 20px; height: 20px; font-size: 20px; } }
 .note-card__delete mat-icon { color: var(--tech-error, #e5484d); }
+.note-card__ai mat-icon { color: var(--tech-accent); }
+
+/* ── ✨ Summary card (inline under a note) ──────────────────────────── */
+.note-sum {
+  display: flex; flex-direction: column; gap: var(--tech-space-2, 8px);
+  margin-top: var(--tech-space-3, 12px);
+  padding: var(--tech-space-3, 12px);
+  border: 1px solid var(--tech-border-subtle); border-left: 3px solid var(--tech-accent);
+  border-radius: var(--tech-r-control, 10px);
+  background:
+    radial-gradient(120% 160% at 0% 0%, color-mix(in srgb, var(--tech-accent) 9%, transparent), transparent 55%),
+    var(--tech-bg-sunken);
+}
+.note-sum__head { display: flex; align-items: center; justify-content: space-between; }
+.note-sum__tag {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: var(--tech-fs-label); font-weight: 700; color: var(--tech-accent);
+  mat-icon { width: 16px; height: 16px; font-size: 16px; }
+}
+.note-sum__close mat-icon { color: var(--tech-text-tertiary); width: 18px; height: 18px; font-size: 18px; }
+.note-sum__text { margin: 0; font-size: var(--tech-fs-body); color: var(--tech-text); line-height: 1.4; }
+.note-sum__none { margin: 0; font-size: var(--tech-fs-label); color: var(--tech-text-tertiary); font-style: italic; }
+
+.note-sum__actions { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.note-sum-action { &--off { opacity: 0.6; } }
+.note-sum-action__toggle {
+  display: flex; align-items: center; gap: 6px; width: 100%; text-align: left;
+  border: none; background: transparent; cursor: pointer; font: inherit;
+  padding: 3px 4px; border-radius: var(--tech-r-control, 8px);
+  &:hover { background: color-mix(in srgb, var(--tech-accent) 8%, transparent); }
+  > mat-icon { flex: 0 0 auto; width: 18px; height: 18px; font-size: 18px; color: var(--tech-accent); }
+  .note-sum-action--off & > mat-icon { color: var(--tech-text-tertiary); }
+}
+.note-sum-action__text { flex: 1 1 auto; min-width: 0; font-size: var(--tech-fs-body); color: var(--tech-text); }
+.note-sum-action__due {
+  flex: 0 0 auto; display: inline-flex; align-items: center; gap: 3px;
+  font-size: var(--tech-fs-micro); font-weight: 600; color: var(--tech-text-secondary);
+  background: color-mix(in srgb, var(--tech-accent) 12%, transparent);
+  padding: 1px 7px; border-radius: 999px;
+  mat-icon { width: 12px; height: 12px; font-size: 12px; }
+}
+.note-sum__bar {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 6px;
+  button { border-radius: var(--tech-r-control); font-weight: 600;
+    mat-icon { width: 18px; height: 18px; font-size: 18px; } }
+}
+.note-sum__working {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: var(--tech-fs-label); color: var(--tech-text-secondary);
+}
+.note-sum__status { margin: 0; font-size: var(--tech-fs-label); color: var(--tech-text-secondary); }
 
 .note-card__body { max-height: 260px; overflow: hidden; position: relative;
   -webkit-mask-image: linear-gradient(to bottom, #000 78%, transparent); }
@@ -536,6 +587,62 @@ a.tile:focus-visible {
 @media (max-width: 560px) {
   .note-edit__split { grid-template-columns: 1fr; }
   .note-edit__preview { max-height: 180px; }
+}
+
+/* ── ✨ Draft / rewrite with AI (note editor) ───────────────────────── */
+.note-ai {
+  border: 1px solid var(--tech-border);
+  border-radius: var(--tech-r-control, 10px);
+  background:
+    radial-gradient(120% 160% at 0% 0%, color-mix(in srgb, var(--tech-accent) 9%, transparent), transparent 55%),
+    var(--tech-panel);
+}
+.note-ai__toggle {
+  display: flex; align-items: center; gap: 6px; width: 100%;
+  padding: var(--tech-space-2, 8px) var(--tech-space-3, 12px);
+  border: none; background: transparent; cursor: pointer;
+  font: inherit; font-size: var(--tech-fs-label); font-weight: 600;
+  color: var(--tech-accent); text-align: left;
+  span { flex: 1 1 auto; }
+}
+.note-ai__spark { width: 18px; height: 18px; font-size: 18px; }
+.note-ai__chev { width: 18px; height: 18px; font-size: 18px; color: var(--tech-text-tertiary); }
+.note-ai__panel {
+  display: flex; flex-direction: column; gap: var(--tech-space-2, 8px);
+  padding: 0 var(--tech-space-3, 12px) var(--tech-space-3, 12px);
+}
+.note-ai__bar { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.note-ai__input {
+  flex: 1 1 14rem; min-width: 0; box-sizing: border-box;
+  border: 1px solid var(--tech-border); border-radius: var(--tech-r-control, 10px);
+  background: var(--tech-bg-sunken); color: var(--tech-text);
+  font: inherit; font-size: var(--tech-fs-body); padding: 9px 10px;
+  &::placeholder { color: var(--tech-text-tertiary); }
+  &:focus { outline: none; border-color: var(--tech-accent); }
+}
+.note-ai__go {
+  flex: 0 0 auto; border-radius: var(--tech-r-control); font-weight: 600;
+  display: inline-flex; align-items: center; gap: 6px;
+  mat-spinner { --mdc-circular-progress-active-indicator-color: currentColor; }
+}
+.note-ai__status { margin: 0; font-size: var(--tech-fs-label); color: var(--tech-text-secondary); }
+.note-ai__draft {
+  display: flex; flex-direction: column; gap: var(--tech-space-2, 8px);
+  padding: var(--tech-space-3, 12px);
+  border: 1px solid var(--tech-border-subtle); border-left: 3px solid var(--tech-accent);
+  border-radius: var(--tech-r-control, 10px); background: var(--tech-bg-sunken);
+}
+.note-ai__draft-title { margin: 0; font-weight: 700; color: var(--tech-text); }
+.note-ai__draft-body { max-height: 240px; overflow: auto; }
+.note-ai__draft-note {
+  display: flex; align-items: flex-start; gap: 5px; margin: 0;
+  font-size: var(--tech-fs-label); color: var(--tech-text-secondary);
+  mat-icon { width: 16px; height: 16px; font-size: 16px; color: var(--tech-text-tertiary); flex: 0 0 auto; margin-top: 1px; }
+}
+.note-ai__draft-actions {
+  display: flex; justify-content: flex-end; gap: 6px;
+  button { border-radius: var(--tech-r-control); font-weight: 600;
+    mat-icon { width: 18px; height: 18px; font-size: 18px; } }
 }
 
 /* ── Share dialog ───────────────────────────────────────────────────── */

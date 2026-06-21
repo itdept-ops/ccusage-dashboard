@@ -54,6 +54,32 @@ public static class FamilyNotesListsEndpoints
     public sealed record ListItemPatchRequest(string? Text, bool? Done, int? AssignedToUserId);
     public sealed record ShareRequest(int UserId, bool CanEdit);
 
+    // ---- AI-assist DTOs (slice 2: lists quick-add, notes draft/rewrite, notes summarize) ----
+
+    /// <summary>"Quick-add with AI" request: a free-text blob ("milk, eggs, bread" or a pasted recipe). The
+    /// optional <see cref="Kind"/> ("shopping"|"todo") nudges interpretation; it doesn't have to match the
+    /// destination list. Nothing is created — the frontend confirms then POSTs each item to /lists/{id}/items.</summary>
+    public sealed record ListItemsAiRequest(string? Text, string? Kind);
+
+    /// <summary>"Quick-add with AI" response: a clean, de-duped, capped list of item names + an optional short note.</summary>
+    public sealed record ListItemsAiDto(IReadOnlyList<string> Items, string? Notes);
+
+    /// <summary>"Draft/rewrite with AI" request: the <see cref="Prompt"/> drives the change. When
+    /// <see cref="CurrentBody"/> is present the note is REWRITTEN per the prompt; otherwise a fresh note is
+    /// drafted. Saves nothing — the editor shows the draft with Use / Try-again.</summary>
+    public sealed record NoteDraftAiRequest(string? Prompt, string? CurrentTitle, string? CurrentBody);
+
+    /// <summary>"Draft/rewrite with AI" response: a title + markdown body (to be RENDERED, never executed) + an
+    /// optional short note about an assumption.</summary>
+    public sealed record NoteDraftAiDto(string Title, string Body, string? Note);
+
+    /// <summary>One action item from "Summarize with AI". <see cref="DuePhrase"/> is a natural-time phrase the
+    /// frontend can feed into the slice-1 reminder parser ("make reminders"), or null when no time was implied.</summary>
+    public sealed record NoteActionItemDto(string Text, string? DuePhrase);
+
+    /// <summary>"Summarize with AI" response: a short summary + 0+ action items.</summary>
+    public sealed record NoteSummaryAiDto(string Summary, IReadOnlyList<NoteActionItemDto> ActionItems);
+
     private const string NoteType = "note";
     private const string ListType = "list";
 
@@ -112,7 +138,7 @@ public static class FamilyNotesListsEndpoints
                 HouseholdId = household.Id,
                 CreatedByUserId = caller.Id,
                 Title = Clamp(req.Title, 200),
-                Body = req.Body ?? "",
+                Body = Clamp(req.Body, 8000),
                 Pinned = req.Pinned,
                 CreatedUtc = now,
                 UpdatedUtc = now,
@@ -137,7 +163,7 @@ public static class FamilyNotesListsEndpoints
             if (!access.CanEdit) return Forbidden("You can only view this note.");
 
             note.Title = Clamp(req.Title, 200);
-            note.Body = req.Body ?? "";
+            note.Body = Clamp(req.Body, 8000);
             note.Pinned = req.Pinned;
             note.UpdatedUtc = DateTime.UtcNow;
             await db.SaveChangesAsync(ct);
@@ -201,6 +227,49 @@ public static class FamilyNotesListsEndpoints
                 .ExecuteDeleteAsync(ct);
             return Results.Ok(await SingleNoteDtoAsync(db, note, caller.Id, householdId, ct));
         });
+
+        // ---- POST /notes/ai/draft : Gemini DRAFTS a fresh note, or REWRITES the supplied body per the prompt ----
+        // Operates on editor content only — it touches NO stored note, so no access check beyond family.use is
+        // needed. Saves NOTHING; the editor shows the draft (Use / Try-again). Rate-limited + NOT cached.
+        // Graceful: 503 (never 500) when Gemini is unconfigured or the call fails; 400 for an empty prompt. The
+        // returned body is markdown to be RENDERED (never executed) by the existing safe renderer.
+        g.MapPost("/notes/ai/draft", async (
+            NoteDraftAiRequest req, GeminiService gemini, CancellationToken ct) =>
+        {
+            if (string.IsNullOrWhiteSpace(req?.Prompt))
+                return Results.BadRequest(new { message = "Tell the assistant what to write." });
+            if (!gemini.IsConfigured) return AiUnavailable();
+
+            var result = await gemini.DraftNoteAsync(req.Prompt, req.CurrentTitle, req.CurrentBody, ct);
+            if (result is null) return AiUnavailable();
+
+            return Results.Ok(new NoteDraftAiDto(result.Title, result.Body, result.Note));
+        }).RequireRateLimiting(AiEndpoints.RateLimitPolicy);
+
+        // ---- POST /notes/{id}/ai/summarize : summarise a note + pull action items (with optional due phrases) ----
+        // Reuses ResolveAccessAsync: 404 if the caller can't VIEW the note (existence never leaked). Creates
+        // NOTHING — action items' duePhrase can be fed into the slice-1 reminder parser if the user chooses.
+        // Rate-limited + NOT cached. Graceful: 503 (never 500) when Gemini is unconfigured or the call fails.
+        g.MapPost("/notes/{id:long}/ai/summarize", async (
+            long id, CurrentUserAccessor me, CurrentHouseholdAccessor households,
+            GeminiService gemini, UsageDbContext db, CancellationToken ct) =>
+        {
+            var caller = (await me.GetUserAsync(ct))!;
+            var householdId = await households.GetOrCreateForCallerAsync(caller, ct) is { } hh ? hh.Id : 0;
+
+            var note = await db.FamilyNotes.AsNoTracking().FirstOrDefaultAsync(n => n.Id == id, ct);
+            var access = await ResolveAccessAsync(db, NoteType, note?.Id ?? 0, note?.HouseholdId ?? -1, caller.Id, householdId, ct);
+            if (note is null || !access.CanView) return NotFound();
+
+            if (!gemini.IsConfigured) return AiUnavailable();
+
+            var result = await gemini.SummarizeNoteAsync(note.Title, note.Body, ct);
+            if (result is null) return AiUnavailable();
+
+            var actions = result.ActionItems
+                .Select(a => new NoteActionItemDto(a.Text, a.DuePhrase)).ToList();
+            return Results.Ok(new NoteSummaryAiDto(result.Summary, actions));
+        }).RequireRateLimiting(AiEndpoints.RateLimitPolicy);
     }
 
     // =====================================================================================
@@ -446,6 +515,23 @@ public static class FamilyNotesListsEndpoints
                 .ExecuteDeleteAsync(ct);
             return Results.Ok(await SingleListDtoAsync(db, id, caller.Id, householdId, ct));
         });
+
+        // ---- POST /lists/ai/parse-items : Gemini turns free text into PROPOSED item names the user confirms ----
+        // Creates NOTHING — the frontend confirms then adds each item via the existing POST /lists/{id}/items.
+        // Rate-limited (the shared "ai" policy) because it spends model tokens, and NOT cached. Graceful: a 503
+        // (never a 500) when Gemini is unconfigured or the call fails; a 400 for empty text.
+        g.MapPost("/lists/ai/parse-items", async (
+            ListItemsAiRequest req, GeminiService gemini, CancellationToken ct) =>
+        {
+            if (string.IsNullOrWhiteSpace(req?.Text))
+                return Results.BadRequest(new { message = "Type or paste what you'd like to add." });
+            if (!gemini.IsConfigured) return AiUnavailable();
+
+            var result = await gemini.ParseListItemsAsync(req.Text, req.Kind, ct);
+            if (result is null) return AiUnavailable();
+
+            return Results.Ok(new ListItemsAiDto(result.Items, result.Notes));
+        }).RequireRateLimiting(AiEndpoints.RateLimitPolicy);
     }
 
     // =====================================================================================
@@ -692,6 +778,13 @@ public static class FamilyNotesListsEndpoints
 
     private static IResult NotFound() =>
         Results.NotFound(new { message = "That item doesn't exist." });
+
+    /// <summary>503 (never 500) when an AI-assist call can't run — Gemini unconfigured or the call failed. One
+    /// consistent degraded path the frontend shows as "AI isn't available right now; do it manually".</summary>
+    private static IResult AiUnavailable() => Results.Problem(
+        title: "AI assistance is not available.",
+        detail: "AI assistance is not available right now. You can do this manually.",
+        statusCode: StatusCodes.Status503ServiceUnavailable);
 
     private static IResult Forbidden(string message) =>
         Results.Json(new { message }, statusCode: StatusCodes.Status403Forbidden);

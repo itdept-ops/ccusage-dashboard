@@ -375,4 +375,148 @@ public class FamilyNotesListsTests(WebAppFactory factory)
         (await owner.PostAsJsonAsync($"/api/family/lists/{listId}/items",
             new { text = "T", assignedToUserId = outsiderId })).StatusCode.Should().Be(HttpStatusCode.BadRequest);
     }
+
+    // =====================================================================================
+    // AI-ASSIST (slice 2) — lists quick-add, notes draft/rewrite, notes summarize.
+    // Each is gated by family.use (403) + auth (401); empty input → 400; unconfigured Gemini
+    // → graceful 503 (never 500). The test host configures NO Gemini key, so the unconfigured
+    // branch returns before any real Gemini/HTTP call, and none of the three writes anything.
+    // =====================================================================================
+
+    [Fact]
+    public async Task ListItemsAi_requires_family_use_and_auth()
+    {
+        var (_, plain, _) = await ProvisionUser("dashboard.view");
+        (await plain.PostAsJsonAsync("/api/family/lists/ai/parse-items", new { text = "milk, eggs" }))
+            .StatusCode.Should().Be(HttpStatusCode.Forbidden);
+
+        var anon = factory.CreateClient();
+        (await anon.PostAsJsonAsync("/api/family/lists/ai/parse-items", new { text = "milk, eggs" }))
+            .StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async Task NoteDraftAi_requires_family_use_and_auth()
+    {
+        var (_, plain, _) = await ProvisionUser("dashboard.view");
+        (await plain.PostAsJsonAsync("/api/family/notes/ai/draft", new { prompt = "a packing list" }))
+            .StatusCode.Should().Be(HttpStatusCode.Forbidden);
+
+        var anon = factory.CreateClient();
+        (await anon.PostAsJsonAsync("/api/family/notes/ai/draft", new { prompt = "a packing list" }))
+            .StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async Task NoteSummarizeAi_requires_family_use_and_auth()
+    {
+        var (_, plain, _) = await ProvisionUser("dashboard.view");
+        (await plain.PostAsJsonAsync("/api/family/notes/1/ai/summarize", new { }))
+            .StatusCode.Should().Be(HttpStatusCode.Forbidden);
+
+        var anon = factory.CreateClient();
+        (await anon.PostAsJsonAsync("/api/family/notes/1/ai/summarize", new { }))
+            .StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async Task ListItemsAi_returns_400_for_empty_text()
+    {
+        var (_, owner, _) = await ProvisionUser("family.use");
+        await owner.GetAsync("/api/family/household");
+        (await owner.PostAsJsonAsync("/api/family/lists/ai/parse-items", new { text = "   " }))
+            .StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task NoteDraftAi_returns_400_for_empty_prompt()
+    {
+        var (_, owner, _) = await ProvisionUser("family.use");
+        await owner.GetAsync("/api/family/household");
+        (await owner.PostAsJsonAsync("/api/family/notes/ai/draft", new { prompt = "   " }))
+            .StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task ListItemsAi_is_unavailable_503_when_gemini_is_unconfigured_never_500()
+    {
+        var (_, owner, _) = await ProvisionUser("family.use");
+        await owner.GetAsync("/api/family/household");
+
+        // No Gemini key in tests → graceful 503 (never 500), and a real upstream call is never made.
+        var res = await owner.PostAsJsonAsync("/api/family/lists/ai/parse-items",
+            new { text = "milk, eggs, bread, bananas", kind = "shopping" });
+        res.StatusCode.Should().Be(HttpStatusCode.ServiceUnavailable);
+    }
+
+    [Fact]
+    public async Task NoteDraftAi_is_unavailable_503_when_gemini_is_unconfigured_never_500()
+    {
+        var (_, owner, _) = await ProvisionUser("family.use");
+        await owner.GetAsync("/api/family/household");
+
+        var res = await owner.PostAsJsonAsync("/api/family/notes/ai/draft",
+            new { prompt = "draft a weekend chore checklist" });
+        res.StatusCode.Should().Be(HttpStatusCode.ServiceUnavailable);
+    }
+
+    [Fact]
+    public async Task NoteSummarizeAi_is_unavailable_503_when_gemini_is_unconfigured_never_500()
+    {
+        var (_, owner, _) = await ProvisionUser("family.use");
+        await owner.GetAsync("/api/family/household");
+        var noteId = (await Json(await owner.PostAsJsonAsync("/api/family/notes",
+            new { title = "Trip", body = "Pack bags. Book hotel by Friday.", pinned = false })))
+            .GetProperty("id").GetInt64();
+
+        var res = await owner.PostAsJsonAsync($"/api/family/notes/{noteId}/ai/summarize", new { });
+        res.StatusCode.Should().Be(HttpStatusCode.ServiceUnavailable);
+    }
+
+    [Fact]
+    public async Task NoteSummarizeAi_returns_404_when_caller_cannot_view_the_note()
+    {
+        var (_, owner, _) = await ProvisionUser("family.use");
+        var (_, stranger, _) = await ProvisionUser("family.use"); // their OWN (different) household
+        await owner.GetAsync("/api/family/household");
+        var noteId = (await Json(await owner.PostAsJsonAsync("/api/family/notes",
+            new { title = "Private", body = "secret", pinned = false }))).GetProperty("id").GetInt64();
+
+        // The access check runs BEFORE the Gemini config check, so a non-viewer gets 404 (existence not leaked),
+        // never a 503.
+        (await stranger.PostAsJsonAsync($"/api/family/notes/{noteId}/ai/summarize", new { }))
+            .StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task The_three_ai_endpoints_write_nothing()
+    {
+        var (_, owner, _) = await ProvisionUser("family.use");
+        await owner.GetAsync("/api/family/household");
+
+        // A list with one item, and a note — the baseline we'll prove is untouched.
+        var listId = (await Json(await owner.PostAsJsonAsync("/api/family/lists",
+            new { name = "Groceries", kind = "shopping" }))).GetProperty("id").GetInt64();
+        await owner.PostAsJsonAsync($"/api/family/lists/{listId}/items", new { text = "Milk" });
+        var noteId = (await Json(await owner.PostAsJsonAsync("/api/family/notes",
+            new { title = "Trip", body = "Pack. Book hotel.", pinned = false }))).GetProperty("id").GetInt64();
+
+        var notesBefore = NoteIds(await Json(await owner.GetAsync("/api/family/notes")));
+        var listsBefore = await Json(await owner.GetAsync("/api/family/lists"));
+        var itemsBefore = listsBefore.EnumerateArray().Single(l => l.GetProperty("id").GetInt64() == listId)
+            .GetProperty("items").EnumerateArray().Count();
+
+        // Fire all three AI calls (each 503s with no key) — none may mutate stored state.
+        await owner.PostAsJsonAsync("/api/family/lists/ai/parse-items",
+            new { text = "eggs, bread, bananas", kind = "shopping" });
+        await owner.PostAsJsonAsync("/api/family/notes/ai/draft", new { prompt = "make it a checklist" });
+        await owner.PostAsJsonAsync($"/api/family/notes/{noteId}/ai/summarize", new { });
+
+        // Notes unchanged (same set), list item count unchanged.
+        NoteIds(await Json(await owner.GetAsync("/api/family/notes"))).Should().BeEquivalentTo(notesBefore);
+        var itemsAfter = (await Json(await owner.GetAsync("/api/family/lists"))).EnumerateArray()
+            .Single(l => l.GetProperty("id").GetInt64() == listId)
+            .GetProperty("items").EnumerateArray().Count();
+        itemsAfter.Should().Be(itemsBefore);
+    }
 }

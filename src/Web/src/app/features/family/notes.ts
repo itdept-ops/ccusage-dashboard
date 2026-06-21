@@ -13,11 +13,31 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 
 import { Api } from '../../core/api';
-import { FamilyNote, FamilyShareTarget, Household } from '../../core/models';
+import {
+  FamilyList, FamilyNote, FamilyShareTarget, Household, NoteActionItem,
+} from '../../core/models';
 import { renderMarkdown } from './markdown';
 import { NoteEditorDialog, NoteEditorData, NoteEditorResult } from './note-editor-dialog';
 import { FamilyShareDialog, ShareDialogData } from './share-dialog';
 import { FamilyConfirmDialog, ConfirmData } from './confirm-dialog';
+
+/** One action item in a note's summary card, with a per-item "checked to act on" flag. */
+interface SummaryAction {
+  text: string;
+  duePhrase: string | null;
+  keep: boolean;
+}
+
+/** The "✨ Summarize" result shown inline under a note (read-only until the user picks an action). */
+interface NoteSummary {
+  noteId: number;
+  summary: string;
+  actions: SummaryAction[];
+  /** True while "Add to a list" / "Make reminders" is running. */
+  acting: boolean;
+  /** A friendly status line for aria-live (errors, progress, or done). */
+  status: string;
+}
 
 /**
  * Family Notes — a warm board of shared note cards. Pinned notes float to the top, then most-recently
@@ -49,6 +69,13 @@ export class FamilyNotes {
   /** Per-note busy id (pin/delete spinner), or null. */
   readonly busyId = signal<number | null>(null);
 
+  /** The note id currently being summarized (spinner on its ✨ button), or null. */
+  readonly summarizingId = signal<number | null>(null);
+  /** The open summary card per note id (keyed), or absent. */
+  readonly summaries = signal<Record<number, NoteSummary>>({});
+  /** The household's editable lists (the "Add to a list" picker), loaded lazily. */
+  readonly lists = signal<FamilyList[]>([]);
+
   /**
    * The caller's household member userIds — used to tell a household note (manageable: share/delete) from a
    * note merely shared IN from another household (a shared-in author is never one of my members). The
@@ -64,6 +91,10 @@ export class FamilyNotes {
     this.api.getHousehold()
       .pipe(catchError(() => of<Household | null>(null)), takeUntilDestroyed())
       .subscribe(h => { if (h) this.memberIds.set(new Set(h.members.map(m => m.userId))); });
+    // Lists power the "Add to a list" picker on summary cards; failure is non-fatal (picker just stays empty).
+    this.api.familyLists()
+      .pipe(catchError(() => of<FamilyList[]>([])), takeUntilDestroyed())
+      .subscribe(list => this.lists.set(list));
   }
 
   /**
@@ -196,6 +227,153 @@ export class FamilyNotes {
       data, width: '460px', maxWidth: '94vw', autoFocus: false,
     });
     await firstValueFrom(ref.afterClosed());
+  }
+
+  // ---- ✨ Summarize → action items ----
+
+  /** The open summary card for a note, or undefined. */
+  summaryFor(noteId: number): NoteSummary | undefined {
+    return this.summaries()[noteId];
+  }
+
+  /** Editable lists the user can add action items into (the "Add to a list" picker). */
+  readonly editableLists = computed(() => this.lists().filter(l => l.canEdit));
+
+  private patchSummary(noteId: number, patch: Partial<NoteSummary>): void {
+    const cur = this.summaries()[noteId];
+    if (!cur) return;
+    this.summaries.update(s => ({ ...s, [noteId]: { ...cur, ...patch } }));
+  }
+
+  /** Close the summary card for a note. */
+  closeSummary(noteId: number): void {
+    this.summaries.update(s => {
+      const next = { ...s };
+      delete next[noteId];
+      return next;
+    });
+  }
+
+  /**
+   * Summarize a note into a short summary + action-item checklist (read-only — creates nothing). Degrades
+   * gracefully: a 503 (AI unavailable) or any error shows a snackbar; a note with no actions still shows the
+   * summary. Re-running re-opens the card with fresh content.
+   */
+  async summarize(note: FamilyNote): Promise<void> {
+    if (this.summarizingId() != null) return;
+    this.summarizingId.set(note.id);
+    try {
+      const result = await firstValueFrom(this.api.summarizeFamilyNoteAi(note.id));
+      const actions: SummaryAction[] = (result.actionItems ?? []).map((a: NoteActionItem) => ({
+        text: a.text, duePhrase: a.duePhrase, keep: true,
+      }));
+      this.summaries.update(s => ({
+        ...s,
+        [note.id]: { noteId: note.id, summary: result.summary, actions, acting: false, status: '' },
+      }));
+    } catch (e) {
+      const status = (e as { status?: number })?.status;
+      this.snack.open(
+        status === 503
+          ? "AI summaries aren't available right now. Please try again later."
+          : this.messageOf(e, "Couldn't summarize that note. Please try again."),
+        'OK', { duration: 4000 });
+    } finally {
+      this.summarizingId.set(null);
+    }
+  }
+
+  /** Toggle whether an action item is included in "Add to a list" / "Make reminders". */
+  toggleAction(noteId: number, index: number): void {
+    const s = this.summaries()[noteId];
+    if (!s) return;
+    this.patchSummary(noteId, { actions: s.actions.map((a, i) => i === index ? { ...a, keep: !a.keep } : a) });
+  }
+
+  /** How many action items are currently checked. */
+  keptActions(noteId: number): SummaryAction[] {
+    return (this.summaries()[noteId]?.actions ?? []).filter(a => a.keep);
+  }
+
+  /**
+   * Add the checked action items to a chosen list via the existing add-item endpoint (one call per item).
+   * Updates the picked list locally so a later "Add to a list" reflects it. Degrades to a status line.
+   */
+  async addActionsToList(note: FamilyNote, list: FamilyList): Promise<void> {
+    const s = this.summaries()[note.id];
+    if (!s || s.acting) return;
+    const chosen = s.actions.filter(a => a.keep);
+    if (chosen.length === 0) return;
+    this.patchSummary(note.id, { acting: true, status: `Adding ${chosen.length} to “${list.name}”…` });
+
+    let updated: FamilyList | null = null;
+    let added = 0, failed = 0;
+    for (const a of chosen) {
+      try {
+        updated = await firstValueFrom(this.api.addFamilyListItem(list.id, a.text));
+        added++;
+      } catch {
+        failed++;
+      }
+    }
+    if (updated) {
+      const fresh = updated;
+      this.lists.update(all => all.map(l => (l.id === fresh.id ? fresh : l)));
+    }
+    this.patchSummary(note.id, {
+      acting: false,
+      status: failed === 0
+        ? `Added ${added} to “${list.name}”.`
+        : `Added ${added} to “${list.name}”; ${failed} couldn't be added.`,
+    });
+    if (added > 0) this.snack.open(`Added ${added} item${added === 1 ? '' : 's'} to ${list.name}.`, undefined, { duration: 2500 });
+  }
+
+  /**
+   * Make reminders from the checked action items: feed each item's text (+ its natural due phrase, when the
+   * note implied one) through the slice-1 reminder parser, then create the proposed reminder(s) via the
+   * existing create endpoint. Nothing is created until parsing succeeds. Degrades gracefully to a status line.
+   */
+  async makeReminders(note: FamilyNote): Promise<void> {
+    const s = this.summaries()[note.id];
+    if (!s || s.acting) return;
+    const chosen = s.actions.filter(a => a.keep);
+    if (chosen.length === 0) return;
+    this.patchSummary(note.id, { acting: true, status: `Scheduling ${chosen.length} reminder${chosen.length === 1 ? '' : 's'}…` });
+
+    let created = 0, failed = 0;
+    for (const a of chosen) {
+      // Combine the action with its due phrase so the slice-1 parser resolves the time in the household zone.
+      const phrase = a.duePhrase ? `${a.text} ${a.duePhrase}` : a.text;
+      try {
+        const parsed = await firstValueFrom(this.api.parseReminderAi(phrase));
+        const proposals = parsed.reminders ?? [];
+        if (proposals.length === 0) { failed++; continue; }
+        for (const p of proposals) {
+          await firstValueFrom(this.api.createFamilyReminder({
+            text: p.text, dueUtc: p.dueUtc, recurrence: p.recurrence,
+          }));
+          created++;
+        }
+      } catch (e) {
+        // A 503 from the parser means AI is down — stop early with a clear message rather than hammering it.
+        if ((e as { status?: number })?.status === 503) {
+          this.patchSummary(note.id, {
+            acting: false,
+            status: "Reminders aren't available right now — try again later, or add them on the Reminders page.",
+          });
+          return;
+        }
+        failed++;
+      }
+    }
+    this.patchSummary(note.id, {
+      acting: false,
+      status: failed === 0
+        ? `Created ${created} reminder${created === 1 ? '' : 's'} — they'll arrive in your notifications.`
+        : `Created ${created}; ${failed} couldn't be scheduled.`,
+    });
+    if (created > 0) this.snack.open(`Added ${created} reminder${created === 1 ? '' : 's'}.`, undefined, { duration: 2500 });
   }
 
   private confirm(data: ConfirmData): Promise<boolean | undefined> {

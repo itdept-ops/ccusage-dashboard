@@ -31,6 +31,29 @@ interface Assignee {
   picture?: string | null;
 }
 
+/** One AI-proposed item awaiting review: its text + whether the user has it checked (only checked ones add). */
+interface ProposedItem {
+  text: string;
+  keep: boolean;
+}
+
+/** The per-list "✨ Add several" panel state (open box, free text, in-flight, status line, proposed items). */
+interface AiPanel {
+  open: boolean;
+  text: string;
+  busy: boolean;
+  /** A friendly status line for aria-live (an error, "nothing found", or a review prompt). */
+  status: string;
+  /** The proposed items the user reviews before adding (null until a parse has run). */
+  items: ProposedItem[] | null;
+  /** True while the confirmed items are being added one-by-one. */
+  adding: boolean;
+}
+
+function emptyAiPanel(): AiPanel {
+  return { open: false, text: '', busy: false, status: '', items: null, adding: false };
+}
+
 /**
  * Family Lists — the household's shared lists, tabbed by kind: Shopping (fast add + check-off) and To-do
  * (each item can be assigned to a household member, shown as an assignee avatar). Each list supports an
@@ -66,6 +89,9 @@ export class FamilyLists {
   readonly itemDrafts = signal<Record<number, string>>({});
   /** Per-list busy flag (add-item / mutate) to lock the input briefly. */
   readonly busyListId = signal<number | null>(null);
+
+  /** Per-list "✨ Add several" panel state (keyed by list id). */
+  readonly aiPanels = signal<Record<number, AiPanel>>({});
 
   readonly shoppingLists = computed(() => this.lists().filter(l => l.kind === 'shopping'));
   readonly todoLists = computed(() => this.lists().filter(l => l.kind === 'todo'));
@@ -208,6 +234,127 @@ export class FamilyLists {
       this.upsert(updated);
     } catch (e) {
       this.snack.open(this.messageOf(e, "Couldn't assign that item."), 'OK', { duration: 4000 });
+    }
+  }
+
+  // ---- ✨ Add several (AI quick-add) ----
+
+  /** The "✨ Add several" panel for a list (defaults to a closed, empty panel). */
+  aiPanel(listId: number): AiPanel {
+    return this.aiPanels()[listId] ?? emptyAiPanel();
+  }
+
+  private setAiPanel(listId: number, patch: Partial<AiPanel>): void {
+    this.aiPanels.update(p => ({ ...p, [listId]: { ...this.aiPanel(listId), ...patch } }));
+  }
+
+  /** Open / close the "✨ Add several" box for a list. Opening resets any prior proposals. */
+  toggleAi(list: FamilyList): void {
+    if (!list.canEdit) return;
+    const open = !this.aiPanel(list.id).open;
+    this.setAiPanel(list.id, open ? { ...emptyAiPanel(), open: true } : { open: false });
+  }
+
+  setAiText(listId: number, value: string): void {
+    this.setAiPanel(listId, { text: value });
+  }
+
+  /** Clear the AI box + any pending proposals for a list (keeps the panel open). */
+  clearAi(listId: number): void {
+    this.setAiPanel(listId, { text: '', status: '', items: null });
+  }
+
+  /**
+   * Send the free text to Gemini and show the parsed items as removable/checkable chips the user reviews.
+   * Creates NOTHING — the user confirms with "Add N items". Degrades gracefully: a 503 (AI unavailable / not
+   * configured) or any error shows a friendly aria-live line so the user can fall back to manual add.
+   */
+  async parseAi(list: FamilyList): Promise<void> {
+    const panel = this.aiPanel(list.id);
+    const text = panel.text.trim();
+    if (!text || !list.canEdit || panel.busy) return;
+    this.setAiPanel(list.id, { busy: true, status: 'Reading what you typed…', items: null });
+    try {
+      const result = await firstValueFrom(this.api.parseListItemsAi(text, list.kind));
+      const items: ProposedItem[] = (result.items ?? []).map(t => ({ text: t, keep: true }));
+      if (items.length === 0) {
+        this.setAiPanel(list.id, {
+          busy: false, items: null,
+          status: result.notes?.trim() ||
+            "I couldn't find any items in that. Try \"milk, eggs, bread\" or paste a recipe.",
+        });
+        return;
+      }
+      const n = items.length;
+      this.setAiPanel(list.id, {
+        busy: false, items,
+        status: (result.notes?.trim() ? result.notes!.trim() + ' ' : '') +
+          `Review ${n === 1 ? 'this item' : `these ${n} items`}, then add ${n === 1 ? 'it' : 'them'}.`,
+      });
+    } catch (e) {
+      const status = (e as { status?: number })?.status;
+      this.setAiPanel(list.id, {
+        busy: false, items: null,
+        status: status === 503
+          ? "AI isn't available right now — you can add items manually below."
+          : this.messageOf(e, "I couldn't reach the AI just now. Please try again, or add items manually."),
+      });
+    }
+  }
+
+  /** Toggle whether a proposed item will be added. */
+  toggleProposed(listId: number, index: number): void {
+    const items = this.aiPanel(listId).items;
+    if (!items) return;
+    this.setAiPanel(listId, { items: items.map((it, i) => i === index ? { ...it, keep: !it.keep } : it) });
+  }
+
+  /** Remove a proposed item from the review list entirely. */
+  removeProposed(listId: number, index: number): void {
+    const items = this.aiPanel(listId).items;
+    if (!items) return;
+    this.setAiPanel(listId, { items: items.filter((_, i) => i !== index) });
+  }
+
+  /** How many proposed items are currently checked-to-add. */
+  keepCount(listId: number): number {
+    return (this.aiPanel(listId).items ?? []).filter(i => i.keep).length;
+  }
+
+  /**
+   * Add the checked proposed items to the list via the existing add-item endpoint (one call per item, in
+   * order). On success the panel closes; a partial failure keeps the panel open with a status so the user
+   * can retry the rest.
+   */
+  async addProposed(list: FamilyList): Promise<void> {
+    const panel = this.aiPanel(list.id);
+    if (!list.canEdit || panel.adding || !panel.items) return;
+    const chosen = panel.items.filter(i => i.keep);
+    if (chosen.length === 0) return;
+    this.setAiPanel(list.id, { adding: true, status: `Adding ${chosen.length} item${chosen.length === 1 ? '' : 's'}…` });
+
+    let updated: FamilyList | null = null;
+    let added = 0;
+    const failed: ProposedItem[] = [];
+    for (const item of chosen) {
+      try {
+        updated = await firstValueFrom(this.api.addFamilyListItem(list.id, item.text));
+        added++;
+      } catch {
+        failed.push(item);
+      }
+    }
+    if (updated) this.upsert(updated);
+
+    if (failed.length === 0) {
+      this.setAiPanel(list.id, { ...emptyAiPanel() });
+      this.snack.open(`Added ${added} item${added === 1 ? '' : 's'}.`, undefined, { duration: 2000 });
+    } else {
+      // Keep just the ones that didn't make it so the user can retry them.
+      this.setAiPanel(list.id, {
+        adding: false, items: failed,
+        status: `Added ${added}. ${failed.length} couldn't be added — try again.`,
+      });
     }
   }
 

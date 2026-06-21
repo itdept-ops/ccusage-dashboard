@@ -4,7 +4,7 @@ import { Observable } from 'rxjs';
 import {
   AccessPolicy, AddExerciseRequest, AddFoodRequest, AddHydrationRequest, AuditEntry, BuildDayRequest, BuildDayResponse, CacheEfficiency, CalendarDay, CalendarEvent, CalendarEventInput, CalendarMemberBusy, CalendarStatus, ChatChannelDto, ChatContactDto, ChatMessageDto, CommitDayRequest, CommitDayResponse, CreateChannelRequest, DaySummaryRequest, DaySummaryResponse,
   CreateShareRequest, CustomExerciseDto, CustomFoodDto, DailyCoachResponse, EstimateExerciseRequest, EstimateExerciseResponse, EstimateMacrosRequest, EstimateMacrosResponse, ExerciseEntryDto, ExerciseLibraryDto, Fleet, FleetDeleteRequest,
-  FamilyBriefing, FamilyChore, FamilyChoreRecurrence, FamilyChores, FamilyList, FamilyListKind, FamilyMeal, FamilyMealDay, FamilyMealSlot, FamilyNote, FamilyPoll, FamilyPollCreate, FamilyRecurrence, FamilyReminder, FamilySettings, FamilySettingsUpdate, FamilyTimer, FamilyToday, FindTimeRequest, ReminderAiResult, FindTimeResult, QuickAddKind, QuickAddRequest, QuickAddResult, FinanceAccount, FinanceAccountPatch, FinanceAccountSummary, FinanceImportBatch, FinanceImportResult, FinanceSummary, FinanceTransactionsPage, FinanceTxnKind, FinanceOwner, FleetDeleteResult, FleetReassignRequest, FleetReassignResult, FleetRevokeKeysRequest, FleetRevokeKeysResult, FoodEntryDto, FoodSearchItemDto, GroupBy, Household, HouseholdCandidate,
+  FamilyBriefing, FamilyChore, FamilyChoreRecurrence, FamilyChores, FamilyList, FamilyListKind, FamilyMeal, FamilyMealDay, FamilyMealSlot, FamilyNote, FamilyPoll, FamilyPollCreate, FamilyRecurrence, FamilyReminder, FamilySettings, FamilySettingsUpdate, FamilyTimer, FamilyToday, FindTimeRequest, ReminderAiResult, ListItemsAiResult, NoteDraftAiResult, NoteSummaryAiResult, FindTimeResult, QuickAddKind, QuickAddRequest, QuickAddResult, FinanceAccount, FinanceAccountPatch, FinanceAccountSummary, FinanceImportBatch, FinanceImportResult, FinanceSummary, FinanceTransactionsPage, FinanceTxnKind, FinanceOwner, FleetDeleteResult, FleetReassignRequest, FleetReassignResult, FleetRevokeKeysRequest, FleetRevokeKeysResult, FoodEntryDto, FoodSearchItemDto, GroupBy, Household, HouseholdCandidate,
   HeatmapCell, HydrationEntryDto, HydrationSuggestResponse, ImageRequest, IngestionSource, IngestKey, IngestKeyCreated, LogWeightRequest, LoginEvent, MachineStat, ManagedUser, MealFeedbackRequest, MealFeedbackResponse, ModelStat, MoveDayRequest, MoveDayResult, NaturalGoalRequest, NaturalGoalResponse, NotificationDto, NotificationPreferenceDto, NotificationSettings,
   NotificationUpdate, PagedResult, ParseExerciseRequest, ParseExerciseResponse, ParseHydrationRequest, ParseHydrationResponse, ParseMealRequest, ParseMealResponse, PermissionItem, Presence, Pricing, ProjectDto, PublicShare, ReactionGroupDto, ReadLabelResponse, RecipeMacrosRequest, RecipeMacrosResponse, RequestLogEntry, SavedView, ScheduleAiResult,
   SavedViewUpsertRequest, SessionDetail, Settings, ShareAccessItem, ShareCreated, ShareListItem, SharedUserDto, SuggestFoodsResponse, SuggestGoalResponse, SuggestWorkoutRequest, SuggestWorkoutResponse, SummaryResponse,
@@ -796,6 +796,26 @@ export class Api {
     return this.http.delete<FamilyNote>(`${this.base}/family/notes/${id}/share/${userId}`);
   }
 
+  /**
+   * "✨ Draft with AI" / "✨ Rewrite": send a `prompt` for Gemini to DRAFT a fresh note, or — when
+   * `currentBody` is supplied — REWRITE/clean that body per the prompt. Saves NOTHING; the editor previews
+   * the returned title+body with Use / Try-again, and only the user's Save persists it. Degrades gracefully:
+   * a 503 when AI is unavailable / not configured, a 400 for an empty prompt.
+   */
+  draftFamilyNoteAi(prompt: string, currentTitle?: string, currentBody?: string): Observable<NoteDraftAiResult> {
+    return this.http.post<NoteDraftAiResult>(`${this.base}/family/notes/ai/draft`,
+      { prompt, currentTitle: currentTitle ?? null, currentBody: currentBody ?? null });
+  }
+
+  /**
+   * "✨ Summarize": summarise a saved note into a short summary + 0+ action items (each with an optional
+   * natural-time `duePhrase`). Read-only — creates NOTHING; the user then chooses "Add to a list" or "Make
+   * reminders". 404 if the caller can't view the note; degrades to a 503 when AI is unavailable.
+   */
+  summarizeFamilyNoteAi(id: number): Observable<NoteSummaryAiResult> {
+    return this.http.post<NoteSummaryAiResult>(`${this.base}/family/notes/${id}/ai/summarize`, {});
+  }
+
   // ---- Family Hub F1: shared lists (shopping / to-do; checkable items; assignees; share) ----
 
   /** Lists the caller can see (household + shared-with-me), each with its items (most-recently-updated first). */
@@ -847,6 +867,18 @@ export class Api {
   /** Remove a list's share for the given AppUser id (manage). Returns the updated list. */
   unshareFamilyList(id: number, userId: number): Observable<FamilyList> {
     return this.http.delete<FamilyList>(`${this.base}/family/lists/${id}/share/${userId}`);
+  }
+
+  /**
+   * "✨ Add several": send a free-text blob ("milk, eggs, bread" or a pasted recipe) for Gemini to parse into
+   * a clean, de-duped, capped list of item NAMES the user reviews — this creates NOTHING. Each confirmed item
+   * is added via the existing {@link addFamilyListItem}. `kind` ("shopping"|"todo") only nudges the parse.
+   * Degrades gracefully: a 503 when AI is unavailable / not configured, a 400 for empty text — the caller
+   * falls back to manual add.
+   */
+  parseListItemsAi(text: string, kind?: FamilyListKind): Observable<ListItemsAiResult> {
+    return this.http.post<ListItemsAiResult>(`${this.base}/family/lists/ai/parse-items`,
+      { text, kind: kind ?? null });
   }
 
   // ---- Family Hub F2: reminders (due-time nudges; recurrence; target a member) ----

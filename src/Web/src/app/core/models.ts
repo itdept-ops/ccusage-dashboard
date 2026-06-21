@@ -1651,6 +1651,70 @@ export interface ReminderAiResult {
   notes: string | null;
 }
 
+// ---- Family Hub F1 slice 2: AI assists for lists + notes ----
+
+/**
+ * "✨ Add several" request (POST /api/family/lists/ai/parse-items; mirrors ListItemsAiRequest). `text` is a
+ * free-text blob ("milk, eggs, bread" or a pasted recipe); the optional `kind` ("shopping"|"todo") only
+ * nudges interpretation and need not match the destination list. Nothing is created — the user reviews the
+ * proposed items, then each is added via the existing addFamilyListItem.
+ */
+export interface ListItemsAiRequest {
+  text: string;
+  kind?: FamilyListKind | null;
+}
+
+/**
+ * "✨ Add several" response (mirrors ListItemsAiDto): a clean, de-duped, capped list of item `items` (names
+ * only) plus an optional short `notes` line (e.g. "pulled ingredients from the recipe"). An empty `items`
+ * list means the AI found nothing to add — the user can still add items manually.
+ */
+export interface ListItemsAiResult {
+  items: string[];
+  notes: string | null;
+}
+
+/**
+ * "✨ Draft with AI" / "✨ Rewrite" request (POST /api/family/notes/ai/draft; mirrors NoteDraftAiRequest).
+ * `prompt` drives the change. When `currentBody` is present the note is REWRITTEN per the prompt; otherwise
+ * a fresh note is drafted. The server saves NOTHING — the editor shows the draft with Use / Try-again.
+ */
+export interface NoteDraftAiRequest {
+  prompt: string;
+  currentTitle?: string | null;
+  currentBody?: string | null;
+}
+
+/**
+ * "✨ Draft with AI" / "✨ Rewrite" response (mirrors NoteDraftAiDto): a `title` + markdown `body` (to be
+ * RENDERED by the safe renderer, never executed) + an optional short `note` about an assumption made.
+ */
+export interface NoteDraftAiResult {
+  title: string;
+  body: string;
+  note: string | null;
+}
+
+/**
+ * One action item from "✨ Summarize" (mirrors NoteActionItemDto). `text` is a concise task; `duePhrase` is
+ * a natural-time phrase ("tomorrow", "by Friday") the frontend can feed into the slice-1 reminder parser
+ * ("make reminders"), or null when the note implied no time.
+ */
+export interface NoteActionItem {
+  text: string;
+  duePhrase: string | null;
+}
+
+/**
+ * "✨ Summarize" response (POST /api/family/notes/{id}/ai/summarize; mirrors NoteSummaryAiDto): a short
+ * `summary` of the note plus 0+ `actionItems`. Read-only — nothing changes until the user picks an action
+ * ("Add to a list" or "Make reminders").
+ */
+export interface NoteSummaryAiResult {
+  summary: string;
+  actionItems: NoteActionItem[];
+}
+
 // ---- Family Hub F3: Today snapshot & settings ----
 
 /**
