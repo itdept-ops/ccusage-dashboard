@@ -1270,6 +1270,50 @@ export interface CommitDayResponse {
   day: TrackerDayDto;
 }
 
+/** The categories a "Move day" can move. null/empty in the request = all of them. */
+export type MoveDayCategory = 'food' | 'exercise' | 'hydration' | 'weight' | 'activity';
+
+/**
+ * Move-a-day payload (POST /api/tracker/day/move; OWN tracker only). Re-dates the caller's own entries
+ * from `fromDate` onto `toDate` for the chosen `categories` (omit/empty = all). For the one-per-day
+ * domains (weight/activity) the moved entry replaces any conflicting entry already on `toDate`.
+ * Mirrors MoveDayRequest.
+ */
+export interface MoveDayRequest {
+  /** Source local date (YYYY-MM-DD) to move entries OFF of. */
+  fromDate: string;
+  /** Target local date (YYYY-MM-DD) to move entries ONTO. Must differ from `fromDate`. */
+  toDate: string;
+  /** Subset of categories to move; omit/empty = all. */
+  categories?: MoveDayCategory[];
+}
+
+/** How many rows of each domain were re-dated onto the target date. Mirrors MoveDayCounts. */
+export interface MoveDayCounts {
+  food: number;
+  exercise: number;
+  hydration: number;
+  weight: number;
+  /** True when the source date had an activity row that was moved onto the target. */
+  activity: boolean;
+}
+
+/** What target-date rows the move replaced (the moved entry wins on a one-per-day conflict). Mirrors MoveDayReplaced. */
+export interface MoveDayReplaced {
+  /** How many target weight rows (same slot) were deleted so the moved reading could win. */
+  weight: number;
+  /** True when a target activity row was deleted so the moved one could win. */
+  activity: boolean;
+}
+
+/** Outcome of a day move: per-domain counts re-dated, what was replaced, and the echoed target date. Mirrors MoveDayResponse. */
+export interface MoveDayResult {
+  moved: MoveDayCounts;
+  replaced: MoveDayReplaced;
+  /** The target date entries were moved onto (YYYY-MM-DD). */
+  toDate: string;
+}
+
 /**
  * Log-a-drink payload (POST /api/tracker/hydration). `amountMl` is always metric ml (1..5000); the UI
  * converts from the user's display units before sending. `label` is an optional drink name (<=64 chars).

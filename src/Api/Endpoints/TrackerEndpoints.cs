@@ -916,6 +916,145 @@ public static class TrackerEndpoints
                 Day = day,
             });
         }).RequirePermission(Permissions.TrackerSelf);
+
+        // ---- Move a day's entries from one date to another, by category (OWN only) ----
+        // The fix for "the AI Day Builder / manual logging put my day on the WRONG date." Re-dates the
+        // CALLER's own rows from fromDate -> toDate for each selected category (null/empty = all). Day
+        // totals are computed on read (BuildDayAsync), so a re-date is enough — no recompute. For the
+        // one-per-day domains a moved entry WINS over a conflicting target (delete the target row first):
+        //   - weight is UNIQUE per (user, date, slot): per source slot that also exists on toDate, delete
+        //     the target's same-slot row, then re-date the source.
+        //   - activity is UNIQUE per (user, date): if toDate already has a row, delete it, then re-date.
+        // The food/exercise/hydration moves have no uniqueness — a plain ExecuteUpdate re-dates every row.
+        g.MapPost("/day/move", async (
+            MoveDayRequest req, CurrentUserAccessor me, UsageDbContext db, CancellationToken ct) =>
+        {
+            var caller = (await me.GetUserAsync(ct))!;
+
+            if (!TryParseDate(req?.FromDate, out var fromDate))
+                return Results.BadRequest(new { message = "A valid fromDate (yyyy-MM-dd) is required." });
+            if (!TryParseDate(req!.ToDate, out var toDate))
+                return Results.BadRequest(new { message = "A valid toDate (yyyy-MM-dd) is required." });
+            if (fromDate == toDate)
+                return Results.BadRequest(new { message = "fromDate and toDate must be different." });
+
+            // Normalize the requested categories; null/empty/whitespace-only => ALL. Unknown names are
+            // simply ignored (a no-op move for that category).
+            var requested = (req.Categories ?? Array.Empty<string>())
+                .Where(c => !string.IsNullOrWhiteSpace(c))
+                .Select(c => c.Trim().ToLowerInvariant())
+                .ToHashSet();
+            bool Wants(string cat) => requested.Count == 0 || requested.Contains(cat);
+
+            var email = caller.Email;
+            var moved = new MoveDayCounts();
+            var replaced = new MoveDayReplaced();
+
+            // food / exercise / hydration: no uniqueness — re-date every matching row in one statement.
+            if (Wants("food"))
+                moved.Food = await db.FoodEntries
+                    .Where(f => f.UserEmail == email && f.LocalDate == fromDate)
+                    .ExecuteUpdateAsync(s => s.SetProperty(f => f.LocalDate, toDate), ct);
+
+            if (Wants("exercise"))
+                moved.Exercise = await db.ExerciseEntries
+                    .Where(x => x.UserEmail == email && x.LocalDate == fromDate)
+                    .ExecuteUpdateAsync(s => s.SetProperty(x => x.LocalDate, toDate), ct);
+
+            if (Wants("hydration"))
+                moved.Hydration = await db.HydrationEntries
+                    .Where(h => h.UserEmail == email && h.LocalDate == fromDate)
+                    .ExecuteUpdateAsync(s => s.SetProperty(h => h.LocalDate, toDate), ct);
+
+            // weight (UNIQUE per user+date+slot): the moved value wins per slot. Delete any target rows
+            // whose slot also exists on the source, THEN re-date the source rows. Wrapped in the retrying
+            // execution strategy's transaction so the delete+re-date is atomic (a naive BeginTransaction
+            // throws under EnableRetryOnFailure).
+            if (Wants("weight"))
+            {
+                var sourceSlots = await db.WeightEntries.AsNoTracking()
+                    .Where(w => w.UserEmail == email && w.LocalDate == fromDate)
+                    .Select(w => w.Slot)
+                    .ToListAsync(ct);
+
+                if (sourceSlots.Count > 0)
+                {
+                    var strategy = db.Database.CreateExecutionStrategy();
+                    await strategy.ExecuteAsync(async () =>
+                    {
+                        await using var tx = await db.Database.BeginTransactionAsync(ct);
+
+                        replaced.Weight = await db.WeightEntries
+                            .Where(w => w.UserEmail == email && w.LocalDate == toDate
+                                && sourceSlots.Contains(w.Slot))
+                            .ExecuteDeleteAsync(ct);
+
+                        moved.Weight = await db.WeightEntries
+                            .Where(w => w.UserEmail == email && w.LocalDate == fromDate)
+                            .ExecuteUpdateAsync(s => s.SetProperty(w => w.LocalDate, toDate), ct);
+
+                        await tx.CommitAsync(ct);
+                    });
+                }
+            }
+
+            // Moving weight rows can change which reading is the MOST RECENT, so refresh the profile's
+            // cached current weight (mirrors POST /weight) when something actually moved.
+            if (moved.Weight > 0)
+            {
+                var profile = await db.TrackerProfiles.FirstOrDefaultAsync(p => p.UserEmail == email, ct);
+                if (profile is not null)
+                {
+                    var latest = await db.WeightEntries.AsNoTracking()
+                        .Where(w => w.UserEmail == email)
+                        .OrderByDescending(w => w.LocalDate).ThenByDescending(w => w.Slot).ThenByDescending(w => w.Id)
+                        .Select(w => (double?)w.WeightKg)
+                        .FirstOrDefaultAsync(ct);
+                    if (latest is { } lw && profile.WeightKg != lw)
+                    {
+                        profile.WeightKg = lw;
+                        profile.UpdatedUtc = DateTime.UtcNow;
+                        await db.SaveChangesAsync(ct);
+                    }
+                }
+            }
+
+            // activity (UNIQUE per user+date): if the source has a row and the target already has one, the
+            // moved one wins — delete the target's, then re-date the source's. Atomic via the strategy.
+            if (Wants("activity"))
+            {
+                var hasSource = await db.DailyActivities.AsNoTracking()
+                    .AnyAsync(a => a.UserEmail == email && a.LocalDate == fromDate, ct);
+
+                if (hasSource)
+                {
+                    var strategy = db.Database.CreateExecutionStrategy();
+                    await strategy.ExecuteAsync(async () =>
+                    {
+                        await using var tx = await db.Database.BeginTransactionAsync(ct);
+
+                        var targetDeleted = await db.DailyActivities
+                            .Where(a => a.UserEmail == email && a.LocalDate == toDate)
+                            .ExecuteDeleteAsync(ct);
+                        replaced.Activity = targetDeleted > 0;
+
+                        var sourceMoved = await db.DailyActivities
+                            .Where(a => a.UserEmail == email && a.LocalDate == fromDate)
+                            .ExecuteUpdateAsync(s => s.SetProperty(a => a.LocalDate, toDate), ct);
+                        moved.Activity = sourceMoved > 0;
+
+                        await tx.CommitAsync(ct);
+                    });
+                }
+            }
+
+            return Results.Ok(new MoveDayResponse
+            {
+                Moved = moved,
+                Replaced = replaced,
+                ToDate = toDate.ToString("yyyy-MM-dd"),
+            });
+        }).RequirePermission(Permissions.TrackerSelf);
     }
 
     // ===================================================================================

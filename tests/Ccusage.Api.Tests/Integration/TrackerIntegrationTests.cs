@@ -1554,4 +1554,238 @@ public class TrackerIntegrationTests(WebAppFactory factory)
         var food = day.GetProperty("foods").EnumerateArray().Single();
         food.GetProperty("proteinG").GetDouble().Should().Be(500.0);           // macros clamped
     }
+
+    // ===================================================================================
+    // Move day (POST /api/tracker/day/move) — re-date the caller's OWN entries, by category
+    // ===================================================================================
+
+    private const string MoveFrom = "2026-06-10";
+    private const string MoveTo = "2026-06-11";
+
+    [Fact]
+    public async Task Move_endpoint_requires_authentication_and_tracker_self()
+    {
+        var anon = factory.CreateClient();
+        (await anon.PostAsJsonAsync("/api/tracker/day/move", new { fromDate = MoveFrom, toDate = MoveTo }))
+            .StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+
+        var (_, noTracker) = await ProvisionUser("dashboard.view");
+        (await noTracker.PostAsJsonAsync("/api/tracker/day/move", new { fromDate = MoveFrom, toDate = MoveTo }))
+            .StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
+
+    [Fact]
+    public async Task Move_rejects_bad_dates_and_a_same_date_move()
+    {
+        var (_, user) = await ProvisionUser("tracker.self");
+
+        (await user.PostAsJsonAsync("/api/tracker/day/move", new { fromDate = "nope", toDate = MoveTo }))
+            .StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        (await user.PostAsJsonAsync("/api/tracker/day/move", new { fromDate = MoveFrom, toDate = "nope" }))
+            .StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        // fromDate == toDate is a 400 (nothing to move).
+        (await user.PostAsJsonAsync("/api/tracker/day/move", new { fromDate = MoveFrom, toDate = MoveFrom }))
+            .StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task Move_redates_food_exercise_hydration_for_only_the_caller_and_chosen_categories()
+    {
+        var (_, alice) = await ProvisionUser("tracker.self");
+        var (_, bob) = await ProvisionUser("tracker.self");
+
+        // Alice logs food + exercise + hydration on MoveFrom, plus an UNRELATED food on a third date.
+        await alice.PostAsJsonAsync("/api/tracker/food", new
+        {
+            date = MoveFrom, meal = "breakfast", description = "Oatmeal", quantity = 1.0,
+            calories = 300, proteinG = 10.0, carbG = 54.0, fatG = 5.0,
+        });
+        await alice.PostAsJsonAsync("/api/tracker/exercise", new
+        {
+            date = MoveFrom, name = "Walk", durationMin = 30, caloriesBurned = 150,
+        });
+        await alice.PostAsJsonAsync("/api/tracker/hydration", new { date = MoveFrom, amountMl = 500 });
+        await alice.PostAsJsonAsync("/api/tracker/food", new
+        {
+            date = "2026-06-09", meal = "lunch", description = "Other day", quantity = 1.0,
+            calories = 100, proteinG = 1.0, carbG = 1.0, fatG = 1.0,
+        });
+
+        // Bob has his OWN food on MoveFrom that must be untouched by Alice's move.
+        await bob.PostAsJsonAsync("/api/tracker/food", new
+        {
+            date = MoveFrom, meal = "dinner", description = "Bob's steak", quantity = 1.0,
+            calories = 700, proteinG = 50.0, carbG = 0.0, fatG = 40.0,
+        });
+
+        // Move ONLY food + hydration (NOT exercise) from MoveFrom -> MoveTo.
+        var res = await alice.PostAsJsonAsync("/api/tracker/day/move", new
+        {
+            fromDate = MoveFrom, toDate = MoveTo, categories = new[] { "food", "hydration" },
+        });
+        res.StatusCode.Should().Be(HttpStatusCode.OK);
+        var body = await Json(res);
+        body.GetProperty("toDate").GetString().Should().Be(MoveTo);
+        var movedCounts = body.GetProperty("moved");
+        movedCounts.GetProperty("food").GetInt32().Should().Be(1);
+        movedCounts.GetProperty("hydration").GetInt32().Should().Be(1);
+        movedCounts.GetProperty("exercise").GetInt32().Should().Be(0); // not chosen
+
+        // The source date now has only the exercise (food + hydration moved away).
+        var from = await Json(await alice.GetAsync($"/api/tracker/day?date={MoveFrom}"));
+        from.GetProperty("foods").EnumerateArray().Should().BeEmpty();
+        from.GetProperty("hydration").EnumerateArray().Should().BeEmpty();
+        from.GetProperty("exercises").EnumerateArray().Should().ContainSingle(); // exercise stayed
+
+        // The target date has the moved food + hydration (and no exercise).
+        var to = await Json(await alice.GetAsync($"/api/tracker/day?date={MoveTo}"));
+        to.GetProperty("foods").EnumerateArray().Should().ContainSingle();
+        to.GetProperty("caloriesIn").GetInt32().Should().Be(300);
+        to.GetProperty("hydrationMl").GetInt32().Should().Be(500);
+        to.GetProperty("exercises").EnumerateArray().Should().BeEmpty();
+
+        // Alice's other-date food is untouched.
+        var otherDay = await Json(await alice.GetAsync($"/api/tracker/day?date=2026-06-09"));
+        otherDay.GetProperty("foods").EnumerateArray().Should().ContainSingle();
+
+        // Bob's MoveFrom food is untouched (the move only ever acts on the caller's rows).
+        var bobDay = await Json(await bob.GetAsync($"/api/tracker/day?date={MoveFrom}"));
+        bobDay.GetProperty("foods").EnumerateArray().Should().ContainSingle();
+        bobDay.GetProperty("caloriesIn").GetInt32().Should().Be(700);
+    }
+
+    [Fact]
+    public async Task Move_with_empty_categories_moves_all_domains()
+    {
+        var (_, user) = await ProvisionUser("tracker.self");
+
+        await user.PostAsJsonAsync("/api/tracker/food", new
+        {
+            date = MoveFrom, meal = "breakfast", description = "Eggs", quantity = 1.0,
+            calories = 200, proteinG = 12.0, carbG = 2.0, fatG = 14.0,
+        });
+        await user.PostAsJsonAsync("/api/tracker/exercise", new
+        {
+            date = MoveFrom, name = "Run", durationMin = 20, caloriesBurned = 200,
+        });
+        await user.PostAsJsonAsync("/api/tracker/hydration", new { date = MoveFrom, amountMl = 250 });
+        await user.PostAsJsonAsync("/api/tracker/weight", new { date = MoveFrom, weightKg = 80.0, slot = "Morning" });
+        await user.PutAsJsonAsync("/api/tracker/activity", new { date = MoveFrom, steps = 8000, activeCalories = 300, calorieMode = "add" });
+
+        // No categories => ALL.
+        var res = await user.PostAsJsonAsync("/api/tracker/day/move", new { fromDate = MoveFrom, toDate = MoveTo });
+        res.StatusCode.Should().Be(HttpStatusCode.OK);
+        var moved = (await Json(res)).GetProperty("moved");
+        moved.GetProperty("food").GetInt32().Should().Be(1);
+        moved.GetProperty("exercise").GetInt32().Should().Be(1);
+        moved.GetProperty("hydration").GetInt32().Should().Be(1);
+        moved.GetProperty("weight").GetInt32().Should().Be(1);
+        moved.GetProperty("activity").GetBoolean().Should().BeTrue();
+
+        // Source is fully empty; target carries everything.
+        var from = await Json(await user.GetAsync($"/api/tracker/day?date={MoveFrom}"));
+        from.GetProperty("foods").EnumerateArray().Should().BeEmpty();
+        from.GetProperty("exercises").EnumerateArray().Should().BeEmpty();
+        from.GetProperty("hydration").EnumerateArray().Should().BeEmpty();
+        from.GetProperty("activity").ValueKind.Should().Be(JsonValueKind.Null);
+
+        var to = await Json(await user.GetAsync($"/api/tracker/day?date={MoveTo}"));
+        to.GetProperty("caloriesIn").GetInt32().Should().Be(200);
+        to.GetProperty("hydrationMl").GetInt32().Should().Be(250);
+        to.GetProperty("activity").GetProperty("steps").GetInt32().Should().Be(8000);
+
+        // Weight history reflects the moved date.
+        var history = (await Json(await user.GetAsync("/api/tracker/weight?days=365"))).EnumerateArray().ToList();
+        history.Should().ContainSingle();
+        history[0].GetProperty("date").GetString().Should().Be(MoveTo);
+    }
+
+    [Fact]
+    public async Task Move_weight_with_a_target_slot_conflict_replaces_the_target_and_reports_it()
+    {
+        var (_, user) = await ProvisionUser("tracker.self");
+
+        // Source: morning 80 + evening 82. Target already has a MORNING 99 (conflict) and an
+        // AFTERNOON 70 (no source slot -> must survive).
+        await user.PostAsJsonAsync("/api/tracker/weight", new { date = MoveFrom, weightKg = 80.0, slot = "Morning" });
+        await user.PostAsJsonAsync("/api/tracker/weight", new { date = MoveFrom, weightKg = 82.0, slot = "Evening" });
+        await user.PostAsJsonAsync("/api/tracker/weight", new { date = MoveTo, weightKg = 99.0, slot = "Morning" });
+        await user.PostAsJsonAsync("/api/tracker/weight", new { date = MoveTo, weightKg = 70.0, slot = "Afternoon" });
+
+        var res = await user.PostAsJsonAsync("/api/tracker/day/move", new
+        {
+            fromDate = MoveFrom, toDate = MoveTo, categories = new[] { "weight" },
+        });
+        res.StatusCode.Should().Be(HttpStatusCode.OK);
+        var body = await Json(res);
+        body.GetProperty("moved").GetProperty("weight").GetInt32().Should().Be(2);
+        body.GetProperty("replaced").GetProperty("weight").GetInt32().Should().Be(1); // the morning conflict
+
+        // Source has no weights left.
+        var fromStats = await Json(await user.GetAsync($"/api/tracker/weight/stats?days=365"));
+
+        // Target: moved Morning(80) WINS over the old 99; Evening(82) added; Afternoon(70) preserved.
+        var entries = fromStats.GetProperty("entries").EnumerateArray()
+            .Where(e => e.GetProperty("date").GetString() == MoveTo).ToList();
+        entries.Should().HaveCount(3);
+        entries.Single(e => e.GetProperty("slot").GetString() == "Morning")
+            .GetProperty("weightKg").GetDouble().Should().Be(80.0); // moved value wins, not 99
+        entries.Single(e => e.GetProperty("slot").GetString() == "Evening")
+            .GetProperty("weightKg").GetDouble().Should().Be(82.0);
+        entries.Single(e => e.GetProperty("slot").GetString() == "Afternoon")
+            .GetProperty("weightKg").GetDouble().Should().Be(70.0); // untouched
+        entries.Should().OnlyContain(e => e.GetProperty("date").GetString() == MoveTo);
+    }
+
+    [Fact]
+    public async Task Move_activity_with_a_target_conflict_replaces_and_reports()
+    {
+        var (_, user) = await ProvisionUser("tracker.self");
+
+        // Source activity (moved) vs an existing target activity (replaced).
+        await user.PutAsJsonAsync("/api/tracker/activity", new
+        {
+            date = MoveFrom, steps = 9000, distanceMeters = 6000, activeCalories = 400, calorieMode = "add",
+        });
+        await user.PutAsJsonAsync("/api/tracker/activity", new
+        {
+            date = MoveTo, steps = 100, distanceMeters = 50, activeCalories = 10, calorieMode = "override",
+        });
+
+        var res = await user.PostAsJsonAsync("/api/tracker/day/move", new
+        {
+            fromDate = MoveFrom, toDate = MoveTo, categories = new[] { "activity" },
+        });
+        res.StatusCode.Should().Be(HttpStatusCode.OK);
+        var body = await Json(res);
+        body.GetProperty("moved").GetProperty("activity").GetBoolean().Should().BeTrue();
+        body.GetProperty("replaced").GetProperty("activity").GetBoolean().Should().BeTrue();
+
+        // Source has no activity; target carries the MOVED stats (the old target was replaced).
+        var from = await Json(await user.GetAsync($"/api/tracker/day?date={MoveFrom}"));
+        from.GetProperty("activity").ValueKind.Should().Be(JsonValueKind.Null);
+
+        var to = await Json(await user.GetAsync($"/api/tracker/day?date={MoveTo}"));
+        var act = to.GetProperty("activity");
+        act.GetProperty("steps").GetInt32().Should().Be(9000);
+        act.GetProperty("calorieMode").GetString().Should().Be("add");
+    }
+
+    [Fact]
+    public async Task Move_into_a_clean_target_does_not_report_replacements()
+    {
+        var (_, user) = await ProvisionUser("tracker.self");
+
+        await user.PostAsJsonAsync("/api/tracker/weight", new { date = MoveFrom, weightKg = 80.0, slot = "Morning" });
+        await user.PutAsJsonAsync("/api/tracker/activity", new { date = MoveFrom, steps = 5000, activeCalories = 200, calorieMode = "add" });
+
+        var res = await user.PostAsJsonAsync("/api/tracker/day/move", new { fromDate = MoveFrom, toDate = MoveTo });
+        res.StatusCode.Should().Be(HttpStatusCode.OK);
+        var body = await Json(res);
+        body.GetProperty("moved").GetProperty("weight").GetInt32().Should().Be(1);
+        body.GetProperty("moved").GetProperty("activity").GetBoolean().Should().BeTrue();
+        // Nothing on the target to replace.
+        body.GetProperty("replaced").GetProperty("weight").GetInt32().Should().Be(0);
+        body.GetProperty("replaced").GetProperty("activity").GetBoolean().Should().BeFalse();
+    }
 }

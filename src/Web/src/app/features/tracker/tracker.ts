@@ -18,7 +18,7 @@ import { TrackerStore } from '../../core/tracker-store';
 import {
   ActivityCalorieMode, AddExerciseRequest, AddFoodRequest, AddHydrationRequest, CommitDayResponse, DailyCoachResponse,
   DaySummaryResponse, ExerciseEntryDto, FoodEntryDto,
-  FoodSuggestionDto, HydrationEntryDto, LogWeightRequest, Meal, PERM, SharedUserDto, TrackerDayDto, TrackerProfileDto,
+  FoodSuggestionDto, HydrationEntryDto, LogWeightRequest, Meal, MoveDayRequest, MoveDayResult, PERM, SharedUserDto, TrackerDayDto, TrackerProfileDto,
   UpsertActivityRequest, WeeklyReviewResponse, WeightPointDto, WeightStatsDto,
 } from '../../core/models';
 import { CalorieRing } from './calorie-ring';
@@ -31,6 +31,7 @@ import { AddActivityDialog, AddActivityData } from './add-activity-dialog';
 import { ProfileDialog, ProfileData } from './profile-dialog';
 import { LogWeightDialog, LogWeightData } from './log-weight-dialog';
 import { OnboardingCard, OnboardingResult } from './onboarding-card';
+import { MoveDayDialog, MoveDayData } from './move-day-dialog';
 import { AiDayBuilderDialog, AiDayBuilderData, AiDayBuilderResult } from './ai-day-builder-dialog';
 import { WeightTrend } from './weight-trend';
 import { WeightStats } from './weight-stats';
@@ -451,6 +452,64 @@ export class Tracker {
           })
           .catch(() => this.snack.open('Could not log weight', 'Dismiss', { duration: 4000 }));
       });
+  }
+
+  /**
+   * Open the "Move day" dialog (own tracker only). It defaults the target to the day before the viewed
+   * date and moves all categories unless the user unchecks some. On confirm we POST /tracker/day/move,
+   * report the moved counts in a snackbar, then reload the day (totals are server-computed on read).
+   */
+  openMoveDay(): void {
+    if (this.store.readOnly()) return;
+    const data: MoveDayData = { fromDate: this.store.date() };
+    this.dialog.open(MoveDayDialog, { data, width: '420px', maxWidth: '95vw', autoFocus: false })
+      .afterClosed().subscribe((req: MoveDayRequest | undefined) => {
+        if (!req) return;
+        void this.runMoveDay(req);
+      });
+  }
+
+  /** POST the move, snackbar the result, and refresh the day. A failure leaves the day unchanged. */
+  private async runMoveDay(req: MoveDayRequest): Promise<void> {
+    try {
+      const res = await firstValueFrom(this.api.moveDay(req));
+      await this.store.load();
+      void this.loadWeightHistory();
+      const msg = this.moveDayMessage(res);
+      this.statusMsg.set(msg);
+      this.snack.open(msg, 'OK', { duration: 4000 });
+    } catch {
+      this.snack.open('Could not move the day — nothing was changed', 'Dismiss', { duration: 4000 });
+    }
+  }
+
+  /** Build the "Moved 5 foods, 1 workout & your weight to Jun 20" success line from the move counts. */
+  private moveDayMessage(res: MoveDayResult): string {
+    const m = res.moved;
+    const bits: string[] = [];
+    if (m.food) bits.push(`${m.food} food${m.food === 1 ? '' : 's'}`);
+    if (m.exercise) bits.push(`${m.exercise} workout${m.exercise === 1 ? '' : 's'}`);
+    if (m.hydration) bits.push(`${m.hydration} drink${m.hydration === 1 ? '' : 's'}`);
+    if (m.weight) bits.push('your weight');
+    if (m.activity) bits.push('your activity');
+
+    const to = this.shortDate(res.toDate);
+    if (bits.length === 0) return `Nothing to move to ${to}`;
+    const list = bits.length === 1
+      ? bits[0]
+      : `${bits.slice(0, -1).join(', ')} & ${bits[bits.length - 1]}`;
+    return `Moved ${list} to ${to}`;
+  }
+
+  /** A short "Jun 20" style label for a YYYY-MM-DD date (Today/Yesterday for the obvious cases). */
+  private shortDate(iso: string): string {
+    const d = new Date(iso + 'T00:00:00');
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const diff = Math.round((d.getTime() - today.getTime()) / 86_400_000);
+    if (diff === 0) return 'today';
+    if (diff === -1) return 'yesterday';
+    if (diff === 1) return 'tomorrow';
+    return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
   }
 
   // ---- hydration ----

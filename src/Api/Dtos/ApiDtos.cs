@@ -1188,3 +1188,50 @@ public sealed class CommitCounts
     public bool Weight { get; set; }
     public bool Activity { get; set; }
 }
+
+/// <summary>
+/// Move the CALLER's OWN tracker entries from one local date to another, by category — the fix for "the AI
+/// Day Builder (or manual logging) put my day on the wrong date." <see cref="Categories"/> is a subset of
+/// ["food","exercise","hydration","weight","activity"]; null/empty means ALL. <see cref="FromDate"/> must
+/// differ from <see cref="ToDate"/> (both yyyy-MM-dd). Only the caller's rows are ever touched. For the
+/// one-per-day domains (weight per slot, activity per day), a moved row WINS over a conflicting target row.
+/// </summary>
+public sealed class MoveDayRequest
+{
+    /// <summary>The source local date (yyyy-MM-dd) to move entries OFF of.</summary>
+    public string FromDate { get; set; } = "";
+    /// <summary>The target local date (yyyy-MM-dd) to move entries ONTO.</summary>
+    public string ToDate { get; set; } = "";
+    /// <summary>Subset of ["food","exercise","hydration","weight","activity"]; null/empty = all categories.</summary>
+    public string[]? Categories { get; set; }
+}
+
+/// <summary>The outcome of a day move: how many rows of each domain were re-dated, and what target
+/// rows were replaced (where a one-per-day uniqueness conflict made the moved entry win).</summary>
+public sealed class MoveDayResponse
+{
+    public MoveDayCounts Moved { get; set; } = new();
+    public MoveDayReplaced Replaced { get; set; } = new();
+    /// <summary>The target date entries were moved onto (yyyy-MM-dd), echoed for the client.</summary>
+    public string ToDate { get; set; } = "";
+}
+
+/// <summary>How many rows of each domain were re-dated onto the target date.</summary>
+public sealed class MoveDayCounts
+{
+    public int Food { get; set; }
+    public int Exercise { get; set; }
+    public int Hydration { get; set; }
+    public int Weight { get; set; }
+    /// <summary>True when the source date had an activity row that was moved onto the target.</summary>
+    public bool Activity { get; set; }
+}
+
+/// <summary>What target-date rows the move replaced (the moved entry wins on a one-per-day conflict).</summary>
+public sealed class MoveDayReplaced
+{
+    /// <summary>How many target weight rows (same slot) were deleted so the moved reading could win.</summary>
+    public int Weight { get; set; }
+    /// <summary>True when a target activity row was deleted so the moved one could win.</summary>
+    public bool Activity { get; set; }
+}

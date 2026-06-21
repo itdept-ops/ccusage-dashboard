@@ -35,6 +35,12 @@
       }
 
       @if (!store.readOnly()) {
+        <button mat-stroked-button type="button" class="tracker__movebtn" (click)="openMoveDay()"
+                aria-label="Move this day's entries to another date"
+                matTooltip="Move this day's entries to another date">
+          <mat-icon>event_repeat</mat-icon> Move day…
+        </button>
+
         <button mat-stroked-button type="button" class="tracker__goalbtn" (click)="openProfile()">
           <mat-icon>flag</mat-icon> Goals
         </button>
