@@ -3,6 +3,7 @@ using Ccusage.Api.Data;
 using Ccusage.Api.Data.Entities;
 using Ccusage.Api.Services;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 
 namespace Ccusage.Api.Endpoints;
 
@@ -80,6 +81,40 @@ public static class FamilyMealsChoresEndpoints
     public sealed record ChoreCreateRequest(string? Title, int? AssignedToUserId, int? Points, string? Recurrence);
     public sealed record ChorePatchRequest(
         string? Title, int? AssignedToUserId, int? Points, string? Recurrence, bool? Done);
+
+    // ---- CHORES AI-assist DTOs (suggest / balance / values / "good job" summary) ----
+
+    /// <summary>"Suggest chores" request: optional children's <see cref="Ages"/> (e.g. [8, 5]) so suggestions
+    /// are age-appropriate. The SERVER reads the household's existing chore titles as a "don't duplicate" hint
+    /// (never trusted from the client). Creates NOTHING — the frontend reviews then POSTs each to /chores.</summary>
+    public sealed record ChoreSuggestAiRequest(IReadOnlyList<int>? Ages);
+
+    /// <summary>One proposed chore from "Suggest chores", in the shape the frontend POSTs to /chores (plus a
+    /// short age hint for the review UI).</summary>
+    public sealed record ChoreSuggestionDto(string Title, int Points, string Recurrence, string? AgeHint);
+
+    /// <summary>"Suggest chores" response: 0+ proposed age-appropriate chores.</summary>
+    public sealed record ChoreSuggestAiDto(IReadOnlyList<ChoreSuggestionDto> Suggestions);
+
+    /// <summary>One proposed assignment from "Balance chores", in the shape the frontend PATCHes to
+    /// /chores/{id}. Both ids are already validated server-side (chore belongs to the household; assignee is a
+    /// member).</summary>
+    public sealed record ChoreAssignmentDto(long ChoreId, int AssignedToUserId, string AssignedToName);
+
+    /// <summary>"Balance chores" response: 0+ validated proposed assignments. Applies nothing.</summary>
+    public sealed record ChoreBalanceAiDto(IReadOnlyList<ChoreAssignmentDto> Assignments);
+
+    /// <summary>One proposed point value from "Suggest points", in the shape the frontend PATCHes to
+    /// /chores/{id}. The choreId is already validated to belong to the household.</summary>
+    public sealed record ChoreValueDto(long ChoreId, int Points);
+
+    /// <summary>"Suggest points" response: 0+ validated proposed point values. Applies nothing.</summary>
+    public sealed record ChoreValuesAiDto(IReadOnlyList<ChoreValueDto> Values);
+
+    /// <summary>The "Good job" weekly chore summary: a short warm narrative of the week's chore completions.
+    /// <see cref="FellBackToPlain"/> is true when Gemini was unconfigured/errored and the deterministic plain
+    /// summary was used instead. NEVER a 503 — the plain text is the guaranteed floor.</summary>
+    public sealed record ChoreSummaryAiDto(string Summary, bool FellBackToPlain);
 
     private static readonly string[] Slots = { "breakfast", "lunch", "dinner", "snack" };
     private static readonly string[] Recurrences = { "none", "daily", "weekly" };
@@ -501,6 +536,265 @@ public static class FamilyMealsChoresEndpoints
             await db.SaveChangesAsync(ct);
             return Results.NoContent();
         });
+
+        MapChoresAi(g);
+    }
+
+    // =====================================================================================
+    // CHORES AI-assist — suggest / balance / values / "good job" summary
+    // =====================================================================================
+    // Family-AI pattern: gated by family.use (the group filter) + rate-limited (the shared "ai" policy),
+    // graceful 503 (never 500) when Gemini is unconfigured/errors, and they APPLY NOTHING — each returns
+    // proposals the frontend reviews then writes via the existing POST/PATCH /chores. The "good job" summary
+    // is the one exception that ALWAYS returns 200 (a deterministic plain summary is the floor when AI is off).
+
+    private static void MapChoresAi(RouteGroupBuilder g)
+    {
+        // ---- POST /chores/ai/suggest : Gemini proposes age-appropriate chores (creates nothing) ----
+        // The SERVER reads the household's existing chore titles as a "don't duplicate" hint — NEVER trusted
+        // from the client. Optional ages in the body tailor difficulty. Rate-limited; graceful 503 when Gemini
+        // is unavailable. The frontend reviews then POSTs each proposed chore to /chores.
+        g.MapPost("/chores/ai/suggest", async (
+            ChoreSuggestAiRequest? req, CurrentUserAccessor me, CurrentHouseholdAccessor households,
+            GeminiService gemini, UsageDbContext db, CancellationToken ct) =>
+        {
+            if (!gemini.IsConfigured) return AiUnavailable();
+
+            var caller = (await me.GetUserAsync(ct))!;
+            var household = (await households.GetOrCreateForCallerAsync(caller, ct))!;
+
+            // The "don't duplicate these" hint: the household's existing chore titles, server-read.
+            var existingTitles = await db.FamilyChores.AsNoTracking()
+                .Where(c => c.HouseholdId == household.Id)
+                .Select(c => c.Title)
+                .ToListAsync(ct);
+
+            var ages = (req?.Ages ?? Array.Empty<int>()).Where(a => a is >= 0 and <= 120).ToList();
+
+            var result = await gemini.SuggestChoresAsync(ages, existingTitles, ct);
+            if (result is null) return AiUnavailable();
+
+            var suggestions = result.Suggestions
+                .Select(s => new ChoreSuggestionDto(s.Title, s.Points, s.Recurrence, s.AgeHint))
+                .ToList();
+            return Results.Ok(new ChoreSuggestAiDto(suggestions));
+        }).RequireRateLimiting(AiEndpoints.RateLimitPolicy);
+
+        // ---- POST /chores/ai/balance : Gemini fairly auto-assigns the household's chores (applies nothing) ----
+        // Passes the household's current chores + members + the per-member points tally so it balances FAIRLY.
+        // VALIDATES every returned id server-side: a foreign choreId or a non-member assignee is dropped (a
+        // hostile/hallucinated id can never assign a chore to an outsider). Rate-limited; graceful 503. The
+        // frontend reviews then PATCHes each /chores/{id}.
+        g.MapPost("/chores/ai/balance", async (
+            CurrentUserAccessor me, CurrentHouseholdAccessor households,
+            GeminiService gemini, UsageDbContext db, CancellationToken ct) =>
+        {
+            if (!gemini.IsConfigured) return AiUnavailable();
+
+            var caller = (await me.GetUserAsync(ct))!;
+            var household = (await households.GetOrCreateForCallerAsync(caller, ct))!;
+
+            var chores = await db.FamilyChores.AsNoTracking()
+                .Where(c => c.HouseholdId == household.Id)
+                .Select(c => new { c.Id, c.Title })
+                .ToListAsync(ct);
+            if (chores.Count == 0) return Results.Ok(new ChoreBalanceAiDto(Array.Empty<ChoreAssignmentDto>()));
+
+            var members = await HouseholdMembersAsync(db, household.Id, ct);
+            if (members.Count == 0) return Results.Ok(new ChoreBalanceAiDto(Array.Empty<ChoreAssignmentDto>()));
+
+            var tally = await ChoreTallyAsync(db, household.Id, ct);
+
+            var result = await gemini.BalanceChoresAsync(
+                chores.Select(c => (c.Id, c.Title)).ToList(),
+                members.Select(m => (m.UserId, m.Name)).ToList(),
+                tally, ct);
+            if (result is null) return AiUnavailable();
+
+            // VALIDATE: keep only assignments whose chore is in THIS household and whose assignee is a member.
+            var householdChoreIds = chores.Select(c => c.Id).ToHashSet();
+            var memberById = members.ToDictionary(m => m.UserId, m => m.Name);
+
+            var assignments = new List<ChoreAssignmentDto>();
+            var seenChores = new HashSet<long>();
+            foreach (var a in result.Assignments)
+            {
+                if (!householdChoreIds.Contains(a.ChoreId)) continue;       // foreign/hallucinated chore — drop
+                if (!memberById.TryGetValue(a.AssignedToUserId, out var name)) continue; // non-member — drop
+                if (!seenChores.Add(a.ChoreId)) continue;                   // one assignment per chore
+                assignments.Add(new ChoreAssignmentDto(a.ChoreId, a.AssignedToUserId, name));
+            }
+
+            return Results.Ok(new ChoreBalanceAiDto(assignments));
+        }).RequireRateLimiting(AiEndpoints.RateLimitPolicy);
+
+        // ---- POST /chores/ai/values : Gemini proposes fair point values for the household's chores ----
+        // DROPS any returned choreId that isn't in the household; applies nothing (historical ledger snapshots
+        // are never touched — a PATCH only changes the chore's CURRENT points). Rate-limited; graceful 503.
+        g.MapPost("/chores/ai/values", async (
+            CurrentUserAccessor me, CurrentHouseholdAccessor households,
+            GeminiService gemini, UsageDbContext db, CancellationToken ct) =>
+        {
+            if (!gemini.IsConfigured) return AiUnavailable();
+
+            var caller = (await me.GetUserAsync(ct))!;
+            var household = (await households.GetOrCreateForCallerAsync(caller, ct))!;
+
+            var chores = await db.FamilyChores.AsNoTracking()
+                .Where(c => c.HouseholdId == household.Id)
+                .Select(c => new { c.Id, c.Title })
+                .ToListAsync(ct);
+            if (chores.Count == 0) return Results.Ok(new ChoreValuesAiDto(Array.Empty<ChoreValueDto>()));
+
+            var result = await gemini.SuggestPointsAsync(chores.Select(c => (c.Id, c.Title)).ToList(), ct);
+            if (result is null) return AiUnavailable();
+
+            // DROP any value whose choreId isn't in THIS household (foreign/hallucinated), one per chore.
+            var householdChoreIds = chores.Select(c => c.Id).ToHashSet();
+            var values = new List<ChoreValueDto>();
+            var seen = new HashSet<long>();
+            foreach (var v in result.Values)
+            {
+                if (!householdChoreIds.Contains(v.ChoreId)) continue;
+                if (!seen.Add(v.ChoreId)) continue;
+                values.Add(new ChoreValueDto(v.ChoreId, v.Points));
+            }
+
+            return Results.Ok(new ChoreValuesAiDto(values));
+        }).RequireRateLimiting(AiEndpoints.RateLimitPolicy);
+
+        // ---- GET /chores/ai/summary : a warm "good job" weekly read-only narrative (NEVER 503/500) ----
+        // Built off the server FamilyChoreCompletion ledger (names + counts + points — the model invents
+        // nothing). ALWAYS 200: when Gemini is unconfigured/errors, the GUARANTEED deterministic plain summary
+        // is returned with fellBackToPlain=true. CACHED per (household, ISO week). No email. Rate-limited.
+        g.MapGet("/chores/ai/summary", async (
+            CurrentUserAccessor me, CurrentHouseholdAccessor households,
+            GeminiService gemini, IMemoryCache cache, UsageDbContext db, CancellationToken ct) =>
+        {
+            var caller = (await me.GetUserAsync(ct))!;
+            var household = (await households.GetOrCreateForCallerAsync(caller, ct))!;
+
+            // The week window in the household's local timezone (Mon..Sun), in UTC for the ledger query.
+            var tz = FamilyTodayService.ResolveTimeZone(household.TimeZone);
+            var weekStartLocal = WeekStartLocal(household);
+            var isoWeekKey = weekStartLocal.ToString("yyyy-MM-dd");
+            var startUtc = TimeZoneInfo.ConvertTimeToUtc(
+                weekStartLocal.ToDateTime(TimeOnly.MinValue, DateTimeKind.Unspecified), tz);
+            var endUtc = TimeZoneInfo.ConvertTimeToUtc(
+                weekStartLocal.AddDays(7).ToDateTime(TimeOnly.MinValue, DateTimeKind.Unspecified), tz);
+
+            // Build the deterministic ledger facts (names + per-member counts/points) for THIS household's week.
+            var (facts, plain, hasAny) = await BuildChoreWeekFactsAsync(db, household.Id, startUtc, endUtc, ct);
+
+            // Plain summary is the floor. Prefer the warm AI narrative when configured (cached per ISO week).
+            if (!gemini.IsConfigured || !hasAny)
+                return Results.Ok(new ChoreSummaryAiDto(plain, true));
+
+            var cacheKey = $"family:chore-summary:{household.Id}:{isoWeekKey}";
+            if (cache.TryGetValue(cacheKey, out string? cached) && !string.IsNullOrWhiteSpace(cached))
+                return Results.Ok(new ChoreSummaryAiDto(cached!, false));
+
+            string narrative;
+            try
+            {
+                narrative = await gemini.ChoreSummaryAsync(facts, ct) ?? "";
+            }
+            catch
+            {
+                narrative = "";
+            }
+            if (string.IsNullOrWhiteSpace(narrative))
+                return Results.Ok(new ChoreSummaryAiDto(plain, true)); // AI hiccup → guaranteed plain floor
+
+            cache.Set(cacheKey, narrative, TimeSpan.FromHours(6));
+            return Results.Ok(new ChoreSummaryAiDto(narrative, false));
+        }).RequireRateLimiting(AiEndpoints.RateLimitPolicy);
+    }
+
+    /// <summary>The household's members (AppUser id + display name; never email), capped for AI calls.</summary>
+    private static async Task<List<(int UserId, string Name)>> HouseholdMembersAsync(
+        UsageDbContext db, int householdId, CancellationToken ct)
+    {
+        var ids = await db.HouseholdMembers.AsNoTracking()
+            .Where(m => m.HouseholdId == householdId)
+            .Select(m => m.UserId)
+            .ToListAsync(ct);
+        var names = await NamesAsync(db, ids, ct);
+        return ids.Select(id => (id, Name(names, id))).ToList();
+    }
+
+    /// <summary>The per-member all-time points tally for a household (sum of the completion ledger).</summary>
+    private static async Task<List<(int UserId, int Points)>> ChoreTallyAsync(
+        UsageDbContext db, int householdId, CancellationToken ct)
+    {
+        var choreIds = await db.FamilyChores.AsNoTracking()
+            .Where(c => c.HouseholdId == householdId)
+            .Select(c => c.Id)
+            .ToListAsync(ct);
+        if (choreIds.Count == 0) return new List<(int, int)>();
+        return (await db.FamilyChoreCompletions.AsNoTracking()
+                .Where(c => choreIds.Contains(c.ChoreId))
+                .GroupBy(c => c.ByUserId)
+                .Select(grp => new { grp.Key, Points = grp.Sum(x => x.Points) })
+                .ToListAsync(ct))
+            .Select(x => (x.Key, x.Points)).ToList();
+    }
+
+    /// <summary>
+    /// Build the deterministic "good job" facts for a household's week from the FamilyChoreCompletion ledger
+    /// (names + per-member completion counts + points earned THIS WEEK). Returns the compact facts string the
+    /// model narrates, a guaranteed plain-text summary (the floor when AI is off), and whether there was any
+    /// completion at all this week. Names only — no email is ever read or surfaced.
+    /// </summary>
+    private static async Task<(string Facts, string Plain, bool HasAny)> BuildChoreWeekFactsAsync(
+        UsageDbContext db, int householdId, DateTime startUtc, DateTime endUtc, CancellationToken ct)
+    {
+        var choreIds = await db.FamilyChores.AsNoTracking()
+            .Where(c => c.HouseholdId == householdId)
+            .Select(c => c.Id)
+            .ToListAsync(ct);
+
+        var rows = choreIds.Count == 0
+            ? new List<(int ByUserId, int Count, int Points)>()
+            : (await db.FamilyChoreCompletions.AsNoTracking()
+                .Where(c => choreIds.Contains(c.ChoreId) && c.AtUtc >= startUtc && c.AtUtc < endUtc)
+                .GroupBy(c => c.ByUserId)
+                .Select(grp => new { grp.Key, Count = grp.Count(), Points = grp.Sum(x => x.Points) })
+                .ToListAsync(ct))
+                .Select(x => (ByUserId: x.Key, x.Count, x.Points)).ToList();
+
+        if (rows.Count == 0)
+            return ("", "No chores were checked off this week yet — a fresh week to earn some stars!", false);
+
+        var names = await NamesAsync(db, rows.Select(r => r.ByUserId), ct);
+        var ordered = rows
+            .OrderByDescending(r => r.Points).ThenByDescending(r => r.Count)
+            .ThenBy(r => Name(names, r.ByUserId), StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        var totalChores = ordered.Sum(r => r.Count);
+        var totalPoints = ordered.Sum(r => r.Points);
+
+        var sb = new System.Text.StringBuilder();
+        sb.Append("WEEK_TOTALS: ").Append(totalChores).Append(" chores, ")
+          .Append(totalPoints).Append(" stars\n");
+        sb.Append("PER_MEMBER:\n");
+        foreach (var r in ordered)
+            sb.Append("- ").Append(Name(names, r.ByUserId)).Append(": ")
+              .Append(r.Count).Append(' ').Append(r.Count == 1 ? "chore" : "chores").Append(", ")
+              .Append(r.Points).Append(' ').Append(r.Points == 1 ? "star" : "stars").Append('\n');
+
+        // Deterministic plain floor: "This week: 7 chores done (15 stars). Leo did 4 (8), Mia did 3 (7)."
+        var parts = ordered
+            .Select(r => $"{Name(names, r.ByUserId)} did {r.Count} ({r.Points})")
+            .ToList();
+        var plain =
+            $"This week: {totalChores} {(totalChores == 1 ? "chore" : "chores")} done " +
+            $"({totalPoints} {(totalPoints == 1 ? "star" : "stars")}). " +
+            string.Join(", ", parts) + ". Great job!";
+        if (plain.Length > 512) plain = plain[..512];
+
+        return (sb.ToString(), plain, true);
     }
 
     // =====================================================================================

@@ -563,4 +563,154 @@ public class FamilyMealsChoresTests(WebAppFactory factory)
         var week = await Json(await owner.GetAsync($"/api/family/meals?weekStart={monday}"));
         MealIdsInWeek(week).Should().BeEmpty();
     }
+
+    // =====================================================================================
+    // CHORES AI — suggest / balance / values / "good job" summary.
+    // Gated by family.use (403) + auth (401); suggest/balance/values give a graceful 503 when Gemini is
+    // unconfigured (never 500) and write NOTHING; the summary FALLS BACK to plain text (never 503) when AI is
+    // off. Balance drops non-member assignees + foreign choreIds; values drops foreign choreIds. The test host
+    // configures no Gemini API key, so the unconfigured branch is exercised end-to-end (no real Google call).
+    // =====================================================================================
+
+    private async Task<long> CreateChore(HttpClient owner, string title, int points = 1, string recurrence = "none")
+    {
+        var dto = await Json(await owner.PostAsJsonAsync("/api/family/chores",
+            new { title, points, recurrence }));
+        return ChoresArray(dto).EnumerateArray()
+            .Single(c => c.GetProperty("title").GetString() == title).GetProperty("id").GetInt64();
+    }
+
+    [Fact]
+    public async Task ChoresAi_requires_family_use()
+    {
+        var (_, plain, _) = await ProvisionUser("dashboard.view");
+
+        (await plain.PostAsJsonAsync("/api/family/chores/ai/suggest", new { ages = new[] { 8, 5 } }))
+            .StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        (await plain.PostAsJsonAsync("/api/family/chores/ai/balance", new { }))
+            .StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        (await plain.PostAsJsonAsync("/api/family/chores/ai/values", new { }))
+            .StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        (await plain.GetAsync("/api/family/chores/ai/summary"))
+            .StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
+
+    [Fact]
+    public async Task ChoresAi_requires_authentication()
+    {
+        var anon = factory.CreateClient();
+
+        (await anon.PostAsJsonAsync("/api/family/chores/ai/suggest", new { ages = new[] { 8, 5 } }))
+            .StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+        (await anon.PostAsJsonAsync("/api/family/chores/ai/balance", new { }))
+            .StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+        (await anon.PostAsJsonAsync("/api/family/chores/ai/values", new { }))
+            .StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+        (await anon.GetAsync("/api/family/chores/ai/summary"))
+            .StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async Task ChoreSuggest_is_unavailable_503_when_gemini_is_unconfigured_never_500()
+    {
+        var (_, owner, _) = await ProvisionUser("family.use");
+        await owner.GetAsync("/api/family/household");
+
+        var res = await owner.PostAsJsonAsync("/api/family/chores/ai/suggest", new { ages = new[] { 8, 5 } });
+        res.StatusCode.Should().Be(HttpStatusCode.ServiceUnavailable);
+    }
+
+    [Fact]
+    public async Task ChoreBalance_is_unavailable_503_when_gemini_is_unconfigured_never_500()
+    {
+        var (_, owner, _) = await ProvisionUser("family.use");
+        await owner.GetAsync("/api/family/household");
+        await CreateChore(owner, "Dishes"); // a chore + a member exist, so it reaches the AI (then 503)
+
+        var res = await owner.PostAsJsonAsync("/api/family/chores/ai/balance", new { });
+        res.StatusCode.Should().Be(HttpStatusCode.ServiceUnavailable);
+    }
+
+    [Fact]
+    public async Task ChoreValues_is_unavailable_503_when_gemini_is_unconfigured_never_500()
+    {
+        var (_, owner, _) = await ProvisionUser("family.use");
+        await owner.GetAsync("/api/family/household");
+        await CreateChore(owner, "Vacuum");
+
+        var res = await owner.PostAsJsonAsync("/api/family/chores/ai/values", new { });
+        res.StatusCode.Should().Be(HttpStatusCode.ServiceUnavailable);
+    }
+
+    [Fact]
+    public async Task ChoreSummary_falls_back_to_plain_text_never_503_when_gemini_is_off()
+    {
+        var (_, owner, ownerId) = await ProvisionUser("family.use");
+        await owner.GetAsync("/api/family/household");
+
+        // Earn some stars this week so the ledger has facts to summarise.
+        var choreId = await CreateChore(owner, "Make bed", points: 2);
+        await owner.PatchAsJsonAsync($"/api/family/chores/{choreId}", new { done = true });
+
+        var res = await owner.GetAsync("/api/family/chores/ai/summary");
+        res.StatusCode.Should().Be(HttpStatusCode.OK); // ALWAYS 200 — plain text is the floor
+        var dto = await Json(res);
+        dto.GetProperty("fellBackToPlain").GetBoolean().Should().BeTrue(); // Gemini is off in the test host
+        dto.GetProperty("summary").GetString().Should().NotBeNullOrWhiteSpace();
+        dto.GetRawText().Should().NotContain("@"); // names only, never email
+    }
+
+    [Fact]
+    public async Task ChoreSummary_returns_200_plain_even_with_no_completions()
+    {
+        var (_, owner, _) = await ProvisionUser("family.use");
+        await owner.GetAsync("/api/family/household"); // a household with no chores/completions at all
+
+        var res = await owner.GetAsync("/api/family/chores/ai/summary");
+        res.StatusCode.Should().Be(HttpStatusCode.OK);
+        var dto = await Json(res);
+        dto.GetProperty("fellBackToPlain").GetBoolean().Should().BeTrue();
+        dto.GetProperty("summary").GetString().Should().NotBeNullOrWhiteSpace();
+    }
+
+    [Fact]
+    public async Task ChoreSuggest_writes_nothing_when_it_runs_the_unconfigured_path()
+    {
+        var (_, owner, _) = await ProvisionUser("family.use");
+        await owner.GetAsync("/api/family/household");
+
+        await owner.PostAsJsonAsync("/api/family/chores/ai/suggest", new { ages = new[] { 8, 5 } });
+
+        // The board is untouched — the AI endpoint proposes only; it creates no chores.
+        ChoresArray(await Json(await owner.GetAsync("/api/family/chores")))
+            .EnumerateArray().Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task ChoreBalance_writes_nothing_when_it_runs_the_unconfigured_path()
+    {
+        var (_, owner, _) = await ProvisionUser("family.use");
+        await owner.GetAsync("/api/family/household");
+        var choreId = await CreateChore(owner, "Sweep");
+
+        await owner.PostAsJsonAsync("/api/family/chores/ai/balance", new { });
+
+        // No assignment was applied — the chore stays unassigned.
+        ChoreById(await Json(await owner.GetAsync("/api/family/chores")), choreId)
+            .GetProperty("assignedToUserId").ValueKind.Should().Be(JsonValueKind.Null);
+    }
+
+    [Fact]
+    public async Task ChoreValues_writes_nothing_when_it_runs_the_unconfigured_path()
+    {
+        var (_, owner, _) = await ProvisionUser("family.use");
+        await owner.GetAsync("/api/family/household");
+        var choreId = await CreateChore(owner, "Trash", points: 4);
+
+        await owner.PostAsJsonAsync("/api/family/chores/ai/values", new { });
+
+        // The points are untouched — the AI endpoint proposes only; it applies nothing.
+        ChoreById(await Json(await owner.GetAsync("/api/family/chores")), choreId)
+            .GetProperty("points").GetInt32().Should().Be(4);
+    }
 }

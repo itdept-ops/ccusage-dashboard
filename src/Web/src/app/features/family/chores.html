@@ -12,11 +12,220 @@
         <p class="family__sub">Share the load, earn some stars</p>
       </div>
     </div>
-    <button mat-flat-button color="primary" class="family__settings-btn" (click)="create()">
-      <mat-icon aria-hidden="true">add</mat-icon>
-      New chore
-    </button>
+    <div class="chores__hero-actions">
+      <button mat-stroked-button class="family__settings-btn chore-ai__btn"
+              [class.chore-ai__btn--open]="aiPanel() === 'suggest'"
+              [disabled]="aiBusy() || aiApplying()" (click)="togglePanel('suggest')"
+              [attr.aria-expanded]="aiPanel() === 'suggest'">
+        <mat-icon class="chore-ai__spark" aria-hidden="true">auto_awesome</mat-icon>
+        Suggest chores
+      </button>
+      <button mat-stroked-button class="family__settings-btn chore-ai__btn"
+              [class.chore-ai__btn--open]="aiPanel() === 'balance'"
+              [disabled]="aiBusy() || aiApplying()" (click)="togglePanel('balance')"
+              [attr.aria-expanded]="aiPanel() === 'balance'">
+        <mat-icon class="chore-ai__spark" aria-hidden="true">auto_awesome</mat-icon>
+        Balance
+      </button>
+      <button mat-stroked-button class="family__settings-btn chore-ai__btn"
+              [class.chore-ai__btn--open]="aiPanel() === 'values'"
+              [disabled]="aiBusy() || aiApplying()" (click)="togglePanel('values')"
+              [attr.aria-expanded]="aiPanel() === 'values'">
+        <mat-icon class="chore-ai__spark" aria-hidden="true">auto_awesome</mat-icon>
+        Suggest stars
+      </button>
+      <button mat-flat-button color="primary" class="family__settings-btn" (click)="create()">
+        <mat-icon aria-hidden="true">add</mat-icon>
+        New chore
+      </button>
+    </div>
   </header>
+
+  <!-- ── ✨ AI assists (suggest / balance / values) — review then explicit apply; nothing auto-applies ── -->
+  @if (aiPanel() === 'suggest') {
+    <section class="chore-ai" aria-label="Suggest chores with AI">
+      <div class="chore-ai__form">
+        <mat-form-field appearance="outline" class="chore-ai__ages" subscriptSizing="dynamic">
+          <mat-label>Kids' ages</mat-label>
+          <input matInput maxlength="40" [ngModel]="suggestAges()" (ngModelChange)="suggestAges.set($event)"
+                 (keydown.enter)="suggest()" placeholder="8, 5" [disabled]="aiBusy() || aiApplying()" />
+        </mat-form-field>
+        <button mat-flat-button color="primary" class="chore-ai__go"
+                [disabled]="aiBusy() || aiApplying()" (click)="suggest()">
+          @if (aiBusy()) {
+            <mat-spinner [diameter]="18" /><span>Thinking…</span>
+          } @else {
+            <mat-icon class="chore-ai__spark" aria-hidden="true">auto_awesome</mat-icon>
+            <span>{{ suggestRows().length ? 'Regenerate' : 'Suggest chores' }}</span>
+          }
+        </button>
+      </div>
+
+      @if (aiStatus(); as msg) { <p class="chore-ai__status" aria-live="polite">{{ msg }}</p> }
+
+      @if (suggestRows().length) {
+        <ul class="chore-ai__rows">
+          @for (row of suggestRows(); track row.key) {
+            <li class="ai-row ai-row--suggest">
+              <div class="ai-row__head">
+                @if (row.ageHint) { <span class="ai-row__hint"><mat-icon aria-hidden="true">child_care</mat-icon>{{ row.ageHint }}</span> }
+                <button mat-icon-button class="ai-row__remove" matTooltip="Remove"
+                        (click)="removeSuggestRow(row)" [disabled]="aiApplying()">
+                  <mat-icon aria-hidden="true">close</mat-icon>
+                </button>
+              </div>
+              <mat-form-field appearance="outline" class="ai-row__title" subscriptSizing="dynamic">
+                <mat-label>Chore</mat-label>
+                <input matInput maxlength="200" [ngModel]="row.title"
+                       (ngModelChange)="setSuggestTitle(row, $event)" [disabled]="aiApplying()" />
+              </mat-form-field>
+              <div class="ai-row__controls">
+                <mat-form-field appearance="outline" class="ai-row__points" subscriptSizing="dynamic">
+                  <mat-label>Stars</mat-label>
+                  <input matInput type="number" min="0" max="1000" [ngModel]="row.points"
+                         (ngModelChange)="setSuggestPoints(row, $event)" [disabled]="aiApplying()" />
+                </mat-form-field>
+                <div class="ai-row__repeat" role="group" aria-label="Repeat">
+                  @for (opt of recurrenceOptions; track opt) {
+                    <button type="button" class="ai-row__repeat-opt" [class.is-on]="row.recurrence === opt"
+                            [disabled]="aiApplying()" (click)="setSuggestRecurrence(row, opt)">
+                      {{ recurrenceShort(opt) }}
+                    </button>
+                  }
+                </div>
+              </div>
+            </li>
+          }
+        </ul>
+
+        <div class="chore-ai__actions">
+          <button mat-button type="button" (click)="clearSuggest()" [disabled]="aiApplying()">Discard</button>
+          <button mat-button type="button" (click)="regenerateSuggest()" [disabled]="aiApplying() || aiBusy()">
+            <mat-icon aria-hidden="true">refresh</mat-icon> Regenerate
+          </button>
+          <button mat-flat-button color="primary" type="button" (click)="addSuggested()" [disabled]="aiApplying()">
+            @if (aiApplying()) {
+              <mat-spinner [diameter]="18" /><span>Adding…</span>
+            } @else {
+              <mat-icon aria-hidden="true">playlist_add</mat-icon>
+              <span>Add {{ suggestRows().length === 1 ? 'chore' : suggestRows().length + ' chores' }}</span>
+            }
+          </button>
+        </div>
+      }
+    </section>
+  }
+
+  @if (aiPanel() === 'balance') {
+    <section class="chore-ai" aria-label="Balance chores with AI">
+      <div class="chore-ai__form">
+        <p class="chore-ai__lead">Let AI fairly share the chores across the family.</p>
+        <button mat-flat-button color="primary" class="chore-ai__go"
+                [disabled]="aiBusy() || aiApplying()" (click)="balance()">
+          @if (aiBusy()) {
+            <mat-spinner [diameter]="18" /><span>Balancing…</span>
+          } @else {
+            <mat-icon class="chore-ai__spark" aria-hidden="true">auto_awesome</mat-icon>
+            <span>{{ balanceRows().length ? 'Regenerate' : 'Balance chores' }}</span>
+          }
+        </button>
+      </div>
+
+      @if (aiStatus(); as msg) { <p class="chore-ai__status" aria-live="polite">{{ msg }}</p> }
+
+      @if (balanceRows().length) {
+        <ul class="chore-ai__rows">
+          @for (row of balanceRows(); track row.choreId) {
+            <li class="ai-row ai-row--assign" [class.ai-row--skipped]="!row.accept">
+              <div class="ai-row__assign-main">
+                <p class="ai-row__chore-title">{{ row.title }}</p>
+                <div class="ai-row__assign-to">
+                  @if (row.currentName) {
+                    <span class="ai-row__from">{{ row.currentName }}</span>
+                    <mat-icon class="ai-row__arrow" aria-hidden="true">arrow_forward</mat-icon>
+                  }
+                  <span class="ai-row__avatar" aria-hidden="true">{{ initials(row.assignedToName) }}</span>
+                  <span class="ai-row__to">{{ row.assignedToName }}</span>
+                </div>
+              </div>
+              <button mat-stroked-button class="ai-row__toggle" [class.is-on]="row.accept"
+                      (click)="toggleBalanceRow(row)" [disabled]="aiApplying()">
+                <mat-icon aria-hidden="true">{{ row.accept ? 'check' : 'add' }}</mat-icon>
+                {{ row.accept ? 'Accepted' : 'Skipped' }}
+              </button>
+            </li>
+          }
+        </ul>
+
+        <div class="chore-ai__actions">
+          <button mat-button type="button" (click)="clearBalance()" [disabled]="aiApplying()">Discard</button>
+          <button mat-flat-button color="primary" type="button" (click)="applyBalance()"
+                  [disabled]="aiApplying() || balanceAcceptedCount() === 0">
+            @if (aiApplying()) {
+              <mat-spinner [diameter]="18" /><span>Applying…</span>
+            } @else {
+              <mat-icon aria-hidden="true">done_all</mat-icon>
+              <span>Apply {{ balanceAcceptedCount() }}</span>
+            }
+          </button>
+        </div>
+      }
+    </section>
+  }
+
+  @if (aiPanel() === 'values') {
+    <section class="chore-ai" aria-label="Suggest star values with AI">
+      <div class="chore-ai__form">
+        <p class="chore-ai__lead">Let AI propose fair star values for each chore.</p>
+        <button mat-flat-button color="primary" class="chore-ai__go"
+                [disabled]="aiBusy() || aiApplying()" (click)="suggestValues()">
+          @if (aiBusy()) {
+            <mat-spinner [diameter]="18" /><span>Weighing…</span>
+          } @else {
+            <mat-icon class="chore-ai__spark" aria-hidden="true">auto_awesome</mat-icon>
+            <span>{{ valueRows().length ? 'Regenerate' : 'Suggest stars' }}</span>
+          }
+        </button>
+      </div>
+
+      @if (aiStatus(); as msg) { <p class="chore-ai__status" aria-live="polite">{{ msg }}</p> }
+
+      @if (valueRows().length) {
+        <ul class="chore-ai__rows">
+          @for (row of valueRows(); track row.choreId) {
+            <li class="ai-row ai-row--value" [class.ai-row--skipped]="!row.accept">
+              <div class="ai-row__assign-main">
+                <p class="ai-row__chore-title">{{ row.title }}</p>
+                <div class="ai-row__value-change">
+                  <span class="ai-row__from">{{ row.current }} <mat-icon aria-hidden="true">star</mat-icon></span>
+                  <mat-icon class="ai-row__arrow" aria-hidden="true">arrow_forward</mat-icon>
+                  <span class="ai-row__to-value">{{ row.points }} <mat-icon aria-hidden="true">star</mat-icon></span>
+                </div>
+              </div>
+              <button mat-stroked-button class="ai-row__toggle" [class.is-on]="row.accept"
+                      (click)="toggleValueRow(row)" [disabled]="aiApplying()">
+                <mat-icon aria-hidden="true">{{ row.accept ? 'check' : 'add' }}</mat-icon>
+                {{ row.accept ? 'Accepted' : 'Skipped' }}
+              </button>
+            </li>
+          }
+        </ul>
+
+        <div class="chore-ai__actions">
+          <button mat-button type="button" (click)="clearValues()" [disabled]="aiApplying()">Discard</button>
+          <button mat-flat-button color="primary" type="button" (click)="applyValues()"
+                  [disabled]="aiApplying() || valuesAcceptedCount() === 0">
+            @if (aiApplying()) {
+              <mat-spinner [diameter]="18" /><span>Updating…</span>
+            } @else {
+              <mat-icon aria-hidden="true">done_all</mat-icon>
+              <span>Apply {{ valuesAcceptedCount() }}</span>
+            }
+          </button>
+        </div>
+      }
+    </section>
+  }
 
   @if (loading()) {
     <div class="family__loading">
@@ -49,6 +258,20 @@
           }
         </ul>
       </section>
+    }
+
+    <!-- ── "Good job" weekly summary (read-only; never 503 — plain floor when AI is off) ───────────── -->
+    @if (summary(); as s) {
+      @if (s.summary) {
+        <article class="goodjob" [class.goodjob--plain]="s.fellBackToPlain" aria-label="This week's chore wins">
+          @if (!s.fellBackToPlain) {
+            <mat-icon class="goodjob__spark" aria-hidden="true">auto_awesome</mat-icon>
+          } @else {
+            <mat-icon class="goodjob__spark" aria-hidden="true">emoji_events</mat-icon>
+          }
+          <p class="goodjob__text">{{ s.summary }}</p>
+        </article>
+      }
     }
 
     @if (open().length === 0 && done().length === 0) {

@@ -203,6 +203,204 @@
 .chore-done { display: flex; flex-direction: column; gap: var(--tech-space-3, 12px); }
 .chore-done__title { margin: var(--tech-space-2, 8px) 0 0; font-size: var(--tech-fs-h1, 18px); }
 
+/* ── ✨ AI assist buttons + sheets (suggest / balance / values) ──────── */
+.chores__hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--tech-space-2, 8px);
+  align-items: center;
+}
+.chore-ai__spark { width: 18px; height: 18px; font-size: 18px; }
+.chore-ai__btn {
+  display: inline-flex; align-items: center; gap: 6px; font-weight: 700;
+  &--open { box-shadow: 0 0 0 2px color-mix(in srgb, var(--tech-accent) 45%, transparent) inset; }
+}
+
+.chore-ai {
+  margin-top: var(--tech-space-3, 12px);
+  padding: var(--tech-space-4, 16px);
+  border: 1px solid var(--tech-border);
+  border-radius: var(--tech-radius, 12px);
+  background:
+    radial-gradient(120% 160% at 0% 0%, color-mix(in srgb, var(--tech-accent) 10%, transparent), transparent 55%),
+    var(--tech-panel);
+}
+.chore-ai__form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--tech-space-2, 8px);
+}
+.chore-ai__ages { flex: 0 0 12rem; max-width: 12rem; }
+.chore-ai__lead {
+  flex: 1 1 14rem;
+  margin: 0;
+  font-size: var(--tech-fs-label);
+  color: var(--tech-text-secondary);
+}
+.chore-ai__go {
+  flex: 0 0 auto;
+  border-radius: var(--tech-r-control);
+  font-weight: 700;
+  display: inline-flex; align-items: center; gap: 6px;
+  mat-spinner { --mdc-circular-progress-active-indicator-color: currentColor; }
+}
+.chore-ai__status {
+  margin: var(--tech-space-2, 8px) 0 0;
+  font-size: var(--tech-fs-label);
+  color: var(--tech-text-secondary);
+}
+
+.chore-ai__rows {
+  list-style: none;
+  margin: var(--tech-space-3, 12px) 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--tech-space-2, 8px);
+}
+
+.ai-row {
+  padding: var(--tech-space-3, 12px);
+  border: 1px solid var(--tech-border-subtle);
+  border-left: 3px solid var(--tech-accent);
+  border-radius: var(--tech-r-control, 10px);
+  background: var(--tech-bg-sunken);
+
+  /* A skipped balance/value row fades back so the accepted ones stand out. */
+  &--skipped { opacity: 0.55; border-left-color: var(--tech-border); }
+}
+
+/* Suggest rows stack: hint+remove, title, then points + repeat. */
+.ai-row--suggest { display: flex; flex-direction: column; gap: 8px; }
+.ai-row__head { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 24px; }
+.ai-row__hint {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: var(--tech-fs-micro); font-weight: 700; color: var(--tech-accent);
+  mat-icon { width: 15px; height: 15px; font-size: 15px; }
+}
+.ai-row__remove {
+  margin-left: auto;
+  width: 32px; height: 32px; line-height: 32px;
+  mat-icon { width: 18px; height: 18px; font-size: 18px; color: var(--tech-text-tertiary); }
+}
+.ai-row__title { width: 100%; }
+.ai-row__controls { display: flex; flex-wrap: wrap; align-items: center; gap: var(--tech-space-3, 12px); }
+.ai-row__points { flex: 0 0 7rem; max-width: 7rem; }
+.ai-row__repeat { display: inline-flex; gap: 4px; flex-wrap: wrap; }
+.ai-row__repeat-opt {
+  min-width: 0;
+  padding: 0 12px;
+  height: 32px;
+  border-radius: 999px;
+  border: 1px solid var(--tech-border-subtle);
+  background: var(--tech-panel);
+  font-size: var(--tech-fs-label);
+  font-weight: 700;
+  color: var(--tech-text-secondary);
+  cursor: pointer;
+  &.is-on {
+    color: var(--tech-accent);
+    border-color: color-mix(in srgb, var(--tech-accent) 50%, transparent);
+    background: color-mix(in srgb, var(--tech-accent) 12%, transparent);
+  }
+  &:disabled { opacity: 0.6; cursor: default; }
+}
+
+/* Balance + value rows: a chore on the left, an accept/skip toggle on the right. */
+.ai-row--assign,
+.ai-row--value {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--tech-space-3, 12px);
+}
+.ai-row__assign-main { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.ai-row__chore-title {
+  margin: 0;
+  font-size: var(--tech-fs-body);
+  font-weight: 600;
+  color: var(--tech-text);
+  word-break: break-word;
+}
+.ai-row__assign-to,
+.ai-row__value-change { display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.ai-row__from {
+  display: inline-flex; align-items: center; gap: 2px;
+  font-size: var(--tech-fs-label); font-weight: 600; color: var(--tech-text-tertiary);
+  mat-icon { width: 14px; height: 14px; font-size: 14px; color: var(--tech-warn); }
+}
+.ai-row__arrow { width: 16px; height: 16px; font-size: 16px; color: var(--tech-text-tertiary); }
+.ai-row__avatar {
+  display: grid;
+  place-items: center;
+  width: 24px; height: 24px;
+  border-radius: 50%;
+  font-size: var(--tech-fs-micro);
+  font-weight: 700;
+  color: var(--tech-text-on-accent);
+  background: linear-gradient(135deg, var(--tech-accent), var(--tech-accent-2));
+}
+.ai-row__to { font-size: var(--tech-fs-label); font-weight: 700; color: var(--tech-text); }
+.ai-row__to-value {
+  display: inline-flex; align-items: center; gap: 2px;
+  font-size: var(--tech-fs-label); font-weight: 700; color: var(--tech-warn);
+  mat-icon { width: 15px; height: 15px; font-size: 15px; }
+}
+.ai-row__toggle {
+  flex: 0 0 auto;
+  border-radius: 999px;
+  font-weight: 700;
+  mat-icon { width: 18px; height: 18px; font-size: 18px; }
+  &.is-on {
+    color: var(--tech-accent);
+    border-color: color-mix(in srgb, var(--tech-accent) 50%, transparent);
+    background: color-mix(in srgb, var(--tech-accent) 12%, transparent);
+  }
+}
+
+.chore-ai__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+  margin-top: var(--tech-space-3, 12px);
+  button { border-radius: var(--tech-r-control); font-weight: 600;
+    mat-icon { width: 18px; height: 18px; font-size: 18px; } }
+  button[color="primary"] mat-spinner { --mdc-circular-progress-active-indicator-color: currentColor; }
+}
+
+/* ── "Good job" weekly summary card (mirrors the morning briefing's plain-fallback handling) ──────── */
+.goodjob {
+  display: flex;
+  gap: var(--tech-space-4, 16px);
+  align-items: center;
+  padding: var(--tech-space-4, 16px) var(--tech-space-5, 20px);
+  border: 1px solid color-mix(in srgb, var(--tech-warn) 28%, var(--tech-border));
+  border-radius: var(--tech-radius, 12px);
+  background:
+    radial-gradient(120% 160% at 0% 0%, color-mix(in srgb, var(--tech-accent) 10%, transparent), transparent 55%),
+    radial-gradient(120% 160% at 100% 0%, var(--tech-warn-tint, rgba(255, 196, 0, 0.10)), transparent 55%),
+    var(--tech-panel);
+  box-shadow: var(--tech-shadow-raised);
+
+  /* AI fell back to the deterministic plain summary → calmer surface, trophy glyph. */
+  &--plain {
+    background: var(--tech-panel);
+    border-color: var(--tech-border);
+    .goodjob__spark { color: var(--tech-warn); }
+  }
+}
+.goodjob__spark { flex: 0 0 auto; color: var(--tech-accent); width: 26px; height: 26px; font-size: 26px; }
+.goodjob__text {
+  margin: 0;
+  font-size: var(--tech-fs-body);
+  line-height: 1.5;
+  color: var(--tech-text);
+  white-space: pre-line;
+  word-break: break-word;
+}
+
 /* ── Chore editor dialog bits ───────────────────────────────────────── */
 .chore-edit__body { min-width: min(420px, 84vw); }
 .chore-edit__anyone-icon { width: 16px !important; height: 16px !important; font-size: 16px !important; color: var(--tech-text-on-accent); }

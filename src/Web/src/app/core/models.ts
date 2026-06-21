@@ -2190,6 +2190,79 @@ export interface FamilyChores {
   tally: FamilyChoreTally[];
 }
 
+// ── Family Hub F4: chore-board AI assists (suggest / balance / values / "good job" summary) ───────
+// All mirror the server DTOs in FamilyMealsChoresEndpoints. Every assist APPLIES NOTHING — it returns
+// proposals the page reviews then writes via the existing create/patch chore calls. suggest/balance/values
+// degrade to a 503 when AI is unavailable; the summary NEVER 503s (a deterministic plain floor is returned).
+
+/**
+ * "✨ Suggest chores" request (POST /api/family/chores/ai/suggest; mirrors ChoreSuggestAiRequest). Optional
+ * children's `ages` (e.g. [8, 5]) tailor difficulty. The server reads the household's existing chore titles
+ * as a "don't duplicate" hint (never trusted from the client) and creates NOTHING — the page reviews then
+ * POSTs each accepted chore to /chores.
+ */
+export interface ChoreSuggestAiRequest {
+  ages?: number[] | null;
+}
+
+/**
+ * One proposed chore from "✨ Suggest chores" (mirrors ChoreSuggestionDto), in the shape the frontend POSTs
+ * to /chores: a `title`, a star `points` value, and a `recurrence`, plus a short `ageHint` for the review row
+ * (e.g. "Great for a 5-year-old"). The user edits/removes before any of it is created.
+ */
+export interface ChoreSuggestion {
+  title: string;
+  points: number;
+  recurrence: FamilyChoreRecurrence;
+  ageHint?: string | null;
+}
+
+/** "✨ Suggest chores" response (mirrors ChoreSuggestAiDto): 0+ age-appropriate `suggestions` to review. */
+export interface ChoreSuggestAiResult {
+  suggestions: ChoreSuggestion[];
+}
+
+/**
+ * One proposed assignment from "✨ Balance chores" (mirrors ChoreAssignmentDto), in the shape the frontend
+ * PATCHes to /chores/{id}. Both ids are already validated server-side (the chore belongs to the household;
+ * the assignee is a member), so `assignedToName` is safe to render directly.
+ */
+export interface ChoreAssignment {
+  choreId: number;
+  assignedToUserId: number;
+  assignedToName: string;
+}
+
+/** "✨ Balance chores" response (mirrors ChoreBalanceAiDto): 0+ validated `assignments` to review + apply. */
+export interface ChoreBalanceAiResult {
+  assignments: ChoreAssignment[];
+}
+
+/**
+ * One proposed point value from "✨ Suggest stars" (mirrors ChoreValueDto), in the shape the frontend PATCHes
+ * to /chores/{id}. The `choreId` is already validated to belong to the household.
+ */
+export interface ChoreValue {
+  choreId: number;
+  points: number;
+}
+
+/** "✨ Suggest stars" response (mirrors ChoreValuesAiDto): 0+ validated point `values` to review + apply. */
+export interface ChoreValuesAiResult {
+  values: ChoreValue[];
+}
+
+/**
+ * The "Good job" weekly chore summary (GET /api/family/chores/ai/summary; mirrors ChoreSummaryAiDto): a short
+ * warm read-only `summary` of the week's chore wins. `fellBackToPlain` is true when Gemini was unavailable and
+ * the deterministic plain summary was used instead — same handling as the slice-1 morning briefing. NEVER a
+ * 503; the plain text is the guaranteed floor.
+ */
+export interface ChoreSummaryAiResult {
+  summary: string;
+  fellBackToPlain: boolean;
+}
+
 // ── Family Hub F5: FINANCE (Rocket Money CSV import) ──────────────────────────────────────────────
 // Extra-sensitive: every endpoint is gated by BOTH family.use AND family.finance, household-private, and
 // NOT shareable to outside contacts. People (the importer) are by userId + name only — never an email.

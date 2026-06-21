@@ -4,7 +4,7 @@ import { Observable } from 'rxjs';
 import {
   AccessPolicy, AddExerciseRequest, AddFoodRequest, AddHydrationRequest, AuditEntry, BuildDayRequest, BuildDayResponse, CacheEfficiency, CalendarDay, CalendarEvent, CalendarEventInput, CalendarMemberBusy, CalendarStatus, ChatChannelDto, ChatContactDto, ChatMessageDto, CommitDayRequest, CommitDayResponse, CreateChannelRequest, DaySummaryRequest, DaySummaryResponse,
   CreateShareRequest, CustomExerciseDto, CustomFoodDto, DailyCoachResponse, EstimateExerciseRequest, EstimateExerciseResponse, EstimateMacrosRequest, EstimateMacrosResponse, ExerciseEntryDto, ExerciseLibraryDto, Fleet, FleetDeleteRequest,
-  FamilyBriefing, FamilyChore, FamilyChoreRecurrence, FamilyChores, FamilyList, FamilyListKind, FamilyMeal, FamilyMealDay, FamilyMealSlot, FamilyNote, FamilyPoll, FamilyPollCreate, FamilyRecurrence, FamilyReminder, FamilySettings, FamilySettingsUpdate, FamilyTimer, FamilyToday, FindTimeRequest, ReminderAiResult, ListItemsAiResult, NoteDraftAiResult, NoteSummaryAiResult, PlanWeekAiRequest, PlanWeekAiResult, RecipeAiResult, FindTimeResult, QuickAddKind, QuickAddRequest, QuickAddResult, FinanceAccount, FinanceAccountPatch, FinanceAccountSummary, FinanceImportBatch, FinanceImportResult, FinanceSummary, FinanceTransactionsPage, FinanceTxnKind, FinanceOwner, FleetDeleteResult, FleetReassignRequest, FleetReassignResult, FleetRevokeKeysRequest, FleetRevokeKeysResult, FoodEntryDto, FoodSearchItemDto, GroupBy, Household, HouseholdCandidate,
+  FamilyBriefing, FamilyChore, FamilyChoreRecurrence, FamilyChores, ChoreSuggestAiRequest, ChoreSuggestAiResult, ChoreBalanceAiResult, ChoreValuesAiResult, ChoreSummaryAiResult, FamilyList, FamilyListKind, FamilyMeal, FamilyMealDay, FamilyMealSlot, FamilyNote, FamilyPoll, FamilyPollCreate, FamilyRecurrence, FamilyReminder, FamilySettings, FamilySettingsUpdate, FamilyTimer, FamilyToday, FindTimeRequest, ReminderAiResult, ListItemsAiResult, NoteDraftAiResult, NoteSummaryAiResult, PlanWeekAiRequest, PlanWeekAiResult, RecipeAiResult, FindTimeResult, QuickAddKind, QuickAddRequest, QuickAddResult, FinanceAccount, FinanceAccountPatch, FinanceAccountSummary, FinanceImportBatch, FinanceImportResult, FinanceSummary, FinanceTransactionsPage, FinanceTxnKind, FinanceOwner, FleetDeleteResult, FleetReassignRequest, FleetReassignResult, FleetRevokeKeysRequest, FleetRevokeKeysResult, FoodEntryDto, FoodSearchItemDto, GroupBy, Household, HouseholdCandidate,
   HeatmapCell, HydrationEntryDto, HydrationSuggestResponse, ImageRequest, IngestionSource, IngestKey, IngestKeyCreated, LogWeightRequest, LoginEvent, MachineStat, ManagedUser, MealFeedbackRequest, MealFeedbackResponse, ModelStat, MoveDayRequest, MoveDayResult, NaturalGoalRequest, NaturalGoalResponse, NotificationDto, NotificationPreferenceDto, NotificationSettings,
   NotificationUpdate, PagedResult, ParseExerciseRequest, ParseExerciseResponse, ParseHydrationRequest, ParseHydrationResponse, ParseMealRequest, ParseMealResponse, PermissionItem, Presence, Pricing, ProjectDto, PublicShare, ReactionGroupDto, ReadLabelResponse, RecipeMacrosRequest, RecipeMacrosResponse, RequestLogEntry, SavedView, ScheduleAiResult,
   SavedViewUpsertRequest, SessionDetail, Settings, ShareAccessItem, ShareCreated, ShareListItem, SharedUserDto, SuggestFoodsResponse, SuggestGoalResponse, SuggestWorkoutRequest, SuggestWorkoutResponse, SummaryResponse,
@@ -1071,6 +1071,52 @@ export class Api {
   /** Delete a chore (any household member); its completion ledger cascades. Returns nothing (the page reloads). */
   deleteFamilyChore(id: number): Observable<void> {
     return this.http.delete<void>(`${this.base}/family/chores/${id}`);
+  }
+
+  // ---- Family Hub F4: chore-board AI assists (suggest / balance / values / "good job" summary) ----
+  // Each assist APPLIES NOTHING — it returns proposals the page reviews then writes via the existing
+  // createFamilyChore / patchFamilyChore. suggest/balance/values degrade to a 503 when AI is unavailable;
+  // the summary NEVER 503s (a deterministic plain floor is returned with fellBackToPlain=true).
+
+  /**
+   * "✨ Suggest chores": ask Gemini for age-appropriate chore ideas. Optional `ages` (e.g. [8, 5]) tailor
+   * difficulty; the server reads the household's existing titles as a "don't duplicate" hint (not trusted from
+   * the client) and creates NOTHING — the page reviews/edits, then POSTs each accepted one to /chores.
+   * 503 when AI is unavailable / not configured.
+   */
+  suggestChoresAi(req: ChoreSuggestAiRequest): Observable<ChoreSuggestAiResult> {
+    return this.http.post<ChoreSuggestAiResult>(`${this.base}/family/chores/ai/suggest`, {
+      ages: req.ages ?? null,
+    });
+  }
+
+  /**
+   * "✨ Balance": ask Gemini to fairly assign the household's chores across members (it sees the current
+   * chores + members + the stars tally). Every returned id is validated server-side, so a foreign/hallucinated
+   * id can never assign to an outsider. Applies NOTHING — the page reviews per row, then PATCHes each accepted
+   * /chores/{id} with the new assignee. 503 when AI is unavailable.
+   */
+  balanceChoresAi(): Observable<ChoreBalanceAiResult> {
+    return this.http.post<ChoreBalanceAiResult>(`${this.base}/family/chores/ai/balance`, {});
+  }
+
+  /**
+   * "✨ Suggest stars": ask Gemini for fair point values for the household's chores. Foreign choreIds are
+   * dropped server-side. Applies NOTHING — the page reviews, then PATCHes each accepted /chores/{id} with the
+   * new points. 503 when AI is unavailable.
+   */
+  suggestChoreValuesAi(): Observable<ChoreValuesAiResult> {
+    return this.http.post<ChoreValuesAiResult>(`${this.base}/family/chores/ai/values`, {});
+  }
+
+  /**
+   * "Good job" weekly chore summary: a warm read-only narrative of the week's chore wins, built off the
+   * server's completion ledger (the model invents nothing). NEVER 503 — when AI is unavailable the guaranteed
+   * deterministic plain summary comes back with `fellBackToPlain` = true (same handling as the morning
+   * briefing). Cached server-side per (household, ISO week).
+   */
+  choreSummaryAi(): Observable<ChoreSummaryAiResult> {
+    return this.http.get<ChoreSummaryAiResult>(`${this.base}/family/chores/ai/summary`);
   }
 
   // ---- Family Hub F5: FINANCE (Rocket Money CSV) — gated by family.use AND family.finance server-side ----
