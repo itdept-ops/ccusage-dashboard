@@ -1,0 +1,386 @@
+<!-- Sticky header: phase-aware title + the day being built + close. -->
+<div class="db-head">
+  <div class="db-head-id">
+    <mat-icon class="db-spark" aria-hidden="true">auto_awesome</mat-icon>
+    <div>
+      <h2 mat-dialog-title class="db-title">{{ phaseTitle() }}</h2>
+      <p class="db-sub">Building {{ dateHeading() }}</p>
+    </div>
+  </div>
+  <button mat-icon-button type="button" class="db-close" (click)="cancel()" aria-label="Cancel and close">
+    <mat-icon>close</mat-icon>
+  </button>
+</div>
+
+<!-- Polite sr-only status: announces every phase transition + AI status. -->
+<span class="db-sr-status" role="status" aria-live="polite">{{ announce() }}</span>
+
+<mat-dialog-content class="db-body">
+
+  <!-- ─────────────────────────── INPUT ─────────────────────────── -->
+  @if (phase() === 'input') {
+    <p class="db-lede">
+      Brain-dump your whole day — meals, workouts, drinks, weight, steps. AI reconstructs a complete day you
+      review and edit before anything is logged.
+    </p>
+
+    <mat-form-field appearance="outline" class="db-field">
+      <mat-label><mat-icon class="db-ai-inline" aria-hidden="true">auto_awesome</mat-icon> Tell me about your day</mat-label>
+      <textarea matInput cdkTextareaAutosize cdkAutosizeMinRows="6" cdkAutosizeMaxRows="16" maxlength="4000"
+                placeholder="e.g. Oatmeal with berries and a coffee for breakfast. Chicken salad at lunch. Ran 3 miles after work. Big pasta dinner. ~8k steps, drank a few waters. Weighed 178 this morning."
+                [ngModel]="text()" (ngModelChange)="text.set($event)"></textarea>
+      <mat-hint>The more detail, the better the draft. Vague portions get sensible defaults.</mat-hint>
+    </mat-form-field>
+
+    <!-- Meal photos (routed through the one-time Gemini privacy notice). -->
+    <div class="db-photos">
+      <div class="db-photos-row">
+        <button mat-stroked-button type="button" class="db-photo-add"
+                [disabled]="photos().length >= maxPhotos" (click)="addPhoto()"
+                aria-label="Add a meal photo">
+          <mat-icon aria-hidden="true">add_a_photo</mat-icon> Add meal photo
+        </button>
+        <span class="db-photos-count">{{ photos().length }}/{{ maxPhotos }}</span>
+      </div>
+      @if (photos().length > 0) {
+        <div class="db-photo-chips" role="group" aria-label="Chosen meal photos">
+          @for (p of photos(); track $index) {
+            <div class="db-photo-chip">
+              <img [src]="photoUrl(p)" alt="Chosen meal photo {{ $index + 1 }}" />
+              <button mat-icon-button type="button" class="db-photo-del" (click)="removePhoto($index)"
+                      [attr.aria-label]="'Remove photo ' + ($index + 1)">
+                <mat-icon>close</mat-icon>
+              </button>
+            </div>
+          }
+        </div>
+      }
+    </div>
+
+    <p class="db-date-line">
+      Logging to <strong>{{ dateHeading() }}</strong>.
+      <button type="button" class="db-link" (click)="changeDate()">Change date</button>
+    </p>
+  }
+
+  <!-- ─────────────────────────── LOADING ─────────────────────────── -->
+  @if (phase() === 'loading' || phase() === 'committing') {
+    <div class="db-loading" role="status">
+      <mat-progress-spinner mode="indeterminate" diameter="44" aria-hidden="true" />
+      <p class="db-loading-copy">
+        {{ phase() === 'committing' ? 'Logging your day…' : 'Reconstructing your day. This can take a few seconds.' }}
+      </p>
+    </div>
+  }
+
+  <!-- ─────────────────────────── QUESTIONS ─────────────────────────── -->
+  @if (phase() === 'questions') {
+    <p class="db-lede">A couple of things would sharpen the draft. Answer what you can — skip the rest and AI will best-guess.</p>
+    @if (notes(); as n) { <p class="db-note">{{ n }}</p> }
+
+    <div class="db-questions">
+      @for (q of questions(); track q.questionId) {
+        <div class="db-qcard">
+          <p class="db-qtext">{{ q.text }}</p>
+
+          @switch (q.kind) {
+            @case ('yesno') {
+              <div class="db-chipgroup" role="group" [attr.aria-label]="q.text">
+                @for (opt of ['Yes', 'No']; track opt) {
+                  <button type="button" class="db-chip" [class.is-active]="answerFor(q) === opt"
+                          [attr.aria-pressed]="answerFor(q) === opt" (click)="setAnswer(q.questionId, opt)">
+                    {{ opt }}
+                  </button>
+                }
+              </div>
+            }
+            @case ('choice') {
+              <div class="db-chipgroup" role="group" [attr.aria-label]="q.text">
+                @for (opt of q.choices ?? []; track opt) {
+                  <button type="button" class="db-chip" [class.is-active]="answerFor(q) === opt"
+                          [attr.aria-pressed]="answerFor(q) === opt" (click)="setAnswer(q.questionId, opt)">
+                    {{ opt }}
+                  </button>
+                }
+              </div>
+            }
+            @default {
+              <mat-form-field appearance="outline" class="db-field">
+                <input matInput type="text" maxlength="200" placeholder="Your answer (or skip)"
+                       [ngModel]="answerFor(q)" (ngModelChange)="setAnswer(q.questionId, $event)"
+                       (keyup.enter)="refine()" [attr.aria-label]="q.text" />
+              </mat-form-field>
+            }
+          }
+
+          <button mat-button type="button" class="db-skip" (click)="skipQuestion(q.questionId)">Skip</button>
+        </div>
+      }
+    </div>
+  }
+
+  <!-- ─────────────────────────── REVIEW ─────────────────────────── -->
+  @if (phase() === 'review' && draft(); as d) {
+    <!-- Persistent draft banner — nothing is logged yet. -->
+    <div class="db-draftbanner" role="status">
+      <mat-icon aria-hidden="true">edit_note</mat-icon>
+      <span>Draft — nothing is logged yet. Edit anything below, then log the whole day.</span>
+    </div>
+
+    <!-- Live running tally, recomputed on every edit. -->
+    <div class="db-tally" aria-label="Running totals">
+      <span class="db-tally-cell"><strong class="mono-num">{{ tally().calIn | number }}</strong> kcal in</span>
+      <span class="db-tally-sep">·</span>
+      <span class="db-tally-cell"><strong class="mono-num">{{ tally().calOut | number }}</strong> out</span>
+      <span class="db-tally-sep">·</span>
+      <span class="db-tally-cell"><strong class="mono-num">{{ tally().protein | number }}</strong> g P</span>
+    </div>
+
+    @if (d.summary) { <p class="db-summary">{{ d.summary }}</p> }
+
+    @if (d.assumptions.length > 0) {
+      <details class="db-assume">
+        <summary>AI assumptions ({{ d.assumptions.length }})</summary>
+        <ul>@for (a of d.assumptions; track a) { <li>{{ a }}</li> }</ul>
+      </details>
+    }
+
+    <!-- Meals. -->
+    @for (rm of reviewMeals; track rm.meal) {
+      <section class="db-group" [attr.aria-label]="rm.label">
+        <div class="db-group-head">
+          <h3 class="db-group-title"><mat-icon aria-hidden="true">{{ rm.icon }}</mat-icon> {{ rm.label }}</h3>
+          @if (alreadyLogged(rm.meal)) {
+            <span class="db-nudge" role="note"><mat-icon aria-hidden="true">info</mat-icon> Already logged today</span>
+          }
+        </div>
+
+        @for (f of foodsFor(rm.meal); track $index) {
+          <div class="db-foodrow">
+            <div class="db-foodrow-main">
+              <input class="db-desc" type="text" maxlength="256" placeholder="Food"
+                     [ngModel]="f.description" (ngModelChange)="setFood(rm.meal, $index, { description: $event })"
+                     [attr.aria-label]="'Food description for ' + rm.label" />
+              <div class="db-chips-inline">
+                @if (confidenceChip(f.confidence); as chip) { <span class="db-conf">{{ chip }}</span> }
+                @if (f.clamped) { <span class="db-clamped" matTooltip="A value was capped to a safe maximum">capped</span> }
+              </div>
+            </div>
+            <div class="db-macros">
+              <label class="db-num"><span>kcal</span>
+                <input type="number" min="0" step="1" inputmode="numeric" class="mono-num"
+                       [ngModel]="f.calories" (ngModelChange)="setFood(rm.meal, $index, { calories: +$event || 0 })"
+                       [attr.aria-label]="'Calories for ' + (f.description || 'food')" /></label>
+              <label class="db-num"><span>P</span>
+                <input type="number" min="0" step="1" inputmode="numeric" class="mono-num"
+                       [ngModel]="f.proteinG" (ngModelChange)="setFood(rm.meal, $index, { proteinG: +$event || 0 })"
+                       [attr.aria-label]="'Protein grams for ' + (f.description || 'food')" /></label>
+              <label class="db-num"><span>C</span>
+                <input type="number" min="0" step="1" inputmode="numeric" class="mono-num"
+                       [ngModel]="f.carbG" (ngModelChange)="setFood(rm.meal, $index, { carbG: +$event || 0 })"
+                       [attr.aria-label]="'Carb grams for ' + (f.description || 'food')" /></label>
+              <label class="db-num"><span>F</span>
+                <input type="number" min="0" step="1" inputmode="numeric" class="mono-num"
+                       [ngModel]="f.fatG" (ngModelChange)="setFood(rm.meal, $index, { fatG: +$event || 0 })"
+                       [attr.aria-label]="'Fat grams for ' + (f.description || 'food')" /></label>
+              <button mat-icon-button type="button" class="db-rowdel" (click)="removeFood(rm.meal, $index)"
+                      [attr.aria-label]="'Remove ' + (f.description || 'food')">
+                <mat-icon>close</mat-icon>
+              </button>
+            </div>
+          </div>
+        } @empty {
+          <p class="db-empty">Nothing for {{ rm.label | lowercase }} — add?</p>
+        }
+
+        @if (canAddFood(rm.meal)) {
+          <button mat-button type="button" class="db-addrow" (click)="addFood(rm.meal)">
+            <mat-icon>add</mat-icon> Add food
+          </button>
+        }
+      </section>
+    }
+
+    <!-- Exercise. -->
+    <section class="db-group" aria-label="Exercise">
+      <div class="db-group-head">
+        <h3 class="db-group-title"><mat-icon aria-hidden="true">fitness_center</mat-icon> Exercise</h3>
+      </div>
+      @for (e of exercises(); track $index) {
+        <div class="db-foodrow">
+          <div class="db-foodrow-main">
+            <input class="db-desc" type="text" maxlength="128" placeholder="Exercise"
+                   [ngModel]="e.name" (ngModelChange)="setExercise($index, { name: $event })"
+                   [attr.aria-label]="'Exercise name'" />
+            <div class="db-chips-inline">
+              @if (confidenceChip(e.confidence); as chip) { <span class="db-conf">{{ chip }}</span> }
+              @if (e.clamped) { <span class="db-clamped" matTooltip="A value was capped to a safe maximum">capped</span> }
+            </div>
+          </div>
+          <div class="db-macros">
+            <label class="db-num"><span>min</span>
+              <input type="number" min="0" step="1" inputmode="numeric" class="mono-num"
+                     [ngModel]="e.durationMin" (ngModelChange)="setExercise($index, { durationMin: $event === '' || $event == null ? null : (+$event || 0) })"
+                     [attr.aria-label]="'Minutes for ' + (e.name || 'exercise')" /></label>
+            <label class="db-num"><span>kcal</span>
+              <input type="number" min="0" step="1" inputmode="numeric" class="mono-num"
+                     [ngModel]="e.caloriesBurned" (ngModelChange)="setExercise($index, { caloriesBurned: +$event || 0 })"
+                     [attr.aria-label]="'Calories burned for ' + (e.name || 'exercise')" /></label>
+            <button mat-icon-button type="button" class="db-rowdel" (click)="removeExercise($index)"
+                    [attr.aria-label]="'Remove ' + (e.name || 'exercise')">
+              <mat-icon>close</mat-icon>
+            </button>
+          </div>
+        </div>
+      } @empty {
+        <p class="db-empty">No exercise — add?</p>
+      }
+      @if (canAddExercise()) {
+        <button mat-button type="button" class="db-addrow" (click)="addExercise()">
+          <mat-icon>add</mat-icon> Add exercise
+        </button>
+      }
+    </section>
+
+    <!-- Hydration. -->
+    <section class="db-group" aria-label="Hydration">
+      <div class="db-group-head">
+        <h3 class="db-group-title"><mat-icon aria-hidden="true">water_drop</mat-icon> Hydration</h3>
+      </div>
+      @for (h of drinks(); track $index) {
+        <div class="db-drinkrow">
+          <input class="db-desc" type="text" maxlength="64" placeholder="Drink"
+                 [ngModel]="h.label" (ngModelChange)="setDrinkLabel($index, $event)"
+                 [attr.aria-label]="'Drink label'" />
+          <label class="db-num db-num--wide"><span>{{ imperial ? 'oz' : 'ml' }}</span>
+            <input type="number" min="0" step="1" inputmode="numeric" class="mono-num"
+                   [ngModel]="drinkDisp(h)" (ngModelChange)="setDrinkAmount($index, $event === '' ? null : +$event)"
+                   [attr.aria-label]="'Amount for ' + (h.label || 'drink')" /></label>
+          <button mat-icon-button type="button" class="db-rowdel" (click)="removeDrink($index)"
+                  [attr.aria-label]="'Remove ' + (h.label || 'drink')">
+            <mat-icon>close</mat-icon>
+          </button>
+        </div>
+      } @empty {
+        <p class="db-empty">No drinks — add?</p>
+      }
+      @if (canAddDrink()) {
+        <button mat-button type="button" class="db-addrow" (click)="addDrink()">
+          <mat-icon>add</mat-icon> Add drink
+        </button>
+      }
+    </section>
+
+    <!-- Weight. -->
+    <section class="db-group" aria-label="Weight">
+      <div class="db-group-head">
+        <h3 class="db-group-title"><mat-icon aria-hidden="true">monitor_weight</mat-icon> Weight</h3>
+      </div>
+      @if (weight()) {
+        <div class="db-drinkrow">
+          <label class="db-num db-num--wide"><span>{{ imperial ? 'lb' : 'kg' }}</span>
+            <input type="number" min="0" step="0.1" inputmode="decimal" class="mono-num"
+                   [ngModel]="weightDisp()" (ngModelChange)="setWeightDisp($event === '' ? null : +$event)"
+                   aria-label="Body weight" /></label>
+          <label class="db-num db-num--wide"><span>when</span>
+            <select class="db-select" [ngModel]="weight()!.slot" (ngModelChange)="setWeightSlot($event)"
+                    aria-label="Time of day for the weigh-in">
+              @for (s of weightSlots; track s.value) { <option [value]="s.value">{{ s.label }}</option> }
+            </select></label>
+          <button mat-icon-button type="button" class="db-rowdel" (click)="removeWeight()" aria-label="Remove weight">
+            <mat-icon>close</mat-icon>
+          </button>
+        </div>
+      } @else {
+        <p class="db-empty">No weigh-in — add?</p>
+        <button mat-button type="button" class="db-addrow" (click)="addWeight()">
+          <mat-icon>add</mat-icon> Add weight
+        </button>
+      }
+    </section>
+
+    <!-- Activity. -->
+    <section class="db-group" aria-label="Activity">
+      <div class="db-group-head">
+        <h3 class="db-group-title"><mat-icon aria-hidden="true">watch</mat-icon> Activity</h3>
+      </div>
+      @if (activity(); as a) {
+        <div class="db-actgrid">
+          <label class="db-num db-num--wide"><span>steps</span>
+            <input type="number" min="0" step="1" inputmode="numeric" class="mono-num"
+                   [ngModel]="a.steps" (ngModelChange)="setActivityField({ steps: $event === '' || $event == null ? null : (+$event || 0) })"
+                   aria-label="Steps" /></label>
+          <label class="db-num db-num--wide"><span>{{ imperial ? 'mi' : 'km' }}</span>
+            <input type="number" min="0" step="0.1" inputmode="decimal" class="mono-num"
+                   [ngModel]="activityDistanceDisp()" (ngModelChange)="setActivityDistance($event === '' ? null : +$event)"
+                   aria-label="Distance" /></label>
+          <label class="db-num db-num--wide"><span>active kcal</span>
+            <input type="number" min="0" step="1" inputmode="numeric" class="mono-num"
+                   [ngModel]="a.activeCalories" (ngModelChange)="setActivityField({ activeCalories: $event === '' || $event == null ? null : (+$event || 0) })"
+                   aria-label="Active calories" /></label>
+          <button mat-icon-button type="button" class="db-rowdel" (click)="removeActivity()" aria-label="Remove activity">
+            <mat-icon>close</mat-icon>
+          </button>
+        </div>
+        <div class="db-actmode" role="group" aria-label="How active calories count">
+          <button type="button" class="db-chip" [class.is-active]="a.calorieMode === 'add'"
+                  [attr.aria-pressed]="a.calorieMode === 'add'" (click)="setActivityField({ calorieMode: 'add' })">
+            Add to workouts
+          </button>
+          <button type="button" class="db-chip" [class.is-active]="a.calorieMode === 'override'"
+                  [attr.aria-pressed]="a.calorieMode === 'override'" (click)="setActivityField({ calorieMode: 'override' })">
+            Replace workouts
+          </button>
+        </div>
+      } @else {
+        <p class="db-empty">No watch stats — add?</p>
+        <button mat-button type="button" class="db-addrow" (click)="addActivity()">
+          <mat-icon>add</mat-icon> Add activity
+        </button>
+      }
+    </section>
+  }
+
+  <!-- ─────────────────────────── DONE ─────────────────────────── -->
+  @if (phase() === 'done') {
+    <div class="db-loading" role="status">
+      <mat-icon class="db-done-icon" aria-hidden="true">check_circle</mat-icon>
+      <p class="db-loading-copy">Logged your day.</p>
+    </div>
+  }
+</mat-dialog-content>
+
+<!-- ─────────────────────────── ACTIONS ─────────────────────────── -->
+<mat-dialog-actions class="db-actions" align="end">
+  @switch (phase()) {
+    @case ('input') {
+      <button mat-stroked-button type="button" (click)="cancel()">Cancel</button>
+      <button mat-flat-button color="primary" type="button" [disabled]="!canBuild()" (click)="build()">
+        <mat-icon aria-hidden="true">auto_awesome</mat-icon> Build my day
+      </button>
+    }
+    @case ('loading') {
+      <button mat-stroked-button type="button" (click)="cancel()">Cancel</button>
+      <button mat-flat-button color="primary" type="button" disabled>
+        <mat-progress-spinner mode="indeterminate" diameter="18" aria-hidden="true" /> Building…
+      </button>
+    }
+    @case ('questions') {
+      <button mat-button type="button" (click)="useDraftAsIs()">Use draft as-is</button>
+      <button mat-flat-button color="primary" type="button" (click)="refine()">
+        <mat-icon aria-hidden="true">auto_fix_high</mat-icon> Refine draft
+      </button>
+    }
+    @case ('review') {
+      <button mat-stroked-button type="button" (click)="cancel()">Cancel</button>
+      <button mat-flat-button color="primary" type="button" [disabled]="!hasAnything()" (click)="commit()">
+        <mat-icon aria-hidden="true">checklist</mat-icon> Log the whole day
+      </button>
+    }
+    @case ('committing') {
+      <button mat-flat-button color="primary" type="button" disabled>
+        <mat-progress-spinner mode="indeterminate" diameter="18" aria-hidden="true" /> Logging…
+      </button>
+    }
+  }
+</mat-dialog-actions>

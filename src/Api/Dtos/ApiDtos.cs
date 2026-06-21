@@ -1150,3 +1150,41 @@ public sealed class UpsertActivityRequest
     /// <summary>"add" (default) | "override".</summary>
     public string CalorieMode { get; set; } = "add";
 }
+
+/// <summary>
+/// Commit a whole AI Day Builder draft (all meals + foods, exercises, hydration, weight, activity) in ONE
+/// atomic, idempotent pass. The <see cref="Draft"/> is the user-EDITED draft and is treated as fully
+/// UNTRUSTED — every field is re-validated + re-clamped server-side exactly like the single-entry
+/// endpoints. <see cref="BuildId"/> is the server-issued idempotency token from <c>build-day</c>: a
+/// repeat commit with the same id writes nothing and reports <see cref="CommitDayResponse.AlreadyCommitted"/>.
+/// </summary>
+public sealed class CommitDayRequest
+{
+    /// <summary>The idempotency token from build-day (required).</summary>
+    public string BuildId { get; set; } = "";
+    /// <summary>"yyyy-MM-dd" (required); the authoritative date all entries are logged on.</summary>
+    public string Date { get; set; } = "";
+    /// <summary>The user-edited day draft (untrusted; re-validated + re-clamped server-side).</summary>
+    public Ccusage.Api.Dtos.DayDraft Draft { get; set; } = new();
+}
+
+/// <summary>The outcome of a day commit: whether it was a no-op repeat, the counts logged, and the
+/// rebuilt authoritative day (so the client can refresh without a second round-trip).</summary>
+public sealed class CommitDayResponse
+{
+    /// <summary>True when this build id was already committed — nothing was written this time.</summary>
+    public bool AlreadyCommitted { get; set; }
+    public CommitCounts Logged { get; set; } = new();
+    /// <summary>The rebuilt authoritative day after the commit (same shape as GET /day).</summary>
+    public TrackerDayDto Day { get; set; } = new();
+}
+
+/// <summary>How many entries of each domain the commit actually wrote (after caps + skips).</summary>
+public sealed class CommitCounts
+{
+    public int Foods { get; set; }
+    public int Exercises { get; set; }
+    public int Drinks { get; set; }
+    public bool Weight { get; set; }
+    public bool Activity { get; set; }
+}

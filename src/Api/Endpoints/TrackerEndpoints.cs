@@ -4,6 +4,7 @@ using Ccusage.Api.Data.Entities;
 using Ccusage.Api.Dtos;
 using Ccusage.Api.Services;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 
 namespace Ccusage.Api.Endpoints;
 
@@ -160,26 +161,8 @@ public static class TrackerEndpoints
             var description = (req.Description ?? "").Trim();
             if (description.Length == 0)
                 return Results.BadRequest(new { message = "A food description is required." });
-            if (description.Length > 256) description = description[..256];
-            var brand = Trunc(req.Brand?.Trim(), 256);
-            var quantity = req.Quantity <= 0 ? 1 : req.Quantity;
 
-            var entry = new FoodEntry
-            {
-                UserEmail = caller.Email,
-                LocalDate = localDate,
-                Meal = meal,
-                FdcId = req.FdcId,
-                Description = description,
-                Brand = string.IsNullOrEmpty(brand) ? null : brand,
-                Quantity = quantity,
-                ServingDesc = Trunc(req.ServingDesc?.Trim(), 128),
-                Calories = Math.Max(0, req.Calories),
-                ProteinG = Math.Max(0, req.ProteinG),
-                CarbG = Math.Max(0, req.CarbG),
-                FatG = Math.Max(0, req.FatG),
-                CreatedUtc = DateTime.UtcNow,
-            };
+            var entry = BuildFoodEntry(caller.Email, localDate, meal, req);
             db.FoodEntries.Add(entry);
             await db.SaveChangesAsync(ct);
 
@@ -286,16 +269,7 @@ public static class TrackerEndpoints
                     message = "Calories burned is required (or log a library exercise with a duration and set your weight).",
                 });
 
-            var entry = new ExerciseEntry
-            {
-                UserEmail = caller.Email,
-                LocalDate = localDate,
-                ExerciseId = lib?.Id,
-                Name = name,
-                DurationMin = duration,
-                CaloriesBurned = calories.Value,
-                CreatedUtc = DateTime.UtcNow,
-            };
+            var entry = BuildExerciseEntry(caller.Email, localDate, name, duration, calories.Value, lib?.Id);
             db.ExerciseEntries.Add(entry);
             await db.SaveChangesAsync(ct);
 
@@ -576,16 +550,7 @@ public static class TrackerEndpoints
             if (!(req.AmountMl >= 1 && req.AmountMl <= 5000))
                 return Results.BadRequest(new { message = "Amount must be between 1 and 5000 ml." });
 
-            var label = Trunc(req.Label?.Trim(), 64);
-
-            var entry = new HydrationEntry
-            {
-                UserEmail = caller.Email,
-                LocalDate = localDate,
-                AmountMl = req.AmountMl,
-                Label = string.IsNullOrEmpty(label) ? null : label,
-                CreatedUtc = DateTime.UtcNow,
-            };
+            var entry = BuildHydrationEntry(caller.Email, localDate, req.AmountMl, req.Label);
             db.HydrationEntries.Add(entry);
             await db.SaveChangesAsync(ct);
             return Results.Ok(ToHydrationDto(entry));
@@ -748,6 +713,281 @@ public static class TrackerEndpoints
                 .ToListAsync(ct);
             return Results.Ok(people);
         }).RequirePermission(Permissions.TrackerSelf);
+
+        // ---- AI Day Builder: commit a whole reviewed draft in ONE atomic, idempotent pass (OWN only) ----
+        // No Gemini call — the draft is the user-edited, fully-untrusted result of the builder dialog. Every
+        // field is re-validated + re-clamped exactly like the single-entry endpoints; excess is dropped (never
+        // a 400). Idempotency: the build-day GUID, held in IMemoryCache for 30 min, makes a double-submit a
+        // no-op. All writes are in ONE transaction (all-or-nothing) so the day is never half-logged.
+        g.MapPost("/day/commit", async (
+            CommitDayRequest req, CurrentUserAccessor me, UsageDbContext db,
+            IMemoryCache cache, CancellationToken ct) =>
+        {
+            var caller = (await me.GetUserAsync(ct))!;
+
+            if (string.IsNullOrWhiteSpace(req?.BuildId))
+                return Results.BadRequest(new { message = "A buildId is required." });
+            if (!TryParseDate(req.Date, out var localDate))
+                return Results.BadRequest(new { message = "A valid date (yyyy-MM-dd) is required." });
+
+            var key = $"daycommit:{caller.Email}:{req.BuildId.Trim()}:{localDate:yyyy-MM-dd}";
+            if (cache.TryGetValue(key, out CommitCounts? cachedCounts) && cachedCounts is not null)
+            {
+                var alreadyDay = await BuildDayAsync(db, caller.Email, localDate, readOnly: false, ct);
+                return Results.Ok(new CommitDayResponse
+                {
+                    AlreadyCommitted = true,
+                    Logged = cachedCounts,
+                    Day = alreadyDay,
+                });
+            }
+
+            var draft = req.Draft ?? new DayDraft();
+            var counts = new CommitCounts();
+
+            // ---- Validate-all-before-insert (re-run the single-endpoint validation/clamping) ----
+            var foodEntries = new List<FoodEntry>();
+            var totalFoods = 0;
+            var mealCount = 0;
+            foreach (var meal in draft.Meals ?? new List<MealDraft>())
+            {
+                if (mealCount++ >= 5) break;
+                // Unknown meal -> Snack (never a 400 at commit).
+                if (!TryParseMeal(meal.Meal, out var mealType)) mealType = MealType.Snack;
+                foreach (var item in meal.Items ?? new List<DraftFood>())
+                {
+                    if (totalFoods >= 50) break;
+                    var description = (item.Description ?? "").Trim();
+                    if (description.Length == 0) continue;
+                    if (description.Length > 256) description = description[..256];
+
+                    foodEntries.Add(new FoodEntry
+                    {
+                        UserEmail = caller.Email,
+                        LocalDate = localDate,
+                        Meal = mealType,
+                        FdcId = null,
+                        Description = description,
+                        Brand = null,
+                        // The free-text portion is descriptive only; the macros are already absolute totals.
+                        Quantity = 1,
+                        ServingDesc = Trunc((item.Quantity ?? "").Trim(), 128) is { Length: > 0 } q ? q : null,
+                        Calories = ClampCalories(item.Calories),
+                        ProteinG = ClampMacro(item.ProteinG),
+                        CarbG = ClampMacro(item.CarbG),
+                        FatG = ClampMacro(item.FatG),
+                        CreatedUtc = DateTime.UtcNow,
+                    });
+                    totalFoods++;
+                }
+            }
+
+            var exerciseEntries = new List<ExerciseEntry>();
+            foreach (var ex in draft.Exercises ?? new List<DraftExercise>())
+            {
+                if (exerciseEntries.Count >= 20) break;
+                var name = (ex.Name ?? "").Trim();
+                if (name.Length == 0) continue;
+                if (name.Length > 128) name = name[..128];
+                var duration = ex.DurationMin is { } d && d > 0 ? Math.Min(d, 1440) : (int?)null;
+                exerciseEntries.Add(BuildExerciseEntry(
+                    caller.Email, localDate, name, duration, ClampCalories(ex.CaloriesBurned), null));
+            }
+
+            var hydrationEntries = new List<HydrationEntry>();
+            foreach (var drink in draft.Hydration ?? new List<DraftDrink>())
+            {
+                if (hydrationEntries.Count >= 30) break;
+                if (!(drink.Ml >= 1 && drink.Ml <= 5000)) continue;
+                hydrationEntries.Add(BuildHydrationEntry(caller.Email, localDate, drink.Ml, drink.Label));
+            }
+
+            // Weight (at most one): skip unless 1..1000; slot enum-guard.
+            double? weightValue = null;
+            WeightSlot weightSlot = WeightSlot.Unspecified;
+            if (draft.Weight is { } wd && wd.WeightKg is >= 1 and <= 1000)
+            {
+                weightValue = Math.Round(wd.WeightKg, 2);
+                weightSlot = Enum.TryParse<WeightSlot>((wd.Slot ?? "").Trim(), ignoreCase: true, out var ws)
+                    && Enum.IsDefined(ws) ? ws : WeightSlot.Unspecified;
+            }
+
+            // Activity (at most one): clamp all stats; calorie mode -> default add.
+            DailyActivity? activityValues = null;
+            if (draft.Activity is { } ad)
+            {
+                var mode = TryParseCalorieMode(ad.CalorieMode, out var m) ? m : ActivityCalorieMode.Add;
+                activityValues = new DailyActivity
+                {
+                    Steps = ad.Steps is { } s ? Math.Clamp(s, 0, 200000) : null,
+                    DistanceMeters = ad.DistanceMeters is { } dm ? Math.Clamp(dm, 0, 1000000) : null,
+                    ActiveCalories = ad.ActiveCalories is { } ac ? Math.Clamp(ac, 0, 20000) : null,
+                    CalorieMode = mode,
+                };
+            }
+
+            // ---- ONE transaction: all-or-nothing. The DbContext uses the Npgsql RETRYING execution
+            // strategy, which forbids a bare user transaction — the whole unit MUST run inside the strategy
+            // so a transient failure retries the entire batch (not a half-applied one). ----
+            var strategy = db.Database.CreateExecutionStrategy();
+            await strategy.ExecuteAsync(async () =>
+            {
+                await using var tx = await db.Database.BeginTransactionAsync(ct);
+
+                db.FoodEntries.AddRange(foodEntries);
+                db.ExerciseEntries.AddRange(exerciseEntries);
+                db.HydrationEntries.AddRange(hydrationEntries);
+
+                if (weightValue is { } wkg)
+                {
+                    var existing = await db.WeightEntries.FirstOrDefaultAsync(
+                        w => w.UserEmail == caller.Email && w.LocalDate == localDate && w.Slot == weightSlot, ct);
+                    if (existing is null)
+                        db.WeightEntries.Add(new WeightEntry
+                        {
+                            UserEmail = caller.Email,
+                            LocalDate = localDate,
+                            Slot = weightSlot,
+                            WeightKg = wkg,
+                            CreatedUtc = DateTime.UtcNow,
+                        });
+                    else
+                        existing.WeightKg = wkg;
+                }
+
+                if (activityValues is not null)
+                {
+                    var existing = await db.DailyActivities.FirstOrDefaultAsync(
+                        a => a.UserEmail == caller.Email && a.LocalDate == localDate, ct);
+                    var now = DateTime.UtcNow;
+                    if (existing is null)
+                        db.DailyActivities.Add(new DailyActivity
+                        {
+                            UserEmail = caller.Email,
+                            LocalDate = localDate,
+                            Steps = activityValues.Steps,
+                            DistanceMeters = activityValues.DistanceMeters,
+                            ActiveCalories = activityValues.ActiveCalories,
+                            CalorieMode = activityValues.CalorieMode,
+                            CreatedUtc = now,
+                            UpdatedUtc = now,
+                        });
+                    else
+                    {
+                        existing.Steps = activityValues.Steps;
+                        existing.DistanceMeters = activityValues.DistanceMeters;
+                        existing.ActiveCalories = activityValues.ActiveCalories;
+                        existing.CalorieMode = activityValues.CalorieMode;
+                        existing.UpdatedUtc = now;
+                    }
+                }
+
+                await db.SaveChangesAsync(ct);
+                await tx.CommitAsync(ct);
+            });
+
+            counts.Foods = foodEntries.Count;
+            counts.Exercises = exerciseEntries.Count;
+            counts.Drinks = hydrationEntries.Count;
+            counts.Weight = weightValue is not null;
+            counts.Activity = activityValues is not null;
+
+            // After-commit, best-effort library upkeep (treat AI foods/exercises as manual — the user reviewed
+            // + edited them). Failures are swallowed so a library hiccup never fails the committed day.
+            try
+            {
+                foreach (var f in foodEntries)
+                    await UpsertCustomFoodAsync(db, caller.Email, f, bumpOnly: false, ct);
+                foreach (var x in exerciseEntries)
+                    await UpsertCustomExerciseAsync(db, caller.Email, x, bumpOnly: false, ct);
+            }
+            catch
+            {
+                // best-effort only
+            }
+
+            cache.Set(key, counts, TimeSpan.FromMinutes(30));
+
+            var day = await BuildDayAsync(db, caller.Email, localDate, readOnly: false, ct);
+            return Results.Ok(new CommitDayResponse
+            {
+                AlreadyCommitted = false,
+                Logged = counts,
+                Day = day,
+            });
+        }).RequirePermission(Permissions.TrackerSelf);
+    }
+
+    // ===================================================================================
+    // Per-entry builders (shared by the single endpoints AND the day-builder commit)
+    // ===================================================================================
+
+    /// <summary>Build a <see cref="FoodEntry"/> from an add-food request with the same clamping the single
+    /// endpoint applies (description trim+cap done by the caller; macros floored at 0).</summary>
+    private static FoodEntry BuildFoodEntry(string email, DateOnly localDate, MealType meal, AddFoodRequest req)
+    {
+        var description = (req.Description ?? "").Trim();
+        if (description.Length > 256) description = description[..256];
+        var brand = Trunc(req.Brand?.Trim(), 256);
+        var quantity = req.Quantity <= 0 ? 1 : req.Quantity;
+        return new FoodEntry
+        {
+            UserEmail = email,
+            LocalDate = localDate,
+            Meal = meal,
+            FdcId = req.FdcId,
+            Description = description,
+            Brand = string.IsNullOrEmpty(brand) ? null : brand,
+            Quantity = quantity,
+            ServingDesc = Trunc(req.ServingDesc?.Trim(), 128),
+            Calories = Math.Max(0, req.Calories),
+            ProteinG = Math.Max(0, req.ProteinG),
+            CarbG = Math.Max(0, req.CarbG),
+            FatG = Math.Max(0, req.FatG),
+            CreatedUtc = DateTime.UtcNow,
+        };
+    }
+
+    /// <summary>Build an <see cref="ExerciseEntry"/> from already-resolved fields (name trimmed+capped by
+    /// the caller; calories floored at 0).</summary>
+    private static ExerciseEntry BuildExerciseEntry(
+        string email, DateOnly localDate, string name, int? durationMin, int caloriesBurned, int? exerciseId)
+    {
+        if (name.Length > 128) name = name[..128];
+        return new ExerciseEntry
+        {
+            UserEmail = email,
+            LocalDate = localDate,
+            ExerciseId = exerciseId,
+            Name = name,
+            DurationMin = durationMin is { } d && d > 0 ? d : null,
+            CaloriesBurned = Math.Max(0, caloriesBurned),
+            CreatedUtc = DateTime.UtcNow,
+        };
+    }
+
+    /// <summary>Build a <see cref="HydrationEntry"/> (label trimmed + 64-capped; amount caller-validated).</summary>
+    private static HydrationEntry BuildHydrationEntry(string email, DateOnly localDate, int amountMl, string? label)
+    {
+        var trimmed = Trunc(label?.Trim(), 64);
+        return new HydrationEntry
+        {
+            UserEmail = email,
+            LocalDate = localDate,
+            AmountMl = amountMl,
+            Label = string.IsNullOrEmpty(trimmed) ? null : trimmed,
+            CreatedUtc = DateTime.UtcNow,
+        };
+    }
+
+    /// <summary>Clamp a calorie value to [0, 5000] (mirrors the GeminiService clamp for commit-time safety).</summary>
+    private static int ClampCalories(int v) => Math.Clamp(v, 0, 5000);
+
+    /// <summary>Clamp a macro value to [0, 500] g, rounded to 1dp.</summary>
+    private static double ClampMacro(double v)
+    {
+        if (double.IsNaN(v) || double.IsInfinity(v) || v < 0) return 0;
+        return Math.Round(Math.Min(v, 500), 1);
     }
 
     // ===================================================================================

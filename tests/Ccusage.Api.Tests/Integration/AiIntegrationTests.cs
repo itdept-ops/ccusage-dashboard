@@ -56,6 +56,8 @@ public class AiIntegrationTests(WebAppFactory factory)
         yield return new object?[] { HttpMethod.Post, "/api/ai/hydration-suggest", new { } };
         yield return new object?[] { HttpMethod.Post, "/api/ai/parse-hydration", new { text = "2 coffees and a big water" } };
         yield return new object?[] { HttpMethod.Post, "/api/ai/natural-goal", new { text = "lose 10 lbs in 3 months" } };
+        yield return new object?[] { HttpMethod.Post, "/api/ai/build-day", new { text = "had eggs for breakfast and ran 3 miles" } };
+        yield return new object?[] { HttpMethod.Post, "/api/ai/day-summary", new { date = "2026-06-17" } };
         yield return new object?[] { HttpMethod.Get, "/api/ai/daily-coach", null };
         yield return new object?[] { HttpMethod.Get, "/api/ai/weekly-review", null };
         yield return new object?[] { HttpMethod.Get, "/api/ai/weight-insight", null };
@@ -171,6 +173,51 @@ public class AiIntegrationTests(WebAppFactory factory)
             .StatusCode.Should().Be(HttpStatusCode.BadRequest);
         (await user.PostAsJsonAsync(url, new { imageBase64 = "not valid base64!!!", mimeType = "image/png" }))
             .StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    // ---- build-day: structural validation runs BEFORE the unconfigured check (400, not 503) ----
+
+    [Fact]
+    public async Task Build_day_rejects_empty_input_with_400()
+    {
+        var (_, user) = await ProvisionUser("tracker.ai");
+        // No text, no images, no prior draft -> a 400 "describe your day" before any upstream/config check.
+        (await user.PostAsJsonAsync("/api/ai/build-day", new { }))
+            .StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task Build_day_rejects_too_many_photos_with_400()
+    {
+        var (_, user) = await ProvisionUser("tracker.ai");
+        var img = new { imageBase64 = Convert.ToBase64String(new byte[64]), mimeType = "image/png" };
+        var res = await user.PostAsJsonAsync("/api/ai/build-day", new
+        {
+            text = "a day",
+            images = new[] { img, img, img, img, img }, // 5 > cap of 4
+        });
+        res.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task Build_day_rejects_a_bad_image_with_400()
+    {
+        var (_, user) = await ProvisionUser("tracker.ai");
+        var res = await user.PostAsJsonAsync("/api/ai/build-day", new
+        {
+            text = "a day",
+            images = new[] { new { imageBase64 = "AAAA", mimeType = "application/pdf" } },
+        });
+        res.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task Build_day_with_text_returns_503_when_unconfigured()
+    {
+        var (_, user) = await ProvisionUser("tracker.ai");
+        // Valid input -> passes structural validation, then hits the unconfigured 503 (test host has no key).
+        var res = await user.PostAsJsonAsync("/api/ai/build-day", new { text = "eggs and a run" });
+        res.StatusCode.Should().Be(HttpStatusCode.ServiceUnavailable);
     }
 
     // ---- The new tracker.ai permission is surfaced by the catalog (data-driven Users matrix) ----

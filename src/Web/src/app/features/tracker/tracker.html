@@ -26,6 +26,14 @@
         </mat-menu>
       }
 
+      @if (aiEnabled()) {
+        <button mat-stroked-button type="button" class="tracker__buildbtn"
+                [disabled]="buildingDay()" (click)="openDayBuilder()"
+                aria-label="Build my whole day with AI from a description">
+          <mat-icon aria-hidden="true">auto_awesome</mat-icon> Build with AI
+        </button>
+      }
+
       @if (!store.readOnly()) {
         <button mat-stroked-button type="button" class="tracker__goalbtn" (click)="openProfile()">
           <mat-icon>flag</mat-icon> Goals
@@ -101,6 +109,29 @@
         <button mat-flat-button color="primary" type="button" (click)="openProfile()">
           <mat-icon>flag</mat-icon> Set your goals
         </button>
+      </div>
+    }
+
+    <!-- AI Day Builder hero (gated by trackerAi + own tracker). Dismissable for the day. -->
+    @if (showDayBuilderHint()) {
+      <div class="tracker__daybuilder" role="group" aria-label="Build my day with AI">
+        <mat-icon class="tracker__daybuilder-glyph" aria-hidden="true">auto_awesome</mat-icon>
+        <div class="tracker__daybuilder-copy">
+          <h2 class="tracker__daybuilder-title">Build my day with AI</h2>
+          <p class="tracker__daybuilder-sub">
+            Had a full day? Describe it in one go — meals, workouts, drinks, weight, steps — and AI drafts a
+            complete day for you to review and log. Add meal photos for sharper macros.
+          </p>
+        </div>
+        <div class="tracker__daybuilder-actions">
+          <button mat-flat-button color="primary" type="button" [disabled]="buildingDay()" (click)="openDayBuilder()">
+            <mat-icon aria-hidden="true">auto_awesome</mat-icon> Build my day
+          </button>
+          <button mat-icon-button type="button" class="tracker__daybuilder-dismiss"
+                  (click)="dismissDayBuilderHint()" aria-label="Dismiss this for today">
+            <mat-icon>close</mat-icon>
+          </button>
+        </div>
       </div>
     }
 
@@ -303,6 +334,55 @@
             </p>
           } @else if (!weeklyLoading()) {
             <p class="tracker__ai-prompt">A short look back at your last 7 days, with one thing to try next.</p>
+          }
+        </section>
+
+        <!-- Day summary: a read-only AI recap of the LOGGED day (distinct from the editable Day Builder). -->
+        <section class="tracker__ai-panel tracker__ai-panel--summary" aria-label="AI day summary">
+          <div class="tracker__meal-head">
+            <h2 class="tracker__meal-title">
+              <mat-icon aria-hidden="true">nights_stay</mat-icon> Day summary
+              <span class="tracker__ai-spark">✨</span>
+            </h2>
+            <button mat-stroked-button type="button" class="tracker__ai-refresh"
+                    [disabled]="daySummaryLoading()" (click)="loadDaySummary()"
+                    [attr.aria-label]="daySummary() ? 'Refresh the day summary' : 'Summarize my day'">
+              @if (daySummaryLoading()) {
+                <mat-progress-spinner mode="indeterminate" diameter="18" aria-hidden="true" />
+              } @else {
+                <mat-icon>{{ daySummary() ? 'refresh' : 'auto_awesome' }}</mat-icon>
+              }
+              {{ daySummary() ? 'Refresh' : 'Summarize my day' }}
+            </button>
+          </div>
+
+          <span class="tracker__sr-status" role="status" aria-live="polite">{{ daySummaryAnnounce() }}</span>
+
+          @if (daySummaryUnavailable()) {
+            <p class="tracker__ai-unavailable" role="status">
+              <mat-icon aria-hidden="true">cloud_off</mat-icon>
+              The day summary is unavailable right now — your day is logged and unaffected.
+            </p>
+          } @else if (daySummary(); as s) {
+            @if (s.highlights.length === 0 && !s.tomorrow && s.headline.startsWith('Nothing logged')) {
+              <p class="tracker__ai-empty">{{ s.headline }} Log a meal, drink, or workout first.</p>
+            } @else {
+              <p class="tracker__ai-insight">{{ s.headline }}</p>
+              @if (s.highlights.length > 0) {
+                <ul class="tracker__ai-tips">
+                  @for (h of s.highlights; track h) {
+                    <li><mat-icon aria-hidden="true">check_circle</mat-icon> {{ h }}</li>
+                  }
+                </ul>
+              }
+              @if (s.tomorrow) {
+                <p class="tracker__ai-suggest-line">
+                  <mat-icon aria-hidden="true">arrow_forward</mat-icon> {{ s.tomorrow }}
+                </p>
+              }
+            }
+          } @else if (!daySummaryLoading()) {
+            <p class="tracker__ai-prompt">A warm recap of everything you logged today, plus one nudge for tomorrow.</p>
           }
         </section>
       </div>

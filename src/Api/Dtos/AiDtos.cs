@@ -345,3 +345,187 @@ public sealed class NaturalGoalResponse
     public bool Realistic { get; set; }
     public string? Rationale { get; set; }
 }
+
+// ===================================================================================
+// AI Day Builder — build-day (draft + multi-turn refine) / day-summary
+// ===================================================================================
+
+/// <summary>
+/// Reconstruct a COMPLETE day (all meals + foods, exercises, hydration, weight, activity) from a free-text
+/// end-of-day description and optional meal photos. Supports multi-turn refinement: a prior draft +
+/// answers to the prior round's clarifying questions are echoed back. NOTHING is persisted — the model
+/// only produces a reviewable, fully-clamped draft. The whole-day write happens later via the separate,
+/// transactional <c>POST /api/tracker/day/commit</c>.
+/// </summary>
+public sealed class BuildDayRequest
+{
+    /// <summary>The end-of-day brain-dump; cleaned + capped to 4000 chars server-side.</summary>
+    public string? Text { get; set; }
+
+    /// <summary>"yyyy-MM-dd"; echoed for display only, NOT trusted (the commit re-parses its own date).</summary>
+    public string? Date { get; set; }
+
+    /// <summary>"HH:mm" local time; helps the model resolve "this morning"/"after lunch"/"tonight".</summary>
+    public string? LocalTimeOfDay { get; set; }
+
+    /// <summary>Optional meal photos (REUSES <see cref="ImageRequest"/>); capped at 4, each validated.</summary>
+    public List<ImageRequest>? Images { get; set; }
+
+    /// <summary>Answers to the prior round's clarifying questions (multi-turn refine); capped at 20.</summary>
+    public List<ClarifyAnswer>? Answers { get; set; }
+
+    /// <summary>The echoed-back draft to refine; null on the first build.</summary>
+    public DayDraft? PriorDraft { get; set; }
+}
+
+/// <summary>An answer to a server-issued clarifying question from the prior refine round.</summary>
+public sealed class ClarifyAnswer
+{
+    /// <summary>The server-issued id from the prior round (e.g. "q1"); &lt;= 64 chars.</summary>
+    public string QuestionId { get; set; } = "";
+
+    /// <summary>The text of the question being answered, echoed by the client so the refine prompt keeps
+    /// full Q/A context; cleaned + capped. Optional — falls back to the id when absent.</summary>
+    public string? QuestionText { get; set; }
+
+    /// <summary>The user's answer; cleaned + capped to 200 chars. Blank = "skip, best-guess".</summary>
+    public string Answer { get; set; } = "";
+}
+
+/// <summary>
+/// The build-day response: an idempotency <see cref="BuildId"/> (required by commit), the editable
+/// <see cref="Draft"/>, any clarifying <see cref="Questions"/> (empty when ready to review), and the
+/// refine <see cref="Round"/>. Every number in the draft is clamped server-side.
+/// </summary>
+public sealed class BuildDayResponse
+{
+    /// <summary>Server-issued idempotency token (a fresh GUID per build); the commit requires it.</summary>
+    public string BuildId { get; set; } = "";
+    public DayDraft Draft { get; set; } = new();
+
+    /// <summary>Clarifying questions for the next refine round; [] => ready to review. Capped at 4.</summary>
+    public List<ClarifyQuestion> Questions { get; set; } = new();
+
+    /// <summary>1 on the first build; prior round + 1 on a refine.</summary>
+    public int Round { get; set; }
+
+    /// <summary>Optional one-line model note; &lt;= 200 chars.</summary>
+    public string? Notes { get; set; }
+}
+
+/// <summary>One clarifying question the model asked. The id is SERVER-generated (never model-chosen).</summary>
+public sealed class ClarifyQuestion
+{
+    public string QuestionId { get; set; } = "";
+    public string Text { get; set; } = "";
+    /// <summary>"text" | "yesno" | "choice".</summary>
+    public string Kind { get; set; } = "text";
+    /// <summary>Present when <see cref="Kind"/> == "choice"; capped at 6, each &lt;= 64 chars.</summary>
+    public List<string>? Choices { get; set; }
+}
+
+/// <summary>
+/// The editable day draft: the model's reconstruction of the whole day. Used as both the build-day
+/// response and (echoed back, fully untrusted) the refine input. Every number is re-clamped server-side
+/// on the way out AND again at commit.
+/// </summary>
+public sealed class DayDraft
+{
+    /// <summary>Meals, capped at 5.</summary>
+    public List<MealDraft> Meals { get; set; } = new();
+    /// <summary>Exercises, capped at 20.</summary>
+    public List<DraftExercise> Exercises { get; set; } = new();
+    /// <summary>Drinks, capped at 30.</summary>
+    public List<DraftDrink> Hydration { get; set; } = new();
+    /// <summary>At most one weight reading.</summary>
+    public DraftWeight? Weight { get; set; }
+    /// <summary>At most one activity record.</summary>
+    public DraftActivity? Activity { get; set; }
+    /// <summary>The assumptions the model made (resolved portions, sizes); capped at 8, each &lt;= 200.</summary>
+    public List<string> Assumptions { get; set; } = new();
+    /// <summary>A 1–2 sentence summary of the reconstructed day; &lt;= 200 chars.</summary>
+    public string Summary { get; set; } = "";
+}
+
+/// <summary>One meal in the draft: its meal slot + its food items.</summary>
+public sealed class MealDraft
+{
+    /// <summary>"breakfast" | "lunch" | "dinner" | "snack".</summary>
+    public string Meal { get; set; } = "snack";
+    /// <summary>Food items, capped at 25 per meal (and 50 total across the day).</summary>
+    public List<DraftFood> Items { get; set; } = new();
+}
+
+/// <summary>
+/// One drafted food. Numbers are model output CLAMPED to sane ranges (calories 0..5000, macros 0..500 g).
+/// Note the SINGULAR <see cref="CarbG"/> (tracker convention) so the draft maps 1:1 onto a FoodEntry at
+/// commit with no rename.
+/// </summary>
+public sealed class DraftFood
+{
+    public string Description { get; set; } = "";
+    /// <summary>The resolved free-text portion ("2 eggs", "1 cup"); display only, &lt;= 128 chars.</summary>
+    public string? Quantity { get; set; }
+    public string? Brand { get; set; }
+    public int Calories { get; set; }
+    public double ProteinG { get; set; }
+    public double CarbG { get; set; }
+    public double FatG { get; set; }
+    /// <summary>Model confidence in [0,1]; the UI derives "estimated"/"guess" chips from it.</summary>
+    public double Confidence { get; set; }
+    /// <summary>True when any number was capped down from the raw model output.</summary>
+    public bool Clamped { get; set; }
+}
+
+/// <summary>One drafted exercise. Numbers CLAMPED (calories 0..5000, duration 1..1440 min).</summary>
+public sealed class DraftExercise
+{
+    public string Name { get; set; } = "";
+    public int? DurationMin { get; set; }
+    public int CaloriesBurned { get; set; }
+    public double Confidence { get; set; }
+    public bool Clamped { get; set; }
+}
+
+/// <summary>One drafted drink; <see cref="Ml"/> CLAMPED to 1..5000.</summary>
+public sealed class DraftDrink
+{
+    public string? Label { get; set; }
+    public int Ml { get; set; }
+}
+
+/// <summary>The drafted body-weight reading; CLAMPED to 1..1000 kg, rounded to 2dp.</summary>
+public sealed class DraftWeight
+{
+    public double WeightKg { get; set; }
+    /// <summary>"morning" | "afternoon" | "evening" | "unspecified".</summary>
+    public string Slot { get; set; } = "unspecified";
+}
+
+/// <summary>The drafted watch activity. Distance is METRES (the model emits distance_km, ×1000 here).</summary>
+public sealed class DraftActivity
+{
+    public int? Steps { get; set; }
+    public int? DistanceMeters { get; set; }
+    public int? ActiveCalories { get; set; }
+    /// <summary>"add" | "override".</summary>
+    public string CalorieMode { get; set; } = "add";
+}
+
+/// <summary>Ask for an AI end-of-day recap of the LOGGED day (read server-side). Body carries only a date.</summary>
+public sealed class DaySummaryRequest
+{
+    /// <summary>"yyyy-MM-dd"; falls back to today (display timezone) when absent/invalid.</summary>
+    public string? Date { get; set; }
+}
+
+/// <summary>A celebratory end-of-day recap of the LOGGED day; all strings are length-capped.</summary>
+public sealed class DaySummaryResponse
+{
+    /// <summary>A celebratory one-liner; &lt;= 200 chars.</summary>
+    public string Headline { get; set; } = "";
+    /// <summary>Up to 4 highlights, each &lt;= 200 chars.</summary>
+    public List<string> Highlights { get; set; } = new();
+    /// <summary>An optional forward nudge for tomorrow; null when none.</summary>
+    public string? Tomorrow { get; set; }
+}

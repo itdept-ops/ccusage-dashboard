@@ -2,7 +2,7 @@ import { HttpClient, HttpHeaders, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import {
-  AccessPolicy, AddExerciseRequest, AddFoodRequest, AddHydrationRequest, AuditEntry, CacheEfficiency, CalendarDay, CalendarEvent, CalendarEventInput, CalendarMemberBusy, CalendarStatus, ChatChannelDto, ChatContactDto, ChatMessageDto, CreateChannelRequest,
+  AccessPolicy, AddExerciseRequest, AddFoodRequest, AddHydrationRequest, AuditEntry, BuildDayRequest, BuildDayResponse, CacheEfficiency, CalendarDay, CalendarEvent, CalendarEventInput, CalendarMemberBusy, CalendarStatus, ChatChannelDto, ChatContactDto, ChatMessageDto, CommitDayRequest, CommitDayResponse, CreateChannelRequest, DaySummaryRequest, DaySummaryResponse,
   CreateShareRequest, CustomExerciseDto, CustomFoodDto, DailyCoachResponse, EstimateExerciseRequest, EstimateExerciseResponse, EstimateMacrosRequest, EstimateMacrosResponse, ExerciseEntryDto, ExerciseLibraryDto, Fleet, FleetDeleteRequest,
   FamilyChore, FamilyChoreRecurrence, FamilyChores, FamilyList, FamilyListKind, FamilyMeal, FamilyMealDay, FamilyMealSlot, FamilyNote, FamilyPoll, FamilyPollCreate, FamilyRecurrence, FamilyReminder, FamilySettings, FamilySettingsUpdate, FamilyTimer, FamilyToday, FindTimeRequest, FindTimeResult, QuickAddKind, QuickAddRequest, QuickAddResult, FinanceAccount, FinanceAccountPatch, FinanceAccountSummary, FinanceImportBatch, FinanceImportResult, FinanceSummary, FinanceTransactionsPage, FinanceTxnKind, FinanceOwner, FleetDeleteResult, FleetReassignRequest, FleetReassignResult, FleetRevokeKeysRequest, FleetRevokeKeysResult, FoodEntryDto, FoodSearchItemDto, GroupBy, Household, HouseholdCandidate,
   HeatmapCell, HydrationEntryDto, HydrationSuggestResponse, ImageRequest, IngestionSource, IngestKey, IngestKeyCreated, LogWeightRequest, LoginEvent, MachineStat, ManagedUser, MealFeedbackRequest, MealFeedbackResponse, ModelStat, NaturalGoalRequest, NaturalGoalResponse, NotificationDto, NotificationPreferenceDto, NotificationSettings,
@@ -658,6 +658,29 @@ export class Api {
   /** Turn a free-text goal ("lose 10 lbs in 3 months") into a structured plan. */
   naturalGoal(body: NaturalGoalRequest): Observable<NaturalGoalResponse> {
     return this.http.post<NaturalGoalResponse>(`${this.base}/ai/natural-goal`, body);
+  }
+
+  /**
+   * AI Day Builder: reconstruct a COMPLETE day (meals+foods, exercises, hydration, weight, activity) from a
+   * free-text brain-dump (+ optional meal photos) into a reviewable, fully-clamped draft. Multi-turn: pass
+   * `priorDraft` + `answers` to refine. NOTHING is logged — the whole-day write happens via {@link bulkCommitDay}.
+   */
+  buildDay(body: BuildDayRequest): Observable<BuildDayResponse> {
+    return this.http.post<BuildDayResponse>(`${this.base}/ai/build-day`, body);
+  }
+
+  /** AI end-of-day recap of the CALLER's own LOGGED day (read server-side; cached ~6h). Body carries only a date. */
+  daySummary(body: DaySummaryRequest): Observable<DaySummaryResponse> {
+    return this.http.post<DaySummaryResponse>(`${this.base}/ai/day-summary`, body);
+  }
+
+  /**
+   * Atomically + idempotently log the user-EDITED day draft (POST /api/tracker/day/commit; OWN tracker only,
+   * no Gemini). Send the server-issued `buildId` from {@link buildDay}; a re-submit of the same id is a no-op
+   * that returns `alreadyCommitted`. Returns the per-kind counts + the rebuilt authoritative day.
+   */
+  bulkCommitDay(body: CommitDayRequest): Observable<CommitDayResponse> {
+    return this.http.post<CommitDayResponse>(`${this.base}/tracker/day/commit`, body);
   }
 
   /** Log a drink toward the day's hydration goal (OWN tracker only; amountMl 1..5000). Returns the created entry. */

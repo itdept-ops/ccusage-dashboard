@@ -239,6 +239,135 @@ public static class AiEndpoints
             var result = await gemini.ParseHydrationAsync(body?.Text, ct);
             return result is null ? Unavailable() : Results.Ok(result);
         });
+
+        // ============================ AI Day Builder ============================
+
+        // ---- Reconstruct a COMPLETE day from a brain-dump + optional photos; multi-turn refine ----
+        // Runs under the tighter ai-photo (5/min) cap whether or not images are attached (it's the most
+        // token-heavy multi-item call). NOTHING is persisted; the whole-day write is the separate /commit.
+        g.MapPost("/build-day", async (
+            BuildDayRequest body, CurrentUserAccessor me, GeminiService gemini, UsageDbContext db,
+            CancellationToken ct) =>
+        {
+            // Structural abuse caps (400 before any upstream work).
+            var images = body?.Images ?? new List<ImageRequest>();
+            var answers = body?.Answers ?? new List<ClarifyAnswer>();
+            if (images.Count > 4)
+                return Results.BadRequest(new { message = "At most 4 photos." });
+            if (answers.Count > 20)
+                return Results.BadRequest(new { message = "Too many answers." });
+
+            // Validate EACH image first (mime/size/base64) so a bad upload is a clear 400 regardless of config.
+            var validImages = new List<(string base64, string mime)>();
+            foreach (var img in images)
+            {
+                if (!TryValidateImage(img, out var b64, out var mime, out var bad)) return bad;
+                validImages.Add((b64, mime));
+            }
+
+            var hasText = !string.IsNullOrWhiteSpace(body?.Text);
+            if (!hasText && validImages.Count == 0 && body?.PriorDraft is null)
+                return Results.BadRequest(new { message = "Describe your day or attach a photo." });
+
+            if (!gemini.IsConfigured) return Unconfigured();
+
+            // The caller's OWN body weight (read server-side) sharpens exercise calorie estimates.
+            var caller = (await me.GetUserAsync(ct))!;
+            var weight = await db.TrackerProfiles.AsNoTracking()
+                .Where(p => p.UserEmail == caller.Email)
+                .Select(p => p.WeightKg)
+                .FirstOrDefaultAsync(ct);
+
+            var result = await gemini.BuildDayAsync(
+                body?.Text, body?.Date, body?.LocalTimeOfDay, validImages,
+                body?.PriorDraft, answers, weight, ct);
+            if (result is null) return Unavailable();
+
+            var priorRound = body?.PriorDraft is not null;
+            return Results.Ok(new BuildDayResponse
+            {
+                BuildId = Guid.NewGuid().ToString("N"),
+                Draft = result.Draft,
+                Questions = result.Questions,
+                Round = priorRound ? 2 : 1,
+                Notes = null,
+            });
+        }).RequireRateLimiting(PhotoRateLimitPolicy);
+
+        // ---- A celebratory end-of-day recap of the caller's LOGGED day (read server-side, cached 6h) ----
+        g.MapPost("/day-summary", async (
+            DaySummaryRequest body, CurrentUserAccessor me, GeminiService gemini, UsageDbContext db,
+            CancellationToken ct) =>
+        {
+            if (!gemini.IsConfigured) return Unconfigured();
+            var caller = (await me.GetUserAsync(ct))!;
+            var localDate = await ResolveDateAsync(db, body?.Date, ct);
+            var (summary, anythingLogged) = await BuildLoggedDaySummaryAsync(db, caller.Email, localDate, ct);
+
+            // Empty-day rule: don't call Gemini (and don't 503) — return a friendly empty state.
+            if (!anythingLogged)
+                return Results.Ok(new DaySummaryResponse
+                {
+                    Headline = "Nothing logged yet today.",
+                    Highlights = new List<string>(),
+                    Tomorrow = null,
+                });
+
+            var result = await gemini.DaySummaryAsync(caller.Email, localDate.ToString("yyyy-MM-dd"), summary, ct);
+            return result is null ? Unavailable() : Results.Ok(result);
+        });
+    }
+
+    /// <summary>Parse the client's yyyy-MM-dd date, or fall back to "today" in the display timezone.</summary>
+    private static async Task<DateOnly> ResolveDateAsync(UsageDbContext db, string? date, CancellationToken ct)
+    {
+        if (DateOnly.TryParseExact((date ?? "").Trim(), "yyyy-MM-dd",
+                CultureInfo.InvariantCulture, DateTimeStyles.None, out var parsed))
+            return parsed;
+        return await TodayAsync(db, ct);
+    }
+
+    /// <summary>
+    /// A richer, model-friendly summary of the caller's LOGGED day for the end-of-day recap: the goal /
+    /// calorie / macro / foods / exercises summary, PLUS the hydration total, latest weight, and watch
+    /// steps/distance/active-calories. Returns the summary text and whether ANYTHING was logged at all
+    /// (so the handler can short-circuit an empty day without calling Gemini).
+    /// </summary>
+    private static async Task<(string summary, bool anythingLogged)> BuildLoggedDaySummaryAsync(
+        UsageDbContext db, string email, DateOnly date, CancellationToken ct)
+    {
+        var baseSummary = await BuildDaySummaryAsync(db, email, date, ct);
+
+        var foodCount = await db.FoodEntries.AsNoTracking()
+            .CountAsync(f => f.UserEmail == email && f.LocalDate == date, ct);
+        var exerciseCount = await db.ExerciseEntries.AsNoTracking()
+            .CountAsync(x => x.UserEmail == email && x.LocalDate == date, ct);
+        var hydrationMl = await db.HydrationEntries.AsNoTracking()
+            .Where(h => h.UserEmail == email && h.LocalDate == date)
+            .SumAsync(h => (int?)h.AmountMl, ct) ?? 0;
+        var latestWeight = await db.WeightEntries.AsNoTracking()
+            .Where(w => w.UserEmail == email && w.LocalDate == date)
+            .OrderByDescending(w => w.Slot).ThenByDescending(w => w.Id)
+            .Select(w => (double?)w.WeightKg)
+            .FirstOrDefaultAsync(ct);
+        var activity = await db.DailyActivities.AsNoTracking()
+            .FirstOrDefaultAsync(a => a.UserEmail == email && a.LocalDate == date, ct);
+
+        var sb = new System.Text.StringBuilder(baseSummary);
+        sb.Append("hydration_ml: ").Append(hydrationMl).Append('\n');
+        if (latestWeight is { } lw) sb.Append("weight_kg: ").Append(lw).Append('\n');
+        if (activity is not null)
+        {
+            if (activity.Steps is { } st) sb.Append("steps: ").Append(st).Append('\n');
+            if (activity.DistanceMeters is { } dm) sb.Append("distance_m: ").Append(dm).Append('\n');
+            if (activity.ActiveCalories is { } ac) sb.Append("active_calories: ").Append(ac).Append('\n');
+        }
+
+        var anythingLogged = foodCount > 0 || exerciseCount > 0 || hydrationMl > 0
+            || latestWeight is not null
+            || (activity is not null && (activity.Steps is not null || activity.DistanceMeters is not null
+                || activity.ActiveCalories is not null));
+        return (sb.ToString(), anythingLogged);
     }
 
     // ===================================================================================

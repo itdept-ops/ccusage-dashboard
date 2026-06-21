@@ -1393,4 +1393,165 @@ public class TrackerIntegrationTests(WebAppFactory factory)
         aliceAfter.GetProperty("activity").GetProperty("steps").GetInt32().Should().Be(9400); // unchanged
         aliceAfter.GetProperty("caloriesOut").GetInt32().Should().Be(600);                    // unchanged
     }
+
+    // ===================================================================================
+    // AI Day Builder commit (POST /api/tracker/day/commit) — atomic, idempotent, gated tracker.self
+    // ===================================================================================
+
+    /// <summary>A full draft with every domain, for the commit tests.</summary>
+    private static object FullDraft() => new
+    {
+        meals = new[]
+        {
+            new
+            {
+                meal = "breakfast",
+                items = new[]
+                {
+                    new { description = "Eggs", quantity = "2 eggs", calories = 200, proteinG = 12.0, carbG = 2.0, fatG = 14.0, confidence = 0.9, clamped = false },
+                },
+            },
+            new
+            {
+                meal = "lunch",
+                items = new[]
+                {
+                    new { description = "Chicken & rice", quantity = "1 plate", calories = 600, proteinG = 45.0, carbG = 60.0, fatG = 12.0, confidence = 0.7, clamped = false },
+                },
+            },
+        },
+        exercises = new[]
+        {
+            new { name = "Run", durationMin = 30, caloriesBurned = 300, confidence = 0.8, clamped = false },
+        },
+        hydration = new[]
+        {
+            new { label = "Water", ml = 500 },
+            new { label = "Coffee", ml = 240 },
+        },
+        weight = new { weightKg = 80.5, slot = "morning" },
+        activity = new { steps = 9000, distanceMeters = 6000, activeCalories = 400, calorieMode = "add" },
+        assumptions = new[] { "Assumed 2 eggs" },
+        summary = "A balanced day.",
+    };
+
+    [Fact]
+    public async Task Commit_endpoint_requires_authentication_and_tracker_self()
+    {
+        var anon = factory.CreateClient();
+        (await anon.PostAsJsonAsync("/api/tracker/day/commit", new { buildId = "x", date = Today, draft = new { } }))
+            .StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+
+        var (_, noTracker) = await ProvisionUser("dashboard.view");
+        (await noTracker.PostAsJsonAsync("/api/tracker/day/commit", new { buildId = "x", date = Today, draft = new { } }))
+            .StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
+
+    [Fact]
+    public async Task Commit_requires_a_buildId_and_a_valid_date()
+    {
+        var (_, user) = await ProvisionUser("tracker.self");
+        (await user.PostAsJsonAsync("/api/tracker/day/commit", new { buildId = "", date = Today, draft = new { } }))
+            .StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        (await user.PostAsJsonAsync("/api/tracker/day/commit", new { buildId = "b1", date = "nope", draft = new { } }))
+            .StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task Commit_logs_every_domain_in_one_pass_and_shows_on_the_day()
+    {
+        var (_, user) = await ProvisionUser("tracker.self");
+        await user.PutAsJsonAsync("/api/tracker/profile", new
+        {
+            goal = "Maintain", weightKg = 70.0, dailyCalorieGoal = 2000, shareWithContacts = false,
+        });
+
+        var buildId = Guid.NewGuid().ToString("N");
+        var res = await user.PostAsJsonAsync("/api/tracker/day/commit", new { buildId, date = Today, draft = FullDraft() });
+        res.StatusCode.Should().Be(HttpStatusCode.OK);
+        var body = await Json(res);
+        body.GetProperty("alreadyCommitted").GetBoolean().Should().BeFalse();
+        var logged = body.GetProperty("logged");
+        logged.GetProperty("foods").GetInt32().Should().Be(2);
+        logged.GetProperty("exercises").GetInt32().Should().Be(1);
+        logged.GetProperty("drinks").GetInt32().Should().Be(2);
+        logged.GetProperty("weight").GetBoolean().Should().BeTrue();
+        logged.GetProperty("activity").GetBoolean().Should().BeTrue();
+
+        // The returned day reflects the writes.
+        var day = body.GetProperty("day");
+        day.GetProperty("caloriesIn").GetInt32().Should().Be(800);
+        day.GetProperty("caloriesOut").GetInt32().Should().Be(700); // 300 exercise + 400 active (add)
+        day.GetProperty("hydrationMl").GetInt32().Should().Be(740);
+        day.GetProperty("foods").EnumerateArray().Should().HaveCount(2);
+        day.GetProperty("activity").GetProperty("steps").GetInt32().Should().Be(9000);
+
+        // Re-reading the day independently shows the same data.
+        var reread = await Json(await user.GetAsync($"/api/tracker/day?date={Today}"));
+        reread.GetProperty("foods").EnumerateArray().Should().HaveCount(2);
+        reread.GetProperty("hydration").EnumerateArray().Should().HaveCount(2);
+    }
+
+    [Fact]
+    public async Task Commit_is_idempotent_on_the_same_buildId()
+    {
+        var (_, user) = await ProvisionUser("tracker.self");
+        var buildId = Guid.NewGuid().ToString("N");
+
+        var first = await user.PostAsJsonAsync("/api/tracker/day/commit", new { buildId, date = Today, draft = FullDraft() });
+        first.StatusCode.Should().Be(HttpStatusCode.OK);
+        (await Json(first)).GetProperty("alreadyCommitted").GetBoolean().Should().BeFalse();
+
+        // A repeat with the SAME buildId writes nothing and reports alreadyCommitted.
+        var second = await user.PostAsJsonAsync("/api/tracker/day/commit", new { buildId, date = Today, draft = FullDraft() });
+        second.StatusCode.Should().Be(HttpStatusCode.OK);
+        (await Json(second)).GetProperty("alreadyCommitted").GetBoolean().Should().BeTrue();
+
+        // Still only ONE pass of foods on the day (no double-log).
+        var day = await Json(await user.GetAsync($"/api/tracker/day?date={Today}"));
+        day.GetProperty("foods").EnumerateArray().Should().HaveCount(2);
+    }
+
+    [Fact]
+    public async Task Commit_clamps_absurd_numbers_and_drops_blank_descriptions()
+    {
+        var (_, user) = await ProvisionUser("tracker.self");
+        var buildId = Guid.NewGuid().ToString("N");
+
+        var draft = new
+        {
+            meals = new[]
+            {
+                new
+                {
+                    meal = "dinner",
+                    items = new[]
+                    {
+                        // Absurd calories/macros: clamped to 5000 cal / 500 g.
+                        new { description = "Monster plate", quantity = "huge", calories = 999999, proteinG = 9999.0, carbG = 9999.0, fatG = 9999.0, confidence = 1.0, clamped = true },
+                        // Blank description: dropped entirely.
+                        new { description = "   ", quantity = "x", calories = 100, proteinG = 1.0, carbG = 1.0, fatG = 1.0, confidence = 1.0, clamped = false },
+                    },
+                },
+            },
+            exercises = Array.Empty<object>(),
+            hydration = new[] { new { label = "X", ml = 999999 } }, // out of 1..5000 -> dropped
+            weight = new { weightKg = 5000.0, slot = "morning" },    // out of 1..1000 -> dropped
+            activity = (object?)null,
+            assumptions = Array.Empty<string>(),
+            summary = "",
+        };
+
+        var res = await user.PostAsJsonAsync("/api/tracker/day/commit", new { buildId, date = Today, draft });
+        res.StatusCode.Should().Be(HttpStatusCode.OK);
+        var logged = (await Json(res)).GetProperty("logged");
+        logged.GetProperty("foods").GetInt32().Should().Be(1);   // the blank one was dropped
+        logged.GetProperty("drinks").GetInt32().Should().Be(0);  // the 999999 ml drink was dropped
+        logged.GetProperty("weight").GetBoolean().Should().BeFalse(); // out-of-range weight dropped
+
+        var day = await Json(await user.GetAsync($"/api/tracker/day?date={Today}"));
+        day.GetProperty("caloriesIn").GetInt32().Should().Be(5000);            // calories clamped
+        var food = day.GetProperty("foods").EnumerateArray().Single();
+        food.GetProperty("proteinG").GetDouble().Should().Be(500.0);           // macros clamped
+    }
 }

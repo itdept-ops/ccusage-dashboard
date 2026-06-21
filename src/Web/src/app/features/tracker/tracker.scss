@@ -36,13 +36,65 @@
 }
 
 .tracker__viewbtn,
-.tracker__goalbtn {
+.tracker__goalbtn,
+.tracker__buildbtn {
   min-height: 44px;
   border-radius: var(--tech-r-control);
   font-weight: 600;
   mat-icon { font-size: 18px; width: 18px; height: 18px; }
 }
+.tracker__buildbtn mat-icon { color: var(--tech-accent); }
 .tracker__caret { margin-left: -2px; }
+
+/* ── AI Day Builder hero card ── */
+.tracker__daybuilder {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--tech-space-3);
+  padding: var(--tech-space-3) var(--tech-space-4);
+  border: 1px solid var(--tech-border);
+  border-radius: var(--tech-radius);
+  background: color-mix(in srgb, var(--tech-accent) 7%, var(--tech-bg-sunken));
+  box-shadow: var(--tech-shadow-panel);
+}
+.tracker__daybuilder-glyph {
+  flex: 0 0 auto;
+  color: var(--tech-accent);
+  font-size: 30px; width: 30px; height: 30px;
+  margin-top: 2px;
+}
+.tracker__daybuilder-copy { flex: 1 1 auto; min-width: 0; }
+.tracker__daybuilder-title {
+  margin: 0;
+  font-family: var(--tech-font-ui);
+  font-weight: 700;
+  font-size: var(--tech-fs-panel-hd);
+  color: var(--tech-text);
+}
+.tracker__daybuilder-sub {
+  margin: 4px 0 0;
+  font-size: var(--tech-fs-body);
+  color: var(--tech-text-secondary);
+}
+.tracker__daybuilder-actions {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: var(--tech-space-2);
+  button[mat-flat-button] {
+    min-height: 44px;
+    border-radius: var(--tech-r-control);
+    font-weight: 600;
+    white-space: nowrap;
+    mat-icon { font-size: 18px; width: 18px; height: 18px; }
+  }
+}
+.tracker__daybuilder-dismiss { color: var(--tech-text-tertiary); }
+
+@media (max-width: 600px) {
+  .tracker__daybuilder { flex-wrap: wrap; }
+  .tracker__daybuilder-actions { width: 100%; justify-content: space-between; }
+}
 
 /* ── Read-only banner ── */
 .tracker__readonly {
@@ -681,8 +733,13 @@
 /* ── Daily coach + weekly review: two side-by-side panels ── */
 .tracker__ai-row {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(3, 1fr);
   gap: var(--tech-space-4);
+}
+
+/* The day-summary panel reads as a celebratory recap, distinct from the editable builder. */
+.tracker__ai-panel--summary {
+  background: color-mix(in srgb, var(--tech-accent-cyan) 6%, var(--tech-panel));
 }
 
 .tracker__ai-panel {
@@ -850,6 +907,9 @@
 .tracker__ai-btn mat-progress-spinner,
 .tracker__ai-refresh mat-progress-spinner { display: inline-block; }
 
+@media (max-width: 1024px) and (min-width: 721px) {
+  .tracker__ai-row { grid-template-columns: 1fr 1fr; }
+}
 @media (max-width: 720px) {
   .tracker__ai-row { grid-template-columns: 1fr; }
 }

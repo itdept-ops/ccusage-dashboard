@@ -16,9 +16,10 @@ import { Api } from '../../core/api';
 import { AuthService } from '../../core/auth';
 import { TrackerStore } from '../../core/tracker-store';
 import {
-  ActivityCalorieMode, AddExerciseRequest, AddFoodRequest, AddHydrationRequest, DailyCoachResponse, ExerciseEntryDto, FoodEntryDto,
-  FoodSuggestionDto, HydrationEntryDto, LogWeightRequest, Meal, PERM, SharedUserDto, TrackerProfileDto, UpsertActivityRequest,
-  WeeklyReviewResponse, WeightPointDto, WeightStatsDto,
+  ActivityCalorieMode, AddExerciseRequest, AddFoodRequest, AddHydrationRequest, CommitDayResponse, DailyCoachResponse,
+  DaySummaryResponse, ExerciseEntryDto, FoodEntryDto,
+  FoodSuggestionDto, HydrationEntryDto, LogWeightRequest, Meal, PERM, SharedUserDto, TrackerDayDto, TrackerProfileDto,
+  UpsertActivityRequest, WeeklyReviewResponse, WeightPointDto, WeightStatsDto,
 } from '../../core/models';
 import { CalorieRing } from './calorie-ring';
 import { HydrationRing } from './hydration-ring';
@@ -30,9 +31,13 @@ import { AddActivityDialog, AddActivityData } from './add-activity-dialog';
 import { ProfileDialog, ProfileData } from './profile-dialog';
 import { LogWeightDialog, LogWeightData } from './log-weight-dialog';
 import { OnboardingCard, OnboardingResult } from './onboarding-card';
+import { AiDayBuilderDialog, AiDayBuilderData, AiDayBuilderResult } from './ai-day-builder-dialog';
 import { WeightTrend } from './weight-trend';
 import { WeightStats } from './weight-stats';
 import { formatDistance, formatVolume, formatWeight, kgToLb } from './units';
+
+/** localStorage key gating the dismissable "Build my day" hero hint (per the photo-notice pattern). */
+const DAYBUILDER_HINT_KEY = 'usage_iq_daybuilder_hint';
 
 /** UI default daily step goal when the profile hasn't set one. */
 const DEFAULT_STEP_GOAL = 10_000;
@@ -113,6 +118,18 @@ export class Tracker {
   readonly suggestions = signal<FoodSuggestionDto[] | null>(null);
   readonly suggestUnavailable = signal(false);
   readonly suggestAnnounce = signal('');
+
+  // AI Day Builder hero hint dismissal (per-day localStorage flag, like the photo notice).
+  readonly dayBuilderHintDismissed = signal(this.readHintDismissed());
+
+  /** True while a day-builder commit is in flight (guards a double open / double commit). */
+  readonly buildingDay = signal(false);
+
+  // Day-summary card (POST day-summary; lazy, on-demand; read-only narration of the LOGGED day).
+  readonly daySummaryLoading = signal(false);
+  readonly daySummary = signal<DaySummaryResponse | null>(null);
+  readonly daySummaryUnavailable = signal(false);
+  readonly daySummaryAnnounce = signal('');
 
   /** Screen-reader-only live status: announces day reloads and entry deletions. */
   readonly statusMsg = signal('');
@@ -693,6 +710,185 @@ export class Tracker {
           .then(() => this.snack.open(`Added ${reqs.length === 1 ? reqs[0].description : reqs.length + ' foods'}`, 'OK', { duration: 2500 }))
           .catch(() => this.snack.open('Could not add food', 'Dismiss', { duration: 4000 }));
       });
+  }
+
+  // ---- AI Day Builder (describe the whole day → reviewable draft → atomic commit) ----
+
+  /** Whether the dismissable hero hint should show (gated + own tracker + not dismissed for the day). */
+  readonly showDayBuilderHint = computed(() => this.aiEnabled() && !this.dayBuilderHintDismissed());
+
+  /** Read the per-day hint-dismissed flag from localStorage (value is today's ISO date when dismissed). */
+  private readHintDismissed(): boolean {
+    try {
+      return localStorage.getItem(DAYBUILDER_HINT_KEY) === this.todayIso();
+    } catch {
+      return false;
+    }
+  }
+
+  private todayIso(): string {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  }
+
+  /** Dismiss the hero hint for the rest of today (stamps today's date in localStorage). */
+  dismissDayBuilderHint(): void {
+    this.dayBuilderHintDismissed.set(true);
+    try { localStorage.setItem(DAYBUILDER_HINT_KEY, this.todayIso()); } catch { /* non-fatal */ }
+  }
+
+  /**
+   * A compact one-line-per-entry brief of the already-logged day, so the builder can fill gaps and the
+   * review can warn "Lunch already logged". Empty string when nothing is logged. Never includes another
+   * user's data (own tracker only — the builder is hidden in read-only views).
+   */
+  private existingDayBrief(): string | undefined {
+    const day = this.store.day();
+    if (!day) return undefined;
+    const parts: string[] = [];
+    for (const f of day.foods) parts.push(`${f.meal}: ${f.description}`);
+    for (const e of day.exercises) parts.push(`exercise: ${e.name}`);
+    if (day.hydration.length) parts.push(`hydration: ${day.hydration.length} drinks`);
+    if ((day.activity?.steps ?? 0) > 0) parts.push(`activity: ${day.activity!.steps} steps`);
+    return parts.length ? parts.join('\n') : undefined;
+  }
+
+  /**
+   * Open the AI Day Builder. The dialog resolves with the user-EDITED draft + the server buildId; we then
+   * make ONE atomic, idempotent /commit call. Hidden entirely without tracker.ai / on read-only views.
+   */
+  openDayBuilder(): void {
+    if (!this.aiEnabled() || this.store.readOnly() || this.buildingDay()) return;
+    const p = this.store.profile();
+    const data: AiDayBuilderData = {
+      date: this.store.date(),
+      unitSystem: p?.unitSystem ?? 'Imperial',
+      existingDayBrief: this.existingDayBrief(),
+    };
+    this.dialog.open(AiDayBuilderDialog, { data, width: '720px', maxWidth: '96vw', maxHeight: '92vh', autoFocus: false })
+      .afterClosed().subscribe((res: AiDayBuilderResult) => {
+        if (!res) return;
+        void this.commitBuiltDay(res);
+      });
+  }
+
+  /**
+   * Commit the built day in one atomic call, then reload from the authoritative response. On success a
+   * snackbar reports the counts with an Undo that deletes exactly what was created (diffing entry ids
+   * captured before commit against the rebuilt day). A 503/429/error never half-logs — the commit endpoint
+   * is transactional, so we just surface a failure snackbar.
+   */
+  private async commitBuiltDay(result: NonNullable<AiDayBuilderResult>): Promise<void> {
+    if (this.buildingDay()) return;
+    this.buildingDay.set(true);
+
+    // Snapshot the pre-commit entry ids so Undo can target only what this commit created.
+    const before = this.captureEntryIds(this.store.day());
+    try {
+      const commit = await firstValueFrom(this.api.bulkCommitDay({
+        buildId: result.buildId, date: this.store.date(), draft: result.draft,
+      }));
+
+      // Render the authoritative rebuilt day straight from the response (no extra round-trip).
+      this.store.day.set(commit.day);
+
+      if (commit.alreadyCommitted) {
+        this.snack.open('Already logged', 'OK', { duration: 3000 });
+        return;
+      }
+      this.announceCommit(commit, before);
+    } catch {
+      this.snack.open('Could not log your day — nothing was changed', 'Dismiss', { duration: 5000 });
+    } finally {
+      this.buildingDay.set(false);
+    }
+  }
+
+  /** The set of all food/exercise/hydration entry ids on a day (for the Undo diff). */
+  private captureEntryIds(day: TrackerDayDto | null): { foods: Set<number>; exercises: Set<number>; hydration: Set<number> } {
+    return {
+      foods: new Set((day?.foods ?? []).map(f => f.id)),
+      exercises: new Set((day?.exercises ?? []).map(e => e.id)),
+      hydration: new Set((day?.hydration ?? []).map(h => h.id)),
+    };
+  }
+
+  /** Build + show the success snackbar with an Undo action that deletes exactly the new entries. */
+  private announceCommit(commit: CommitDayResponse, before: { foods: Set<number>; exercises: Set<number>; hydration: Set<number> }): void {
+    const c = commit.logged;
+
+    const bits: string[] = [];
+    if (c.foods) bits.push(`${c.foods} food${c.foods === 1 ? '' : 's'}`);
+    if (c.exercises) bits.push(`${c.exercises} workout${c.exercises === 1 ? '' : 's'}`);
+    if (c.drinks) bits.push(`${c.drinks} drink${c.drinks === 1 ? '' : 's'}`);
+    if (c.weight) bits.push('weight');
+    if (c.activity) bits.push('activity');
+
+    const msg = bits.length ? `Logged your day — ${bits.join(', ')}` : 'Logged your day';
+    this.statusMsg.set(msg);
+
+    // Diff the rebuilt day against the pre-commit snapshot to find exactly the new ids to undo.
+    const after = commit.day;
+    const newFoods = after.foods.filter(f => !before.foods.has(f.id)).map(f => f.id);
+    const newExercises = after.exercises.filter(e => !before.exercises.has(e.id)).map(e => e.id);
+    const newDrinks = after.hydration.filter(h => !before.hydration.has(h.id)).map(h => h.id);
+
+    const ref = this.snack.open(msg, 'Undo', { duration: 8000 });
+    const keptMetrics = !!c.weight || !!c.activity;
+    ref.onAction().subscribe(() => void this.undoCommit(newFoods, newExercises, newDrinks, keptMetrics));
+  }
+
+  /**
+   * Undo a committed day: delete exactly the entries this commit created (foods/exercises/drinks). Weight
+   * is an upsert (no clean undo — left in place); activity is left as-is for the same reason. Reloads the
+   * day afterward so the UI reflects the removals. `keptMetrics` is true when the commit also set weight or
+   * activity, so the confirmation can say plainly that those were kept (undo doesn't roll them back).
+   */
+  private async undoCommit(foodIds: number[], exerciseIds: number[], drinkIds: number[], keptMetrics = false): Promise<void> {
+    const calls: Promise<unknown>[] = [
+      ...foodIds.map(id => firstValueFrom(this.api.deleteFood(id)).catch(() => null)),
+      ...exerciseIds.map(id => firstValueFrom(this.api.deleteExercise(id)).catch(() => null)),
+      ...drinkIds.map(id => firstValueFrom(this.api.deleteHydration(id)).catch(() => null)),
+    ];
+    try {
+      await Promise.all(calls);
+      await this.store.load();
+      this.snack.open(keptMetrics ? 'Entries removed — weight & activity were kept' : 'Undone', 'OK', { duration: 3000 });
+    } catch {
+      await this.store.load();
+      this.snack.open('Could not fully undo', 'Dismiss', { duration: 4000 });
+    }
+  }
+
+  // ---- AI Day Summary (end-of-day recap of the LOGGED day; lazy, read-only narration) ----
+
+  /**
+   * Fetch the end-of-day AI summary of the LOGGED day on demand (button). Reads the caller's own day
+   * server-side. An empty day returns a friendly headline (no Gemini call); a 503/429/error flips to the
+   * quiet "unavailable" state. Never blocks the dashboard.
+   */
+  async loadDaySummary(): Promise<void> {
+    if (!this.aiEnabled() || this.daySummaryLoading()) return;
+    this.daySummaryLoading.set(true);
+    this.daySummaryUnavailable.set(false);
+    this.daySummaryAnnounce.set('Summarizing your day…');
+    try {
+      const res = await firstValueFrom(this.api.daySummary({ date: this.store.date() }));
+      this.daySummary.set(res);
+      this.daySummaryAnnounce.set(`${res.headline}` + (res.highlights.length ? ` ${res.highlights.length} highlights.` : ''));
+    } catch {
+      this.daySummary.set(null);
+      this.daySummaryUnavailable.set(true);
+      this.daySummaryAnnounce.set('The day summary is unavailable right now.');
+    } finally {
+      this.daySummaryLoading.set(false);
+    }
+  }
+
+  /** Dismiss the day-summary panel (clears it; the button can re-fetch). */
+  clearDaySummary(): void {
+    this.daySummary.set(null);
+    this.daySummaryUnavailable.set(false);
   }
 
   removeFood(f: FoodEntryDto): void {

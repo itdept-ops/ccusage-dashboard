@@ -1098,6 +1098,178 @@ export interface NaturalGoalResponse {
   rationale?: string | null;
 }
 
+// ---- AI Day Builder (POST /api/ai/build-day, /api/ai/day-summary, /api/tracker/day/commit) ----
+
+/**
+ * One answer to a server-issued clarifying question from the prior build-day round (mirrors ClarifyAnswer).
+ * `questionId` is the id the server assigned that question ("q1", "q2"…); `answer` is the user's reply
+ * (blank = "skip — best-guess"). Sent back on a refine round.
+ */
+export interface ClarifyAnswer {
+  questionId: string;
+  questionText?: string;
+  answer: string;
+}
+
+/**
+ * One AI-drafted food item (mirrors DraftFood). Note the SINGULAR `carbG` (tracker convention) so it maps
+ * 1:1 onto a FoodEntry at commit. `confidence` is 0..1 (the UI derives "estimated"/"guess" chips);
+ * `clamped` is true when any number was capped down from the raw model output. All numbers are clamped
+ * server-side on the way out AND again at commit.
+ */
+export interface DraftFood {
+  description: string;
+  /** The resolved free-text portion ("2 eggs", "1 cup"); display only. */
+  quantity?: string | null;
+  brand?: string | null;
+  calories: number;
+  proteinG: number;
+  carbG: number;
+  fatG: number;
+  confidence: number;
+  clamped: boolean;
+}
+
+/** One meal in the draft (mirrors MealDraft): its meal slot + its food items. */
+export interface MealDraft {
+  meal: Meal;
+  items: DraftFood[];
+}
+
+/** One AI-drafted exercise (mirrors DraftExercise). Numbers clamped server-side. */
+export interface DraftExercise {
+  name: string;
+  durationMin?: number | null;
+  caloriesBurned: number;
+  confidence: number;
+  clamped: boolean;
+}
+
+/** One AI-drafted drink (mirrors DraftDrink). `ml` clamped 1..5000. */
+export interface DraftDrink {
+  label?: string | null;
+  ml: number;
+}
+
+/** The AI-drafted body-weight reading (mirrors DraftWeight). Clamped 1..1000 kg. */
+export interface DraftWeight {
+  weightKg: number;
+  /** "morning" | "afternoon" | "evening" | "unspecified". */
+  slot: string;
+}
+
+/** The AI-drafted watch activity (mirrors DraftActivity). Distance is METRES (model emits km, ×1000). */
+export interface DraftActivity {
+  steps?: number | null;
+  distanceMeters?: number | null;
+  activeCalories?: number | null;
+  /** "add" | "override". */
+  calorieMode: ActivityCalorieMode;
+}
+
+/**
+ * The editable day draft (mirrors DayDraft) — the model's reconstruction of the whole day. Used as both
+ * the build-day response and (echoed back, fully untrusted) the refine input. Every number is re-clamped
+ * server-side on the way out AND again at commit.
+ */
+export interface DayDraft {
+  meals: MealDraft[];
+  exercises: DraftExercise[];
+  hydration: DraftDrink[];
+  weight?: DraftWeight | null;
+  activity?: DraftActivity | null;
+  /** The assumptions the model made (resolved portions, sizes). */
+  assumptions: string[];
+  /** A 1–2 sentence summary of the reconstructed day. */
+  summary: string;
+}
+
+/**
+ * One clarifying question the model asked (mirrors ClarifyQuestion). The id is SERVER-generated (never
+ * model-chosen). `kind` is "text" | "yesno" | "choice"; `choices` is present only for "choice".
+ */
+export interface ClarifyQuestion {
+  questionId: string;
+  text: string;
+  kind: string;
+  choices?: string[] | null;
+}
+
+/**
+ * Build-day request (POST /api/ai/build-day; mirrors BuildDayRequest). `text` is the end-of-day brain-dump;
+ * `date` is echoed for display only; `localTimeOfDay` ("HH:mm") helps resolve "this morning"/"tonight".
+ * `images` are optional meal photos (capped 4). For a refine round, send `priorDraft` + `answers` to the
+ * prior round's questions — refines are TEXT-ONLY (never resend photos). NOTHING is persisted.
+ */
+export interface BuildDayRequest {
+  text?: string;
+  date?: string;
+  localTimeOfDay?: string;
+  images?: ImageRequest[];
+  answers?: ClarifyAnswer[];
+  priorDraft?: DayDraft | null;
+}
+
+/**
+ * Build-day response (mirrors BuildDayResponse): a server-issued idempotency `buildId` (REQUIRED by
+ * commit; a re-run yields a new one), the editable `draft`, any clarifying `questions` (empty => ready to
+ * review), and the refine `round` (1 on first build). `notes` is an optional one-line model note.
+ */
+export interface BuildDayResponse {
+  buildId: string;
+  draft: DayDraft;
+  questions: ClarifyQuestion[];
+  round: number;
+  notes?: string | null;
+}
+
+/** Day-summary request (POST /api/ai/day-summary; mirrors DaySummaryRequest). Body carries only a date. */
+export interface DaySummaryRequest {
+  date?: string;
+}
+
+/**
+ * A celebratory end-of-day recap of the LOGGED day (mirrors DaySummaryResponse; read server-side, cached
+ * ~6h). `headline` is a one-liner; `highlights` are up to 4 bullets; `tomorrow` is an optional forward
+ * nudge. When nothing is logged the server returns a "Nothing logged yet today." headline + empty rest.
+ */
+export interface DaySummaryResponse {
+  headline: string;
+  highlights: string[];
+  tomorrow?: string | null;
+}
+
+/**
+ * Commit-the-whole-day request (POST /api/tracker/day/commit; mirrors CommitDayRequest). Atomic +
+ * idempotent: send the server-issued `buildId` from build-day, the `date` ("yyyy-MM-dd"), and the
+ * user-EDITED `draft` (re-validated + clamped server-side). Nothing is written until this call.
+ */
+export interface CommitDayRequest {
+  buildId: string;
+  date: string;
+  draft: DayDraft;
+}
+
+/** How many of each kind the commit logged (mirrors CommitCounts). `weight`/`activity` are booleans. */
+export interface CommitCounts {
+  foods: number;
+  exercises: number;
+  drinks: number;
+  weight: boolean;
+  activity: boolean;
+}
+
+/**
+ * Commit-the-whole-day response (mirrors CommitDayResponse). `alreadyCommitted` is true when the same
+ * `buildId` was already committed (a double-submit) — nothing was re-written. `logged` is the per-kind
+ * counts; `day` is the rebuilt authoritative day to render.
+ */
+export interface CommitDayResponse {
+  alreadyCommitted: boolean;
+  logged: CommitCounts;
+  day: TrackerDayDto;
+}
+
 /**
  * Log-a-drink payload (POST /api/tracker/hydration). `amountMl` is always metric ml (1..5000); the UI
  * converts from the user's display units before sending. `label` is an optional drink name (<=64 chars).
