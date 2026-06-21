@@ -69,8 +69,16 @@
           <mat-icon>chevron_right</mat-icon>
         </button>
         <span class="cal-toolbar__range">{{ rangeLabel() }}</span>
-        @if (loadingEvents()) {
-          <mat-spinner class="cal-toolbar__spin" [diameter]="16" />
+        <button mat-icon-button class="cal-toolbar__refresh" aria-label="Refresh events"
+                matTooltip="Refresh" [disabled]="loadingEvents()" (click)="refresh()">
+          @if (loadingEvents()) {
+            <mat-spinner [diameter]="18" />
+          } @else {
+            <mat-icon>refresh</mat-icon>
+          }
+        </button>
+        @if (updatedLabel(); as upd) {
+          <span class="cal-toolbar__updated" aria-live="polite">{{ upd }}</span>
         }
       </div>
 
@@ -97,6 +105,81 @@
       </div>
     </div>
 
+    <!-- Schedule with AI -->
+    <section class="cal-ai" aria-label="Schedule with AI">
+      <div class="cal-ai__bar">
+        <mat-icon class="cal-ai__spark" aria-hidden="true">auto_awesome</mat-icon>
+        <mat-form-field appearance="outline" class="cal-ai__field" subscriptSizing="dynamic">
+          <mat-label>Schedule with AI</mat-label>
+          <input matInput [ngModel]="aiText()" (ngModelChange)="aiText.set($event)"
+                 (keydown.enter)="scheduleWithAi()" maxlength="600"
+                 placeholder="e.g. soccer every Tuesday at 4pm" [disabled]="aiBusy()" />
+          @if (aiText()) {
+            <button mat-icon-button matSuffix aria-label="Clear" (click)="clearAi()" [disabled]="aiBusy()">
+              <mat-icon>close</mat-icon>
+            </button>
+          }
+        </mat-form-field>
+        <button mat-flat-button color="primary" class="cal-ai__go"
+                [disabled]="aiBusy() || !aiText().trim()" (click)="scheduleWithAi()">
+          @if (aiBusy()) {
+            <mat-spinner [diameter]="18" />
+            <span>Thinking…</span>
+          } @else {
+            <span>Suggest</span>
+          }
+        </button>
+      </div>
+
+      @if (aiStatus(); as msg) {
+        <p class="cal-ai__status" aria-live="polite">{{ msg }}</p>
+      }
+
+      @if (proposals().length) {
+        <ul class="cal-ai__cards">
+          @for (p of proposals(); track $index) {
+            <li class="cal-ai-card">
+              <div class="cal-ai-card__main">
+                <span class="cal-ai-card__title">{{ p.ai.title }}</span>
+                <span class="cal-ai-card__when">
+                  <mat-icon aria-hidden="true">schedule</mat-icon>{{ p.whenLabel }}
+                </span>
+                <div class="cal-ai-card__meta">
+                  @if (p.repeatLabel) {
+                    <span class="cal-ai-card__chip">
+                      <mat-icon aria-hidden="true">repeat</mat-icon>{{ p.repeatLabel }}
+                    </span>
+                  }
+                  @if (p.ai.location) {
+                    <span class="cal-ai-card__chip cal-ai-card__chip--loc">
+                      <mat-icon aria-hidden="true">place</mat-icon>{{ p.ai.location }}
+                    </span>
+                  }
+                </div>
+              </div>
+              <div class="cal-ai-card__actions">
+                <button mat-button type="button" (click)="editProposal(p)" [disabled]="p.saving">
+                  <mat-icon aria-hidden="true">edit</mat-icon> Edit
+                </button>
+                <button mat-button type="button" (click)="dismissProposal(p)" [disabled]="p.saving">
+                  Dismiss
+                </button>
+                <button mat-flat-button color="primary" type="button" (click)="addProposal(p)"
+                        [disabled]="p.saving">
+                  @if (p.saving) {
+                    <mat-spinner [diameter]="16" />
+                  } @else {
+                    <mat-icon aria-hidden="true">add</mat-icon>
+                  }
+                  Add to calendar
+                </button>
+              </div>
+            </li>
+          }
+        </ul>
+      }
+    </section>
+
     @if (eventsError()) {
       <div class="family__error">
         <mat-icon aria-hidden="true">error_outline</mat-icon>
@@ -118,7 +201,12 @@
               @for (de of col.events; track de.ev.id) {
                 <button class="cal-event" type="button" (click)="edit(de.ev)"
                         [class.cal-event--allday]="de.ev.allDay" [matTooltip]="de.ev.title">
-                  <span class="cal-event__time">{{ de.timeLabel }}</span>
+                  <span class="cal-event__time">
+                    {{ de.timeLabel }}
+                    @if (de.ev.isRecurring) {
+                      <mat-icon class="cal-event__repeat" aria-label="Repeats" matTooltip="Repeats">repeat</mat-icon>
+                    }
+                  </span>
                   <span class="cal-event__title">{{ de.ev.title }}</span>
                 </button>
               }
@@ -145,7 +233,12 @@
                     <button class="cal-agenda__item" type="button" (click)="edit(de.ev)">
                       <span class="cal-agenda__time">{{ rangeFor(de.ev) }}</span>
                       <span class="cal-agenda__body">
-                        <span class="cal-agenda__title">{{ de.ev.title }}</span>
+                        <span class="cal-agenda__title">
+                          {{ de.ev.title }}
+                          @if (de.ev.isRecurring) {
+                            <mat-icon class="cal-agenda__repeat" aria-label="Repeats" matTooltip="Repeats">repeat</mat-icon>
+                          }
+                        </span>
                         @if (de.ev.location) {
                           <span class="cal-agenda__loc">
                             <mat-icon aria-hidden="true">place</mat-icon>{{ de.ev.location }}

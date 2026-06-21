@@ -25,9 +25,23 @@ public static class FamilyCalendarEndpoints
 {
     // ---- Request DTOs ----
     public sealed record ConnectRequest(string? Code, string? RedirectUri);
+
+    /// <summary>
+    /// A create/update event request. <see cref="Recurrence"/> is optional and one of
+    /// "none"|"daily"|"weekly"|"weekdays"|"monthly" (absent/blank/"none" = a single event, today's
+    /// behaviour). For a recurring event the series is bounded by <see cref="RecurrenceCount"/> (number of
+    /// occurrences) or <see cref="RecurrenceUntilUtc"/> (an end instant); when neither is given the server
+    /// applies a sane default cap so a series is always finite.
+    /// </summary>
     public sealed record EventRequest(
-        string? Title, DateTime StartUtc, DateTime EndUtc, bool AllDay, string? Location, string? Description);
+        string? Title, DateTime StartUtc, DateTime EndUtc, bool AllDay, string? Location, string? Description,
+        string? Recurrence = null, int? RecurrenceCount = null, DateTime? RecurrenceUntilUtc = null);
+
     public sealed record FreeBusyRequest(int[]? MemberUserIds, DateTime StartUtc, DateTime EndUtc);
+
+    /// <summary>The "Schedule with AI" request: the family member's free-text ("dentist next Friday 9am").
+    /// <see cref="ReferenceDateUtc"/> anchors relative dates ("tomorrow"); defaults to the server's now.</summary>
+    public sealed record ScheduleAiRequest(string? Text, DateTime? ReferenceDateUtc);
 
     /// <summary>The find-a-time request: which members, how long, the window, and the optional workday bounds.</summary>
     public sealed record FindTimeRequest(
@@ -38,10 +52,20 @@ public static class FamilyCalendarEndpoints
     public sealed record StatusDto(bool Configured, bool Connected, bool ScopeOk);
     public sealed record ConnectedDto(bool Connected);
 
-    /// <summary>An event on the caller's calendar (mirrors GoogleCalendarService.CalendarEvent).</summary>
+    /// <summary>An event on the caller's calendar (mirrors GoogleCalendarService.CalendarEvent).
+    /// <see cref="IsRecurring"/> flags an event that is part of a recurring series (for a UI badge).</summary>
     public sealed record EventDto(
         string Id, string Title, DateTime? StartUtc, DateTime? EndUtc, bool AllDay,
-        string? Location, string? Description, string? HtmlLink, string? HangoutLink);
+        string? Location, string? Description, string? HtmlLink, string? HangoutLink, bool IsRecurring);
+
+    /// <summary>One AI-proposed event the family member CONFIRMS (then the frontend creates it via POST
+    /// /events). Times are UTC + already clamped; <see cref="Recurrence"/> is the supported vocabulary.</summary>
+    public sealed record ScheduleEventDto(
+        string Title, DateTime StartUtc, DateTime EndUtc, bool AllDay,
+        string? Location, string? Description, string Recurrence);
+
+    /// <summary>The "Schedule with AI" response: 0+ proposed events to confirm + an optional short note.</summary>
+    public sealed record ScheduleAiDto(IReadOnlyList<ScheduleEventDto> Events, string? Notes);
 
     /// <summary>One member's busy blocks for the find-a-time helper (userId + name; NEVER an email).</summary>
     public sealed record MemberBusyDto(int UserId, string Name, IReadOnlyList<BusyBlockDto> Busy);
@@ -123,12 +147,13 @@ public static class FamilyCalendarEndpoints
         g.MapPost("/events", async (
             EventRequest req, CurrentUserAccessor me, GoogleCalendarService cal, CancellationToken ct) =>
         {
-            if (Validate(req) is { } bad) return bad;
+            if (Validate(req, out var recurrence) is { } bad) return bad;
             var caller = (await me.GetUserAsync(ct))!;
 
             var result = await cal.CreateEventAsync(
                 caller.Id, req.Title!.Trim(), req.StartUtc, req.EndUtc, req.AllDay,
-                Trim(req.Location, 1024), Trim(req.Description, 8192), ct);
+                Trim(req.Location, 1024), Trim(req.Description, 8192),
+                recurrence, req.RecurrenceCount, NormalizeUntil(req.RecurrenceUntilUtc), ct);
             if (!result.Ok) return NotReady(result.Status, cal.LastErrorHint);
             return Results.Ok(ToDto(result.Value!));
         });
@@ -138,12 +163,13 @@ public static class FamilyCalendarEndpoints
             string id, EventRequest req, CurrentUserAccessor me, GoogleCalendarService cal,
             CancellationToken ct) =>
         {
-            if (Validate(req) is { } bad) return bad;
+            if (Validate(req, out var recurrence) is { } bad) return bad;
             var caller = (await me.GetUserAsync(ct))!;
 
             var result = await cal.UpdateEventAsync(
                 caller.Id, id, req.Title!.Trim(), req.StartUtc, req.EndUtc, req.AllDay,
-                Trim(req.Location, 1024), Trim(req.Description, 8192), ct);
+                Trim(req.Location, 1024), Trim(req.Description, 8192),
+                recurrence, req.RecurrenceCount, NormalizeUntil(req.RecurrenceUntilUtc), ct);
             if (!result.Ok) return NotReady(result.Status, cal.LastErrorHint);
             return Results.Ok(ToDto(result.Value!));
         });
@@ -238,6 +264,37 @@ public static class FamilyCalendarEndpoints
             var slots = found.Select(s => new SlotDto(s.StartUtc, s.EndUtc)).ToList();
             return Results.Ok(new FindTimeDto(slots, considered));
         });
+
+        // ---- POST /schedule-ai : Gemini parses free text into PROPOSED events the user then confirms ----
+        // Creates NOTHING — the frontend creates each confirmed event via POST /events. Rate-limited (the
+        // shared "ai" policy) because it spends model tokens. Graceful: a 503 (never a 500) when Gemini is
+        // unconfigured or the call fails; a 400 for empty text.
+        g.MapPost("/schedule-ai", async (
+            ScheduleAiRequest req, CurrentUserAccessor me, CurrentHouseholdAccessor households,
+            GeminiService gemini, CancellationToken ct) =>
+        {
+            if (string.IsNullOrWhiteSpace(req?.Text))
+                return Results.BadRequest(new { message = "Type what you'd like to schedule." });
+            if (!gemini.IsConfigured)
+                return AiUnavailable();
+
+            var caller = (await me.GetUserAsync(ct))!;
+            var household = (await households.GetOrCreateForCallerAsync(caller, ct))!;
+            var tz = FamilyTodayService.ResolveTimeZone(household.TimeZone);
+
+            // Anchor relative dates to the supplied reference (or now); reject an absurd reference.
+            var reference = req.ReferenceDateUtc is { } r
+                ? DateTime.SpecifyKind(r, DateTimeKind.Utc) : DateTime.UtcNow;
+            if (reference < DateTime.UtcNow.AddYears(-2) || reference > DateTime.UtcNow.AddYears(2))
+                reference = DateTime.UtcNow;
+
+            var result = await gemini.ScheduleEventsAsync(req.Text, reference, tz, ct);
+            if (result is null) return AiUnavailable();
+
+            var events = result.Events.Select(e => new ScheduleEventDto(
+                e.Title, e.StartUtc, e.EndUtc, e.AllDay, e.Location, e.Description, e.Recurrence)).ToList();
+            return Results.Ok(new ScheduleAiDto(events, result.Notes));
+        }).RequireRateLimiting(AiEndpoints.RateLimitPolicy);
     }
 
     // =====================================================================================
@@ -245,7 +302,15 @@ public static class FamilyCalendarEndpoints
     // =====================================================================================
 
     private static EventDto ToDto(CalendarEvent e) => new(
-        e.Id, e.Title, e.StartUtc, e.EndUtc, e.AllDay, e.Location, e.Description, e.HtmlLink, e.HangoutLink);
+        e.Id, e.Title, e.StartUtc, e.EndUtc, e.AllDay, e.Location, e.Description, e.HtmlLink, e.HangoutLink,
+        e.IsRecurring);
+
+    /// <summary>503 (never 500) when "Schedule with AI" can't run — Gemini unconfigured or the call failed.
+    /// One consistent degraded path the frontend shows as "AI scheduling isn't available right now".</summary>
+    private static IResult AiUnavailable() => Results.Problem(
+        title: "AI scheduling is not available.",
+        detail: "AI scheduling is not available right now. You can add the event manually.",
+        statusCode: StatusCodes.Status503ServiceUnavailable);
 
     /// <summary>
     /// Map a not-Ok calendar status to a graceful, NON-500 response: a 200 not-connected/not-configured
@@ -264,17 +329,46 @@ public static class FamilyCalendarEndpoints
             statusCode: StatusCodes.Status502BadGateway),
     };
 
-    /// <summary>Validate + clamp an event request; returns a BadRequest result when invalid, else null.</summary>
-    private static IResult? Validate(EventRequest req)
+    /// <summary>
+    /// Validate an event request and resolve its <paramref name="recurrence"/>; returns a BadRequest result
+    /// when invalid, else null. Absent/blank/"none" recurrence keeps the single-event behaviour.
+    /// </summary>
+    private static IResult? Validate(EventRequest req, out Recurrence recurrence)
     {
+        recurrence = Recurrence.None;
         if (string.IsNullOrWhiteSpace(req.Title))
             return Results.BadRequest(new { message = "An event title is required." });
         if (req.Title!.Trim().Length > 1024)
             return Results.BadRequest(new { message = "That title is too long." });
         if (req.EndUtc < req.StartUtc)
             return Results.BadRequest(new { message = "The event end must be at or after its start." });
+        if (!TryParseRecurrence(req.Recurrence, out recurrence))
+            return Results.BadRequest(new { message = "Recurrence must be one of: none, daily, weekly, weekdays, monthly." });
+        if (req.RecurrenceCount is { } c && (c < 1 || c > 730))
+            return Results.BadRequest(new { message = "Recurrence count must be between 1 and 730." });
         return null;
     }
+
+    /// <summary>Parse the optional recurrence string (case-insensitive). Absent/blank -> None+true; an
+    /// unrecognised value -> false (the caller surfaces a 400).</summary>
+    private static bool TryParseRecurrence(string? s, out Recurrence recurrence)
+    {
+        recurrence = Recurrence.None;
+        if (string.IsNullOrWhiteSpace(s)) return true;
+        switch (s.Trim().ToLowerInvariant())
+        {
+            case "none": recurrence = Recurrence.None; return true;
+            case "daily": recurrence = Recurrence.Daily; return true;
+            case "weekly": recurrence = Recurrence.Weekly; return true;
+            case "weekdays": recurrence = Recurrence.Weekdays; return true;
+            case "monthly": recurrence = Recurrence.Monthly; return true;
+            default: return false;
+        }
+    }
+
+    /// <summary>Normalise an optional recurrence-until to a UTC instant (or null).</summary>
+    private static DateTime? NormalizeUntil(DateTime? until) =>
+        until is { } u ? DateTime.SpecifyKind(u, DateTimeKind.Utc) : null;
 
     /// <summary>
     /// Resolve a [start, end) window with sane defaults (today → +7 days) and a hard cap so an

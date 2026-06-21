@@ -43,18 +43,41 @@
     <p class="event-edit__hint">Times are in your local zone.</p>
   }
 
-  <mat-form-field appearance="outline" class="note-edit__field">
-    <mat-label>Location</mat-label>
-    <input matInput maxlength="500" placeholder="Optional"
-           [ngModel]="location()" (ngModelChange)="location.set($event)" />
-    <mat-icon matPrefix aria-hidden="true">place</mat-icon>
-  </mat-form-field>
+  <!-- Advanced settings: collapsed by default so the base event stays just a title + when. -->
+  <button mat-button type="button" class="event-edit__advtoggle" (click)="toggleAdvanced()"
+          [attr.aria-expanded]="showAdvanced()">
+    <mat-icon aria-hidden="true">{{ showAdvanced() ? 'expand_less' : 'tune' }}</mat-icon>
+    {{ showAdvanced() ? 'Hide advanced settings' : 'Advanced settings' }}
+  </button>
 
-  <mat-form-field appearance="outline" class="note-edit__field">
-    <mat-label>Notes</mat-label>
-    <textarea matInput rows="3" maxlength="2000" placeholder="Optional"
-              [ngModel]="notes()" (ngModelChange)="notes.set($event)"></textarea>
-  </mat-form-field>
+  @if (showAdvanced()) {
+    <div class="event-edit__advanced">
+      @if (showRecurrence) {
+        <mat-form-field appearance="outline" class="note-edit__field">
+          <mat-label>Repeats</mat-label>
+          <mat-select [ngModel]="recurrence()" (ngModelChange)="recurrence.set($event)">
+            @for (opt of recurrenceOptions; track opt.value) {
+              <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
+            }
+          </mat-select>
+          <mat-icon matPrefix aria-hidden="true">repeat</mat-icon>
+        </mat-form-field>
+      }
+
+      <mat-form-field appearance="outline" class="note-edit__field">
+        <mat-label>Location</mat-label>
+        <input matInput maxlength="500" placeholder="Optional"
+               [ngModel]="location()" (ngModelChange)="location.set($event)" />
+        <mat-icon matPrefix aria-hidden="true">place</mat-icon>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline" class="note-edit__field">
+        <mat-label>Notes</mat-label>
+        <textarea matInput rows="3" maxlength="2000" placeholder="Optional"
+                  [ngModel]="notes()" (ngModelChange)="notes.set($event)"></textarea>
+      </mat-form-field>
+    </div>
+  }
 </mat-dialog-content>
 
 <mat-dialog-actions class="note-edit__actions event-edit__actions">

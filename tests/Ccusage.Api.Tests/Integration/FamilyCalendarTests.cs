@@ -287,4 +287,84 @@ public class FamilyCalendarTests(WebAppFactory factory)
         // No connected members → no busy blocks surfaced.
         arr.GetArrayLength().Should().Be(0);
     }
+
+    // =====================================================================================
+    // RECURRENCE on POST /events — accepted + validated (the RRULE itself is unit-tested)
+    // =====================================================================================
+
+    [Fact]
+    public async Task Create_event_accepts_a_recurrence_and_degrades_gracefully_when_not_connected()
+    {
+        var (_, owner, _) = await ProvisionUser("family.use");
+        await owner.GetAsync("/api/family/household");
+
+        // A valid recurring request is ACCEPTED (no 400/500) — with no connection it degrades to the clean
+        // not-connected status body, exactly like a single event.
+        var res = await owner.PostAsJsonAsync("/api/family/calendar/events", new
+        {
+            title = "Soccer practice", startUtc = DateTime.UtcNow.AddDays(1),
+            endUtc = DateTime.UtcNow.AddDays(1).AddHours(1), allDay = false, recurrence = "weekly",
+        });
+        res.StatusCode.Should().Be(HttpStatusCode.OK);
+        (await Json(res)).GetProperty("connected").GetBoolean().Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task Create_event_rejects_an_unknown_recurrence_value()
+    {
+        var (_, owner, _) = await ProvisionUser("family.use");
+        await owner.GetAsync("/api/family/household");
+
+        var res = await owner.PostAsJsonAsync("/api/family/calendar/events", new
+        {
+            title = "Bad", startUtc = DateTime.UtcNow.AddDays(1),
+            endUtc = DateTime.UtcNow.AddDays(1).AddHours(1), allDay = false, recurrence = "fortnightly",
+        });
+        res.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    // =====================================================================================
+    // SCHEDULE-AI — gated by family.use, 400 on empty text, graceful 503 when Gemini unconfigured
+    // =====================================================================================
+
+    [Fact]
+    public async Task ScheduleAi_requires_family_use()
+    {
+        var (_, plain, _) = await ProvisionUser("dashboard.view");
+        var res = await plain.PostAsJsonAsync("/api/family/calendar/schedule-ai",
+            new { text = "dentist next Friday 9am" });
+        res.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
+
+    [Fact]
+    public async Task ScheduleAi_requires_authentication()
+    {
+        var anon = factory.CreateClient();
+        var res = await anon.PostAsJsonAsync("/api/family/calendar/schedule-ai",
+            new { text = "dentist next Friday 9am" });
+        res.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async Task ScheduleAi_returns_400_for_empty_text()
+    {
+        var (_, owner, _) = await ProvisionUser("family.use");
+        await owner.GetAsync("/api/family/household");
+
+        var res = await owner.PostAsJsonAsync("/api/family/calendar/schedule-ai", new { text = "   " });
+        res.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task ScheduleAi_is_unavailable_503_when_gemini_is_unconfigured_never_500()
+    {
+        var (_, owner, _) = await ProvisionUser("family.use");
+        await owner.GetAsync("/api/family/household");
+
+        // The test host configures no Gemini API key, so AI scheduling is gracefully unavailable (503),
+        // never a 500 and never a real Gemini/Google call (the unconfigured branch returns before any HTTP).
+        var res = await owner.PostAsJsonAsync("/api/family/calendar/schedule-ai",
+            new { text = "soccer practice every Tuesday at 4pm" });
+        res.StatusCode.Should().Be(HttpStatusCode.ServiceUnavailable);
+    }
 }

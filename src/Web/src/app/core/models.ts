@@ -1727,9 +1727,17 @@ export interface CalendarStatus {
 }
 
 /**
+ * The recurrence vocabulary the planner offers (mirrors GoogleCalendarService.Recurrence + the API's
+ * accepted strings). `none` is a single, one-off event (today's default behaviour); the rest attach a
+ * bounded RRULE on the server. `weekly` repeats on the start day's weekday; `weekdays` is Mon–Fri.
+ */
+export type CalendarRecurrence = 'none' | 'daily' | 'weekly' | 'weekdays' | 'monthly';
+
+/**
  * A single event on the caller's connected Google Calendar (mirrors EventDto). Times are ISO UTC instants
  * (null only for malformed source events); `allDay` events span whole days. `htmlLink`/`hangoutLink` are
- * Google-provided links for the caller's own event. No other-person identity is ever carried here.
+ * Google-provided links for the caller's own event. `isRecurring` flags an event that's part of a repeating
+ * series (drives the "repeats" badge). No other-person identity is ever carried here.
  */
 export interface CalendarEvent {
   id: string;
@@ -1741,9 +1749,15 @@ export interface CalendarEvent {
   description: string | null;
   htmlLink: string | null;
   hangoutLink: string | null;
+  /** True when the event is part of a recurring series (mirrors EventDto.IsRecurring). */
+  isRecurring?: boolean;
 }
 
-/** Create/update payload for a calendar event. `startUtc`/`endUtc` are ISO UTC instants (local→UTC on the client). */
+/**
+ * Create/update payload for a calendar event. `startUtc`/`endUtc` are ISO UTC instants (local→UTC on the
+ * client). `recurrence` (default `none`) makes it a repeating series; the server bounds it by
+ * `recurrenceCount` (number of occurrences) or applies a sane default cap so a series is always finite.
+ */
 export interface CalendarEventInput {
   title: string;
   startUtc: string;
@@ -1751,6 +1765,44 @@ export interface CalendarEventInput {
   allDay: boolean;
   location?: string | null;
   description?: string | null;
+  recurrence?: CalendarRecurrence;
+  /** Optional explicit occurrence count (1–730) for a recurring event; omit to let the server cap it. */
+  recurrenceCount?: number | null;
+}
+
+/**
+ * The "Schedule with AI" request (POST /api/family/calendar/schedule-ai; mirrors ScheduleAiRequest). The
+ * family member's free text ("soccer every Tuesday at 4pm"); `referenceDateUtc` anchors relative dates and
+ * defaults to the server's now when omitted.
+ */
+export interface ScheduleAiRequest {
+  text: string;
+  referenceDateUtc?: string | null;
+}
+
+/**
+ * One AI-proposed event to CONFIRM before it's created (mirrors ScheduleEventDto). Times are already-clamped
+ * ISO UTC instants; `recurrence` is the supported vocabulary. The user edits/confirms, then the frontend
+ * creates it via POST /events (passing the recurrence).
+ */
+export interface ScheduleAiEvent {
+  title: string;
+  startUtc: string;
+  endUtc: string;
+  allDay: boolean;
+  location: string | null;
+  description: string | null;
+  recurrence: CalendarRecurrence;
+}
+
+/**
+ * The "Schedule with AI" response (mirrors ScheduleAiDto): 0+ proposed `events` to confirm plus an optional
+ * short `notes` clarification of any assumption the model made. An empty `events` list means the AI couldn't
+ * find a real event in the text.
+ */
+export interface ScheduleAiResult {
+  events: ScheduleAiEvent[];
+  notes: string | null;
 }
 
 /** One busy block on a member's calendar for the find-a-time helper (mirrors BusyBlockDto). */

@@ -7,8 +7,9 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
+import { MatSelectModule } from '@angular/material/select';
 
-import { CalendarEvent, CalendarEventInput } from '../../core/models';
+import { CalendarEvent, CalendarEventInput, CalendarRecurrence } from '../../core/models';
 
 /** Data passed into the event editor: the event being edited (null = create), and optional seed inputs. */
 export interface EventEditorData {
@@ -18,6 +19,19 @@ export interface EventEditorData {
   /** ISO UTC instants to pre-seed a NEW timed event with (e.g. a slot chosen in Find-a-time). Wins over seedDate. */
   seedStartUtc?: string;
   seedEndUtc?: string;
+  /** Pre-seed the whole NEW event (e.g. an AI-proposed event the user is confirming/editing). */
+  seedTitle?: string;
+  seedAllDay?: boolean;
+  seedLocation?: string | null;
+  seedDescription?: string | null;
+  /** Pre-seed the recurrence (e.g. an AI-proposed "every Tuesday" event). */
+  seedRecurrence?: CalendarRecurrence;
+}
+
+/** A recurrence option for the picker: the wire value + a friendly label. */
+interface RecurrenceOption {
+  value: CalendarRecurrence;
+  label: string;
 }
 
 /** The editor result: either a save payload (local→UTC already applied) or a delete request. */
@@ -36,7 +50,7 @@ export type EventEditorResult =
   selector: 'app-event-editor-dialog',
   imports: [
     FormsModule, MatDialogModule, MatButtonModule, MatIconModule,
-    MatFormFieldModule, MatInputModule, MatSlideToggleModule,
+    MatFormFieldModule, MatInputModule, MatSlideToggleModule, MatSelectModule,
   ],
   templateUrl: './event-editor-dialog.html',
   styleUrls: ['./family.scss', './calendar.scss'],
@@ -47,10 +61,33 @@ export class EventEditorDialog {
 
   readonly isEdit = !!this.data.event;
 
-  readonly title = signal(this.data.event?.title ?? '');
-  readonly allDay = signal(this.data.event?.allDay ?? false);
-  readonly location = signal(this.data.event?.location ?? '');
-  readonly notes = signal(this.data.event?.description ?? '');
+  readonly title = signal(this.data.event?.title ?? this.data.seedTitle ?? '');
+  readonly allDay = signal(this.data.event?.allDay ?? this.data.seedAllDay ?? false);
+  readonly location = signal(this.data.event?.location ?? this.data.seedLocation ?? '');
+  readonly notes = signal(this.data.event?.description ?? this.data.seedDescription ?? '');
+
+  /** How the event repeats. Editing an existing event doesn't change its series, so the picker is shown only
+   *  when creating (a PUT with recurrence:none leaves an existing series untouched on the server anyway). */
+  readonly recurrence = signal<CalendarRecurrence>(this.data.seedRecurrence ?? 'none');
+  readonly showRecurrence = !this.isEdit;
+
+  readonly recurrenceOptions: RecurrenceOption[] = [
+    { value: 'none', label: 'Does not repeat' },
+    { value: 'daily', label: 'Every day' },
+    { value: 'weekly', label: 'Every week' },
+    { value: 'weekdays', label: 'Every weekday (Mon–Fri)' },
+    { value: 'monthly', label: 'Every month' },
+  ];
+
+  /**
+   * Advanced settings (repeat / location / notes) stay collapsed so the base "add event" is just a title +
+   * when. Auto-expanded only when there's already advanced content to show — editing an event that has a
+   * location/notes, or an AI proposal that set a repeat — so nothing pre-filled is hidden.
+   */
+  readonly showAdvanced = signal(
+    this.location().trim().length > 0 || this.notes().trim().length > 0 || this.recurrence() !== 'none',
+  );
+  toggleAdvanced(): void { this.showAdvanced.update(v => !v); }
 
   /** "YYYY-MM-DD" local — the day the event starts (and, for all-day, the start day). */
   readonly date = signal(this.initialDate());
@@ -141,6 +178,8 @@ export class EventEditorDialog {
       allDay: this.allDay(),
       location: this.location().trim() || null,
       description: this.notes().trim() || null,
+      // Only send a recurrence when creating; a PUT keeps the existing series rule when this is 'none'.
+      recurrence: this.showRecurrence ? this.recurrence() : 'none',
     };
     this.ref.close({ kind: 'save', input });
   }

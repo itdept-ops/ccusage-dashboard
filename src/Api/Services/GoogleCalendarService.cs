@@ -74,10 +74,15 @@ public sealed class GoogleCalendarService(
 
     public enum CalendarStatus { Ok, NotConfigured, NotConnected, Error }
 
-    /// <summary>A single calendar event projected to the client (no Google-internal/PII fields).</summary>
+    /// <summary>A single calendar event projected to the client (no Google-internal/PII fields).
+    /// <paramref name="IsRecurring"/> is true when the event is part of a recurring series (it has a
+    /// recurringEventId, or — on the create/patch reply — its own recurrence rule).</summary>
     public sealed record CalendarEvent(
         string Id, string Title, DateTime? StartUtc, DateTime? EndUtc, bool AllDay,
-        string? Location, string? Description, string? HtmlLink, string? HangoutLink);
+        string? Location, string? Description, string? HtmlLink, string? HangoutLink, bool IsRecurring);
+
+    /// <summary>The recurrence shapes the planner offers. "None" keeps today's single-event behaviour.</summary>
+    public enum Recurrence { None, Daily, Weekly, Weekdays, Monthly }
 
     /// <summary>A busy block for the find-a-time helper (per connected member; never an email).</summary>
     public sealed record BusyBlock(DateTime StartUtc, DateTime EndUtc);
@@ -240,15 +245,19 @@ public sealed class GoogleCalendarService(
         }
     }
 
-    /// <summary>Create an event on the caller's primary calendar. Returns the created event.</summary>
+    /// <summary>Create an event on the caller's primary calendar. Returns the created event.
+    /// <paramref name="recurrence"/> (default <see cref="Recurrence.None"/>) makes it a recurring series,
+    /// bounded by <paramref name="recurrenceCount"/> or <paramref name="recurrenceUntilUtc"/>.</summary>
     public async Task<CalendarResult<CalendarEvent>> CreateEventAsync(
         int userId, string title, DateTime startUtc, DateTime endUtc, bool allDay,
-        string? location, string? description, CancellationToken ct = default)
+        string? location, string? description, Recurrence recurrence = Recurrence.None,
+        int? recurrenceCount = null, DateTime? recurrenceUntilUtc = null, CancellationToken ct = default)
     {
         var token = await MintAccessTokenAsync(userId, ct);
         if (token.Status != CalendarStatus.Ok) return Status<CalendarEvent>(token.Status);
 
-        var body = BuildEventBody(title, startUtc, endUtc, allDay, location, description);
+        var body = BuildEventBody(title, startUtc, endUtc, allDay, location, description,
+            recurrence, recurrenceCount, recurrenceUntilUtc);
         var path = $"/calendar/v3/calendars/{PrimaryCalendar}/events";
 
         var doc = await CalendarSendAsync(HttpMethod.Post, path, token.Value!, body, ct);
@@ -260,16 +269,20 @@ public sealed class GoogleCalendarService(
         }
     }
 
-    /// <summary>Patch an existing event on the caller's primary calendar. Returns the updated event.</summary>
+    /// <summary>Patch an existing event on the caller's primary calendar. Returns the updated event.
+    /// <paramref name="recurrence"/> (default <see cref="Recurrence.None"/>) sets/replaces the series rule;
+    /// <see cref="Recurrence.None"/> sends no recurrence (PATCH leaves any existing rule untouched).</summary>
     public async Task<CalendarResult<CalendarEvent>> UpdateEventAsync(
         int userId, string eventId, string title, DateTime startUtc, DateTime endUtc, bool allDay,
-        string? location, string? description, CancellationToken ct = default)
+        string? location, string? description, Recurrence recurrence = Recurrence.None,
+        int? recurrenceCount = null, DateTime? recurrenceUntilUtc = null, CancellationToken ct = default)
     {
         var token = await MintAccessTokenAsync(userId, ct);
         if (token.Status != CalendarStatus.Ok) return Status<CalendarEvent>(token.Status);
         if (string.IsNullOrWhiteSpace(eventId)) return Status<CalendarEvent>(CalendarStatus.Error);
 
-        var body = BuildEventBody(title, startUtc, endUtc, allDay, location, description);
+        var body = BuildEventBody(title, startUtc, endUtc, allDay, location, description,
+            recurrence, recurrenceCount, recurrenceUntilUtc);
         var path = $"/calendar/v3/calendars/{PrimaryCalendar}/events/{Uri.EscapeDataString(eventId)}";
 
         // PATCH = partial update; we send the editable fields.
@@ -564,9 +577,22 @@ public sealed class GoogleCalendarService(
     // Mapping + JSON helpers
     // =====================================================================================
 
-    /// <summary>Build the Google event resource body for create/patch from validated inputs.</summary>
-    private static object BuildEventBody(
-        string title, DateTime startUtc, DateTime endUtc, bool allDay, string? location, string? description)
+    /// <summary>The default bound (~1 year of weekly occurrences) when a recurring event has no explicit
+    /// count/until — so a series is always finite and can't run forever.</summary>
+    private const int DefaultRecurrenceCount = 52;
+
+    /// <summary>The hard cap on an explicit occurrence count (prevents an absurdly long series).</summary>
+    private const int MaxRecurrenceCount = 730;
+
+    /// <summary>
+    /// Build the Google event resource body for create/patch from validated inputs. When
+    /// <paramref name="recurrence"/> is anything but <see cref="Recurrence.None"/>, an RRULE is attached
+    /// (bounded by <paramref name="count"/> or <paramref name="untilUtc"/>, else <see cref="DefaultRecurrenceCount"/>).
+    /// Exposed (public) so the recurrence-rule construction can be unit-tested without a live Calendar call.
+    /// </summary>
+    public static object BuildEventBody(
+        string title, DateTime startUtc, DateTime endUtc, bool allDay, string? location, string? description,
+        Recurrence recurrence = Recurrence.None, int? count = null, DateTime? untilUtc = null)
     {
         object start, end;
         if (allDay)
@@ -583,15 +609,67 @@ public sealed class GoogleCalendarService(
             end = new { dateTime = Rfc3339(endUtc), timeZone = "UTC" };
         }
 
-        return new
+        var rule = BuildRecurrenceRule(recurrence, startUtc, count, untilUtc);
+
+        var body = new Dictionary<string, object?>
         {
-            summary = title,
-            location = string.IsNullOrWhiteSpace(location) ? null : location,
-            description = string.IsNullOrWhiteSpace(description) ? null : description,
-            start,
-            end,
+            ["summary"] = title,
+            ["location"] = string.IsNullOrWhiteSpace(location) ? null : location,
+            ["description"] = string.IsNullOrWhiteSpace(description) ? null : description,
+            ["start"] = start,
+            ["end"] = end,
         };
+        // Only attach recurrence when there's an actual rule. OMITTING it (rather than sending null) means a
+        // PATCH/update leaves an existing series rule UNTOUCHED — Google treats an explicit null as "clear
+        // recurrence", which would silently turn a recurring event into a one-off on an unrelated edit.
+        if (rule is not null) body["recurrence"] = new[] { rule };
+        return body;
     }
+
+    /// <summary>
+    /// Build the Google <c>RRULE:</c> line for a <see cref="Recurrence"/>, or null for
+    /// <see cref="Recurrence.None"/>. The series is ALWAYS bounded: an explicit <paramref name="untilUtc"/>
+    /// (UNTIL, takes precedence) or <paramref name="count"/> (COUNT, clamped 1..<see cref="MaxRecurrenceCount"/>),
+    /// otherwise <see cref="DefaultRecurrenceCount"/>. <see cref="Recurrence.Weekly"/> repeats on the start's
+    /// weekday; <see cref="Recurrence.Weekdays"/> is Mon–Fri. Exposed for unit testing.
+    /// </summary>
+    public static string? BuildRecurrenceRule(
+        Recurrence recurrence, DateTime startUtc, int? count = null, DateTime? untilUtc = null)
+    {
+        var freqPart = recurrence switch
+        {
+            Recurrence.Daily => "FREQ=DAILY",
+            Recurrence.Weekly => "FREQ=WEEKLY;BYDAY=" + ByDay(startUtc.DayOfWeek),
+            Recurrence.Weekdays => "FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR",
+            Recurrence.Monthly => "FREQ=MONTHLY",
+            _ => null,
+        };
+        if (freqPart is null) return null;
+
+        // Bound the series. UNTIL wins when both are given; UNTIL is a UTC instant (trailing Z) per RFC 5545.
+        string bound;
+        if (untilUtc is { } until)
+            bound = "UNTIL=" + DateTime.SpecifyKind(until, DateTimeKind.Utc).ToString("yyyyMMddTHHmmssZ");
+        else
+        {
+            var c = count is { } n ? Math.Clamp(n, 1, MaxRecurrenceCount) : DefaultRecurrenceCount;
+            bound = "COUNT=" + c;
+        }
+
+        return $"RRULE:{freqPart};{bound}";
+    }
+
+    /// <summary>The RFC 5545 two-letter BYDAY token for a weekday (MO, TU, …, SU).</summary>
+    private static string ByDay(DayOfWeek d) => d switch
+    {
+        DayOfWeek.Monday => "MO",
+        DayOfWeek.Tuesday => "TU",
+        DayOfWeek.Wednesday => "WE",
+        DayOfWeek.Thursday => "TH",
+        DayOfWeek.Friday => "FR",
+        DayOfWeek.Saturday => "SA",
+        _ => "SU",
+    };
 
     /// <summary>Project a Google event resource to our slim <see cref="CalendarEvent"/>. Null when unusable.</summary>
     private static CalendarEvent? MapEvent(JsonElement item)
@@ -607,6 +685,13 @@ public sealed class GoogleCalendarService(
         var (endUtc, endAllDay) = ReadEventTime(item, "end");
         var allDay = startAllDay || endAllDay;
 
+        // Recurring: a singleEvents expansion stamps each instance with recurringEventId; a freshly
+        // created/patched master carries its own non-empty "recurrence" array. Either marks the UI badge.
+        var isRecurring =
+            !string.IsNullOrEmpty(GetStr(item, "recurringEventId"))
+            || (item.TryGetProperty("recurrence", out var rec)
+                && rec.ValueKind == JsonValueKind.Array && rec.GetArrayLength() > 0);
+
         return new CalendarEvent(
             Id: id,
             Title: GetStr(item, "summary") ?? "(no title)",
@@ -616,7 +701,8 @@ public sealed class GoogleCalendarService(
             Location: GetStr(item, "location"),
             Description: GetStr(item, "description"),
             HtmlLink: GetStr(item, "htmlLink"),
-            HangoutLink: GetStr(item, "hangoutLink"));
+            HangoutLink: GetStr(item, "hangoutLink"),
+            IsRecurring: isRecurring);
     }
 
     /// <summary>Read a Google event start/end node into a UTC instant + whether it was an all-day "date".</summary>

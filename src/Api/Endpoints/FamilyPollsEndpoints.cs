@@ -211,7 +211,7 @@ public static class FamilyPollsEndpoints
             var result = await cal.CreateEventAsync(
                 caller.Id, poll.Title, DateTime.SpecifyKind(start, DateTimeKind.Utc),
                 DateTime.SpecifyKind(end, DateTimeKind.Utc), allDay: false,
-                location: null, description: "Booked from a family plan poll.", ct);
+                location: null, description: "Booked from a family plan poll.", ct: ct);
 
             // Graceful: an unconnected/unconfigured caller gets a clear 400, never a 500.
             if (!result.Ok) return result.Status switch

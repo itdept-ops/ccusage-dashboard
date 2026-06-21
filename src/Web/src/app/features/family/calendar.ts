@@ -1,4 +1,5 @@
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, OnDestroy, computed, inject, signal } from '@angular/core';
+import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 
@@ -7,12 +8,16 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatButtonToggleModule } from '@angular/material/button-toggle';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInputModule } from '@angular/material/input';
 import { MatDialog } from '@angular/material/dialog';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 
 import { Api } from '../../core/api';
 import { AuthService } from '../../core/auth';
-import { CalendarEvent, CalendarStatus, HouseholdMember } from '../../core/models';
+import {
+  CalendarEvent, CalendarEventInput, CalendarRecurrence, CalendarStatus, HouseholdMember, ScheduleAiEvent,
+} from '../../core/models';
 import { FamilyConfirmDialog, ConfirmData } from './confirm-dialog';
 import { EventEditorDialog, EventEditorData, EventEditorResult } from './event-editor-dialog';
 import { FindTimeData, FindTimeDialog, FindTimeResultSlot } from './find-time-dialog';
@@ -25,6 +30,17 @@ interface DayEvent {
   ev: CalendarEvent;
   /** "h:mm a" local start (timed) or "All day". */
   timeLabel: string;
+}
+
+/** One AI-proposed event the family member can confirm/edit before it's created on their calendar. */
+interface ProposedEvent {
+  ai: ScheduleAiEvent;
+  /** A friendly "Tue, Jun 23 · 4:00 – 5:00 PM" (or "All day") when-label in the viewer's local zone. */
+  whenLabel: string;
+  /** A short repeat label ("Every week") or '' for a one-off — drives the recurrence chip. */
+  repeatLabel: string;
+  /** True while THIS card's "Add to calendar" is creating the event. */
+  saving: boolean;
 }
 
 /** One column of the week view: its date + the events that fall on it (all-day first, then by start). */
@@ -54,17 +70,20 @@ type ViewMode = 'week' | 'agenda';
 @Component({
   selector: 'app-family-calendar',
   imports: [
-    RouterLink, MatIconModule, MatButtonModule, MatButtonToggleModule, MatTooltipModule,
-    MatProgressSpinnerModule, MatSnackBarModule,
+    FormsModule, RouterLink, MatIconModule, MatButtonModule, MatButtonToggleModule, MatTooltipModule,
+    MatProgressSpinnerModule, MatFormFieldModule, MatInputModule, MatSnackBarModule,
   ],
   templateUrl: './calendar.html',
   styleUrls: ['./family.scss', './calendar.scss'],
 })
-export class FamilyCalendar {
+export class FamilyCalendar implements OnDestroy {
   private api = inject(Api);
   private auth = inject(AuthService);
   private dialog = inject(MatDialog);
   private snack = inject(MatSnackBar);
+
+  /** Auto-poll cadence while connected + the tab is visible. */
+  private static readonly POLL_MS = 60_000;
 
   /** null while the initial status check is in flight. */
   readonly status = signal<CalendarStatus | null>(null);
@@ -84,8 +103,34 @@ export class FamilyCalendar {
   /** The Monday (local midnight) that anchors the visible week. */
   readonly weekStart = signal<Date>(this.mondayOf(new Date()));
 
+  /** Epoch ms of the last successful events fetch (null = never). Drives the "updated Xm ago" hint. */
+  readonly lastUpdated = signal<number | null>(null);
+  /** A ticking clock (epoch ms) so the relative "updated" label re-renders without a new fetch. */
+  private readonly nowTick = signal<number>(Date.now());
+
+  // ---- Schedule with AI ----
+  /** The free-text scheduling box ("soccer every Tuesday at 4pm"). */
+  readonly aiText = signal('');
+  readonly aiBusy = signal(false);
+  /** A friendly status line for the AI box (aria-live), e.g. an error or "couldn't find an event". */
+  readonly aiStatus = signal('');
+  /** The AI-proposed events awaiting the user's confirmation. */
+  readonly proposals = signal<ProposedEvent[]>([]);
+
   readonly connected = computed(() => this.status()?.connected === true);
   readonly configured = computed(() => this.status()?.configured !== false);
+
+  /** A tiny "updated just now / Xm ago" hint for the refresh control. '' until the first load. */
+  readonly updatedLabel = computed<string>(() => {
+    const at = this.lastUpdated();
+    if (at === null) return '';
+    const secs = Math.max(0, Math.round((this.nowTick() - at) / 1000));
+    if (secs < 45) return 'updated just now';
+    const mins = Math.round(secs / 60);
+    if (mins < 60) return `updated ${mins}m ago`;
+    const hrs = Math.round(mins / 60);
+    return `updated ${hrs}h ago`;
+  });
 
   /** The seven day-columns of the visible week with their events placed. */
   readonly days = computed<DayColumn[]>(() => {
@@ -130,8 +175,55 @@ export class FamilyCalendar {
     return sameYear ? `${fmtStart} – ${fmtEnd}` : `${fmtStart}, ${start.getFullYear()} – ${fmtEnd}`;
   });
 
+  /** The auto-poll interval handle (browser timer id), or null when not polling. */
+  private pollTimer: ReturnType<typeof setInterval> | null = null;
+  /** Re-renders the "updated Xm ago" label every ~30s without re-fetching. */
+  private tickTimer: ReturnType<typeof setInterval> | null = null;
+  /** Bound visibilitychange handler so we can detach it on destroy. */
+  private readonly onVisibility = (): void => {
+    if (document.visibilityState === 'visible') {
+      this.startPolling();
+      // Catch up immediately on becoming visible again (skipped while hidden).
+      if (this.connected()) void this.loadEvents({ silent: true });
+    } else {
+      this.stopPolling();
+    }
+  };
+
   constructor() {
+    document.addEventListener('visibilitychange', this.onVisibility);
+    // Keep the relative "updated" label fresh while mounted.
+    this.tickTimer = setInterval(() => this.nowTick.set(Date.now()), 30_000);
     void this.loadStatus();
+  }
+
+  ngOnDestroy(): void {
+    document.removeEventListener('visibilitychange', this.onVisibility);
+    this.stopPolling();
+    if (this.tickTimer !== null) { clearInterval(this.tickTimer); this.tickTimer = null; }
+  }
+
+  // ---- Auto-poll (every ~60s while connected AND the tab is visible) ----
+
+  /** Begin polling the visible week if connected + visible + not already running. */
+  private startPolling(): void {
+    if (this.pollTimer !== null) return;
+    if (!this.connected() || document.visibilityState !== 'visible') return;
+    this.pollTimer = setInterval(() => {
+      if (this.connected() && document.visibilityState === 'visible') {
+        void this.loadEvents({ silent: true });
+      }
+    }, FamilyCalendar.POLL_MS);
+  }
+
+  private stopPolling(): void {
+    if (this.pollTimer !== null) { clearInterval(this.pollTimer); this.pollTimer = null; }
+  }
+
+  /** Manual refresh: re-fetch the visible week now (with the toolbar spinner). */
+  async refresh(): Promise<void> {
+    if (!this.connected()) return;
+    await this.loadEvents();
   }
 
   // ---- Status + connection lifecycle ----
@@ -225,6 +317,9 @@ export class FamilyCalendar {
       await firstValueFrom(this.api.disconnectCalendar());
       this.status.set({ configured: true, connected: false });
       this.events.set([]);
+      this.proposals.set([]);
+      this.lastUpdated.set(null);
+      this.stopPolling();
       this.snack.open('Calendar disconnected.', undefined, { duration: 2000 });
     } catch {
       this.snack.open("Couldn't disconnect just now. Please try again.", 'OK', { duration: 4000 });
@@ -248,19 +343,32 @@ export class FamilyCalendar {
 
   // ---- Events ----
 
-  private async loadEvents(): Promise<void> {
-    this.loadingEvents.set(true);
+  /**
+   * Fetch the visible week's events. A `silent` load (auto-poll / visibility catch-up) skips the toolbar
+   * spinner and leaves the current events on screen if the fetch fails, so a transient blip never blanks the
+   * planner. A manual/navigation load shows the spinner + surfaces an error.
+   */
+  private async loadEvents(opts: { silent?: boolean } = {}): Promise<void> {
+    const silent = opts.silent === true;
+    if (!silent) this.loadingEvents.set(true);
     this.eventsError.set(false);
     const start = this.weekStart();
     const end = new Date(start.getFullYear(), start.getMonth(), start.getDate() + 7);
     try {
       const list = await firstValueFrom(this.api.calendarEvents(start.toISOString(), end.toISOString()));
       this.events.set(list);
+      this.lastUpdated.set(Date.now());
+      this.nowTick.set(Date.now());
+      // First successful load kicks off the background poll.
+      this.startPolling();
     } catch {
-      this.eventsError.set(true);
-      this.events.set([]);
+      if (!silent) {
+        this.eventsError.set(true);
+        this.events.set([]);
+      }
+      // A silent failure leaves the last-good week on screen; the next tick retries.
     } finally {
-      this.loadingEvents.set(false);
+      if (!silent) this.loadingEvents.set(false);
     }
   }
 
@@ -285,6 +393,145 @@ export class FamilyCalendar {
 
   setView(v: ViewMode): void {
     this.view.set(v);
+  }
+
+  // ---- Schedule with AI ----
+
+  /**
+   * Send the free-text scheduling request to Gemini and show the proposed event(s) as confirm cards. Creates
+   * NOTHING — each card has its own "Add to calendar". Degrades gracefully: a 503 (AI unavailable / not
+   * configured) or any error shows a friendly aria-live line; an empty result says so. Not-connected is
+   * guarded by only rendering the box when connected.
+   */
+  async scheduleWithAi(): Promise<void> {
+    const text = this.aiText().trim();
+    if (text.length === 0 || this.aiBusy()) return;
+    this.aiBusy.set(true);
+    this.aiStatus.set('Reading your request…');
+    this.proposals.set([]);
+    try {
+      const result = await firstValueFrom(this.api.scheduleAiEvents(text));
+      const proposed = (result.events ?? []).map(ai => this.toProposed(ai));
+      this.proposals.set(proposed);
+      if (proposed.length === 0) {
+        this.aiStatus.set(
+          result.notes?.trim() || "I couldn't find an event in that. Try \"dentist next Friday at 9am\".");
+      } else {
+        const n = proposed.length;
+        this.aiStatus.set(
+          (result.notes?.trim() ? result.notes!.trim() + ' ' : '') +
+          `Review ${n === 1 ? 'the event' : `these ${n} events`} below, then add ${n === 1 ? 'it' : 'them'} to your calendar.`);
+      }
+    } catch (e) {
+      const status = (e as { status?: number })?.status;
+      this.aiStatus.set(status === 503
+        ? "AI scheduling isn't available right now. You can add the event yourself with the Event button."
+        : this.messageOf(e, "I couldn't reach the AI just now. Please try again, or add the event manually."));
+    } finally {
+      this.aiBusy.set(false);
+    }
+  }
+
+  /** Add one AI-proposed event to the calendar (passing its recurrence). Then drop the card. */
+  async addProposal(p: ProposedEvent): Promise<void> {
+    if (p.saving) return;
+    this.setProposalSaving(p, true);
+    try {
+      await firstValueFrom(this.api.createEvent(this.inputFromProposal(p.ai)));
+      this.dismissProposal(p);
+      this.snack.open('Added to your calendar.', undefined, { duration: 2000 });
+      await this.loadEvents();
+    } catch (e) {
+      this.setProposalSaving(p, false);
+      this.snack.open(this.messageOf(e, "Couldn't add that event. Please try again."), 'OK', { duration: 4000 });
+    }
+  }
+
+  /** Open the full editor prefilled from a proposed event so the user can tweak it before creating. */
+  async editProposal(p: ProposedEvent): Promise<void> {
+    const ai = p.ai;
+    const result = await this.openEditor({
+      event: null,
+      seedTitle: ai.title,
+      seedStartUtc: ai.startUtc,
+      seedEndUtc: ai.endUtc,
+      seedAllDay: ai.allDay,
+      seedLocation: ai.location,
+      seedDescription: ai.description,
+      seedRecurrence: ai.recurrence,
+    });
+    if (result?.kind === 'save') {
+      try {
+        await firstValueFrom(this.api.createEvent(result.input));
+        this.dismissProposal(p);
+        await this.loadEvents();
+      } catch (e) {
+        this.snack.open(this.messageOf(e, "Couldn't save that event. Please try again."), 'OK', { duration: 4000 });
+      }
+    }
+  }
+
+  /** Discard a proposed event card without creating it. */
+  dismissProposal(p: ProposedEvent): void {
+    this.proposals.set(this.proposals().filter(x => x !== p));
+  }
+
+  /** Clear the AI box + any pending proposals. */
+  clearAi(): void {
+    this.aiText.set('');
+    this.aiStatus.set('');
+    this.proposals.set([]);
+  }
+
+  private setProposalSaving(p: ProposedEvent, saving: boolean): void {
+    this.proposals.set(this.proposals().map(x => x === p ? { ...x, saving } : x));
+  }
+
+  /** Build a confirm-card view-model from a raw AI-proposed event. */
+  private toProposed(ai: ScheduleAiEvent): ProposedEvent {
+    return {
+      ai,
+      whenLabel: this.proposalWhenLabel(ai),
+      repeatLabel: this.recurrenceLabel(ai.recurrence),
+      saving: false,
+    };
+  }
+
+  /** Map a proposed event to the create payload (carrying recurrence through to POST /events). */
+  private inputFromProposal(ai: ScheduleAiEvent): CalendarEventInput {
+    return {
+      title: ai.title,
+      startUtc: ai.startUtc,
+      endUtc: ai.endUtc,
+      allDay: ai.allDay,
+      location: ai.location,
+      description: ai.description,
+      recurrence: ai.recurrence,
+    };
+  }
+
+  /** "Tue, Jun 23 · 4:00 – 5:00 PM" (timed) or "Tue, Jun 23 · All day" in the viewer's local zone. */
+  private proposalWhenLabel(ai: ScheduleAiEvent): string {
+    const start = new Date(ai.startUtc);
+    if (Number.isNaN(start.getTime())) return '';
+    const day = start.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
+    if (ai.allDay) return `${day} · All day`;
+    const from = start.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+    const endDate = ai.endUtc ? new Date(ai.endUtc) : null;
+    const to = endDate && !Number.isNaN(endDate.getTime())
+      ? endDate.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' }) : null;
+    return to ? `${day} · ${from} – ${to}` : `${day} · ${from}`;
+  }
+
+  /** A short, friendly repeat label for a recurrence chip ('' for a one-off). */
+  recurrenceLabel(r: CalendarRecurrence | undefined): string {
+    switch (r) {
+      case 'daily': return 'Every day';
+      case 'weekly': return 'Every week';
+      case 'weekdays': return 'Weekdays';
+      case 'monthly': return 'Every month';
+      default: return '';
+    }
   }
 
   /** Open the editor to create a new event, optionally seeded to a clicked day. */
