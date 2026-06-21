@@ -1148,13 +1148,7 @@ public sealed class GeminiService(
             };
 
             var client = httpFactory.CreateClient(HttpClientName);
-            using var req = new HttpRequestMessage(HttpMethod.Post, url)
-            {
-                Content = JsonContent.Create(body),
-            };
-            req.Headers.Add(KeyHeader, _opt.ApiKey);
-
-            using var res = await client.SendAsync(req, ct);
+            using var res = await SendWithRetryAsync(client, url, body, kind, ct);
             if (!res.IsSuccessStatusCode)
             {
                 logger.LogWarning("Gemini {Kind} generateContent returned {Status}.", kind, (int)res.StatusCode);
@@ -1186,6 +1180,31 @@ public sealed class GeminiService(
     /// cache). Same robustness contract: null on any non-200/timeout/network/non-JSON reply; never throws;
     /// never logs the key.
     /// </summary>
+    /// <summary>
+    /// POST a generateContent body, retrying ONCE on a transient Gemini status (503 overload, 429 rate-limit,
+    /// 502/504) after a short delay — gemini-2.5-flash is frequently briefly overloaded, so a single retry
+    /// recovers most one-off failures (and our callers still degrade gracefully if both attempts fail). The
+    /// CALLER disposes the returned response. A fresh HttpRequestMessage is built per attempt (a message can't
+    /// be re-sent).
+    /// </summary>
+    private async Task<HttpResponseMessage> SendWithRetryAsync(
+        HttpClient client, string url, object body, string kind, CancellationToken ct)
+    {
+        HttpResponseMessage? res = null;
+        for (var attempt = 0; attempt < 2; attempt++)
+        {
+            using var req = new HttpRequestMessage(HttpMethod.Post, url) { Content = JsonContent.Create(body) };
+            req.Headers.Add(KeyHeader, _opt.ApiKey);
+            res?.Dispose();
+            res = await client.SendAsync(req, ct);
+            if (res.IsSuccessStatusCode || attempt == 1) break;
+            if ((int)res.StatusCode is not (503 or 429 or 502 or 504)) break;
+            logger.LogWarning("Gemini {Kind} returned {Status}; retrying once.", kind, (int)res.StatusCode);
+            try { await Task.Delay(900, ct); } catch (OperationCanceledException) { break; }
+        }
+        return res!;
+    }
+
     private async Task<JsonElement?> GenerateMultimodalJsonAsync(
         string kind, string prompt, IReadOnlyList<(string base64, string mime)> images, CancellationToken ct)
     {
@@ -1205,13 +1224,7 @@ public sealed class GeminiService(
             };
 
             var client = httpFactory.CreateClient(HttpClientName);
-            using var req = new HttpRequestMessage(HttpMethod.Post, url)
-            {
-                Content = JsonContent.Create(body),
-            };
-            req.Headers.Add(KeyHeader, _opt.ApiKey);
-
-            using var res = await client.SendAsync(req, ct);
+            using var res = await SendWithRetryAsync(client, url, body, kind, ct);
             if (!res.IsSuccessStatusCode)
             {
                 logger.LogWarning("Gemini {Kind} generateContent returned {Status}.", kind, (int)res.StatusCode);
