@@ -1797,7 +1797,9 @@ public sealed class GeminiService(
             res?.Dispose();
             res = await client.SendAsync(req, ct);
             if (res.IsSuccessStatusCode || attempt == 1) break;
-            if ((int)res.StatusCode is not (503 or 429 or 502 or 504)) break;
+            // Retry only genuine transient SERVER errors (503 overload / 502 / 504). NOT 429 — that's a
+            // rate-limit/quota a 900ms retry won't clear; retrying it just burns another request faster.
+            if ((int)res.StatusCode is not (503 or 502 or 504)) break;
             logger.LogWarning("Gemini {Kind} returned {Status}; retrying once.", kind, (int)res.StatusCode);
             try { await Task.Delay(900, ct); } catch (OperationCanceledException) { break; }
         }
