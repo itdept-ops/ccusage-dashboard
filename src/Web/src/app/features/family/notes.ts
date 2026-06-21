@@ -12,6 +12,10 @@ import { MatMenuModule } from '@angular/material/menu';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInputModule } from '@angular/material/input';
+import { FormsModule } from '@angular/forms';
+
 import { Api } from '../../core/api';
 import {
   FamilyList, FamilyNote, FamilyShareTarget, Household, NoteActionItem,
@@ -26,6 +30,19 @@ interface SummaryAction {
   text: string;
   duePhrase: string | null;
   keep: boolean;
+}
+
+/** One note the "✨ Ask your notes" answer drew on, resolved to a tappable title (to open that note). */
+interface AnswerSource {
+  id: number;
+  title: string;
+}
+
+/** The read-only "✨ Ask your notes" answer card (the question is kept for context; sources link back). */
+interface AskAnswer {
+  question: string;
+  answer: string;
+  sources: AnswerSource[];
 }
 
 /** The "✨ Summarize" result shown inline under a note (read-only until the user picks an action). */
@@ -51,8 +68,8 @@ interface NoteSummary {
 @Component({
   selector: 'app-family-notes',
   imports: [
-    RouterLink, MatIconModule, MatButtonModule, MatTooltipModule, MatProgressSpinnerModule,
-    MatMenuModule, MatSnackBarModule,
+    RouterLink, FormsModule, MatIconModule, MatButtonModule, MatTooltipModule, MatProgressSpinnerModule,
+    MatMenuModule, MatSnackBarModule, MatFormFieldModule, MatInputModule,
   ],
   templateUrl: './notes.html',
   styleUrl: './family.scss',
@@ -68,6 +85,15 @@ export class FamilyNotes {
   readonly error = signal(false);
   /** Per-note busy id (pin/delete spinner), or null. */
   readonly busyId = signal<number | null>(null);
+
+  // ---- ✨ Ask your notes ----
+  /** The question box at the top of the board. */
+  readonly askText = signal('');
+  readonly asking = signal(false);
+  /** A friendly aria-live status line for the ask box (an error, or a hint). */
+  readonly askStatus = signal('');
+  /** The current read-only answer card, or null (cleared on a new ask / explicit close). */
+  readonly answer = signal<AskAnswer | null>(null);
 
   /** The note id currently being summarized (spinner on its ✨ button), or null. */
   readonly summarizingId = signal<number | null>(null);
@@ -227,6 +253,60 @@ export class FamilyNotes {
       data, width: '460px', maxWidth: '94vw', autoFocus: false,
     });
     await firstValueFrom(ref.afterClosed());
+  }
+
+  // ---- ✨ Ask your notes (read-only Q&A over the household's notes) ----
+
+  /**
+   * Ask Gemini a question answered STRICTLY from the household's notes and show a read-only answer card. The
+   * server reads the notes (nothing trusted from the client) and returns the note ids it used, which we
+   * resolve to titles the user can tap to open. Creates NOTHING. Degrades gracefully: a 503 (AI unavailable /
+   * not configured) or any error shows a friendly aria-live line; the board still works.
+   */
+  async ask(): Promise<void> {
+    const question = this.askText().trim();
+    if (!question || this.asking()) return;
+    this.asking.set(true);
+    this.askStatus.set('Reading your notes…');
+    this.answer.set(null);
+    try {
+      const result = await firstValueFrom(this.api.askFamilyNotesAi(question));
+      // Resolve the used note ids to titles in the loaded board (skip any the caller can't see locally).
+      const byId = new Map(this.notes().map(n => [n.id, n]));
+      const sources: AnswerSource[] = (result.usedNoteIds ?? [])
+        .map(id => byId.get(id))
+        .filter((n): n is FamilyNote => !!n)
+        .map(n => ({ id: n.id, title: n.title?.trim() || 'Untitled note' }));
+      this.answer.set({ question, answer: result.answer, sources });
+      this.askStatus.set('');
+    } catch (e) {
+      const status = (e as { status?: number })?.status;
+      this.askStatus.set(status === 503
+        ? "AI isn't available right now — you can still open your notes below."
+        : this.messageOf(e, "I couldn't reach the AI just now. Please try again."));
+    } finally {
+      this.asking.set(false);
+    }
+  }
+
+  /** Dismiss the answer card (keeps the question text so the user can tweak + re-ask). */
+  closeAnswer(): void {
+    this.answer.set(null);
+    this.askStatus.set('');
+  }
+
+  /** Open a note the answer drew on (scroll it into view + flash it via the editor when editable). */
+  openSource(noteId: number): void {
+    const note = this.notes().find(n => n.id === noteId);
+    if (!note) return;
+    const el = document.getElementById(`note-${noteId}`);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      el.classList.add('note-card--flash');
+      setTimeout(() => el.classList.remove('note-card--flash'), 1600);
+    } else if (note.canEdit) {
+      void this.edit(note);
+    }
   }
 
   // ---- ✨ Summarize → action items ----

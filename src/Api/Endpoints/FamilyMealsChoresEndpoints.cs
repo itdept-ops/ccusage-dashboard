@@ -67,6 +67,18 @@ public static class FamilyMealsChoresEndpoints
     /// for the editor to PREFILL. Saves nothing.</summary>
     public sealed record RecipeAiDto(string Title, string Ingredients, string? Notes);
 
+    /// <summary>"What can I make" request: the on-hand <see cref="Ingredients"/> (free text) + optional free-text
+    /// <see cref="Constraints"/> (kid-friendly / vegetarian / quick). Nothing is created — creating a meal still
+    /// goes through the existing POST /meals on confirm (the editor is prefilled from a chosen idea).</summary>
+    public sealed record WhatCanIMakeAiRequest(string? Ingredients, string? Constraints);
+
+    /// <summary>One dinner idea from "What can I make": a title, the ingredient lines it uses, and the few small
+    /// items still missing.</summary>
+    public sealed record MealIdeaDto(string Title, string Ingredients, IReadOnlyList<string> Missing);
+
+    /// <summary>"What can I make" response: 0+ dinner ideas to review.</summary>
+    public sealed record WhatCanIMakeAiDto(IReadOnlyList<MealIdeaDto> Ideas);
+
     public sealed record ChoreDto(
         long Id, string Title,
         int? AssignedToUserId, string? AssignedToName,
@@ -399,6 +411,26 @@ public static class FamilyMealsChoresEndpoints
             if (result is null) return AiUnavailable();
 
             return Results.Ok(new RecipeAiDto(result.Title, result.Ingredients, result.Notes));
+        }).RequireRateLimiting(AiEndpoints.RateLimitPolicy);
+
+        // ---- POST /meals/ai/what-can-i-make : Gemini proposes dinners from on-hand ingredients (round 2) ----
+        // Returns dinner ideas to review (title + ingredients + small missing items); creating a meal still goes
+        // through the existing POST /meals on confirm (the editor is prefilled). Saves NOTHING. Rate-limited;
+        // 400 on empty ingredients; graceful 503 when Gemini is unavailable.
+        g.MapPost("/meals/ai/what-can-i-make", async (
+            WhatCanIMakeAiRequest req, GeminiService gemini, CancellationToken ct) =>
+        {
+            if (string.IsNullOrWhiteSpace(req?.Ingredients))
+                return Results.BadRequest(new { message = "List a few ingredients you have on hand." });
+            if (!gemini.IsConfigured) return AiUnavailable();
+
+            var result = await gemini.WhatCanIMakeAsync(req.Ingredients, req.Constraints, ct);
+            if (result is null) return AiUnavailable();
+
+            var ideas = result.Ideas
+                .Select(i => new MealIdeaDto(i.Title, i.Ingredients, i.Missing))
+                .ToList();
+            return Results.Ok(new WhatCanIMakeAiDto(ideas));
         }).RequireRateLimiting(AiEndpoints.RateLimitPolicy);
     }
 

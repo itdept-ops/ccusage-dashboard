@@ -34,6 +34,47 @@
              [ngModel]="label()" (ngModelChange)="label.set($event)" />
     </mat-form-field>
 
+    <!-- ✨ Quick timer: natural language → confirm chip → Start -->
+    <div class="quick-timer">
+      <div class="quick-timer__bar">
+        <mat-icon class="quick-timer__spark" aria-hidden="true">auto_awesome</mat-icon>
+        <input class="quick-timer__input" maxlength="200" [ngModel]="quickText()"
+               (ngModelChange)="quickText.set($event)" (keydown.enter)="parseQuick()" [disabled]="quickBusy()"
+               placeholder="Quick timer… e.g. 20 min pasta" aria-label="Quick timer in natural language" />
+        <button mat-flat-button color="primary" type="button" class="quick-timer__go"
+                [disabled]="quickBusy() || !quickText().trim()" (click)="parseQuick()">
+          @if (quickBusy()) {
+            <mat-spinner [diameter]="16" />
+            <span>Reading…</span>
+          } @else {
+            <span>Set</span>
+          }
+        </button>
+      </div>
+
+      @if (quickStatus(); as msg) {
+        <p class="quick-timer__status" aria-live="polite">{{ msg }}</p>
+      }
+
+      @if (quickProposal(); as p) {
+        <div class="quick-timer__confirm" aria-live="polite">
+          <span class="quick-timer__chip">
+            <mat-icon aria-hidden="true">timer</mat-icon>
+            <span class="quick-timer__chip-label">{{ p.label }}</span>
+            <span class="quick-timer__chip-dur">{{ durationLabel(p.durationSeconds) }}</span>
+          </span>
+          <span class="quick-timer__confirm-actions">
+            <button mat-button type="button" (click)="clearQuick()" [disabled]="starting()">Cancel</button>
+            <button mat-flat-button color="primary" type="button" (click)="startQuick()" [disabled]="starting()">
+              @if (starting()) { <mat-spinner [diameter]="16" /> }
+              @else { <mat-icon aria-hidden="true">play_arrow</mat-icon> }
+              Start
+            </button>
+          </span>
+        </div>
+      }
+    </div>
+
     <div class="preset-grid">
       @for (p of presets; track p.label) {
         <button type="button" class="preset" [disabled]="starting()" (click)="startPreset(p)">

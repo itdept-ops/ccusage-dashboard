@@ -17,6 +17,54 @@
     </button>
   </header>
 
+  <!-- ✨ Ask your notes -->
+  @if (!loading() && !error() && board().length) {
+    <section class="ask-notes" aria-label="Ask your notes">
+      <div class="ask-notes__bar">
+        <mat-icon class="ask-notes__spark" aria-hidden="true">auto_awesome</mat-icon>
+        <input class="ask-notes__input" maxlength="500" [ngModel]="askText()"
+               (ngModelChange)="askText.set($event)" (keydown.enter)="ask()" [disabled]="asking()"
+               placeholder="Ask your notes… e.g. what's the wifi password?" aria-label="Ask your notes" />
+        <button mat-flat-button color="primary" type="button" class="ask-notes__go"
+                [disabled]="asking() || !askText().trim()" (click)="ask()">
+          @if (asking()) {
+            <mat-spinner [diameter]="16" />
+            <span>Thinking…</span>
+          } @else {
+            <span>Ask</span>
+          }
+        </button>
+      </div>
+
+      @if (askStatus(); as msg) {
+        <p class="ask-notes__status" aria-live="polite">{{ msg }}</p>
+      }
+
+      @if (answer(); as a) {
+        <div class="ask-answer" aria-live="polite">
+          <header class="ask-answer__head">
+            <span class="ask-answer__tag"><mat-icon aria-hidden="true">auto_awesome</mat-icon> From your notes</span>
+            <button mat-icon-button class="ask-answer__close" aria-label="Dismiss answer" (click)="closeAnswer()">
+              <mat-icon aria-hidden="true">close</mat-icon>
+            </button>
+          </header>
+          <p class="ask-answer__text">{{ a.answer }}</p>
+          @if (a.sources.length) {
+            <div class="ask-answer__sources">
+              <span class="ask-answer__sources-label">Based on:</span>
+              @for (s of a.sources; track s.id) {
+                <button type="button" class="ask-answer__chip" (click)="openSource(s.id)"
+                        [matTooltip]="'Open “' + s.title + '”'">
+                  <mat-icon aria-hidden="true">sticky_note_2</mat-icon>{{ s.title }}
+                </button>
+              }
+            </div>
+          }
+        </div>
+      }
+    </section>
+  }
+
   @if (loading()) {
     <div class="family__loading">
       <mat-spinner [diameter]="28" />
@@ -39,7 +87,7 @@
   } @else {
     <div class="note-board">
       @for (note of board(); track note.id) {
-        <article class="note-card" [class.note-card--pinned]="note.pinned">
+        <article class="note-card" [class.note-card--pinned]="note.pinned" [id]="'note-' + note.id">
           <header class="note-card__head">
             @if (note.title) {
               <h2 class="note-card__title">{{ note.title }}</h2>

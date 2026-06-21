@@ -15,7 +15,7 @@ import { MatDialog } from '@angular/material/dialog';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 
 import { Api } from '../../core/api';
-import { FamilyMeal, FamilyMealDay, FamilyMealSlot, PlanWeekMeal } from '../../core/models';
+import { FamilyMeal, FamilyMealDay, FamilyMealSlot, MealIdea, PlanWeekMeal } from '../../core/models';
 import { FamilyConfirmDialog, ConfirmData } from './confirm-dialog';
 import { MealEditorDialog, MealEditorData, MealEditorResult } from './meal-editor-dialog';
 
@@ -97,6 +97,19 @@ export class FamilyMeals {
   readonly addingPlan = signal(false);
   /** Monotonic key source for proposal rows (the AI list has no ids). */
   private proposalKey = 0;
+
+  // ---- ✨ What can I make? ----
+  /** Whether the "What can I make?" sheet is open. */
+  readonly makeOpen = signal(false);
+  /** On-hand ingredients free text ("chicken, rice, broccoli, soy sauce"). */
+  readonly makeIngredients = signal('');
+  /** Optional free-text constraints ("kid-friendly, vegetarian, quick…"). */
+  readonly makeConstraints = signal('');
+  readonly makeBusy = signal(false);
+  /** A friendly aria-live status line for the make sheet (a hint, an error, or progress). */
+  readonly makeStatus = signal('');
+  /** The dinner ideas awaiting review; picking one prefills the meal editor. */
+  readonly ideas = signal<MealIdea[]>([]);
 
   /** The Monday (local) of the week being viewed. */
   readonly weekStart = signal<Date>(this.thisMonday());
@@ -220,9 +233,14 @@ export class FamilyMeals {
 
   private openEditor(
     meal: FamilyMeal | null, localDate: string, dayLabel: string, defaultSlot?: FamilyMealSlot,
+    prefill?: { title?: string; ingredients?: string },
   ): Promise<MealEditorResult | undefined> {
     const ref = this.dialog.open<MealEditorDialog, MealEditorData, MealEditorResult>(MealEditorDialog, {
-      data: { meal, localDate, dayLabel, defaultSlot }, width: '460px', maxWidth: '94vw', autoFocus: false,
+      data: {
+        meal, localDate, dayLabel, defaultSlot,
+        prefillTitle: prefill?.title, prefillIngredients: prefill?.ingredients,
+      },
+      width: '460px', maxWidth: '94vw', autoFocus: false,
     });
     return firstValueFrom(ref.afterClosed());
   }
@@ -361,6 +379,98 @@ export class FamilyMeals {
   /** Edit a proposal's ingredients inline (bound from the row textarea). */
   setProposalIngredients(p: ProposedMeal, ingredients: string): void {
     this.proposals.set(this.proposals().map(x => x.key === p.key ? { ...x, ingredients } : x));
+  }
+
+  // ---- ✨ What can I make? (AI proposes dinners from on-hand ingredients → prefill the editor) ----
+
+  /** Open/close the "What can I make?" sheet. Closing keeps staged ideas (they live below the sheet). */
+  toggleMake(): void {
+    this.makeOpen.update(o => !o);
+  }
+
+  /**
+   * Ask Gemini for dinner ideas from the on-hand ingredients (+ optional constraints) and stage them as
+   * review cards. Creates NOTHING — picking an idea PREFILLS the meal editor, and a meal is only created on
+   * the user's Save. Degrades gracefully: a 503 (AI unavailable / not configured) or any error shows a
+   * friendly aria-live line; an empty result says so.
+   */
+  async whatCanIMake(): Promise<void> {
+    const ingredients = this.makeIngredients().trim();
+    if (!ingredients || this.makeBusy()) return;
+    this.makeBusy.set(true);
+    this.makeStatus.set('Looking at what you’ve got…');
+    this.ideas.set([]);
+    try {
+      const result = await firstValueFrom(
+        this.api.whatCanIMakeAi(ingredients, this.makeConstraints().trim() || null));
+      const ideas = result.ideas ?? [];
+      this.ideas.set(ideas);
+      if (ideas.length === 0) {
+        this.makeStatus.set("I couldn't think of a dinner from those just now. Try adding a couple more ingredients.");
+      } else {
+        const n = ideas.length;
+        this.makeStatus.set(`Here ${n === 1 ? 'is 1 idea' : `are ${n} ideas`} — tap one to start a meal from it.`);
+      }
+    } catch (e) {
+      const status = (e as { status?: number })?.status;
+      this.makeStatus.set(status === 503
+        ? 'AI unavailable, add a meal manually.'
+        : this.messageOf(e, "I couldn't reach the AI just now. Please try again, or add a meal manually."));
+    } finally {
+      this.makeBusy.set(false);
+    }
+  }
+
+  /** Re-run with the same ingredients/constraints (replaces the staged ideas). */
+  regenerateIdeas(): void {
+    void this.whatCanIMake();
+  }
+
+  /** Discard the staged ideas + status. */
+  clearIdeas(): void {
+    this.ideas.set([]);
+    this.makeStatus.set('');
+  }
+
+  /** The whole missing-items line for an idea ("plus: soy sauce, scallions"), or '' when nothing's missing. */
+  missingLine(idea: MealIdea): string {
+    const missing = (idea.missing ?? []).filter(s => s.trim().length > 0);
+    return missing.length ? `Plus: ${missing.join(', ')}` : '';
+  }
+
+  /**
+   * Pick a dinner idea: open the meal editor PREFILLED with its title + ingredients (the idea's ingredients,
+   * with any missing items appended so the cook can keep or drop them). Creating the meal still goes through
+   * the existing /meals on Save. The day defaults to today when the viewed week contains it, else the first
+   * day of the viewed week.
+   */
+  async useIdea(idea: MealIdea): Promise<void> {
+    const cells = this.cells();
+    if (cells.length === 0) return;
+    const todayIso = this.toIso(new Date());
+    const target = cells.find(c => c.localDate === todayIso) ?? cells[0];
+
+    // Seed the ingredients with what it uses; append the small "missing" items as their own lines.
+    const lines = [
+      ...idea.ingredients.split('\n').map(s => s.trim()).filter(Boolean),
+      ...(idea.missing ?? []).map(s => s.trim()).filter(Boolean),
+    ];
+    const prefill = { title: idea.title, ingredients: lines.join('\n') };
+
+    const result = await this.openEditor(
+      null, target.localDate, `${target.weekday}, ${target.dateLabel}`, 'dinner', prefill);
+    if (!result) return;
+    try {
+      await firstValueFrom(this.api.createFamilyMeal({
+        localDate: target.localDate, slot: result.slot, title: result.title, ingredients: result.ingredients,
+      }));
+      this.reload();
+      this.makeOpen.set(false);
+      this.clearIdeas();
+      this.snack.open(`Added “${result.title}” to ${target.weekday}.`, undefined, { duration: 2500 });
+    } catch (e) {
+      this.snack.open(this.messageOf(e, "Couldn't save that meal. Please try again."), 'OK', { duration: 4000 });
+    }
   }
 
   // ---- Grocery-list tie-in ----

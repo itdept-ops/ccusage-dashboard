@@ -97,6 +97,33 @@
   }
 }
 
+/* ── ✨ What can I make? (reuses the .plan-ai shell) ─────────────────── */
+.make-ai__form { align-items: flex-start; }
+.make-ai__field { flex: 1 1 100%; }
+.make-ai__ideas {
+  list-style: none; margin: var(--tech-space-3, 12px) 0 0; padding: 0;
+  display: grid; gap: var(--tech-space-2, 8px);
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 22rem), 1fr));
+}
+.idea-card {
+  display: flex; flex-direction: column; gap: 4px; width: 100%; text-align: left;
+  padding: var(--tech-space-3, 12px);
+  border: 1px solid var(--tech-border); border-radius: var(--tech-r-control, 10px);
+  background: var(--tech-bg-sunken); color: var(--tech-text); cursor: pointer; font: inherit;
+  transition: border-color 120ms ease, background 120ms ease;
+  &:hover { border-color: var(--tech-accent); background: color-mix(in srgb, var(--tech-accent) 6%, var(--tech-bg-sunken)); }
+}
+.idea-card__head { display: flex; align-items: center; gap: 6px; }
+.idea-card__icon { flex: 0 0 auto; width: 20px; height: 20px; font-size: 20px; color: var(--tech-accent); }
+.idea-card__title { flex: 1 1 auto; min-width: 0; font-weight: 700; font-size: var(--tech-fs-body); }
+.idea-card__go { flex: 0 0 auto; width: 18px; height: 18px; font-size: 18px; color: var(--tech-text-tertiary); }
+.idea-card__uses { font-size: var(--tech-fs-label); color: var(--tech-text-secondary); line-height: 1.4; }
+.idea-card__missing {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: var(--tech-fs-micro); font-weight: 600; color: var(--tech-text-secondary);
+  mat-icon { width: 14px; height: 14px; font-size: 14px; color: var(--tech-warn, var(--tech-accent)); }
+}
+
 /* ── Week navigator ─────────────────────────────────────────────────── */
 .week-nav {
   display: flex;

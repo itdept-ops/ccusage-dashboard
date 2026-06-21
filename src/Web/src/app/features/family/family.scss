@@ -538,6 +538,90 @@ a.tile:focus-visible {
 }
 .note-sum__status { margin: 0; font-size: var(--tech-fs-label); color: var(--tech-text-secondary); }
 
+/* ── ✨ Ask your notes (top of the Notes board) ─────────────────────── */
+.ask-notes {
+  display: flex; flex-direction: column; gap: var(--tech-space-2, 8px);
+  margin-bottom: var(--tech-space-4, 16px);
+  padding: var(--tech-space-3, 12px);
+  border: 1px solid var(--tech-border);
+  border-radius: var(--tech-r-control, 12px);
+  background:
+    radial-gradient(120% 160% at 0% 0%, color-mix(in srgb, var(--tech-accent) 9%, transparent), transparent 55%),
+    var(--tech-panel);
+}
+.ask-notes__bar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.ask-notes__spark { flex: 0 0 auto; width: 20px; height: 20px; font-size: 20px; color: var(--tech-accent); }
+.ask-notes__input {
+  flex: 1 1 16rem; min-width: 0; box-sizing: border-box;
+  border: 1px solid var(--tech-border); border-radius: var(--tech-r-control, 10px);
+  background: var(--tech-bg-sunken); color: var(--tech-text);
+  font: inherit; font-size: var(--tech-fs-body); padding: 10px 12px;
+  &::placeholder { color: var(--tech-text-tertiary); }
+  &:focus { outline: none; border-color: var(--tech-accent); }
+}
+.ask-notes__go {
+  flex: 0 0 auto; border-radius: var(--tech-r-control); font-weight: 600;
+  display: inline-flex; align-items: center; gap: 6px;
+  mat-spinner { --mdc-circular-progress-active-indicator-color: currentColor; }
+}
+.ask-notes__status { margin: 0; font-size: var(--tech-fs-label); color: var(--tech-text-secondary); }
+
+.ask-answer {
+  display: flex; flex-direction: column; gap: var(--tech-space-2, 8px);
+  padding: var(--tech-space-3, 12px);
+  border: 1px solid var(--tech-border-subtle); border-left: 3px solid var(--tech-accent);
+  border-radius: var(--tech-r-control, 10px); background: var(--tech-bg-sunken);
+}
+.ask-answer__head { display: flex; align-items: center; justify-content: space-between; }
+.ask-answer__tag {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: var(--tech-fs-label); font-weight: 700; color: var(--tech-accent);
+  mat-icon { width: 16px; height: 16px; font-size: 16px; }
+}
+.ask-answer__close mat-icon { color: var(--tech-text-tertiary); width: 18px; height: 18px; font-size: 18px; }
+.ask-answer__text { margin: 0; font-size: var(--tech-fs-body); color: var(--tech-text); line-height: 1.5; white-space: pre-wrap; }
+.ask-answer__sources { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.ask-answer__sources-label { font-size: var(--tech-fs-micro); color: var(--tech-text-tertiary);
+  text-transform: uppercase; letter-spacing: 0.05em; }
+.ask-answer__chip {
+  display: inline-flex; align-items: center; gap: 4px; max-width: 100%;
+  border: 1px solid var(--tech-border); border-radius: 999px;
+  background: var(--tech-panel); color: var(--tech-text); cursor: pointer;
+  font: inherit; font-size: var(--tech-fs-label); font-weight: 600; padding: 3px 10px 3px 8px;
+  &:hover { border-color: var(--tech-accent); background: color-mix(in srgb, var(--tech-accent) 8%, transparent); }
+  mat-icon { width: 15px; height: 15px; font-size: 15px; color: var(--tech-accent); flex: 0 0 auto; }
+  span, & { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+}
+
+/* A soft flash when "From your notes" links the user to a source note. */
+.note-card--flash { animation: note-flash 1.6s ease; }
+@keyframes note-flash {
+  0%, 100% { box-shadow: none; }
+  20% { box-shadow: 0 0 0 3px color-mix(in srgb, var(--tech-accent) 55%, transparent); }
+}
+
+/* ── ✨ Transform row (note editor) — reuses .note-ai__draft for the preview ── */
+.note-transform {
+  display: flex; flex-direction: column; gap: var(--tech-space-2, 8px);
+  padding: var(--tech-space-2, 8px) var(--tech-space-3, 12px);
+  border: 1px solid var(--tech-border); border-radius: var(--tech-r-control, 10px);
+  background:
+    radial-gradient(120% 160% at 0% 0%, color-mix(in srgb, var(--tech-accent) 7%, transparent), transparent 55%),
+    var(--tech-panel);
+  &--disabled { opacity: 0.7; }
+}
+.note-transform__row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.note-transform__lead {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: var(--tech-fs-label); font-weight: 700; color: var(--tech-accent); margin-right: 2px;
+}
+.note-transform__action {
+  border-radius: 999px; font-weight: 600; min-height: 34px; line-height: 1;
+  display: inline-flex; align-items: center; gap: 5px;
+  mat-icon { width: 17px; height: 17px; font-size: 17px; }
+  mat-spinner { --mdc-circular-progress-active-indicator-color: currentColor; }
+}
+
 .note-card__body { max-height: 260px; overflow: hidden; position: relative;
   -webkit-mask-image: linear-gradient(to bottom, #000 78%, transparent); }
 .note-card__empty-body { margin: 0; color: var(--tech-text-tertiary); font-style: italic;

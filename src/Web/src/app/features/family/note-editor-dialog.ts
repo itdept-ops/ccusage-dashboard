@@ -11,8 +11,10 @@ import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 
+import { MatMenuModule } from '@angular/material/menu';
+
 import { Api } from '../../core/api';
-import { FamilyNote, NoteDraftAiResult } from '../../core/models';
+import { FamilyNote, NoteDraftAiResult, NoteTransformAction, NoteTransformAiResult } from '../../core/models';
 import { renderMarkdown } from './markdown';
 
 /** Open with an existing note to edit, or null/undefined to create a fresh one. */
@@ -36,6 +38,29 @@ interface AiDraft {
   preview: SafeHtml;
 }
 
+/** A "✨ Transform" preview awaiting Use / Try-again (a transformed body only — never the title). */
+interface TransformPreview {
+  action: NoteTransformAction;
+  /** A friendly label for the action that produced this (e.g. "Made a checklist"). */
+  label: string;
+  body: string;
+  /** Safe, rendered preview of the transformed body (renderMarkdown escapes first). */
+  preview: SafeHtml;
+}
+
+/** The quick-action transforms in the editor row (mirrors the server vocabulary; translate uses a language). */
+const TRANSFORM_ACTIONS: { action: NoteTransformAction; label: string; icon: string }[] = [
+  { action: 'continue', label: 'Continue writing', icon: 'edit_note' },
+  { action: 'checklist', label: 'Make a checklist', icon: 'checklist' },
+  { action: 'shorten', label: 'Shorten', icon: 'compress' },
+];
+
+/** A small set of target languages for "Translate" (the server accepts any free-text language name). */
+const TRANSLATE_LANGS = [
+  'Spanish', 'French', 'German', 'Italian', 'Portuguese', 'Chinese', 'Japanese', 'Korean',
+  'Hindi', 'Arabic', 'Russian', 'Vietnamese', 'Tagalog', 'English',
+];
+
 /**
  * Create / edit a family note. A simple markdown textarea with a live preview side-by-side (stacked on
  * mobile), a title field, and a pin toggle. Resolves with {title, body, pinned}; the page calls the create
@@ -50,7 +75,7 @@ interface AiDraft {
   selector: 'app-note-editor-dialog',
   imports: [
     FormsModule, MatDialogModule, MatFormFieldModule, MatInputModule, MatButtonModule, MatIconModule,
-    MatSlideToggleModule, MatProgressSpinnerModule,
+    MatSlideToggleModule, MatProgressSpinnerModule, MatMenuModule,
   ],
   templateUrl: './note-editor-dialog.html',
   styleUrl: './family.scss',
@@ -146,6 +171,66 @@ export class NoteEditorDialog {
   discardAiDraft(): void {
     this.aiDraft.set(null);
     this.aiStatus.set('');
+  }
+
+  // ---- ✨ Transform (Continue / Make checklist / Shorten / Translate) ----
+
+  readonly transformActions = TRANSFORM_ACTIONS;
+  readonly translateLangs = TRANSLATE_LANGS;
+  /** Which transform is in flight (spinner on its row), or null. */
+  readonly transformBusy = signal<NoteTransformAction | null>(null);
+  /** A friendly aria-live status line for the transform row (an error, or a hint). */
+  readonly transformStatus = signal('');
+  /** The pending transform preview awaiting Use / Try-again, or null. */
+  readonly transformPreview = signal<TransformPreview | null>(null);
+
+  /** True when there's a body to transform (the row's actions are disabled on an empty note). */
+  readonly canTransform = computed(() => this.body().trim().length > 0);
+
+  /**
+   * Run one transform on the current body and stage the result as a PREVIEW (Continue / Make checklist /
+   * Shorten / Translate). Touches the body field only on "Use this". Degrades gracefully: a 503 (AI
+   * unavailable / not configured), a 400 (empty body), or any error shows a friendly aria-live line.
+   */
+  async runTransform(action: NoteTransformAction, lang?: string): Promise<void> {
+    if (!this.canTransform() || this.transformBusy()) return;
+    this.transformBusy.set(action);
+    this.transformPreview.set(null);
+    const label = action === 'translate'
+      ? `Translated to ${lang}`
+      : (TRANSFORM_ACTIONS.find(a => a.action === action)?.label ?? 'Transformed');
+    this.transformStatus.set(action === 'translate' ? `Translating to ${lang}…` : `${label}…`);
+    try {
+      const result: NoteTransformAiResult =
+        await firstValueFrom(this.api.transformFamilyNoteAi(this.body(), action, lang));
+      this.transformPreview.set({
+        action, label, body: result.body,
+        preview: this.sanitizer.bypassSecurityTrustHtml(renderMarkdown(result.body)),
+      });
+      this.transformStatus.set('Here’s the result — review it, then Use it or Try again.');
+    } catch (e) {
+      const status = (e as { status?: number })?.status;
+      this.transformStatus.set(status === 503
+        ? "AI isn't available right now — you can edit the note yourself below."
+        : this.messageOf(e, "I couldn't reach the AI just now. Please try again, or edit it yourself."));
+    } finally {
+      this.transformBusy.set(null);
+    }
+  }
+
+  /** Accept the staged transform into the body field (still unsaved until Save). */
+  useTransform(): void {
+    const t = this.transformPreview();
+    if (!t) return;
+    this.body.set(t.body);
+    this.transformPreview.set(null);
+    this.transformStatus.set('Applied. Edit anything, then Save.');
+  }
+
+  /** Discard the staged transform (keeps the row open to try another action). */
+  discardTransform(): void {
+    this.transformPreview.set(null);
+    this.transformStatus.set('');
   }
 
   save(): void {

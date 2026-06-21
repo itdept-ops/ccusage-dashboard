@@ -16,7 +16,7 @@ import { MatInputModule } from '@angular/material/input';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 
 import { Api } from '../../core/api';
-import { FamilyTimer } from '../../core/models';
+import { FamilyTimer, TimerAiResult } from '../../core/models';
 
 /** A one-tap preset countdown. `seconds` seeds a new timer; `label` is its friendly name. */
 interface Preset {
@@ -79,6 +79,15 @@ export class FamilyTimerWidget implements OnDestroy {
   /** Custom-timer form state. */
   readonly customMinutes = signal<number | null>(null);
   readonly label = signal('');
+
+  // ---- ✨ Quick timer (natural-language → confirm chip → Start) ----
+  /** The NL input ("20 min pasta"). */
+  readonly quickText = signal('');
+  readonly quickBusy = signal(false);
+  /** A friendly aria-live status line for the quick-timer box (an error, or a hint). */
+  readonly quickStatus = signal('');
+  /** The parsed { label, durationSeconds } awaiting the user's Start confirm, or null. */
+  readonly quickProposal = signal<TimerAiResult | null>(null);
 
   /** Timer ids we've already alerted on locally, so the chime fires exactly once per timer. */
   private readonly alerted = new Set<number>();
@@ -163,8 +172,69 @@ export class FamilyTimerWidget implements OnDestroy {
     await this.start(clamped * 60, this.label().trim() || 'Timer');
   }
 
-  private async start(seconds: number, label: string): Promise<void> {
-    if (this.starting()) return;
+  // ---- ✨ Quick timer ----
+
+  /**
+   * Parse the natural-language text ("20 min pasta") into a proposed { label, durationSeconds } and stage it
+   * as a confirm chip — it CREATES NOTHING until the user taps Start. Degrades gracefully: a 503 (AI
+   * unavailable / not configured) or any error shows a friendly aria-live line; the presets/custom always work.
+   */
+  async parseQuick(): Promise<void> {
+    const text = this.quickText().trim();
+    if (!text || this.quickBusy()) return;
+    this.quickBusy.set(true);
+    this.quickStatus.set('Reading that…');
+    this.quickProposal.set(null);
+    try {
+      const result = await firstValueFrom(this.api.parseTimerAi(text));
+      this.quickProposal.set(result);
+      this.quickStatus.set('');
+    } catch (e) {
+      const status = (e as { status?: number })?.status;
+      this.quickStatus.set(status === 503
+        ? "AI isn't available right now — pick a preset or set custom minutes below."
+        : this.messageOf(e, "I couldn't read that just now. Please try again, or use a preset below."));
+    } finally {
+      this.quickBusy.set(false);
+    }
+  }
+
+  /** Start the confirmed quick-timer proposal via the existing create endpoint, then clear the box on success. */
+  async startQuick(): Promise<void> {
+    const p = this.quickProposal();
+    if (!p || this.starting()) return;
+    const ok = await this.start(p.durationSeconds, p.label?.trim() || 'Timer');
+    if (ok) {
+      this.quickProposal.set(null);
+      this.quickText.set('');
+      this.quickStatus.set('');
+    }
+  }
+
+  /** Discard the staged proposal (keeps the text so the user can tweak + re-parse). */
+  clearQuick(): void {
+    this.quickProposal.set(null);
+    this.quickStatus.set('');
+  }
+
+  /** A friendly "20 min" / "1 h 30 min" / "45 sec" label for a proposed duration chip. */
+  durationLabel(seconds: number): string {
+    const s = Math.max(0, Math.round(seconds));
+    if (s < 60) return `${s} sec`;
+    const hrs = Math.floor(s / 3600);
+    const mins = Math.round((s % 3600) / 60);
+    if (hrs > 0) return mins > 0 ? `${hrs} h ${mins} min` : `${hrs} h`;
+    return `${mins} min`;
+  }
+
+  private messageOf(e: unknown, fallback: string): string {
+    const msg = (e as { error?: { message?: string } })?.error?.message;
+    return typeof msg === 'string' && msg ? msg : fallback;
+  }
+
+  /** Start a countdown; returns true on success (so callers like the quick-timer can clear their box). */
+  private async start(seconds: number, label: string): Promise<boolean> {
+    if (this.starting()) return false;
     this.starting.set(true);
     try {
       const created = await firstValueFrom(this.api.createFamilyTimer({ label, durationSeconds: seconds }));
@@ -174,8 +244,10 @@ export class FamilyTimerWidget implements OnDestroy {
       this.now.set(Date.now());
       this.label.set('');
       this.customMinutes.set(null);
+      return true;
     } catch {
       this.snack.open("Couldn't start that timer. Please try again.", 'OK', { duration: 4000 });
+      return false;
     } finally {
       this.starting.set(false);
     }

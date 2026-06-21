@@ -23,6 +23,10 @@ export interface MealEditorData {
   dayLabel: string;
   /** The slot to pre-select when creating (defaults to dinner — the primary slot). */
   defaultSlot?: FamilyMealSlot;
+  /** Optional prefill for a NEW meal (e.g. from "✨ What can I make?"): a dish title to seed the field. */
+  prefillTitle?: string;
+  /** Optional prefill for a NEW meal: newline-separated ingredient lines to seed the field. */
+  prefillIngredients?: string;
 }
 
 /** The result the editor returns: the meal fields, ready for the API (ingredients is raw newline text). */
@@ -70,8 +74,9 @@ export class MealEditorDialog {
   readonly isEdit = !!this.data.meal;
 
   readonly slot = signal<FamilyMealSlot>(this.data.meal?.slot ?? this.data.defaultSlot ?? 'dinner');
-  readonly title = signal(this.data.meal?.title ?? '');
-  readonly ingredients = signal(this.data.meal?.ingredients ?? '');
+  // For a new meal, an optional prefill (e.g. from "✨ What can I make?") seeds the editable fields.
+  readonly title = signal(this.data.meal?.title ?? this.data.prefillTitle ?? '');
+  readonly ingredients = signal(this.data.meal?.ingredients ?? this.data.prefillIngredients ?? '');
 
   readonly canSave = computed(() => this.title().trim().length > 0);
 

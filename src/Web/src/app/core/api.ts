@@ -4,7 +4,7 @@ import { Observable } from 'rxjs';
 import {
   AccessPolicy, AddExerciseRequest, AddFoodRequest, AddHydrationRequest, AuditEntry, BuildDayRequest, BuildDayResponse, CacheEfficiency, CalendarDay, CalendarEvent, CalendarEventInput, CalendarMemberBusy, CalendarStatus, ChatChannelDto, ChatContactDto, ChatMessageDto, CommitDayRequest, CommitDayResponse, CreateChannelRequest, DaySummaryRequest, DaySummaryResponse,
   CreateShareRequest, CustomExerciseDto, CustomFoodDto, DailyCoachResponse, EstimateExerciseRequest, EstimateExerciseResponse, EstimateMacrosRequest, EstimateMacrosResponse, ExerciseEntryDto, ExerciseLibraryDto, Fleet, FleetDeleteRequest,
-  FamilyBriefing, FamilyChore, FamilyChoreRecurrence, FamilyChores, ChoreSuggestAiRequest, ChoreSuggestAiResult, ChoreBalanceAiResult, ChoreValuesAiResult, ChoreSummaryAiResult, FamilyList, FamilyListKind, FamilyMeal, FamilyMealDay, FamilyMealSlot, FamilyNote, FamilyPoll, FamilyPollCreate, FamilyRecurrence, FamilyReminder, FamilySettings, FamilySettingsUpdate, FamilyTimer, FamilyPollKind, FamilyToday, FindTimeRequest, FindTimeAiResult, PollOptionsAiResult, PollSummaryAiResult, ReminderAiResult, ListItemsAiResult, NoteDraftAiResult, NoteSummaryAiResult, PlanWeekAiRequest, PlanWeekAiResult, RecipeAiResult, FindTimeResult, QuickAddKind, QuickAddRequest, QuickAddResult, FinanceAccount, FinanceAccountPatch, FinanceAccountSummary, FinanceImportBatch, FinanceImportResult, FinanceSummary, FinanceSummaryAiResult, FinanceTransactionsPage, FinanceTxnKind, FinanceOwner, FleetDeleteResult, FleetReassignRequest, FleetReassignResult, FleetRevokeKeysRequest, FleetRevokeKeysResult, FoodEntryDto, FoodSearchItemDto, GroupBy, Household, HouseholdCandidate,
+  FamilyBriefing, FamilyChore, FamilyChoreRecurrence, FamilyChores, ChoreSuggestAiRequest, ChoreSuggestAiResult, ChoreBalanceAiResult, ChoreValuesAiResult, ChoreSummaryAiResult, FamilyList, FamilyListKind, FamilyMeal, FamilyMealDay, FamilyMealSlot, FamilyNote, FamilyPoll, FamilyPollCreate, FamilyRecurrence, FamilyReminder, FamilySettings, FamilySettingsUpdate, FamilyTimer, FamilyPollKind, FamilyToday, FindTimeRequest, FindTimeAiResult, PollOptionsAiResult, PollSummaryAiResult, ReminderAiResult, ListItemsAiResult, ListSuggestAiResult, NoteDraftAiResult, NoteSummaryAiResult, AskNotesAiResult, NoteTransformAction, NoteTransformAiResult, PlanWeekAiRequest, PlanWeekAiResult, RecipeAiResult, WhatCanIMakeAiResult, TimerAiResult, FindTimeResult, QuickAddKind, QuickAddRequest, QuickAddResult, FinanceAccount, FinanceAccountPatch, FinanceAccountSummary, FinanceImportBatch, FinanceImportResult, FinanceSummary, FinanceSummaryAiResult, FinanceTransactionsPage, FinanceTxnKind, FinanceOwner, FleetDeleteResult, FleetReassignRequest, FleetReassignResult, FleetRevokeKeysRequest, FleetRevokeKeysResult, FoodEntryDto, FoodSearchItemDto, GroupBy, Household, HouseholdCandidate,
   HeatmapCell, HydrationEntryDto, HydrationSuggestResponse, ImageRequest, IngestionSource, IngestKey, IngestKeyCreated, LogWeightRequest, LoginEvent, MachineStat, ManagedUser, MealFeedbackRequest, MealFeedbackResponse, ModelStat, MoveDayRequest, MoveDayResult, NaturalGoalRequest, NaturalGoalResponse, NotificationDto, NotificationPreferenceDto, NotificationSettings,
   NotificationUpdate, PagedResult, ParseExerciseRequest, ParseExerciseResponse, ParseHydrationRequest, ParseHydrationResponse, ParseMealRequest, ParseMealResponse, PermissionItem, Presence, Pricing, ProjectDto, PublicShare, ReactionGroupDto, ReadLabelResponse, RecipeMacrosRequest, RecipeMacrosResponse, RequestLogEntry, SavedView, ScheduleAiResult,
   SavedViewUpsertRequest, SessionDetail, Settings, ShareAccessItem, ShareCreated, ShareListItem, SharedUserDto, SuggestFoodsResponse, SuggestGoalResponse, SuggestWorkoutRequest, SuggestWorkoutResponse, SummaryResponse,
@@ -816,6 +816,27 @@ export class Api {
     return this.http.post<NoteSummaryAiResult>(`${this.base}/family/notes/${id}/ai/summarize`, {});
   }
 
+  /**
+   * "✨ Ask your notes": answer a free-text `question` STRICTLY from the caller's household notes (the server
+   * reads them — nothing is trusted from the client) and returns a plain-text answer + the `usedNoteIds` the
+   * model drew on (so the UI can link back). Read-only — creates NOTHING. 400 for an empty question; degrades
+   * to a 503 when AI is unavailable / not configured.
+   */
+  askFamilyNotesAi(question: string): Observable<AskNotesAiResult> {
+    return this.http.post<AskNotesAiResult>(`${this.base}/family/notes/ai/ask`, { question });
+  }
+
+  /**
+   * "✨ Transform": apply an in-editor `action` ("continue" | "checklist" | "shorten" | "translate") to the
+   * editor `body` (`lang` is used by "translate"). Operates on editor content only — touches NO stored note
+   * and saves NOTHING; the editor previews the returned markdown body with Use / Try-again. 400 for an empty
+   * body or an unknown action; degrades to a 503 when AI is unavailable / not configured.
+   */
+  transformFamilyNoteAi(body: string, action: NoteTransformAction, lang?: string): Observable<NoteTransformAiResult> {
+    return this.http.post<NoteTransformAiResult>(`${this.base}/family/notes/ai/transform`,
+      { body, action, lang: lang ?? null });
+  }
+
   // ---- Family Hub F1: shared lists (shopping / to-do; checkable items; assignees; share) ----
 
   /** Lists the caller can see (household + shared-with-me), each with its items (most-recently-updated first). */
@@ -881,6 +902,16 @@ export class Api {
       { text, kind: kind ?? null });
   }
 
+  /**
+   * "✨ What am I missing?": given a list's current items (read server-side) + a free-text `goal` ("a kids
+   * birthday party"), propose ADDITIONAL item names not already on the list. Creates NOTHING — the user
+   * confirms the proposed chips, then each is added via the existing {@link addFamilyListItem}. 404 if the
+   * caller can't view the list; 400 for an empty goal; degrades to a 503 when AI is unavailable.
+   */
+  suggestListItemsAi(listId: number, goal: string): Observable<ListSuggestAiResult> {
+    return this.http.post<ListSuggestAiResult>(`${this.base}/family/lists/${listId}/ai/suggest`, { goal });
+  }
+
   // ---- Family Hub F2: reminders (due-time nudges; recurrence; target a member) ----
 
   /** The household's reminders (active first, then by due time). When one fires it lands in the bell. */
@@ -942,6 +973,15 @@ export class Api {
   /** Cancel a timer (any household member). */
   deleteFamilyTimer(id: number): Observable<void> {
     return this.http.delete<void>(`${this.base}/family/timers/${id}`);
+  }
+
+  /**
+   * "✨ Quick timer": parse natural-language `text` ("20 min pasta") into a proposed { label, durationSeconds }
+   * (the duration is clamped to 5..86400 server-side). Creates NOTHING — the user confirms the chip, then it's
+   * started via the existing {@link createFamilyTimer}. 400 for empty text; degrades to a 503 when AI is down.
+   */
+  parseTimerAi(text: string): Observable<TimerAiResult> {
+    return this.http.post<TimerAiResult>(`${this.base}/family/timers/ai/parse`, { text });
   }
 
   // ---- Family Hub F3: Today snapshot & settings ----
@@ -1037,6 +1077,17 @@ export class Api {
    */
   recipeToMealAi(text: string): Observable<RecipeAiResult> {
     return this.http.post<RecipeAiResult>(`${this.base}/family/meals/ai/from-recipe`, { text });
+  }
+
+  /**
+   * "✨ What can I make?": send on-hand `ingredients` ("chicken, rice, broccoli, soy sauce") + optional
+   * free-text `constraints` (kid-friendly / vegetarian / quick) for Gemini to propose dinner IDEAS (title +
+   * the ingredients it uses + a few small missing items). Creates NOTHING — picking an idea PREFILLS the meal
+   * editor, and the meal is only created on the user's Save. 400 on empty ingredients; 503 when AI is down.
+   */
+  whatCanIMakeAi(ingredients: string, constraints?: string | null): Observable<WhatCanIMakeAiResult> {
+    return this.http.post<WhatCanIMakeAiResult>(`${this.base}/family/meals/ai/what-can-i-make`,
+      { ingredients, constraints: constraints ?? null });
   }
 
   // ---- Family Hub F4: chore board (assignee; stars/points; recurrence; the stars tally) ----

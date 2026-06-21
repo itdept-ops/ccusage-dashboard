@@ -52,6 +52,14 @@ public static class FamilyRemindersTimersEndpoints
     /// (an assumption made, or that an unsupported recurrence was mapped to the closest supported one).</summary>
     public sealed record ReminderAiDto(IReadOnlyList<ReminderProposalDto> Reminders, string? Notes);
 
+    /// <summary>The "natural-language timer" request: free text ("20 minute pasta timer", "set a 5 min timeout
+    /// for Lily"). Creates nothing — the frontend confirms then POSTs to /timers.</summary>
+    public sealed record TimerAiRequest(string? Text);
+
+    /// <summary>The "natural-language timer" response: a parsed label + duration (seconds, already clamped to
+    /// 5..86400), in the shape the frontend POSTs to /timers on confirm.</summary>
+    public sealed record TimerAiDto(string Label, int DurationSeconds);
+
     private static readonly string[] Recurrences = { "none", "daily", "weekly", "weekdays" };
 
     public static void MapFamilyRemindersTimersEndpoints(this WebApplication app)
@@ -293,6 +301,24 @@ public static class FamilyRemindersTimersEndpoints
             var names = await NamesAsync(db, new[] { timer.StartedByUserId }, ct);
             return Results.Ok(ToTimerDto(timer, names));
         });
+
+        // ---- POST /timers/ai/parse : Gemini parses free text into a PROPOSED timer the user confirms (round 2) ----
+        // Parse "20 minute pasta timer" / "set a 5 min timeout for Lily" -> { label, durationSeconds }. Creates
+        // NOTHING — the frontend confirms then POSTs to /timers. durationSeconds is CLAMPED to 5..86400 in the
+        // service. Rate-limited (the shared "ai" policy) + NOT cached. Graceful: 503 (never 500) when Gemini is
+        // unconfigured or the call fails; 400 for empty text.
+        g.MapPost("/timers/ai/parse", async (
+            TimerAiRequest req, GeminiService gemini, CancellationToken ct) =>
+        {
+            if (string.IsNullOrWhiteSpace(req?.Text))
+                return Results.BadRequest(new { message = "Describe the timer you'd like to set." });
+            if (!gemini.IsConfigured) return AiUnavailable();
+
+            var result = await gemini.ParseTimerAsync(req.Text, ct);
+            if (result is null) return AiUnavailable();
+
+            return Results.Ok(new TimerAiDto(result.Label, result.DurationSeconds));
+        }).RequireRateLimiting(AiEndpoints.RateLimitPolicy);
 
         // ---- DELETE /timers/{id} : cancel ----
         g.MapDelete("/timers/{id:long}", async (

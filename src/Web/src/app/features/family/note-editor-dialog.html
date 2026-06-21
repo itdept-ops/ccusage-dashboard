@@ -63,6 +63,53 @@
     }
   </div>
 
+  <!-- ✨ Transform: quick actions on the current body -->
+  <div class="note-transform" [class.note-transform--disabled]="!canTransform()">
+    <div class="note-transform__row">
+      <span class="note-transform__lead">
+        <mat-icon class="note-ai__spark" aria-hidden="true">auto_awesome</mat-icon> Transform
+      </span>
+      @for (t of transformActions; track t.action) {
+        <button mat-stroked-button type="button" class="note-transform__action"
+                [disabled]="!canTransform() || transformBusy() !== null" (click)="runTransform(t.action)">
+          @if (transformBusy() === t.action) { <mat-spinner [diameter]="16" /> }
+          @else { <mat-icon aria-hidden="true">{{ t.icon }}</mat-icon> }
+          <span>{{ t.label }}</span>
+        </button>
+      }
+      <button mat-stroked-button type="button" class="note-transform__action"
+              [matMenuTriggerFor]="langMenu"
+              [disabled]="!canTransform() || transformBusy() !== null">
+        @if (transformBusy() === 'translate') { <mat-spinner [diameter]="16" /> }
+        @else { <mat-icon aria-hidden="true">translate</mat-icon> }
+        <span>Translate</span>
+        <mat-icon aria-hidden="true" class="note-ai__chev">expand_more</mat-icon>
+      </button>
+      <mat-menu #langMenu="matMenu">
+        @for (lang of translateLangs; track lang) {
+          <button mat-menu-item type="button" (click)="runTransform('translate', lang)">{{ lang }}</button>
+        }
+      </mat-menu>
+    </div>
+
+    @if (transformStatus(); as msg) {
+      <p class="note-ai__status" aria-live="polite">{{ msg }}</p>
+    }
+
+    @if (transformPreview(); as t) {
+      <div class="note-ai__draft">
+        <p class="note-ai__draft-title">{{ t.label }}</p>
+        <div class="md note-ai__draft-body" [innerHTML]="t.preview"></div>
+        <div class="note-ai__draft-actions">
+          <button mat-button type="button" (click)="discardTransform()">Try again</button>
+          <button mat-flat-button color="primary" type="button" (click)="useTransform()">
+            <mat-icon aria-hidden="true">check</mat-icon> Use this
+          </button>
+        </div>
+      </div>
+    }
+  </div>
+
   <div class="note-edit__split">
     <mat-form-field appearance="outline" class="note-edit__field note-edit__editor">
       <mat-label>Note</mat-label>

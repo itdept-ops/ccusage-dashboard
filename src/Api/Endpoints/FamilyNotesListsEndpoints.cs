@@ -80,6 +80,30 @@ public static class FamilyNotesListsEndpoints
     /// <summary>"Summarize with AI" response: a short summary + 0+ action items.</summary>
     public sealed record NoteSummaryAiDto(string Summary, IReadOnlyList<NoteActionItemDto> ActionItems);
 
+    // ---- AI-assist DTOs (round 2: ask your notes, transform a note, list "what am I missing") ----
+
+    /// <summary>"Ask your notes" request: a free-text question answered ONLY from the caller's household notes.</summary>
+    public sealed record AskNotesAiRequest(string? Question);
+
+    /// <summary>"Ask your notes" response: a plain-text answer (drawn only from the notes, or "I couldn't find
+    /// that in your notes.") + the ids of the notes actually used (for the UI to link back).</summary>
+    public sealed record AskNotesAiDto(string Answer, IReadOnlyList<long> UsedNoteIds);
+
+    /// <summary>"Transform with AI" request: an editor <see cref="Action"/> ("continue"|"checklist"|"shorten"|
+    /// "translate") applied to the in-editor <see cref="Body"/>; <see cref="Lang"/> is used by "translate".
+    /// Saves nothing — the editor applies the returned body with Use / Try-again.</summary>
+    public sealed record NoteTransformAiRequest(string? Body, string? Action, string? Lang);
+
+    /// <summary>"Transform with AI" response: the transformed markdown body (to be RENDERED, never executed).</summary>
+    public sealed record NoteTransformAiDto(string Body);
+
+    /// <summary>List "What am I missing" request: a free-text goal ("a kids birthday party", "taco night") the
+    /// assistant proposes ADDITIONAL items for, given the list's current items.</summary>
+    public sealed record ListSuggestAiRequest(string? Goal);
+
+    /// <summary>List "What am I missing" response: 0+ proposed additional item names (not already on the list).</summary>
+    public sealed record ListSuggestAiDto(IReadOnlyList<string> Items);
+
     private const string NoteType = "note";
     private const string ListType = "list";
 
@@ -270,7 +294,64 @@ public static class FamilyNotesListsEndpoints
                 .Select(a => new NoteActionItemDto(a.Text, a.DuePhrase)).ToList();
             return Results.Ok(new NoteSummaryAiDto(result.Summary, actions));
         }).RequireRateLimiting(AiEndpoints.RateLimitPolicy);
+
+        // ---- POST /notes/ai/ask : read-only Q&A over the caller's HOUSEHOLD notes (round 2) ----
+        // Loads the caller's OWN household's notes (title+body, newest-first, capped ~24k chars) and answers the
+        // question STRICTLY from them (says "I couldn't find that in your notes" otherwise; never invents). The
+        // model's usedNoteIds are intersected with the supplied notes server-side. Read-only — creates/saves
+        // NOTHING. Rate-limited + NOT cached. Graceful: 503 (never 500) when Gemini is unconfigured or the call
+        // fails; 400 for an empty question.
+        g.MapPost("/notes/ai/ask", async (
+            AskNotesAiRequest req, CurrentUserAccessor me, CurrentHouseholdAccessor households,
+            GeminiService gemini, UsageDbContext db, CancellationToken ct) =>
+        {
+            if (string.IsNullOrWhiteSpace(req?.Question))
+                return Results.BadRequest(new { message = "Ask a question about your notes." });
+            if (!gemini.IsConfigured) return AiUnavailable();
+
+            var caller = (await me.GetUserAsync(ct))!;
+            var householdId = await households.GetOrCreateForCallerAsync(caller, ct) is { } hh ? hh.Id : 0;
+
+            // The HOUSEHOLD's own notes, newest-first (UpdatedUtc) — the service caps the total chars fed in.
+            var notes = await db.FamilyNotes.AsNoTracking()
+                .Where(n => n.HouseholdId == householdId)
+                .OrderByDescending(n => n.UpdatedUtc)
+                .Select(n => new { n.Id, n.Title, n.Body })
+                .ToListAsync(ct);
+
+            var result = await gemini.AskNotesAsync(
+                req.Question, notes.Select(n => (n.Id, n.Title, n.Body)).ToList(), ct);
+            if (result is null) return AiUnavailable();
+
+            return Results.Ok(new AskNotesAiDto(result.Answer, result.UsedNoteIds));
+        }).RequireRateLimiting(AiEndpoints.RateLimitPolicy);
+
+        // ---- POST /notes/ai/transform : transform in-editor markdown (round 2) ----
+        // Operates on editor content only — it touches NO stored note, so no access check beyond family.use is
+        // needed. SAVES NOTHING; the editor applies the returned body (Use / Try-again). Rate-limited + NOT
+        // cached. Graceful: 503 (never 500) when Gemini is unconfigured or the call fails; 400 for an empty body
+        // or an unknown action. The returned body is markdown to be RENDERED (never executed) by the safe renderer.
+        g.MapPost("/notes/ai/transform", async (
+            NoteTransformAiRequest req, GeminiService gemini, CancellationToken ct) =>
+        {
+            if (string.IsNullOrWhiteSpace(req?.Body))
+                return Results.BadRequest(new { message = "There's nothing to transform yet." });
+            if (!IsTransformAction(req.Action))
+                return Results.BadRequest(new { message = "Action must be continue, checklist, shorten, or translate." });
+            if (!gemini.IsConfigured) return AiUnavailable();
+
+            var result = await gemini.TransformNoteAsync(req.Body, req.Action, req.Lang, ct);
+            if (result is null) return AiUnavailable();
+
+            return Results.Ok(new NoteTransformAiDto(result.Body));
+        }).RequireRateLimiting(AiEndpoints.RateLimitPolicy);
     }
+
+    /// <summary>The transform actions the note transformer accepts (mirrors GeminiService.TransformActions).</summary>
+    private static readonly string[] TransformActions = { "continue", "checklist", "shorten", "translate" };
+
+    private static bool IsTransformAction(string? action) =>
+        TransformActions.Contains((action ?? "").Trim().ToLowerInvariant());
 
     // =====================================================================================
     // LISTS
@@ -531,6 +612,40 @@ public static class FamilyNotesListsEndpoints
             if (result is null) return AiUnavailable();
 
             return Results.Ok(new ListItemsAiDto(result.Items, result.Notes));
+        }).RequireRateLimiting(AiEndpoints.RateLimitPolicy);
+
+        // ---- POST /lists/{id}/ai/suggest : "What am I missing" — propose ADDITIONAL items (round 2) ----
+        // Reuses ResolveAccessAsync: 404 if the caller can't VIEW the list (existence never leaked). Given the
+        // list's CURRENT items + a free-text goal, proposes items not already on it (de-duped server-side).
+        // Creates NOTHING — the frontend confirms then POSTs each via the existing POST /lists/{id}/items.
+        // Rate-limited + NOT cached. Graceful: 503 (never 500) when Gemini is unconfigured or the call fails;
+        // 400 for an empty goal.
+        g.MapPost("/lists/{id:long}/ai/suggest", async (
+            long id, ListSuggestAiRequest req, CurrentUserAccessor me, CurrentHouseholdAccessor households,
+            GeminiService gemini, UsageDbContext db, CancellationToken ct) =>
+        {
+            if (string.IsNullOrWhiteSpace(req?.Goal))
+                return Results.BadRequest(new { message = "Tell the assistant what the list is for." });
+
+            var caller = (await me.GetUserAsync(ct))!;
+            var householdId = await households.GetOrCreateForCallerAsync(caller, ct) is { } hh ? hh.Id : 0;
+
+            var list = await db.FamilyLists.AsNoTracking().FirstOrDefaultAsync(l => l.Id == id, ct);
+            var access = await ResolveAccessAsync(db, ListType, list?.Id ?? 0, list?.HouseholdId ?? -1, caller.Id, householdId, ct);
+            if (list is null || !access.CanView) return NotFound();
+
+            if (!gemini.IsConfigured) return AiUnavailable();
+
+            // The list's current item texts (the "don't repeat these" set) — server-read, never trusted from client.
+            var currentItems = await db.FamilyListItems.AsNoTracking()
+                .Where(i => i.ListId == id)
+                .Select(i => i.Text)
+                .ToListAsync(ct);
+
+            var result = await gemini.SuggestListAdditionsAsync(req.Goal, list.Kind, currentItems, ct);
+            if (result is null) return AiUnavailable();
+
+            return Results.Ok(new ListSuggestAiDto(result.Items));
         }).RequireRateLimiting(AiEndpoints.RateLimitPolicy);
     }
 

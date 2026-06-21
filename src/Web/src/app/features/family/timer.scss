@@ -15,6 +15,55 @@
 
 .timer-label-field { width: 100%; max-width: 420px; }
 
+/* ── ✨ Quick timer (natural language → confirm chip → Start) ────────── */
+.quick-timer {
+  display: flex; flex-direction: column; gap: var(--tech-space-2, 8px);
+  padding: var(--tech-space-3, 12px);
+  border: 1px solid var(--tech-border); border-radius: var(--tech-r-control, 12px);
+  background:
+    radial-gradient(120% 160% at 0% 0%, color-mix(in srgb, var(--tech-accent) 9%, transparent), transparent 55%),
+    var(--tech-bg-sunken);
+}
+.quick-timer__bar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.quick-timer__spark { flex: 0 0 auto; width: 20px; height: 20px; font-size: 20px; color: var(--tech-accent); }
+.quick-timer__input {
+  flex: 1 1 14rem; min-width: 0; box-sizing: border-box;
+  border: 1px solid var(--tech-border); border-radius: var(--tech-r-control, 10px);
+  background: var(--tech-panel); color: var(--tech-text);
+  font: inherit; font-size: var(--tech-fs-body); padding: 10px 12px;
+  &::placeholder { color: var(--tech-text-tertiary); }
+  &:focus { outline: none; border-color: var(--tech-accent); }
+}
+.quick-timer__go {
+  flex: 0 0 auto; border-radius: var(--tech-r-control); font-weight: 600;
+  display: inline-flex; align-items: center; gap: 6px;
+  mat-spinner { --mdc-circular-progress-active-indicator-color: currentColor; }
+}
+.quick-timer__status { margin: 0; font-size: var(--tech-fs-label); color: var(--tech-text-secondary); }
+.quick-timer__confirm {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px;
+  padding: var(--tech-space-2, 8px); border: 1px solid var(--tech-border-subtle);
+  border-left: 3px solid var(--tech-accent); border-radius: var(--tech-r-control, 10px);
+  background: var(--tech-panel);
+}
+.quick-timer__chip {
+  display: inline-flex; align-items: center; gap: 8px; min-width: 0;
+  mat-icon { flex: 0 0 auto; width: 20px; height: 20px; font-size: 20px; color: var(--tech-accent); }
+}
+.quick-timer__chip-label { font-weight: 700; color: var(--tech-text);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.quick-timer__chip-dur {
+  flex: 0 0 auto; font-size: var(--tech-fs-label); font-weight: 700; color: var(--tech-accent);
+  background: color-mix(in srgb, var(--tech-accent) 14%, transparent);
+  padding: 2px 10px; border-radius: 999px;
+}
+.quick-timer__confirm-actions {
+  display: inline-flex; align-items: center; gap: 4px;
+  button { border-radius: var(--tech-r-control); font-weight: 600;
+    mat-icon { width: 18px; height: 18px; font-size: 18px; }
+    mat-spinner { --mdc-circular-progress-active-indicator-color: currentColor; } }
+}
+
 .preset-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));

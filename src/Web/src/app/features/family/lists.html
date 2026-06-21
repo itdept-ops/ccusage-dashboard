@@ -238,6 +238,81 @@
               </div>
             }
 
+            <!-- ✨ What am I missing? (edit access only) -->
+            @if (list.canEdit) {
+              @let sg = suggestPanel(list.id);
+              <div class="list-ai">
+                <button type="button" class="list-ai__toggle" [class.list-ai__toggle--open]="sg.open"
+                        (click)="toggleSuggest(list)" [attr.aria-expanded]="sg.open">
+                  <mat-icon class="list-ai__spark" aria-hidden="true">auto_awesome</mat-icon>
+                  <span>What am I missing?</span>
+                  <mat-icon class="list-ai__chev" aria-hidden="true">{{ sg.open ? 'expand_less' : 'expand_more' }}</mat-icon>
+                </button>
+
+                @if (sg.open) {
+                  <div class="list-ai__panel">
+                    <div class="list-ai__bar">
+                      <input class="list-ai__input" maxlength="200"
+                             [ngModel]="sg.goal" (ngModelChange)="setSuggestGoal(list.id, $event)"
+                             (keydown.enter)="suggestItems(list)"
+                             [disabled]="sg.busy || sg.adding"
+                             placeholder="What's this list for? e.g. kids birthday party" />
+                      <div class="list-ai__bar-actions">
+                        <button mat-flat-button color="primary" type="button" class="list-ai__go"
+                                [disabled]="sg.busy || sg.adding || !sg.goal.trim()" (click)="suggestItems(list)">
+                          @if (sg.busy) {
+                            <mat-spinner [diameter]="16" />
+                            <span>Thinking…</span>
+                          } @else {
+                            <span>Suggest extras</span>
+                          }
+                        </button>
+                        @if (sg.goal || sg.items) {
+                          <button mat-button type="button" (click)="clearSuggest(list.id)"
+                                  [disabled]="sg.busy || sg.adding">Clear</button>
+                        }
+                      </div>
+                    </div>
+
+                    @if (sg.status) {
+                      <p class="list-ai__status" aria-live="polite">{{ sg.status }}</p>
+                    }
+
+                    @if (sg.items; as items) {
+                      @if (items.length) {
+                        <ul class="list-ai__chips">
+                          @for (it of items; track $index) {
+                            <li class="list-ai-chip" [class.list-ai-chip--off]="!it.keep">
+                              <button type="button" class="list-ai-chip__toggle" (click)="toggleSuggested(list.id, $index)"
+                                      [attr.aria-pressed]="it.keep" [attr.aria-label]="(it.keep ? 'Skip ' : 'Add ') + it.text">
+                                <mat-icon aria-hidden="true">{{ it.keep ? 'check_box' : 'check_box_outline_blank' }}</mat-icon>
+                                <span>{{ it.text }}</span>
+                              </button>
+                              <button type="button" class="list-ai-chip__remove" (click)="removeSuggested(list.id, $index)"
+                                      aria-label="Remove">
+                                <mat-icon aria-hidden="true">close</mat-icon>
+                              </button>
+                            </li>
+                          }
+                        </ul>
+                        <div class="list-ai__confirm">
+                          <button mat-flat-button color="primary" type="button"
+                                  [disabled]="sg.adding || suggestKeepCount(list.id) === 0" (click)="addSuggested(list)">
+                            @if (sg.adding) {
+                              <mat-spinner [diameter]="16" />
+                            } @else {
+                              <mat-icon aria-hidden="true">playlist_add</mat-icon>
+                            }
+                            Add {{ suggestKeepCount(list.id) }} item{{ suggestKeepCount(list.id) === 1 ? '' : 's' }}
+                          </button>
+                        </div>
+                      }
+                    }
+                  </div>
+                }
+              </div>
+            }
+
             <!-- Add item (edit access only) -->
             @if (list.canEdit) {
               <form class="add-item" (ngSubmit)="addItem(list)">

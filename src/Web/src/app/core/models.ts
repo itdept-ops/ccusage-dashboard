@@ -1619,6 +1619,16 @@ export interface FamilyTimer {
 }
 
 /**
+ * "✨ Quick timer" response (POST /api/family/timers/ai/parse; mirrors TimerAiDto): a parsed `label` +
+ * `durationSeconds` (already clamped to 5..86400 server-side), in the shape the frontend POSTs to /timers on
+ * confirm. Creates NOTHING — the user confirms the chip, then it's started via createFamilyTimer.
+ */
+export interface TimerAiResult {
+  label: string;
+  durationSeconds: number;
+}
+
+/**
  * The "Add reminder with AI" request (POST /api/family/reminders/ai/parse; mirrors ReminderAiRequest). The
  * family member's free text ("call the dentist next Tuesday at 3, every month"); `referenceDateUtc` anchors
  * relative dates and defaults to the server's now when omitted.
@@ -1675,6 +1685,15 @@ export interface ListItemsAiResult {
 }
 
 /**
+ * "✨ What am I missing?" response (POST /api/family/lists/{id}/ai/suggest; mirrors ListSuggestAiDto): 0+
+ * proposed extra item names for a goal ("a kids birthday party"), de-duped server-side against the list's
+ * current items. Nothing is created — the user confirms chips, then each is added via addFamilyListItem.
+ */
+export interface ListSuggestAiResult {
+  items: string[];
+}
+
+/**
  * "✨ Draft with AI" / "✨ Rewrite" request (POST /api/family/notes/ai/draft; mirrors NoteDraftAiRequest).
  * `prompt` drives the change. When `currentBody` is present the note is REWRITTEN per the prompt; otherwise
  * a fresh note is drafted. The server saves NOTHING — the editor shows the draft with Use / Try-again.
@@ -1713,6 +1732,31 @@ export interface NoteActionItem {
 export interface NoteSummaryAiResult {
   summary: string;
   actionItems: NoteActionItem[];
+}
+
+// ---- Family Hub round 2: ask your notes / transform a note ----
+
+/**
+ * "✨ Ask your notes" response (POST /api/family/notes/ai/ask; mirrors AskNotesAiDto): a plain-text `answer`
+ * drawn ONLY from the caller's household notes (or "I couldn't find that in your notes."), plus the
+ * `usedNoteIds` of the notes the model actually drew on — the UI lets the user tap to open those notes.
+ * Read-only — nothing is created or saved.
+ */
+export interface AskNotesAiResult {
+  answer: string;
+  usedNoteIds: number[];
+}
+
+/** The in-editor transform actions the note "✨ Transform" row offers (mirrors the server vocabulary). */
+export type NoteTransformAction = 'continue' | 'checklist' | 'shorten' | 'translate';
+
+/**
+ * "✨ Transform" response (POST /api/family/notes/ai/transform; mirrors NoteTransformAiDto): the transformed
+ * markdown `body` (to be RENDERED by the safe renderer, never executed). Saves NOTHING — the editor previews
+ * it with Use / Try-again and only the user's Save persists it.
+ */
+export interface NoteTransformAiResult {
+  body: string;
 }
 
 // ---- Family Hub F3: Today snapshot & settings ----
@@ -2231,6 +2275,25 @@ export interface RecipeAiResult {
   title: string;
   ingredients: string;
   notes: string | null;
+}
+
+/**
+ * One dinner idea from "✨ What can I make?" (mirrors MealIdeaDto): a `title`, the newline-joined
+ * `ingredients` it uses (from the on-hand list), and the few small `missing` items still needed. Picking an
+ * idea PREFILLS the meal editor (title + ingredients) — nothing is created until the user Saves.
+ */
+export interface MealIdea {
+  title: string;
+  ingredients: string;
+  missing: string[];
+}
+
+/**
+ * "✨ What can I make?" response (POST /api/family/meals/ai/what-can-i-make; mirrors WhatCanIMakeAiDto): 0+
+ * dinner `ideas` to review. An empty list means nothing came back — the user can still add a meal manually.
+ */
+export interface WhatCanIMakeAiResult {
+  ideas: MealIdea[];
 }
 
 /**
