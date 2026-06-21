@@ -14,6 +14,7 @@ import {
   FamilyBriefing, FamilyToday, FamilyTodayEvent, Household, HouseholdMember, PERM,
 } from '../../core/models';
 import { FamilyTimerWidget } from './timer';
+import { FamilyAssistantPanel } from './family-assistant-panel';
 
 /** One feature tile on the Family home grid. `route` is null for a not-yet-built ("Coming soon") tile. */
 interface FeatureTile {
@@ -56,7 +57,7 @@ const TILES: FeatureTile[] = [
   selector: 'app-family-home',
   imports: [
     RouterLink, MatIconModule, MatButtonModule, MatTooltipModule, MatProgressSpinnerModule,
-    FamilyTimerWidget,
+    FamilyTimerWidget, FamilyAssistantPanel,
   ],
   templateUrl: './family-home.html',
   styleUrl: './family.scss',

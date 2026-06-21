@@ -2198,6 +2198,91 @@ export type FamilyMealSlot = 'breakfast' | 'lunch' | 'dinner' | 'snack';
 /** How a chore repeats (mirrors the backend's lowercase strings). Note: chores have no "weekdays". */
 export type FamilyChoreRecurrence = 'none' | 'daily' | 'weekly';
 
+// ---- Family Assistant: one ask-anything box over the whole household ----
+
+/**
+ * The Family Assistant request (POST /api/family/assistant; mirrors AssistantRequest). The member's free-text
+ * `message` only — the household snapshot is assembled server-side, so the client never sends any household
+ * data or facts on the wire.
+ */
+export interface FamilyAssistantRequest {
+  message: string;
+}
+
+/**
+ * The closed set of action TYPES the assistant may propose (mirrors the backend's AssistantActionTypes enum).
+ * Each maps to an EXISTING write endpoint the frontend calls on the user's confirm — the assistant itself
+ * creates nothing.
+ */
+export type FamilyAssistantActionType =
+  | 'list_add' | 'reminder' | 'timer' | 'calendar_event' | 'chore' | 'meal';
+
+/** `list_add` → find the list by name (create it if missing), then add each item via addFamilyListItem. */
+export interface FamilyAssistantListAddParams {
+  listName: string;
+  items: string[];
+}
+
+/** `reminder` → createFamilyReminder. `whenLocal` is an offset-less local ISO string ("2026-06-23T15:00:00") or "" (no time implied). */
+export interface FamilyAssistantReminderParams {
+  text: string;
+  whenLocal: string;
+}
+
+/** `timer` → createFamilyTimer. `durationSeconds` is already clamped (5..86400) server-side. */
+export interface FamilyAssistantTimerParams {
+  label: string;
+  durationSeconds: number;
+}
+
+/** `calendar_event` → open the event editor PREFILLED (user saves) or createEvent. Times are offset-less local ISO strings ("" = unset). */
+export interface FamilyAssistantCalendarEventParams {
+  title: string;
+  startLocal: string;
+  endLocal: string;
+  allDay: boolean;
+  location: string;
+  notes: string;
+}
+
+/** `chore` → createFamilyChore. `assigneeName` is a display name (resolved to a household member on the client, else unassigned). */
+export interface FamilyAssistantChoreParams {
+  title: string;
+  points: number;
+  recurrence: FamilyChoreRecurrence;
+  assigneeName: string;
+}
+
+/** `meal` → createFamilyMeal. `mealDateLocal` is a bare local date ("2026-06-23") or "" (defaults to today; slot defaults to dinner). */
+export interface FamilyAssistantMealParams {
+  title: string;
+  ingredients: string;
+  mealDateLocal: string;
+}
+
+/**
+ * One PROPOSED action the user confirms before it writes (mirrors AssistantActionDto). The discriminated
+ * `type` selects the matching `params` shape above; `title` is the confirm-card label. Nothing is created
+ * until the user clicks the action — and then via the EXISTING write endpoint, never the assistant.
+ */
+export type FamilyAssistantAction =
+  | { type: 'list_add'; title: string; params: FamilyAssistantListAddParams }
+  | { type: 'reminder'; title: string; params: FamilyAssistantReminderParams }
+  | { type: 'timer'; title: string; params: FamilyAssistantTimerParams }
+  | { type: 'calendar_event'; title: string; params: FamilyAssistantCalendarEventParams }
+  | { type: 'chore'; title: string; params: FamilyAssistantChoreParams }
+  | { type: 'meal'; title: string; params: FamilyAssistantMealParams };
+
+/**
+ * The Family Assistant response (mirrors AssistantDto): a warm, concise `answer` drawn only from the
+ * household snapshot, plus 0..6 proposed `actions` to confirm. The endpoint always WRITES NOTHING; a 503
+ * (never 500) means the assistant is unavailable and the user can act manually.
+ */
+export interface FamilyAssistantResult {
+  answer: string;
+  actions: FamilyAssistantAction[];
+}
+
 /**
  * One planned meal on the weekly plan (mirrors MealDto). `localDate` is an ISO date in the household
  * timezone; `slot` is the meal-of-day. `ingredients` is raw newline-separated text (one per line) that

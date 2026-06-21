@@ -1,0 +1,90 @@
+<section class="assistant" aria-label="Family Assistant">
+  <header class="assistant__head">
+    <mat-icon class="assistant__spark" aria-hidden="true">auto_awesome</mat-icon>
+    <div class="assistant__head-text">
+      <h2 class="assistant__title">Family Assistant</h2>
+      <p class="assistant__sub">Ask anything — meals, chores, calendar, reminders. I’ll answer and offer to do it.</p>
+    </div>
+  </header>
+
+  <!-- The ask box. Enter makes a newline (multi-line asks); Ctrl/Cmd+Enter (or the button) sends. -->
+  <div class="assistant__ask">
+    <mat-form-field appearance="outline" class="assistant__field">
+      <mat-label>Ask your family assistant</mat-label>
+      <textarea matInput rows="2" [ngModel]="draft()" (ngModelChange)="draft.set($event)"
+                (keydown)="onKeydown($event)" [disabled]="asking()"
+                placeholder="what’s for dinner and what chores does Lily have? add milk to groceries and remind me to call the dentist Tuesday"></textarea>
+    </mat-form-field>
+    <button mat-flat-button color="primary" class="assistant__send" (click)="ask()" [disabled]="!canAsk()">
+      @if (asking()) {
+        <mat-spinner [diameter]="18" />
+      } @else {
+        <mat-icon aria-hidden="true">send</mat-icon>
+      }
+      <span>Ask</span>
+    </button>
+  </div>
+
+  @if (error(); as err) {
+    <p class="assistant__error" role="alert">
+      <mat-icon aria-hidden="true">cloud_off</mat-icon>
+      {{ err }}
+    </p>
+  }
+
+  <!-- Live region: the latest answer is announced to screen readers. -->
+  <p class="assistant__sr-only" aria-live="polite">{{ latestAnswer() }}</p>
+
+  <!-- The session-only exchange history, newest last. Each turn: the question, the warm answer, action cards. -->
+  @if (history().length) {
+    <div class="assistant__history">
+      @for (ex of history(); track ex.id) {
+        <article class="exchange">
+          <p class="exchange__q">
+            <mat-icon aria-hidden="true">person</mat-icon>
+            <span>{{ ex.question }}</span>
+          </p>
+
+          @if (ex.answer) {
+            <p class="exchange__a">{{ ex.answer }}</p>
+          }
+
+          @if (ex.cards.length) {
+            <ul class="action-cards">
+              @for (card of ex.cards; track $index) {
+                <li class="action-card" [class.action-card--done]="card.status === 'done'"
+                    [class.action-card--error]="card.status === 'error'">
+                  <span class="action-card__icon" aria-hidden="true">
+                    <mat-icon>{{ iconFor(card.action.type) }}</mat-icon>
+                  </span>
+                  <span class="action-card__title">{{ card.action.title }}</span>
+
+                  @if (card.status === 'done') {
+                    <span class="action-card__status action-card__status--done">
+                      <mat-icon aria-hidden="true">check_circle</mat-icon>
+                      <span>{{ card.note || 'Done' }}</span>
+                    </span>
+                  } @else {
+                    <button mat-stroked-button class="action-card__btn" (click)="run(card)"
+                            [disabled]="card.status === 'running'">
+                      @if (card.status === 'running') {
+                        <mat-spinner [diameter]="16" />
+                      } @else {
+                        <mat-icon aria-hidden="true">{{ iconFor(card.action.type) }}</mat-icon>
+                      }
+                      <span>{{ buttonLabel(card.action.type) }}</span>
+                    </button>
+                  }
+
+                  @if (card.status === 'error' && card.note) {
+                    <span class="action-card__err" role="alert">{{ card.note }}</span>
+                  }
+                </li>
+              }
+            </ul>
+          }
+        </article>
+      }
+    </div>
+  }
+</section>
