@@ -59,8 +59,10 @@
             <mat-spinner [diameter]="18" />
             <span>Thinking…</span>
           } @else {
-            <mat-icon class="meals__spark" aria-hidden="true">auto_awesome</mat-icon>
-            <span>{{ proposals().length ? 'Regenerate' : 'Suggest dinners' }}</span>
+            <ng-container>
+              <mat-icon class="meals__spark" aria-hidden="true">auto_awesome</mat-icon>
+              <span>{{ proposals().length ? 'Regenerate' : 'Suggest dinners' }}</span>
+            </ng-container>
           }
         </button>
       </div>
@@ -106,8 +108,10 @@
               <mat-spinner [diameter]="18" />
               <span>Adding…</span>
             } @else {
-              <mat-icon aria-hidden="true">playlist_add</mat-icon>
-              <span>Add {{ proposals().length === 1 ? 'dinner' : 'all' }} to plan</span>
+              <ng-container>
+                <mat-icon aria-hidden="true">playlist_add</mat-icon>
+                <span>Add {{ proposals().length === 1 ? 'dinner' : 'all' }} to plan</span>
+              </ng-container>
             }
           </button>
         </div>
@@ -139,8 +143,10 @@
             <mat-spinner [diameter]="18" />
             <span>Thinking…</span>
           } @else {
-            <mat-icon class="meals__spark" aria-hidden="true">auto_awesome</mat-icon>
-            <span>{{ ideas().length ? 'Regenerate' : 'Find ideas' }}</span>
+            <ng-container>
+              <mat-icon class="meals__spark" aria-hidden="true">auto_awesome</mat-icon>
+              <span>{{ ideas().length ? 'Regenerate' : 'Find ideas' }}</span>
+            </ng-container>
           }
         </button>
       </div>

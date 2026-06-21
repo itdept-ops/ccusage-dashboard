@@ -149,8 +149,10 @@
             <mat-spinner [diameter]="18" />
             <span>Reading…</span>
           } @else {
-            <mat-icon aria-hidden="true">upload_file</mat-icon>
-            <span>Upload a schedule</span>
+            <ng-container>
+              <mat-icon aria-hidden="true">upload_file</mat-icon>
+              <span>Upload a schedule</span>
+            </ng-container>
           }
         </button>
         <span class="cal-upload__hint">

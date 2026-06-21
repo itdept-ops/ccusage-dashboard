@@ -73,7 +73,6 @@ public static class NaturalTime
 
         // 2) Day anchor (today/tonight/tomorrow/weekday) and/or a clock time. Combine whichever appear.
         var localDate = localNow.Date;
-        var haveDay = false;
 
         var dayMatch = Day.Match(remaining);
         if (dayMatch.Success)
@@ -81,13 +80,11 @@ public static class NaturalTime
             localDate = ResolveDay(dayMatch.Groups["day"].Value, localNow);
             remaining = Remove(remaining, dayMatch);
             matched = true;
-            haveDay = true;
         }
 
         // Default time-of-day: 9am for a bare day, but "tonight" implies the evening (7pm).
         var hour = 9;
         var minute = 0;
-        var haveClock = false;
         if (dayMatch.Success && dayMatch.Groups["day"].Value.Trim().ToLowerInvariant() == "tonight")
             hour = 19;
 
@@ -98,7 +95,6 @@ public static class NaturalTime
             minute = cm;
             remaining = Remove(remaining, clockMatch);
             matched = true;
-            haveClock = true;
         }
 
         if (!matched) return fallback;

@@ -102,13 +102,22 @@ public sealed class ChatNotificationService(UsageDbContext db, IHubContext<ChatH
         if (created.Count > 0) await db.SaveChangesAsync(ct);
 
         // Every other member's per-channel unread MESSAGE badge changes when a new message lands —
-        // UnreadChanged(channelId, perChannelMessageCount) always means exactly that.
+        // UnreadChanged(channelId, perChannelMessageCount) always means exactly that. Compute all
+        // members' per-channel unread counts from ONE query instead of a COUNT per member (N+1): pull
+        // the channel's non-deleted message id+sender newer than the SMALLEST member cursor once, then
+        // bucket per member in memory. Each member's count is identical to the previous per-member COUNT
+        // (Id > their own cursor, excluding their own messages); members at/above the min cursor simply
+        // skip the rows below their cursor in memory.
+        var minCursor = members.Min(m => m.LastReadMessageId ?? 0L);
+        var unreadCandidates = await db.ChatMessages.AsNoTracking()
+            .Where(m => m.ChannelId == channel.Id && m.DeletedUtc == null && m.Id > minCursor)
+            .Select(m => new { m.Id, m.SenderEmail })
+            .ToListAsync(ct);
         foreach (var member in members)
         {
-            var unreadMessages = await db.ChatMessages.AsNoTracking()
-                .CountAsync(m => m.ChannelId == channel.Id && m.DeletedUtc == null
-                                 && m.SenderEmail != member.UserEmail
-                                 && m.Id > (member.LastReadMessageId ?? 0), ct);
+            var cursor = member.LastReadMessageId ?? 0L;
+            var unreadMessages = unreadCandidates.Count(
+                m => m.Id > cursor && !string.Equals(m.SenderEmail, member.UserEmail, StringComparison.Ordinal));
             await hub.Clients.User(member.UserEmail)
                 .SendAsync("UnreadChanged", channel.Id, unreadMessages, ct);
         }

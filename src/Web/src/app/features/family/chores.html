@@ -55,8 +55,10 @@
           @if (aiBusy()) {
             <mat-spinner [diameter]="18" /><span>Thinking…</span>
           } @else {
-            <mat-icon class="chore-ai__spark" aria-hidden="true">auto_awesome</mat-icon>
-            <span>{{ suggestRows().length ? 'Regenerate' : 'Suggest chores' }}</span>
+            <ng-container>
+              <mat-icon class="chore-ai__spark" aria-hidden="true">auto_awesome</mat-icon>
+              <span>{{ suggestRows().length ? 'Regenerate' : 'Suggest chores' }}</span>
+            </ng-container>
           }
         </button>
       </div>
@@ -107,8 +109,10 @@
             @if (aiApplying()) {
               <mat-spinner [diameter]="18" /><span>Adding…</span>
             } @else {
-              <mat-icon aria-hidden="true">playlist_add</mat-icon>
-              <span>Add {{ suggestRows().length === 1 ? 'chore' : suggestRows().length + ' chores' }}</span>
+              <ng-container>
+                <mat-icon aria-hidden="true">playlist_add</mat-icon>
+                <span>Add {{ suggestRows().length === 1 ? 'chore' : suggestRows().length + ' chores' }}</span>
+              </ng-container>
             }
           </button>
         </div>
@@ -125,8 +129,10 @@
           @if (aiBusy()) {
             <mat-spinner [diameter]="18" /><span>Balancing…</span>
           } @else {
-            <mat-icon class="chore-ai__spark" aria-hidden="true">auto_awesome</mat-icon>
-            <span>{{ balanceRows().length ? 'Regenerate' : 'Balance chores' }}</span>
+            <ng-container>
+              <mat-icon class="chore-ai__spark" aria-hidden="true">auto_awesome</mat-icon>
+              <span>{{ balanceRows().length ? 'Regenerate' : 'Balance chores' }}</span>
+            </ng-container>
           }
         </button>
       </div>
@@ -164,8 +170,10 @@
             @if (aiApplying()) {
               <mat-spinner [diameter]="18" /><span>Applying…</span>
             } @else {
-              <mat-icon aria-hidden="true">done_all</mat-icon>
-              <span>Apply {{ balanceAcceptedCount() }}</span>
+              <ng-container>
+                <mat-icon aria-hidden="true">done_all</mat-icon>
+                <span>Apply {{ balanceAcceptedCount() }}</span>
+              </ng-container>
             }
           </button>
         </div>
@@ -182,8 +190,10 @@
           @if (aiBusy()) {
             <mat-spinner [diameter]="18" /><span>Weighing…</span>
           } @else {
-            <mat-icon class="chore-ai__spark" aria-hidden="true">auto_awesome</mat-icon>
-            <span>{{ valueRows().length ? 'Regenerate' : 'Suggest stars' }}</span>
+            <ng-container>
+              <mat-icon class="chore-ai__spark" aria-hidden="true">auto_awesome</mat-icon>
+              <span>{{ valueRows().length ? 'Regenerate' : 'Suggest stars' }}</span>
+            </ng-container>
           }
         </button>
       </div>
@@ -218,8 +228,10 @@
             @if (aiApplying()) {
               <mat-spinner [diameter]="18" /><span>Updating…</span>
             } @else {
-              <mat-icon aria-hidden="true">done_all</mat-icon>
-              <span>Apply {{ valuesAcceptedCount() }}</span>
+              <ng-container>
+                <mat-icon aria-hidden="true">done_all</mat-icon>
+                <span>Apply {{ valuesAcceptedCount() }}</span>
+              </ng-container>
             }
           </button>
         </div>
