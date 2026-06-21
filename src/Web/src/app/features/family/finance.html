@@ -73,6 +73,43 @@
         </button>
       </div>
 
+      <!-- ══ ✨ "Explain this month" — read-only AI narration of the month's authoritative numbers ══════
+           A calm, reassuring card near the top of the month view. It NEVER mutates anything. When the model
+           is unavailable the endpoint returns a guaranteed deterministic plain floor with fellBackToPlain=true,
+           and we drop the AI flourish (calmer surface + a steadier icon), mirroring the slice-1 briefing. -->
+      <div class="fin-ai" aria-live="polite" aria-busy="{{ aiLoading() }}">
+        @if (aiSummary(); as ai) {
+          @if (ai.narrative) {
+            <article class="briefing fin-ai__card" [class.briefing--plain]="ai.fellBackToPlain"
+                     aria-label="Explanation of this month's spending">
+              @if (!ai.fellBackToPlain) {
+                <mat-icon class="briefing__spark" aria-hidden="true">auto_awesome</mat-icon>
+              } @else {
+                <mat-icon class="briefing__spark" aria-hidden="true">account_balance</mat-icon>
+              }
+              <div class="briefing__body">
+                <p class="fin-ai__eyebrow">
+                  {{ ai.fellBackToPlain ? 'This month' : 'Explain this month' }}
+                </p>
+                <p class="briefing__text">{{ ai.narrative }}</p>
+                @if (ai.insights.length) {
+                  <ul class="fin-ai__insights">
+                    @for (insight of ai.insights; track $index) {
+                      <li>{{ insight }}</li>
+                    }
+                  </ul>
+                }
+              </div>
+            </article>
+          }
+        } @else if (aiLoading()) {
+          <div class="fin-ai__loading">
+            <mat-spinner [diameter]="20" />
+            <span>Looking over this month…</span>
+          </div>
+        }
+      </div>
+
       @if (summary(); as s) {
         <!-- ══ HEADLINE cards ═══════════════════════════════════════════ -->
         <div class="fin-cards">

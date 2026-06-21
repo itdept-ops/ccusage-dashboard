@@ -2483,6 +2483,21 @@ export interface FinanceImportBatch {
   createdUtc: string;
 }
 
+/**
+ * The "✨ Explain this month" finance summary (GET /api/family/finance/ai/summary?month=; mirrors
+ * FinanceAiSummaryDto): a warm, calm read-only `narrative` of where the money went plus up to 5 short
+ * `insights` bullets, both NARRATED from the same authoritative server-computed numbers GET /summary
+ * returns (the model invents nothing). `fellBackToPlain` is true when Gemini was unavailable/unconfigured
+ * (or the month is empty) and the GUARANTEED deterministic plain floor was returned instead — same handling
+ * as the slice-1 morning briefing (we drop the AI flourish). NEVER a 503; the plain text is the floor. It is
+ * purely read-only — nothing is mutated.
+ */
+export interface FinanceSummaryAiResult {
+  narrative: string;
+  insights: string[];
+  fellBackToPlain: boolean;
+}
+
 /** Canonical permission keys (mirror of the backend catalog — all 29 keys). */
 export const PERM = {
   dashboardView: 'dashboard.view',

@@ -13,7 +13,7 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { Api } from '../../core/api';
 import {
   FinanceAccount, FinanceAccountKind, FinanceImportBatch, FinanceOwner, FinanceSummary,
-  FinanceTransaction, FinanceTransactionsPage, FinanceTxnKind,
+  FinanceSummaryAiResult, FinanceTransaction, FinanceTransactionsPage, FinanceTxnKind,
 } from '../../core/models';
 import { ChartComponent } from '../../shared/chart';
 
@@ -72,6 +72,13 @@ export class FamilyFinance {
   readonly accounts = signal<FinanceAccount[]>([]);
   readonly imports = signal<FinanceImportBatch[]>([]);
 
+  // ---- ✨ "Explain this month" (read-only AI narration of the month's authoritative numbers) ----
+  /** The warm AI summary for the viewed month; null until loaded (best-effort, never blocks the page). */
+  readonly aiSummary = signal<FinanceSummaryAiResult | null>(null);
+  readonly aiLoading = signal(false);
+  /** The yyyy-MM the AI summary was last loaded for, so we only refetch when the month actually changes. */
+  private aiSummaryMonth = '';
+
   // ---- import dropzone ----
   readonly importing = signal(false);
   readonly dragOver = signal(false);
@@ -127,6 +134,7 @@ export class FamilyFinance {
     this.loadAccounts();
     this.loadImports();
     this.loadTxns();
+    this.loadAiSummary();
   }
 
   private loadSummary(): void {
@@ -140,6 +148,7 @@ export class FamilyFinance {
           if (s.month && s.month !== this.month()) {
             this.month.set(s.month);
             this.loadTxns();
+            this.loadAiSummary(); // re-narrate the month the server actually landed on
           }
         }
         this.loading.set(false);
@@ -156,6 +165,28 @@ export class FamilyFinance {
     this.api.financeImports()
       .pipe(catchError(() => of<FinanceImportBatch[]>([])), takeUntilDestroyed())
       .subscribe(i => this.imports.set(i));
+  }
+
+  /**
+   * Load the read-only "✨ Explain this month" narration for the viewed month. This endpoint NEVER 503s
+   * (it returns a guaranteed deterministic plain floor with fellBackToPlain=true when AI is unavailable),
+   * so a network blip is the only failure path — we degrade silently and just hide the card. Skips the
+   * refetch when the month is unchanged so the month stepper doesn't re-hit it needlessly.
+   */
+  private loadAiSummary(force = false): void {
+    const month = this.month();
+    if (!force && month === this.aiSummaryMonth && this.aiSummary()) return;
+    this.aiSummaryMonth = month;
+    this.aiLoading.set(true);
+    this.api.financeSummaryAi(month)
+      .pipe(catchError(() => of<FinanceSummaryAiResult | null>(null)), takeUntilDestroyed())
+      .subscribe(s => {
+        // Guard against an out-of-order response if the month changed mid-flight.
+        if (this.month() === month) {
+          this.aiSummary.set(s);
+          this.aiLoading.set(false);
+        }
+      });
   }
 
   private loadTxns(): void {
@@ -180,6 +211,7 @@ export class FamilyFinance {
     this.txnPage.set(1);
     this.loadSummary();
     this.loadTxns();
+    this.loadAiSummary();
   }
 
   // ============================================================== import

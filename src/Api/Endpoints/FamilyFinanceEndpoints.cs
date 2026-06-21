@@ -4,6 +4,7 @@ using Ccusage.Api.Data;
 using Ccusage.Api.Data.Entities;
 using Ccusage.Api.Services;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 
 namespace Ccusage.Api.Endpoints;
 
@@ -68,6 +69,17 @@ public static class FamilyFinanceEndpoints
         long Id, string FileName, int RowCount, int ImportedCount, int SkippedCount,
         int ImportedByUserId, string ImportedByName, DateTime CreatedUtc);
 
+    /// <summary>
+    /// The finance "Explain this month" read-only AI summary: a warm 2–4 sentence <see cref="Narrative"/> of
+    /// where the money went plus up to 5 short <see cref="Insights"/>, both NARRATED from the same
+    /// server-computed numbers GET /summary returns (the model invents nothing). <see cref="FellBackToPlain"/>
+    /// is true when Gemini was unconfigured/errored (or the month is empty) and the deterministic plain
+    /// floor was returned instead. This endpoint ALWAYS returns 200 — the plain text is the floor — never a
+    /// 503/500, and it writes NOTHING.
+    /// </summary>
+    public sealed record FinanceAiSummaryDto(
+        string Narrative, IReadOnlyList<string> Insights, bool FellBackToPlain);
+
     private static readonly string[] Owners = { "his", "hers", "joint", "unassigned" };
     private static readonly string[] Kinds = { "bank", "credit", "other" };
 
@@ -90,6 +102,7 @@ public static class FamilyFinanceEndpoints
         MapTransactions(g);
         MapSummary(g);
         MapImportsList(g);
+        MapAiSummary(g);
     }
 
     // =====================================================================================
@@ -501,6 +514,192 @@ public static class FamilyFinanceEndpoints
 
             return Results.Ok(dtos);
         });
+    }
+
+    // =====================================================================================
+    // AI — "Explain this month" (READ-ONLY narration of the server's OWN summary numbers)
+    // =====================================================================================
+
+    /// <summary>Max top categories fed to the model / named in the plain floor.</summary>
+    private const int TopCategoriesForAi = 4;
+
+    private static void MapAiSummary(RouteGroupBuilder g)
+    {
+        // GET /ai/summary?month=YYYY-MM — a warm, read-only "where the money went" narration of the SAME
+        // server-computed numbers GET /summary returns. ALWAYS 200: when Gemini is unconfigured/errors (or
+        // the month is empty) the GUARANTEED deterministic plain summary is returned with fellBackToPlain=true,
+        // NEVER a 503/500. Writes NOTHING. CACHED per (household, month) for a few hours. Rate-limited. Still
+        // gated by BOTH family.use AND family.finance (inherited from the group). No email (none in finance).
+        g.MapGet("/ai/summary", async (
+            string? month, CurrentUserAccessor me, CurrentHouseholdAccessor households,
+            GeminiService gemini, IMemoryCache cache, UsageDbContext db, CancellationToken ct) =>
+        {
+            var caller = (await me.GetUserAsync(ct))!;
+            var household = (await households.GetOrCreateForCallerAsync(caller, ct))!;
+
+            var facts = await ComputeMonthFactsAsync(db, household.Id, month, ct);
+
+            // Empty month → a friendly empty narrative, WITHOUT calling the model.
+            if (!facts.HasAny)
+            {
+                var empty = $"No spending recorded for {facts.MonthLabel}.";
+                return Results.Ok(new FinanceAiSummaryDto(empty, Array.Empty<string>(), true));
+            }
+
+            var plain = PlainFinanceSummary(facts);
+
+            // Plain summary is the floor. Prefer the warm AI narrative when configured (cached per month).
+            if (!gemini.IsConfigured)
+                return Results.Ok(new FinanceAiSummaryDto(plain, Array.Empty<string>(), true));
+
+            var cacheKey = $"family:finance-summary:{household.Id}:{facts.MonthLabel}";
+            if (cache.TryGetValue(cacheKey, out FinanceAiSummaryDto? cached) && cached is not null)
+                return Results.Ok(cached);
+
+            FinanceSummaryResult? ai;
+            try
+            {
+                ai = await gemini.FinanceSummaryAsync(FinanceFacts(facts), ct);
+            }
+            catch
+            {
+                ai = null;
+            }
+
+            if (ai is null || string.IsNullOrWhiteSpace(ai.Narrative))
+                return Results.Ok(new FinanceAiSummaryDto(plain, Array.Empty<string>(), true)); // floor
+
+            var dto = new FinanceAiSummaryDto(ai.Narrative, ai.Insights, false);
+            cache.Set(cacheKey, dto, TimeSpan.FromHours(6));
+            return Results.Ok(dto);
+        }).RequireRateLimiting(AiEndpoints.RateLimitPolicy);
+    }
+
+    /// <summary>The server-computed facts for ONE month, mirroring GET /summary's math exactly (expense-only
+    /// spending; transfers excluded). Carries the prior-month spent total so the narrative/floor can state a
+    /// vs-last-month delta. Nothing here comes from the client beyond the requested month string.</summary>
+    private sealed record MonthFacts(
+        string MonthLabel, decimal TotalSpent, decimal TotalIncome,
+        IReadOnlyList<CategoryAmountDto> TopCategories,
+        IReadOnlyList<OwnerAmountDto> ByOwner,
+        decimal? PriorMonthSpent, bool HasAny);
+
+    private static async Task<MonthFacts> ComputeMonthFactsAsync(
+        UsageDbContext db, int householdId, string? month, CancellationToken ct)
+    {
+        // Resolve the month window the SAME way GET /summary does: the requested YYYY-MM, else the most
+        // recent month with data, else now.
+        DateOnly from, toExclusive;
+        if (!TryParseMonth(month, out from, out toExclusive))
+        {
+            var maxDate = await db.FinanceTransactions.AsNoTracking()
+                .Where(t => t.HouseholdId == householdId)
+                .OrderByDescending(t => t.Date)
+                .Select(t => (DateOnly?)t.Date)
+                .FirstOrDefaultAsync(ct);
+            var anchor = maxDate ?? DateOnly.FromDateTime(DateTime.UtcNow);
+            from = new DateOnly(anchor.Year, anchor.Month, 1);
+            toExclusive = from.AddMonths(1);
+        }
+        var monthLabel = from.ToString("yyyy-MM", CultureInfo.InvariantCulture);
+
+        var accounts = await db.FinanceAccounts.AsNoTracking()
+            .Where(a => a.HouseholdId == householdId)
+            .Select(a => new { a.Id, a.Owner })
+            .ToListAsync(ct);
+        var ownerByAccount = accounts.ToDictionary(a => a.Id, a => a.Owner);
+
+        var monthTxns = await db.FinanceTransactions.AsNoTracking()
+            .Where(t => t.HouseholdId == householdId && t.Date >= from && t.Date < toExclusive)
+            .Select(t => new { t.AccountId, t.Magnitude, t.Kind, t.Category })
+            .ToListAsync(ct);
+
+        var expenses = monthTxns.Where(t => t.Kind == "expense").ToList();
+        var totalSpent = expenses.Sum(t => t.Magnitude);
+        var totalIncome = monthTxns.Where(t => t.Kind == "income").Sum(t => t.Magnitude);
+
+        var topCategories = expenses
+            .GroupBy(t => string.IsNullOrWhiteSpace(t.Category) ? "Uncategorized" : t.Category!)
+            .Select(grp => new { Category = grp.Key, Amount = grp.Sum(x => x.Magnitude) })
+            .OrderByDescending(x => x.Amount).ThenBy(x => x.Category, StringComparer.OrdinalIgnoreCase)
+            .Take(TopCategoriesForAi)
+            .Select(x => new CategoryAmountDto(
+                x.Category, x.Amount, totalSpent > 0 ? Math.Round((double)(x.Amount / totalSpent) * 100.0, 1) : 0.0))
+            .ToList();
+
+        var byOwner = expenses
+            .GroupBy(t => ownerByAccount.TryGetValue(t.AccountId, out var o) ? o : "unassigned")
+            .Select(grp => new OwnerAmountDto(grp.Key, grp.Sum(x => x.Magnitude)))
+            .OrderByDescending(x => x.Amount).ThenBy(x => x.Owner, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        // Prior-month spending (expense-only) for the vs-last-month delta — same window math, one month back.
+        var priorFrom = from.AddMonths(-1);
+        var priorSpentRaw = await db.FinanceTransactions.AsNoTracking()
+            .Where(t => t.HouseholdId == householdId && t.Kind == "expense"
+                && t.Date >= priorFrom && t.Date < from)
+            .Select(t => (decimal?)t.Magnitude)
+            .SumAsync(ct);
+        var priorSpent = priorSpentRaw is decimal ps && ps > 0 ? ps : (decimal?)null;
+
+        var hasAny = monthTxns.Count > 0;
+
+        return new MonthFacts(monthLabel, totalSpent, totalIncome, topCategories, byOwner, priorSpent, hasAny);
+    }
+
+    /// <summary>Pre-format the server-computed <paramref name="f"/> numbers as a tight DATA block the model
+    /// NARRATES (it never recomputes). Owners are the his/hers/joint/unassigned labels; amounts are the
+    /// authoritative totals from the same math as GET /summary.</summary>
+    private static string FinanceFacts(MonthFacts f)
+    {
+        var cats = f.TopCategories.Count > 0
+            ? string.Join("; ", f.TopCategories.Select(c =>
+                $"{c.Category} {Money(c.Amount)} ({c.Pct.ToString("0.#", CultureInfo.InvariantCulture)}%)"))
+            : "(none)";
+        var owners = f.ByOwner.Count > 0
+            ? string.Join("; ", f.ByOwner.Select(o => $"{o.Owner} {Money(o.Amount)}"))
+            : "(none)";
+        var delta = f.PriorMonthSpent is decimal prior
+            ? $"last_month_spent: {Money(prior)} ({PctChange(prior, f.TotalSpent)})"
+            : "last_month_spent: (no prior month data)";
+
+        return
+            $"month: {f.MonthLabel}\n" +
+            $"total_spent: {Money(f.TotalSpent)}\n" +
+            $"total_income: {Money(f.TotalIncome)}\n" +
+            $"top_categories: {cats}\n" +
+            $"spending_by_owner: {owners}\n" +
+            delta;
+    }
+
+    /// <summary>The GUARANTEED deterministic plain floor: a one-liner stating the month total, the top
+    /// category, and the vs-last-month direction. Used when Gemini is unconfigured/errors — it NEVER 503s.</summary>
+    private static string PlainFinanceSummary(MonthFacts f)
+    {
+        var s = $"You spent {Money(f.TotalSpent)} in {f.MonthLabel}";
+        if (f.TopCategories.Count > 0)
+            s += $"; top category {f.TopCategories[0].Category} {Money(f.TopCategories[0].Amount)}";
+        if (f.PriorMonthSpent is decimal prior)
+        {
+            var dir = f.TotalSpent > prior ? "up" : f.TotalSpent < prior ? "down" : "about the same";
+            s += f.TotalSpent == prior
+                ? $"; {dir} vs last month"
+                : $"; {dir} {PctChange(prior, f.TotalSpent)} vs last month";
+        }
+        return s + ".";
+    }
+
+    private static string Money(decimal amount) =>
+        "$" + amount.ToString("0.##", CultureInfo.InvariantCulture);
+
+    /// <summary>A signed percent-change label from <paramref name="prior"/> to <paramref name="current"/>
+    /// (prior is guaranteed &gt; 0 by the caller). E.g. "+12%" or "-8%".</summary>
+    private static string PctChange(decimal prior, decimal current)
+    {
+        var pct = (double)((current - prior) / prior) * 100.0;
+        var rounded = Math.Round(pct, 0, MidpointRounding.AwayFromZero);
+        var sign = rounded > 0 ? "+" : "";
+        return $"{sign}{rounded.ToString("0", CultureInfo.InvariantCulture)}%";
     }
 
     // =====================================================================================

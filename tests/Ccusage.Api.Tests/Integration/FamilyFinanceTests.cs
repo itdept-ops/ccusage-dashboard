@@ -101,6 +101,9 @@ public class FamilyFinanceTests(WebAppFactory factory)
         (await useOnly.GetAsync("/api/family/finance/summary?month=2026-05"))
             .StatusCode.Should().Be(HttpStatusCode.Forbidden);
         (await useOnly.GetAsync("/api/family/finance/imports")).StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        // The AI "explain this month" route is gated the SAME way (family.use alone is not enough).
+        (await useOnly.GetAsync("/api/family/finance/ai/summary?month=2026-05"))
+            .StatusCode.Should().Be(HttpStatusCode.Forbidden);
     }
 
     [Fact]
@@ -109,6 +112,7 @@ public class FamilyFinanceTests(WebAppFactory factory)
         var anon = factory.CreateClient();
         (await anon.GetAsync("/api/family/finance/accounts")).StatusCode.Should().Be(HttpStatusCode.Unauthorized);
         (await anon.GetAsync("/api/family/finance/summary")).StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+        (await anon.GetAsync("/api/family/finance/ai/summary")).StatusCode.Should().Be(HttpStatusCode.Unauthorized);
     }
 
     // =====================================================================================
@@ -393,5 +397,60 @@ public class FamilyFinanceTests(WebAppFactory factory)
         // Bob's summary for the same month is empty (no spending).
         var bobSummary = await Json(await bob.GetAsync("/api/family/finance/summary?month=2026-05"));
         bobSummary.GetProperty("totalSpent").GetDecimal().Should().Be(0m);
+    }
+
+    // =====================================================================================
+    // AI "EXPLAIN THIS MONTH" — read-only narration; deterministic plain FLOOR; writes nothing
+    // =====================================================================================
+
+    [Fact]
+    public async Task Ai_summary_falls_back_to_deterministic_plain_summary_never_503_and_writes_nothing()
+    {
+        var owner = await FinanceUser();
+        await owner.PostAsJsonAsync("/api/family/finance/import", new { fileName = "rm.csv", content = SampleCsv });
+
+        // Snapshot the data BEFORE the AI call so we can assert it mutates nothing.
+        var accountsBefore = await Json(await owner.GetAsync("/api/family/finance/accounts"));
+        var txnsBefore = await Json(await owner.GetAsync("/api/family/finance/transactions?month=2026-05"));
+
+        // Gemini is OFF in the test host → ALWAYS 200 with the deterministic plain floor, never 503/500.
+        var res = await owner.GetAsync("/api/family/finance/ai/summary?month=2026-05");
+        res.StatusCode.Should().Be(HttpStatusCode.OK);
+        var dto = await Json(res);
+
+        dto.GetProperty("fellBackToPlain").GetBoolean().Should().BeTrue();
+        var narrative = dto.GetProperty("narrative").GetString();
+        narrative.Should().NotBeNullOrWhiteSpace();
+        // The plain floor narrates the SAME server math as GET /summary: spent 233.36, top category Shopping.
+        narrative.Should().Contain("233.36");
+        narrative.Should().Contain("Shopping");
+        // No insights when falling back to the plain floor.
+        dto.GetProperty("insights").GetArrayLength().Should().Be(0);
+        // No email anywhere (there is none in finance).
+        dto.GetRawText().Should().NotContain("@");
+
+        // The read changed NOTHING: same accounts, same transactions.
+        var accountsAfter = await Json(await owner.GetAsync("/api/family/finance/accounts"));
+        var txnsAfter = await Json(await owner.GetAsync("/api/family/finance/transactions?month=2026-05"));
+        accountsAfter.GetArrayLength().Should().Be(accountsBefore.GetArrayLength());
+        txnsAfter.GetProperty("total").GetInt32().Should().Be(txnsBefore.GetProperty("total").GetInt32());
+
+        // No new import batch was created by the read.
+        var imports = await Json(await owner.GetAsync("/api/family/finance/imports"));
+        imports.GetArrayLength().Should().Be(1);
+    }
+
+    [Fact]
+    public async Task Ai_summary_for_an_empty_month_returns_a_friendly_summary_without_calling_the_model()
+    {
+        var owner = await FinanceUser(); // no import — the household has no transactions at all
+
+        var res = await owner.GetAsync("/api/family/finance/ai/summary?month=2026-05");
+        res.StatusCode.Should().Be(HttpStatusCode.OK);
+        var dto = await Json(res);
+
+        dto.GetProperty("fellBackToPlain").GetBoolean().Should().BeTrue();
+        dto.GetProperty("narrative").GetString().Should().Contain("No spending recorded");
+        dto.GetProperty("insights").GetArrayLength().Should().Be(0);
     }
 }
