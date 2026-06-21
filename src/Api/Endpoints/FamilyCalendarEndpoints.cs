@@ -238,7 +238,7 @@ public static class FamilyCalendarEndpoints
                 mb.UserId, mb.Name,
                 mb.Busy.Select(b => new BusyBlockDto(b.StartUtc, b.EndUtc)).ToList())).ToList();
             return Results.Ok(dtos);
-        });
+        }).RequireRateLimiting(AiEndpoints.RateLimitPolicy);
 
         // ---- POST /find-time : candidate slots free for every selected CONNECTED member in the workday ----
         g.MapPost("/find-time", async (
@@ -265,7 +265,7 @@ public static class FamilyCalendarEndpoints
                 db, cal, household.Id, req.MemberUserIds ?? Array.Empty<int>(), start, end,
                 req.DurationMinutes, dayStart, dayEnd, tz, ct);
             return Results.Ok(new FindTimeDto(slots, considered));
-        });
+        }).RequireRateLimiting(AiEndpoints.RateLimitPolicy);
 
         // ---- POST /ai/find-time : Gemini fills the find-time FORM from free text, then the EXISTING ----
         // deterministic engine finds the slots over ALL household members. Creates NOTHING — booking still

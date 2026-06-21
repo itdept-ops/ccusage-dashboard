@@ -78,7 +78,17 @@ public static class InboxEndpoints
             {
                 pref = new NotificationPreference { UserEmail = user.Email, UpdatedUtc = DateTime.UtcNow };
                 db.NotificationPreferences.Add(pref);
-                await db.SaveChangesAsync(ct);
+                try
+                {
+                    await db.SaveChangesAsync(ct);
+                }
+                catch (DbUpdateException ex) when (ChatEndpoints.IsUniqueViolation(ex))
+                {
+                    // A concurrent first read already provisioned this caller's defaults row — discard
+                    // our attempt and return the winning row.
+                    db.ChangeTracker.Clear();
+                    pref = await db.NotificationPreferences.FirstAsync(p => p.UserEmail == user.Email, ct);
+                }
             }
             return Results.Ok(ToDto(pref));
         });

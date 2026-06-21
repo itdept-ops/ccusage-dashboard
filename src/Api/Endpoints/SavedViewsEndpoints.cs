@@ -40,6 +40,7 @@ public static class SavedViewsEndpoints
 
             var name = (req.Name ?? "").Trim();
             if (name.Length == 0) return Results.BadRequest(new { message = "Name is required." });
+            if (name.Length > MaxNameLength) return Results.BadRequest(new { message = $"Name must be {MaxNameLength} characters or fewer." });
 
             // Upsert by (owner, name): never duplicate a name for the same user.
             var view = await db.SavedViews.FirstOrDefaultAsync(v => v.UserId == user.Id && v.Name == name, ct);
@@ -61,6 +62,7 @@ public static class SavedViewsEndpoints
 
             var name = (req.Name ?? "").Trim();
             if (name.Length == 0) return Results.BadRequest(new { message = "Name is required." });
+            if (name.Length > MaxNameLength) return Results.BadRequest(new { message = $"Name must be {MaxNameLength} characters or fewer." });
 
             // Scope the lookup to the owner: another user's id resolves to null → 404.
             var view = await db.SavedViews.FirstOrDefaultAsync(v => v.Id == id && v.UserId == user.Id, ct);
@@ -86,17 +88,35 @@ public static class SavedViewsEndpoints
         });
     }
 
+    // Hardening limits: bound persisted input so over-length/over-count payloads can't reach the DB.
+    private const int MaxNameLength = 80;
+    private const int MaxItems = 200;        // per-array (ProjectId/Model/Source)
+    private const int MaxItemLength = 128;    // per-item string
+
     private static void Apply(SavedView v, SavedViewUpsertRequest req, string name)
     {
         v.Name = name;
         v.FromDate = req.From;
         v.ToDate = req.To;
-        v.ProjectIdsCsv = string.Join(',', req.ProjectId ?? Array.Empty<int>());
-        v.ModelsCsv = string.Join(',', (req.Model ?? Array.Empty<string>()).Where(s => !string.IsNullOrWhiteSpace(s)));
-        v.SourcesCsv = string.Join(',', (req.Source ?? Array.Empty<string>()).Where(s => !string.IsNullOrWhiteSpace(s)));
+        v.ProjectIdsCsv = string.Join(',', (req.ProjectId ?? Array.Empty<int>()).Take(MaxItems));
+        v.ModelsCsv = string.Join(',', (req.Model ?? Array.Empty<string>())
+            .Where(s => !string.IsNullOrWhiteSpace(s)).Take(MaxItems).Select(Clean));
+        v.SourcesCsv = string.Join(',', (req.Source ?? Array.Empty<string>())
+            .Where(s => !string.IsNullOrWhiteSpace(s)).Take(MaxItems).Select(Clean));
         v.IncludeSidechain = req.IncludeSidechain;
-        v.GroupBy = string.IsNullOrWhiteSpace(req.GroupBy) ? "day" : req.GroupBy.Trim();
+        v.GroupBy = Normalize(req.GroupBy);
     }
+
+    // Trim and cap a per-item filter string (commas would corrupt the CSV, so strip them too).
+    private static string Clean(string s)
+    {
+        var t = s.Trim().Replace(",", "");
+        return t.Length > MaxItemLength ? t[..MaxItemLength] : t;
+    }
+
+    // Mirror ShareEndpoints.Normalize: collapse unknown GroupBy values to the "day" default.
+    private static string Normalize(string? g) =>
+        (g?.ToLowerInvariant()) is "day" or "month" or "project" or "model" or "source" or "session" ? g!.ToLowerInvariant() : "day";
 
     private static SavedViewDto ToDto(SavedView v) => new()
     {

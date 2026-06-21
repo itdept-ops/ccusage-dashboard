@@ -39,9 +39,9 @@ public static class ShareEndpoints
                 ExpiresUtc = DateTime.UtcNow.AddHours(Math.Clamp(req.ExpiresInHours, 1, 24 * 90)),
                 FromDate = req.From,
                 ToDate = req.To,
-                ProjectIds = req.ProjectId ?? Array.Empty<int>(),
-                Models = req.Model ?? Array.Empty<string>(),
-                Sources = req.Source ?? Array.Empty<string>(),
+                ProjectIds = CapIds(req.ProjectId),
+                Models = CapLabels(req.Model),
+                Sources = CapLabels(req.Source),
                 IncludeSidechain = req.IncludeSidechain,
                 GroupBy = Normalize(req.GroupBy),
             };
@@ -138,6 +138,28 @@ public static class ShareEndpoints
 
     private static string Hash(string token) =>
         Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(token)));
+
+    // A share's stored filter is attacker-supplied via the create body; cap it before it is persisted
+    // (and later replayed on every public read) — mirror the ingest sanitization: bound the array
+    // lengths, clamp each label, and de-dup. Empty/null collapses to an empty array (no filter).
+    private const int MaxFilterIds = 200;     // <= 200 project ids
+    private const int MaxFilterLabels = 100;  // <= 100 model/source labels
+    private const int MaxLabelLen = 128;      // each label clamped to <= 128 chars
+
+    private static int[] CapIds(int[]? ids) =>
+        ids is null or { Length: 0 } ? Array.Empty<int>()
+            : ids.Distinct().Take(MaxFilterIds).ToArray();
+
+    private static string[] CapLabels(string[]? labels)
+    {
+        if (labels is null or { Length: 0 }) return Array.Empty<string>();
+        return labels
+            .Where(l => !string.IsNullOrWhiteSpace(l))
+            .Select(l => l.Length > MaxLabelLen ? l[..MaxLabelLen] : l)
+            .Distinct()
+            .Take(MaxFilterLabels)
+            .ToArray();
+    }
 
     private static string Normalize(string? g) =>
         (g?.ToLowerInvariant()) is "day" or "month" or "project" or "model" or "source" or "session" ? g!.ToLowerInvariant() : "day";

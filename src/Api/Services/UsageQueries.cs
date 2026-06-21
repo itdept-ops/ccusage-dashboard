@@ -9,6 +9,16 @@ namespace Ccusage.Api.Services;
 /// <summary>Read-side queries: filtered aggregates, paged records, and filter options.</summary>
 public sealed class UsageQueries(UsageDbContext db)
 {
+    /// <summary>
+    /// Defensive ceiling for the sessionization/heatmap/calendar paths, which materialize one in-memory
+    /// row PER usage record (timestamps etc.) rather than a DB-side aggregate. A pathological caller that
+    /// omits every filter would otherwise pull the WHOLE table into process memory. This cap is far above
+    /// any single org's real record count, so a legitimate range never reaches it and its results are
+    /// byte-identical with or without the guard; it only bounds the runaway-unbounded case. When applied,
+    /// the row pull is ordered newest-first so the retained slice is the most-recent window (see FilteredCapped).
+    /// </summary>
+    private const int RowMaterializationCap = 2_000_000;
+
     private IQueryable<UsageRecord> Filtered(UsageFilterQuery f)
     {
         var q = db.UsageRecords.AsNoTracking();
@@ -23,6 +33,15 @@ public sealed class UsageQueries(UsageDbContext db)
         if (f.includeSidechain == false) q = q.Where(r => !r.IsSidechain);
         return q;
     }
+
+    /// <summary>
+    /// The filtered set, but with the defensive <see cref="RowMaterializationCap"/> applied to the
+    /// per-record pulls that load timestamps/rows into memory. Ordered newest-first so the cap (only ever
+    /// hit by an unbounded pathological query) keeps the most-recent window; legitimate ranges sit far
+    /// below the cap and so are returned in full — the order/Take are inert for them.
+    /// </summary>
+    private IQueryable<UsageRecord> FilteredCapped(UsageFilterQuery f) =>
+        Filtered(f).OrderByDescending(r => r.TimestampUtc).Take(RowMaterializationCap);
 
     /// <summary>
     /// Per-day spend/volume plus an estimate of active engagement time. "Active minutes" sums the
@@ -42,8 +61,9 @@ public sealed class UsageQueries(UsageDbContext db)
             Messages = g.Count(),
         }).ToListAsync(ct);
 
-        // Pull just the timestamps (two columns) to compute active time + sessions per day.
-        var stamps = await q.Select(r => new { r.LocalDate, r.TimestampUtc }).ToListAsync(ct);
+        // Pull just the timestamps (two columns) to compute active time + sessions per day. Capped
+        // defensively against an unbounded materialization; legitimate ranges sit far below the cap.
+        var stamps = await FilteredCapped(f).Select(r => new { r.LocalDate, r.TimestampUtc }).ToListAsync(ct);
         var gap = TimeSpan.FromMinutes(idleGapMinutes);
 
         var byDay = stamps.GroupBy(s => s.LocalDate).ToDictionary(g => g.Key, g =>
@@ -88,7 +108,7 @@ public sealed class UsageQueries(UsageDbContext db)
     public async Task<List<HeatmapCellDto>> HeatmapAsync(UsageFilterQuery f, CancellationToken ct)
     {
         var tz = await DisplayTzAsync(ct);
-        var stamps = await Filtered(f).Select(r => r.TimestampUtc).ToListAsync(ct);
+        var stamps = await FilteredCapped(f).Select(r => r.TimestampUtc).ToListAsync(ct);
 
         var grid = new int[7, 24];
         foreach (var ts in stamps)
@@ -108,7 +128,9 @@ public sealed class UsageQueries(UsageDbContext db)
     public async Task<UsageStatsDto> StatsAsync(UsageFilterQuery f, int idleGapMinutes, CancellationToken ct)
     {
         var tz = await DisplayTzAsync(ct);
-        var rows = await Filtered(f).OrderBy(r => r.TimestampUtc)
+        // Cap defensively against an unbounded materialization, then re-order oldest-first for the
+        // sessionization loop. The cap retains the most-recent window; legitimate ranges sit far below it.
+        var rows = await FilteredCapped(f).OrderBy(r => r.TimestampUtc)
             .Select(r => new { r.TimestampUtc, r.CostUsd, r.LocalDate }).ToListAsync(ct);
         if (rows.Count == 0) return new UsageStatsDto();
 

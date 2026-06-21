@@ -293,6 +293,14 @@ builder.Services.AddRateLimiter(o =>
     o.AddPolicy(AiEndpoints.PhotoRateLimitPolicy, http => RateLimitPartition.GetFixedWindowLimiter(
         partitionKey: http.User.FindFirst("email")?.Value ?? http.Connection.RemoteIpAddress?.ToString() ?? "unknown",
         factory: _ => new FixedWindowRateLimiterOptions { Window = TimeSpan.FromMinutes(1), PermitLimit = 5, QueueLimit = 0 }));
+    // Provider-backed tracker lookups (food/exercise search + GIF proxy) are NOT Gemini calls; give them
+    // their own generous per-email buckets so type-ahead search / a GIF grid can't starve the AI budget.
+    o.AddPolicy(TrackerEndpoints.SearchRateLimitPolicy, http => RateLimitPartition.GetFixedWindowLimiter(
+        partitionKey: http.User.FindFirst("email")?.Value ?? http.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+        factory: _ => new FixedWindowRateLimiterOptions { Window = TimeSpan.FromMinutes(1), PermitLimit = 60, QueueLimit = 0 }));
+    o.AddPolicy(TrackerEndpoints.GifRateLimitPolicy, http => RateLimitPartition.GetFixedWindowLimiter(
+        partitionKey: http.User.FindFirst("email")?.Value ?? http.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+        factory: _ => new FixedWindowRateLimiterOptions { Window = TimeSpan.FromMinutes(1), PermitLimit = 30, QueueLimit = 0 }));
 });
 
 var app = builder.Build();

@@ -210,7 +210,16 @@ public static class FamilyFinanceEndpoints
                     db.FinanceAccounts.Add(account);
                     // Persist immediately so the account gets an Id we can FK the transactions to, and so a
                     // later row for the same account reuses it.
-                    await db.SaveChangesAsync(ct);
+                    try
+                    {
+                        await db.SaveChangesAsync(ct);
+                    }
+                    catch (DbUpdateException ex) when (IsUniqueViolation(ex))
+                    {
+                        // A concurrent/overlapping import already created this (HouseholdId, Name, Institution)
+                        // account between our check and save — return a clean retryable 409.
+                        return ImportConflict();
+                    }
                     byKey[key] = account;
                 }
 
@@ -243,7 +252,16 @@ public static class FamilyFinanceEndpoints
             // Update the batch's final counts, then persist the transactions.
             batch.ImportedCount = imported;
             batch.SkippedCount = skipped;
-            await db.SaveChangesAsync(ct);
+            try
+            {
+                await db.SaveChangesAsync(ct);
+            }
+            catch (DbUpdateException ex) when (IsUniqueViolation(ex))
+            {
+                // A concurrent/overlapping import inserted an overlapping transaction (DedupHash unique index)
+                // between our in-memory de-dup and save — return a clean retryable 409.
+                return ImportConflict();
+            }
 
             var accounts = byKey.Values
                 .Where(a => touched.Contains(RocketMoneyCsv.AccountKey(a.Name, a.Institution ?? "")))
@@ -956,4 +974,17 @@ public static class FamilyFinanceEndpoints
 
     private static IResult NotFound() =>
         Results.NotFound(new { message = "That account doesn't exist." });
+
+    /// <summary>409 when a concurrent/overlapping import won an insert race on a unique index (the per-account
+    /// (HouseholdId, Name, Institution) index OR the transaction DedupHash index). Clean + retryable rather
+    /// than a raw 500 from the Postgres unique violation.</summary>
+    private static IResult ImportConflict() => Results.Problem(
+        title: "That import overlapped a concurrent import — please retry",
+        detail: "That import overlapped a concurrent import — please retry",
+        statusCode: StatusCodes.Status409Conflict);
+
+    /// <summary>True when a save failed on a Postgres unique-index violation (23505) — the signal a concurrent
+    /// caller won an insert race. Mirrors <see cref="ChatEndpoints.IsUniqueViolation"/>.</summary>
+    private static bool IsUniqueViolation(DbUpdateException ex) =>
+        ex.InnerException is Npgsql.PostgresException pg && pg.SqlState == Npgsql.PostgresErrorCodes.UniqueViolation;
 }

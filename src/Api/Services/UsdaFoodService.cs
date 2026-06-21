@@ -91,7 +91,12 @@ public sealed class UsdaFoodService(
 
     private string BaseTrimmed() => (_opt.BaseUrl ?? "").TrimEnd('/');
 
-    /// <summary>GET + parse JSON. Returns null on 404 when <paramref name="allowNotFound"/>; throws otherwise.</summary>
+    /// <summary>
+    /// GET + parse JSON. Returns null on any non-success status (incl. 404) so USDA fails SOFT like the
+    /// other food providers: a transient USDA error becomes an empty search (→ FatSecret fallback) or an
+    /// empty details lookup (→ 404), never a 500. The <paramref name="allowNotFound"/> flag is retained
+    /// for call-site intent but no longer changes behaviour.
+    /// </summary>
     private async Task<JsonDocument?> GetAsync(string url, CancellationToken ct, bool allowNotFound = false)
     {
         var client = httpFactory.CreateClient(HttpClientName);
@@ -101,9 +106,10 @@ public sealed class UsdaFoodService(
 
         if (!res.IsSuccessStatusCode)
         {
-            // Never log the URL — it carries the api_key. Log the status only.
+            // Never log the URL — it carries the api_key. Log the status only, then fail soft (return null)
+            // so the caller falls back to FatSecret / returns empty instead of surfacing a 500.
             logger.LogWarning("USDA FoodData Central returned {Status}.", (int)res.StatusCode);
-            res.EnsureSuccessStatusCode(); // surfaces as a 500/handled upstream
+            return null;
         }
 
         await using var stream = await res.Content.ReadAsStreamAsync(ct);

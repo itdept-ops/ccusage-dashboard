@@ -118,12 +118,34 @@ public sealed class ChatNotificationService(UsageDbContext db, IHubContext<ChatH
             .TryGetValue(message.SenderEmail.ToLowerInvariant(), out var ai) ? ai : (ActorIdentity?)null;
 
         // Recipients who actually got an inbox notification row also get their global inbox total.
+        // One grouped query for every recipient's unread total instead of a COUNT per recipient (N+1).
+        var inboxUnreadByEmail = await UnreadInboxCountsAsync(created.Select(c => c.email), ct);
         foreach (var (email, n) in created)
         {
             await hub.Clients.User(email).SendAsync("ReceiveNotification", ToDto(n, actor), ct);
-            var inboxUnread = await db.Notifications.CountAsync(x => x.RecipientEmail == email && !x.IsRead, ct);
-            await hub.Clients.User(email).SendAsync("InboxUnreadChanged", inboxUnread, ct);
+            await hub.Clients.User(email)
+                .SendAsync("InboxUnreadChanged", inboxUnreadByEmail.GetValueOrDefault(email, 0), ct);
         }
+    }
+
+    /// <summary>
+    /// Per-recipient unread inbox totals in ONE grouped query instead of a COUNT per recipient (N+1).
+    /// Returns a map recipient email → unread count; recipients with no unread rows are absent (callers
+    /// default to 0). The emitted per-recipient count is identical to the previous per-email COUNT.
+    /// </summary>
+    private async Task<Dictionary<string, int>> UnreadInboxCountsAsync(
+        IEnumerable<string> recipientEmails, CancellationToken ct)
+    {
+        var emails = recipientEmails.Distinct(StringComparer.Ordinal).ToArray();
+        if (emails.Length == 0) return new Dictionary<string, int>(StringComparer.Ordinal);
+
+        var rows = await db.Notifications.AsNoTracking()
+            .Where(n => emails.Contains(n.RecipientEmail) && !n.IsRead)
+            .GroupBy(n => n.RecipientEmail)
+            .Select(g => new { Email = g.Key, Count = g.Count() })
+            .ToListAsync(ct);
+
+        return rows.ToDictionary(x => x.Email, x => x.Count, StringComparer.Ordinal);
     }
 
     /// <summary>
@@ -170,11 +192,12 @@ public sealed class ChatNotificationService(UsageDbContext db, IHubContext<ChatH
         await db.SaveChangesAsync(ct);
 
         // System events carry no actor (ActorEmail is null) — the actor fields stay null.
+        var inboxUnreadByEmail = await UnreadInboxCountsAsync(created.Select(c => c.email), ct);
         foreach (var (email, n) in created)
         {
             await hub.Clients.User(email).SendAsync("ReceiveNotification", ToDto(n, (ActorIdentity?)null), ct);
-            var inboxUnread = await db.Notifications.CountAsync(x => x.RecipientEmail == email && !x.IsRead, ct);
-            await hub.Clients.User(email).SendAsync("InboxUnreadChanged", inboxUnread, ct);
+            await hub.Clients.User(email)
+                .SendAsync("InboxUnreadChanged", inboxUnreadByEmail.GetValueOrDefault(email, 0), ct);
         }
     }
 
@@ -221,11 +244,12 @@ public sealed class ChatNotificationService(UsageDbContext db, IHubContext<ChatH
         await db.SaveChangesAsync(ct);
 
         // Family alerts carry no actor (the scheduler, not a person, fired them) — actor fields stay null.
+        var inboxUnreadByEmail = await UnreadInboxCountsAsync(created.Select(c => c.email), ct);
         foreach (var (email, n) in created)
         {
             await hub.Clients.User(email).SendAsync("ReceiveNotification", ToDto(n, (ActorIdentity?)null), ct);
-            var inboxUnread = await db.Notifications.CountAsync(x => x.RecipientEmail == email && !x.IsRead, ct);
-            await hub.Clients.User(email).SendAsync("InboxUnreadChanged", inboxUnread, ct);
+            await hub.Clients.User(email)
+                .SendAsync("InboxUnreadChanged", inboxUnreadByEmail.GetValueOrDefault(email, 0), ct);
         }
         return created.Count;
     }

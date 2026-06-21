@@ -31,6 +31,10 @@ namespace Ccusage.Api.Endpoints;
 /// </summary>
 public static class FamilyMealsChoresEndpoints
 {
+    /// <summary>Upper bound on caller-supplied mealIds for /meals/to-grocery (mirrors GeminiService's
+    /// MaxPlanWeekMeals/MaxChoresForAi caps): keeps a hostile payload from fanning out to an unbounded query.</summary>
+    private const int MaxMealIds = 200;
+
     // ---- DTOs (people by userId + name; never email) ----
 
     public sealed record MealDto(
@@ -268,7 +272,8 @@ public static class FamilyMealsChoresEndpoints
             List<FamilyMeal> meals;
             if (req.MealIds is { Count: > 0 })
             {
-                var ids = req.MealIds.Distinct().ToList();
+                // Clamp the caller-supplied set so a hostile payload can't fan out to an unbounded IN (...) query.
+                var ids = req.MealIds.Distinct().Take(MaxMealIds).ToList();
                 meals = await db.FamilyMeals.AsNoTracking()
                     .Where(m => m.HouseholdId == household.Id && ids.Contains(m.Id))
                     .ToListAsync(ct);

@@ -143,6 +143,7 @@ public static class FamilyNotesListsEndpoints
 
             var dtos = notes
                 .OrderByDescending(n => n.Pinned).ThenByDescending(n => n.UpdatedUtc)
+                .Take(500)
                 .Select(n => ToNoteDto(n, caller.Id, householdId, shares, names))
                 .ToList();
             return Results.Ok(dtos);
@@ -316,6 +317,7 @@ public static class FamilyNotesListsEndpoints
             var notes = await db.FamilyNotes.AsNoTracking()
                 .Where(n => n.HouseholdId == householdId)
                 .OrderByDescending(n => n.UpdatedUtc)
+                .Take(200)
                 .Select(n => new { n.Id, n.Title, n.Body })
                 .ToListAsync(ct);
 
@@ -384,6 +386,7 @@ public static class FamilyNotesListsEndpoints
 
             var dtos = lists
                 .OrderByDescending(l => l.UpdatedUtc)
+                .Take(500)
                 .Select(l => ToListDto(l, items, caller.Id, householdId, shares, names))
                 .ToList();
             return Results.Ok(dtos);

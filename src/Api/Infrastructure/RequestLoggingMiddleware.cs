@@ -25,6 +25,18 @@ public sealed class RequestLoggingMiddleware(RequestDelegate next, RequestLogQue
         "/api/ingest", // high-volume reporter pushes; the IngestKey LastUsed stamp is the activity trail
     };
 
+    // Privacy: these admin paths carry OTHER users' emails in their request/response bodies
+    // (the Users table, audit feed, access-policy editor, the chat contacts/directory pickers).
+    // Other-user emails are restricted to the admin Users table + audit + add-user + own account,
+    // so we must NOT store these bodies in a RequestLog that the Activity page replays to any
+    // holder of activity.view. The request LINE (method/path/status/timing/bytes) is still logged —
+    // only the email-bearing bodies are dropped, preserving the log's diagnostic value.
+    private static readonly string[] BodyExcluded =
+    {
+        "/api/users", "/api/audit", "/api/access-policy",
+        "/api/chat/contacts", "/api/chat/directory",
+    };
+
     public async Task Invoke(HttpContext ctx)
     {
         if (!ShouldLog(ctx.Request))
@@ -33,12 +45,16 @@ public sealed class RequestLoggingMiddleware(RequestDelegate next, RequestLogQue
             return;
         }
 
-        var requestBody = await CaptureRequestBodyAsync(ctx.Request);
-
         var path = ctx.Request.Path.Value ?? "";
+
+        // Email-bearing admin paths: log the request line but never buffer/store the bodies (PII).
+        var captureBodies = !SkipBodyCapture(path);
+
+        var requestBody = captureBodies ? await CaptureRequestBodyAsync(ctx.Request) : null;
+
         var originalBody = ctx.Response.Body;
-        await using var capture = new CapturingResponseStream(originalBody, MaxCaptureBytes);
-        ctx.Response.Body = capture;
+        await using var capture = captureBodies ? new CapturingResponseStream(originalBody, MaxCaptureBytes) : null;
+        if (capture is not null) ctx.Response.Body = capture;
 
         var started = Stopwatch.GetTimestamp();
         try
@@ -47,7 +63,7 @@ public sealed class RequestLoggingMiddleware(RequestDelegate next, RequestLogQue
         }
         finally
         {
-            ctx.Response.Body = originalBody;
+            if (capture is not null) ctx.Response.Body = originalBody;
 
             var entry = new RequestLog
             {
@@ -62,9 +78,9 @@ public sealed class RequestLoggingMiddleware(RequestDelegate next, RequestLogQue
                 UserEmail = ctx.User.FindFirst("email")?.Value,
                 ClientIp = ClientIp(ctx),
                 RequestBytes = ctx.Request.ContentLength,
-                ResponseBytes = capture.TotalBytes,
+                ResponseBytes = capture?.TotalBytes ?? 0,
                 RequestBody = requestBody,
-                ResponseBody = CaptureResponseBody(ctx, capture),
+                ResponseBody = capture is not null ? CaptureResponseBody(ctx, capture) : null,
             };
 
             queue.TryEnqueue(entry); // non-blocking; dropped if the buffer is saturated
@@ -77,6 +93,16 @@ public sealed class RequestLoggingMiddleware(RequestDelegate next, RequestLogQue
         foreach (var ex in Excluded)
             if (req.Path.StartsWithSegments(ex)) return false;
         return true;
+    }
+
+    // True for email-bearing admin paths whose bodies must not be persisted (see BodyExcluded).
+    // Segment-based match so "/api/users", "/api/users/{id}", "/api/chat/contacts/{email}" all hit.
+    private static bool SkipBodyCapture(string path)
+    {
+        var p = new PathString(path);
+        foreach (var ex in BodyExcluded)
+            if (p.StartsWithSegments(ex)) return true;
+        return false;
     }
 
     private static async Task<string?> CaptureRequestBodyAsync(HttpRequest req)

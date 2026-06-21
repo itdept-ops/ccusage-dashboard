@@ -54,7 +54,9 @@ public static class ChatEndpoints
 
             // Resolve requested member IDs -> internal emails (enabled-only); unknown/disabled ids drop out.
             // Always include the creator. The client holds no other-user emails (email-privacy).
-            var resolved = await ChatNotificationService.ResolveEmailsByIdAsync(db, req.MemberUserIds ?? Array.Empty<int>(), ct);
+            // Cap the unbounded id array before the DB query (mirrors the string clamps above).
+            var memberIds = (req.MemberUserIds ?? Array.Empty<int>()).Distinct().Take(200).ToArray();
+            var resolved = await ChatNotificationService.ResolveEmailsByIdAsync(db, memberIds, ct);
             var emails = resolved.Values.Append(user.Email).Distinct(StringComparer.Ordinal);
 
             channel.Members = emails.Select(e => new ChatChannelMember
@@ -219,7 +221,8 @@ public static class ChatEndpoints
             await db.SaveChangesAsync(ct);
 
             var sender = await SenderInfoAsync(db, user.Email, ct);
-            var mentions = (req.MentionedUserIds ?? Array.Empty<int>());
+            // Cap the unbounded id array before the DB resolve (mirrors the string clamps above).
+            var mentions = (req.MentionedUserIds ?? Array.Empty<int>()).Distinct().Take(50).ToArray();
             await fanout.FanOutMessageAsync(channel, msg, sender, mentions, ct);
 
             return Results.Ok(ChatNotificationService.ToDto(msg, sender));

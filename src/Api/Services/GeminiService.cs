@@ -638,7 +638,9 @@ public sealed class GeminiService(
         var date = Clean(localDate, 16);
         var weight = bodyWeightKg is { } w && w is > 0 and <= 1000 ? w : (double?)null;
 
-        var prompt = BuildDayPrompt(dayText, date, time, weight, priorDraft, answers);
+        // Re-clamp the (client-supplied) prior draft to the SAME ceilings MapDayDraft enforces on output
+        // before it is serialized into the prompt, so a hostile/oversized PriorDraft can't bypass the input caps.
+        var prompt = BuildDayPrompt(dayText, date, time, weight, SanitizePriorDraft(priorDraft), answers);
 
         // build-day MUST NOT use the prompt cache — route through the (never-caching) multimodal path
         // whether or not images are attached (an empty image list still bypasses the cache).
@@ -3384,6 +3386,85 @@ public sealed class GeminiService(
         sb.Append("PRIOR_DRAFT:\n").Append(priorDraft is null ? "none" : CompactPriorDraft(priorDraft)).Append('\n');
         sb.Append("ANSWERS:\n").Append(FormatAnswers(priorDraft, answers));
         return sb.ToString();
+    }
+
+    /// <summary>
+    /// Re-clamp a COPY of the (client-supplied) prior draft to the SAME ceilings <see cref="MapDayDraft"/>
+    /// enforces on output — so a hostile/oversized PriorDraft serialized into the refine prompt can never
+    /// bypass the input caps. Trims counts (meals/items/exercises/drinks/assumptions) and Clean()/length-caps
+    /// every string. Returns null when given null (the prompt renders "none").
+    /// </summary>
+    private static DayDraft? SanitizePriorDraft(DayDraft? d)
+    {
+        if (d is null) return null;
+
+        var clean = new DayDraft();
+
+        var totalFoods = 0;
+        foreach (var meal in d.Meals.Take(MaxDayMeals))
+        {
+            var mealDraft = new MealDraft { Meal = ParseMealName(meal.Meal) };
+            foreach (var item in meal.Items)
+            {
+                if (mealDraft.Items.Count >= MaxDayFoodsPerMeal || totalFoods >= MaxDayFoodsTotal) break;
+                mealDraft.Items.Add(new DraftFood
+                {
+                    Description = Clean(item.Description, 256),
+                    Quantity = CapNote(item.Quantity, 128),
+                    Brand = CapNote(item.Brand, 128),
+                    Calories = ClampCalories(item.Calories),
+                    ProteinG = ClampMacro(item.ProteinG),
+                    CarbG = ClampMacro(item.CarbG),
+                    FatG = ClampMacro(item.FatG),
+                    Confidence = Math.Clamp(item.Confidence, 0, 1),
+                    Clamped = item.Clamped,
+                });
+                totalFoods++;
+            }
+            clean.Meals.Add(mealDraft);
+        }
+
+        foreach (var ex in d.Exercises.Take(MaxDayExercises))
+            clean.Exercises.Add(new DraftExercise
+            {
+                Name = Clean(ex.Name, 128),
+                DurationMin = ex.DurationMin is { } m ? Math.Clamp(m, 1, MaxDurationMin) : null,
+                CaloriesBurned = ClampCalories(ex.CaloriesBurned),
+                Confidence = Math.Clamp(ex.Confidence, 0, 1),
+                Clamped = ex.Clamped,
+            });
+
+        foreach (var drink in d.Hydration.Take(MaxDayDrinks))
+            clean.Hydration.Add(new DraftDrink
+            {
+                Label = CapNote(drink.Label, 64),
+                Ml = ClampInt(drink.Ml, 0, MaxHydrationMl),
+            });
+
+        if (d.Weight is { } w && w.WeightKg is >= 1 and <= 1000)
+            clean.Weight = new DraftWeight
+            {
+                WeightKg = Math.Round(w.WeightKg, 2),
+                Slot = ParseSlotName(w.Slot),
+            };
+
+        if (d.Activity is { } a)
+            clean.Activity = new DraftActivity
+            {
+                Steps = a.Steps is { } s ? Math.Clamp(s, 0, 200000) : null,
+                DistanceMeters = a.DistanceMeters is { } dm ? Math.Clamp(dm, 0, 1000000) : null,
+                ActiveCalories = a.ActiveCalories is { } ac ? Math.Clamp(ac, 0, 20000) : null,
+                CalorieMode = ParseCalorieModeName(a.CalorieMode),
+            };
+
+        clean.Assumptions = d.Assumptions
+            .Where(s => !string.IsNullOrWhiteSpace(s))
+            .Select(s => Clean(s, 200))
+            .Take(MaxDayAssumptions)
+            .ToList();
+        clean.Summary = Clean(d.Summary, 200);
+
+        return clean;
     }
 
     /// <summary>A compact JSON-ish view of the prior draft for the refine prompt (the model sees its own

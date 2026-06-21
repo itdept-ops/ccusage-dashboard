@@ -27,6 +27,15 @@ namespace Ccusage.Api.Endpoints;
 /// </summary>
 public static class TrackerEndpoints
 {
+    /// <summary>Per-email limiter for the provider-backed food/exercise SEARCH proxies (USDA/FatSecret/
+    /// WorkoutX). These are plain lookups, NOT Gemini calls, so they get their own generous bucket rather
+    /// than sharing the (tight, token-costed) AI policy — type-ahead search must not starve AI-assist.</summary>
+    public const string SearchRateLimitPolicy = "tracker-search";
+
+    /// <summary>Per-email limiter for the WorkoutX GIF byte-proxy. A 2-pane exercise picker renders a grid of
+    /// demo GIFs at once, so this is more generous than the search bucket but still bounded.</summary>
+    public const string GifRateLimitPolicy = "tracker-gif";
+
     public static void MapTrackerEndpoints(this WebApplication app)
     {
         MapFoodsProxy(app);
@@ -62,7 +71,7 @@ public static class TrackerEndpoints
                     : await fatsecret.SearchAsync(q, ct);
 
             return Results.Ok(ChooseSearchResult(usda.IsConfigured, usdaItems, fatsecret.IsConfigured, fsItems));
-        }).RequirePermission(Permissions.TrackerSelf);
+        }).RequirePermission(Permissions.TrackerSelf).RequireRateLimiting(SearchRateLimitPolicy);
 
         // ---- Single food by FDC id (USDA-only) ----
         g.MapGet("/{fdcId:int}", async (int fdcId, UsdaFoodService usda, CancellationToken ct) =>
@@ -70,7 +79,7 @@ public static class TrackerEndpoints
             if (!usda.IsConfigured) return UsdaUnconfigured();
             var item = await usda.GetDetailsAsync(fdcId, ct);
             return item is null ? Results.NotFound() : Results.Ok(TagUsdaOne(item));
-        }).RequirePermission(Permissions.TrackerSelf);
+        }).RequirePermission(Permissions.TrackerSelf).RequireRateLimiting(SearchRateLimitPolicy);
     }
 
     /// <summary>
@@ -662,7 +671,7 @@ public static class TrackerEndpoints
             var result = await workoutx.SearchAsync(
                 q, bodyPart, target, equipment, limit ?? 24, offset ?? 0, ct);
             return Results.Ok(result);
-        }).RequirePermission(Permissions.TrackerSelf);
+        }).RequirePermission(Permissions.TrackerSelf).RequireRateLimiting(SearchRateLimitPolicy);
 
         // ---- WorkoutX: proxy a single exercise's GIF demo (the provider needs the key the client lacks) ----
         // {id} is constrained to digits at the route AND re-validated in the service before it's used in
@@ -677,7 +686,7 @@ public static class TrackerEndpoints
             // The catalog gifs are immutable per id; let the browser cache them for a day.
             http.Response.Headers.CacheControl = "private, max-age=86400";
             return Results.Bytes(g.Bytes, g.ContentType);
-        }).RequirePermission(Permissions.TrackerSelf);
+        }).RequirePermission(Permissions.TrackerSelf).RequireRateLimiting(GifRateLimitPolicy);
 
         // ---- People whose tracker the caller may view ----
         g.MapGet("/shared", async (CurrentUserAccessor me, UsageDbContext db, CancellationToken ct) =>
