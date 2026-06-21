@@ -82,6 +82,9 @@ mat-progress-bar {
 
 .panel { padding: 12px 14px; }
 .cal-wrap { width: 100%; min-height: 220px; }
+.cal-wrap app-chart { display: block; width: 100%; height: 100%; }
+// The chart base sets min-height:300px; let the canvas match the inline-set wrapHeight.
+.cal-wrap ::ng-deep .chart-host { min-height: 0; }
 
 @media (max-width: 640px) {
   .panel { padding: 10px; }
@@ -93,8 +96,7 @@ mat-progress-bar {
     -webkit-overflow-scrolling: touch;
   }
   .cal-wrap app-chart { display: block; min-width: 560px; height: 100%; }
-  // The chart base sets min-height:300px; let the canvas match the (shorter) wrapper.
-  .cal-wrap ::ng-deep .chart-host { min-height: 0; }
+  // (.cal-wrap ::ng-deep .chart-host { min-height: 0 } is set unconditionally above.)
 }
 
 .stat-grid--2 { margin-top: calc(-1 * var(--tech-space-2, 8px)); }

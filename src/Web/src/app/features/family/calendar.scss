@@ -534,7 +534,9 @@
   .cal-week {
     grid-template-columns: repeat(7, minmax(120px, 1fr));
   }
+  .cal-toolbar__nav { flex-wrap: wrap; }
   .cal-toolbar__range { margin-left: 0; }
+  .cal-toolbar__updated { flex-basis: 100%; }
   .cal-ai__bar { flex-wrap: wrap; }
   .cal-ai__field { flex: 1 1 100%; order: 1; }
   .cal-ai__spark { order: 0; }

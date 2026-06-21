@@ -153,6 +153,8 @@
   border: none; background: transparent; cursor: pointer; font: inherit;
   font-size: var(--tech-fs-label); font-weight: 600; color: var(--tech-text);
   padding: 4px 6px 4px 10px;
+  min-width: 0;
+  span { min-width: 0; overflow-wrap: anywhere; }
   mat-icon { width: 16px; height: 16px; font-size: 16px; color: var(--tech-accent); }
   .list-ai-chip--off & mat-icon { color: var(--tech-text-tertiary); }
 }
@@ -172,4 +174,10 @@
 
 @media (max-width: 600px) {
   .list-grid { grid-template-columns: 1fr; }
+}
+
+/* Hand-rolled native inputs: 16px on small screens stops iOS Safari zoom-on-focus. */
+@media (max-width: 640px) {
+  .add-item__input,
+  .list-ai__input { font-size: 16px; }
 }

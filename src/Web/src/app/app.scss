@@ -910,6 +910,16 @@
     padding: 0 9px;
     gap: 6px;
   }
+  /* Reclaim room in the crowded 481–719px band: the user-count pill is a
+     tooltip-only nicety and the GitHub link is non-essential here, so drop
+     both before the username (which only hides at ≤480px) can be clipped by
+     mat-toolbar's overflow:hidden. */
+  .usercount {
+    display: none;
+  }
+  .gh.mat-mdc-icon-button {
+    display: none;
+  }
 }
 
 /* Phones: tighten the right cluster so the bar never overflows at 360px. */
@@ -926,9 +936,20 @@
     padding: 0 4px;
     margin-left: 0;
   }
-  /* Icon-only GitHub link is already compact; drop it here to reclaim room. */
-  .gh.mat-mdc-icon-button {
-    display: none;
+  /* GitHub + the user-count pill are already hidden by the ≤720px block above;
+     no need to repeat them here. */
+  /* Let the brand give up space instead of forcing the right cluster off-screen:
+     the wordmark can shrink/ellipsis so the bell + account trigger always fit at
+     ~360px (html/body clip overflow, so anything past the edge is unreachable). */
+  .brand {
+    min-width: 0;
+    overflow: hidden;
+  }
+  .brand__word {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
   .mobile-nav,
   .mobile-nav-scrim {

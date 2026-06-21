@@ -394,6 +394,7 @@
 .goodjob__spark { flex: 0 0 auto; color: var(--tech-accent); width: 26px; height: 26px; font-size: 26px; }
 .goodjob__text {
   margin: 0;
+  min-width: 0;
   font-size: var(--tech-fs-body);
   line-height: 1.5;
   color: var(--tech-text);

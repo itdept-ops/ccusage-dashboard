@@ -65,7 +65,9 @@
   border: 1px solid var(--tech-border, #26303f);
   border-radius: var(--tech-r-panel, 12px);
   background: var(--tech-panel, #111722);
-  min-height: 320px;
+  min-height: 328px;
+
+  app-chart { display: block; width: 100%; height: 100%; }
 }
 
 .ps-foot {

@@ -353,6 +353,7 @@
 
 .tracker__cals {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: center;
   gap: var(--tech-space-2);
@@ -529,6 +530,10 @@
   grid-template-columns: 1fr 1fr 1fr;
   gap: var(--tech-space-3);
   padding: var(--tech-space-4);
+}
+
+@media (max-width: 480px) {
+  .tracker__statgrid { grid-template-columns: 1fr 1fr; }
 }
 
 .tracker__statcell {
@@ -751,6 +756,7 @@
 @media (max-width: 720px) {
   .tracker__activity-body { grid-template-columns: 1fr; justify-items: center; }
   .tracker__activity-main { width: 100%; }
+  .tracker__actmetrics { grid-template-columns: 1fr 1fr; }
 }
 
 @media (prefers-reduced-motion: reduce) {

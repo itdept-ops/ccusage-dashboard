@@ -193,6 +193,11 @@ mat-progress-bar {
   color: var(--tech-text-tertiary);
 
   .lb-num { text-align: right; }
+
+  /* When rows carry the trailing manage-actions column, inset the header by the
+     same button width (40px icon button + 4px margin) so the labels stay aligned
+     over the row values rather than over the actions gutter. */
+  .has-actions & { padding-right: 54px; }
 }
 
 .lb-row {
@@ -284,7 +289,9 @@ mat-progress-bar {
 }
 
 /* Tablet: name spans the top, then the four metrics flow two-per-row
-   (seen | records, tokens | cost) so the column header can drop away. */
+   (seen | records, tokens | cost) so the column header can drop away.
+   The metrics carry inline labels (added here, not in the markup) as soon as
+   the column header is hidden so the numbers are never left unlabeled. */
 @media (max-width: 720px) {
   .lb-head { display: none; }
   .lb-main {
@@ -295,6 +302,18 @@ mat-progress-bar {
     .lb-rank { display: none; }
     .lb-name { grid-column: 1 / -1; }
     .lb-seen { grid-column: 1; text-align: left; }
+
+    .lb-seen, .lb-num {
+      &::before {
+        content: attr(data-label);
+        display: block;
+        font-family: var(--tech-font-mono);
+        font-size: var(--tech-fs-micro);
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--tech-text-tertiary);
+      }
+    }
   }
 }
 
@@ -380,7 +399,11 @@ mat-progress-bar {
       margin: 0;
       font-size: var(--tech-fs-label);
       color: var(--tech-text);
-      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+      /* Allow long values (public IPv6, long OS strings, osUser) to wrap inside
+         the narrow 3-up columns instead of clipping silently with no tooltip. */
+      min-width: 0;
+      white-space: normal;
+      overflow-wrap: anywhere;
     }
     .meta-sub { color: var(--tech-text-tertiary); }
     .muted { color: var(--tech-text-tertiary); font-style: italic; }

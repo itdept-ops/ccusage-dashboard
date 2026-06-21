@@ -246,7 +246,10 @@
   flex: 1 1 auto;
   min-height: 0;
   overflow-y: auto;
-  padding: var(--tech-space-4) var(--tech-space-4) var(--tech-space-2);
+  /* Extra top padding + scroll-padding so the -14px hover toolbar on the
+     first message row isn't clipped by the scroll container's top edge. */
+  padding: var(--tech-space-6) var(--tech-space-4) var(--tech-space-2);
+  scroll-padding-top: var(--tech-space-6);
   display: flex;
   flex-direction: column;
   gap: 2px;

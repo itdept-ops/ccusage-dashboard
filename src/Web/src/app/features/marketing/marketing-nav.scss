@@ -131,7 +131,7 @@
 .mobile-only { display: none; }
 
 /* ───────────────────────── Mobile ───────────────────────── */
-@media (max-width: 760px) {
+@media (max-width: 900px) {
   .desktop-only { display: none; }
   .mobile-only { display: inline-flex; }
   .mnav-burger { display: flex; }

@@ -668,7 +668,7 @@ a.tile:focus-visible {
 .note-edit__actions { padding: var(--tech-space-3, 12px) var(--tech-space-4, 16px); gap: 8px;
   button { border-radius: var(--tech-r-control); font-weight: 600; min-height: 42px; } }
 
-@media (max-width: 560px) {
+@media (max-width: 720px) {
   .note-edit__split { grid-template-columns: 1fr; }
   .note-edit__preview { max-height: 180px; }
 }
@@ -1144,4 +1144,10 @@ a.tile:focus-visible {
   .note-board { grid-template-columns: 1fr; }
   .today-grid { grid-template-columns: 1fr; }
   .setting-row__field, .setting-row__field--wide { max-width: none; }
+}
+
+/* Hand-rolled native inputs: 16px on small screens stops iOS Safari zoom-on-focus. */
+@media (max-width: 640px) {
+  .ask-notes__input,
+  .note-ai__input { font-size: 16px; }
 }

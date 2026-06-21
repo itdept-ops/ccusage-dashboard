@@ -4,6 +4,12 @@
    using ONLY foundation tokens from styles.scss.
    ============================================================ */
 
+/* ---- Host: explicit non-shrinking toolbar flex item --------------- */
+:host {
+  display: inline-flex;
+  flex: 0 0 auto;
+}
+
 /* ---- Bell trigger (sits in the toolbar right cluster) -------------- */
 .bell {
   position: relative;
@@ -91,10 +97,21 @@
   background-image: radial-gradient(120% 100% at 100% 0%, rgba(61, 139, 255, 0.08), transparent 55%);
   box-shadow: var(--tech-shadow-popover, 0 24px 60px -20px rgba(0, 0, 0, 0.8));
   overflow: hidden;
+  /* Cap the whole panel so a short (landscape) viewport never overruns the fixed header/footer. */
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
   transform-origin: top right;
   animation: notif-menu-in 160ms var(--tech-ease, cubic-bezier(0.22, 1, 0.36, 1));
 
-  .mat-mdc-menu-content { padding: 0; }
+  .mat-mdc-menu-content {
+    padding: 0;
+    /* Fill the capped panel and host the scrollable list. */
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+  }
 
   /* ── Header: title + unread count + mark-all ── */
   .nb-head {
@@ -165,6 +182,10 @@
 
   /* ── Scrollable list ── */
   .nb-list {
+    /* Flex-fill between the fixed header and footer instead of a fixed cap,
+       so header + list + footer never overrun a short viewport. */
+    flex: 1 1 auto;
+    min-height: 0;
     max-height: 60vh;
     overflow-y: auto;
     padding: 4px;
@@ -236,6 +257,8 @@
       font-size: var(--tech-fs-body, 13px);
       color: var(--tech-text);
       line-height: 1.35;
+      /* Break unbroken long tokens/URLs so they stay inside the clamp box. */
+      overflow-wrap: anywhere;
       /* Clamp long bodies to two lines. */
       display: -webkit-box;
       -webkit-line-clamp: 2;

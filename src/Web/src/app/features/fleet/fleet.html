@@ -67,7 +67,7 @@
 </div>
 
 <!-- ───────────────────────── Leaderboard ───────────────────────── -->
-<section class="board-card panel">
+<section class="board-card panel" [class.has-actions]="canManage()">
   <div class="board-head">
     <h3 class="panel-header">{{ board() === 'machines' ? 'Machines' : 'Users' }} · by cost</h3>
     <mat-button-toggle-group [value]="board()" (change)="board.set($event.value)" hideSingleSelectionIndicator>

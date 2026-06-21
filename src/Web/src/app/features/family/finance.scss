@@ -473,11 +473,13 @@ app-chart { display: block; width: 100%; height: 100%; }
     gap: 10px;
   }
   .fin-acct__stats { align-items: flex-start; flex-direction: row; gap: 14px; }
+  .fin-acct__controls { flex-wrap: wrap; }
 
   .fin-history__row {
     grid-template-columns: 1fr auto;
     row-gap: 4px;
   }
+  .fin-history__who { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
   .fin-history__when { grid-column: 2; }
 }
 

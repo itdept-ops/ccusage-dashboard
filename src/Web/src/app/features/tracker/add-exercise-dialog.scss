@@ -517,6 +517,12 @@
 
 // Collapse the WorkoutX two-pane split to a single column on narrow dialogs. The dialog is 820px capped
 // at 94vw, so below ~820px viewport the dialog is viewport-bound and this matches the real layout width.
+@media (max-width: 600px) {
+  // Reset the body min-width so it can't force horizontal overflow inside the
+  // mobile dialog (94vw surface minus 48px content padding). Mirrors ai-day-builder-dialog.
+  .ax-body { min-width: 0; }
+}
+
 @media (max-width: 820px) {
   .ax-wxsplit {
     flex-direction: column;

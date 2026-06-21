@@ -218,6 +218,15 @@
   .auth-error { max-width: 100%; }
 }
 
+/* Very narrow phones: the GIS button is a fixed 280px cross-origin iframe that
+   the .gbtn wrapper can't shrink, so scale it down to fit inside the card. */
+@media (max-width: 360px) {
+  .gbtn {
+    transform: scale(0.85);
+    transform-origin: center;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .orb, .grad, .auth-card, .spinner { animation: none !important; }
 }

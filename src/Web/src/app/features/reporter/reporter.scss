@@ -354,7 +354,7 @@
   .fk-row {
     display: flex; align-items: center; gap: var(--tech-space-3);
     .fk-value {
-      flex: 1 1 auto; overflow-x: auto; white-space: nowrap;
+      flex: 1 1 auto; min-width: 0; overflow-x: auto; white-space: nowrap;
       padding: 8px 10px; border-radius: var(--tech-r-chip);
       border: 1px solid var(--tech-border-subtle); background: var(--tech-bg-sunken);
       color: var(--tech-text-accent); font-size: var(--tech-fs-num);
@@ -380,7 +380,7 @@
     background: var(--tech-success, #3dd68c); box-shadow: 0 0 8px -1px var(--tech-success, #3dd68c);
     &.off { background: var(--tech-text-tertiary); box-shadow: none; }
   }
-  .key-name { font-weight: 600; font-size: var(--tech-fs-body); color: var(--tech-text); }
+  .key-name { font-weight: 600; font-size: var(--tech-fs-body); color: var(--tech-text); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .key-prefix { font-size: var(--tech-fs-num); color: var(--tech-text-secondary); }
   .key-badge.revoked {
     font-size: var(--tech-fs-micro); text-transform: uppercase; letter-spacing: 0.06em;
