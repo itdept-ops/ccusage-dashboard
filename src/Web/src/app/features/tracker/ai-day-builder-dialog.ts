@@ -172,7 +172,8 @@ export class AiDayBuilderDialog {
     this.ref.close();
   }
 
-  /** First build: send the brain-dump + photos. A 503/429 closes back to the manual tracker. */
+  /** First build: send the brain-dump + photos. On a 503/429 we STAY on the input screen with the
+   *  user's text + photos intact so they can retry — never close the modal or discard what they typed. */
   async build(): Promise<void> {
     if (!this.canBuild() || this.phase() === 'loading') return;
     this.toLoading('Building your day with AI. This can take a few seconds.');
@@ -185,9 +186,11 @@ export class AiDayBuilderDialog {
       }));
       this.applyBuild(res);
     } catch {
-      // First-build failure: degrade to the manual tracker. Never dead-end.
-      this.snack.open('AI is unavailable — enter your day manually', 'OK', { duration: 5000 });
-      this.ref.close();
+      // AI unavailable / transient: return to the input screen WITHOUT closing — text() + photos() are
+      // untouched, so nothing the user typed is lost and they can try again (or fill it in manually).
+      this.phase.set('input');
+      this.announce.set('AI is unavailable right now — your summary is still here. Try again in a moment.');
+      this.snack.open('AI is unavailable right now — your summary is saved here, try again', 'OK', { duration: 6000 });
     }
   }
 
@@ -289,6 +292,21 @@ export class AiDayBuilderDialog {
 
   canAddFood(meal: Meal): boolean {
     return this.foodsFor(meal).length < MAX_FOODS_PER_MEAL;
+  }
+
+  /** Re-classify a food into a different meal slot — "move dinner → breakfast", i.e. when you actually
+   *  ate it. Moves the item between the draft's meal groups; no-ops if the target slot is already full. */
+  moveFood(fromMeal: Meal, index: number, toMeal: Meal): void {
+    if (fromMeal === toMeal) return;
+    this.patchDraft(d => {
+      const from = d.meals.find(x => x.meal === fromMeal);
+      const food = from?.items[index];
+      if (!from || !food) return;
+      const to = this.ensureMeal(d, toMeal);
+      if (to.items.length >= MAX_FOODS_PER_MEAL) return;
+      from.items.splice(index, 1);
+      to.items.push(food);
+    });
   }
 
   // -- exercise edits --

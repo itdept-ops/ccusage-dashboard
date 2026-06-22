@@ -84,7 +84,15 @@ public sealed class FamilyBriefingService(
         // GUARANTEED text; we PREFER a warmer AI narrative when Gemini is available (cached per local day),
         // but a null/error there silently keeps the composed text — the briefing must never fail on AI.
         var snapshot = await today.BuildAsync(household, ownerUser, nowUtc, ct);
-        var (text, _) = await NarrativeOrComposeAsync(household, snapshot, nowUtc, ct);
+        // Only spend tokens on the warm AI narrative when SOMEONE in the household actually holds family.ai;
+        // otherwise post the deterministic Compose() floor. Mirrors the per-user gate on the Today card, so
+        // "everyone AI-off" truly costs nothing — not even the daily auto-briefing.
+        var memberUserIds = members.Select(m => m.UserId).ToList();
+        var allowAi = memberUserIds.Count > 0 && await db.UserPermissions
+            .AnyAsync(up => memberUserIds.Contains(up.UserId) && up.Permission == Permissions.FamilyAi, ct);
+        var (text, _) = allowAi
+            ? await NarrativeOrComposeAsync(household, snapshot, nowUtc, ct)
+            : (Compose(snapshot), true);
 
         // Stamp the guard FIRST (idempotency): a retry after a mid-delivery crash won't re-send.
         household.LastBriefingLocalDate = localDate;

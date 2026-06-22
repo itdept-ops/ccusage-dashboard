@@ -183,6 +183,11 @@
                 <input type="number" min="0" step="1" inputmode="numeric" class="mono-num"
                        [ngModel]="f.fatG" (ngModelChange)="setFood(rm.meal, $index, { fatG: +$event || 0 })"
                        [attr.aria-label]="'Fat grams for ' + (f.description || 'food')" /></label>
+              <select class="db-select db-foodmeal" [ngModel]="rm.meal"
+                      (ngModelChange)="moveFood(rm.meal, $index, $event)"
+                      [attr.aria-label]="'Which meal: ' + (f.description || 'food')">
+                @for (s of reviewMeals; track s.meal) { <option [value]="s.meal">{{ s.label }}</option> }
+              </select>
               <button mat-icon-button type="button" class="db-rowdel" (click)="removeFood(rm.meal, $index)"
                       [attr.aria-label]="'Remove ' + (f.description || 'food')">
                 <mat-icon>close</mat-icon>
