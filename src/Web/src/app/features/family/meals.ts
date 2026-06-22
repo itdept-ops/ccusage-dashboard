@@ -17,7 +17,8 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { Api } from '../../core/api';
 import { AuthService } from '../../core/auth';
 import {
-  FamilyMeal, FamilyMealDay, FamilyMealSlot, MealIdea, PlanWeekMeal, TrackerProfileDto,
+  FamilyMeal, FamilyMealDay, FamilyMealSlot, MealIdea, PERM, PlanWeekMeal, RecipeBreakdownResult,
+  RecipeIngredient, TrackerProfileDto,
 } from '../../core/models';
 import { FamilyConfirmDialog, ConfirmData } from './confirm-dialog';
 import { MealEditorDialog, MealEditorData, MealEditorResult } from './meal-editor-dialog';
@@ -56,6 +57,14 @@ interface ProposedMeal {
   title: string;
   /** Raw newline-separated ingredient text (editable in the row). */
   ingredients: string;
+}
+
+/** One editable ingredient row in the recipe-breakdown review (a name + a free-text quantity). */
+interface RecipeRow {
+  /** Stable key for @for tracking (the AI list has no ids). */
+  key: number;
+  name: string;
+  quantity: string;
 }
 
 /** Pretty labels + icons for each slot (dinner is the primary slot at the table). */
@@ -98,6 +107,13 @@ export class FamilyMeals {
   /** True while the whole-week "add to grocery" call is in flight (locks the button). */
   readonly addingWeek = signal(false);
 
+  /**
+   * AI gating: the generative family-AI affordances (Plan our week / What can I make / Recipe breakdown) need
+   * family.ai — the server 403s without it, so we hide the buttons too. Read auth.permissions() so this
+   * recomputes when permissions load.
+   */
+  readonly canFamilyAi = computed(() => { this.auth.permissions(); return this.auth.hasPermission(PERM.familyAi); });
+
   // ---- Tracker tie-in (Slice 2): "✨ Add to my tracker" + the goal-aware planner rollups ----
   /** True when the caller holds tracker.self (gates the "Add to my tracker" button + goal comparisons). */
   readonly canTrack = computed(() => this.auth.hasPermission('tracker.self'));
@@ -135,6 +151,34 @@ export class FamilyMeals {
   readonly makeStatus = signal('');
   /** The dinner ideas awaiting review; picking one prefills the meal editor. */
   readonly ideas = signal<MealIdea[]>([]);
+
+  // ---- ✨ Recipe idea → breakdown ----
+  /** Whether the "Recipe idea" sheet is open. */
+  readonly recipeOpen = signal(false);
+  /** The recipe idea text: a dish name ("chicken alfredo") OR a pasted recipe. */
+  readonly recipeText = signal('');
+  /** True while "Break it down" is in flight (locks the button). */
+  readonly recipeBusy = signal(false);
+  /** A friendly aria-live status line for the recipe sheet (a hint or an error). */
+  readonly recipeStatus = signal('');
+  /** The EDITABLE breakdown under review (title/servings/ingredient rows/macros/steps), or null when none. */
+  readonly breakdownTitle = signal('');
+  readonly breakdownServings = signal(1);
+  readonly breakdownRows = signal<RecipeRow[]>([]);
+  readonly breakdownCalories = signal(0);
+  readonly breakdownProtein = signal(0);
+  readonly breakdownCarb = signal(0);
+  readonly breakdownFat = signal(0);
+  /** Optional recipe steps (read-only display). */
+  readonly breakdownSteps = signal<string[]>([]);
+  /** True once a breakdown has been staged for review (drives showing the review block). */
+  readonly hasBreakdown = signal(false);
+  /** True while "Add to grocery list" is appending the breakdown's ingredients. */
+  readonly addingBreakdownGrocery = signal(false);
+  /** True while "Save as meal" is creating the planned meal. */
+  readonly savingBreakdown = signal(false);
+  /** Monotonic key source for ingredient rows (the AI list has no ids). */
+  private recipeRowKey = 0;
 
   /** The Monday (local) of the week being viewed. */
   readonly weekStart = signal<Date>(this.thisMonday());
@@ -593,6 +637,158 @@ export class FamilyMeals {
       this.snack.open(`Added “${result.title}” to ${target.weekday}.`, undefined, { duration: 2500 });
     } catch (e) {
       this.snack.open(this.messageOf(e, "Couldn't save that meal. Please try again."), 'OK', { duration: 4000 });
+    }
+  }
+
+  // ---- ✨ Recipe idea → breakdown (AI structures a recipe → editable review → grocery + save-as-meal) ----
+
+  /** Open/close the "Recipe idea" sheet. Closing keeps any staged breakdown (it lives below the sheet). */
+  toggleRecipe(): void {
+    this.recipeOpen.update(o => !o);
+  }
+
+  /**
+   * Send the recipe idea (a dish name OR pasted recipe) to the breakdown endpoint and stage an EDITABLE
+   * review (title, servings, ingredient rows, per-serving macros, optional steps). Creates NOTHING. Degrades
+   * gracefully: a 503 (AI unavailable / not configured) or any error shows a friendly aria-live line and
+   * leaves the field usable; an empty/blank input is a no-op.
+   */
+  async breakItDown(): Promise<void> {
+    const text = this.recipeText().trim();
+    if (!text || this.recipeBusy()) return;
+    this.recipeBusy.set(true);
+    this.recipeStatus.set('Breaking down your recipe…');
+    try {
+      const result = await firstValueFrom(this.api.recipeBreakdown(text));
+      this.stageBreakdown(result);
+      this.recipeStatus.set('Review and tweak anything below, then add it to your grocery list or save it as a meal.');
+    } catch (e) {
+      const status = (e as { status?: number })?.status;
+      this.recipeStatus.set(status === 503
+        ? 'AI unavailable, add a meal manually.'
+        : this.messageOf(e, "I couldn't reach the AI just now. Please try again, or add a meal manually."));
+    } finally {
+      this.recipeBusy.set(false);
+    }
+  }
+
+  /** Re-run the breakdown with the same recipe text (replaces the staged review). */
+  regenerateBreakdown(): void {
+    void this.breakItDown();
+  }
+
+  /** Fan a breakdown result out into the editable review signals. */
+  private stageBreakdown(r: RecipeBreakdownResult): void {
+    this.breakdownTitle.set(r.title ?? '');
+    this.breakdownServings.set(Math.max(1, Math.round(r.servings || 1)));
+    this.breakdownRows.set((r.ingredients ?? []).map(i => this.toRow(i)));
+    const m = r.macrosPerServing;
+    this.breakdownCalories.set(Math.max(0, Math.round(m?.calories ?? 0)));
+    this.breakdownProtein.set(this.round1(Math.max(0, m?.protein ?? 0)));
+    this.breakdownCarb.set(this.round1(Math.max(0, m?.carb ?? 0)));
+    this.breakdownFat.set(this.round1(Math.max(0, m?.fat ?? 0)));
+    this.breakdownSteps.set((r.steps ?? []).map(s => (s ?? '').trim()).filter(Boolean));
+    this.hasBreakdown.set(true);
+  }
+
+  private toRow(i: RecipeIngredient): RecipeRow {
+    return { key: ++this.recipeRowKey, name: i.name ?? '', quantity: i.quantity ?? '' };
+  }
+
+  /** Discard the staged breakdown + status (keeps the recipe text so the user can tweak + re-run). */
+  clearBreakdown(): void {
+    this.hasBreakdown.set(false);
+    this.breakdownRows.set([]);
+    this.breakdownSteps.set([]);
+    this.recipeStatus.set('');
+  }
+
+  /** Edit an ingredient row's name inline. */
+  setRowName(row: RecipeRow, name: string): void {
+    this.breakdownRows.set(this.breakdownRows().map(x => x.key === row.key ? { ...x, name } : x));
+  }
+
+  /** Edit an ingredient row's quantity inline. */
+  setRowQuantity(row: RecipeRow, quantity: string): void {
+    this.breakdownRows.set(this.breakdownRows().map(x => x.key === row.key ? { ...x, quantity } : x));
+  }
+
+  /** Drop one ingredient row from the review. */
+  removeRow(row: RecipeRow): void {
+    this.breakdownRows.set(this.breakdownRows().filter(x => x.key !== row.key));
+  }
+
+  /** The grocery-bound ingredient names (quantity prefixed when present), blanks dropped. */
+  private breakdownGroceryItems(): string[] {
+    return this.breakdownRows()
+      .map(r => {
+        const name = r.name.trim();
+        if (!name) return '';
+        const qty = r.quantity.trim();
+        return qty ? `${qty} ${name}` : name;
+      })
+      .filter(Boolean);
+  }
+
+  /** The breakdown's ingredients as newline-separated text for the saved meal (reuses the existing field). */
+  private breakdownIngredientsText(): string {
+    return this.breakdownGroceryItems().join('\n');
+  }
+
+  /**
+   * One tap: append the reviewed breakdown's ingredient names to the household's grocery list (reuses the
+   * shared add path; the server de-dupes against the list's open items). Reports how many NEW items landed.
+   */
+  async addBreakdownToGrocery(): Promise<void> {
+    const items = this.breakdownGroceryItems();
+    if (this.addingBreakdownGrocery() || items.length === 0) return;
+    this.addingBreakdownGrocery.set(true);
+    try {
+      const before = await this.groceryOpenCount();
+      const list = await firstValueFrom(this.api.recipeBreakdownToGrocery(items));
+      this.reportAdded(list.items.filter(i => !i.done).length - before, list.name);
+    } catch {
+      this.snack.open("Couldn't add those ingredients. Please try again.", 'OK', { duration: 4000 });
+    } finally {
+      this.addingBreakdownGrocery.set(false);
+    }
+  }
+
+  /**
+   * Save the reviewed breakdown as a planned meal (reuses createFamilyMeal + the macro-save path). The
+   * per-serving macros × servings become the dish TOTALS with source "ai"; the meal lands on today when the
+   * viewed week contains it, else the first day of the viewed week. Degrades gracefully on any error.
+   */
+  async saveBreakdownAsMeal(): Promise<void> {
+    const title = this.breakdownTitle().trim();
+    if (this.savingBreakdown() || !title) {
+      if (!title) this.snack.open('Give the recipe a title before saving it.', 'OK', { duration: 4000 });
+      return;
+    }
+    const cells = this.cells();
+    if (cells.length === 0) return;
+    const todayIso = this.toIso(new Date());
+    const target = cells.find(c => c.localDate === todayIso) ?? cells[0];
+
+    const servings = Math.max(1, Math.round(this.breakdownServings() || 1));
+    this.savingBreakdown.set(true);
+    try {
+      await firstValueFrom(this.api.createFamilyMeal({
+        localDate: target.localDate, slot: 'dinner', title,
+        ingredients: this.breakdownIngredientsText(),
+        servings,
+        calories: Math.round(this.breakdownCalories() * servings),
+        proteinG: this.round1(this.breakdownProtein() * servings),
+        carbG: this.round1(this.breakdownCarb() * servings),
+        fatG: this.round1(this.breakdownFat() * servings),
+        macroSource: 'ai',
+      }));
+      this.reload();
+      this.snack.open(`Saved “${title}” to ${target.weekday}.`, 'View plan', { duration: 5000 });
+    } catch (e) {
+      this.snack.open(this.messageOf(e, "Couldn't save that meal. Please try again."), 'OK', { duration: 4000 });
+    } finally {
+      this.savingBreakdown.set(false);
     }
   }
 

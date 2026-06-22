@@ -13,16 +13,23 @@
       </div>
     </div>
     <div class="meals__hero-actions">
-      <button mat-flat-button color="primary" class="family__settings-btn meals__plan-btn"
-              [class.meals__plan-btn--open]="planOpen()" (click)="togglePlan()" [attr.aria-expanded]="planOpen()">
-        <mat-icon class="meals__spark" aria-hidden="true">auto_awesome</mat-icon>
-        Plan our week
-      </button>
-      <button mat-stroked-button class="family__settings-btn meals__plan-btn"
-              [class.meals__plan-btn--open]="makeOpen()" (click)="toggleMake()" [attr.aria-expanded]="makeOpen()">
-        <mat-icon class="meals__spark" aria-hidden="true">auto_awesome</mat-icon>
-        What can I make?
-      </button>
+      @if (canFamilyAi()) {
+        <button mat-flat-button color="primary" class="family__settings-btn meals__plan-btn"
+                [class.meals__plan-btn--open]="planOpen()" (click)="togglePlan()" [attr.aria-expanded]="planOpen()">
+          <mat-icon class="meals__spark" aria-hidden="true">auto_awesome</mat-icon>
+          Plan our week
+        </button>
+        <button mat-stroked-button class="family__settings-btn meals__plan-btn"
+                [class.meals__plan-btn--open]="makeOpen()" (click)="toggleMake()" [attr.aria-expanded]="makeOpen()">
+          <mat-icon class="meals__spark" aria-hidden="true">auto_awesome</mat-icon>
+          What can I make?
+        </button>
+        <button mat-stroked-button class="family__settings-btn meals__plan-btn"
+                [class.meals__plan-btn--open]="recipeOpen()" (click)="toggleRecipe()" [attr.aria-expanded]="recipeOpen()">
+          <mat-icon class="meals__spark" aria-hidden="true">auto_awesome</mat-icon>
+          Recipe idea
+        </button>
+      }
       <button mat-stroked-button class="family__settings-btn meals__grocery-btn"
               [disabled]="addingWeek() || mealCount() === 0" (click)="addWeekToGrocery()">
         @if (addingWeek()) {
@@ -181,6 +188,143 @@
           <button mat-button type="button" (click)="regenerateIdeas()" [disabled]="makeBusy()">
             <mat-icon aria-hidden="true">refresh</mat-icon> Regenerate
           </button>
+        </div>
+      }
+    </section>
+  }
+
+  <!-- ── ✨ Recipe idea → breakdown ───────────────────────────────────── -->
+  @if (recipeOpen()) {
+    <section class="plan-ai recipe-ai" aria-label="Break a recipe idea into a meal">
+      <div class="plan-ai__form recipe-ai__form">
+        <mat-form-field appearance="outline" class="plan-ai__field recipe-ai__field" subscriptSizing="dynamic">
+          <mat-label>A dish name, or paste a recipe</mat-label>
+          <textarea matInput rows="3" maxlength="8000" [ngModel]="recipeText()"
+                    (ngModelChange)="recipeText.set($event)" [disabled]="recipeBusy()"
+                    placeholder="“chicken alfredo” — or paste a full recipe here…"></textarea>
+        </mat-form-field>
+
+        <button mat-flat-button color="primary" class="plan-ai__go"
+                [disabled]="recipeBusy() || !recipeText().trim()" (click)="breakItDown()">
+          @if (recipeBusy()) {
+            <mat-spinner [diameter]="18" />
+            <span>Breaking it down…</span>
+          } @else {
+            <ng-container>
+              <mat-icon class="meals__spark" aria-hidden="true">auto_awesome</mat-icon>
+              <span>{{ hasBreakdown() ? 'Break it down again' : 'Break it down' }}</span>
+            </ng-container>
+          }
+        </button>
+      </div>
+
+      @if (recipeStatus(); as msg) {
+        <p class="plan-ai__status" aria-live="polite">{{ msg }}</p>
+      }
+
+      @if (hasBreakdown()) {
+        <div class="recipe-review">
+          <div class="recipe-review__head">
+            <mat-form-field appearance="outline" class="recipe-review__title" subscriptSizing="dynamic">
+              <mat-label>Recipe title</mat-label>
+              <input matInput maxlength="200" [ngModel]="breakdownTitle()"
+                     (ngModelChange)="breakdownTitle.set($event)" />
+            </mat-form-field>
+            <mat-form-field appearance="outline" class="recipe-review__servings" subscriptSizing="dynamic">
+              <mat-label>Servings</mat-label>
+              <input matInput type="number" min="1" max="50" [ngModel]="breakdownServings()"
+                     (ngModelChange)="breakdownServings.set($event)" />
+            </mat-form-field>
+          </div>
+
+          <h3 class="recipe-review__sub">Ingredients</h3>
+          @if (breakdownRows().length) {
+            <ul class="recipe-review__rows">
+              @for (row of breakdownRows(); track row.key) {
+                <li class="recipe-row">
+                  <mat-form-field appearance="outline" class="recipe-row__qty" subscriptSizing="dynamic">
+                    <mat-label>Qty</mat-label>
+                    <input matInput maxlength="40" [ngModel]="row.quantity"
+                           (ngModelChange)="setRowQuantity(row, $event)" placeholder="1 cup" />
+                  </mat-form-field>
+                  <mat-form-field appearance="outline" class="recipe-row__name" subscriptSizing="dynamic">
+                    <mat-label>Ingredient</mat-label>
+                    <input matInput maxlength="200" [ngModel]="row.name"
+                           (ngModelChange)="setRowName(row, $event)" />
+                  </mat-form-field>
+                  <button mat-icon-button class="recipe-row__remove" matTooltip="Remove" aria-label="Remove ingredient"
+                          (click)="removeRow(row)">
+                    <mat-icon aria-hidden="true">close</mat-icon>
+                  </button>
+                </li>
+              }
+            </ul>
+          } @else {
+            <p class="recipe-review__empty">No ingredients — add some, or save the meal without them.</p>
+          }
+
+          <h3 class="recipe-review__sub">Per serving (estimate)</h3>
+          <div class="recipe-macros">
+            <mat-form-field appearance="outline" class="recipe-macros__field" subscriptSizing="dynamic">
+              <mat-label>Calories</mat-label>
+              <input matInput type="number" min="0" [ngModel]="breakdownCalories()"
+                     (ngModelChange)="breakdownCalories.set($event)" />
+            </mat-form-field>
+            <mat-form-field appearance="outline" class="recipe-macros__field" subscriptSizing="dynamic">
+              <mat-label>Protein (g)</mat-label>
+              <input matInput type="number" min="0" [ngModel]="breakdownProtein()"
+                     (ngModelChange)="breakdownProtein.set($event)" />
+            </mat-form-field>
+            <mat-form-field appearance="outline" class="recipe-macros__field" subscriptSizing="dynamic">
+              <mat-label>Carbs (g)</mat-label>
+              <input matInput type="number" min="0" [ngModel]="breakdownCarb()"
+                     (ngModelChange)="breakdownCarb.set($event)" />
+            </mat-form-field>
+            <mat-form-field appearance="outline" class="recipe-macros__field" subscriptSizing="dynamic">
+              <mat-label>Fat (g)</mat-label>
+              <input matInput type="number" min="0" [ngModel]="breakdownFat()"
+                     (ngModelChange)="breakdownFat.set($event)" />
+            </mat-form-field>
+          </div>
+
+          @if (breakdownSteps().length) {
+            <h3 class="recipe-review__sub">Steps</h3>
+            <ol class="recipe-steps">
+              @for (step of breakdownSteps(); track $index) {
+                <li>{{ step }}</li>
+              }
+            </ol>
+          }
+
+          <div class="plan-ai__actions">
+            <button mat-button type="button" (click)="clearBreakdown()"
+                    [disabled]="addingBreakdownGrocery() || savingBreakdown()">Discard</button>
+            <button mat-button type="button" (click)="regenerateBreakdown()"
+                    [disabled]="recipeBusy() || addingBreakdownGrocery() || savingBreakdown()">
+              <mat-icon aria-hidden="true">refresh</mat-icon> Regenerate
+            </button>
+            <button mat-stroked-button type="button" (click)="addBreakdownToGrocery()"
+                    [disabled]="addingBreakdownGrocery() || savingBreakdown() || breakdownRows().length === 0">
+              @if (addingBreakdownGrocery()) {
+                <mat-spinner [diameter]="18" />
+              } @else {
+                <mat-icon aria-hidden="true">add_shopping_cart</mat-icon>
+              }
+              <span>Add to grocery list</span>
+            </button>
+            <button mat-flat-button color="primary" type="button" (click)="saveBreakdownAsMeal()"
+                    [disabled]="addingBreakdownGrocery() || savingBreakdown() || !breakdownTitle().trim()">
+              @if (savingBreakdown()) {
+                <mat-spinner [diameter]="18" />
+                <span>Saving…</span>
+              } @else {
+                <ng-container>
+                  <mat-icon aria-hidden="true">save</mat-icon>
+                  <span>Save as meal</span>
+                </ng-container>
+              }
+            </button>
+          </div>
         </div>
       }
     </section>

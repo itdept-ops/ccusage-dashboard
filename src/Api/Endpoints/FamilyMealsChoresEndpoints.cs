@@ -94,6 +94,32 @@ public static class FamilyMealsChoresEndpoints
     /// for the editor to PREFILL. Saves nothing.</summary>
     public sealed record RecipeAiDto(string Title, string Ingredients, string? Notes);
 
+    // ---- Recipe breakdown DTOs (recipe idea → structured breakdown; add-to-grocery) ----
+
+    /// <summary>"Recipe breakdown" request: a recipe IDEA — a dish name (e.g. "chicken alfredo") OR a pasted
+    /// recipe. The server NEVER fetches a URL (the client passes recipe TEXT only, so there's no SSRF surface).</summary>
+    public sealed record RecipeBreakdownAiRequest(string? Text);
+
+    /// <summary>One ingredient in a breakdown: the food <see cref="Name"/> + a free-text <see cref="Quantity"/>
+    /// ("2", "1 cup", "" when none).</summary>
+    public sealed record RecipeIngredientDto(string Name, string Quantity);
+
+    /// <summary>The per-serving macros of a breakdown.</summary>
+    public sealed record RecipeMacrosDto(int Calories, double Protein, double Carb, double Fat);
+
+    /// <summary>"Recipe breakdown" response: the structured recipe — title, servings, ingredients ({name,
+    /// quantity}), per-serving macros, and optional steps. A PROPOSAL only — the frontend then adds the
+    /// ingredients to the grocery list (POST /meals/recipe-breakdown/to-grocery) and/or saves it as a planned
+    /// meal (POST /meals). Saves nothing.</summary>
+    public sealed record RecipeBreakdownAiDto(
+        string Title, int Servings, IReadOnlyList<RecipeIngredientDto> Ingredients,
+        RecipeMacrosDto MacrosPerServing, IReadOnlyList<string>? Steps);
+
+    /// <summary>"Add breakdown ingredients to grocery list" request: the ingredient NAMEs to append (from a
+    /// breakdown the frontend just showed), and an optional destination <see cref="ListId"/> (else the
+    /// household's "Groceries" list is found-or-created). Lines are de-duped against the list's OPEN items.</summary>
+    public sealed record RecipeIngredientsToGroceryRequest(IReadOnlyList<string>? Items, long? ListId);
+
     /// <summary>"What can I make" request: the on-hand <see cref="Ingredients"/> (free text) + optional free-text
     /// <see cref="Constraints"/> (kid-friendly / vegetarian / quick). Nothing is created — creating a meal still
     /// goes through the existing POST /meals on confirm (the editor is prefilled from a chosen idea).</summary>
@@ -370,40 +396,8 @@ public static class FamilyMealsChoresEndpoints
                 .SelectMany(m => SplitIngredients(m.Ingredients))
                 .ToList();
 
-            // Avoid obvious duplicates: skip a line that case-insensitively matches an OPEN item already on
-            // the list, and de-dup within this batch too.
-            var existingOpen = await db.FamilyListItems.AsNoTracking()
-                .Where(i => i.ListId == list.Id && !i.Done)
-                .Select(i => i.Text)
-                .ToListAsync(ct);
-            var seen = new HashSet<string>(existingOpen.Select(Normalize), StringComparer.Ordinal);
-
-            var maxSort = await db.FamilyListItems.Where(i => i.ListId == list.Id)
-                .Select(i => (int?)i.SortOrder).MaxAsync(ct) ?? -1;
-
-            var now = DateTime.UtcNow;
-            var added = 0;
-            foreach (var raw in lines)
-            {
-                var text = Clamp(raw, 500);
-                if (text.Length == 0) continue;
-                if (!seen.Add(Normalize(text))) continue; // already on the list (or earlier in this batch)
-                db.FamilyListItems.Add(new FamilyListItem
-                {
-                    ListId = list.Id,
-                    Text = text,
-                    SortOrder = ++maxSort,
-                    CreatedUtc = now,
-                });
-                added++;
-            }
-
-            if (added > 0)
-            {
-                await db.FamilyLists.Where(l => l.Id == list.Id)
-                    .ExecuteUpdateAsync(s => s.SetProperty(l => l.UpdatedUtc, now), ct);
-                await db.SaveChangesAsync(ct);
-            }
+            // Append the (de-duped, non-blank) lines to the resolved list — the shared add path.
+            await AppendLinesToListAsync(db, list.Id, lines, ct);
 
             // Return the updated list in the F1 ListDto shape (members manage their lists, so canEdit/isMine
             // reflect a household member).
@@ -499,6 +493,71 @@ public static class FamilyMealsChoresEndpoints
                 .ToList();
             return Results.Ok(new WhatCanIMakeAiDto(ideas));
         }).RequirePermission(Permissions.FamilyAi).RequireRateLimiting(AiEndpoints.RateLimitPolicy);
+
+        // ---- POST /meals/recipe-breakdown : Gemini turns a recipe IDEA into a structured breakdown ----
+        // The input is a dish NAME ("chicken alfredo") OR a pasted recipe; the server NEVER fetches a URL (the
+        // client passes TEXT only — no SSRF). Returns { title, servings, ingredients:[{name,quantity}],
+        // macrosPerServing, steps? }. Creates NOTHING — the frontend then adds the ingredients to the grocery
+        // list (POST /meals/recipe-breakdown/to-grocery) and/or saves it as a planned meal (POST /meals).
+        // Generative → gated family.use (group) + family.ai. Rate-limited; 400 on empty text; graceful 503 when
+        // Gemini is unavailable (the frontend steers to manual — never fabricate).
+        g.MapPost("/meals/recipe-breakdown", async (
+            RecipeBreakdownAiRequest req, GeminiService gemini, CancellationToken ct) =>
+        {
+            if (string.IsNullOrWhiteSpace(req?.Text))
+                return Results.BadRequest(new { message = "Enter a recipe name or paste a recipe to break down." });
+            if (!gemini.IsConfigured) return AiUnavailable();
+
+            var result = await gemini.RecipeBreakdownAsync(req.Text, ct);
+            if (result is null) return AiUnavailable();
+
+            var ingredients = result.Ingredients
+                .Select(i => new RecipeIngredientDto(i.Name, i.Quantity))
+                .ToList();
+            var macros = new RecipeMacrosDto(
+                result.MacrosPerServing.Calories, result.MacrosPerServing.ProteinG,
+                result.MacrosPerServing.CarbsG, result.MacrosPerServing.FatG);
+
+            return Results.Ok(new RecipeBreakdownAiDto(
+                result.Title, result.Servings, ingredients, macros, result.Steps));
+        }).RequirePermission(Permissions.FamilyAi).RequireRateLimiting(AiEndpoints.RateLimitPolicy);
+
+        // ---- POST /meals/recipe-breakdown/to-grocery : append breakdown ingredient NAMEs to a shopping list ----
+        // Reuses the EXISTING grocery add path (find-or-create the household "Groceries" list, or an explicit
+        // household-scoped list) + the SAME de-dupe-against-open-items helper as /meals/to-grocery. NOT generative
+        // (the client passes the already-reviewed ingredient names) → gated only by family.use (group), not
+        // family.ai. A foreign/missing destination list is a 404 (existence never leaked).
+        g.MapPost("/meals/recipe-breakdown/to-grocery", async (
+            RecipeIngredientsToGroceryRequest req, CurrentUserAccessor me, CurrentHouseholdAccessor households,
+            UsageDbContext db, CancellationToken ct) =>
+        {
+            var caller = (await me.GetUserAsync(ct))!;
+            var household = (await households.GetOrCreateForCallerAsync(caller, ct))!;
+
+            // Clamp the caller-supplied set so a hostile payload can't fan out unbounded.
+            var lines = (req?.Items ?? Array.Empty<string>())
+                .Select(s => (s ?? "").Trim())
+                .Where(s => s.Length > 0)
+                .Take(MaxMealIds)
+                .ToList();
+
+            // Resolve the destination shopping list: a given (household-scoped) list, else find-or-create "Groceries".
+            FamilyList list;
+            if (req?.ListId is long listId)
+            {
+                var target = await db.FamilyLists.FirstOrDefaultAsync(l => l.Id == listId, ct);
+                if (target is null || target.HouseholdId != household.Id) return NotFound();
+                list = target;
+            }
+            else
+            {
+                list = await FindOrCreateGroceriesAsync(db, household.Id, caller.Id, ct);
+            }
+
+            await AppendLinesToListAsync(db, list.Id, lines, ct);
+
+            return Results.Ok(await FamilyNotesListsEndpoints.LoadListDtoAsync(db, list.Id, caller.Id, household.Id, ct));
+        });
 
         MapMealMacros(g);
     }
@@ -1148,6 +1207,51 @@ public static class FamilyMealsChoresEndpoints
         db.FamilyLists.Add(list);
         await db.SaveChangesAsync(ct);
         return list;
+    }
+
+    /// <summary>
+    /// Append <paramref name="lines"/> as OPEN items to the shopping list <paramref name="listId"/>, de-duping
+    /// case/space-insensitively against the list's existing OPEN items AND within this batch. Each line is
+    /// trimmed + capped (500). Bumps the list's UpdatedUtc only when something was actually added. Returns the
+    /// number of items added. The SHARED grocery-add path reused by /meals/to-grocery and the recipe-breakdown
+    /// "add ingredients" action — never invents a new list.
+    /// </summary>
+    private static async Task<int> AppendLinesToListAsync(
+        UsageDbContext db, long listId, IEnumerable<string> lines, CancellationToken ct)
+    {
+        var existingOpen = await db.FamilyListItems.AsNoTracking()
+            .Where(i => i.ListId == listId && !i.Done)
+            .Select(i => i.Text)
+            .ToListAsync(ct);
+        var seen = new HashSet<string>(existingOpen.Select(Normalize), StringComparer.Ordinal);
+
+        var maxSort = await db.FamilyListItems.Where(i => i.ListId == listId)
+            .Select(i => (int?)i.SortOrder).MaxAsync(ct) ?? -1;
+
+        var now = DateTime.UtcNow;
+        var added = 0;
+        foreach (var raw in lines)
+        {
+            var text = Clamp(raw, 500);
+            if (text.Length == 0) continue;
+            if (!seen.Add(Normalize(text))) continue; // already on the list (or earlier in this batch)
+            db.FamilyListItems.Add(new FamilyListItem
+            {
+                ListId = listId,
+                Text = text,
+                SortOrder = ++maxSort,
+                CreatedUtc = now,
+            });
+            added++;
+        }
+
+        if (added > 0)
+        {
+            await db.FamilyLists.Where(l => l.Id == listId)
+                .ExecuteUpdateAsync(s => s.SetProperty(l => l.UpdatedUtc, now), ct);
+            await db.SaveChangesAsync(ct);
+        }
+        return added;
     }
 
     /// <summary>Split a meal's newline-separated ingredients into trimmed, non-blank lines.</summary>

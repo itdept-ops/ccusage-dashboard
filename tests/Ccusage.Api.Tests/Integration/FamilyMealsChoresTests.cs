@@ -251,6 +251,86 @@ public class FamilyMealsChoresTests(WebAppFactory factory)
             .Should().Be(1);
     }
 
+    // =====================================================================================
+    // RECIPE BREAKDOWN — generative endpoint (family.use + family.ai) + add-to-grocery
+    // =====================================================================================
+
+    [Fact]
+    public async Task RecipeBreakdown_requires_family_use_and_family_ai()
+    {
+        // Anonymous → 401.
+        var anon = factory.CreateClient();
+        (await anon.PostAsJsonAsync("/api/family/meals/recipe-breakdown", new { text = "chicken alfredo" }))
+            .StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+
+        // family.use but NOT family.ai → 403 (it's a GENERATIVE endpoint).
+        var (_, noAi, _) = await ProvisionUser("family.use");
+        (await noAi.PostAsJsonAsync("/api/family/meals/recipe-breakdown", new { text = "chicken alfredo" }))
+            .StatusCode.Should().Be(HttpStatusCode.Forbidden);
+
+        // Neither permission → 403.
+        var (_, plain, _) = await ProvisionUser("dashboard.view");
+        (await plain.PostAsJsonAsync("/api/family/meals/recipe-breakdown", new { text = "chicken alfredo" }))
+            .StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
+
+    [Fact]
+    public async Task RecipeBreakdown_400_on_empty_text_then_503_when_ai_unconfigured()
+    {
+        var (_, owner, _) = await ProvisionUser("family.use", "family.ai");
+
+        // Empty text is a clear 400 (regardless of AI config).
+        (await owner.PostAsJsonAsync("/api/family/meals/recipe-breakdown", new { text = "   " }))
+            .StatusCode.Should().Be(HttpStatusCode.BadRequest);
+
+        // With text but Gemini unconfigured (test host has no key) → 503, never fabricated.
+        (await owner.PostAsJsonAsync("/api/family/meals/recipe-breakdown", new { text = "chicken alfredo" }))
+            .StatusCode.Should().Be(HttpStatusCode.ServiceUnavailable);
+    }
+
+    [Fact]
+    public async Task RecipeBreakdown_to_grocery_appends_ingredients_deduped_against_open_items()
+    {
+        // The "add ingredients" action is NOT generative — only family.use is required.
+        var (_, owner, _) = await ProvisionUser("family.use");
+        await owner.GetAsync("/api/family/household");
+
+        // No Groceries list yet → creates it and appends the (de-duped, non-blank) ingredient names.
+        var res = await owner.PostAsJsonAsync("/api/family/meals/recipe-breakdown/to-grocery",
+            new { items = new[] { "chicken breast", "fettuccine", "parmesan", "parmesan", "", "  " } });
+        res.StatusCode.Should().Be(HttpStatusCode.OK);
+        var list = await Json(res);
+        list.GetProperty("kind").GetString().Should().Be("shopping");
+        list.GetProperty("name").GetString().Should().Be("Groceries");
+        var texts = list.GetProperty("items").EnumerateArray()
+            .Select(i => i.GetProperty("text").GetString()).ToList();
+        texts.Should().Contain(new[] { "chicken breast", "fettuccine", "parmesan" });
+        texts.Count(t => t == "parmesan").Should().Be(1); // de-duped within the batch
+        texts.Should().NotContain(""); // blanks skipped
+        list.GetRawText().Should().NotContain("@"); // no email anywhere
+
+        // Adding an overlapping set again doesn't duplicate the still-open items.
+        var again = await Json(await owner.PostAsJsonAsync("/api/family/meals/recipe-breakdown/to-grocery",
+            new { items = new[] { "fettuccine", "garlic" } }));
+        var againTexts = again.GetProperty("items").EnumerateArray()
+            .Select(i => i.GetProperty("text").GetString()).ToList();
+        againTexts.Count(t => t == "fettuccine").Should().Be(1); // already on the list → not duplicated
+        againTexts.Should().Contain("garlic");                   // new line appended
+    }
+
+    [Fact]
+    public async Task RecipeBreakdown_to_grocery_with_foreign_list_is_404()
+    {
+        var (_, alice, _) = await ProvisionUser("family.use");
+        await alice.GetAsync("/api/family/household");
+        var (_, bob, _) = await ProvisionUser("family.use");
+        var bobListId = (await Json(await bob.PostAsJsonAsync("/api/family/lists",
+            new { name = "Bob shopping", kind = "shopping" }))).GetProperty("id").GetInt64();
+
+        (await alice.PostAsJsonAsync("/api/family/meals/recipe-breakdown/to-grocery",
+            new { items = new[] { "x" }, listId = bobListId })).StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
     [Fact]
     public async Task To_grocery_with_explicit_meal_ids_and_target_list_appends_to_that_list()
     {

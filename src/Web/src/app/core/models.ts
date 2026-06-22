@@ -2746,6 +2746,41 @@ export interface WhatCanIMakeAiResult {
 }
 
 /**
+ * One ingredient in a "✨ Recipe breakdown" (mirrors RecipeIngredientDto): the food `name` + a free-text
+ * `quantity` ("2", "1 cup", "" when none). The user can edit both before adding the names to the grocery list.
+ */
+export interface RecipeIngredient {
+  name: string;
+  quantity: string;
+}
+
+/**
+ * The per-serving macros of a "✨ Recipe breakdown" (mirrors RecipeMacrosDto). Calories whole; macros in grams.
+ * Editable in the review before saving the meal.
+ */
+export interface RecipeMacros {
+  calories: number;
+  protein: number;
+  carb: number;
+  fat: number;
+}
+
+/**
+ * "✨ Recipe breakdown" response (POST /api/family/meals/recipe-breakdown; mirrors RecipeBreakdownAiDto): the
+ * structured recipe — `title`, `servings`, `ingredients` ({name, quantity}), per-serving `macrosPerServing`,
+ * and optional `steps`. A PROPOSAL only — nothing is created. The frontend shows an EDITABLE review, then the
+ * user can add the ingredient names to the grocery list (recipeBreakdownToGrocery) and/or save it as a planned
+ * meal (createFamilyMeal, with the dish-total macros derived from servings × per-serving).
+ */
+export interface RecipeBreakdownResult {
+  title: string;
+  servings: number;
+  ingredients: RecipeIngredient[];
+  macrosPerServing: RecipeMacros;
+  steps: string[] | null;
+}
+
+/**
  * A household chore on the shared board (mirrors ChoreDto). Optionally assigned to a member
  * (`assignedToUserId` + name; null = unassigned/anyone). `done` checks it off for the current period and
  * stamps `doneByUserId`/`doneByName`/`doneUtc`. `points` are the stars earned each completion; `recurrence`
