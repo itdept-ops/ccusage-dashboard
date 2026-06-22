@@ -1,0 +1,158 @@
+<div class="head">
+  <div class="head-text">
+    <span class="micro-label head-eyebrow">~/ai-usage — gemini call log</span>
+    <h2>AI usage</h2>
+    <p class="sub">Every AI (Gemini) call, captured at the service chokepoint: who called which feature, the
+      model, how it went, and the token counts. No prompt or response content is ever recorded; the newest
+      rows are kept.</p>
+  </div>
+</div>
+
+<!-- ===== Summary cards (computed over the whole filtered window) ===== -->
+<div class="cards">
+  <mat-card appearance="outlined" class="stat-card">
+    <div class="stat-label">Calls</div>
+    <div class="stat-value mono-num">{{ fmtNum(summary()?.totalCalls ?? 0) }}</div>
+    <div class="stat-foot">in the filtered window</div>
+  </mat-card>
+
+  <mat-card appearance="outlined" class="stat-card" [class.is-danger]="failures() > 0">
+    <div class="stat-label">Failures</div>
+    <div class="stat-value mono-num">{{ fmtNum(failures()) }}</div>
+    <div class="stat-foot">non-ok outcomes</div>
+  </mat-card>
+
+  <mat-card appearance="outlined" class="stat-card">
+    <div class="stat-label">Tokens</div>
+    <div class="stat-value mono-num">{{ fmtNum(summary()?.totalTokens ?? 0) }}</div>
+    <div class="stat-foot">
+      {{ fmtNum(summary()?.totalPromptTokens ?? 0) }} in / {{ fmtNum(summary()?.totalOutputTokens ?? 0) }} out
+    </div>
+  </mat-card>
+
+  <mat-card appearance="outlined" class="stat-card">
+    <div class="stat-label">Top user</div>
+    <div class="stat-value stat-value--text" [matTooltip]="topUser()?.key || ''">
+      {{ topUser()?.key || '—' }}
+    </div>
+    <div class="stat-foot">{{ topUser() ? fmtNum(topUser()!.count) + ' calls' : 'no calls yet' }}</div>
+  </mat-card>
+
+  <mat-card appearance="outlined" class="stat-card">
+    <div class="stat-label">Top feature</div>
+    <div class="stat-value stat-value--text" [matTooltip]="topFeature()?.key || ''">
+      {{ topFeature()?.key || '—' }}
+    </div>
+    <div class="stat-foot">{{ topFeature() ? fmtNum(topFeature()!.count) + ' calls' : 'no calls yet' }}</div>
+  </mat-card>
+</div>
+
+<!-- ===== Filters ===== -->
+<mat-card appearance="outlined" class="panel filter-card">
+  <div class="filter-row">
+    <mat-form-field appearance="outline" subscriptSizing="dynamic" class="f-user">
+      <mat-label>User</mat-label>
+      <mat-select [ngModel]="user()" (ngModelChange)="user.set($event); reload()">
+        <mat-option value="">All users</mat-option>
+        @for (o of userOptions(); track o.value) { <mat-option [value]="o.value">{{ o.label }}</mat-option> }
+      </mat-select>
+    </mat-form-field>
+
+    <mat-form-field appearance="outline" subscriptSizing="dynamic" class="f-feature">
+      <mat-label>Feature</mat-label>
+      <mat-select [ngModel]="feature()" (ngModelChange)="feature.set($event); reload()">
+        <mat-option value="">All features</mat-option>
+        @for (o of featureOptions(); track o.value) { <mat-option [value]="o.value">{{ o.label }}</mat-option> }
+      </mat-select>
+    </mat-form-field>
+
+    <mat-form-field appearance="outline" subscriptSizing="dynamic" class="f-outcome">
+      <mat-label>Outcome</mat-label>
+      <mat-select [ngModel]="outcome()" (ngModelChange)="outcome.set($event); reload()">
+        @for (o of outcomes; track o.v) { <mat-option [value]="o.v">{{ o.l }}</mat-option> }
+      </mat-select>
+    </mat-form-field>
+
+    <mat-form-field appearance="outline" subscriptSizing="dynamic" class="f-date">
+      <mat-label>From</mat-label>
+      <input matInput type="date" [ngModel]="from()" (ngModelChange)="from.set($event); reload()" />
+    </mat-form-field>
+
+    <mat-form-field appearance="outline" subscriptSizing="dynamic" class="f-date">
+      <mat-label>To</mat-label>
+      <input matInput type="date" [ngModel]="to()" (ngModelChange)="to.set($event); reload()" />
+    </mat-form-field>
+
+    @if (hasFilters()) {
+      <button mat-stroked-button class="f-btn" (click)="clearFilters()">
+        <mat-icon aria-hidden="true">filter_alt_off</mat-icon> Clear
+      </button>
+    }
+    <button mat-stroked-button class="f-btn" (click)="reload()">
+      <mat-icon aria-hidden="true">refresh</mat-icon> Refresh
+    </button>
+  </div>
+</mat-card>
+
+@if (loading()) { <mat-progress-bar mode="indeterminate" /> }
+
+<!-- ===== Table ===== -->
+<mat-card appearance="outlined" class="panel table-card">
+  <div class="panel-header">
+    <span>AI calls</span>
+    <span class="page-ind mono-num">page {{ page() + 1 }}</span>
+  </div>
+  <div class="table-scroll">
+    <table class="ai-table">
+      <thead>
+        <tr>
+          <th class="c-when">When</th>
+          <th class="c-user">User</th>
+          <th class="c-feature">Feature</th>
+          <th class="c-model">Model</th>
+          <th class="c-outcome">Outcome</th>
+          <th class="c-tokens">Tokens</th>
+          <th class="c-latency">Latency</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (r of rows(); track r.id) {
+          <tr class="ai-row">
+            <td class="c-when mono-num" data-label="When" [matTooltip]="r.whenUtc | date: 'MMM d, y HH:mm:ss'">
+              {{ r.whenUtc | date: 'MMM d, HH:mm:ss' }}
+            </td>
+            <td class="c-user" data-label="User">{{ r.userName || '(background)' }}</td>
+            <td class="c-feature" data-label="Feature"><span class="feature-badge">{{ r.feature }}</span></td>
+            <td class="c-model mono-num" data-label="Model">{{ r.model || '—' }}</td>
+            <td class="c-outcome" data-label="Outcome">
+              <span class="outcome-badge" [class]="outcomeClass(r.outcome)"
+                    [matTooltip]="r.errorHint || ''" [matTooltipDisabled]="!r.errorHint">
+                {{ outcomeLabel(r.outcome) }}
+              </span>
+            </td>
+            <td class="c-tokens mono-num" data-label="Tokens">
+              {{ fmtNum(r.totalTokens) }}
+              @if (r.totalTokens != null) {
+                <span class="tok-split">({{ fmtNum(r.promptTokens) }}/{{ fmtNum(r.outputTokens) }})</span>
+              }
+            </td>
+            <td class="c-latency mono-num" data-label="Latency">{{ r.durationMs }} ms</td>
+          </tr>
+        }
+        @if (!rows().length && !loading()) {
+          <tr><td colspan="7" class="empty">No AI calls in this window — adjust the filters or use an AI feature, then refresh.</td></tr>
+        }
+      </tbody>
+    </table>
+  </div>
+
+  <div class="pager">
+    <button mat-stroked-button class="pg-btn" [disabled]="page() === 0 || loading()" (click)="prevPage()">
+      <mat-icon aria-hidden="true">chevron_left</mat-icon> Newer
+    </button>
+    <span class="pg-label mono-num">page {{ page() + 1 }}</span>
+    <button mat-stroked-button class="pg-btn" [disabled]="!hasMore() || loading()" (click)="nextPage()">
+      Older <mat-icon aria-hidden="true">chevron_right</mat-icon>
+    </button>
+  </div>
+</mat-card>

@@ -627,6 +627,60 @@ public sealed class RequestLogDto
     public string? ResponseBody { get; set; }
 }
 
+/// <summary>One AI-usage row for the admin AI-usage log. Carries NO prompt or response content — only
+/// who called which feature, the model, how it went, and the token counts.</summary>
+public sealed class AiUsageLogDto
+{
+    public long Id { get; set; }
+    public DateTime WhenUtc { get; set; }
+    /// <summary>The acting user resolved to their AppUser id, or null for a background tick / an email with
+    /// no AppUser row. The raw user email is NEVER exposed (email-privacy).</summary>
+    public int? UserId { get; set; }
+    /// <summary>The acting user's display name (the matching AppUser.Name), or null for a background tick or
+    /// an email with no AppUser. Never an email.</summary>
+    public string? UserName { get; set; }
+    public string Feature { get; set; } = "";
+    public string Model { get; set; } = "";
+    public string Outcome { get; set; } = "";
+    public int? HttpStatus { get; set; }
+    public int DurationMs { get; set; }
+    public int? PromptTokens { get; set; }
+    public int? OutputTokens { get; set; }
+    public int? TotalTokens { get; set; }
+    public string? ErrorHint { get; set; }
+}
+
+/// <summary>A {key,count} pair (top users / top features) in the AI-usage summary.</summary>
+public sealed class AiUsageCountDto
+{
+    public string Key { get; set; } = "";
+    /// <summary>For a top-user entry: the AppUser id (null for a background tick or an unknown email).</summary>
+    public int? UserId { get; set; }
+    public int Count { get; set; }
+    public long TotalTokens { get; set; }
+}
+
+/// <summary>The summary block for the queried AI-usage window: totals, per-outcome counts, total tokens,
+/// and the top users + top features by call count.</summary>
+public sealed class AiUsageSummaryDto
+{
+    public int TotalCalls { get; set; }
+    /// <summary>outcome -> count (e.g. {"ok":120,"rate-limited":3}). Only outcomes present in the window appear.</summary>
+    public Dictionary<string, int> ByOutcome { get; set; } = new();
+    public long TotalPromptTokens { get; set; }
+    public long TotalOutputTokens { get; set; }
+    public long TotalTokens { get; set; }
+    public List<AiUsageCountDto> TopUsers { get; set; } = new();
+    public List<AiUsageCountDto> TopFeatures { get; set; } = new();
+}
+
+/// <summary>The GET /api/ai-usage payload: the page of rows (newest-first) plus the window summary.</summary>
+public sealed class AiUsageResponseDto
+{
+    public List<AiUsageLogDto> Rows { get; set; } = new();
+    public AiUsageSummaryDto Summary { get; set; } = new();
+}
+
 public sealed class SyncStatusDto
 {
     public DateTime? LastSyncUtc { get; set; }

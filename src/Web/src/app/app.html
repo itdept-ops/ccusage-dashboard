@@ -91,8 +91,8 @@
         <a mat-button class="nav__item" routerLink="/chat" routerLinkActive="active">Chat</a>
       }
 
-      <!-- Admin ▾ : Users, Locations, Activity, Settings -->
-      @if (auth.hasAnyPermission('users.view', 'location.view-all', 'activity.view', 'settings.view')) {
+      <!-- Admin ▾ : Users, Locations, Activity, AI usage, Settings -->
+      @if (auth.hasAnyPermission('users.view', 'location.view-all', 'activity.view', 'ai.usage.view', 'settings.view')) {
         <button type="button" mat-button class="nav__item nav__group"
                 [matMenuTriggerFor]="adminMenu" #adminTrigger="matMenuTrigger"
                 [class.nav__group--open]="adminTrigger.menuOpen"
@@ -117,6 +117,12 @@
             <a mat-menu-item class="nav-menu__item" routerLink="/activity" routerLinkActive="active">
               <mat-icon class="nav-menu__icon" aria-hidden="true">receipt_long</mat-icon>
               <span>Activity</span>
+            </a>
+          }
+          @if (auth.hasPermission('ai.usage.view')) {
+            <a mat-menu-item class="nav-menu__item" routerLink="/ai-usage" routerLinkActive="active">
+              <mat-icon class="nav-menu__icon" aria-hidden="true">smart_toy</mat-icon>
+              <span>AI usage</span>
             </a>
           }
           @if (auth.hasPermission('settings.view')) {
@@ -343,7 +349,7 @@
          (click)="closeMobileNav()">Chat</a>
     }
 
-    @if (auth.hasAnyPermission('users.view', 'location.view-all', 'activity.view', 'settings.view')) {
+    @if (auth.hasAnyPermission('users.view', 'location.view-all', 'activity.view', 'ai.usage.view', 'settings.view')) {
       <div class="mobile-nav__head" role="presentation">Admin</div>
       @if (auth.hasPermission('users.view')) {
         <a class="mobile-nav__item" routerLink="/users" routerLinkActive="active"
@@ -356,6 +362,10 @@
       @if (auth.hasPermission('activity.view')) {
         <a class="mobile-nav__item" routerLink="/activity" routerLinkActive="active"
            (click)="closeMobileNav()">Activity</a>
+      }
+      @if (auth.hasPermission('ai.usage.view')) {
+        <a class="mobile-nav__item" routerLink="/ai-usage" routerLinkActive="active"
+           (click)="closeMobileNav()">AI usage</a>
       }
       @if (auth.hasPermission('settings.view')) {
         <a class="mobile-nav__item" routerLink="/settings" routerLinkActive="active"

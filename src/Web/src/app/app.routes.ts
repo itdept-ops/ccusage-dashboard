@@ -194,6 +194,12 @@ export const routes: Routes = [
     title: 'Usage IQ · Activity',
   },
   {
+    path: 'ai-usage',
+    canActivate: [permissionGuard(PERM.aiUsageView)],
+    loadComponent: () => import('./features/ai-usage/ai-usage').then(m => m.AiUsage),
+    title: 'Usage IQ · AI usage',
+  },
+  {
     path: 'widget/:source',
     canActivate: [authGuard],
     loadComponent: () => import('./features/widget/widget').then(m => m.Widget),

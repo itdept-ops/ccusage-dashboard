@@ -17,6 +17,7 @@ public class UsageDbContext(DbContextOptions<UsageDbContext> options) : DbContex
     public DbSet<AuditEntry> AuditEntries => Set<AuditEntry>();
     public DbSet<LoginEvent> LoginEvents => Set<LoginEvent>();
     public DbSet<RequestLog> RequestLogs => Set<RequestLog>();
+    public DbSet<AiUsageLog> AiUsageLogs => Set<AiUsageLog>();
     public DbSet<NotificationSetting> NotificationSettings => Set<NotificationSetting>();
     public DbSet<ShareLink> ShareLinks => Set<ShareLink>();
     public DbSet<ShareAccess> ShareAccesses => Set<ShareAccess>();
@@ -206,6 +207,18 @@ public class UsageDbContext(DbContextOptions<UsageDbContext> options) : DbContex
             e.Property(x => x.ClientIp).HasMaxLength(64);
             // Bodies are already truncated by the middleware; store as unbounded text.
             e.HasIndex(x => x.Id).IsDescending(); // newest-first reads
+        });
+
+        b.Entity<AiUsageLog>(e =>
+        {
+            e.Property(x => x.WhenUtc).HasColumnType("timestamp with time zone");
+            e.Property(x => x.UserEmail).HasMaxLength(256);
+            e.Property(x => x.Feature).HasMaxLength(64);
+            e.Property(x => x.Model).HasMaxLength(64);
+            e.Property(x => x.Outcome).HasMaxLength(16);
+            e.Property(x => x.ErrorHint).HasMaxLength(200);
+            e.HasIndex(x => x.WhenUtc).IsDescending();          // newest-first window reads
+            e.HasIndex(x => new { x.UserEmail, x.WhenUtc });    // per-user lookups
         });
 
         b.Entity<NotificationSetting>(e =>

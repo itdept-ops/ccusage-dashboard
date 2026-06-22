@@ -63,6 +63,8 @@ builder.Services.AddSingleton<PresenceTracker>();
 // Request/response action log: a bounded queue fed by middleware, drained by a background writer.
 builder.Services.AddSingleton<RequestLogQueue>();
 builder.Services.AddHostedService<RequestLogWriter>();
+builder.Services.AddSingleton<AiUsageLogQueue>();
+builder.Services.AddHostedService<AiUsageLogWriter>();
 
 // Discord notifications: digest/alert sender + a minute-tick scheduler.
 builder.Services.AddHttpClient();

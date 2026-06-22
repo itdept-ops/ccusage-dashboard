@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Net.Http.Json;
 using System.Text.Json;
 using Ccusage.Api.Data.Entities;
@@ -53,7 +54,9 @@ public sealed class GeminiService(
     IHttpClientFactory httpFactory,
     IOptions<GeminiOptions> options,
     IMemoryCache cache,
-    ILogger<GeminiService> logger)
+    ILogger<GeminiService> logger,
+    IHttpContextAccessor? httpContextAccessor = null,
+    Ccusage.Api.Infrastructure.AiUsageLogQueue? aiUsageQueue = null)
 {
     public const string HttpClientName = "gemini";
     private static readonly TimeSpan CacheTtl = TimeSpan.FromMinutes(10);
@@ -2986,12 +2989,15 @@ public sealed class GeminiService(
         // return a different prompt's cached macros/estimate.
         var cacheKey = $"gemini:{kind}:{_opt.Model}:" + Convert.ToHexString(
             System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(prompt)));
+        // A cache hit spends no tokens and makes no HTTP call, so it is deliberately NOT recorded as a usage row.
         if (cache.TryGetValue(cacheKey, out JsonElement cached))
             return cached;
 
+        var model = SanitizeModel(_opt.Model);
+        var sw = Stopwatch.StartNew();
+        var usage = new AiUsage(kind, model);
         try
         {
-            var model = SanitizeModel(_opt.Model);
             var url = $"/v1beta/models/{model}:generateContent";
             var body = new
             {
@@ -3007,6 +3013,7 @@ public sealed class GeminiService(
             req.Headers.Add(KeyHeader, _opt.ApiKey);
 
             using var res = await client.SendAsync(req, ct);
+            usage.SetHttp((int)res.StatusCode);
             if (!res.IsSuccessStatusCode)
             {
                 // Never log the key/body; a 429 = quota, 503 = upstream busy, 400/403 = bad/blocked key.
@@ -3016,23 +3023,30 @@ public sealed class GeminiService(
 
             await using var stream = await res.Content.ReadAsStreamAsync(ct);
             using var doc = await JsonDocument.ParseAsync(stream, cancellationToken: ct);
+            usage.ReadUsageMetadata(doc.RootElement);
 
             var text = ExtractText(doc.RootElement);
-            if (string.IsNullOrWhiteSpace(text)) return null;
+            if (string.IsNullOrWhiteSpace(text)) { usage.SetParseFailed(); return null; }
 
             // The model returns strict JSON as the candidate text (responseMimeType=application/json).
             using var inner = JsonDocument.Parse(text);
-            if (inner.RootElement.ValueKind != JsonValueKind.Object) return null;
+            if (inner.RootElement.ValueKind != JsonValueKind.Object) { usage.SetParseFailed(); return null; }
 
             // Clone so the value survives the JsonDocument being disposed; cache for identical prompts.
+            usage.SetOk();
             var cloned = inner.RootElement.Clone();
             cache.Set(cacheKey, cloned, CacheTtl);
             return cloned;
         }
         catch (Exception ex)
         {
+            usage.SetException();
             logger.LogWarning("Gemini request failed: {Reason}", ex.Message);
             return null;
+        }
+        finally
+        {
+            Record(usage, sw);
         }
     }
 
@@ -3046,9 +3060,11 @@ public sealed class GeminiService(
     private async Task<JsonElement?> GenerateImageJsonAsync(
         string kind, string prompt, string base64, string mimeType, CancellationToken ct)
     {
+        var model = SanitizeModel(_opt.Model);
+        var sw = Stopwatch.StartNew();
+        var usage = new AiUsage(kind, model);
         try
         {
-            var model = SanitizeModel(_opt.Model);
             var url = $"/v1beta/models/{model}:generateContent";
             var body = new
             {
@@ -3068,6 +3084,7 @@ public sealed class GeminiService(
 
             var client = httpFactory.CreateClient(HttpClientName);
             using var res = await SendWithRetryAsync(client, url, body, kind, ct);
+            usage.SetHttp((int)res.StatusCode);
             if (!res.IsSuccessStatusCode)
             {
                 logger.LogWarning("Gemini {Kind} generateContent returned {Status}.", kind, (int)res.StatusCode);
@@ -3076,18 +3093,25 @@ public sealed class GeminiService(
 
             await using var stream = await res.Content.ReadAsStreamAsync(ct);
             using var doc = await JsonDocument.ParseAsync(stream, cancellationToken: ct);
+            usage.ReadUsageMetadata(doc.RootElement);
 
             var text = ExtractText(doc.RootElement);
-            if (string.IsNullOrWhiteSpace(text)) return null;
+            if (string.IsNullOrWhiteSpace(text)) { usage.SetParseFailed(); return null; }
 
             using var inner = JsonDocument.Parse(text);
-            if (inner.RootElement.ValueKind != JsonValueKind.Object) return null;
+            if (inner.RootElement.ValueKind != JsonValueKind.Object) { usage.SetParseFailed(); return null; }
+            usage.SetOk();
             return inner.RootElement.Clone();
         }
         catch (Exception ex)
         {
+            usage.SetException();
             logger.LogWarning("Gemini {Kind} request failed: {Reason}", kind, ex.Message);
             return null;
+        }
+        finally
+        {
+            Record(usage, sw);
         }
     }
 
@@ -3129,9 +3153,11 @@ public sealed class GeminiService(
     private async Task<JsonElement?> GenerateMultimodalJsonAsync(
         string kind, string prompt, IReadOnlyList<(string base64, string mime)> images, CancellationToken ct)
     {
+        var model = SanitizeModel(_opt.Model);
+        var sw = Stopwatch.StartNew();
+        var usage = new AiUsage(kind, model);
         try
         {
-            var model = SanitizeModel(_opt.Model);
             var url = $"/v1beta/models/{model}:generateContent";
 
             var parts = new List<object> { new { text = prompt } };
@@ -3146,6 +3172,7 @@ public sealed class GeminiService(
 
             var client = httpFactory.CreateClient(HttpClientName);
             using var res = await SendWithRetryAsync(client, url, body, kind, ct);
+            usage.SetHttp((int)res.StatusCode);
             if (!res.IsSuccessStatusCode)
             {
                 logger.LogWarning("Gemini {Kind} generateContent returned {Status}.", kind, (int)res.StatusCode);
@@ -3154,18 +3181,145 @@ public sealed class GeminiService(
 
             await using var stream = await res.Content.ReadAsStreamAsync(ct);
             using var doc = await JsonDocument.ParseAsync(stream, cancellationToken: ct);
+            usage.ReadUsageMetadata(doc.RootElement);
 
             var text = ExtractText(doc.RootElement);
-            if (string.IsNullOrWhiteSpace(text)) return null;
+            if (string.IsNullOrWhiteSpace(text)) { usage.SetParseFailed(); return null; }
 
             using var inner = JsonDocument.Parse(text);
-            if (inner.RootElement.ValueKind != JsonValueKind.Object) return null;
+            if (inner.RootElement.ValueKind != JsonValueKind.Object) { usage.SetParseFailed(); return null; }
+            usage.SetOk();
             return inner.RootElement.Clone();
         }
         catch (Exception ex)
         {
+            usage.SetException();
             logger.LogWarning("Gemini {Kind} request failed: {Reason}", kind, ex.Message);
             return null;
+        }
+        finally
+        {
+            Record(usage, sw);
+        }
+    }
+
+    // ===================================================================================
+    // AI usage logging (best-effort; NEVER throws into / blocks the AI path; no prompt/response content)
+    // ===================================================================================
+
+    /// <summary>
+    /// Classify a non-2xx upstream HTTP status into the AI-usage <c>Outcome</c> label: 503 -&gt;
+    /// "unavailable", 429 -&gt; "rate-limited", any other non-2xx -&gt; "error". (A 2xx is classified
+    /// separately as "ok" or, when the candidate text is missing/non-JSON, "parse-failed".)
+    /// </summary>
+    public static string ClassifyOutcome(int httpStatus) => httpStatus switch
+    {
+        503 => "unavailable",
+        429 => "rate-limited",
+        _ => "error",
+    };
+
+    /// <summary>
+    /// Mutable, per-call accumulator for the AI-usage row. The chokepoint methods classify the
+    /// <see cref="Outcome"/> as the call progresses (HTTP status -> success/unavailable/rate-limited/error;
+    /// a missing-or-non-object candidate -> parse-failed; an exception with no response -> parse-failed) and
+    /// pull token counts from <c>usageMetadata</c> on success. NO prompt or response CONTENT is ever stored.
+    /// </summary>
+    private sealed class AiUsage(string feature, string model)
+    {
+        public string Feature { get; } = feature;
+        public string Model { get; } = model;
+        public string Outcome { get; private set; } = "error";
+        public int? HttpStatus { get; private set; }
+        public int? PromptTokens { get; private set; }
+        public int? OutputTokens { get; private set; }
+        public int? TotalTokens { get; private set; }
+        public string? ErrorHint { get; private set; }
+
+        /// <summary>Record the upstream status and pre-classify any non-2xx outcome from it.</summary>
+        public void SetHttp(int status)
+        {
+            HttpStatus = status;
+            if (status is >= 200 and < 300) return; // success classified later (SetOk/SetParseFailed)
+            Outcome = ClassifyOutcome(status);
+            ErrorHint = $"HTTP {status}";
+        }
+
+        public void SetOk() => Outcome = "ok";
+
+        /// <summary>A 2xx response whose candidate text was missing or not a JSON object.</summary>
+        public void SetParseFailed()
+        {
+            Outcome = "parse-failed";
+            ErrorHint ??= "empty or non-JSON candidate";
+        }
+
+        /// <summary>An exception/timeout/network failure with no usable response.</summary>
+        public void SetException()
+        {
+            if (HttpStatus is null)
+            {
+                // No response at all — network/timeout.
+                Outcome = "parse-failed";
+                ErrorHint ??= "no response (network/timeout)";
+            }
+            else if (HttpStatus is >= 200 and < 300)
+            {
+                // A 2xx response whose candidate text threw while parsing — a parse failure, not the
+                // default "error" (and not a transport error, since the HTTP call itself succeeded).
+                Outcome = "parse-failed";
+                ErrorHint ??= "non-JSON candidate";
+            }
+            // else: a non-2xx status was already classified by SetHttp — keep that specific outcome.
+        }
+
+        /// <summary>Parse Gemini <c>usageMetadata { promptTokenCount, candidatesTokenCount, totalTokenCount }</c>.</summary>
+        public void ReadUsageMetadata(JsonElement root)
+        {
+            if (root.ValueKind != JsonValueKind.Object
+                || !root.TryGetProperty("usageMetadata", out var um) || um.ValueKind != JsonValueKind.Object)
+                return;
+            PromptTokens = ReadInt(um, "promptTokenCount");
+            OutputTokens = ReadInt(um, "candidatesTokenCount");
+            TotalTokens = ReadInt(um, "totalTokenCount");
+        }
+
+        private static int? ReadInt(JsonElement el, string prop) =>
+            el.TryGetProperty(prop, out var v) && v.ValueKind == JsonValueKind.Number && v.TryGetInt32(out var n)
+                ? n : null;
+    }
+
+    /// <summary>
+    /// Best-effort enqueue of the AI-usage row: resolves the caller's email from the HttpContext (null for a
+    /// background tick), stamps the duration, and drops on a full buffer. Wrapped so a logging failure can
+    /// NEVER throw into or block the AI path.
+    /// </summary>
+    private void Record(AiUsage usage, Stopwatch sw)
+    {
+        if (aiUsageQueue is null) return; // not wired (e.g. a unit test constructing the service directly)
+        try
+        {
+            var email = httpContextAccessor?.HttpContext?.User.FindFirst("email")?.Value?.Trim().ToLowerInvariant();
+            if (string.IsNullOrEmpty(email) || email == "system") email = null;
+
+            aiUsageQueue.TryEnqueue(new AiUsageLog
+            {
+                WhenUtc = DateTime.UtcNow,
+                UserEmail = email,
+                Feature = usage.Feature,
+                Model = usage.Model,
+                Outcome = usage.Outcome,
+                HttpStatus = usage.HttpStatus,
+                DurationMs = (int)Math.Min(sw.ElapsedMilliseconds, int.MaxValue),
+                PromptTokens = usage.PromptTokens,
+                OutputTokens = usage.OutputTokens,
+                TotalTokens = usage.TotalTokens,
+                ErrorHint = usage.ErrorHint,
+            });
+        }
+        catch
+        {
+            // Never let usage logging affect the AI path.
         }
     }
 

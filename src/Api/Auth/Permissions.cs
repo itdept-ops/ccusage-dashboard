@@ -73,6 +73,7 @@ public static class Permissions
     public const string UsersView = "users.view";
     public const string UsersManage = "users.manage";
     public const string ActivityView = "activity.view";
+    public const string AiUsageView = "ai.usage.view";
 
     /// <summary>The six AI permission keys (group "AI"). NONE are defaultable.</summary>
     public static readonly string[] AiKeys =
@@ -124,6 +125,7 @@ public static class Permissions
         new PermissionInfo(UsersView, "Admin", "View users", "View the user list, permission catalog, and audit log."),
         new PermissionInfo(UsersManage, "Admin", "Manage users", "Create, edit, and delete users, set permissions, and edit the access policy."),
         new PermissionInfo(ActivityView, "Admin", "View activity", "View request logs on the Activity page."),
+        new PermissionInfo(AiUsageView, "Admin", "View AI usage", "View the AI usage log: per-call feature, outcome, and token counts (never prompt or response content)."),
         new PermissionInfo(SettingsView, "Admin", "View settings", "View settings and ingestion sources."),
         new PermissionInfo(SettingsManage, "Admin", "Manage settings", "Edit timezone and the auto-sync timer."),
         new PermissionInfo(SourcesManage, "Admin", "Manage sources", "Edit ingestion sources."),
@@ -144,6 +146,7 @@ public static class Permissions
     {
         DashboardView, CalendarView, PricingView, SettingsView,
         ReporterView, FleetView, NotificationsView, ChatRead, TrackerSelf, SharesView, UsersView, ActivityView,
+        AiUsageView,
     };
 
     public static bool IsValid(string key) => All.Contains(key);
@@ -196,12 +199,14 @@ public static class Permissions
     /// Likewise excludes both Family keys (<see cref="FamilyUse"/> and <see cref="FamilyFinance"/>):
     /// the Family Hub holds private household data and shared finances, so access must be granted
     /// deliberately per user and never inherited by every new account.
+    /// Likewise excludes <see cref="AiUsageView"/>: the AI usage log is admin oversight of who spends
+    /// tokens, so it must be granted deliberately, never inherited by every new account.
     /// Finally excludes ALL AI keys (<see cref="AiKeys"/>) and ALL Location keys (<see cref="LocationKeys"/>):
     /// AI capabilities spend tokens and the Location feature reveals where a user is, so both must be
     /// granted deliberately per user — every new account starts with AI off and location off.
     /// </summary>
     public static bool IsDefaultable(string key) =>
         IsValid(key) && key != UsersManage && key != ChatModerate && key != ChatContactsManage
-        && key != TrackerViewAll && key != FamilyUse && key != FamilyFinance
+        && key != TrackerViewAll && key != FamilyUse && key != FamilyFinance && key != AiUsageView
         && !AiKeys.Contains(key) && !LocationKeys.Contains(key);
 }

@@ -80,5 +80,157 @@ public static class ObservabilityEndpoints
                 return Results.Ok(rows);
             })
             .RequireAuthorization().RequirePermission(Permissions.ActivityView);
+
+        // AI (Gemini) usage log. Admin-gated (ai.usage.view). Carries NO prompt/response content — only who
+        // called which feature, the model, the outcome, and token counts. Mirrors GET /api/logs: a page of
+        // rows (newest-first) by keyset (before=/limit), plus a summary block computed over the filtered
+        // WINDOW (not just the page). Filters: user (AppUser id), feature, outcome, from/to (WhenUtc).
+        app.MapGet("/api/ai-usage", async (
+                UsageDbContext db, long? before, int? limit, int? user, string? feature, string? outcome,
+                DateTime? from, DateTime? to, CancellationToken ct) =>
+            {
+                var take = Math.Clamp(limit ?? 100, 1, 500);
+
+                // Build the shared WINDOW query (all filters EXCEPT keyset paging) — the summary aggregates
+                // over this whole window; the rows take a single keyset page from it.
+                var window = db.AiUsageLogs.AsNoTracking().AsQueryable();
+
+                if (!string.IsNullOrWhiteSpace(feature))
+                    window = window.Where(r => r.Feature == feature);
+                if (!string.IsNullOrWhiteSpace(outcome))
+                    window = window.Where(r => r.Outcome == outcome);
+                if (from is { } f)
+                    window = window.Where(r => r.WhenUtc >= DateTime.SpecifyKind(f, DateTimeKind.Utc));
+                if (to is { } t)
+                    window = window.Where(r => r.WhenUtc <= DateTime.SpecifyKind(t, DateTimeKind.Utc));
+
+                // The user filter is an AppUser id (the raw email is never exposed or accepted). Resolve it to
+                // the stored lower-cased email; an unknown id yields an empty window.
+                if (user is { } uid)
+                {
+                    var email = await db.Users.AsNoTracking()
+                        .Where(u => u.Id == uid).Select(u => u.Email).FirstOrDefaultAsync(ct);
+                    window = email is null ? window.Where(_ => false) : window.Where(r => r.UserEmail == email);
+                }
+
+                // ---- Page of rows (keyset on Id, newest-first) ----
+                var pageQuery = window;
+                if (before is { } b)
+                    pageQuery = pageQuery.Where(r => r.Id < b);
+
+                var raw = await pageQuery
+                    .OrderByDescending(r => r.Id)
+                    .Take(take)
+                    .Select(r => new
+                    {
+                        r.Id, r.WhenUtc, r.UserEmail, r.Feature, r.Model, r.Outcome, r.HttpStatus,
+                        r.DurationMs, r.PromptTokens, r.OutputTokens, r.TotalTokens, r.ErrorHint,
+                    })
+                    .ToListAsync(ct);
+
+                // ---- Summary over the whole window ----
+                var totalCalls = await window.CountAsync(ct);
+                var byOutcome = (await window
+                        .GroupBy(r => r.Outcome)
+                        .Select(g => new { Outcome = g.Key, Count = g.Count() })
+                        .ToListAsync(ct))
+                    .ToDictionary(x => x.Outcome, x => x.Count);
+
+                var tokenTotals = await window
+                    .GroupBy(_ => 1)
+                    .Select(g => new
+                    {
+                        Prompt = g.Sum(r => (long?)r.PromptTokens) ?? 0,
+                        Output = g.Sum(r => (long?)r.OutputTokens) ?? 0,
+                        Total = g.Sum(r => (long?)r.TotalTokens) ?? 0,
+                    })
+                    .FirstOrDefaultAsync(ct);
+
+                var topFeatures = (await window
+                        .GroupBy(r => r.Feature)
+                        .Select(g => new { Key = g.Key, Count = g.Count(), Tokens = g.Sum(r => (long?)r.TotalTokens) ?? 0 })
+                        .OrderByDescending(x => x.Count).Take(10).ToListAsync(ct))
+                    .Select(x => new AiUsageCountDto { Key = x.Key, Count = x.Count, TotalTokens = x.Tokens })
+                    .ToList();
+
+                var topUserRaw = await window
+                    .GroupBy(r => r.UserEmail)
+                    .Select(g => new { Email = g.Key, Count = g.Count(), Tokens = g.Sum(r => (long?)r.TotalTokens) ?? 0 })
+                    .OrderByDescending(x => x.Count).Take(10).ToListAsync(ct);
+
+                // Resolve every email seen on the page OR among top users -> {AppUser.Id, Name}. The raw email
+                // is NEVER exposed (email-privacy). Users.Email is stored lower-cased.
+                var lowerEmails = raw.Select(r => r.UserEmail).Concat(topUserRaw.Select(u => u.Email))
+                    .Where(e => !string.IsNullOrEmpty(e)).Select(e => e!.ToLowerInvariant()).Distinct().ToList();
+                var usersByEmail = (await db.Users.AsNoTracking()
+                        .Where(u => lowerEmails.Contains(u.Email))
+                        .Select(u => new { u.Id, u.Email, u.Name }).ToListAsync(ct))
+                    .GroupBy(u => u.Email, StringComparer.OrdinalIgnoreCase)
+                    .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
+
+                var rows = raw.Select(r =>
+                {
+                    int? userId = null;
+                    string? userName = null;
+                    if (!string.IsNullOrEmpty(r.UserEmail) && usersByEmail.TryGetValue(r.UserEmail, out var u))
+                    {
+                        userId = u.Id;
+                        userName = string.IsNullOrEmpty(u.Name) ? null : u.Name;
+                    }
+                    return new AiUsageLogDto
+                    {
+                        Id = r.Id,
+                        WhenUtc = r.WhenUtc,
+                        UserId = userId,
+                        UserName = userName,
+                        Feature = r.Feature,
+                        Model = r.Model,
+                        Outcome = r.Outcome,
+                        HttpStatus = r.HttpStatus,
+                        DurationMs = r.DurationMs,
+                        PromptTokens = r.PromptTokens,
+                        OutputTokens = r.OutputTokens,
+                        TotalTokens = r.TotalTokens,
+                        ErrorHint = r.ErrorHint,
+                    };
+                }).ToList();
+
+                var topUsers = topUserRaw.Select(u =>
+                {
+                    int? userId = null;
+                    var name = "(background)"; // null/empty email = a background tick
+                    if (!string.IsNullOrEmpty(u.Email))
+                    {
+                        // Resolve the email to a display name; the raw email is NEVER assigned to `name`
+                        // (and so never reaches the response) — matched → Name/"User {id}", else "(unknown)".
+                        if (usersByEmail.TryGetValue(u.Email, out var au))
+                        {
+                            userId = au.Id;
+                            name = string.IsNullOrEmpty(au.Name) ? $"User {au.Id}" : au.Name;
+                        }
+                        else
+                        {
+                            name = "(unknown)"; // an email with no AppUser — never leak the raw email
+                        }
+                    }
+                    return new AiUsageCountDto { Key = name, UserId = userId, Count = u.Count, TotalTokens = u.Tokens };
+                }).ToList();
+
+                return Results.Ok(new AiUsageResponseDto
+                {
+                    Rows = rows,
+                    Summary = new AiUsageSummaryDto
+                    {
+                        TotalCalls = totalCalls,
+                        ByOutcome = byOutcome,
+                        TotalPromptTokens = tokenTotals?.Prompt ?? 0,
+                        TotalOutputTokens = tokenTotals?.Output ?? 0,
+                        TotalTokens = tokenTotals?.Total ?? 0,
+                        TopUsers = topUsers,
+                        TopFeatures = topFeatures,
+                    },
+                });
+            })
+            .RequireAuthorization().RequirePermission(Permissions.AiUsageView);
     }
 }

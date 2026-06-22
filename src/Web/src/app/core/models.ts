@@ -612,6 +612,72 @@ export interface RequestLogEntry {
   responseBody: string | null;
 }
 
+// ---- AI usage log (admin oversight) ----
+
+/**
+ * One AI (Gemini) call captured at the GeminiService chokepoint. Carries NO prompt or response CONTENT —
+ * only who called which feature, the model, how it went, and the token counts.
+ */
+export interface AiUsageRow {
+  id: number;
+  whenUtc: string;
+  /** The acting user's AppUser id, or null for a background tick / an email with no AppUser. Never an email. */
+  userId: number | null;
+  /** The acting user's display name, or null for a background tick / unknown user. Never an email. */
+  userName: string | null;
+  /** The GeminiService "kind" / feature label, e.g. "schedule", "build-day", "money-coach". */
+  feature: string;
+  model: string;
+  /** One of: "ok" | "unavailable" | "rate-limited" | "parse-failed" | "error". */
+  outcome: string;
+  /** The upstream HTTP status, or null when no response was received. */
+  httpStatus: number | null;
+  durationMs: number;
+  promptTokens: number | null;
+  outputTokens: number | null;
+  totalTokens: number | null;
+  /** A short status/reason hint (never response content), e.g. "HTTP 503" or "timeout". */
+  errorHint: string | null;
+}
+
+/** A {key,count} pair (top users / top features) in the AI-usage summary. */
+export interface AiUsageCount {
+  key: string;
+  /** For a top-user entry: the AppUser id (null for a background tick or an unknown email). */
+  userId?: number | null;
+  count: number;
+  totalTokens: number;
+}
+
+/** The summary block for the queried AI-usage window: totals, per-outcome counts, tokens, top users + features. */
+export interface AiUsageSummary {
+  totalCalls: number;
+  /** outcome -> count (e.g. {"ok":120,"rate-limited":3}); only outcomes present in the window appear. */
+  byOutcome: Record<string, number>;
+  totalPromptTokens: number;
+  totalOutputTokens: number;
+  totalTokens: number;
+  topUsers: AiUsageCount[];
+  topFeatures: AiUsageCount[];
+}
+
+/** The GET /api/ai-usage payload: the page of rows (newest-first) plus the window summary. */
+export interface AiUsageResponse {
+  rows: AiUsageRow[];
+  summary: AiUsageSummary;
+}
+
+/** Filters for getAiUsage. `user` is an AppUser id (raw emails are never accepted); dates are ISO strings. */
+export interface AiUsageFilter {
+  before?: number | null;
+  limit?: number;
+  user?: number | null;
+  feature?: string;
+  outcome?: string;
+  from?: string;
+  to?: string;
+}
+
 // ---- Chat + notifications (Phase 2) ----
 
 /** A member of a chat channel/DM (minimal identity for avatars + online dots). Mirrors the member shape in ChatChannelDto. */
@@ -2929,6 +2995,7 @@ export const PERM = {
   usersView: 'users.view',
   usersManage: 'users.manage',
   activityView: 'activity.view',
+  aiUsageView: 'ai.usage.view',
   chatRead: 'chat.read',
   chatSend: 'chat.send',
   chatModerate: 'chat.moderate',
@@ -2996,6 +3063,7 @@ export const PERM_GROUP_OF: Readonly<Record<string, string>> = {
   [PERM.usersView]: 'Admin',
   [PERM.usersManage]: 'Admin',
   [PERM.activityView]: 'Admin',
+  [PERM.aiUsageView]: 'Admin',
   [PERM.settingsView]: 'Admin',
   [PERM.settingsManage]: 'Admin',
   [PERM.sourcesManage]: 'Admin',

@@ -6,7 +6,7 @@ namespace Ccusage.Api.Tests.Unit;
 
 public class PermissionsTests
 {
-    // The full catalog of 37 keys.
+    // The full catalog of 38 keys.
     private static readonly string[] AllKeys =
     {
         "dashboard.view", "dashboard.export", "sync.run",
@@ -20,7 +20,7 @@ public class PermissionsTests
         "shares.view", "shares.manage",
         "family.use", "family.finance",
         "location.self", "location.share", "location.view-all",
-        "users.view", "users.manage", "activity.view",
+        "users.view", "users.manage", "activity.view", "ai.usage.view",
         "tracker.ai", "family.ai", "family.ai.assistant", "finance.ai", "chat.ai", "ai.vision",
     };
 
@@ -56,6 +56,7 @@ public class PermissionsTests
     [InlineData("users.view")]
     [InlineData("users.manage")]
     [InlineData("activity.view")]
+    [InlineData("ai.usage.view")]
     [InlineData("tracker.ai")]
     [InlineData("family.ai")]
     [InlineData("family.ai.assistant")]
@@ -111,6 +112,7 @@ public class PermissionsTests
         Permissions.UsersView.Should().Be("users.view");
         Permissions.UsersManage.Should().Be("users.manage");
         Permissions.ActivityView.Should().Be("activity.view");
+        Permissions.AiUsageView.Should().Be("ai.usage.view");
         Permissions.TrackerAi.Should().Be("tracker.ai");
         Permissions.FamilyAi.Should().Be("family.ai");
         Permissions.FamilyAiAssistant.Should().Be("family.ai.assistant");
@@ -120,9 +122,9 @@ public class PermissionsTests
     }
 
     [Fact]
-    public void All_contains_exactly_the_thirty_seven_known_keys()
+    public void All_contains_exactly_the_thirty_eight_known_keys()
     {
-        Permissions.All.Should().HaveCount(37);
+        Permissions.All.Should().HaveCount(38);
         Permissions.All.Should().BeEquivalentTo(AllKeys);
     }
 
@@ -133,9 +135,9 @@ public class PermissionsTests
     }
 
     [Fact]
-    public void Catalog_has_thirty_seven_entries()
+    public void Catalog_has_thirty_eight_entries()
     {
-        Permissions.Catalog.Should().HaveCount(37);
+        Permissions.Catalog.Should().HaveCount(38);
     }
 
     [Fact]
@@ -168,9 +170,9 @@ public class PermissionsTests
     public void Views_are_the_page_view_gates_and_all_valid()
     {
         // The page-view gates: every *.view key plus chat.read (the Chat page gate) and tracker.self
-        // (the Tracker page gate) — both page gates without a *.view suffix. 10 *.view keys + chat.read
-        // + tracker.self = 12.
-        Permissions.Views.Should().HaveCount(12);
+        // (the Tracker page gate) — both page gates without a *.view suffix. 11 *.view keys + chat.read
+        // + tracker.self = 13.
+        Permissions.Views.Should().HaveCount(13);
         Permissions.Views.Should().OnlyContain(k => Permissions.IsValid(k));
         Permissions.Views.Should().OnlyContain(k =>
             k.EndsWith(".view") || k == Permissions.ChatRead || k == Permissions.TrackerSelf);
@@ -226,6 +228,20 @@ public class PermissionsTests
             Permissions.IsDefaultable(key).Should().BeFalse();
             Permissions.Views.Should().NotContain(key);
         }
+    }
+
+    [Fact]
+    public void AiUsageView_is_not_defaultable_and_is_in_the_Admin_group_and_not_an_AI_key()
+    {
+        // The AI usage log is admin oversight of token spend: it must be granted deliberately (not
+        // defaultable), it is NOT a token-spending AI key (IsAi=false), and it lives in the Admin group.
+        Permissions.IsDefaultable(Permissions.AiUsageView).Should().BeFalse();
+        Permissions.IsAi(Permissions.AiUsageView).Should().BeFalse();
+        Permissions.AiKeys.Should().NotContain(Permissions.AiUsageView);
+        Permissions.Catalog.Single(p => p.Key == Permissions.AiUsageView).Group.Should().Be("Admin");
+        // It is part of the administrator preset automatically (preset = the full catalog).
+        Permissions.Presets.Single(p => p.Key == "administrator")
+            .Permissions.Should().Contain(Permissions.AiUsageView);
     }
 
     [Fact]

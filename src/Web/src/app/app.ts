@@ -109,7 +109,7 @@ export class App {
   readonly usageGroupActive = computed(() =>
     this.pathInGroup(['/', '/calendar', '/pricing', '/reporter', '/fleet']));
   readonly adminGroupActive = computed(() =>
-    this.pathInGroup(['/users', '/activity', '/settings']));
+    this.pathInGroup(['/users', '/activity', '/ai-usage', '/settings']));
 
   /**
    * Page routes that require a single view permission (for live-revocation enforcement). Keyed by the
@@ -129,6 +129,7 @@ export class App {
     '/admin/locations': 'location.view-all',
     '/users': 'users.view',
     '/activity': 'activity.view',
+    '/ai-usage': 'ai.usage.view',
   };
 
   /** Routes whose required permission also gates every child path (e.g. /family/household). */
