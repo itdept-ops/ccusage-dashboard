@@ -305,7 +305,7 @@ public static class FamilyCalendarEndpoints
                 parsed.DurationMinutes, start, end,
                 parsed.DayStartHourLocal, parsed.DayEndHourLocal, parsed.Note);
             return Results.Ok(new FindTimeAiDto(slots, considered, interpreted));
-        }).RequireRateLimiting(AiEndpoints.RateLimitPolicy);
+        }).RequirePermission(Permissions.FamilyAi).RequireRateLimiting(AiEndpoints.RateLimitPolicy);
 
         // ---- POST /schedule-ai : Gemini parses free text into PROPOSED events the user then confirms ----
         // Creates NOTHING — the frontend creates each confirmed event via POST /events. Rate-limited (the
@@ -336,7 +336,7 @@ public static class FamilyCalendarEndpoints
             var events = result.Events.Select(e => new ScheduleEventDto(
                 e.Title, e.StartUtc, e.EndUtc, e.AllDay, e.Location, e.Description, e.Recurrence)).ToList();
             return Results.Ok(new ScheduleAiDto(events, result.Notes));
-        }).RequireRateLimiting(AiEndpoints.RateLimitPolicy);
+        }).RequirePermission(Permissions.FamilyAi).RequireRateLimiting(AiEndpoints.RateLimitPolicy);
 
         // ---- POST /ai/from-image : Gemini EXTRACTS proposed events from attached schedule image(s)/PDF(s) ----
         // (a school calendar, a shift schedule, a sports roster). Returns the SAME ScheduleAiDto shape as
@@ -370,7 +370,9 @@ public static class FamilyCalendarEndpoints
             var events = result.Events.Select(e => new ScheduleEventDto(
                 e.Title, e.StartUtc, e.EndUtc, e.AllDay, e.Location, e.Description, e.Recurrence)).ToList();
             return Results.Ok(new ScheduleAiDto(events, result.Notes));
-        }).RequireRateLimiting(AiEndpoints.PhotoRateLimitPolicy);
+        // IMAGE/PDF intake is the vision gate; the parse still needs family.ai. The group keeps family.use.
+        }).RequirePermission(Permissions.AiVision).RequirePermission(Permissions.FamilyAi)
+          .RequireRateLimiting(AiEndpoints.PhotoRateLimitPolicy);
     }
 
     // =====================================================================================

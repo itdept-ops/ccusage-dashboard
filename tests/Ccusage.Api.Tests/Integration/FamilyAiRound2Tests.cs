@@ -74,6 +74,28 @@ public class FamilyAiRound2Tests(WebAppFactory factory)
     }
 
     [Fact]
+    public async Task Round2_endpoints_require_family_ai_on_top_of_family_use()
+    {
+        // family.use reaches the Family Hub, but every generative round-2 AI assist is gated by family.ai — a
+        // family.use-only caller is forbidden (the AI filter precedes the handler's 400/503/404 paths).
+        var (_, owner, _) = await ProvisionUser("family.use"); // no family.ai
+        await owner.GetAsync("/api/family/household");
+        var listId = (await Json(await owner.PostAsJsonAsync("/api/family/lists",
+            new { name = "Party", kind = "shopping" }))).GetProperty("id").GetInt64();
+
+        (await owner.PostAsJsonAsync("/api/family/notes/ai/ask", new { question = "what's the wifi password?" }))
+            .StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        (await owner.PostAsJsonAsync("/api/family/notes/ai/transform", new { body = "hi", action = "shorten" }))
+            .StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        (await owner.PostAsJsonAsync($"/api/family/lists/{listId}/ai/suggest", new { goal = "taco night" }))
+            .StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        (await owner.PostAsJsonAsync("/api/family/meals/ai/what-can-i-make", new { ingredients = "eggs, rice" }))
+            .StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        (await owner.PostAsJsonAsync("/api/family/timers/ai/parse", new { text = "20 minute pasta timer" }))
+            .StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
+
+    [Fact]
     public async Task Round2_endpoints_require_authentication()
     {
         var anon = factory.CreateClient();
@@ -97,7 +119,7 @@ public class FamilyAiRound2Tests(WebAppFactory factory)
     [Fact]
     public async Task AskNotes_returns_400_for_empty_question()
     {
-        var (_, owner, _) = await ProvisionUser("family.use");
+        var (_, owner, _) = await ProvisionUser("family.use", "family.ai");
         await owner.GetAsync("/api/family/household");
         (await owner.PostAsJsonAsync("/api/family/notes/ai/ask", new { question = "   " }))
             .StatusCode.Should().Be(HttpStatusCode.BadRequest);
@@ -106,7 +128,7 @@ public class FamilyAiRound2Tests(WebAppFactory factory)
     [Fact]
     public async Task Transform_returns_400_for_empty_body()
     {
-        var (_, owner, _) = await ProvisionUser("family.use");
+        var (_, owner, _) = await ProvisionUser("family.use", "family.ai");
         await owner.GetAsync("/api/family/household");
         (await owner.PostAsJsonAsync("/api/family/notes/ai/transform", new { body = "   ", action = "shorten" }))
             .StatusCode.Should().Be(HttpStatusCode.BadRequest);
@@ -115,7 +137,7 @@ public class FamilyAiRound2Tests(WebAppFactory factory)
     [Fact]
     public async Task Transform_rejects_an_unknown_action_with_400()
     {
-        var (_, owner, _) = await ProvisionUser("family.use");
+        var (_, owner, _) = await ProvisionUser("family.use", "family.ai");
         await owner.GetAsync("/api/family/household");
         (await owner.PostAsJsonAsync("/api/family/notes/ai/transform",
             new { body = "Some real note content here.", action = "explode" }))
@@ -125,7 +147,7 @@ public class FamilyAiRound2Tests(WebAppFactory factory)
     [Fact]
     public async Task WhatCanIMake_returns_400_for_empty_ingredients()
     {
-        var (_, owner, _) = await ProvisionUser("family.use");
+        var (_, owner, _) = await ProvisionUser("family.use", "family.ai");
         await owner.GetAsync("/api/family/household");
         (await owner.PostAsJsonAsync("/api/family/meals/ai/what-can-i-make", new { ingredients = "   " }))
             .StatusCode.Should().Be(HttpStatusCode.BadRequest);
@@ -134,7 +156,7 @@ public class FamilyAiRound2Tests(WebAppFactory factory)
     [Fact]
     public async Task ParseTimer_returns_400_for_empty_text()
     {
-        var (_, owner, _) = await ProvisionUser("family.use");
+        var (_, owner, _) = await ProvisionUser("family.use", "family.ai");
         await owner.GetAsync("/api/family/household");
         (await owner.PostAsJsonAsync("/api/family/timers/ai/parse", new { text = "   " }))
             .StatusCode.Should().Be(HttpStatusCode.BadRequest);
@@ -143,7 +165,7 @@ public class FamilyAiRound2Tests(WebAppFactory factory)
     [Fact]
     public async Task ListSuggest_returns_400_for_empty_goal()
     {
-        var (_, owner, _) = await ProvisionUser("family.use");
+        var (_, owner, _) = await ProvisionUser("family.use", "family.ai");
         await owner.GetAsync("/api/family/household");
         var listId = (await Json(await owner.PostAsJsonAsync("/api/family/lists",
             new { name = "Party", kind = "shopping" }))).GetProperty("id").GetInt64();
@@ -160,7 +182,7 @@ public class FamilyAiRound2Tests(WebAppFactory factory)
     [Fact]
     public async Task AskNotes_is_503_when_gemini_is_unconfigured_never_500()
     {
-        var (_, owner, _) = await ProvisionUser("family.use");
+        var (_, owner, _) = await ProvisionUser("family.use", "family.ai");
         await owner.GetAsync("/api/family/household");
         await owner.PostAsJsonAsync("/api/family/notes",
             new { title = "Wifi", body = "Password is hunter2", pinned = false });
@@ -173,7 +195,7 @@ public class FamilyAiRound2Tests(WebAppFactory factory)
     [Fact]
     public async Task Transform_is_503_when_gemini_is_unconfigured_never_500()
     {
-        var (_, owner, _) = await ProvisionUser("family.use");
+        var (_, owner, _) = await ProvisionUser("family.use", "family.ai");
         await owner.GetAsync("/api/family/household");
 
         var res = await owner.PostAsJsonAsync("/api/family/notes/ai/transform",
@@ -184,7 +206,7 @@ public class FamilyAiRound2Tests(WebAppFactory factory)
     [Fact]
     public async Task ListSuggest_is_503_when_gemini_is_unconfigured_never_500()
     {
-        var (_, owner, _) = await ProvisionUser("family.use");
+        var (_, owner, _) = await ProvisionUser("family.use", "family.ai");
         await owner.GetAsync("/api/family/household");
         var listId = (await Json(await owner.PostAsJsonAsync("/api/family/lists",
             new { name = "Party", kind = "shopping" }))).GetProperty("id").GetInt64();
@@ -197,7 +219,7 @@ public class FamilyAiRound2Tests(WebAppFactory factory)
     [Fact]
     public async Task WhatCanIMake_is_503_when_gemini_is_unconfigured_never_500()
     {
-        var (_, owner, _) = await ProvisionUser("family.use");
+        var (_, owner, _) = await ProvisionUser("family.use", "family.ai");
         await owner.GetAsync("/api/family/household");
 
         var res = await owner.PostAsJsonAsync("/api/family/meals/ai/what-can-i-make",
@@ -208,7 +230,7 @@ public class FamilyAiRound2Tests(WebAppFactory factory)
     [Fact]
     public async Task ParseTimer_is_503_when_gemini_is_unconfigured_never_500()
     {
-        var (_, owner, _) = await ProvisionUser("family.use");
+        var (_, owner, _) = await ProvisionUser("family.use", "family.ai");
         await owner.GetAsync("/api/family/household");
 
         var res = await owner.PostAsJsonAsync("/api/family/timers/ai/parse",
@@ -223,8 +245,8 @@ public class FamilyAiRound2Tests(WebAppFactory factory)
     [Fact]
     public async Task ListSuggest_returns_404_when_the_list_is_not_viewable()
     {
-        var (_, owner, _) = await ProvisionUser("family.use");
-        var (_, stranger, _) = await ProvisionUser("family.use"); // their OWN (different) household
+        var (_, owner, _) = await ProvisionUser("family.use", "family.ai");
+        var (_, stranger, _) = await ProvisionUser("family.use", "family.ai"); // their OWN (different) household
         await owner.GetAsync("/api/family/household");
         var listId = (await Json(await owner.PostAsJsonAsync("/api/family/lists",
             new { name = "Private", kind = "shopping" }))).GetProperty("id").GetInt64();
@@ -241,8 +263,8 @@ public class FamilyAiRound2Tests(WebAppFactory factory)
         // Alice has a note; Bob (a different household) asks — Bob's household has no notes, so the call still
         // 503s with no key, but it never reaches across households. (We can't observe the corpus directly with
         // no key, so we assert the cross-household ISOLATION on the notes GET that backs the ask.)
-        var (_, alice, _) = await ProvisionUser("family.use");
-        var (_, bob, _) = await ProvisionUser("family.use");
+        var (_, alice, _) = await ProvisionUser("family.use", "family.ai");
+        var (_, bob, _) = await ProvisionUser("family.use", "family.ai");
         await alice.GetAsync("/api/family/household");
         await bob.GetAsync("/api/family/household");
 
@@ -263,7 +285,7 @@ public class FamilyAiRound2Tests(WebAppFactory factory)
     [Fact]
     public async Task The_round2_ai_endpoints_write_nothing()
     {
-        var (_, owner, _) = await ProvisionUser("family.use");
+        var (_, owner, _) = await ProvisionUser("family.use", "family.ai");
         await owner.GetAsync("/api/family/household");
 
         // Baseline: a list with one item, a note, a timer.

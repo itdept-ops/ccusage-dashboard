@@ -13,9 +13,23 @@ public static class UsersEndpoints
 {
     public static void MapUsersEndpoints(this WebApplication app)
     {
-        // The permission catalog (for the admin UI).
+        // The permission catalog (for the admin UI grant matrix): each key carries its group + label +
+        // description + isAi flag (the AI/token-spending perms).
         app.MapGet("/api/permissions", () => Results.Ok(Permissions.Catalog
-                .Select(p => new PermissionItemDto { Key = p.Key, Group = p.Group, Label = p.Label, Description = p.Description })))
+                .Select(p => new PermissionItemDto
+                {
+                    Key = p.Key, Group = p.Group, Label = p.Label, Description = p.Description, IsAi = p.IsAi,
+                })))
+            .RequireAuthorization().RequireAnyPermission(Permissions.UsersView, Permissions.UsersManage);
+
+        // The preset templates (named permission bundles the Users page can apply as a STARTING POINT). Not
+        // persistent roles — the page just preselects the keys in the grant matrix. Gated like the catalog.
+        app.MapGet("/api/permission-presets", () => Results.Ok(Permissions.Presets
+                .Select(p => new PermissionPresetDto
+                {
+                    Key = p.Key, Label = p.Label, Description = p.Description,
+                    Permissions = p.Permissions.ToArray(),
+                })))
             .RequireAuthorization().RequireAnyPermission(Permissions.UsersView, Permissions.UsersManage);
 
         // Recent audit entries (who changed what). Actor/target emails are masked to null unless the

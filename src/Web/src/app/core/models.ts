@@ -397,8 +397,24 @@ export interface ManagedUser {
 
 export interface PermissionItem {
   key: string;
+  /** The UI group this permission belongs to (server-defined: Usage/Fitness/Family/Chat/Location/Admin/AI). */
+  group: string;
   label: string;
   description: string;
+  /** True for the AI (token-spending) permissions, so the grant matrix can flag/style them distinctly. */
+  isAi: boolean;
+}
+
+/**
+ * A server-defined preset template (GET /api/permission-presets): a named bundle of permission keys the
+ * Users page can apply as a STARTING POINT for a user's grants. NOT a persistent role — applying it just
+ * preselects its keys in the grant matrix, which the admin then edits + saves. Mirrors PermissionPresetDto.
+ */
+export interface PermissionPreset {
+  key: string;
+  label: string;
+  description: string;
+  permissions: string[];
 }
 
 export interface AuditEntry {
@@ -2819,7 +2835,7 @@ export interface TrackerRecapResult {
   fellBackToPlain: boolean;
 }
 
-/** Canonical permission keys (mirror of the backend catalog — all 29 keys). */
+/** Canonical permission keys (mirror of the backend catalog). */
 export const PERM = {
   dashboardView: 'dashboard.view',
   dashboardExport: 'dashboard.export',
@@ -2847,52 +2863,75 @@ export const PERM = {
   chatContactsManage: 'chat.contacts.manage',
   trackerSelf: 'tracker.self',
   trackerViewAll: 'tracker.viewall',
-  trackerAi: 'tracker.ai',
   familyUse: 'family.use',
   familyFinance: 'family.finance',
+  // ---- Location (GPS feature placeholders; never default) ----
+  locationSelf: 'location.self',
+  locationShare: 'location.share',
+  // ---- AI (group "AI"; token-spending; never default) ----
+  trackerAi: 'tracker.ai',
+  familyAi: 'family.ai',
+  familyAiAssistant: 'family.ai.assistant',
+  financeAi: 'finance.ai',
+  chatAi: 'chat.ai',
+  aiVision: 'ai.vision',
 } as const;
 
 /**
- * UI groupings for the permission catalog, in display order. The Users page matrix groups its
- * permission columns by these. The backend catalog is the source of truth for the keys themselves;
- * any catalog key whose group isn't listed here falls back to an "Other" bucket so nothing is lost.
+ * UI groupings for the permission catalog, in display order — mirrors the backend catalog's Group field.
+ * The Users page groups its grant matrix by these; "AI" is rendered as its own visually distinct section.
+ * The backend catalog is the source of truth (the page reads each item's own `group`); this order is the
+ * fallback/ordering hint. Any catalog group not listed here is appended after, so nothing is ever dropped.
  */
 export const PERM_GROUP_ORDER: readonly string[] = [
-  'Dashboard', 'Calendar', 'Pricing', 'Settings', 'Reporter',
-  'Notifications', 'Chat', 'Tracker', 'Family', 'Shares', 'Administration',
+  'Usage', 'Fitness', 'Family', 'Chat', 'Location', 'Admin', 'AI',
 ];
 
 /** Maps each permission key to its UI group (mirror of the backend catalog grouping). */
 export const PERM_GROUP_OF: Readonly<Record<string, string>> = {
-  [PERM.dashboardView]: 'Dashboard',
-  [PERM.dashboardExport]: 'Dashboard',
-  [PERM.syncRun]: 'Dashboard',
-  [PERM.calendarView]: 'Calendar',
-  [PERM.pricingView]: 'Pricing',
-  [PERM.pricingManage]: 'Pricing',
-  [PERM.settingsView]: 'Settings',
-  [PERM.settingsManage]: 'Settings',
-  [PERM.sourcesManage]: 'Settings',
-  [PERM.reporterView]: 'Reporter',
-  [PERM.reporterManage]: 'Reporter',
-  [PERM.reporterSelf]: 'Reporter',
-  [PERM.fleetView]: 'Reporter',
-  [PERM.notificationsView]: 'Notifications',
-  [PERM.notificationsManage]: 'Notifications',
+  // ---- Usage ----
+  [PERM.dashboardView]: 'Usage',
+  [PERM.dashboardExport]: 'Usage',
+  [PERM.syncRun]: 'Usage',
+  [PERM.calendarView]: 'Usage',
+  [PERM.pricingView]: 'Usage',
+  [PERM.pricingManage]: 'Usage',
+  [PERM.reporterView]: 'Usage',
+  [PERM.reporterManage]: 'Usage',
+  [PERM.reporterSelf]: 'Usage',
+  [PERM.fleetView]: 'Usage',
+  [PERM.sharesView]: 'Usage',
+  [PERM.sharesManage]: 'Usage',
+  [PERM.notificationsView]: 'Usage',
+  [PERM.notificationsManage]: 'Usage',
+  // ---- Fitness ----
+  [PERM.trackerSelf]: 'Fitness',
+  [PERM.trackerViewAll]: 'Fitness',
+  // ---- Family ----
+  [PERM.familyUse]: 'Family',
+  [PERM.familyFinance]: 'Family',
+  // ---- Chat ----
   [PERM.chatRead]: 'Chat',
   [PERM.chatSend]: 'Chat',
   [PERM.chatModerate]: 'Chat',
   [PERM.chatContactsManage]: 'Chat',
-  [PERM.trackerSelf]: 'Tracker',
-  [PERM.trackerViewAll]: 'Tracker',
-  [PERM.trackerAi]: 'Tracker',
-  [PERM.familyUse]: 'Family',
-  [PERM.familyFinance]: 'Family',
-  [PERM.sharesView]: 'Shares',
-  [PERM.sharesManage]: 'Shares',
-  [PERM.usersView]: 'Administration',
-  [PERM.usersManage]: 'Administration',
-  [PERM.activityView]: 'Administration',
+  // ---- Location ----
+  [PERM.locationSelf]: 'Location',
+  [PERM.locationShare]: 'Location',
+  // ---- Admin ----
+  [PERM.usersView]: 'Admin',
+  [PERM.usersManage]: 'Admin',
+  [PERM.activityView]: 'Admin',
+  [PERM.settingsView]: 'Admin',
+  [PERM.settingsManage]: 'Admin',
+  [PERM.sourcesManage]: 'Admin',
+  // ---- AI ----
+  [PERM.trackerAi]: 'AI',
+  [PERM.familyAi]: 'AI',
+  [PERM.familyAiAssistant]: 'AI',
+  [PERM.financeAi]: 'AI',
+  [PERM.chatAi]: 'AI',
+  [PERM.aiVision]: 'AI',
 };
 
 /** Access policy for open sign-up + default permissions (GET/PUT /api/access-policy). */

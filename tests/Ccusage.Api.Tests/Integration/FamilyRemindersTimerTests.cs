@@ -412,9 +412,22 @@ public class FamilyRemindersTimerTests(WebAppFactory factory)
     }
 
     [Fact]
+    public async Task ReminderAiParse_requires_family_ai_on_top_of_family_use()
+    {
+        // family.use reaches the Family Hub, but the generative reminder parse is gated by family.ai — a
+        // family.use-only caller is forbidden (the filter precedes the empty-text 400 + the 503).
+        var (_, owner, _) = await ProvisionUser("family.use");
+        await owner.GetAsync("/api/family/household");
+
+        var res = await owner.PostAsJsonAsync("/api/family/reminders/ai/parse",
+            new { text = "call the dentist tomorrow at 9am" });
+        res.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
+
+    [Fact]
     public async Task ReminderAiParse_returns_400_for_empty_text()
     {
-        var (_, owner, _) = await ProvisionUser("family.use");
+        var (_, owner, _) = await ProvisionUser("family.use", "family.ai");
         await owner.GetAsync("/api/family/household");
 
         var res = await owner.PostAsJsonAsync("/api/family/reminders/ai/parse", new { text = "   " });
@@ -424,7 +437,7 @@ public class FamilyRemindersTimerTests(WebAppFactory factory)
     [Fact]
     public async Task ReminderAiParse_is_unavailable_503_when_gemini_is_unconfigured_never_500()
     {
-        var (_, owner, _) = await ProvisionUser("family.use");
+        var (_, owner, _) = await ProvisionUser("family.use", "family.ai");
         await owner.GetAsync("/api/family/household");
 
         // No Gemini API key is configured in tests, so AI reminders are gracefully unavailable (503), never

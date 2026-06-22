@@ -38,7 +38,6 @@ mat-progress-bar {
 /* ---- Email-reveal toggle (page toolbar) ---- */
 .head-tools { flex: 0 0 auto; display: flex; align-items: center; gap: 8px; }
 .reveal-toggle {
-  /* >=44px tap target. */
   min-height: 44px;
   border-radius: var(--tech-r-control);
   font-weight: 600;
@@ -70,18 +69,6 @@ mat-progress-bar {
   .email-hidden-icon { font-size: 13px; width: 13px; height: 13px; letter-spacing: 0; }
 }
 
-/* ---- Contacts editor locked (emails not revealed) ---- */
-.contacts-locked {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: var(--tech-fs-label, 12px);
-  font-style: italic;
-  color: var(--tech-text-tertiary);
-
-  .contacts-locked-icon { font-size: 16px; width: 16px; height: 16px; color: var(--tech-text-tertiary); }
-}
-
 .panel {
   padding: 16px 18px;
   margin-bottom: var(--tech-space-4);
@@ -97,7 +84,29 @@ mat-progress-bar {
   margin-bottom: 12px;
 }
 
+/* ---- AI accent shared bits (the AI group is visually distinct throughout) ---- */
+$ai: var(--tech-accent-secondary, #b07cff);
+.ai-spark {
+  font-size: 14px;
+  width: 14px;
+  height: 14px;
+  vertical-align: -2px;
+  color: $ai;
+}
+
 /* ---- Add user ---- */
+.add-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.add-toggle {
+  font-size: var(--tech-fs-label, 12px);
+  font-weight: 600;
+  color: var(--tech-text-secondary);
+  .expand-chevron { transition: transform 120ms ease; &.open { transform: rotate(180deg); color: var(--tech-accent); } }
+}
 .add-row {
   display: flex;
   flex-wrap: wrap;
@@ -105,11 +114,42 @@ mat-progress-bar {
   gap: 16px;
 
   .add-email { width: 280px; }
-  .add-perms { display: flex; flex-wrap: wrap; gap: 10px 18px; flex: 1 1 auto; }
-  .add-btn { border-radius: var(--tech-r-control); font-weight: 600; }
+  .add-btn { border-radius: var(--tech-r-control); font-weight: 600; margin-left: auto; }
+}
+.add-perms {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 18px;
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--tech-border-subtle);
 }
 
-/* ---- Grouped permission checklist (add-user + access policy) ---- */
+/* ---- Preset starter chips (add-user + per-user card) ---- */
+.preset-starter,
+.ucard-preset {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.preset-starter-label {
+  color: var(--tech-text-tertiary);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.preset-chip {
+  min-height: 34px;
+  padding: 0 12px;
+  border-radius: var(--tech-r-pill, 999px);
+  font-size: var(--tech-fs-label, 12px);
+  font-weight: 600;
+  color: var(--tech-text-secondary);
+  --mdc-outlined-button-outline-color: var(--tech-border-strong);
+  &:hover { color: var(--tech-accent); }
+}
+
+/* ---- Grouped permission checklist (add-user + access policy + mobile cards) ---- */
 .add-perm-group {
   display: flex;
   flex-direction: column;
@@ -119,17 +159,108 @@ mat-progress-bar {
   border-radius: var(--tech-r-chip);
   background: color-mix(in srgb, var(--tech-panel-raised) 40%, transparent);
 }
+.add-perm-group--ai {
+  border-color: color-mix(in srgb, #{$ai} 45%, var(--tech-border-subtle));
+  background: color-mix(in srgb, #{$ai} 9%, transparent);
+}
 .add-perm-group-name {
   display: block;
   color: var(--tech-text-tertiary);
   letter-spacing: 0.06em;
   text-transform: uppercase;
 }
+.add-perm-group--ai .add-perm-group-name { color: color-mix(in srgb, #{$ai} 75%, var(--tech-text-secondary)); }
 .add-perm-group-items {
   display: flex;
   flex-direction: column;
   gap: 2px;
 }
+
+/* ---- Search + filter toolbar ---- */
+.filter-card { padding: 12px 18px; }
+.filter-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+
+  .filter-search { flex: 2 1 240px; }
+  .filter-perm, .filter-preset { flex: 1 1 180px; }
+}
+.filter-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+  flex: 0 0 auto;
+
+  .filter-count {
+    font-size: var(--tech-fs-label, 12px);
+    font-weight: 600;
+    color: var(--tech-text-secondary);
+    white-space: nowrap;
+  }
+  .filter-clear {
+    color: var(--tech-text-tertiary);
+    &:hover { color: var(--tech-accent); }
+    mat-icon { font-size: 17px; width: 17px; height: 17px; }
+  }
+}
+
+/* ---- Bulk action bar ---- */
+.bulk-bar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 10px 14px;
+  margin-bottom: var(--tech-space-4);
+  border: 1px solid color-mix(in srgb, var(--tech-accent) 45%, var(--tech-border-subtle));
+  border-radius: var(--tech-r-control);
+  background: color-mix(in srgb, var(--tech-accent) 10%, var(--tech-panel, #111722));
+
+  .bulk-count { font-size: var(--tech-fs-body); color: var(--tech-text); margin-right: 4px;
+    strong { color: var(--tech-accent); } }
+  .bulk-act {
+    min-height: 36px;
+    border-radius: var(--tech-r-control);
+    font-size: var(--tech-fs-label, 12px);
+    font-weight: 600;
+    color: var(--tech-text-secondary);
+    --mdc-outlined-button-outline-color: var(--tech-border-strong);
+    mat-icon { font-size: 17px; width: 17px; height: 17px; }
+    &:hover { color: var(--tech-accent); }
+  }
+  .bulk-clear { color: var(--tech-text-tertiary); margin-left: auto; }
+  .bulk-progress {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: var(--tech-fs-label, 12px);
+    color: var(--tech-text-secondary);
+    --mdc-circular-progress-active-indicator-color: var(--tech-accent);
+  }
+}
+
+/* ---- Bulk / row preset menus ---- */
+.menu-group-label {
+  padding: 8px 16px 4px;
+  font-size: var(--tech-fs-micro, 11px);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--tech-text-tertiary);
+}
+.menu-label { display: block; font-weight: 600; }
+.menu-desc {
+  display: block;
+  font-size: var(--tech-fs-micro, 11px);
+  color: var(--tech-text-tertiary);
+  white-space: normal;
+  max-width: 320px;
+  line-height: 1.35;
+}
+.mat-mdc-menu-item:has(.menu-desc) { height: auto; padding-top: 6px; padding-bottom: 6px; line-height: 1.3; }
 
 /* ---- Matrix table ---- */
 .table-scroll { overflow-x: auto; }
@@ -157,6 +288,7 @@ mat-progress-bar {
     border-bottom-color: var(--tech-border);
   }
   .col-perm { text-align: center; }
+  .col-select { text-align: center; width: 40px; padding-right: 0 !important; }
   .col-actions { text-align: right; }
 
   /* Grouped header: a top band of group names over a row of per-permission labels. */
@@ -167,6 +299,12 @@ mat-progress-bar {
     border-left: 1px solid var(--tech-border-subtle);
     letter-spacing: 0.08em;
   }
+  /* The AI group band stands apart: accent text + a tinted, bordered region. */
+  .group-row .col-group--ai {
+    color: color-mix(in srgb, #{$ai} 80%, var(--tech-text-secondary));
+    border-left: 2px solid color-mix(in srgb, #{$ai} 55%, transparent);
+    background: color-mix(in srgb, #{$ai} 10%, transparent);
+  }
   .perm-row .col-perm {
     vertical-align: bottom;
     font-size: var(--tech-fs-micro, 10.5px);
@@ -175,38 +313,47 @@ mat-progress-bar {
   /* A subtle divider at the start of each group for column scannability. */
   .col-perm.group-start,
   td.col-perm.group-start { border-left: 1px solid var(--tech-border-subtle); }
+  /* AI columns get a faint tinted band the whole height of the matrix. */
+  .col-perm--ai,
+  td.col-perm--ai { background: color-mix(in srgb, #{$ai} 6%, transparent); }
+  thead .perm-row .col-perm--ai { color: color-mix(in srgb, #{$ai} 70%, var(--tech-text-tertiary)); }
 
   tbody tr:hover { background: color-mix(in srgb, var(--tech-panel-raised) 50%, transparent); }
   tbody tr.disabled { opacity: 0.5; }
+  tbody tr.row-selected { background: color-mix(in srgb, var(--tech-accent) 9%, transparent); }
 
-  /* ---- Sticky identity (first) column ----
-     The matrix scrolls sideways through many permission columns; pin the leading chevron + user
-     identity cell so the row stays identifiable. Both cells get a solid --tech background so the
-     scrolling matrix passes underneath, and a right-edge divider separates the frozen region. */
+  /* ---- Sticky identity (leading) columns ----
+     The matrix scrolls sideways through many permission columns; pin the select + chevron + user
+     identity cells so the row stays identifiable. Each gets a solid --tech background so the scrolling
+     matrix passes underneath, and a right-edge divider separates the frozen region. */
+  .col-select,
   .col-expand,
   .col-user {
     position: sticky;
     z-index: 2;
     background: var(--tech-panel, #111722);
   }
-  .col-expand { left: 0; }
+  .col-select { left: 0; }
+  .col-expand { left: 40px; }
   .col-user {
-    /* Flush against .col-expand: its rendered width is ~44px (12px padding-left + 32px icon button,
-       padding-right zeroed), not the nominal 36px, so the frozen pair stays gap-/overlap-free. */
-    left: 44px;
+    /* col-select (~40px) + col-expand (~44px rendered) = 84px. */
+    left: 84px;
     box-shadow: 1px 0 0 var(--tech-border-subtle), 4px 0 8px -6px rgba(0, 0, 0, 0.55);
   }
-  /* Header corner sits above both the scrolling header and the sticky body column. */
+  thead .col-select,
   thead .col-expand,
   thead .col-user { z-index: 3; }
-  /* Keep the sticky cells' background in lock-step with row hover/expanded/disabled tints so the
-     scrolled-under matrix never shows through them. */
+  /* Keep the frozen cells' background in lock-step with row hover/expanded/disabled/selected tints. */
+  tbody tr:hover .col-select,
   tbody tr:hover .col-expand,
   tbody tr:hover .col-user { background: color-mix(in srgb, var(--tech-panel-raised) 50%, var(--tech-panel, #111722)); }
+  tbody tr.expanded .col-select,
   tbody tr.expanded .col-expand,
   tbody tr.expanded .col-user { background: color-mix(in srgb, var(--tech-panel-raised) 50%, var(--tech-panel, #111722)); }
-  /* A disabled row dims its whole identity; mirror that tint onto the solid-backed sticky cells so
-     they don't read as a brighter panel than the rest of the (dimmed) row alongside them. */
+  tbody tr.row-selected .col-select,
+  tbody tr.row-selected .col-expand,
+  tbody tr.row-selected .col-user { background: color-mix(in srgb, var(--tech-accent) 9%, var(--tech-panel, #111722)); }
+  tbody tr.disabled .col-select,
   tbody tr.disabled .col-expand,
   tbody tr.disabled .col-user { background: color-mix(in srgb, var(--tech-text-tertiary) 14%, var(--tech-panel, #111722)); }
 }
@@ -222,8 +369,6 @@ mat-progress-bar {
 }
 .u-id { display: flex; flex-direction: column; line-height: 1.25; min-width: 0; }
 .u-email { font-weight: 500; color: var(--tech-text); }
-/* Cap the frozen identity column so a long account email can't widen the sticky cell unbounded and
-   push the (already wide) permission matrix into extra horizontal scroll. Desktop matrix only. */
 .col-user .u-email,
 .col-user .u-name {
   max-width: 220px;
@@ -231,7 +376,23 @@ mat-progress-bar {
   text-overflow: ellipsis;
 }
 .u-name { font-size: var(--tech-fs-label); color: var(--tech-text-secondary); }
+.u-meta { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .u-last { color: var(--tech-text-tertiary); }
+
+/* AI badge on a user row */
+.ai-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 1px 7px;
+  border-radius: var(--tech-r-pill, 999px);
+  font-size: var(--tech-fs-micro, 10px);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: color-mix(in srgb, #{$ai} 85%, white);
+  background: color-mix(in srgb, #{$ai} 18%, transparent);
+  mat-icon { font-size: 11px; width: 11px; height: 11px; }
+}
 
 .save-btn {
   border-radius: var(--tech-r-control);
@@ -239,22 +400,23 @@ mat-progress-bar {
   --mdc-outlined-button-outline-color: var(--tech-border-strong);
   margin-right: 4px;
 }
-/* Force-logout: deliberately distinct from Disable — a neutral session control that warms to the
-   accent (not the destructive red of delete) so admins don't read it as "disable account". */
+.preset-btn {
+  width: 40px; height: 40px;
+  color: var(--tech-text-tertiary);
+  &:hover { color: var(--tech-accent); }
+}
 .signout-btn {
-  /* >=44px touch target (Material 21's icon-button box is ~40px) without distorting the 24px glyph. */
   width: 44px;
   height: 44px;
   --mat-icon-button-touch-target-display: none;
   color: var(--tech-text-tertiary);
   &:hover { color: var(--tech-accent); }
   &:disabled { opacity: 0.5; }
-  /* In-flight spinner sits where the icon was; inherit the button's current color. */
   .signout-spinner { --mdc-circular-progress-active-indicator-color: currentColor; }
 }
 .del-btn { color: var(--tech-text-tertiary); &:hover { color: var(--tech-error, #ff5c6c); } }
 
-/* ---- Expandable login history ---- */
+/* ---- Expand control ---- */
 .col-expand { width: 36px; padding-right: 0 !important; }
 .expand-btn {
   width: 32px; height: 32px; line-height: 32px;
@@ -270,17 +432,29 @@ mat-progress-bar {
   > td { border-bottom-color: transparent; }
 }
 
-.logins-row > td {
+.table-empty {
+  padding: 28px 16px;
+  text-align: center;
+  font-size: var(--tech-fs-body);
+  color: var(--tech-text-tertiary);
+  font-style: italic;
+}
+
+/* ---- Expanded inline detail ---- */
+.detail-row > td {
   padding: 0 !important;
   background: color-mix(in srgb, var(--tech-panel-raised) 28%, transparent);
 }
-.logins-panel {
-  /* The expanded row's cell isn't sticky, so its leading edge scrolls beneath the opaque frozen
-     identity columns (col-expand + col-user). Inset the content past that frozen region so the
-     accent border and first lines stay clear of the sticky cells when the matrix is scrolled. */
-  padding: 12px 16px 14px 80px;
+.detail-panel {
+  /* The expanded cell isn't sticky; inset past the frozen leading columns so content clears them. */
+  padding: 12px 16px 14px 100px;
   border-left: 2px solid var(--tech-accent);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
 }
+.detail-block { min-width: 0; }
+
 .logins-head {
   display: flex;
   align-items: center;
@@ -298,6 +472,49 @@ mat-progress-bar {
   }
   .logins-head-sub { color: var(--tech-text-tertiary); }
 }
+
+/* ---- Readable access summary ---- */
+.access-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 20px;
+}
+.access-group { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+.access-group-name {
+  color: var(--tech-text-tertiary);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.access-labels { display: flex; flex-wrap: wrap; gap: 5px; }
+.access-pill {
+  display: inline-block;
+  padding: 2px 9px;
+  border-radius: var(--tech-r-pill, 999px);
+  font-size: var(--tech-fs-micro, 11px);
+  color: var(--tech-text);
+  background: color-mix(in srgb, var(--tech-panel-raised) 60%, transparent);
+  border: 1px solid var(--tech-border-subtle);
+}
+.access-pill--ai {
+  color: color-mix(in srgb, #{$ai} 85%, white);
+  background: color-mix(in srgb, #{$ai} 14%, transparent);
+  border-color: color-mix(in srgb, #{$ai} 40%, transparent);
+}
+.ai-summary {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px dashed var(--tech-border-subtle);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.ai-summary-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: color-mix(in srgb, #{$ai} 75%, var(--tech-text-secondary));
+}
+.ai-off { color: var(--tech-text-tertiary); font-style: italic; }
 
 .logins-state {
   padding: 6px 0;
@@ -344,6 +561,9 @@ mat-progress-bar {
   }
 }
 
+/* The stacked login-card list is mobile-only; the table covers desktop. */
+.logins-cards { display: none; }
+
 .login-badge {
   display: inline-block;
   padding: 2px 9px;
@@ -365,7 +585,6 @@ mat-progress-bar {
 
 /* ---- Admin chat-contacts editor (inside the expanded row) ---- */
 .contacts-block {
-  margin-top: 14px;
   padding-top: 12px;
   border-top: 1px dashed var(--tech-border-subtle);
 }
@@ -429,13 +648,6 @@ mat-progress-bar {
   font-size: var(--tech-fs-label, 12px);
   font-weight: 500;
   color: var(--tech-text);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.contact-chip-email {
-  font-size: var(--tech-fs-micro, 11px);
-  color: var(--tech-text-tertiary);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -578,6 +790,7 @@ mat-slide-toggle {
     color: var(--tech-warn);
   }
   .policy-perms { display: flex; flex-wrap: wrap; gap: 10px 18px; }
+  .policy-defaults-note { display: block; margin-top: 10px; color: var(--tech-text-tertiary); }
 
   .policy-actions {
     margin-top: 18px;
@@ -591,10 +804,7 @@ mat-slide-toggle {
 /* Mobile — per-user cards replace the wide matrix; everything stacks.   */
 /* ===================================================================== */
 
-/* The sticky identity column (defined in the base .perm-table rule above) applies at every width the
-   matrix is visible — full desktop and tablet alike — so the page itself never scrolls sideways. */
-
-@media (max-width: 640px) {
+@media (max-width: 760px) {
   .panel { padding: 14px 14px; }
 
   /* Email-reveal toggle goes full-width under the header text on phones. */
@@ -605,6 +815,19 @@ mat-slide-toggle {
   /* Swap the matrix table for the card list. */
   .matrix-desktop { display: none; }
   .matrix-mobile { display: flex; flex-direction: column; gap: 12px; }
+  .mcard-selectall { padding: 2px 2px 2px 0; }
+
+  /* The login table hides; the stacked cards show. */
+  .logins-table { display: none; }
+  .logins-cards { display: flex; flex-direction: column; gap: 8px; }
+
+  /* ---- Filter toolbar: stack ---- */
+  .filter-row {
+    flex-direction: column;
+    align-items: stretch;
+    .filter-search, .filter-perm, .filter-preset { width: 100%; flex: 1 1 auto; }
+    .filter-meta { margin-left: 0; justify-content: space-between; }
+  }
 
   /* ---- Add-user form: stack and go full width ---- */
   .add-row {
@@ -613,10 +836,14 @@ mat-slide-toggle {
     gap: 14px;
 
     .add-email { width: 100%; }
-    .add-perms { width: 100%; }
-    .add-btn { width: 100%; min-height: 44px; }
+    .add-btn { width: 100%; min-height: 44px; margin-left: 0; }
   }
+  .preset-starter { width: 100%; }
   .add-perms .add-perm-group { flex: 1 1 100%; }
+
+  /* ---- Bulk bar: wrap, full-width actions ---- */
+  .bulk-bar { gap: 6px; }
+  .bulk-bar .bulk-clear { margin-left: 0; }
 
   /* ---- Per-user cards ---- */
   .ucard {
@@ -626,26 +853,27 @@ mat-slide-toggle {
     padding: 14px;
 
     &.disabled { opacity: 0.6; }
+    &.card-selected { border-color: color-mix(in srgb, var(--tech-accent) 55%, var(--tech-border-subtle)); }
   }
   .ucard-top {
     display: flex;
     align-items: flex-start;
-    justify-content: space-between;
-    gap: 12px;
+    gap: 10px;
     flex-wrap: wrap;
     margin-bottom: 12px;
 
+    .ucard-select { flex: 0 0 auto; margin-top: 2px; }
     .u-cell { min-width: 0; flex: 1 1 auto; }
     .u-email { word-break: break-all; }
     .ucard-enabled { flex: 0 0 auto; }
   }
+  .ucard-preset { margin-bottom: 12px; }
   .ucard-perms {
     display: flex;
     flex-direction: column;
     gap: 10px;
 
     .add-perm-group { width: 100%; }
-    /* Two-up perm checkboxes inside each group to use the width without crowding. */
     .add-perm-group-items {
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -670,15 +898,14 @@ mat-slide-toggle {
     }
   }
 
-  /* Sign-in history inside a card: stacked items, no wide table. */
-  .ucard-logins {
+  /* Inline detail inside a card. */
+  .ucard-detail {
     margin-top: 12px;
     padding: 12px;
     border-left: 2px solid var(--tech-accent);
     border-radius: var(--tech-r-control);
     background: color-mix(in srgb, var(--tech-panel-raised) 28%, transparent);
   }
-  .logins-cards { display: flex; flex-direction: column; gap: 8px; }
   .login-item {
     padding: 10px;
     border: 1px solid var(--tech-border-subtle);
@@ -706,7 +933,6 @@ mat-slide-toggle {
   }
   .login-item-agent { font-size: var(--tech-fs-micro, 11px); color: var(--tech-text-tertiary); }
 
-  /* ---- Chat-contacts editor on phones ---- */
   .contacts-block { margin-top: 12px; }
   .contact-chip { max-width: 100%; }
   .contact-chip-id { min-width: 0; }
@@ -743,5 +969,5 @@ mat-slide-toggle {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .expand-chevron { transition: none; }
+  .expand-chevron, .add-toggle .expand-chevron { transition: none; }
 }

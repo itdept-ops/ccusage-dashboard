@@ -269,7 +269,7 @@ public static class FamilyNotesListsEndpoints
             if (result is null) return AiUnavailable();
 
             return Results.Ok(new NoteDraftAiDto(result.Title, result.Body, result.Note));
-        }).RequireRateLimiting(AiEndpoints.RateLimitPolicy);
+        }).RequirePermission(Permissions.FamilyAi).RequireRateLimiting(AiEndpoints.RateLimitPolicy);
 
         // ---- POST /notes/{id}/ai/summarize : summarise a note + pull action items (with optional due phrases) ----
         // Reuses ResolveAccessAsync: 404 if the caller can't VIEW the note (existence never leaked). Creates
@@ -294,7 +294,7 @@ public static class FamilyNotesListsEndpoints
             var actions = result.ActionItems
                 .Select(a => new NoteActionItemDto(a.Text, a.DuePhrase)).ToList();
             return Results.Ok(new NoteSummaryAiDto(result.Summary, actions));
-        }).RequireRateLimiting(AiEndpoints.RateLimitPolicy);
+        }).RequirePermission(Permissions.FamilyAi).RequireRateLimiting(AiEndpoints.RateLimitPolicy);
 
         // ---- POST /notes/ai/ask : read-only Q&A over the caller's HOUSEHOLD notes (round 2) ----
         // Loads the caller's OWN household's notes (title+body, newest-first, capped ~24k chars) and answers the
@@ -326,7 +326,7 @@ public static class FamilyNotesListsEndpoints
             if (result is null) return AiUnavailable();
 
             return Results.Ok(new AskNotesAiDto(result.Answer, result.UsedNoteIds));
-        }).RequireRateLimiting(AiEndpoints.RateLimitPolicy);
+        }).RequirePermission(Permissions.FamilyAi).RequireRateLimiting(AiEndpoints.RateLimitPolicy);
 
         // ---- POST /notes/ai/transform : transform in-editor markdown (round 2) ----
         // Operates on editor content only — it touches NO stored note, so no access check beyond family.use is
@@ -346,7 +346,7 @@ public static class FamilyNotesListsEndpoints
             if (result is null) return AiUnavailable();
 
             return Results.Ok(new NoteTransformAiDto(result.Body));
-        }).RequireRateLimiting(AiEndpoints.RateLimitPolicy);
+        }).RequirePermission(Permissions.FamilyAi).RequireRateLimiting(AiEndpoints.RateLimitPolicy);
     }
 
     /// <summary>The transform actions the note transformer accepts (mirrors GeminiService.TransformActions).</summary>
@@ -615,7 +615,7 @@ public static class FamilyNotesListsEndpoints
             if (result is null) return AiUnavailable();
 
             return Results.Ok(new ListItemsAiDto(result.Items, result.Notes));
-        }).RequireRateLimiting(AiEndpoints.RateLimitPolicy);
+        }).RequirePermission(Permissions.FamilyAi).RequireRateLimiting(AiEndpoints.RateLimitPolicy);
 
         // ---- POST /lists/{id}/ai/suggest : "What am I missing" — propose ADDITIONAL items (round 2) ----
         // Reuses ResolveAccessAsync: 404 if the caller can't VIEW the list (existence never leaked). Given the
@@ -649,7 +649,7 @@ public static class FamilyNotesListsEndpoints
             if (result is null) return AiUnavailable();
 
             return Results.Ok(new ListSuggestAiDto(result.Items));
-        }).RequireRateLimiting(AiEndpoints.RateLimitPolicy);
+        }).RequirePermission(Permissions.FamilyAi).RequireRateLimiting(AiEndpoints.RateLimitPolicy);
     }
 
     // =====================================================================================

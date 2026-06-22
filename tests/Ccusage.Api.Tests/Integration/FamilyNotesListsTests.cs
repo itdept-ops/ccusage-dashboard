@@ -420,9 +420,27 @@ public class FamilyNotesListsTests(WebAppFactory factory)
     }
 
     [Fact]
+    public async Task The_notes_lists_ai_endpoints_require_family_ai_on_top_of_family_use()
+    {
+        // family.use reaches the Family Hub, but the generative notes/lists AI assists are gated by family.ai —
+        // a family.use-only caller is forbidden (the AI filter precedes the handler's 400/503/404 paths).
+        var (_, owner, _) = await ProvisionUser("family.use"); // no family.ai
+        await owner.GetAsync("/api/family/household");
+        var noteId = (await Json(await owner.PostAsJsonAsync("/api/family/notes",
+            new { title = "Trip", body = "Pack.", pinned = false }))).GetProperty("id").GetInt64();
+
+        (await owner.PostAsJsonAsync("/api/family/lists/ai/parse-items", new { text = "milk, eggs" }))
+            .StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        (await owner.PostAsJsonAsync("/api/family/notes/ai/draft", new { prompt = "a packing list" }))
+            .StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        (await owner.PostAsJsonAsync($"/api/family/notes/{noteId}/ai/summarize", new { }))
+            .StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
+
+    [Fact]
     public async Task ListItemsAi_returns_400_for_empty_text()
     {
-        var (_, owner, _) = await ProvisionUser("family.use");
+        var (_, owner, _) = await ProvisionUser("family.use", "family.ai");
         await owner.GetAsync("/api/family/household");
         (await owner.PostAsJsonAsync("/api/family/lists/ai/parse-items", new { text = "   " }))
             .StatusCode.Should().Be(HttpStatusCode.BadRequest);
@@ -431,7 +449,7 @@ public class FamilyNotesListsTests(WebAppFactory factory)
     [Fact]
     public async Task NoteDraftAi_returns_400_for_empty_prompt()
     {
-        var (_, owner, _) = await ProvisionUser("family.use");
+        var (_, owner, _) = await ProvisionUser("family.use", "family.ai");
         await owner.GetAsync("/api/family/household");
         (await owner.PostAsJsonAsync("/api/family/notes/ai/draft", new { prompt = "   " }))
             .StatusCode.Should().Be(HttpStatusCode.BadRequest);
@@ -440,7 +458,7 @@ public class FamilyNotesListsTests(WebAppFactory factory)
     [Fact]
     public async Task ListItemsAi_is_unavailable_503_when_gemini_is_unconfigured_never_500()
     {
-        var (_, owner, _) = await ProvisionUser("family.use");
+        var (_, owner, _) = await ProvisionUser("family.use", "family.ai");
         await owner.GetAsync("/api/family/household");
 
         // No Gemini key in tests → graceful 503 (never 500), and a real upstream call is never made.
@@ -452,7 +470,7 @@ public class FamilyNotesListsTests(WebAppFactory factory)
     [Fact]
     public async Task NoteDraftAi_is_unavailable_503_when_gemini_is_unconfigured_never_500()
     {
-        var (_, owner, _) = await ProvisionUser("family.use");
+        var (_, owner, _) = await ProvisionUser("family.use", "family.ai");
         await owner.GetAsync("/api/family/household");
 
         var res = await owner.PostAsJsonAsync("/api/family/notes/ai/draft",
@@ -463,7 +481,7 @@ public class FamilyNotesListsTests(WebAppFactory factory)
     [Fact]
     public async Task NoteSummarizeAi_is_unavailable_503_when_gemini_is_unconfigured_never_500()
     {
-        var (_, owner, _) = await ProvisionUser("family.use");
+        var (_, owner, _) = await ProvisionUser("family.use", "family.ai");
         await owner.GetAsync("/api/family/household");
         var noteId = (await Json(await owner.PostAsJsonAsync("/api/family/notes",
             new { title = "Trip", body = "Pack bags. Book hotel by Friday.", pinned = false })))
@@ -476,14 +494,14 @@ public class FamilyNotesListsTests(WebAppFactory factory)
     [Fact]
     public async Task NoteSummarizeAi_returns_404_when_caller_cannot_view_the_note()
     {
-        var (_, owner, _) = await ProvisionUser("family.use");
-        var (_, stranger, _) = await ProvisionUser("family.use"); // their OWN (different) household
+        var (_, owner, _) = await ProvisionUser("family.use", "family.ai");
+        var (_, stranger, _) = await ProvisionUser("family.use", "family.ai"); // their OWN (different) household
         await owner.GetAsync("/api/family/household");
         var noteId = (await Json(await owner.PostAsJsonAsync("/api/family/notes",
             new { title = "Private", body = "secret", pinned = false }))).GetProperty("id").GetInt64();
 
-        // The access check runs BEFORE the Gemini config check, so a non-viewer gets 404 (existence not leaked),
-        // never a 503.
+        // The access check runs (after the family.ai gate) BEFORE the Gemini config check, so a non-viewer who
+        // holds family.ai gets 404 (existence not leaked), never a 503.
         (await stranger.PostAsJsonAsync($"/api/family/notes/{noteId}/ai/summarize", new { }))
             .StatusCode.Should().Be(HttpStatusCode.NotFound);
     }
@@ -491,7 +509,7 @@ public class FamilyNotesListsTests(WebAppFactory factory)
     [Fact]
     public async Task The_three_ai_endpoints_write_nothing()
     {
-        var (_, owner, _) = await ProvisionUser("family.use");
+        var (_, owner, _) = await ProvisionUser("family.use", "family.ai");
         await owner.GetAsync("/api/family/household");
 
         // A list with one item, and a note — the baseline we'll prove is untouched.

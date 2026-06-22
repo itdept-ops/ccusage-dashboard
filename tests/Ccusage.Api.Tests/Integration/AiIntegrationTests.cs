@@ -114,6 +114,23 @@ public class AiIntegrationTests(WebAppFactory factory)
             .StatusCode.Should().Be(HttpStatusCode.Forbidden);
     }
 
+    // ---- The photo routes ALSO require ai.vision (multimodal gate) ON TOP of tracker.ai → 403 without it ----
+
+    [Theory]
+    [MemberData(nameof(PhotoRoutes))]
+    public async Task Ai_photo_route_requires_ai_vision_on_top_of_tracker_ai(string url)
+    {
+        // tracker.ai alone reaches the text AI group, but the IMAGE intake is gated by ai.vision — a
+        // valid image is rejected with 403 (the vision filter precedes the image validation + 503).
+        var (_, noVision) = await ProvisionUser("tracker.ai");
+        var res = await noVision.PostAsJsonAsync(url, new
+        {
+            imageBase64 = Convert.ToBase64String(new byte[64]),
+            mimeType = "image/png",
+        });
+        res.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
+
     // ---- Graceful 503 when Gemini is unconfigured (no key in the test env), with tracker.ai granted ----
 
     [Theory]
@@ -128,7 +145,7 @@ public class AiIntegrationTests(WebAppFactory factory)
     [MemberData(nameof(PhotoRoutes))]
     public async Task Ai_photo_route_returns_503_when_unconfigured_for_a_valid_image(string url)
     {
-        var (_, user) = await ProvisionUser("tracker.ai");
+        var (_, user) = await ProvisionUser("tracker.ai", "ai.vision");
         // A tiny but VALID base64 png payload passes image validation, so we reach the unconfigured 503.
         var ok = await user.PostAsJsonAsync(url, new
         {
@@ -144,7 +161,7 @@ public class AiIntegrationTests(WebAppFactory factory)
     [MemberData(nameof(PhotoRoutes))]
     public async Task Ai_photo_route_rejects_wrong_mime_type(string url)
     {
-        var (_, user) = await ProvisionUser("tracker.ai");
+        var (_, user) = await ProvisionUser("tracker.ai", "ai.vision");
         var res = await user.PostAsJsonAsync(url, new
         {
             imageBase64 = Convert.ToBase64String(new byte[64]),
@@ -157,7 +174,7 @@ public class AiIntegrationTests(WebAppFactory factory)
     [MemberData(nameof(PhotoRoutes))]
     public async Task Ai_photo_route_rejects_oversized_image(string url)
     {
-        var (_, user) = await ProvisionUser("tracker.ai");
+        var (_, user) = await ProvisionUser("tracker.ai", "ai.vision");
         // ~6 MB decoded — over the ~5 MB cap.
         var big = Convert.ToBase64String(new byte[6 * 1024 * 1024]);
         var res = await user.PostAsJsonAsync(url, new { imageBase64 = big, mimeType = "image/jpeg" });
@@ -168,7 +185,7 @@ public class AiIntegrationTests(WebAppFactory factory)
     [MemberData(nameof(PhotoRoutes))]
     public async Task Ai_photo_route_rejects_missing_or_unparseable_image(string url)
     {
-        var (_, user) = await ProvisionUser("tracker.ai");
+        var (_, user) = await ProvisionUser("tracker.ai", "ai.vision");
         (await user.PostAsJsonAsync(url, new { imageBase64 = "", mimeType = "image/png" }))
             .StatusCode.Should().Be(HttpStatusCode.BadRequest);
         (await user.PostAsJsonAsync(url, new { imageBase64 = "not valid base64!!!", mimeType = "image/png" }))
@@ -297,5 +314,18 @@ public class AiIntegrationTests(WebAppFactory factory)
         var dto = await res.Content.ReadFromJsonAsync<System.Text.Json.JsonElement>();
         dto.GetProperty("fellBackToPlain").GetBoolean().Should().BeTrue();
         dto.GetProperty("narrative").GetString().Should().Contain("logged 0 of 7 days");
+    }
+
+    [Fact]
+    public async Task Tracker_recap_with_tracker_ai_still_returns_a_200_floor_when_unconfigured()
+    {
+        // tracker.ai is the gated LLM upgrade for the recap, but with Gemini OFF in the test host the endpoint
+        // still returns the deterministic 200 floor (never a 503). The AI-perm branch is exercised here.
+        var (_, user) = await ProvisionUser("tracker.self", "tracker.ai");
+        var res = await user.GetAsync("/api/ai/tracker-recap");
+        res.StatusCode.Should().Be(HttpStatusCode.OK);
+        var dto = await res.Content.ReadFromJsonAsync<System.Text.Json.JsonElement>();
+        dto.GetProperty("fellBackToPlain").GetBoolean().Should().BeTrue();
+        dto.GetProperty("narrative").GetString().Should().NotBeNullOrWhiteSpace();
     }
 }

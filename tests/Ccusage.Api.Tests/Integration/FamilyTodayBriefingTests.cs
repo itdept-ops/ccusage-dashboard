@@ -156,7 +156,7 @@ public class FamilyTodayBriefingTests(WebAppFactory factory)
         // A reminder due LATER TODAY (UTC works fine for the default America/New_York within a day window).
         await owner.PostAsJsonAsync("/api/family/reminders", new
         {
-            text = "Pick up kids", dueUtc = DateTime.UtcNow.AddHours(3), recurrence = "none", targetUserId = bobId,
+            text = "Pick up kids", dueUtc = UtcForLocalHour("America/New_York", 12), recurrence = "none", targetUserId = bobId,
         });
         // An active timer.
         await owner.PostAsJsonAsync("/api/family/timers", new { label = "Roast", durationSeconds = 3600 });
@@ -300,7 +300,7 @@ public class FamilyTodayBriefingTests(WebAppFactory factory)
 
         // Give the family something to say in the briefing.
         await owner.PostAsJsonAsync("/api/family/reminders",
-            new { text = "Dentist", dueUtc = DateTime.UtcNow.AddHours(2), recurrence = "none" });
+            new { text = "Dentist", dueUtc = UtcForLocalHour("America/New_York", 12), recurrence = "none" });
 
         var ownerBefore = await NotificationCountFor(ownerEmail, NotificationType.FamilyBriefing);
         var bobBefore = await NotificationCountFor(bobEmail, NotificationType.FamilyBriefing);
@@ -378,7 +378,7 @@ public class FamilyTodayBriefingTests(WebAppFactory factory)
         await owner.GetAsync("/api/family/household");
         // Give the day something to narrate.
         await owner.PostAsJsonAsync("/api/family/reminders",
-            new { text = "Dentist", dueUtc = DateTime.UtcNow.AddHours(2), recurrence = "none" });
+            new { text = "Dentist", dueUtc = UtcForLocalHour("America/New_York", 12), recurrence = "none" });
 
         var res = await owner.GetAsync("/api/family/today/briefing");
         // ALWAYS 200 — Gemini is unconfigured in tests, so it falls back to the guaranteed composed text.
@@ -390,6 +390,37 @@ public class FamilyTodayBriefingTests(WebAppFactory factory)
         dto.GetProperty("narrative").GetString().Should().Contain("Today:");
         // No email leaks into the briefing text.
         dto.GetRawText().Should().NotContain("@");
+    }
+
+    [Fact]
+    public async Task TodayBriefing_is_NOT_blocked_for_a_family_use_caller_without_family_ai_returns_plain_floor()
+    {
+        // The floored /today/briefing is NOT gated at the filter — a family.use caller WITHOUT family.ai still
+        // gets a 200 plain floor (fellBackToPlain=true). The LLM narrative is the family.ai-gated upgrade; the
+        // deterministic Compose() briefing is everyone's. family.ai is checked INSIDE the handler, not a 403.
+        var (_, owner, _) = await ProvisionUser("family.use"); // no family.ai
+        await owner.GetAsync("/api/family/household");
+
+        var res = await owner.GetAsync("/api/family/today/briefing");
+        res.StatusCode.Should().Be(HttpStatusCode.OK);
+        var dto = await Json(res);
+        dto.GetProperty("fellBackToPlain").GetBoolean().Should().BeTrue();
+        dto.GetProperty("narrative").GetString().Should().Contain("Today:");
+    }
+
+    [Fact]
+    public async Task TodayBriefing_with_family_ai_still_returns_a_200_floor_when_gemini_is_off()
+    {
+        // With family.ai granted the handler takes the AI path, but Gemini is OFF in the test host so it falls
+        // back to the deterministic 200 floor (never a 503). Exercises the allowAi=true branch.
+        var (_, owner, _) = await ProvisionUser("family.use", "family.ai");
+        await owner.GetAsync("/api/family/household");
+
+        var res = await owner.GetAsync("/api/family/today/briefing");
+        res.StatusCode.Should().Be(HttpStatusCode.OK);
+        var dto = await Json(res);
+        dto.GetProperty("fellBackToPlain").GetBoolean().Should().BeTrue();
+        dto.GetProperty("narrative").GetString().Should().NotBeNullOrWhiteSpace();
     }
 
     [Fact]
@@ -425,7 +456,7 @@ public class FamilyTodayBriefingTests(WebAppFactory factory)
 
         // Alice adds a reminder + a list; Bob must not see them in HIS Today.
         await alice.PostAsJsonAsync("/api/family/reminders",
-            new { text = "Alice only", dueUtc = DateTime.UtcNow.AddHours(2), recurrence = "none" });
+            new { text = "Alice only", dueUtc = UtcForLocalHour("America/New_York", 12), recurrence = "none" });
         await alice.PostAsJsonAsync("/api/family/lists", new { name = "Alice list", kind = "todo" });
 
         var bobToday = await Json(await bob.GetAsync("/api/family/today"));

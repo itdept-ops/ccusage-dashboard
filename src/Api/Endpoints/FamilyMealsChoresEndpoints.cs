@@ -461,7 +461,7 @@ public static class FamilyMealsChoresEndpoints
                 .Select(m => new PlanWeekMealDto(m.LocalDate.ToString("yyyy-MM-dd"), m.Slot, m.Title, m.Ingredients))
                 .ToList();
             return Results.Ok(new PlanWeekAiDto(meals, result.Notes));
-        }).RequireRateLimiting(AiEndpoints.RateLimitPolicy);
+        }).RequirePermission(Permissions.FamilyAi).RequireRateLimiting(AiEndpoints.RateLimitPolicy);
 
         // ---- POST /meals/ai/from-recipe : Gemini parses pasted recipe TEXT into a meal for the editor ----
         // The server NEVER fetches a URL — the client passes already-extracted recipe TEXT only (no SSRF).
@@ -478,7 +478,7 @@ public static class FamilyMealsChoresEndpoints
             if (result is null) return AiUnavailable();
 
             return Results.Ok(new RecipeAiDto(result.Title, result.Ingredients, result.Notes));
-        }).RequireRateLimiting(AiEndpoints.RateLimitPolicy);
+        }).RequirePermission(Permissions.FamilyAi).RequireRateLimiting(AiEndpoints.RateLimitPolicy);
 
         // ---- POST /meals/ai/what-can-i-make : Gemini proposes dinners from on-hand ingredients (round 2) ----
         // Returns dinner ideas to review (title + ingredients + small missing items); creating a meal still goes
@@ -498,7 +498,7 @@ public static class FamilyMealsChoresEndpoints
                 .Select(i => new MealIdeaDto(i.Title, i.Ingredients, i.Missing))
                 .ToList();
             return Results.Ok(new WhatCanIMakeAiDto(ideas));
-        }).RequireRateLimiting(AiEndpoints.RateLimitPolicy);
+        }).RequirePermission(Permissions.FamilyAi).RequireRateLimiting(AiEndpoints.RateLimitPolicy);
 
         MapMealMacros(g);
     }
@@ -550,7 +550,7 @@ public static class FamilyMealsChoresEndpoints
                 Note: result.Note,
                 Matched: null,
                 Unmatched: null));
-        }).RequireRateLimiting(AiEndpoints.RateLimitPolicy);
+        }).RequirePermission(Permissions.FamilyAi).RequireRateLimiting(AiEndpoints.RateLimitPolicy);
 
         // ---- POST /meals/{id}/macros/refine : sum per-ingredient USDA lookups into dish TOTALS ----
         // Household-scoped (foreign meal → 404). Parses the meal's ingredient lines (loose "qty unit name"),
@@ -839,7 +839,7 @@ public static class FamilyMealsChoresEndpoints
                 .Select(s => new ChoreSuggestionDto(s.Title, s.Points, s.Recurrence, s.AgeHint))
                 .ToList();
             return Results.Ok(new ChoreSuggestAiDto(suggestions));
-        }).RequireRateLimiting(AiEndpoints.RateLimitPolicy);
+        }).RequirePermission(Permissions.FamilyAi).RequireRateLimiting(AiEndpoints.RateLimitPolicy);
 
         // ---- POST /chores/ai/balance : Gemini fairly auto-assigns the household's chores (applies nothing) ----
         // Passes the household's current chores + members + the per-member points tally so it balances FAIRLY.
@@ -887,7 +887,7 @@ public static class FamilyMealsChoresEndpoints
             }
 
             return Results.Ok(new ChoreBalanceAiDto(assignments));
-        }).RequireRateLimiting(AiEndpoints.RateLimitPolicy);
+        }).RequirePermission(Permissions.FamilyAi).RequireRateLimiting(AiEndpoints.RateLimitPolicy);
 
         // ---- POST /chores/ai/values : Gemini proposes fair point values for the household's chores ----
         // DROPS any returned choreId that isn't in the household; applies nothing (historical ledger snapshots
@@ -922,7 +922,7 @@ public static class FamilyMealsChoresEndpoints
             }
 
             return Results.Ok(new ChoreValuesAiDto(values));
-        }).RequireRateLimiting(AiEndpoints.RateLimitPolicy);
+        }).RequirePermission(Permissions.FamilyAi).RequireRateLimiting(AiEndpoints.RateLimitPolicy);
 
         // ---- GET /chores/ai/summary : a warm "good job" weekly read-only narrative (NEVER 503/500) ----
         // Built off the server FamilyChoreCompletion ledger (names + counts + points — the model invents
@@ -947,8 +947,10 @@ public static class FamilyMealsChoresEndpoints
             // Build the deterministic ledger facts (names + per-member counts/points) for THIS household's week.
             var (facts, plain, hasAny) = await BuildChoreWeekFactsAsync(db, household.Id, startUtc, endUtc, ct);
 
-            // Plain summary is the floor. Prefer the warm AI narrative when configured (cached per ISO week).
-            if (!gemini.IsConfigured || !hasAny)
+            // Plain summary is the floor. Prefer the warm AI narrative ONLY when the caller holds family.ai
+            // (the gated, token-spending capability) AND Gemini is configured — a family.use caller without
+            // family.ai always gets the deterministic plain summary (never spends tokens).
+            if (!caller.Permissions.Contains(Permissions.FamilyAi) || !gemini.IsConfigured || !hasAny)
                 return Results.Ok(new ChoreSummaryAiDto(plain, true));
 
             var cacheKey = $"family:chore-summary:{household.Id}:{isoWeekKey}";

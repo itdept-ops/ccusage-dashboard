@@ -169,10 +169,27 @@ public class FamilyMealMacrosTests(WebAppFactory factory)
     }
 
     [Fact]
+    public async Task MealMacrosAi_requires_family_ai_but_refine_does_not()
+    {
+        // The GENERATIVE /ai/macros (Gemini) is gated by family.ai; the USDA /macros/refine is NOT an LLM
+        // route, so it stays reachable with family.use alone (it degrades to 503 with no USDA key).
+        var (_, owner, _) = await ProvisionUser("family.use"); // no family.ai
+        await owner.GetAsync("/api/family/household");
+        var monday = ThisMonday();
+        var mealId = await CreateMeal(owner, monday, "Stew", "beef\ncarrots");
+
+        (await owner.PostAsJsonAsync($"/api/family/meals/{mealId}/ai/macros", new { }))
+            .StatusCode.Should().Be(HttpStatusCode.Forbidden); // family.ai required
+
+        (await owner.PostAsJsonAsync($"/api/family/meals/{mealId}/macros/refine", new { }))
+            .StatusCode.Should().Be(HttpStatusCode.ServiceUnavailable); // USDA route — not AI-gated
+    }
+
+    [Fact]
     public async Task MealMacrosAi_and_refine_are_404_for_a_foreign_meal_existence_never_leaked()
     {
         var (_, alice, _) = await ProvisionUser("family.use");
-        var (_, bob, _) = await ProvisionUser("family.use");
+        var (_, bob, _) = await ProvisionUser("family.use", "family.ai");
         await alice.GetAsync("/api/family/household");
         await bob.GetAsync("/api/family/household");
 
@@ -189,7 +206,7 @@ public class FamilyMealMacrosTests(WebAppFactory factory)
     [Fact]
     public async Task MealMacrosAi_is_503_for_own_meal_when_gemini_unconfigured_and_writes_nothing()
     {
-        var (_, owner, _) = await ProvisionUser("family.use");
+        var (_, owner, _) = await ProvisionUser("family.use", "family.ai");
         await owner.GetAsync("/api/family/household");
 
         var monday = ThisMonday();

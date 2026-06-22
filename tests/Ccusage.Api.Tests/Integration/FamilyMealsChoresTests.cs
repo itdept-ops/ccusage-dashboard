@@ -516,9 +516,26 @@ public class FamilyMealsChoresTests(WebAppFactory factory)
     }
 
     [Fact]
+    public async Task MealsAi_requires_family_ai_on_top_of_family_use()
+    {
+        // family.use reaches the Family Hub, but the generative meal AI assists are gated by family.ai — a
+        // family.use-only caller is forbidden (the AI filter precedes the handler's 400/503 paths).
+        var (_, owner, _) = await ProvisionUser("family.use"); // no family.ai
+        await owner.GetAsync("/api/family/household");
+
+        (await owner.PostAsJsonAsync("/api/family/meals/ai/plan-week",
+            new { weekStart = ThisMonday(), constraints = "kid-friendly" }))
+            .StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        (await owner.PostAsJsonAsync("/api/family/meals/ai/from-recipe", new { text = "2 bananas, 1 cup flour" }))
+            .StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        (await owner.PostAsJsonAsync("/api/family/meals/ai/what-can-i-make", new { ingredients = "eggs, rice" }))
+            .StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
+
+    [Fact]
     public async Task FromRecipe_returns_400_for_empty_text()
     {
-        var (_, owner, _) = await ProvisionUser("family.use");
+        var (_, owner, _) = await ProvisionUser("family.use", "family.ai");
         await owner.GetAsync("/api/family/household");
 
         var res = await owner.PostAsJsonAsync("/api/family/meals/ai/from-recipe", new { text = "   " });
@@ -528,7 +545,7 @@ public class FamilyMealsChoresTests(WebAppFactory factory)
     [Fact]
     public async Task PlanWeek_is_unavailable_503_when_gemini_is_unconfigured_never_500()
     {
-        var (_, owner, _) = await ProvisionUser("family.use");
+        var (_, owner, _) = await ProvisionUser("family.use", "family.ai");
         await owner.GetAsync("/api/family/household");
 
         // The test host configures no Gemini API key, so AI planning is gracefully unavailable (503), never a
@@ -541,7 +558,7 @@ public class FamilyMealsChoresTests(WebAppFactory factory)
     [Fact]
     public async Task FromRecipe_is_unavailable_503_when_gemini_is_unconfigured_never_500()
     {
-        var (_, owner, _) = await ProvisionUser("family.use");
+        var (_, owner, _) = await ProvisionUser("family.use", "family.ai");
         await owner.GetAsync("/api/family/household");
 
         var res = await owner.PostAsJsonAsync("/api/family/meals/ai/from-recipe",
@@ -552,7 +569,7 @@ public class FamilyMealsChoresTests(WebAppFactory factory)
     [Fact]
     public async Task PlanWeek_writes_nothing_even_when_it_runs_the_unconfigured_path()
     {
-        var (_, owner, _) = await ProvisionUser("family.use");
+        var (_, owner, _) = await ProvisionUser("family.use", "family.ai");
         await owner.GetAsync("/api/family/household");
 
         var monday = ThisMonday();
@@ -611,9 +628,42 @@ public class FamilyMealsChoresTests(WebAppFactory factory)
     }
 
     [Fact]
+    public async Task GenerativeChoresAi_requires_family_ai_on_top_of_family_use()
+    {
+        // The GENERATIVE chores AI (suggest/balance/values) is gated by family.ai — a family.use-only caller is
+        // forbidden. (The floored /chores/ai/summary is NOT blocked; it's covered separately below.)
+        var (_, owner, _) = await ProvisionUser("family.use"); // no family.ai
+        await owner.GetAsync("/api/family/household");
+
+        (await owner.PostAsJsonAsync("/api/family/chores/ai/suggest", new { ages = new[] { 8, 5 } }))
+            .StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        (await owner.PostAsJsonAsync("/api/family/chores/ai/balance", new { }))
+            .StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        (await owner.PostAsJsonAsync("/api/family/chores/ai/values", new { }))
+            .StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
+
+    [Fact]
+    public async Task ChoreSummary_floored_returns_200_plain_for_a_family_use_caller_without_family_ai()
+    {
+        // The floored summary is NOT blocked by family.ai — a family.use caller WITHOUT family.ai still gets the
+        // deterministic 200 plain floor (the LLM is gated inside; only the narrative is the family.ai upgrade).
+        var (_, owner, _) = await ProvisionUser("family.use"); // no family.ai
+        await owner.GetAsync("/api/family/household");
+        var choreId = await CreateChore(owner, "Make bed", points: 2);
+        await owner.PatchAsJsonAsync($"/api/family/chores/{choreId}", new { done = true });
+
+        var res = await owner.GetAsync("/api/family/chores/ai/summary");
+        res.StatusCode.Should().Be(HttpStatusCode.OK);
+        var dto = await Json(res);
+        dto.GetProperty("fellBackToPlain").GetBoolean().Should().BeTrue();
+        dto.GetProperty("summary").GetString().Should().NotBeNullOrWhiteSpace();
+    }
+
+    [Fact]
     public async Task ChoreSuggest_is_unavailable_503_when_gemini_is_unconfigured_never_500()
     {
-        var (_, owner, _) = await ProvisionUser("family.use");
+        var (_, owner, _) = await ProvisionUser("family.use", "family.ai");
         await owner.GetAsync("/api/family/household");
 
         var res = await owner.PostAsJsonAsync("/api/family/chores/ai/suggest", new { ages = new[] { 8, 5 } });
@@ -623,7 +673,7 @@ public class FamilyMealsChoresTests(WebAppFactory factory)
     [Fact]
     public async Task ChoreBalance_is_unavailable_503_when_gemini_is_unconfigured_never_500()
     {
-        var (_, owner, _) = await ProvisionUser("family.use");
+        var (_, owner, _) = await ProvisionUser("family.use", "family.ai");
         await owner.GetAsync("/api/family/household");
         await CreateChore(owner, "Dishes"); // a chore + a member exist, so it reaches the AI (then 503)
 
@@ -634,7 +684,7 @@ public class FamilyMealsChoresTests(WebAppFactory factory)
     [Fact]
     public async Task ChoreValues_is_unavailable_503_when_gemini_is_unconfigured_never_500()
     {
-        var (_, owner, _) = await ProvisionUser("family.use");
+        var (_, owner, _) = await ProvisionUser("family.use", "family.ai");
         await owner.GetAsync("/api/family/household");
         await CreateChore(owner, "Vacuum");
 
@@ -676,7 +726,7 @@ public class FamilyMealsChoresTests(WebAppFactory factory)
     [Fact]
     public async Task ChoreSuggest_writes_nothing_when_it_runs_the_unconfigured_path()
     {
-        var (_, owner, _) = await ProvisionUser("family.use");
+        var (_, owner, _) = await ProvisionUser("family.use", "family.ai");
         await owner.GetAsync("/api/family/household");
 
         await owner.PostAsJsonAsync("/api/family/chores/ai/suggest", new { ages = new[] { 8, 5 } });
@@ -689,7 +739,7 @@ public class FamilyMealsChoresTests(WebAppFactory factory)
     [Fact]
     public async Task ChoreBalance_writes_nothing_when_it_runs_the_unconfigured_path()
     {
-        var (_, owner, _) = await ProvisionUser("family.use");
+        var (_, owner, _) = await ProvisionUser("family.use", "family.ai");
         await owner.GetAsync("/api/family/household");
         var choreId = await CreateChore(owner, "Sweep");
 
@@ -703,7 +753,7 @@ public class FamilyMealsChoresTests(WebAppFactory factory)
     [Fact]
     public async Task ChoreValues_writes_nothing_when_it_runs_the_unconfigured_path()
     {
-        var (_, owner, _) = await ProvisionUser("family.use");
+        var (_, owner, _) = await ProvisionUser("family.use", "family.ai");
         await owner.GetAsync("/api/family/household");
         var choreId = await CreateChore(owner, "Trash", points: 4);
 

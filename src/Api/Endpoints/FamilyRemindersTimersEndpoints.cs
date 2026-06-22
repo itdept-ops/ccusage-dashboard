@@ -164,7 +164,7 @@ public static class FamilyRemindersTimersEndpoints
             var reminders = result.Reminders
                 .Select(p => new ReminderProposalDto(p.Text, p.DueUtc, p.Recurrence)).ToList();
             return Results.Ok(new ReminderAiDto(reminders, result.Notes));
-        }).RequireRateLimiting(AiEndpoints.RateLimitPolicy);
+        }).RequirePermission(Permissions.FamilyAi).RequireRateLimiting(AiEndpoints.RateLimitPolicy);
 
         // ---- PUT /reminders/{id} ----
         g.MapPut("/reminders/{id:long}", async (
@@ -318,7 +318,7 @@ public static class FamilyRemindersTimersEndpoints
             if (result is null) return AiUnavailable();
 
             return Results.Ok(new TimerAiDto(result.Label, result.DurationSeconds));
-        }).RequireRateLimiting(AiEndpoints.RateLimitPolicy);
+        }).RequirePermission(Permissions.FamilyAi).RequireRateLimiting(AiEndpoints.RateLimitPolicy);
 
         // ---- DELETE /timers/{id} : cancel ----
         g.MapDelete("/timers/{id:long}", async (

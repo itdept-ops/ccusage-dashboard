@@ -348,7 +348,7 @@ public class FamilyCalendarTests(WebAppFactory factory)
     [Fact]
     public async Task ScheduleAi_returns_400_for_empty_text()
     {
-        var (_, owner, _) = await ProvisionUser("family.use");
+        var (_, owner, _) = await ProvisionUser("family.use", "family.ai");
         await owner.GetAsync("/api/family/household");
 
         var res = await owner.PostAsJsonAsync("/api/family/calendar/schedule-ai", new { text = "   " });
@@ -358,7 +358,7 @@ public class FamilyCalendarTests(WebAppFactory factory)
     [Fact]
     public async Task ScheduleAi_is_unavailable_503_when_gemini_is_unconfigured_never_500()
     {
-        var (_, owner, _) = await ProvisionUser("family.use");
+        var (_, owner, _) = await ProvisionUser("family.use", "family.ai");
         await owner.GetAsync("/api/family/household");
 
         // The test host configures no Gemini API key, so AI scheduling is gracefully unavailable (503),
@@ -394,7 +394,7 @@ public class FamilyCalendarTests(WebAppFactory factory)
     [Fact]
     public async Task FindTimeAi_returns_400_for_empty_text()
     {
-        var (_, owner, _) = await ProvisionUser("family.use");
+        var (_, owner, _) = await ProvisionUser("family.use", "family.ai");
         await owner.GetAsync("/api/family/household");
 
         var res = await owner.PostAsJsonAsync("/api/family/calendar/ai/find-time", new { text = "   " });
@@ -404,7 +404,7 @@ public class FamilyCalendarTests(WebAppFactory factory)
     [Fact]
     public async Task FindTimeAi_is_unavailable_503_when_gemini_is_unconfigured_never_500()
     {
-        var (_, owner, _) = await ProvisionUser("family.use");
+        var (_, owner, _) = await ProvisionUser("family.use", "family.ai");
         await owner.GetAsync("/api/family/household");
 
         // No Gemini API key in the test host → the PARSE is gracefully unavailable (503), never a 500 and
@@ -412,6 +412,42 @@ public class FamilyCalendarTests(WebAppFactory factory)
         var res = await owner.PostAsJsonAsync("/api/family/calendar/ai/find-time",
             new { text = "a 45-min slot for a dentist next week, mornings" });
         res.StatusCode.Should().Be(HttpStatusCode.ServiceUnavailable);
+    }
+
+    [Fact]
+    public async Task ScheduleAi_and_FindTimeAi_require_family_ai_on_top_of_family_use()
+    {
+        // The text calendar AI (schedule-ai / ai/find-time) is gated by family.ai — a family.use-only caller is
+        // forbidden (the AI filter precedes the handler's 400/503 paths).
+        var (_, owner, _) = await ProvisionUser("family.use"); // no family.ai
+        await owner.GetAsync("/api/family/household");
+
+        (await owner.PostAsJsonAsync("/api/family/calendar/schedule-ai", new { text = "dentist next Friday 9am" }))
+            .StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        (await owner.PostAsJsonAsync("/api/family/calendar/ai/find-time",
+            new { text = "a 45-min slot next week, mornings" }))
+            .StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
+
+    [Fact]
+    public async Task FromImage_requires_ai_vision_and_family_ai_on_top_of_family_use()
+    {
+        // The IMAGE/PDF intake is gated by ai.vision (the multimodal gate) AND family.ai (the parse). A
+        // family.use caller WITHOUT ai.vision is forbidden even with a valid file (the vision filter precedes
+        // the image validation + the 503), and one with ai.vision but no family.ai is still forbidden.
+        var (_, noVision, _) = await ProvisionUser("family.use", "family.ai"); // missing ai.vision
+        await noVision.GetAsync("/api/family/household");
+        (await noVision.PostAsJsonAsync("/api/family/calendar/ai/from-image", new
+        {
+            files = new[] { new { imageBase64 = B64(256), mime = "application/pdf" } },
+        })).StatusCode.Should().Be(HttpStatusCode.Forbidden);
+
+        var (_, noParse, _) = await ProvisionUser("family.use", "ai.vision"); // missing family.ai
+        await noParse.GetAsync("/api/family/household");
+        (await noParse.PostAsJsonAsync("/api/family/calendar/ai/from-image", new
+        {
+            files = new[] { new { imageBase64 = B64(256), mime = "application/pdf" } },
+        })).StatusCode.Should().Be(HttpStatusCode.Forbidden);
     }
 
     // =====================================================================================
@@ -456,7 +492,7 @@ public class FamilyCalendarTests(WebAppFactory factory)
     [Fact]
     public async Task FromImage_returns_400_for_no_files()
     {
-        var (_, owner, _) = await ProvisionUser("family.use");
+        var (_, owner, _) = await ProvisionUser("family.use", "ai.vision", "family.ai");
         await owner.GetAsync("/api/family/household");
 
         (await owner.PostAsJsonAsync("/api/family/calendar/ai/from-image", new { files = Array.Empty<object>() }))
@@ -468,7 +504,7 @@ public class FamilyCalendarTests(WebAppFactory factory)
     [Fact]
     public async Task FromImage_returns_400_for_too_many_files()
     {
-        var (_, owner, _) = await ProvisionUser("family.use");
+        var (_, owner, _) = await ProvisionUser("family.use", "ai.vision", "family.ai");
         await owner.GetAsync("/api/family/household");
 
         var f = new { imageBase64 = B64(64), mime = "image/png" };
@@ -482,7 +518,7 @@ public class FamilyCalendarTests(WebAppFactory factory)
     [Fact]
     public async Task FromImage_returns_400_for_disallowed_mime()
     {
-        var (_, owner, _) = await ProvisionUser("family.use");
+        var (_, owner, _) = await ProvisionUser("family.use", "ai.vision", "family.ai");
         await owner.GetAsync("/api/family/household");
 
         var res = await owner.PostAsJsonAsync("/api/family/calendar/ai/from-image", new
@@ -495,7 +531,7 @@ public class FamilyCalendarTests(WebAppFactory factory)
     [Fact]
     public async Task FromImage_returns_400_for_oversized_image()
     {
-        var (_, owner, _) = await ProvisionUser("family.use");
+        var (_, owner, _) = await ProvisionUser("family.use", "ai.vision", "family.ai");
         await owner.GetAsync("/api/family/household");
 
         // ~6 MB decoded as an IMAGE — over the 5 MB image cap (a PDF would be allowed up to 10 MB).
@@ -509,7 +545,7 @@ public class FamilyCalendarTests(WebAppFactory factory)
     [Fact]
     public async Task FromImage_returns_400_for_oversized_pdf()
     {
-        var (_, owner, _) = await ProvisionUser("family.use");
+        var (_, owner, _) = await ProvisionUser("family.use", "ai.vision", "family.ai");
         await owner.GetAsync("/api/family/household");
 
         // ~11 MB decoded PDF — over the 10 MB PDF cap.
@@ -523,7 +559,7 @@ public class FamilyCalendarTests(WebAppFactory factory)
     [Fact]
     public async Task FromImage_returns_400_when_total_exceeds_request_cap()
     {
-        var (_, owner, _) = await ProvisionUser("family.use");
+        var (_, owner, _) = await ProvisionUser("family.use", "ai.vision", "family.ai");
         await owner.GetAsync("/api/family/household");
 
         // Two 9 MB PDFs each pass the per-file (10 MB) cap, but together exceed the 15 MB request cap.
@@ -538,7 +574,7 @@ public class FamilyCalendarTests(WebAppFactory factory)
     [Fact]
     public async Task FromImage_accepts_a_valid_pdf_in_validation_then_503_when_gemini_unconfigured()
     {
-        var (_, owner, _) = await ProvisionUser("family.use");
+        var (_, owner, _) = await ProvisionUser("family.use", "ai.vision", "family.ai");
         await owner.GetAsync("/api/family/household");
 
         // A small, well-formed PDF PASSES this endpoint's validation (proving PDF is allowed here) and reaches
@@ -554,7 +590,7 @@ public class FamilyCalendarTests(WebAppFactory factory)
     [Fact]
     public async Task FromImage_accepts_a_valid_image_then_503_when_gemini_unconfigured()
     {
-        var (_, owner, _) = await ProvisionUser("family.use");
+        var (_, owner, _) = await ProvisionUser("family.use", "ai.vision", "family.ai");
         await owner.GetAsync("/api/family/household");
 
         var res = await owner.PostAsJsonAsync("/api/family/calendar/ai/from-image", new
@@ -567,7 +603,7 @@ public class FamilyCalendarTests(WebAppFactory factory)
     [Fact]
     public async Task FromImage_creates_no_event_and_persists_nothing()
     {
-        var (_, owner, _) = await ProvisionUser("family.use");
+        var (_, owner, _) = await ProvisionUser("family.use", "ai.vision", "family.ai");
         await owner.GetAsync("/api/family/household");
 
         var before = await CalendarConnectionCount();

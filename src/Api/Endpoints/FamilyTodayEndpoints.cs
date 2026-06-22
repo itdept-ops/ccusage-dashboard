@@ -64,7 +64,10 @@ public static class FamilyTodayEndpoints
         {
             var caller = (await me.GetUserAsync(ct))!;
             var household = (await households.GetOrCreateForCallerAsync(caller, ct))!;
-            var text = await briefing.BriefingTextForAsync(household, caller, DateTime.UtcNow, ct);
+            // The LLM narrative is only generated when the caller holds family.ai (the gated, token-spending
+            // capability); otherwise they get the deterministic plain briefing floor (fellBackToPlain=true).
+            var allowAi = caller.Permissions.Contains(Permissions.FamilyAi);
+            var text = await briefing.BriefingTextForAsync(household, caller, DateTime.UtcNow, allowAi, ct);
             return Results.Ok(new BriefingDto(text.Narrative, text.FellBackToPlain));
         }).RequireRateLimiting(AiEndpoints.RateLimitPolicy);
 

@@ -14,6 +14,8 @@ import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatTooltipModule } from '@angular/material/tooltip';
+import { MatMenuModule } from '@angular/material/menu';
+import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import {
   MatDialog, MatDialogModule, MatDialogRef,
@@ -22,7 +24,8 @@ import {
 import { Api } from '../../core/api';
 import { AuthService } from '../../core/auth';
 import {
-  AccessPolicy, AuditEntry, ChatContactDto, LoginEvent, ManagedUser, PermissionItem, PERM, PERM_GROUP_OF, PERM_GROUP_ORDER,
+  AccessPolicy, AuditEntry, ChatContactDto, LoginEvent, ManagedUser, PermissionItem, PermissionPreset,
+  PERM, PERM_GROUP_ORDER,
 } from '../../core/models';
 
 /**
@@ -94,18 +97,23 @@ interface ContactsState {
   busyUserId: number | null;
 }
 
-/** A catalog group with its ordered permission items — drives the grouped matrix columns. */
+/** A catalog group with its ordered permission items — drives the grouped matrix + editors. */
 interface PermGroup {
   name: string;
   perms: PermissionItem[];
+  /** True for the AI group, rendered as a visually distinct section that gates token-spending features. */
+  isAi: boolean;
 }
+
+/** How the list is filtered by capability: a single permission key, a preset's exact key-set, or none. */
+type FilterMode = 'all' | 'perm' | 'preset';
 
 @Component({
   selector: 'app-users',
   imports: [
     CommonModule, FormsModule, MatCardModule, MatFormFieldModule, MatInputModule, MatButtonModule,
-    MatIconModule, MatCheckboxModule, MatSlideToggleModule, MatProgressBarModule, MatProgressSpinnerModule, MatTooltipModule, MatSnackBarModule,
-    MatDialogModule,
+    MatIconModule, MatCheckboxModule, MatSlideToggleModule, MatProgressBarModule, MatProgressSpinnerModule,
+    MatTooltipModule, MatMenuModule, MatSelectModule, MatSnackBarModule, MatDialogModule,
   ],
   templateUrl: './users.html',
   styleUrl: './users.scss',
@@ -131,12 +139,30 @@ export class Users {
   }
 
   readonly perms = signal<PermissionItem[]>([]);
+  readonly presets = signal<PermissionPreset[]>([]);
   readonly users = signal<ManagedUser[]>([]);
   readonly audit = signal<AuditEntry[]>([]);
   readonly loading = signal(true);
   readonly savingId = signal<number | null>(null);
   // The user currently being force-logged-out (disables that row's Sign-out control + shows busy state).
   readonly loggingOutId = signal<number | null>(null);
+
+  // ---- Search + filter ----
+  /** Free-text search across name + email (email matched only when revealed). */
+  readonly search = signal('');
+  /** Capability filter mode + its argument (a permission key or a preset key). */
+  readonly filterMode = signal<FilterMode>('all');
+  readonly filterPerm = signal<string>('');
+  readonly filterPreset = signal<string>('');
+
+  // ---- Bulk selection ----
+  /** AppUser ids currently selected for a bulk action. */
+  readonly selectedIds = signal<Set<number>>(new Set());
+  /** In-flight guard while a bulk action runs (disables the bulk bar + per-row controls). */
+  readonly bulkRunning = signal(false);
+  /** Live progress while a bulk action runs: how many of `bulkTotal` have completed. */
+  readonly bulkDone = signal(0);
+  readonly bulkTotal = signal(0);
 
   // Per-user login history: which rows are expanded + their lazy-loaded sign-in logs (keyed by user id).
   readonly expanded = signal<Set<number>>(new Set());
@@ -153,9 +179,9 @@ export class Users {
   /** Visible only to contact managers; mirrors the chat.contacts.manage backend gate. */
   readonly canManageContacts = computed(() => this.auth.hasPermission(PERM.chatContactsManage));
   /**
-   * The in-row contacts editor is now keyed by AppUser id and renders only display names (email-privacy
-   * slice 3B) — no other-user address is fetched or shown — so it no longer needs the email-reveal gate.
-   * It's shown to any contact manager; the login-history part of the expanded row stays visible regardless.
+   * The in-row contacts editor is keyed by AppUser id and renders only display names (email-privacy) —
+   * no other-user address is fetched or shown — so it doesn't need the email-reveal gate. Shown to any
+   * contact manager; the login-history part of the expanded row stays visible regardless.
    */
   readonly canEditContacts = computed(() => this.canManageContacts());
 
@@ -164,6 +190,8 @@ export class Users {
   readonly newEnabled = signal(true);
   readonly newPerms = signal<Set<string>>(new Set([PERM.dashboardView]));
   readonly adding = signal(false);
+  /** Collapse the (now large) add-user permission picker by default; the preset row gives a one-click start. */
+  readonly addExpanded = signal(false);
 
   // access policy (open sign-up + default permissions)
   readonly policy = signal<AccessPolicy | null>(null);
@@ -172,50 +200,143 @@ export class Users {
   readonly canManage = computed(() => this.auth.hasPermission(PERM.usersManage));
 
   /**
-   * Permission catalog grouped by UI group, in catalog order. Groups follow PERM_GROUP_ORDER;
-   * any keys without a known group fall into a trailing "Other" bucket so nothing is dropped.
+   * Permission catalog grouped by the server-provided group, in PERM_GROUP_ORDER. Any group the order
+   * list doesn't mention is appended after (so a future backend group is never dropped). The AI group is
+   * flagged so the template can render it as a separate, visually distinct section.
    */
   readonly groups = computed<PermGroup[]>(() => {
     const byGroup = new Map<string, PermissionItem[]>();
     for (const p of this.perms()) {
-      const g = PERM_GROUP_OF[p.key] ?? 'Other';
-      (byGroup.get(g) ?? byGroup.set(g, []).get(g)!).push(p);
+      (byGroup.get(p.group) ?? byGroup.set(p.group, []).get(p.group)!).push(p);
     }
     const ordered: PermGroup[] = [];
+    const mk = (name: string, perms: PermissionItem[]): PermGroup =>
+      ({ name, perms, isAi: perms.some(p => p.isAi) });
     for (const name of PERM_GROUP_ORDER) {
       const perms = byGroup.get(name);
-      if (perms?.length) { ordered.push({ name, perms }); byGroup.delete(name); }
+      if (perms?.length) { ordered.push(mk(name, perms)); byGroup.delete(name); }
     }
-    // Any leftover groups (e.g. "Other" or future groups) appended in encounter order.
-    for (const [name, perms] of byGroup) if (perms.length) ordered.push({ name, perms });
+    for (const [name, perms] of byGroup) if (perms.length) ordered.push(mk(name, perms));
     return ordered;
   });
 
+  /** The non-AI (feature-access) groups. */
+  readonly featureGroups = computed(() => this.groups().filter(g => !g.isAi));
+  /** The AI groups (normally exactly one) — rendered as a separated section. */
+  readonly aiGroups = computed(() => this.groups().filter(g => g.isAi));
+  /** The AI permission keys, for the bulk menu + per-user AI summary. */
+  readonly aiKeys = computed(() => this.aiGroups().flatMap(g => g.perms.map(p => p.key)));
+
+  /** Quick label/description lookup for a permission key (for summaries + the bulk menu). */
+  readonly permByKey = computed(() => {
+    const m = new Map<string, PermissionItem>();
+    for (const p of this.perms()) m.set(p.key, p);
+    return m;
+  });
+
   /**
-   * Catalog groups for the default-permissions picker. Excludes users.manage: the server refuses to
-   * store it as a default (open sign-up must never auto-grant admin), so we don't offer it here.
+   * The permission keys the server refuses to persist as an open-sign-up default (mirrors the backend's
+   * Permissions.IsDefaultable). New accounts must never INHERIT these — they're admin/privileged/private/
+   * token-spending capabilities that have to be granted deliberately per user. We hide them from the
+   * default-permissions picker so an admin can't check a box the server would silently drop on save.
+   */
+  private readonly nonDefaultable = new Set<string>([
+    PERM.usersManage, PERM.chatModerate, PERM.chatContactsManage, PERM.trackerViewAll,
+    PERM.familyUse, PERM.familyFinance,
+    PERM.locationSelf, PERM.locationShare,
+    PERM.trackerAi, PERM.familyAi, PERM.familyAiAssistant, PERM.financeAi, PERM.chatAi, PERM.aiVision,
+  ]);
+
+  /**
+   * Catalog groups for the default-permissions picker, filtered to keys the server will actually accept
+   * as a default (see {@link nonDefaultable}). The whole AI + Location groups drop out (none defaultable).
    */
   readonly policyGroups = computed<PermGroup[]>(() =>
     this.groups()
-      .map(g => ({ name: g.name, perms: g.perms.filter(p => p.key !== PERM.usersManage) }))
+      .map(g => ({ ...g, perms: g.perms.filter(p => !this.nonDefaultable.has(p.key)) }))
       .filter(g => g.perms.length),
   );
 
-  /** Total <td> count of a body row — drives the colspan of the expanded login-history sub-row. */
-  readonly columnCount = computed(() =>
-    2 + this.groups().reduce((n, g) => n + g.perms.length, 0) + 2, // User + Enabled + perms + Expand + Actions
+  /** The users left after applying the search box + capability filter. */
+  readonly filteredUsers = computed<ManagedUser[]>(() => {
+    const q = this.search().trim().toLowerCase();
+    const mode = this.filterMode();
+    const permKey = this.filterPerm();
+    const preset = this.presets().find(p => p.key === this.filterPreset());
+    const presetSet = preset ? new Set(preset.permissions) : null;
+
+    return this.users().filter(u => {
+      if (q) {
+        const hay = `${u.name ?? ''} ${u.email ?? ''}`.toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
+      if (mode === 'perm' && permKey) {
+        if (!u.permissions.includes(permKey)) return false;
+      } else if (mode === 'preset' && presetSet) {
+        // "Matches preset" = the user holds EXACTLY the preset's keys (a clean match, not a superset).
+        if (u.permissions.length !== presetSet.size) return false;
+        if (!u.permissions.every(k => presetSet.has(k))) return false;
+      }
+      return true;
+    });
+  });
+
+  /** True when any search/filter is narrowing the list (drives the "showing N of M" + clear control). */
+  readonly isFiltering = computed(() =>
+    !!this.search().trim() || this.filterMode() !== 'all',
   );
+
+  /** Total <td> count of a body row — drives the colspan of the expanded detail sub-row. */
+  readonly columnCount = computed(() =>
+    3 + this.groups().reduce((n, g) => n + g.perms.length, 0) + 2, // select + expand + user + enabled + perms + actions
+  );
+
+  // ---- Bulk selection helpers ----
+  isSelected(id: number): boolean { return this.selectedIds().has(id); }
+  readonly selectedCount = computed(() => this.selectedIds().size);
+  /** True when every currently-visible (filtered) user is selected. */
+  readonly allVisibleSelected = computed(() => {
+    const vis = this.filteredUsers();
+    if (!vis.length) return false;
+    const sel = this.selectedIds();
+    return vis.every(u => sel.has(u.id));
+  });
+  /** True when some — but not all — visible users are selected (header tri-state). */
+  readonly someVisibleSelected = computed(() => {
+    const sel = this.selectedIds();
+    const n = this.filteredUsers().filter(u => sel.has(u.id)).length;
+    return n > 0 && n < this.filteredUsers().length;
+  });
 
   constructor() { this.load(); }
 
   private load(): void {
     this.loading.set(true);
-    forkJoin({ perms: this.api.permissionCatalog(), users: this.api.users(this.revealKey ?? undefined) }).subscribe({
-      next: r => { this.perms.set(r.perms); this.users.set(r.users); this.loading.set(false); },
+    forkJoin({
+      perms: this.api.permissionCatalog(),
+      presets: this.api.permissionPresets(),
+      users: this.api.users(this.revealKey ?? undefined),
+    }).subscribe({
+      next: r => {
+        this.perms.set(r.perms);
+        this.presets.set(r.presets);
+        this.users.set(r.users);
+        this.pruneSelection();
+        this.loading.set(false);
+      },
       error: () => { this.loading.set(false); this.snack.open('Failed to load users', 'Dismiss', { duration: 4000 }); },
     });
     this.loadAudit();
     this.loadPolicy();
+  }
+
+  /** Drop any selected ids that no longer exist (e.g. after a reload/delete). */
+  private pruneSelection(): void {
+    const live = new Set(this.users().map(u => u.id));
+    this.selectedIds.update(s => {
+      const next = new Set([...s].filter(id => live.has(id)));
+      return next.size === s.size ? s : next;
+    });
   }
 
   private loadPolicy(): void {
@@ -227,6 +348,26 @@ export class Users {
 
   private loadAudit(): void {
     this.api.auditLog(this.revealKey ?? undefined).subscribe({ next: a => this.audit.set(a), error: () => { /* non-critical */ } });
+  }
+
+  // ---- Search + filter ----
+  clearFilters(): void {
+    this.search.set('');
+    this.filterMode.set('all');
+    this.filterPerm.set('');
+    this.filterPreset.set('');
+  }
+
+  /** Switch to "has permission X" filtering (called from the perm picker). */
+  setFilterPerm(key: string): void {
+    this.filterPerm.set(key);
+    this.filterMode.set(key ? 'perm' : 'all');
+  }
+
+  /** Switch to "matches preset" filtering. */
+  setFilterPreset(key: string): void {
+    this.filterPreset.set(key);
+    this.filterMode.set(key ? 'preset' : 'all');
   }
 
   // ---- Email-reveal toggle ----
@@ -294,7 +435,7 @@ export class Users {
     this.load();
   }
 
-  // ---- Per-user login history (expandable rows, lazy-loaded on first expand) ----
+  // ---- Per-user inline detail (expandable rows, lazy-loaded on first expand) ----
   isExpanded(id: number): boolean { return this.expanded().has(id); }
 
   loginHistory(id: number): LoginHistory | undefined { return this.logins().get(id); }
@@ -307,8 +448,7 @@ export class Users {
       next.add(u.id);
       // Lazy-load on first expand only; cached thereafter (and across collapses).
       if (!this.logins().has(u.id)) this.loadLogins(u.id);
-      // Contacts editor loads for any contact manager (now userId-keyed, name-only — no email reveal
-      // needed); same lazy-once pattern.
+      // Contacts editor loads for any contact manager (userId-keyed, name-only — no email reveal needed).
       if (this.canEditContacts()) {
         if (!this.contacts().has(u.id)) this.loadContacts(u);
         this.ensureDirectory();
@@ -327,6 +467,40 @@ export class Users {
       next: events => this.setLoginHistory(id, { loading: false, loaded: true, error: false, events }),
       error: () => this.setLoginHistory(id, { loading: false, loaded: true, error: true, events: [] }),
     });
+  }
+
+  // ---- Per-user access summary (readable "what they can reach") ----
+
+  /**
+   * A readable summary of a user's FEATURE (non-AI) access, grouped: the group names they hold at least
+   * one permission in, each with its granted labels. Drives the inline "what they can access" panel.
+   */
+  accessSummary(u: ManagedUser): { name: string; labels: string[] }[] {
+    const held = new Set(u.permissions);
+    const out: { name: string; labels: string[] }[] = [];
+    for (const g of this.featureGroups()) {
+      const labels = g.perms.filter(p => held.has(p.key)).map(p => p.label);
+      if (labels.length) out.push({ name: g.name, labels });
+    }
+    return out;
+  }
+
+  /** The AI capabilities a user holds (labels), for the distinct AI line in the summary. */
+  aiSummary(u: ManagedUser): string[] {
+    const held = new Set(u.permissions);
+    return this.aiGroups().flatMap(g => g.perms).filter(p => held.has(p.key)).map(p => p.label);
+  }
+
+  /** True when a user holds any AI permission (drives the AI badge on the row). */
+  hasAnyAi(u: ManagedUser): boolean {
+    const held = new Set(u.permissions);
+    return this.aiKeys().some(k => held.has(k));
+  }
+
+  /** Count of feature (non-AI) permissions a user holds — a compact row badge. */
+  featurePermCount(u: ManagedUser): number {
+    const ai = new Set(this.aiKeys());
+    return u.permissions.filter(k => !ai.has(k)).length;
   }
 
   // ---- Per-user chat contacts (the circle) — admin editor in the expanded row (chat.contacts.manage) ----
@@ -431,6 +605,14 @@ export class Users {
       : u.permissions.filter(p => p !== key);
   }
 
+  /** Apply a preset to one user's checkboxes as a STARTING POINT (replaces the in-row selection; unsaved). */
+  applyPresetToUser(u: ManagedUser, presetKey: string): void {
+    const preset = this.presets().find(p => p.key === presetKey);
+    if (!preset) return;
+    u.permissions = [...preset.permissions];
+    this.snack.open(`Seeded "${preset.label}" — review and Save`, 'OK', { duration: 3000 });
+  }
+
   save(u: ManagedUser): void {
     this.savingId.set(u.id);
     this.api.updateUser(u.id, { name: u.name, isEnabled: u.isEnabled, permissions: u.permissions }).subscribe({
@@ -472,11 +654,120 @@ export class Users {
     this.api.deleteUser(u.id).subscribe({
       next: () => {
         this.users.update(list => list.filter(x => x.id !== u.id));
+        this.selectedIds.update(s => { if (!s.has(u.id)) return s; const n = new Set(s); n.delete(u.id); return n; });
         this.loadAudit();
         this.snack.open(`Removed ${this.userLabel(u)}`, 'OK', { duration: 2500 });
       },
       error: (err: HttpErrorResponse) => this.snack.open(err.error?.message ?? 'Delete failed', 'Dismiss', { duration: 5000 }),
     });
+  }
+
+  // ---- Bulk selection + actions (done CLIENT-SIDE via the existing per-user updateUser) ----
+
+  toggleSelect(id: number, checked: boolean): void {
+    this.selectedIds.update(s => {
+      const next = new Set(s);
+      if (checked) next.add(id); else next.delete(id);
+      return next;
+    });
+  }
+
+  /** Select / clear all currently-visible (filtered) users. */
+  toggleSelectAllVisible(checked: boolean): void {
+    const vis = this.filteredUsers().map(u => u.id);
+    this.selectedIds.update(s => {
+      const next = new Set(s);
+      for (const id of vis) { if (checked) next.add(id); else next.delete(id); }
+      return next;
+    });
+  }
+
+  clearSelection(): void { this.selectedIds.set(new Set()); }
+
+  /** The selected users (in current list order). */
+  private selectedUsers(): ManagedUser[] {
+    const sel = this.selectedIds();
+    return this.users().filter(u => sel.has(u.id));
+  }
+
+  /** Apply a preset to every selected user (seeds + SAVES each, replacing their grants). Confirmed first. */
+  bulkApplyPreset(presetKey: string): void {
+    const preset = this.presets().find(p => p.key === presetKey);
+    const targets = this.selectedUsers();
+    if (!preset || !targets.length) return;
+    if (!confirm(`Apply the "${preset.label}" template to ${targets.length} selected user(s)? `
+      + `This REPLACES each one's permissions with the template (then saves).`)) return;
+    this.runBulk(targets, u => ({ ...this.payload(u), permissions: [...preset.permissions] }),
+      `Applied "${preset.label}" to`);
+  }
+
+  /** Grant one permission to every selected user (added to their existing grants; saves each). */
+  bulkGrant(key: string): void {
+    const targets = this.selectedUsers().filter(u => !u.permissions.includes(key));
+    const label = this.permByKey().get(key)?.label ?? key;
+    if (!targets.length) { this.snack.open(`All selected users already have "${label}"`, 'OK', { duration: 2500 }); return; }
+    this.runBulk(targets, u => ({ ...this.payload(u), permissions: [...new Set([...u.permissions, key])] }),
+      `Granted "${label}" to`);
+  }
+
+  /** Revoke one permission from every selected user (removed from their grants; saves each). */
+  bulkRevoke(key: string): void {
+    const targets = this.selectedUsers().filter(u => u.permissions.includes(key));
+    const label = this.permByKey().get(key)?.label ?? key;
+    if (!targets.length) { this.snack.open(`No selected user has "${label}"`, 'OK', { duration: 2500 }); return; }
+    this.runBulk(targets, u => ({ ...this.payload(u), permissions: u.permissions.filter(k => k !== key) }),
+      `Revoked "${label}" from`);
+  }
+
+  /** Enable / disable every selected user (saves each). */
+  bulkSetEnabled(enabled: boolean): void {
+    const targets = this.selectedUsers().filter(u => u.isEnabled !== enabled);
+    if (!targets.length) { this.snack.open(`Selected users are already ${enabled ? 'enabled' : 'disabled'}`, 'OK', { duration: 2500 }); return; }
+    this.runBulk(targets, u => ({ ...this.payload(u), isEnabled: enabled }), `${enabled ? 'Enabled' : 'Disabled'}`);
+  }
+
+  /** The base update payload for a user (name + current enabled + current perms). */
+  private payload(u: ManagedUser): { name?: string; isEnabled: boolean; permissions: string[] } {
+    return { name: u.name, isEnabled: u.isEnabled, permissions: u.permissions };
+  }
+
+  /**
+   * Run a bulk mutation over a set of users sequentially via the existing per-user updateUser endpoint
+   * (no new backend endpoint needed). Updates the local rows from each response, tracks progress, and
+   * reports a single summary toast. Failures are counted and surfaced without aborting the rest.
+   */
+  private runBulk(
+    targets: ManagedUser[],
+    build: (u: ManagedUser) => { name?: string; isEnabled: boolean; permissions: string[] },
+    verb: string,
+  ): void {
+    this.bulkRunning.set(true);
+    this.bulkDone.set(0);
+    this.bulkTotal.set(targets.length);
+    let failures = 0;
+
+    const step = (i: number): void => {
+      if (i >= targets.length) {
+        this.bulkRunning.set(false);
+        this.loadAudit();
+        const ok = targets.length - failures;
+        const msg = failures
+          ? `${verb} ${ok} user(s); ${failures} failed`
+          : `${verb} ${ok} user(s)`;
+        this.snack.open(msg, 'OK', { duration: 3500 });
+        return;
+      }
+      const u = targets[i];
+      this.api.updateUser(u.id, build(u)).subscribe({
+        next: updated => {
+          this.users.update(list => list.map(x => x.id === updated.id ? updated : x));
+          this.bulkDone.set(i + 1);
+          step(i + 1);
+        },
+        error: () => { failures++; this.bulkDone.set(i + 1); step(i + 1); },
+      });
+    };
+    step(0);
   }
 
   newHasPerm(key: string): boolean { return this.newPerms().has(key); }
@@ -485,6 +776,15 @@ export class Users {
     const set = new Set(this.newPerms());
     if (checked) set.add(key); else set.delete(key);
     this.newPerms.set(set);
+  }
+
+  /** Seed the new-user picker from a preset (a starting point; the admin then edits before adding). */
+  applyPresetToNew(presetKey: string): void {
+    const preset = this.presets().find(p => p.key === presetKey);
+    if (!preset) return;
+    this.newPerms.set(new Set(preset.permissions));
+    this.addExpanded.set(true);
+    this.snack.open(`Seeded "${preset.label}" — review and Add`, 'OK', { duration: 3000 });
   }
 
   addUser(): void {

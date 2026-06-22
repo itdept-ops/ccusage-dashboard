@@ -70,6 +70,18 @@ public class FamilyAssistantTests(WebAppFactory factory)
     }
 
     [Fact]
+    public async Task Assistant_requires_family_ai_assistant_on_top_of_family_use()
+    {
+        // family.use reaches the Family Hub, but the action-taking assistant is gated by the sensitive
+        // family.ai.assistant permission — a family.use-only caller is forbidden (the filter precedes the
+        // empty-message 400 + the 503, so it's a hard 403 even for a valid message).
+        var (_, owner, _) = await ProvisionUser("family.use");
+        await owner.GetAsync("/api/family/household");
+        (await owner.PostAsJsonAsync("/api/family/assistant", new { message = "what's for dinner?" }))
+            .StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
+
+    [Fact]
     public async Task Assistant_requires_authentication()
     {
         var anon = factory.CreateClient();
@@ -84,7 +96,7 @@ public class FamilyAssistantTests(WebAppFactory factory)
     [Fact]
     public async Task Assistant_returns_400_for_an_empty_message()
     {
-        var (_, owner, _) = await ProvisionUser("family.use");
+        var (_, owner, _) = await ProvisionUser("family.use", "family.ai.assistant");
         await owner.GetAsync("/api/family/household");
         (await owner.PostAsJsonAsync("/api/family/assistant", new { message = "   " }))
             .StatusCode.Should().Be(HttpStatusCode.BadRequest);
@@ -93,7 +105,7 @@ public class FamilyAssistantTests(WebAppFactory factory)
     [Fact]
     public async Task Assistant_returns_400_for_a_missing_message()
     {
-        var (_, owner, _) = await ProvisionUser("family.use");
+        var (_, owner, _) = await ProvisionUser("family.use", "family.ai.assistant");
         await owner.GetAsync("/api/family/household");
         (await owner.PostAsJsonAsync("/api/family/assistant", new { }))
             .StatusCode.Should().Be(HttpStatusCode.BadRequest);
@@ -106,7 +118,7 @@ public class FamilyAssistantTests(WebAppFactory factory)
     [Fact]
     public async Task Assistant_is_503_when_gemini_is_unconfigured_never_500()
     {
-        var (_, owner, _) = await ProvisionUser("family.use");
+        var (_, owner, _) = await ProvisionUser("family.use", "family.ai.assistant");
         await owner.GetAsync("/api/family/household");
 
         var res = await owner.PostAsJsonAsync("/api/family/assistant",
@@ -119,7 +131,7 @@ public class FamilyAssistantTests(WebAppFactory factory)
     {
         // Seed every snapshot category, then confirm the assembled-snapshot path still degrades to 503 (no
         // key) rather than 500 — the snapshot assembly never throws.
-        var (_, owner, _) = await ProvisionUser("family.use");
+        var (_, owner, _) = await ProvisionUser("family.use", "family.ai.assistant");
         await owner.GetAsync("/api/family/household");
 
         var listId = (await Json(await owner.PostAsJsonAsync("/api/family/lists",
@@ -144,7 +156,7 @@ public class FamilyAssistantTests(WebAppFactory factory)
     [Fact]
     public async Task Assistant_writes_nothing()
     {
-        var (_, owner, _) = await ProvisionUser("family.use");
+        var (_, owner, _) = await ProvisionUser("family.use", "family.ai.assistant");
         await owner.GetAsync("/api/family/household");
 
         // Baseline: one list+item, one chore, one reminder, one timer, one meal.
@@ -202,7 +214,7 @@ public class FamilyAssistantTests(WebAppFactory factory)
     {
         // A caller WITHOUT family.finance: the snapshot omits finance entirely. The call still degrades to a
         // graceful 503 (no key) — never a 500 from trying to read finance they can't see.
-        var (_, owner, _) = await ProvisionUser("family.use");
+        var (_, owner, _) = await ProvisionUser("family.use", "family.ai.assistant");
         await owner.GetAsync("/api/family/household");
 
         var res = await owner.PostAsJsonAsync("/api/family/assistant",
@@ -220,7 +232,7 @@ public class FamilyAssistantTests(WebAppFactory factory)
         // A caller WITH family.finance who imported real spending: the snapshot path includes finance totals,
         // but with no Gemini key the assistant returns a graceful 503 — the finance numbers are never echoed
         // back on the wire (the snapshot stays server-side).
-        var (_, owner, _) = await ProvisionUser("family.use", "family.finance");
+        var (_, owner, _) = await ProvisionUser("family.use", "family.finance", "family.ai.assistant");
         await owner.GetAsync("/api/family/household");
 
         const string csv =
@@ -247,7 +259,7 @@ public class FamilyAssistantTests(WebAppFactory factory)
     [Fact]
     public async Task Assistant_response_carries_no_email()
     {
-        var (email, owner, _) = await ProvisionUser("family.use");
+        var (email, owner, _) = await ProvisionUser("family.use", "family.ai.assistant");
         await owner.GetAsync("/api/family/household");
         await owner.PostAsJsonAsync("/api/family/chores", new { title = "Dishes", points = 1 });
 

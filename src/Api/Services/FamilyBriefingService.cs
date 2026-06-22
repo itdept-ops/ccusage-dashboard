@@ -121,9 +121,16 @@ public sealed class FamilyBriefingService(
     /// don't re-spend tokens. The aggregate is built here from the same source the Today view uses.
     /// </summary>
     public async Task<BriefingText> BriefingTextForAsync(
-        Household household, CurrentUserAccessor.CurrentUser caller, DateTime nowUtc, CancellationToken ct = default)
+        Household household, CurrentUserAccessor.CurrentUser caller, DateTime nowUtc,
+        bool allowAi = true, CancellationToken ct = default)
     {
         var snapshot = await today.BuildAsync(household, caller, nowUtc, ct);
+
+        // When the caller doesn't hold the AI permission (family.ai), the LLM is never called — they get the
+        // GUARANTEED deterministic Compose() floor (fellBackToPlain=true). The narrative is the gated upgrade.
+        if (!allowAi)
+            return new BriefingText(Compose(snapshot), true);
+
         var (text, fellBack) = await NarrativeOrComposeAsync(household, snapshot, nowUtc, ct);
         return new BriefingText(text, fellBack);
     }

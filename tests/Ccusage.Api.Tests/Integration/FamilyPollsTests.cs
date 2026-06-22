@@ -354,7 +354,7 @@ public class FamilyPollsTests(WebAppFactory factory)
     [Fact]
     public async Task PollOptionsAi_returns_400_for_empty_prompt()
     {
-        var (_, owner, _) = await ProvisionUser("family.use");
+        var (_, owner, _) = await ProvisionUser("family.use", "family.ai");
         await owner.GetAsync("/api/family/household");
 
         var res = await owner.PostAsJsonAsync("/api/family/polls/ai/options", new { prompt = "   ", kind = "text" });
@@ -362,9 +362,20 @@ public class FamilyPollsTests(WebAppFactory factory)
     }
 
     [Fact]
+    public async Task PollOptionsAi_requires_family_ai_on_top_of_family_use()
+    {
+        // The generative poll-options AI is gated by family.ai — a family.use-only caller is forbidden (the AI
+        // filter precedes the handler's 400/503 paths).
+        var (_, owner, _) = await ProvisionUser("family.use"); // no family.ai
+        await owner.GetAsync("/api/family/household");
+        (await owner.PostAsJsonAsync("/api/family/polls/ai/options", new { prompt = "holiday spot", kind = "text" }))
+            .StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
+
+    [Fact]
     public async Task PollOptionsAi_is_unavailable_503_when_gemini_is_unconfigured_never_500()
     {
-        var (_, owner, _) = await ProvisionUser("family.use");
+        var (_, owner, _) = await ProvisionUser("family.use", "family.ai");
         await owner.GetAsync("/api/family/household");
 
         // No Gemini API key in the test host → graceful 503 (never a 500, never a real model call).
@@ -376,7 +387,7 @@ public class FamilyPollsTests(WebAppFactory factory)
     [Fact]
     public async Task PollOptionsAi_creates_nothing()
     {
-        var (_, owner, _) = await ProvisionUser("family.use");
+        var (_, owner, _) = await ProvisionUser("family.use", "family.ai");
         await owner.GetAsync("/api/family/household");
 
         // The call is unavailable in tests (no Gemini), but it must NEVER create a poll regardless.

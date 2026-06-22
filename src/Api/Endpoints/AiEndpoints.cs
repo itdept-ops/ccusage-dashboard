@@ -73,7 +73,7 @@ public static class AiEndpoints
             if (!gemini.IsConfigured) return Unconfigured();
             var result = await gemini.PhotoMealAsync(base64, mime, ct);
             return result is null ? Unavailable() : Results.Ok(result);
-        }).RequireRateLimiting(PhotoRateLimitPolicy);
+        }).RequirePermission(Permissions.AiVision).RequireRateLimiting(PhotoRateLimitPolicy);
 
         // ---- MULTIMODAL: read a nutrition label from a photo (tighter rate cap) ----
         g.MapPost("/read-label", async (
@@ -84,7 +84,7 @@ public static class AiEndpoints
             if (!gemini.IsConfigured) return Unconfigured();
             var result = await gemini.ReadLabelAsync(base64, mime, ct);
             return result is null ? Unavailable() : Results.Ok(result);
-        }).RequireRateLimiting(PhotoRateLimitPolicy);
+        }).RequirePermission(Permissions.AiVision).RequireRateLimiting(PhotoRateLimitPolicy);
 
         // ---- Quick feedback (verdict + swaps) on a free-text meal ----
         g.MapPost("/meal-feedback", async (
@@ -341,8 +341,10 @@ public static class AiEndpoints
 
             var plain = PlainTrackerRecap(facts);
 
-            // Plain recap is the floor. Prefer the warm AI narrative when configured (cached per user+week).
-            if (!gemini.IsConfigured)
+            // Plain recap is the floor. Prefer the warm AI narrative ONLY when the caller holds the AI perm
+            // (tracker.ai is the gated, token-spending capability) AND Gemini is configured. A tracker.self
+            // caller without tracker.ai always gets the deterministic floor (never spends tokens).
+            if (!caller.Permissions.Contains(Permissions.TrackerAi) || !gemini.IsConfigured)
                 return Results.Ok(new TrackerRecapDto(plain, Array.Empty<string>(), true));
 
             var cacheKey = $"ai:tracker-recap:{caller.Email}:{weekStart:yyyy-MM-dd}";

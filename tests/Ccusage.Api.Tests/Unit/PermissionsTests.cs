@@ -1,3 +1,4 @@
+using System.Linq;
 using Ccusage.Api.Auth;
 using FluentAssertions;
 
@@ -5,7 +6,7 @@ namespace Ccusage.Api.Tests.Unit;
 
 public class PermissionsTests
 {
-    // The full catalog of 29 keys.
+    // The full catalog of 36 keys.
     private static readonly string[] AllKeys =
     {
         "dashboard.view", "dashboard.export", "sync.run",
@@ -15,10 +16,12 @@ public class PermissionsTests
         "reporter.view", "reporter.manage", "reporter.self", "fleet.view",
         "notifications.view", "notifications.manage",
         "chat.read", "chat.send", "chat.moderate", "chat.contacts.manage",
-        "tracker.self", "tracker.viewall", "tracker.ai",
+        "tracker.self", "tracker.viewall",
         "shares.view", "shares.manage",
         "family.use", "family.finance",
+        "location.self", "location.share",
         "users.view", "users.manage", "activity.view",
+        "tracker.ai", "family.ai", "family.ai.assistant", "finance.ai", "chat.ai", "ai.vision",
     };
 
     [Theory]
@@ -43,14 +46,21 @@ public class PermissionsTests
     [InlineData("chat.contacts.manage")]
     [InlineData("tracker.self")]
     [InlineData("tracker.viewall")]
-    [InlineData("tracker.ai")]
     [InlineData("shares.view")]
     [InlineData("shares.manage")]
     [InlineData("family.use")]
     [InlineData("family.finance")]
+    [InlineData("location.self")]
+    [InlineData("location.share")]
     [InlineData("users.view")]
     [InlineData("users.manage")]
     [InlineData("activity.view")]
+    [InlineData("tracker.ai")]
+    [InlineData("family.ai")]
+    [InlineData("family.ai.assistant")]
+    [InlineData("finance.ai")]
+    [InlineData("chat.ai")]
+    [InlineData("ai.vision")]
     public void IsValid_is_true_for_each_known_key(string key)
     {
         Permissions.IsValid(key).Should().BeTrue();
@@ -90,20 +100,27 @@ public class PermissionsTests
         Permissions.ChatContactsManage.Should().Be("chat.contacts.manage");
         Permissions.TrackerSelf.Should().Be("tracker.self");
         Permissions.TrackerViewAll.Should().Be("tracker.viewall");
-        Permissions.TrackerAi.Should().Be("tracker.ai");
         Permissions.SharesView.Should().Be("shares.view");
         Permissions.SharesManage.Should().Be("shares.manage");
         Permissions.FamilyUse.Should().Be("family.use");
         Permissions.FamilyFinance.Should().Be("family.finance");
+        Permissions.LocationSelf.Should().Be("location.self");
+        Permissions.LocationShare.Should().Be("location.share");
         Permissions.UsersView.Should().Be("users.view");
         Permissions.UsersManage.Should().Be("users.manage");
         Permissions.ActivityView.Should().Be("activity.view");
+        Permissions.TrackerAi.Should().Be("tracker.ai");
+        Permissions.FamilyAi.Should().Be("family.ai");
+        Permissions.FamilyAiAssistant.Should().Be("family.ai.assistant");
+        Permissions.FinanceAi.Should().Be("finance.ai");
+        Permissions.ChatAi.Should().Be("chat.ai");
+        Permissions.AiVision.Should().Be("ai.vision");
     }
 
     [Fact]
-    public void All_contains_exactly_the_twenty_nine_known_keys()
+    public void All_contains_exactly_the_thirty_six_known_keys()
     {
-        Permissions.All.Should().HaveCount(29);
+        Permissions.All.Should().HaveCount(36);
         Permissions.All.Should().BeEquivalentTo(AllKeys);
     }
 
@@ -114,9 +131,9 @@ public class PermissionsTests
     }
 
     [Fact]
-    public void Catalog_has_twenty_nine_entries()
+    public void Catalog_has_thirty_six_entries()
     {
-        Permissions.Catalog.Should().HaveCount(29);
+        Permissions.Catalog.Should().HaveCount(36);
     }
 
     [Fact]
@@ -196,11 +213,61 @@ public class PermissionsTests
     }
 
     [Fact]
-    public void TrackerAi_is_defaultable_but_is_not_a_page_view_gate()
+    public void Ai_permissions_are_not_defaultable_and_are_not_page_view_gates()
     {
-        // AI assists IS defaultable (so it CAN be selected into the open-signup default set), even though
-        // it is OFF by default and never seeded. It is not a page-view gate, so it is absent from Views.
-        Permissions.IsDefaultable(Permissions.TrackerAi).Should().BeTrue();
-        Permissions.Views.Should().NotContain(Permissions.TrackerAi);
+        // AI capabilities spend tokens, so NONE are defaultable — every new account starts AI-off and they
+        // can never be selected into the open-signup default set. They are also not page-view gates, so they
+        // are absent from Views.
+        foreach (var key in Permissions.AiKeys)
+        {
+            Permissions.IsAi(key).Should().BeTrue();
+            Permissions.IsDefaultable(key).Should().BeFalse();
+            Permissions.Views.Should().NotContain(key);
+        }
+    }
+
+    [Fact]
+    public void Location_permissions_are_not_defaultable()
+    {
+        // The Location feature reveals where a user is, so access must be granted deliberately per user and
+        // never inherited by every new account.
+        Permissions.IsDefaultable(Permissions.LocationSelf).Should().BeFalse();
+        Permissions.IsDefaultable(Permissions.LocationShare).Should().BeFalse();
+    }
+
+    [Fact]
+    public void IsAi_is_true_for_exactly_the_six_AI_keys_and_matches_the_AI_group()
+    {
+        // Exactly the six AI keys carry IsAi — nothing else.
+        Permissions.AiKeys.Should().HaveCount(6);
+        Permissions.Catalog.Where(p => p.IsAi).Select(p => p.Key)
+            .Should().BeEquivalentTo(Permissions.AiKeys);
+
+        // The "AI" group and the IsAi flag are the SAME set, in both directions, and the helper agrees.
+        foreach (var p in Permissions.Catalog)
+        {
+            (p.Group == "AI").Should().Be(p.IsAi, "group/IsAi must agree for {0}", p.Key);
+            Permissions.IsAi(p.Key).Should().Be(p.IsAi);
+        }
+        Permissions.Catalog.Where(p => p.Group == "AI").Select(p => p.Key)
+            .Should().BeEquivalentTo(Permissions.AiKeys);
+    }
+
+    [Fact]
+    public void Presets_reference_only_valid_keys_and_administrator_is_everything()
+    {
+        var valid = Permissions.All.ToHashSet();
+        Permissions.Presets.Should().HaveCount(4);
+        Permissions.Presets.Select(p => p.Key).Should()
+            .BeEquivalentTo(new[] { "administrator", "family-member", "friend-tracker", "viewer" });
+
+        // Every preset only grants real catalog keys.
+        foreach (var preset in Permissions.Presets)
+            preset.Permissions.Should().OnlyContain(k => valid.Contains(k),
+                "preset '{0}' must only grant real catalog keys", preset.Key);
+
+        // The administrator preset is exactly the full catalog.
+        Permissions.Presets.Single(p => p.Key == "administrator")
+            .Permissions.Should().BeEquivalentTo(Permissions.All);
     }
 }

@@ -542,6 +542,19 @@ public sealed class PermissionItemDto
     public string Group { get; set; } = "";
     public string Label { get; set; } = "";
     public string Description { get; set; } = "";
+
+    /// <summary>True for the AI (token-spending) permissions, so the grant matrix can flag/style them.</summary>
+    public bool IsAi { get; set; }
+}
+
+/// <summary>A server-defined preset: a named bundle of permission keys the Users page can apply as a
+/// STARTING POINT for a user's grants. NOT a persistent role — applying it just preselects the keys.</summary>
+public sealed class PermissionPresetDto
+{
+    public string Key { get; set; } = "";
+    public string Label { get; set; } = "";
+    public string Description { get; set; } = "";
+    public string[] Permissions { get; set; } = Array.Empty<string>();
 }
 
 /// <summary>The access policy: open sign-up toggle + default permissions for auto-provisioned users.</summary>

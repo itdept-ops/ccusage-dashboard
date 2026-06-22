@@ -283,7 +283,7 @@ public static class FamilyPollsEndpoints
                 : result.TextOptions.Select(l => new ProposedOptionDto(null, null, l)).ToList();
 
             return Results.Ok(new PollOptionsAiDto(result.Kind, options));
-        }).RequireRateLimiting(AiEndpoints.RateLimitPolicy);
+        }).RequirePermission(Permissions.FamilyAi).RequireRateLimiting(AiEndpoints.RateLimitPolicy);
 
         // ---- GET /api/family/polls/{id}/ai/summary : a short read-only narrative of where the poll stands ----
         // Built off the AUTHORITATIVE BuildPollDtoAsync data (options + vote counts + leader). ALWAYS 200 with
@@ -305,8 +305,10 @@ public static class FamilyPollsEndpoints
             var dto = await BuildPollDtoAsync(db, poll.Id, caller.Id, ct);
             var plain = PlainPollSummary(dto);
 
-            // Gemini only narrates the facts; any miss falls back to the deterministic plain floor (200).
-            if (!gemini.IsConfigured)
+            // Gemini only narrates the facts; any miss falls back to the deterministic plain floor (200). The
+            // LLM is only called when the caller holds family.ai (the gated, token-spending capability) — a
+            // family.use caller without family.ai always gets the deterministic plain summary.
+            if (!caller.Permissions.Contains(Permissions.FamilyAi) || !gemini.IsConfigured)
                 return Results.Ok(new PollSummaryDto(plain, FellBackToPlain: true));
 
             var narrative = await gemini.PollSummaryAsync(PollFacts(dto), ct);

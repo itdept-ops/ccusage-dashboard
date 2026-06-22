@@ -82,7 +82,7 @@ public class ChatAiIntegrationTests(WebAppFactory factory)
     public async Task Catch_up_is_404_for_a_non_member_even_with_chat_read()
     {
         var (_, alice, _) = await ProvisionUser("chat.read", "chat.send");
-        var (_, outsider, _) = await ProvisionUser("chat.read", "chat.send");
+        var (_, outsider, _) = await ProvisionUser("chat.read", "chat.send", "chat.ai");
         var channelId = await CreateChannel(alice, "cu-nm-" + Guid.NewGuid().ToString("N")[..6]);
         await Send(alice, channelId, "members only");
 
@@ -94,7 +94,7 @@ public class ChatAiIntegrationTests(WebAppFactory factory)
     [Fact]
     public async Task Catch_up_falls_back_to_plain_and_never_503s_when_gemini_is_off()
     {
-        var (_, alice, _) = await ProvisionUser("chat.read", "chat.send");
+        var (_, alice, _) = await ProvisionUser("chat.read", "chat.send", "chat.ai");
         var (_, bob, bobId) = await ProvisionUser("chat.read", "chat.send");
         var channelId = await CreateChannel(alice, "cu-plain-" + Guid.NewGuid().ToString("N")[..6], bobId);
         await Send(alice, channelId, "one");
@@ -122,7 +122,7 @@ public class ChatAiIntegrationTests(WebAppFactory factory)
     [Fact]
     public async Task Catch_up_excludes_deleted_message_bodies_from_the_count()
     {
-        var (_, alice, _) = await ProvisionUser("chat.read", "chat.send");
+        var (_, alice, _) = await ProvisionUser("chat.read", "chat.send", "chat.ai");
         var channelId = await CreateChannel(alice, "cu-del-" + Guid.NewGuid().ToString("N")[..6]);
         await Send(alice, channelId, "keep one");
         var toDelete = await Send(alice, channelId, "delete me");
@@ -153,7 +153,7 @@ public class ChatAiIntegrationTests(WebAppFactory factory)
     public async Task Replies_are_404_for_a_non_member()
     {
         var (_, alice, _) = await ProvisionUser("chat.read", "chat.send");
-        var (_, outsider, _) = await ProvisionUser("chat.read", "chat.send");
+        var (_, outsider, _) = await ProvisionUser("chat.read", "chat.send", "chat.ai");
         var channelId = await CreateChannel(alice, "rp-nm-" + Guid.NewGuid().ToString("N")[..6]);
         await Send(alice, channelId, "private");
 
@@ -164,7 +164,7 @@ public class ChatAiIntegrationTests(WebAppFactory factory)
     [Fact]
     public async Task Replies_are_503_when_gemini_is_unconfigured_and_send_nothing()
     {
-        var (_, alice, _) = await ProvisionUser("chat.read", "chat.send");
+        var (_, alice, _) = await ProvisionUser("chat.read", "chat.send", "chat.ai");
         var (_, bob, bobId) = await ProvisionUser("chat.read", "chat.send");
         var channelId = await CreateChannel(alice, "rp-503-" + Guid.NewGuid().ToString("N")[..6], bobId);
         await Send(bob, channelId, "are we still on for friday?");
@@ -193,7 +193,7 @@ public class ChatAiIntegrationTests(WebAppFactory factory)
     [Fact]
     public async Task Compose_with_nothing_to_work_from_is_400_even_when_gemini_is_off()
     {
-        var (_, alice, _) = await ProvisionUser("chat.read", "chat.send");
+        var (_, alice, _) = await ProvisionUser("chat.read", "chat.send", "chat.ai");
 
         // draft action with an empty prompt -> nothing to work from -> 400 (not 503).
         (await alice.PostAsJsonAsync("/api/chat/ai/compose",
@@ -209,7 +209,7 @@ public class ChatAiIntegrationTests(WebAppFactory factory)
     [Fact]
     public async Task Compose_with_an_unknown_action_is_400()
     {
-        var (_, alice, _) = await ProvisionUser("chat.read", "chat.send");
+        var (_, alice, _) = await ProvisionUser("chat.read", "chat.send", "chat.ai");
         (await alice.PostAsJsonAsync("/api/chat/ai/compose",
                 new { prompt = "hello", currentDraft = (string?)null, action = "translate" }))
             .StatusCode.Should().Be(HttpStatusCode.BadRequest);
@@ -218,7 +218,7 @@ public class ChatAiIntegrationTests(WebAppFactory factory)
     [Fact]
     public async Task Compose_with_valid_input_is_503_when_gemini_is_unconfigured()
     {
-        var (_, alice, _) = await ProvisionUser("chat.read", "chat.send");
+        var (_, alice, _) = await ProvisionUser("chat.read", "chat.send", "chat.ai");
         // Valid input clears the 400 checks, then hits the unconfigured 503 (never 500).
         (await alice.PostAsJsonAsync("/api/chat/ai/compose",
                 new { prompt = "tell everyone the meeting moved to 3pm", currentDraft = (string?)null, action = "draft" }))
@@ -227,6 +227,43 @@ public class ChatAiIntegrationTests(WebAppFactory factory)
         (await alice.PostAsJsonAsync("/api/chat/ai/compose",
                 new { prompt = (string?)null, currentDraft = "yo meeting is at 3 k", action = "formal" }))
             .StatusCode.Should().Be(HttpStatusCode.ServiceUnavailable);
+    }
+
+    // ================================ chat.ai GATE (on top of the feature perm) ================================
+
+    [Fact]
+    public async Task Catch_up_requires_chat_ai_on_top_of_chat_read()
+    {
+        // A member with chat.read+chat.send but WITHOUT chat.ai is forbidden from the generative AI route
+        // (the chat.ai filter precedes the handler — no plain floor is reached, it's a hard 403).
+        var (_, owner, _) = await ProvisionUser("chat.read", "chat.send", "chat.ai");
+        var (_, bob, bobId) = await ProvisionUser("chat.read", "chat.send"); // member, but no chat.ai
+        var channelId = await CreateChannel(owner, "cu-noai-" + Guid.NewGuid().ToString("N")[..6], bobId);
+        await Send(owner, channelId, "hello");
+
+        (await bob.PostAsync($"/api/chat/channels/{channelId}/ai/catch-up", null))
+            .StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
+
+    [Fact]
+    public async Task Replies_require_chat_ai_on_top_of_chat_send()
+    {
+        var (_, owner, _) = await ProvisionUser("chat.read", "chat.send", "chat.ai");
+        var (_, bob, bobId) = await ProvisionUser("chat.read", "chat.send"); // member, but no chat.ai
+        var channelId = await CreateChannel(owner, "rp-noai-" + Guid.NewGuid().ToString("N")[..6], bobId);
+        await Send(owner, channelId, "you around?");
+
+        (await bob.PostAsync($"/api/chat/channels/{channelId}/ai/replies", null))
+            .StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
+
+    [Fact]
+    public async Task Compose_requires_chat_ai_on_top_of_chat_send()
+    {
+        var (_, alice, _) = await ProvisionUser("chat.read", "chat.send"); // no chat.ai
+        (await alice.PostAsJsonAsync("/api/chat/ai/compose",
+                new { prompt = "say hi to the team", currentDraft = (string?)null, action = "draft" }))
+            .StatusCode.Should().Be(HttpStatusCode.Forbidden);
     }
 
     [Fact]

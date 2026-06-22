@@ -89,7 +89,7 @@ public static class FamilyAssistantEndpoints
                 .Select(a => new AssistantActionDto(a.Type, a.Title, a.Params))
                 .ToList();
             return Results.Ok(new AssistantDto(result.Answer, actions));
-        }).RequireRateLimiting(AiEndpoints.RateLimitPolicy);
+        }).RequirePermission(Permissions.FamilyAiAssistant).RequireRateLimiting(AiEndpoints.RateLimitPolicy);
     }
 
     // =====================================================================================

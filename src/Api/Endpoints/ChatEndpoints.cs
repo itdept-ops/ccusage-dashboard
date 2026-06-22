@@ -150,7 +150,8 @@ public static class ChatEndpoints
                 return Results.Ok(new { summary, fellBackToPlain = false });
 
             return Results.Ok(new { summary = PlainCatchUp(namesNewestFirst), fellBackToPlain = true });
-        }).RequirePermission(Permissions.ChatRead).RequireRateLimiting(AiEndpoints.RateLimitPolicy);
+        }).RequirePermission(Permissions.ChatRead).RequirePermission(Permissions.ChatAi)
+          .RequireRateLimiting(AiEndpoints.RateLimitPolicy);
 
         // ---- AI: "Smart replies" — suggest reply options for the caller (read-only; SENDS NOTHING) ----
         // Gated chat.send + MEMBERSHIP (non-member 404). Returns 2-4 suggestions for the composer; the user
@@ -170,7 +171,8 @@ public static class ChatEndpoints
             var replies = await gemini.SuggestRepliesAsync(ordered, myName, ct);
             if (replies is null) return AiUnavailable();
             return Results.Ok(new { replies });
-        }).RequirePermission(Permissions.ChatSend).RequireRateLimiting(AiEndpoints.RateLimitPolicy);
+        }).RequirePermission(Permissions.ChatSend).RequirePermission(Permissions.ChatAi)
+          .RequireRateLimiting(AiEndpoints.RateLimitPolicy);
 
         // ---- AI: "Compose assist" — draft/rewrite/shorten/friendlier/formal a message (SENDS NOTHING) ----
         // Gated chat.send (no channel — the composer hasn't picked one yet). Returns the composed text for the
@@ -194,7 +196,8 @@ public static class ChatEndpoints
             var body = await gemini.ComposeChatAsync(prompt, draft, action, ct);
             if (string.IsNullOrWhiteSpace(body)) return AiUnavailable();
             return Results.Ok(new { body });
-        }).RequirePermission(Permissions.ChatSend).RequireRateLimiting(AiEndpoints.RateLimitPolicy);
+        }).RequirePermission(Permissions.ChatSend).RequirePermission(Permissions.ChatAi)
+          .RequireRateLimiting(AiEndpoints.RateLimitPolicy);
 
         // ---- Send a message (persist, broadcast, fan out notifications) ----
         g.MapPost("/channels/{id:int}/messages", async (

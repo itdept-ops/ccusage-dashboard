@@ -445,6 +445,35 @@ public class FamilyFinanceTests(WebAppFactory factory)
     }
 
     [Fact]
+    public async Task Ai_summary_is_NOT_blocked_for_a_finance_caller_without_finance_ai_but_returns_the_plain_floor()
+    {
+        // The floored /ai/summary is NOT gated at the filter — a family.use+family.finance caller WITHOUT
+        // finance.ai still gets a 200 plain floor (the LLM narration is the finance.ai-gated upgrade; the
+        // deterministic numbers are everyone's). finance.ai is checked INSIDE the handler, not as a 403.
+        var owner = await FinanceUser(); // family.use + family.finance, NO finance.ai
+        await owner.PostAsJsonAsync("/api/family/finance/import", new { fileName = "rm.csv", content = SampleCsv });
+
+        var res = await owner.GetAsync("/api/family/finance/ai/summary?month=2026-05");
+        res.StatusCode.Should().Be(HttpStatusCode.OK);
+        var dto = await Json(res);
+        dto.GetProperty("fellBackToPlain").GetBoolean().Should().BeTrue();
+        dto.GetProperty("narrative").GetString().Should().Contain("233.36");
+    }
+
+    [Fact]
+    public async Task Money_coach_is_NOT_blocked_for_a_finance_caller_without_finance_ai_but_returns_the_plain_floor()
+    {
+        // Same floor contract for the money coach: the deterministic recurring-charge detector is the floor for
+        // any family.finance caller; only the warm narration/tips are the finance.ai upgrade.
+        var owner = await FinanceUser(); // no finance.ai
+        await owner.PostAsJsonAsync("/api/family/finance/import", new { fileName = "rm.csv", content = SampleCsv });
+
+        var res = await owner.GetAsync("/api/family/finance/ai/money-coach");
+        res.StatusCode.Should().Be(HttpStatusCode.OK);
+        (await Json(res)).GetProperty("fellBackToPlain").GetBoolean().Should().BeTrue();
+    }
+
+    [Fact]
     public async Task Ai_summary_for_an_empty_month_returns_a_friendly_summary_without_calling_the_model()
     {
         var owner = await FinanceUser(); // no import — the household has no transactions at all

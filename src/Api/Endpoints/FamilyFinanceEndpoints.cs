@@ -588,8 +588,10 @@ public static class FamilyFinanceEndpoints
 
             var plain = PlainFinanceSummary(facts);
 
-            // Plain summary is the floor. Prefer the warm AI narrative when configured (cached per month).
-            if (!gemini.IsConfigured)
+            // Plain summary is the floor. Prefer the warm AI narrative ONLY when the caller holds finance.ai
+            // (the gated, token-spending capability) AND Gemini is configured — a family.finance caller without
+            // finance.ai always gets the deterministic plain summary (never spends tokens).
+            if (!caller.Permissions.Contains(Permissions.FinanceAi) || !gemini.IsConfigured)
                 return Results.Ok(new FinanceAiSummaryDto(plain, Array.Empty<string>(), true));
 
             var cacheKey = $"family:finance-summary:{household.Id}:{facts.MonthLabel}";
@@ -798,8 +800,10 @@ public static class FamilyFinanceEndpoints
             if (recurringDtos.Count == 0)
                 return Results.Ok(new MoneyCoachDto(recurringDtos, 0m, null, Array.Empty<string>(), true));
 
-            // Recurring list is the floor. Prefer the warm AI narration when configured (cached per month).
-            if (!gemini.IsConfigured)
+            // Recurring list is the floor. Prefer the warm AI narration ONLY when the caller holds finance.ai
+            // (the gated, token-spending capability) AND Gemini is configured — a family.finance caller without
+            // finance.ai always gets the deterministic recurring-charge floor (never spends tokens).
+            if (!caller.Permissions.Contains(Permissions.FinanceAi) || !gemini.IsConfigured)
                 return Results.Ok(new MoneyCoachDto(recurringDtos, monthlyTotal, null, Array.Empty<string>(), true));
 
             var cacheKey = $"family:money-coach:{household.Id}:{monthLabel}";
