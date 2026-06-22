@@ -17,7 +17,7 @@ import { Api } from '../../core/api';
 import { AuthService } from '../../core/auth';
 import {
   CalendarEvent, CalendarEventInput, CalendarRecurrence, CalendarStatus, FamilyMemberEvents,
-  FindTimeAiInterpreted, FindTimeConsideredMember, FindTimeSlot, HouseholdMember, ScheduleAiEvent,
+  FindTimeAiInterpreted, FindTimeConsideredMember, FindTimeSlot, HouseholdMember, PERM, ScheduleAiEvent,
   ScheduleImageFile,
 } from '../../core/models';
 import { downscaleToJpeg, readFileAsBase64 } from '../tracker/ai-image';
@@ -111,6 +111,15 @@ export class FamilyCalendar implements OnDestroy {
   private auth = inject(AuthService);
   private dialog = inject(MatDialog);
   private snack = inject(MatSnackBar);
+
+  /** AI gating: schedule-from-text is generative and needs family.ai (else the server 403s); the image/PDF
+   *  "upload a schedule" additionally needs ai.vision. Hide what the caller can't use so we never surface a
+   *  control that errors. (The family-member preset grants both; a partial grant gets the right subset.) */
+  readonly canScheduleAi = computed(() => { this.auth.permissions(); return this.auth.hasPermission(PERM.familyAi); });
+  readonly canUploadSchedule = computed(() => {
+    this.auth.permissions();
+    return this.auth.hasPermission(PERM.familyAi) && this.auth.hasPermission(PERM.aiVision);
+  });
 
   /** Auto-poll cadence while connected + the tab is visible. */
   private static readonly POLL_MS = 60_000;

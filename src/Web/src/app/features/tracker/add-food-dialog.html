@@ -218,8 +218,8 @@
       }
     </mat-button-toggle-group>
 
-    <!-- AI photo quick-actions (gated by tracker.ai): snap a meal, or scan a nutrition label. -->
-    @if (canUseAi) {
+    <!-- AI photo quick-actions (gated by ai.vision — a separate perm from text AI): snap a meal, or scan a label. -->
+    @if (canUseVision) {
       <div class="af-photo-actions">
         <button mat-stroked-button type="button" class="af-ai-btn" [disabled]="photoLoading()"
                 (click)="photoMeal()" aria-label="Take a meal photo with the camera to identify foods with AI">

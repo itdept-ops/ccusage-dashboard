@@ -161,6 +161,7 @@
 
     <!-- Schedule with AI -->
     <section class="cal-ai" aria-label="Schedule with AI">
+      @if (canScheduleAi()) {
       <div class="cal-ai__bar">
         <mat-icon class="cal-ai__spark" aria-hidden="true">auto_awesome</mat-icon>
         <mat-form-field appearance="outline" class="cal-ai__field" subscriptSizing="dynamic">
@@ -185,8 +186,10 @@
           }
         </button>
       </div>
+      }
 
-      <!-- 📄 Upload a schedule: drop / pick an image or PDF and pull the events out of it. -->
+      <!-- 📄 Upload a schedule (image/PDF → events): needs ai.vision on top of family.ai. -->
+      @if (canUploadSchedule()) {
       <div class="cal-upload" [class.cal-upload--drag]="uploadDragOver()"
            (dragover)="onUploadDragOver($event)" (dragleave)="onUploadDragLeave($event)"
            (drop)="onUploadDrop($event)">
@@ -208,6 +211,7 @@
           Your file is only read to find the events, never stored.
         </span>
       </div>
+      }
 
       @if (aiStatus(); as msg) {
         <p class="cal-ai__status" aria-live="polite">{{ msg }}</p>

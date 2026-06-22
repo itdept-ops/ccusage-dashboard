@@ -89,6 +89,9 @@ export class AddFoodDialog {
 
   /** GATE: every AI affordance (photo, label scan, describe, recipe, feedback) is hidden unless held. */
   readonly canUseAi = this.auth.hasPermission(PERM.trackerAi);
+  /** Multimodal (image/PDF) AI — meal photo + label scan — is a SEPARATE permission from text AI.
+   *  Gate the camera/attach/scan buttons on this so we never show a vision action the server will 403. */
+  readonly canUseVision = this.auth.hasPermission(PERM.aiVision);
 
   readonly meals = MEALS;
   readonly mode = signal<Mode>('search');
@@ -402,7 +405,7 @@ export class AddFoodDialog {
    * read to identify the food — it is never stored.
    */
   private async runPhotoMeal(source: () => Promise<ImageRequest | null>): Promise<void> {
-    if (!this.canUseAi || this.photoLoading()) return;
+    if (!this.canUseVision || this.photoLoading()) return;
     if (!(await confirmPhotoNotice())) return; // declined the privacy notice → abort, nothing sent.
     let image;
     try {
@@ -436,7 +439,7 @@ export class AddFoodDialog {
    * scanner). Shows the one-time Google notice on first use. A 503/error degrades gracefully.
    */
   async scanLabel(): Promise<void> {
-    if (!this.canUseAi || this.photoLoading()) return;
+    if (!this.canUseVision || this.photoLoading()) return;
     if (!(await confirmPhotoNotice())) return;
     let image;
     try {
