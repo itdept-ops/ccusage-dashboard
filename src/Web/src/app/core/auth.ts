@@ -32,36 +32,61 @@ export class AuthService {
   }
 
   /**
-   * The first page route the user can actually view, in nav order. Used as the post-login
-   * landing target and the "home" of the app. Falls back to '/welcome' for a user with no
-   * page-view permissions (e.g. a freshly auto-provisioned account awaiting approval).
+   * route -> the permission key(s) that grant access; the caller needs ANY one. Mirrors the route
+   * guards in app.routes.ts (and the backend HomeRoutes.Map) EXACTLY, so a saved home preference is
+   * honoured only while the caller still holds that route's permission.
+   */
+  private static readonly homePerms: Readonly<Record<string, readonly string[]>> = {
+    '/': [PERM.dashboardView],
+    '/calendar': [PERM.calendarView],
+    '/pricing': [PERM.pricingView],
+    '/settings': [PERM.settingsView],
+    '/reporter': [PERM.reporterView, PERM.reporterManage, PERM.reporterSelf],
+    '/fleet': [PERM.fleetView, PERM.reporterManage],
+    '/chat': [PERM.chatRead],
+    '/tracker': [PERM.trackerSelf],
+    '/family': [PERM.familyUse],
+    '/users': [PERM.usersView],
+    '/activity': [PERM.activityView],
+  };
+
+  /** Whether the caller currently holds (one of) the permission(s) that the given home route requires. */
+  canAccessHome(route: string): boolean {
+    const required = AuthService.homePerms[route];
+    return !!required && this.hasAnyPermission(...required);
+  }
+
+  /**
+   * The route the app should land the user on. If they've saved a home preference (from /me) AND still
+   * hold that route's permission, that wins; otherwise fall back to the first page they can actually
+   * view, in nav order. Falls back to '/welcome' for a user with no page-view permissions (e.g. a
+   * freshly auto-provisioned account awaiting approval).
    */
   homeRoute(): string {
-    const order: [string, string][] = [
-      [PERM.dashboardView, '/'],
-      [PERM.calendarView, '/calendar'],
-      [PERM.pricingView, '/pricing'],
-      [PERM.settingsView, '/settings'],
-      [PERM.reporterView, '/reporter'],
-      [PERM.reporterManage, '/reporter'],
-      [PERM.reporterSelf, '/reporter'],
-      [PERM.familyUse, '/family'],
-      [PERM.usersView, '/users'],
-      [PERM.activityView, '/activity'],
+    const saved = this._session()?.homeRoute;
+    if (saved && this.canAccessHome(saved)) return saved;
+
+    // First accessible page in NAV order — Usage group, then Tracker, Family, Chat, Admin group.
+    // Uses canAccessHome (ANY-of) so the any-of routes (/reporter, /fleet) are covered, and it stays
+    // in lock-step with homePerms + the nav grouping (every route is represented — no dead landings).
+    const order = [
+      '/', '/calendar', '/pricing', '/reporter', '/fleet',
+      '/tracker', '/family', '/chat',
+      '/users', '/activity', '/settings',
     ];
-    for (const [perm, route] of order) {
-      if (this.hasPermission(perm)) return route;
+    for (const route of order) {
+      if (this.canAccessHome(route)) return route;
     }
     return '/welcome';
   }
 
   /** Live identity + permissions from the server (403 when the account is disabled/removed). */
-  me(): Observable<{ userId: number; email: string; name: string; permissions: string[]; isEnabled: boolean }> {
-    return this.http.get<{ userId: number; email: string; name: string; permissions: string[]; isEnabled: boolean }>('/api/auth/me');
+  me(): Observable<{ userId: number; email: string; name: string; permissions: string[]; isEnabled: boolean; homeRoute: string | null }> {
+    return this.http.get<{ userId: number; email: string; name: string; permissions: string[]; isEnabled: boolean; homeRoute: string | null }>('/api/auth/me');
   }
 
   /** Merge a fresh /me result into the stored session so the UI reflects permission/identity changes. */
-  applyMe(me: { name: string; permissions: string[]; userId?: number }): void {
+  applyMe(me: { name: string; permissions: string[]; userId?: number; homeRoute?: string | null }): void {
     const s = this._session();
     if (!s) return;
     const updated: AuthSession = {
@@ -71,7 +96,19 @@ export class AuthService {
       // Carry the caller's own id so chat self-by-id checks work. Existing pre-3A sessions pick it up
       // here on their next /me poll; keep the prior value if a response somehow omits it.
       userId: me.userId ?? s.userId,
+      // The login response doesn't carry the home preference, so /me is where it lands. The field is
+      // always present on the MeDto (null = no preference), so take it verbatim.
+      homeRoute: me.homeRoute ?? null,
     };
+    this._session.set(updated);
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(updated)); } catch { /* ignore */ }
+  }
+
+  /** Update the stored home-page preference locally after a successful PATCH /api/auth/home. */
+  applyHomeRoute(route: string | null): void {
+    const s = this._session();
+    if (!s) return;
+    const updated: AuthSession = { ...s, homeRoute: route };
     this._session.set(updated);
     try { localStorage.setItem(STORAGE_KEY, JSON.stringify(updated)); } catch { /* ignore */ }
   }

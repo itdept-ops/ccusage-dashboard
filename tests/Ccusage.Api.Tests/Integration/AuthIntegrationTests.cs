@@ -1003,4 +1003,84 @@ public class AuthIntegrationTests(WebAppFactory factory)
 
         (await Client().GetAsync($"/api/share/{token}")).StatusCode.Should().Be(HttpStatusCode.NotFound);
     }
+
+    // ---- Self-service home page (GET /me homeRoute + PATCH /api/auth/home) ----
+
+    private static StringContent HomeBody(string? route)
+        => new(JsonSerializer.Serialize(new { route }), System.Text.Encoding.UTF8, "application/json");
+
+    private async Task<HttpResponseMessage> PatchHome(HttpClient c, string? route)
+        => await c.PatchAsync("/api/auth/home", HomeBody(route));
+
+    [Fact]
+    public async Task Me_returns_home_route_null_by_default()
+    {
+        var c = await ProvisionUser("dashboard.view");
+        var me = await (await c.GetAsync("/api/auth/me")).Content.ReadFromJsonAsync<JsonElement>();
+        me.TryGetProperty("homeRoute", out var hr).Should().BeTrue();
+        hr.ValueKind.Should().Be(JsonValueKind.Null);
+    }
+
+    [Fact]
+    public async Task Me_requires_authentication()
+        => (await Client().GetAsync("/api/auth/me")).StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+
+    [Fact]
+    public async Task Set_home_persists_for_the_caller_and_shows_in_me()
+    {
+        var c = await ProvisionUser("dashboard.view", "calendar.view");
+
+        var res = await PatchHome(c, "/calendar");
+        res.StatusCode.Should().Be(HttpStatusCode.OK);
+        (await res.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("homeRoute").GetString().Should().Be("/calendar");
+
+        var me = await (await c.GetAsync("/api/auth/me")).Content.ReadFromJsonAsync<JsonElement>();
+        me.GetProperty("homeRoute").GetString().Should().Be("/calendar");
+    }
+
+    [Fact]
+    public async Task Set_home_to_null_clears_it()
+    {
+        var c = await ProvisionUser("dashboard.view");
+        (await PatchHome(c, "/")).StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var cleared = await PatchHome(c, null);
+        cleared.StatusCode.Should().Be(HttpStatusCode.OK);
+        (await cleared.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("homeRoute").ValueKind.Should().Be(JsonValueKind.Null);
+
+        var me = await (await c.GetAsync("/api/auth/me")).Content.ReadFromJsonAsync<JsonElement>();
+        me.GetProperty("homeRoute").ValueKind.Should().Be(JsonValueKind.Null);
+    }
+
+    [Fact]
+    public async Task Set_home_rejects_an_unknown_route()
+    {
+        var c = await ProvisionUser("dashboard.view");
+        (await PatchHome(c, "/not-a-real-page")).StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task Set_home_rejects_a_route_the_caller_cannot_access()
+    {
+        // The caller has dashboard.view but NOT users.view, so /users is forbidden as a home.
+        var c = await ProvisionUser("dashboard.view");
+        var res = await PatchHome(c, "/users");
+        res.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+
+        // ...and nothing was persisted.
+        var me = await (await c.GetAsync("/api/auth/me")).Content.ReadFromJsonAsync<JsonElement>();
+        me.GetProperty("homeRoute").ValueKind.Should().Be(JsonValueKind.Null);
+    }
+
+    [Fact]
+    public async Task Set_home_allows_a_route_via_any_of_its_permissions()
+    {
+        // /fleet is ANY(fleet.view, reporter.manage); reporter.manage alone must unlock it as a home.
+        var c = await ProvisionUser("reporter.manage");
+        (await PatchHome(c, "/fleet")).StatusCode.Should().Be(HttpStatusCode.OK);
+    }
+
+    [Fact]
+    public async Task Set_home_requires_authentication()
+        => (await PatchHome(Client(), "/")).StatusCode.Should().Be(HttpStatusCode.Unauthorized);
 }

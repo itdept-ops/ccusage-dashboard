@@ -444,6 +444,17 @@ export class Api {
     return this.http.put<NotificationPreferenceDto>(`${this.base}/inbox/preferences`, dto);
   }
 
+  // ---- Home-page preference (self-service; any authenticated user sets their OWN landing page) ----
+
+  /**
+   * Set (or clear) the CALLER's own landing page (PATCH /api/auth/home). Pass a known page route the
+   * caller can currently reach, or null to clear it (fall back to the default first-accessible home).
+   * The server re-validates the route against the caller's live permissions; returns the saved value.
+   */
+  setHomeRoute(route: string | null): Observable<{ homeRoute: string | null }> {
+    return this.http.patch<{ homeRoute: string | null }>(`${this.base}/auth/home`, { route });
+  }
+
   // ---- Access policy (open sign-up + default permissions; requires users.manage to edit) ----
   getAccessPolicy(): Observable<AccessPolicy> {
     return this.http.get<AccessPolicy>(`${this.base}/access-policy`);

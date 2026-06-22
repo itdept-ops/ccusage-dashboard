@@ -374,6 +374,13 @@ export interface AuthSession {
    * next /me poll, so it may be momentarily undefined.
    */
   userId?: number;
+  /**
+   * The user's chosen landing page route (e.g. '/', '/calendar'), or null to use the default
+   * first-accessible-in-order home. The login response doesn't carry it — it's populated from /me
+   * (applyMe), so a freshly-restored session may be momentarily undefined until the first /me poll.
+   * {@link AuthService.homeRoute} honours it only while the caller still holds that route's permission.
+   */
+  homeRoute?: string | null;
 }
 
 export interface ManagedUser {

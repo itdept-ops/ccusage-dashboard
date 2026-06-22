@@ -488,6 +488,15 @@ public sealed class MeDto
     public string? Picture { get; set; }
     public bool IsEnabled { get; set; }
     public string[] Permissions { get; set; } = Array.Empty<string>();
+
+    /// <summary>The user's chosen landing route, or null to use the default first-accessible page.</summary>
+    public string? HomeRoute { get; set; }
+}
+
+/// <summary>Body for <c>PATCH /api/auth/home</c>: the route to land on, or null to clear (use default).</summary>
+public sealed class SetHomeRequest
+{
+    public string? Route { get; set; }
 }
 
 /// <summary>One teammate currently online (active within the presence window). Carries public identity

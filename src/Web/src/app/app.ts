@@ -33,6 +33,14 @@ interface QuickLink {
   perm: string | null;
 }
 
+/** A home-page option in the picker: a page route + label, shown only when the caller can reach it. */
+interface HomeOption {
+  route: string;
+  label: string;
+  /** Any-of these permissions grants access (mirrors the route guard). */
+  perms: readonly string[];
+}
+
 @Component({
   selector: 'app-root',
   imports: [
@@ -82,6 +90,24 @@ export class App {
     const path = url.split('?')[0];
     return App.barePrefixes.some(p => path === p || path.startsWith(p + '/'));
   }
+
+  /** The current route path (no query), kept fresh on each navigation — drives the group-active flags. */
+  readonly currentPath = signal(this.router.url.split('?')[0]);
+
+  /**
+   * Whether any child of a grouped dropdown is the active route — so the "Usage ▾" / "Admin ▾" trigger
+   * can flag itself active (routerLinkActive can't, since the trigger isn't a link). Each member matches
+   * the same exact/prefix shape its routerLinkActive uses ('/' is exact; the rest match the route or a
+   * child path).
+   */
+  private pathInGroup(routes: readonly string[]): boolean {
+    const path = this.currentPath();
+    return routes.some(r => r === '/' ? path === '/' : (path === r || path.startsWith(r + '/')));
+  }
+  readonly usageGroupActive = computed(() =>
+    this.pathInGroup(['/', '/calendar', '/pricing', '/reporter', '/fleet']));
+  readonly adminGroupActive = computed(() =>
+    this.pathInGroup(['/users', '/activity', '/settings']));
 
   /**
    * Page routes that require a single view permission (for live-revocation enforcement). Keyed by the
@@ -189,11 +215,37 @@ export class App {
     return App.quickLinkDefs.filter(l => !l.perm || this.auth.hasPermission(l.perm));
   });
 
+  /**
+   * The landing pages the home-page picker offers, in nav order. Each carries the SAME any-of permission
+   * set as its route guard (PERM.fleetView/reporterManage for /fleet — never dashboard.view), so the
+   * picker only ever lists pages the caller can actually reach.
+   */
+  private static readonly homeOptionDefs: readonly HomeOption[] = [
+    { route: '/', label: 'Dashboard', perms: [PERM.dashboardView] },
+    { route: '/calendar', label: 'Calendar', perms: [PERM.calendarView] },
+    { route: '/pricing', label: 'Pricing', perms: [PERM.pricingView] },
+    { route: '/reporter', label: 'Reporter', perms: [PERM.reporterView, PERM.reporterManage, PERM.reporterSelf] },
+    { route: '/fleet', label: 'Fleet', perms: [PERM.fleetView, PERM.reporterManage] },
+    { route: '/tracker', label: 'Tracker', perms: [PERM.trackerSelf] },
+    { route: '/family', label: 'Family', perms: [PERM.familyUse] },
+    { route: '/chat', label: 'Chat', perms: [PERM.chatRead] },
+    { route: '/users', label: 'Users', perms: [PERM.usersView] },
+    { route: '/activity', label: 'Activity', perms: [PERM.activityView] },
+    { route: '/settings', label: 'Settings', perms: [PERM.settingsView] },
+  ];
+
+  /** Home-page picker options filtered to the pages the current session can actually land on. */
+  readonly homeOptions = computed<HomeOption[]>(() => {
+    this.auth.permissions(); // re-run when permissions change
+    return App.homeOptionDefs.filter(o => this.auth.hasAnyPermission(...o.perms));
+  });
+
   constructor() {
     this.router.events
       .pipe(filter(e => e instanceof NavigationEnd), takeUntilDestroyed())
       .subscribe(() => {
         this.bareLayout.set(App.isBare(this.router.url));
+        this.currentPath.set(this.router.url.split('?')[0]);
         this.closeMobileNav(); // never leave the drawer open across a route change
       });
 
@@ -344,6 +396,25 @@ export class App {
         this.quickAddOpen = false;
         if (result) this.snack.open(result.summary, 'OK', { duration: 4000 });
       });
+  }
+
+  /**
+   * Set (or clear) the caller's landing page from the account-menu picker. `null` clears it (the brand
+   * link / post-login redirect fall back to the first-accessible page). PATCHes the backend, then updates
+   * local session state so {@link AuthService.homeRoute} reflects the choice immediately. On error the
+   * prior value stands and we toast — we never optimistically flip local state ahead of the server.
+   */
+  setHomeRoute(route: string | null): void {
+    if ((this.auth.session()?.homeRoute ?? null) === route) return; // no-op: already the chosen home
+    this.api.setHomeRoute(route).subscribe({
+      next: res => {
+        this.auth.applyHomeRoute(res.homeRoute ?? null);
+        this.snack.open(
+          res.homeRoute ? 'Home page updated.' : 'Home page reset to default.',
+          'OK', { duration: 3000 });
+      },
+      error: () => this.snack.open('Could not update your home page.', 'OK', { duration: 4000 }),
+    });
   }
 
   logout(): void {

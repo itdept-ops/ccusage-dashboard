@@ -22,6 +22,14 @@ public class AppUser
     public bool IsEnabled { get; set; } = true;
 
     /// <summary>
+    /// The page route the user lands on after sign-in (their chosen home). Null means "use the default
+    /// first-accessible page" (the original behaviour). A non-null value is always one of the known page
+    /// routes the user currently has permission to reach; it is validated server-side on every change,
+    /// so a user can never persist a home they cannot access.
+    /// </summary>
+    public string? HomeRoute { get; set; }
+
+    /// <summary>
     /// Security stamp for session invalidation. Each issued JWT carries this value in its <c>sv</c>
     /// claim; the request pipeline rejects a token whose <c>sv</c> no longer matches. An admin
     /// "force logout" bumps this (+1), invalidating every outstanding token for the user without

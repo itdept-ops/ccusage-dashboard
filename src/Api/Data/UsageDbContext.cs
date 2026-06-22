@@ -152,6 +152,7 @@ public class UsageDbContext(DbContextOptions<UsageDbContext> options) : DbContex
             e.Property(x => x.GoogleSubject).HasMaxLength(64);
             e.Property(x => x.Name).HasMaxLength(256);
             e.Property(x => x.Picture).HasMaxLength(1024);
+            e.Property(x => x.HomeRoute).HasMaxLength(64);
             e.Property(x => x.CreatedUtc).HasColumnType("timestamp with time zone");
             e.Property(x => x.LastLoginUtc).HasColumnType("timestamp with time zone");
             e.HasIndex(x => x.Email).IsUnique();
