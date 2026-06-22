@@ -376,21 +376,32 @@ export class Tracker {
     this.dialog.open(AddFoodDialog, { data, width: '500px', maxWidth: '95vw', autoFocus: false })
       .afterClosed().subscribe((req: AddFoodRequest | AddFoodRequest[] | undefined) => {
         if (!req) return;
-        // The AI multi-item flows (photo / "describe your meal") resolve with an ARRAY; log them in order.
+        // The AI multi-item flows (photo / "describe your meal") resolve with an ARRAY; log them as a
+        // batch (one day reload, partial-success aware) rather than N serial POST+reload round trips.
         const reqs = Array.isArray(req) ? req : [req];
         if (reqs.length === 0) return;
-        const run = reqs.reduce<Promise<unknown>>((p, r) => p.then(() => this.store.addFood(r)), Promise.resolve());
-        run
-          .then(() => {
-            if (reqs.length > 1) {
-              this.snack.open(`Added ${reqs.length} foods`, 'OK', { duration: 2500 });
-            } else {
+        if (reqs.length === 1) {
+          const r = reqs[0];
+          this.store.addFood(r)
+            .then(() => {
               // A single manual log (no provider source + no FDC id) is auto-saved to "My foods".
-              const r = reqs[0];
               const wasManual = !r.source && r.fdcId == null;
               this.snack.open(
                 wasManual ? `Added ${r.description} · saved to My foods` : `Added ${r.description}`,
                 'OK', { duration: 2500 });
+            })
+            .catch(() => this.snack.open('Could not add food', 'Dismiss', { duration: 4000 }));
+          return;
+        }
+        this.store.addFoods(reqs)
+          .then(({ added, failed }) => {
+            if (failed === 0) {
+              this.snack.open(`Added ${added} foods`, 'OK', { duration: 2500 });
+            } else if (added === 0) {
+              this.snack.open('Could not add foods', 'Dismiss', { duration: 4000 });
+            } else {
+              // Partial success: be honest about how many landed so the user knows to retry the rest.
+              this.snack.open(`Added ${added} of ${added + failed} foods — ${failed} failed`, 'Dismiss', { duration: 5000 });
             }
           })
           .catch(() => this.snack.open('Could not add food', 'Dismiss', { duration: 4000 }));
@@ -845,9 +856,19 @@ export class Tracker {
       .afterClosed().subscribe((req: AddFoodRequest | AddFoodRequest[] | undefined) => {
         if (!req) return;
         const reqs = Array.isArray(req) ? req : [req];
-        const run = reqs.reduce<Promise<unknown>>((p, r) => p.then(() => this.store.addFood(r)), Promise.resolve());
-        run
-          .then(() => this.snack.open(`Added ${reqs.length === 1 ? reqs[0].description : reqs.length + ' foods'}`, 'OK', { duration: 2500 }))
+        if (reqs.length === 0) return;
+        if (reqs.length === 1) {
+          this.store.addFood(reqs[0])
+            .then(() => this.snack.open(`Added ${reqs[0].description}`, 'OK', { duration: 2500 }))
+            .catch(() => this.snack.open('Could not add food', 'Dismiss', { duration: 4000 }));
+          return;
+        }
+        this.store.addFoods(reqs)
+          .then(({ added, failed }) => {
+            if (failed === 0) this.snack.open(`Added ${added} foods`, 'OK', { duration: 2500 });
+            else if (added === 0) this.snack.open('Could not add foods', 'Dismiss', { duration: 4000 });
+            else this.snack.open(`Added ${added} of ${added + failed} foods — ${failed} failed`, 'Dismiss', { duration: 5000 });
+          })
           .catch(() => this.snack.open('Could not add food', 'Dismiss', { duration: 4000 }));
       });
   }

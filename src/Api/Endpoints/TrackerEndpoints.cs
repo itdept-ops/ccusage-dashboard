@@ -248,8 +248,11 @@ public static class TrackerEndpoints
         }).RequirePermission(Permissions.TrackerSelf);
 
         // ---- The caller's saved "My foods" library (auto-built from manual logs), newest-used first ----
+        // When ?recent=true, ALSO surface recently-logged foods (most-recent first) deduped against the
+        // saved list by name+brand, each flagged IsRecent — so re-adding a recent food is one tap. Recent
+        // rows are owner-scoped + read-only (Id = 0, no delete).
         g.MapGet("/foods/saved", async (
-            string? q, CurrentUserAccessor me, UsageDbContext db, CancellationToken ct) =>
+            string? q, bool? recent, CurrentUserAccessor me, UsageDbContext db, CancellationToken ct) =>
         {
             var caller = (await me.GetUserAsync(ct))!;
             var query = db.CustomFoods.AsNoTracking().Where(f => f.UserEmail == caller.Email);
@@ -266,7 +269,41 @@ public static class TrackerEndpoints
                 .OrderByDescending(f => f.LastUsedUtc).ThenByDescending(f => f.Id)
                 .Take(100)
                 .ToListAsync(ct);
-            return Results.Ok(rows.Select(ToCustomFoodDto).ToArray());
+            var saved = rows.Select(ToCustomFoodDto).ToList();
+
+            if (recent == true)
+            {
+                // Dedup key = normalized description + brand (matches how a saved food is keyed). Any food
+                // already in the saved list is excluded so it never appears twice.
+                var seen = saved
+                    .Select(s => RecentKey(s.Description, s.Brand))
+                    .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+                var recentQuery = db.FoodEntries.AsNoTracking().Where(f => f.UserEmail == caller.Email);
+                if (term.Length > 0)
+                {
+                    var like = $"%{term}%";
+                    recentQuery = recentQuery.Where(f =>
+                        EF.Functions.ILike(f.Description, like)
+                        || (f.Brand != null && EF.Functions.ILike(f.Brand, like)));
+                }
+
+                // Pull a recent window (newest first) and dedupe in memory keeping the most-recent of each.
+                var recentRows = await recentQuery
+                    .OrderByDescending(f => f.CreatedUtc).ThenByDescending(f => f.Id)
+                    .Take(200)
+                    .ToListAsync(ct);
+
+                foreach (var f in recentRows)
+                {
+                    if (saved.Count >= 100) break;
+                    var key = RecentKey(f.Description, f.Brand);
+                    if (!seen.Add(key)) continue; // already saved, or a more-recent log of the same food.
+                    saved.Add(ToRecentFoodDto(f));
+                }
+            }
+
+            return Results.Ok(saved.ToArray());
         }).RequirePermission(Permissions.TrackerSelf);
 
         // ---- Delete one of the caller's saved foods (owner only) ----
@@ -1162,6 +1199,9 @@ public static class TrackerEndpoints
     // Per-entry builders (shared by the single endpoints AND the day-builder commit)
     // ===================================================================================
 
+    /// <summary>A finite, non-negative double — coerces NaN/Infinity/negatives to 0 (macro flooring).</summary>
+    private static double NonNeg(double n) => double.IsFinite(n) && n > 0 ? n : 0;
+
     /// <summary>Build a <see cref="FoodEntry"/> from an add-food request with the same clamping the single
     /// endpoint applies (description trim+cap done by the caller; macros floored at 0).</summary>
     private static FoodEntry BuildFoodEntry(string email, DateOnly localDate, MealType meal, AddFoodRequest req)
@@ -1169,7 +1209,10 @@ public static class TrackerEndpoints
         var description = (req.Description ?? "").Trim();
         if (description.Length > 256) description = description[..256];
         var brand = Trunc(req.Brand?.Trim(), 256);
-        var quantity = req.Quantity <= 0 ? 1 : req.Quantity;
+        // Clamp to a sane range: a non-positive/NaN quantity defaults to 1; an absurd typo is capped so
+        // a 99999-serving entry can't be persisted (mirrors the dialog's max="9999").
+        var quantity = !double.IsFinite(req.Quantity) || req.Quantity <= 0 ? 1
+            : Math.Min(req.Quantity, 9999);
         return new FoodEntry
         {
             UserEmail = email,
@@ -1180,10 +1223,12 @@ public static class TrackerEndpoints
             Brand = string.IsNullOrEmpty(brand) ? null : brand,
             Quantity = quantity,
             ServingDesc = Trunc(req.ServingDesc?.Trim(), 128),
+            // Floor at 0 AND coerce any non-finite (NaN/Infinity, e.g. from a deserialized client value)
+            // to 0 so a bad macro never reaches the double columns.
             Calories = Math.Max(0, req.Calories),
-            ProteinG = Math.Max(0, req.ProteinG),
-            CarbG = Math.Max(0, req.CarbG),
-            FatG = Math.Max(0, req.FatG),
+            ProteinG = NonNeg(req.ProteinG),
+            CarbG = NonNeg(req.CarbG),
+            FatG = NonNeg(req.FatG),
             CreatedUtc = DateTime.UtcNow,
         };
     }
@@ -1677,7 +1722,35 @@ public static class TrackerEndpoints
         CarbG = f.CarbG,
         FatG = f.FatG,
         UseCount = f.UseCount,
+        IsRecent = false,
     };
+
+    /// <summary>Dedup key for the recent-foods merge: normalized description + brand (case-insensitive).</summary>
+    private static string RecentKey(string? description, string? brand) =>
+        $"{(description ?? "").Trim()}{(brand ?? "").Trim()}";
+
+    /// <summary>
+    /// Project a logged <see cref="FoodEntry"/> into a read-only "recent" CustomFoodDto for the My-foods
+    /// list. Macros are de-scaled to PER-UNIT (entry total ÷ quantity) so re-picking it scales cleanly the
+    /// same way a saved food does; Id = 0 marks it as not-a-saved-row (no delete).
+    /// </summary>
+    private static CustomFoodDto ToRecentFoodDto(FoodEntry f)
+    {
+        var qty = f.Quantity > 0 ? f.Quantity : 1;
+        return new CustomFoodDto
+        {
+            Id = 0,
+            Description = f.Description,
+            Brand = string.IsNullOrEmpty(f.Brand) ? null : f.Brand,
+            ServingDesc = PerUnitServingDesc(f.ServingDesc, qty) is { Length: > 0 } s ? s : null,
+            Calories = (int)Math.Round(f.Calories / qty, MidpointRounding.AwayFromZero),
+            ProteinG = Math.Round(f.ProteinG / qty, 1),
+            CarbG = Math.Round(f.CarbG / qty, 1),
+            FatG = Math.Round(f.FatG / qty, 1),
+            UseCount = 0,
+            IsRecent = true,
+        };
+    }
 
     private static CustomExerciseDto ToCustomExerciseDto(CustomExercise x) => new()
     {

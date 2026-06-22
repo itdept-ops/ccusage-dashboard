@@ -1172,6 +1172,14 @@ public sealed class CustomFoodDto
     public double CarbG { get; set; }
     public double FatG { get; set; }
     public int UseCount { get; set; }
+
+    /// <summary>
+    /// True when this row is a RECENTLY-LOGGED food surfaced for quick re-add (not an explicitly saved
+    /// "My food"). Recent rows carry <see cref="Id"/> = 0 (they are not a CustomFood) and are read-only —
+    /// the client shows them after the saved list and omits the delete control. Deduped against saved by
+    /// name+brand so a food never appears twice.
+    /// </summary>
+    public bool IsRecent { get; set; }
 }
 
 /// <summary>One body-weight reading on a day, for the trend chart. Weight is always kg.</summary>

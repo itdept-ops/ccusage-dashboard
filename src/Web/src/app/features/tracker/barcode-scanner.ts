@@ -142,11 +142,19 @@ export class BarcodeScanner implements OnDestroy {
     try {
       const mod = await import('@zxing/browser');
       const reader = new mod.BrowserMultiFormatReader();
-      this.zxingControls = await reader.decodeFromVideoElement(videoEl, (result) => {
+      const controls = await reader.decodeFromVideoElement(videoEl, (result) => {
         if (this.done) return;
         const text = result?.getText?.()?.trim();
         if (text) this.emit(text);
       });
+      // If teardown (stop()/ngOnDestroy) ran DURING the import/decode await, stop() already saw a null
+      // zxingControls and couldn't stop the reader — so stop these controls now and leave the field null,
+      // otherwise the camera stays on after the component is gone.
+      if (this.done || !this.scanning()) {
+        try { controls.stop(); } catch { /* ignore */ }
+      } else {
+        this.zxingControls = controls;
+      }
     } catch {
       this.error.set('Live scanning is unavailable on this device. Enter the UPC below instead.');
       this.stop();

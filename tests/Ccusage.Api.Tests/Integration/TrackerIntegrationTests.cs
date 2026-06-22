@@ -946,6 +946,98 @@ public class TrackerIntegrationTests(WebAppFactory factory)
         (await Json(await alice.GetAsync("/api/tracker/foods/saved"))).EnumerateArray().Should().BeEmpty();
     }
 
+    // ---- AI-committed foods (photo / describe-a-meal review rows) auto-save like manual logs ----
+
+    [Fact]
+    public async Task Ai_committed_foods_with_no_source_are_auto_saved_to_my_foods()
+    {
+        var (_, user) = await ProvisionUser("tracker.self");
+
+        // The AI review batch (addReviewItems) commits each item via POST /tracker/food with NO source
+        // and NO fdcId — exactly a manual log — so each becomes a saved "My food" (no image stored).
+        foreach (var (desc, cal) in new[] { ("Grilled chicken", 220), ("Brown rice", 215) })
+        {
+            (await user.PostAsJsonAsync("/api/tracker/food", new
+            {
+                date = Today, meal = "dinner", description = desc,
+                quantity = 1.0, servingDesc = "1 serving",
+                calories = cal, proteinG = 10.0, carbG = 20.0, fatG = 5.0,
+            })).StatusCode.Should().Be(HttpStatusCode.OK);
+        }
+
+        var saved = (await Json(await user.GetAsync("/api/tracker/foods/saved"))).EnumerateArray().ToList();
+        saved.Should().HaveCount(2);
+        saved.Select(s => s.GetProperty("description").GetString())
+            .Should().BeEquivalentTo(new[] { "Grilled chicken", "Brown rice" });
+        // All are genuine saved rows (Id > 0), not recent-only placeholders.
+        saved.Should().OnlyContain(s => s.GetProperty("id").GetInt64() > 0);
+    }
+
+    // ---- "My foods" ?recent=true also surfaces recently-logged foods, deduped against saved ----
+
+    [Fact]
+    public async Task Saved_foods_with_recent_flag_includes_recently_logged_foods_deduped_against_saved()
+    {
+        var (_, user) = await ProvisionUser("tracker.self");
+
+        // A provider-sourced (FatSecret) log is NOT auto-saved, but it IS a recent log → it should appear
+        // only when recent=true, flagged isRecent with id 0 and PER-UNIT macros.
+        (await user.PostAsJsonAsync("/api/tracker/food", new
+        {
+            date = Today, meal = "breakfast", source = "fatsecret", description = "Greek yogurt",
+            quantity = 2.0, servingDesc = "2 servings",
+            calories = 200, proteinG = 34.0, carbG = 12.0, fatG = 0.0,
+        })).StatusCode.Should().Be(HttpStatusCode.OK);
+
+        // A manual log auto-saves (a genuine saved row).
+        (await user.PostAsJsonAsync("/api/tracker/food", new
+        {
+            date = Today, meal = "lunch", description = "Homemade soup",
+            quantity = 1.0, servingDesc = "1 bowl",
+            calories = 180, proteinG = 8.0, carbG = 22.0, fatG = 6.0,
+        })).StatusCode.Should().Be(HttpStatusCode.OK);
+
+        // Without recent: only the saved (manual) food shows.
+        var savedOnly = (await Json(await user.GetAsync("/api/tracker/foods/saved"))).EnumerateArray().ToList();
+        savedOnly.Should().ContainSingle();
+        savedOnly[0].GetProperty("description").GetString().Should().Be("Homemade soup");
+
+        // With recent: the FatSecret log surfaces as a read-only recent row (id 0, isRecent), and the
+        // saved manual food is NOT duplicated as a recent row.
+        var withRecent = (await Json(await user.GetAsync("/api/tracker/foods/saved?recent=true")))
+            .EnumerateArray().ToList();
+        withRecent.Should().HaveCount(2);
+
+        var soup = withRecent.Single(f => f.GetProperty("description").GetString() == "Homemade soup");
+        soup.GetProperty("isRecent").GetBoolean().Should().BeFalse();
+        soup.GetProperty("id").GetInt64().Should().BeGreaterThan(0);
+
+        var yogurt = withRecent.Single(f => f.GetProperty("description").GetString() == "Greek yogurt");
+        yogurt.GetProperty("isRecent").GetBoolean().Should().BeTrue();
+        yogurt.GetProperty("id").GetInt64().Should().Be(0);
+        // Recent macros are de-scaled to per-unit (200 cal / qty 2 = 100).
+        yogurt.GetProperty("calories").GetInt32().Should().Be(100);
+        yogurt.GetProperty("proteinG").GetDouble().Should().Be(17.0);
+    }
+
+    [Fact]
+    public async Task Recent_foods_are_caller_own_only()
+    {
+        var (_, alice) = await ProvisionUser("tracker.self");
+        var (_, bob) = await ProvisionUser("tracker.self");
+
+        await alice.PostAsJsonAsync("/api/tracker/food", new
+        {
+            date = Today, meal = "snack", source = "fatsecret", description = "Alice protein bar",
+            quantity = 1.0, calories = 210, proteinG = 20.0, carbG = 22.0, fatG = 7.0,
+        });
+
+        // Bob's recent list never includes Alice's logged foods.
+        var bobRecent = (await Json(await bob.GetAsync("/api/tracker/foods/saved?recent=true")))
+            .EnumerateArray().ToList();
+        bobRecent.Should().BeEmpty();
+    }
+
     // ---- Saved "My exercises": manual logs auto-save + dedupe; library/workoutx logs don't ----
 
     [Fact]

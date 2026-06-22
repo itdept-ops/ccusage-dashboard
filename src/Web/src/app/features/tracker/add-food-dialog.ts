@@ -1,7 +1,7 @@
 import { Component, computed, effect, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { HttpErrorResponse } from '@angular/common/http';
-import { Subject, debounceTime, distinctUntilChanged, switchMap, of, catchError, firstValueFrom } from 'rxjs';
+import { Subject, debounceTime, distinctUntilChanged, switchMap, of, catchError, firstValueFrom, map, takeUntil } from 'rxjs';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 
 import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
@@ -55,6 +55,14 @@ interface ReviewItem {
 
 /** Which sub-panel of the add-food flow is showing. */
 type Mode = 'search' | 'scan' | 'saved' | 'describe' | 'recipe';
+
+/** An upper sanity bound on a single food's quantity — blocks absurd typos (e.g. 99999 servings). */
+const MAX_QUANTITY = 9999;
+
+/** Coerce a possibly-null / NaN / non-finite numeric input to a finite number (0 when unusable). */
+function safeNum(n: number | null | undefined): number {
+  return typeof n === 'number' && Number.isFinite(n) ? n : 0;
+}
 
 const MEALS: { value: Meal; label: string }[] = [
   { value: 'breakfast', label: 'Breakfast' },
@@ -111,6 +119,8 @@ export class AddFoodDialog {
    * an empty name-search — with affordances to switch to a name search or to manual entry.
    */
   readonly barcodeNotFound = signal<string | null>(null);
+  /** Monotonic id of the latest barcode lookup; responses with a stale id are ignored (latest-wins). */
+  private barcodeToken = 0;
 
   // ---- "My foods" (per-user saved library) ----
   readonly savedQuery = signal('');
@@ -213,9 +223,11 @@ export class AddFoodDialog {
     const q = this.quantity();
     if (this.manual()) {
       if (!(q > 0)) return { calories: 0, proteinG: 0, carbG: 0, fatG: 0 };
-      const round = (n: number | null) => Math.round((n ?? 0) * q * 10) / 10;
+      // Floor each macro at 0 so a typed/pasted negative never renders a negative preview (and matches
+      // the server's Math.max(0, …) flooring at log time).
+      const round = (n: number | null) => Math.max(0, Math.round(safeNum(n) * q * 10) / 10);
       return {
-        calories: Math.round((this.mCalories() ?? 0) * q),
+        calories: Math.max(0, Math.round(safeNum(this.mCalories()) * q)),
         proteinG: round(this.mProtein()),
         carbG: round(this.mCarb()),
         fatG: round(this.mFat()),
@@ -224,16 +236,16 @@ export class AddFoodDialog {
     const f = this.selected();
     if (!f || !(q > 0)) return { calories: 0, proteinG: 0, carbG: 0, fatG: 0 };
     const factor = f.basis === 'per100g' ? q / 100 : q;
-    const round = (n: number) => Math.round(n * factor * 10) / 10;
+    const round = (n: number) => Math.max(0, Math.round(safeNum(n) * factor * 10) / 10);
     return {
-      calories: Math.round(f.calories * factor),
+      calories: Math.max(0, Math.round(safeNum(f.calories) * factor)),
       proteinG: round(f.proteinG),
       carbG: round(f.carbG),
       fatG: round(f.fatG),
     };
   });
 
-  /** A short human serving description for the entry ("2 servings" / "150 grams"). */
+  /** A short human serving description for the entry ("2 servings" / "150 grams" / "x2 · 1 bowl"). */
   readonly servingDesc = computed(() => {
     if (this.manual()) {
       const q = this.quantity();
@@ -241,33 +253,46 @@ export class AddFoodDialog {
     }
     const f = this.selected();
     if (!f) return undefined;
-    // A re-picked saved food at quantity 1 keeps its original serving text verbatim.
+    const q = this.quantity();
+    // A re-picked saved food carries its ORIGINAL unit text. At q=1 use it verbatim; at any other
+    // quantity prefix the multiplier so a non-"servings" unit (e.g. "150 grams", "1 bowl") isn't
+    // silently relabelled "N servings" while the macros are scaled by N.
     const orig = this.pickedServingDesc();
-    if (orig && this.quantity() === 1) return orig;
-    const unit = f.basis === 'per100g' ? 'g' : (this.quantity() === 1 ? 'serving' : 'servings');
+    if (orig) return q === 1 ? orig : `x${q} · ${orig}`;
+    const unit = f.basis === 'per100g' ? 'g' : (q === 1 ? 'serving' : 'servings');
     const sizeNote = f.servingSize && f.servingUnit ? ` (${f.servingSize}${f.servingUnit})` : '';
-    return `${this.quantity()} ${unit}${f.basis === 'per100g' ? '' : sizeNote}`;
+    return `${q} ${unit}${f.basis === 'per100g' ? '' : sizeNote}`;
+  });
+
+  /** A finite, in-range quantity (the bound number can be null/NaN mid-typing). */
+  private readonly validQuantity = computed(() => {
+    const q = this.quantity();
+    return Number.isFinite(q) && q > 0 && q <= MAX_QUANTITY;
   });
 
   readonly canSave = computed(() => {
     if (this.saving()) return false;
+    if (!this.validQuantity()) return false;
     if (this.manual()) {
-      return this.mDesc().trim().length > 0 && this.mCalories() != null
-        && (this.mCalories() ?? 0) >= 0 && this.quantity() > 0;
+      const cal = this.mCalories();
+      return this.mDesc().trim().length > 0 && cal != null && Number.isFinite(cal) && cal >= 0;
     }
-    return !!this.selected() && this.quantity() > 0;
+    return !!this.selected();
   });
 
   constructor() {
     // Debounced USDA name search; a 503 flips to the manual-entry steer.
+    // Trim BEFORE distinctUntilChanged so trailing-whitespace edits don't re-fire the same term.
     this.queryStream.pipe(
+      map(q => q.trim()),
       debounceTime(300),
       distinctUntilChanged(),
-      switchMap(q => {
-        const term = q.trim();
+      switchMap(term => {
         if (term.length < 2) { this.searching.set(false); return of<FoodSearchItemDto[] | null>([]); }
         this.searching.set(true);
+        // Each fresh attempt clears prior transient state — a 503 latch must not outlive a recovery.
         this.searchError.set(null);
+        this.searchUnavailable.set(false);
         return this.api.searchFoods({ q: term }).pipe(
           catchError((e: HttpErrorResponse) => {
             this.searching.set(false);
@@ -292,7 +317,8 @@ export class AddFoodDialog {
       distinctUntilChanged(),
       switchMap(q => {
         this.savedLoading.set(true);
-        return this.api.savedFoods(q.trim() || undefined).pipe(
+        // recent:true also surfaces recently-logged foods (read-only) deduped against the saved list.
+        return this.api.savedFoods(q.trim() || undefined, true).pipe(
           catchError(() => of<CustomFoodDto[]>([])),
         );
       }),
@@ -313,6 +339,11 @@ export class AddFoodDialog {
     this.mode.set(m);
     this.saveError.set(null);
     this.barcodeNotFound.set(null);
+    // Leaving search clears its transient notices/results so returning to it starts clean and a
+    // recovered provider isn't hidden behind a stale 503 latch from an earlier keystroke.
+    this.searchError.set(null);
+    this.searchUnavailable.set(false);
+    if (m !== 'search') this.results.set([]);
     // Lazy-load the saved library the first time the "My foods" tab is opened.
     if (m === 'saved' && !this.savedLoadedOnce) {
       this.savedLoadedOnce = true;
@@ -326,14 +357,21 @@ export class AddFoodDialog {
     this.pickedServingDesc.set(undefined);
     this.selectedSource.set(food.source || null);
     this.selected.set(food);
-    this.quantity.set(food.basis === 'per100g' ? (food.servingSize ?? 100) : 1);
+    // Per-100g default quantity = the provider serving size, clamped to a sane minimum so bad/zero
+    // provider data can't seed a 0- or sub-gram quantity (which yields an all-zero macro card).
+    this.quantity.set(food.basis === 'per100g' ? Math.max(1, food.servingSize ?? 100) : 1);
   }
 
-  /** Pick a saved "My foods" entry → quantity step (source="custom" so the backend bumps its use count). */
+  /**
+   * Pick a "My foods" entry → quantity step. A genuinely SAVED food (id > 0) carries source="custom"
+   * so the backend bumps its use count. A RECENT food (id 0, isRecent) is NOT yet a saved row, so it
+   * carries NO source — re-logging it then auto-saves it to "My foods" like any manual log.
+   */
   pickSaved(food: CustomFoodDto): void {
     this.manual.set(false);
     this.pickedServingDesc.set(food.servingDesc || undefined);
-    this.selectedSource.set('custom');
+    const isSaved = !food.isRecent && food.id > 0;
+    this.selectedSource.set(isSaved ? 'custom' : null);
     this.selected.set({
       fdcId: 0,
       description: food.description,
@@ -343,17 +381,30 @@ export class AddFoodDialog {
       carbG: food.carbG,
       fatG: food.fatG,
       basis: 'perServing',
+      // The selection's own `source` is informational only; save() derives the logged source from
+      // selectedSource() (set to null above for a recent food → auto-saved on re-log).
       source: 'custom',
-      sourceId: String(food.id),
+      sourceId: isSaved ? String(food.id) : undefined,
     });
     this.quantity.set(1);
   }
 
-  /** Remove a saved food from the caller's library (× on a "My foods" row). */
+  /** Remove a saved food from the caller's library (× on a "My foods" row). On failure, restore the
+   *  row directly (a stream re-emit would be swallowed by distinctUntilChanged when the query is
+   *  unchanged) and tell the user, so the UI never silently diverges from the server. */
   deleteSaved(food: CustomFoodDto, ev: Event): void {
     ev.stopPropagation();
     this.saved.update(list => list.filter(f => f.id !== food.id));
-    this.api.deleteSavedFood(food.id).subscribe({ error: () => this.savedQueryStream.next(this.savedQuery()) });
+    this.api.deleteSavedFood(food.id).subscribe({
+      error: () => {
+        this.api.savedFoods(this.savedQuery().trim() || undefined, true).subscribe({
+          next: list => this.saved.set(list),
+          // Even the refetch failed — re-insert the optimistically-removed row so it doesn't vanish.
+          error: () => this.saved.update(list => list.some(f => f.id === food.id) ? list : [food, ...list]),
+        });
+        this.snack.open('Could not remove that food', 'OK', { duration: 4000 });
+      },
+    });
   }
 
   /** Start a fresh manual entry (used by the "enter manually" affordances). */
@@ -363,6 +414,13 @@ export class AddFoodDialog {
     this.selectedSource.set(null);
     this.pickedServingDesc.set(undefined);
     this.barcodeNotFound.set(null);
+    // Clear stale search transients so a prior 503/error notice can't re-show behind the manual panel.
+    this.searchError.set(null);
+    this.searchUnavailable.set(false);
+    // Abandon any pending AI review list — otherwise its top-level @if would hide the manual fields
+    // this call is about to prefill (label/recipe paths), stranding the user on the review block.
+    this.reviewItems.set([]);
+    this.reviewSource.set(null);
     this.quantity.set(1);
     this.clearAiEstimate();
     this.mode.set('search');
@@ -374,10 +432,15 @@ export class AddFoodDialog {
     this.aiNote.set(null);
   }
 
-  /** Editing the description invalidates a stale meal-feedback verdict. */
+  /** Editing the description invalidates a stale meal-feedback verdict AND any AI macro estimate —
+   *  the prefilled numbers were for a DIFFERENT food, so drop the "AI estimate" chip so the user
+   *  doesn't log e.g. "apple pie" with "banana"'s macros still badged as an estimate. */
   onDescChange(v: string): void {
+    if (v !== this.mDesc()) {
+      if (this.feedback()) this.feedback.set(null);
+      if (this.aiEstimated()) this.clearAiEstimate();
+    }
     this.mDesc.set(v);
-    if (this.feedback()) this.feedback.set(null);
   }
 
   /**
@@ -515,9 +578,15 @@ export class AddFoodDialog {
       `AI found ${items.length} ${items.length === 1 ? 'item' : 'items'}. Review and edit, then add to your day.`);
   }
 
-  /** Patch one numeric field on a review row (keeps the array reference fresh for change detection). */
+  /** Patch one field on a review row (keeps the array reference fresh for change detection). Numeric
+   *  fields are coerced through safeNum so a blanked/NaN input becomes 0 — the visible row and the
+   *  logged snapshot then agree, and no NaN can reach the batch. */
   updateReviewItem(index: number, patch: Partial<ReviewItem>): void {
-    this.reviewItems.update(list => list.map((it, i) => (i === index ? { ...it, ...patch } : it)));
+    const clean: Partial<ReviewItem> = { ...patch };
+    for (const k of ['calories', 'proteinG', 'carbG', 'fatG'] as const) {
+      if (k in clean) clean[k] = Math.max(0, safeNum(clean[k] as number | null));
+    }
+    this.reviewItems.update(list => list.map((it, i) => (i === index ? { ...it, ...clean } : it)));
   }
 
   /** Toggle whether a review row is included in the batch add. */
@@ -543,6 +612,7 @@ export class AddFoodDialog {
    * the AI per-item estimate (quantity 1). Resolves the dialog with the array; the caller logs them all.
    */
   addReviewItems(): void {
+    if (this.saving()) return; // in-flight guard against a double-tap before the overlay tears down.
     const meal = this.meal();
     const reqs: AddFoodRequest[] = this.reviewItems()
       .filter(i => i.include && i.description.trim().length > 0)
@@ -552,13 +622,15 @@ export class AddFoodDialog {
         description: i.description.trim(),
         quantity: 1,
         servingDesc: '1 serving',
-        calories: Math.max(0, Math.round(i.calories)),
-        proteinG: Math.max(0, i.proteinG),
-        carbG: Math.max(0, i.carbG),
-        fatG: Math.max(0, i.fatG),
+        // Coerce every macro through safeNum so a blanked/NaN field logs 0, never NaN, into the snapshot.
+        calories: Math.max(0, Math.round(safeNum(i.calories))),
+        proteinG: Math.max(0, safeNum(i.proteinG)),
+        carbG: Math.max(0, safeNum(i.carbG)),
+        fatG: Math.max(0, safeNum(i.fatG)),
         // No source → each is auto-saved to "My foods" like any manual log.
       }));
     if (reqs.length === 0) return;
+    this.saving.set(true);
     this.ref.close(reqs);
   }
 
@@ -652,8 +724,16 @@ export class AddFoodDialog {
         `AI estimate: ${res.calories} calories, ${res.proteinG} grams protein, ` +
         `${res.carbsG} grams carbs, ${res.fatG} grams fat.` + (res.note ? ` ${res.note}` : ''));
     } catch {
-      // 503 (unconfigured) or any failure → one consistent degraded path; fields stay editable.
-      this.aiEstimated.set(false);
+      // 503 (unconfigured) or any failure → one consistent degraded path; fields stay editable. If a
+      // PRIOR estimate's numbers are still in the fields, clear them too — otherwise dropping the chip
+      // while keeping now-mismatched macros could be saved as if hand-entered for the new description.
+      if (this.aiEstimated()) {
+        this.mCalories.set(null);
+        this.mProtein.set(null);
+        this.mCarb.set(null);
+        this.mFat.set(null);
+      }
+      this.clearAiEstimate();
       this.aiAnnounce.set('AI estimate unavailable. Enter the values manually.');
       this.snack.open('AI estimate unavailable — enter manually', 'OK', { duration: 4000 });
     } finally {
@@ -675,9 +755,15 @@ export class AddFoodDialog {
    * notice with affordances to switch to name search or manual entry — never silently show nothing.
    */
   onBarcode(code: string): void {
+    if (this.searching()) return; // in-flight guard: a double-emit / fast re-tap can't stack lookups.
+    // Each lookup carries a monotonic token; a stale response (e.g. the scanner emitting twice, or a
+    // slow earlier lookup) is ignored so it can't clobber the newest result's state.
+    const token = ++this.barcodeToken;
     this.searching.set(true);
     this.searchError.set(null);
     this.barcodeNotFound.set(null);
+    // Fresh attempt — never let an earlier 503 latch route this lookup to the unconfigured steer.
+    this.searchUnavailable.set(false);
     this.api.searchFoods({ barcode: code }).pipe(
       catchError((e: HttpErrorResponse) => {
         if (e.status === 503) { this.searchUnavailable.set(true); }
@@ -686,6 +772,7 @@ export class AddFoodDialog {
         return of<FoodSearchItemDto[] | null>(null);
       }),
     ).subscribe(list => {
+      if (token !== this.barcodeToken) return; // a newer lookup superseded this one.
       this.searching.set(false);
       if (list && list.length > 0) {
         this.mode.set('search');
@@ -704,9 +791,36 @@ export class AddFoodDialog {
 
   /** Switch from the barcode not-found notice to a fresh name search. */
   searchByName(): void {
-    this.barcodeNotFound.set(null);
     this.query.set('');
-    this.mode.set('search');
+    // setMode() clears barcodeNotFound + the search transients (error / 503 latch / stale results).
+    this.setMode('search');
+  }
+
+  /**
+   * Re-run the CURRENT name search after a transient error. distinctUntilChanged on the query stream
+   * would swallow a re-type of the identical term, so the "Try again" affordance runs the lookup
+   * directly (latest-wins via the barcode-style token isn't needed here — switchMap-less, but a fresh
+   * keystroke would supersede it through the stream anyway).
+   */
+  retrySearch(): void {
+    const term = this.query().trim();
+    if (term.length < 2 || this.searching()) return;
+    this.searching.set(true);
+    this.searchError.set(null);
+    this.searchUnavailable.set(false);
+    this.api.searchFoods({ q: term }).pipe(
+      catchError((e: HttpErrorResponse) => {
+        if (e.status === 503) { this.searchUnavailable.set(true); }
+        else { this.searchError.set('Food search failed. Try again, or enter the food manually.'); }
+        return of<FoodSearchItemDto[] | null>(null);
+      }),
+      // Latest-wins: a fresh keystroke (which pushes the query stream) cancels this retry so a slow
+      // retry response can't land after — and clobber — a newer search result.
+      takeUntil(this.queryStream),
+    ).subscribe(list => {
+      this.searching.set(false);
+      if (list) this.results.set(list);
+    });
   }
 
   basisLabel(f: FoodSearchItemDto): string {
@@ -715,6 +829,7 @@ export class AddFoodDialog {
 
   save(): void {
     if (!this.canSave()) return;
+    this.saving.set(true); // first tap latches; canSave() now returns false so a double-tap no-ops.
     const s = this.scaled();
     const f = this.selected();
     const src = this.manual() ? null : this.selectedSource();

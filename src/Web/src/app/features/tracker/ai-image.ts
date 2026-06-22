@@ -40,55 +40,8 @@ const PHOTO_NOTICE_TEXT =
  * failure so the caller can surface a friendly error.
  */
 export function captureImage(): Promise<ImageRequest | null> {
-  return new Promise((resolve, reject) => {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = 'image/*';
-    // Hint mobile browsers to offer the rear camera; harmless (ignored) on desktop.
-    input.setAttribute('capture', 'environment');
-    input.style.display = 'none';
-
-    // If the picker is dismissed, most browsers fire no event at all; we resolve(null) on a focus-back
-    // sweep so the promise never hangs. `change` (a real selection) wins the race and clears it.
-    let settled = false;
-    const cleanup = () => {
-      window.removeEventListener('focus', onFocus, true);
-      input.remove();
-    };
-    const onFocus = () => {
-      // Defer: the `change` event fires shortly AFTER focus returns when a file WAS chosen.
-      setTimeout(() => {
-        if (!settled && (!input.files || input.files.length === 0)) {
-          settled = true;
-          cleanup();
-          resolve(null);
-        }
-      }, 400);
-    };
-
-    input.addEventListener('change', () => {
-      const file = input.files?.[0];
-      if (!file) {
-        if (settled) return;
-        settled = true;
-        cleanup();
-        resolve(null);
-        return;
-      }
-      settled = true;
-      window.removeEventListener('focus', onFocus, true);
-      input.remove();
-
-      if (!file.type.startsWith('image/')) {
-        reject(new Error('Please choose an image file.'));
-        return;
-      }
-      downscaleToJpeg(file).then(resolve, reject);
-    });
-
-    window.addEventListener('focus', onFocus, true);
-    input.click();
-  });
+  // `capture=environment` hints mobile browsers to offer the rear camera (ignored on desktop).
+  return openImagePicker(true);
 }
 
 /**
@@ -102,49 +55,67 @@ export function captureImage(): Promise<ImageRequest | null> {
  * Rejects on a non-image file or a decode failure so the caller can surface a friendly error.
  */
 export function pickImage(): Promise<ImageRequest | null> {
+  // No `capture` attribute → mobile offers the gallery/files (an existing photo), not just the camera.
+  return openImagePicker(false);
+}
+
+/**
+ * Shared throwaway-`<input type=file>` picker for {@link captureImage} / {@link pickImage} (the only
+ * difference is the `capture` attribute). Resolves with the downscaled {@link ImageRequest}, or `null`
+ * when the user cancels.
+ *
+ * Cancellation is heuristic: when a picker is dismissed many browsers fire NO event, so we resolve(null)
+ * on a focus-back sweep to avoid hanging. The `change` event (a real selection) ALWAYS wins — even when
+ * it arrives after the sweep — because we record that a file was chosen and the focus timer bails if so.
+ * The timer also uses a generous grace window so a slow large-capture (HEIC) decode isn't dropped as a
+ * "cancel".
+ */
+function openImagePicker(withCapture: boolean): Promise<ImageRequest | null> {
   return new Promise((resolve, reject) => {
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = 'image/*';
-    // NOTE: deliberately NO `capture` attribute — mobile then offers the gallery/files, not just the camera.
+    if (withCapture) input.setAttribute('capture', 'environment');
     input.style.display = 'none';
 
-    // If the picker is dismissed, most browsers fire no event at all; we resolve(null) on a focus-back
-    // sweep so the promise never hangs. `change` (a real selection) wins the race and clears it.
-    let settled = false;
+    let settled = false;     // a terminal resolve/reject has fired.
+    let changeSeen = false;  // the `change` event has fired (a file was chosen, even if still decoding).
+
     const cleanup = () => {
       window.removeEventListener('focus', onFocus, true);
       input.remove();
     };
+
+    const finish = (run: () => void) => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      run();
+    };
+
     const onFocus = () => {
-      // Defer: the `change` event fires shortly AFTER focus returns when a file WAS chosen.
+      // The OS picker just closed. Wait a generous grace window for `change` to populate the input —
+      // some mobile browsers fire `change` well after focus returns for large captures. Only treat it
+      // as a cancel if NO change has arrived AND the input is still empty.
       setTimeout(() => {
-        if (!settled && (!input.files || input.files.length === 0)) {
-          settled = true;
-          cleanup();
-          resolve(null);
-        }
-      }, 400);
+        if (changeSeen) return;                        // a real selection is in flight — never cancel.
+        if (input.files && input.files.length > 0) return; // file present but change pending — let it run.
+        finish(() => resolve(null));
+      }, 1200);
     };
 
     input.addEventListener('change', () => {
+      changeSeen = true; // a real selection wins UNCONDITIONALLY over the focus-cancel sweep.
       const file = input.files?.[0];
       if (!file) {
-        if (settled) return;
-        settled = true;
-        cleanup();
-        resolve(null);
+        finish(() => resolve(null));
         return;
       }
-      settled = true;
-      window.removeEventListener('focus', onFocus, true);
-      input.remove();
-
       if (!file.type.startsWith('image/')) {
-        reject(new Error('Please choose an image file.'));
+        finish(() => reject(new Error('Please choose an image file.')));
         return;
       }
-      downscaleToJpeg(file).then(resolve, reject);
+      finish(() => downscaleToJpeg(file).then(resolve, reject));
     });
 
     window.addEventListener('focus', onFocus, true);

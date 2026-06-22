@@ -590,11 +590,15 @@ export class Api {
 
   /**
    * The caller's saved "My foods" library (auto-built from manual food logs), newest-used first.
-   * Pass `q` for a case-insensitive description/brand filter.
+   * Pass `q` for a case-insensitive description/brand filter. Pass `recent: true` to ALSO append
+   * recently-logged foods (read-only, `isRecent`, deduped against the saved list) for one-tap re-add.
    */
-  savedFoods(q?: string): Observable<CustomFoodDto[]> {
-    const params = q ? new HttpParams().set('q', q) : undefined;
-    return this.http.get<CustomFoodDto[]>(`${this.base}/tracker/foods/saved`, { params });
+  savedFoods(q?: string, recent?: boolean): Observable<CustomFoodDto[]> {
+    let params = new HttpParams();
+    if (q) params = params.set('q', q);
+    if (recent) params = params.set('recent', 'true');
+    return this.http.get<CustomFoodDto[]>(`${this.base}/tracker/foods/saved`,
+      params.keys().length ? { params } : undefined);
   }
 
   /** Delete one of the caller's saved foods (owner-only). */

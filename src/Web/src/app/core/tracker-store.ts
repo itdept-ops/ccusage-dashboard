@@ -108,6 +108,24 @@ export class TrackerStore {
     await this.load();
   }
 
+  /**
+   * Log a BATCH of food entries (the AI multi-item flows: photo / describe-a-meal), then refresh the
+   * day EXACTLY ONCE — vs N serial POST+reload round trips, which flickered the rings and dragged on a
+   * phone. Each item still hits the single `/food` endpoint, so the server-side "My foods" auto-save
+   * applies to every committed item just like a manual log.
+   *
+   * Resilient to partial failure: each insert is independent (Promise.allSettled), so one bad row never
+   * drops the others. Returns how many succeeded/failed so the caller can surface the real outcome
+   * (e.g. "Added 4 of 5") instead of a wholesale "couldn't add" when most landed.
+   */
+  async addFoods(bodies: AddFoodRequest[]): Promise<{ added: number; failed: number }> {
+    const results = await Promise.allSettled(bodies.map(b => firstValueFrom(this.api.addFood(b))));
+    const added = results.filter(r => r.status === 'fulfilled').length;
+    // Refresh once if anything landed (or if nothing did but we still want fresh state after errors).
+    await this.load();
+    return { added, failed: results.length - added };
+  }
+
   /** Delete a logged food entry, then refresh the day. */
   async deleteFood(id: number): Promise<void> {
     await firstValueFrom(this.api.deleteFood(id));

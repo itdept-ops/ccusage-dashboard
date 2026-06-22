@@ -1652,6 +1652,12 @@ export interface CustomFoodDto {
   carbG: number;
   fatG: number;
   useCount: number;
+  /**
+   * True when this is a RECENTLY-LOGGED food surfaced for one-tap re-add (not an explicitly saved "My
+   * food"). Recent rows have `id: 0` and are read-only — the dialog renders them after the saved list
+   * and hides the remove (×) control. Deduped against the saved list by name+brand server-side.
+   */
+  isRecent?: boolean;
 }
 
 /**
