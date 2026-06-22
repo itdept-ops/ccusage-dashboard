@@ -16,7 +16,7 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { Api } from '../../core/api';
 import { AuthService } from '../../core/auth';
 import {
-  CalendarEvent, CalendarEventInput, CalendarRecurrence, CalendarStatus, FamilyMemberEvents,
+  CalendarEvent, CalendarEventInput, CalendarRecurrence, CalendarStatus, CycleOverlayMember, FamilyMemberEvents,
   FindTimeAiInterpreted, FindTimeConsideredMember, FindTimeSlot, HouseholdMember, PERM, ScheduleAiEvent,
   ScheduleImageFile,
 } from '../../core/models';
@@ -48,6 +48,19 @@ interface OverlayMember {
   color: string;
 }
 
+/**
+ * The PREDICTED cycle phase covering a single day, for the soft background layer. Identity is the member
+ * NAME(s) only (never an email); `kind` is "period" or "fertile" (period wins when a day has both). Always
+ * predicted + read-only — it tags a day cell so the template can paint a faint rose/teal wash + a "predicted"
+ * tooltip/aria. Absent (undefined) on days no opted-in member predicts a phase.
+ */
+interface CyclePhaseDay {
+  /** "period" (faint rose) beats "fertile" (faint teal) when a day is covered by both. */
+  kind: 'period' | 'fertile';
+  /** Distinct opted-in member display names covering this day (for the tooltip/aria); never an email. */
+  names: string[];
+}
+
 /** One AI-proposed event the family member can confirm/edit before it's created on their calendar. */
 interface ProposedEvent {
   ai: ScheduleAiEvent;
@@ -67,6 +80,8 @@ interface DayColumn {
   dayNum: number;         // 1..31
   isToday: boolean;
   events: DayEvent[];
+  /** The predicted cycle phase covering this day (soft background layer), or undefined when none. */
+  cyclePhase?: CyclePhaseDay;
 }
 
 /** One cell of the month grid (6×7): a day with its events, truncated with a "+N more" overflow. */
@@ -81,6 +96,8 @@ interface MonthCell {
   events: DayEvent[];
   /** How many further events are hidden ("+N more"). 0 when nothing overflows. */
   moreCount: number;
+  /** The predicted cycle phase covering this day (soft background layer), or undefined when none. */
+  cyclePhase?: CyclePhaseDay;
 }
 
 type ViewMode = 'week' | 'agenda' | 'month';
@@ -167,6 +184,17 @@ export class FamilyCalendar implements OnDestroy {
       color: FamilyCalendar.OVERLAY_PALETTE[i % FamilyCalendar.OVERLAY_PALETTE.length],
     }));
   });
+
+  // ---- Cycle overlay (opted-in members' PREDICTED period/fertile phases, soft read-only background) ----
+  /** Raw per-member predicted phase spans for the visible range (only opted-in members appear). */
+  readonly cyclePhases = signal<CycleOverlayMember[]>([]);
+  /** Whether the predicted-phase background layer is shown (its own toggle). In-session only. */
+  readonly showCyclePhases = signal(true);
+
+  /** True when at least one opted-in member shares a PAINTABLE predicted phase (period/fertile) — gates the
+   *  cycle toggle/legend so it never appears when nothing would actually paint. */
+  readonly hasCyclePhases = computed<boolean>(() =>
+    this.cyclePhases().some(m => (m.phases ?? []).some(p => p.kind === 'period' || p.kind === 'fertile')));
 
   /** The caller's calendar-share opt-in (mirrors status.shareHousehold); drives the share toggle state. */
   readonly shareHousehold = computed<boolean>(() => this.status()?.shareHousehold === true);
@@ -274,11 +302,43 @@ export class FamilyCalendar implements OnDestroy {
     return byDay;
   });
 
+  /**
+   * A "YYYY-MM-DD" → CyclePhaseDay map of the PREDICTED period/fertile phases covering each day, merged across
+   * every opted-in member (only when the cycle layer is shown). Period beats fertile when a day is covered by
+   * both; the member names covering the day are collected for the tooltip/aria. Empty when nobody shares.
+   */
+  private readonly cyclePhaseByDay = computed<Map<string, CyclePhaseDay>>(() => {
+    const byDay = new Map<string, CyclePhaseDay>();
+    if (!this.showCyclePhases()) return byDay;
+    // Accumulate member names PER KIND per day, so a day covered by both a period (member A) and a fertile
+    // window (member B) surfaces only the WINNING kind's members — never misattributing B's fertile window
+    // as a predicted period in the label/aria (cycle data is sensitive; accuracy matters).
+    const acc = new Map<string, { period: string[]; fertile: string[] }>();
+    for (const member of this.cyclePhases()) {
+      for (const span of member.phases ?? []) {
+        const kind = span.kind === 'period' ? 'period' : span.kind === 'fertile' ? 'fertile' : null;
+        if (!kind) continue;
+        for (const iso of this.spannedPhaseDays(span.start, span.end)) {
+          let day = acc.get(iso);
+          if (!day) { day = { period: [], fertile: [] }; acc.set(iso, day); }
+          if (!day[kind].includes(member.name)) day[kind].push(member.name);
+        }
+      }
+    }
+    // Period beats fertile; surface only the winning kind's member names for that day.
+    for (const [iso, day] of acc) {
+      if (day.period.length) byDay.set(iso, { kind: 'period', names: day.period });
+      else if (day.fertile.length) byDay.set(iso, { kind: 'fertile', names: day.fertile });
+    }
+    return byDay;
+  });
+
   /** The seven day-columns of the visible week (Sun→Sat) with their events placed. */
   readonly days = computed<DayColumn[]>(() => {
     const start = this.weekStart();
     const todayIso = this.toLocalDate(new Date());
     const byDay = this.eventsByDay();
+    const phaseByDay = this.cyclePhaseByDay();
     const cols: DayColumn[] = [];
     for (let i = 0; i < 7; i++) {
       const date = new Date(start.getFullYear(), start.getMonth(), start.getDate() + i);
@@ -290,6 +350,7 @@ export class FamilyCalendar implements OnDestroy {
         dayNum: date.getDate(),
         isToday: iso === todayIso,
         events: evs,
+        cyclePhase: phaseByDay.get(iso),
       });
     }
     return cols;
@@ -313,6 +374,7 @@ export class FamilyCalendar implements OnDestroy {
     const gridStart = this.sundayOf(first);
     const todayIso = this.toLocalDate(new Date());
     const byDay = this.eventsByDay();
+    const phaseByDay = this.cyclePhaseByDay();
     const cells: MonthCell[] = [];
     for (let i = 0; i < 42; i++) {
       const date = new Date(gridStart.getFullYear(), gridStart.getMonth(), gridStart.getDate() + i);
@@ -326,6 +388,7 @@ export class FamilyCalendar implements OnDestroy {
         inMonth: date.getMonth() === month,
         events: shown,
         moreCount: Math.max(0, all.length - shown.length),
+        cyclePhase: phaseByDay.get(iso),
       });
     }
     return cells;
@@ -502,6 +565,7 @@ export class FamilyCalendar implements OnDestroy {
       this.status.set({ configured: true, connected: false });
       this.events.set([]);
       this.familyEvents.set([]);
+      this.cyclePhases.set([]);
       this.proposals.set([]);
       this.clearBest();
       this.lastUpdated.set(null);
@@ -571,8 +635,9 @@ export class FamilyCalendar implements OnDestroy {
     } finally {
       if (!silent) this.loadingEvents.set(false);
     }
-    // Best-effort overlay over the same range (never blocks / errors the caller's own events).
+    // Best-effort overlays over the same range (never block / error the caller's own events).
     void this.loadFamilyEvents(start, end);
+    void this.loadCyclePhases(start, end);
   }
 
   /** Best-effort fetch of the family overlay over a range; a failure just clears it (own events stand). */
@@ -582,6 +647,19 @@ export class FamilyCalendar implements OnDestroy {
       this.familyEvents.set(members ?? []);
     } catch {
       this.familyEvents.set([]);
+    }
+  }
+
+  /**
+   * Best-effort fetch of the opted-in members' PREDICTED cycle phases over a range; a failure (or nobody
+   * opted in) just clears the layer (everything else stands). Read-only — only predicted spans, never raw.
+   */
+  private async loadCyclePhases(start: Date, end: Date): Promise<void> {
+    try {
+      const members = await firstValueFrom(this.api.cycleOverlay(start.toISOString(), end.toISOString()));
+      this.cyclePhases.set(members ?? []);
+    } catch {
+      this.cyclePhases.set([]);
     }
   }
 
@@ -629,6 +707,22 @@ export class FamilyCalendar implements OnDestroy {
   /** Show/hide the family overlay (legend toggle). No fetch — the overlay data is already loaded. */
   toggleOverlay(): void {
     this.showOverlay.set(!this.showOverlay());
+  }
+
+  /** Show/hide the predicted cycle-phase background layer. No fetch — the phase data is already loaded. */
+  toggleCyclePhases(): void {
+    this.showCyclePhases.set(!this.showCyclePhases());
+  }
+
+  /**
+   * A "predicted" tooltip/aria sentence for a day's cycle phase, naming the opted-in member(s) — e.g.
+   * "Predicted period · Ava" or "Predicted fertile window · Ava, Mia". Never an email; '' when no phase.
+   */
+  cyclePhaseLabel(phase: CyclePhaseDay | undefined): string {
+    if (!phase) return '';
+    const what = phase.kind === 'period' ? 'Predicted period' : 'Predicted fertile window';
+    const who = phase.names.join(', ');
+    return who ? `${what} · ${who}` : what;
   }
 
   /**
@@ -1195,6 +1289,32 @@ export class FamilyCalendar implements OnDestroy {
       cursor.setDate(cursor.getDate() + 1);
     }
     return days.length ? days : [this.toLocalDate(start)];
+  }
+
+  /**
+   * The set of local "YYYY-MM-DD" days an INCLUSIVE predicted phase span ("YYYY-MM-DD" start..end) touches.
+   * The span dates are calendar dates (no time-of-day), so we parse them locally + walk day-by-day.
+   */
+  private spannedPhaseDays(start: string, end: string): string[] {
+    const s = this.parseIsoDate(start);
+    const e = this.parseIsoDate(end) ?? s;
+    if (!s) return [];
+    const last = e && e.getTime() >= s.getTime() ? e : s;
+    const days: string[] = [];
+    const cursor = new Date(s.getFullYear(), s.getMonth(), s.getDate());
+    let guard = 0;
+    while (cursor.getTime() <= last.getTime() && guard++ < 366) {
+      days.push(this.toLocalDate(cursor));
+      cursor.setDate(cursor.getDate() + 1);
+    }
+    return days;
+  }
+
+  /** Parse a "YYYY-MM-DD" calendar date as a LOCAL midnight Date (avoids the UTC shift of `new Date(str)`). */
+  private parseIsoDate(iso: string): Date | null {
+    const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso ?? '');
+    if (!m) return null;
+    return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
   }
 
   /** "All day" or a "h:mm a" local start label. */

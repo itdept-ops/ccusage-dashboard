@@ -157,6 +157,28 @@
           </ul>
         }
       }
+
+      <!-- Cycle phases: a soft PREDICTED period/fertile background layer (opted-in members only, read-only). -->
+      @if (hasCyclePhases()) {
+        <button mat-button type="button" class="cal-overlay-bar__toggle" (click)="toggleCyclePhases()"
+                [attr.aria-pressed]="showCyclePhases()"
+                [matTooltip]="showCyclePhases() ? 'Hide predicted cycle phases' : 'Show predicted cycle phases'">
+          <mat-icon aria-hidden="true">{{ showCyclePhases() ? 'visibility' : 'visibility_off' }}</mat-icon>
+          <span>Cycle phases</span>
+        </button>
+        @if (showCyclePhases()) {
+          <ul class="cal-legend cal-cycle-legend" aria-label="Predicted cycle phases legend">
+            <li class="cal-legend__item">
+              <span class="cal-legend__dot cal-cycle-dot cal-cycle-dot--period" aria-hidden="true"></span>
+              <span class="cal-legend__name">Period (predicted)</span>
+            </li>
+            <li class="cal-legend__item">
+              <span class="cal-legend__dot cal-cycle-dot cal-cycle-dot--fertile" aria-hidden="true"></span>
+              <span class="cal-legend__name">Fertile (predicted)</span>
+            </li>
+          </ul>
+        }
+      }
     </div>
 
     <!-- Schedule with AI -->
@@ -359,9 +381,17 @@
       <!-- Week grid (Sun→Sat) -->
       <div class="cal-week" aria-label="Week view">
         @for (col of days(); track col.iso) {
-          <div class="cal-day" [class.cal-day--today]="col.isToday">
+          <div class="cal-day" [class.cal-day--today]="col.isToday"
+               [class.cal-day--cycle-period]="col.cyclePhase?.kind === 'period'"
+               [class.cal-day--cycle-fertile]="col.cyclePhase?.kind === 'fertile'">
+            @if (col.cyclePhase; as phase) {
+              <span class="cal-cycle-wash" aria-hidden="true"></span>
+              <span class="cal-cycle-sr">{{ cyclePhaseLabel(phase) }}</span>
+            }
             <button class="cal-day__head" type="button" (click)="create(col.iso)"
-                    [matTooltip]="'Add an event on ' + dayHeading(col)">
+                    [matTooltip]="col.cyclePhase
+                      ? ('Add an event on ' + dayHeading(col) + ' · ' + cyclePhaseLabel(col.cyclePhase))
+                      : ('Add an event on ' + dayHeading(col))">
               <span class="cal-day__weekday">{{ col.weekdayLabel }}</span>
               <span class="cal-day__num">{{ col.dayNum }}</span>
             </button>
@@ -401,9 +431,17 @@
         <div class="cal-month__grid">
           @for (cell of monthCells(); track cell.iso) {
             <div class="cal-mcell" [class.cal-mcell--today]="cell.isToday"
-                 [class.cal-mcell--out]="!cell.inMonth">
+                 [class.cal-mcell--out]="!cell.inMonth"
+                 [class.cal-mcell--cycle-period]="cell.cyclePhase?.kind === 'period'"
+                 [class.cal-mcell--cycle-fertile]="cell.cyclePhase?.kind === 'fertile'">
+              @if (cell.cyclePhase; as phase) {
+                <span class="cal-cycle-wash" aria-hidden="true"></span>
+                <span class="cal-cycle-sr">{{ cyclePhaseLabel(phase) }}</span>
+              }
               <button class="cal-mcell__num" type="button" (click)="create(cell.iso)"
-                      [matTooltip]="'Add an event on ' + monthCellHeading(cell)">{{ cell.dayNum }}</button>
+                      [matTooltip]="cell.cyclePhase
+                        ? ('Add an event on ' + monthCellHeading(cell) + ' · ' + cyclePhaseLabel(cell.cyclePhase))
+                        : ('Add an event on ' + monthCellHeading(cell))">{{ cell.dayNum }}</button>
               <div class="cal-mcell__events">
                 @for (de of cell.events; track de.ev.id) {
                   <button class="cal-mev" type="button" (click)="openDayEvent(de)"

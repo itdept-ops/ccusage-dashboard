@@ -4,6 +4,15 @@
    Mobile-friendly: the week + month grids scroll horizontally on narrow screens; the agenda is a comfortable
    single column. No email is ever rendered. */
 
+/* Predicted cycle-phase palette — mirrors the cycle page (soft rose = period, soft teal = fertile). These
+   are intentionally FAINT washes, distinct from events + the family-events overlay, and always "predicted". */
+:host {
+  --cal-cyc-period: #e11d48;        /* rose-600 */
+  --cal-cyc-period-soft: rgba(225, 29, 72, 0.14);
+  --cal-cyc-fertile: #0d9488;       /* teal-600 */
+  --cal-cyc-fertile-soft: rgba(13, 148, 136, 0.14);
+}
+
 /* ── Connect / not-configured panel ─────────────────────────────────── */
 .cal-connect {
   display: flex;
@@ -152,6 +161,14 @@
   overflow: hidden;
   text-overflow: ellipsis;
   max-width: 14rem;
+}
+
+/* Predicted cycle-phase legend swatches: a soft wash + a dashed ring (the "predicted" cue, like the cycle page). */
+.cal-cycle-dot {
+  border-radius: 4px;
+  border: 1px dashed transparent;
+  &--period { background: var(--cal-cyc-period-soft); border-color: var(--cal-cyc-period); }
+  &--fertile { background: var(--cal-cyc-fertile-soft); border-color: var(--cal-cyc-fertile); }
 }
 
 /* ── Schedule with AI ───────────────────────────────────────────────── */
@@ -396,6 +413,7 @@
 }
 
 .cal-day {
+  position: relative;
   display: flex;
   flex-direction: column;
   min-width: 0;
@@ -403,11 +421,53 @@
   border-radius: var(--tech-r-control, 10px);
   background: var(--tech-bg-sunken);
   border: 1px solid var(--tech-border-subtle);
+  overflow: hidden;
 
   &--today {
     border-color: var(--tech-accent);
     background: color-mix(in srgb, var(--tech-accent) 8%, var(--tech-bg-sunken));
   }
+
+  /* A predicted phase tints the LEFT edge with a soft accent stripe so the cell still reads at a glance. */
+  &--cycle-period { border-color: color-mix(in srgb, var(--cal-cyc-period) 35%, var(--tech-border-subtle)); }
+  &--cycle-fertile { border-color: color-mix(in srgb, var(--cal-cyc-fertile) 32%, var(--tech-border-subtle)); }
+}
+
+/* The soft, READ-ONLY predicted-phase background layer that sits BEHIND a cell's content (events stay on
+   top, fully legible). A faint wash + a dashed left rule — visually distinct from events and the family
+   overlay, and clearly "predicted". The wash colour comes from the cell's phase modifier. */
+.cal-cycle-wash {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  border-left: 3px dashed transparent;
+
+  .cal-day--cycle-period &,
+  .cal-mcell--cycle-period & {
+    background: var(--cal-cyc-period-soft);
+    border-left-color: color-mix(in srgb, var(--cal-cyc-period) 55%, transparent);
+  }
+  .cal-day--cycle-fertile &,
+  .cal-mcell--cycle-fertile & {
+    background: var(--cal-cyc-fertile-soft);
+    border-left-color: color-mix(in srgb, var(--cal-cyc-fertile) 50%, transparent);
+  }
+}
+
+/* Cell content (head, events, day number) sits ABOVE the wash so the soft layer never washes out events. */
+.cal-day__head,
+.cal-day__events,
+.cal-mcell__num,
+.cal-mcell__events { position: relative; z-index: 1; }
+
+/* Visually-hidden phase sentence so screen readers announce the predicted phase + member name for the cell. */
+.cal-cycle-sr {
+  position: absolute;
+  width: 1px; height: 1px;
+  margin: -1px; padding: 0; border: 0;
+  overflow: hidden; clip: rect(0 0 0 0); clip-path: inset(50%);
+  white-space: nowrap;
 }
 
 .cal-day__head {
@@ -534,6 +594,7 @@
 }
 
 .cal-mcell {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: 4px;
@@ -542,6 +603,7 @@
   border-radius: var(--tech-r-control, 10px);
   background: var(--tech-bg-sunken);
   border: 1px solid var(--tech-border-subtle);
+  overflow: hidden;
 
   /* Leading/trailing days from the adjacent months read quieter than the current month's days. */
   &--out {
@@ -555,6 +617,10 @@
     background: color-mix(in srgb, var(--tech-accent) 8%, var(--tech-bg-sunken));
     .cal-mcell__num { color: var(--tech-accent); }
   }
+
+  /* A predicted phase tints the cell border with a soft accent (the wash layer paints the fill). */
+  &--cycle-period { border-color: color-mix(in srgb, var(--cal-cyc-period) 32%, var(--tech-border-subtle)); }
+  &--cycle-fertile { border-color: color-mix(in srgb, var(--cal-cyc-fertile) 30%, var(--tech-border-subtle)); }
 }
 
 .cal-mcell__num {
