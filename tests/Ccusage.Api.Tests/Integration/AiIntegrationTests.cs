@@ -233,7 +233,39 @@ public class AiIntegrationTests(WebAppFactory factory)
     {
         var (_, user) = await ProvisionUser("tracker.ai");
         // Valid input -> passes structural validation, then hits the unconfigured 503 (test host has no key).
+        // A TEXT-ONLY build runs on tracker.ai ALONE: no ai.vision needed (it never reaches the 403 gate).
         var res = await user.PostAsJsonAsync("/api/ai/build-day", new { text = "eggs and a run" });
+        res.StatusCode.Should().Be(HttpStatusCode.ServiceUnavailable);
+    }
+
+    // ---- build-day with IMAGES additionally requires ai.vision (text-only stays on tracker.ai alone) ----
+
+    [Fact]
+    public async Task Build_day_with_an_image_requires_ai_vision_403_without_it()
+    {
+        // tracker.ai reaches the build-day handler, but the moment an image is attached the call is
+        // multimodal -> the SEPARATE ai.vision perm is required. A valid image without it is a 403
+        // (the vision gate precedes the unconfigured 503, so this is NOT a degraded-503 path).
+        var (_, noVision) = await ProvisionUser("tracker.ai");
+        var res = await noVision.PostAsJsonAsync("/api/ai/build-day", new
+        {
+            text = "lunch from this photo",
+            images = new[] { new { imageBase64 = Convert.ToBase64String(new byte[64]), mimeType = "image/png" } },
+        });
+        res.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
+
+    [Fact]
+    public async Task Build_day_with_an_image_and_ai_vision_passes_the_gate_503_when_unconfigured()
+    {
+        // With BOTH tracker.ai AND ai.vision the image-bearing build clears every gate and reaches the
+        // unconfigured 503 (test host has no key) — i.e. the vision path is allowed, not forbidden.
+        var (_, withVision) = await ProvisionUser("tracker.ai", "ai.vision");
+        var res = await withVision.PostAsJsonAsync("/api/ai/build-day", new
+        {
+            text = "lunch from this photo",
+            images = new[] { new { imageBase64 = Convert.ToBase64String(new byte[64]), mimeType = "image/png" } },
+        });
         res.StatusCode.Should().Be(HttpStatusCode.ServiceUnavailable);
     }
 

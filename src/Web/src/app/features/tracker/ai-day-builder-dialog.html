@@ -32,30 +32,39 @@
       <mat-hint>The more detail, the better the draft. Vague portions get sensible defaults.</mat-hint>
     </mat-form-field>
 
-    <!-- Meal photos (routed through the one-time Gemini privacy notice). -->
-    <div class="db-photos">
-      <div class="db-photos-row">
-        <button mat-stroked-button type="button" class="db-photo-add"
-                [disabled]="photos().length >= maxPhotos" (click)="addPhoto()"
-                aria-label="Add a meal photo">
-          <mat-icon aria-hidden="true">add_a_photo</mat-icon> Add meal photo
-        </button>
-        <span class="db-photos-count">{{ photos().length }}/{{ maxPhotos }}</span>
-      </div>
-      @if (photos().length > 0) {
-        <div class="db-photo-chips" role="group" aria-label="Chosen meal photos">
-          @for (p of photos(); track $index) {
-            <div class="db-photo-chip">
-              <img [src]="photoUrl(p)" alt="Chosen meal photo {{ $index + 1 }}" />
-              <button mat-icon-button type="button" class="db-photo-del" (click)="removePhoto($index)"
-                      [attr.aria-label]="'Remove photo ' + ($index + 1)">
-                <mat-icon>close</mat-icon>
-              </button>
-            </div>
-          }
+    <!-- Meal photos — vision-gated (ai.vision is SEPARATE from tracker.ai); routed through the one-time
+         Google notice. Images are read only to draft the day — never stored. -->
+    @if (canUseVision) {
+      <div class="db-photos">
+        <div class="db-photos-row">
+          <button mat-stroked-button type="button" class="db-photo-add"
+                  [disabled]="photosFull()" (click)="snapPhoto()"
+                  aria-label="Snap a meal photo">
+            <mat-icon aria-hidden="true">photo_camera</mat-icon> Snap a photo
+          </button>
+          <button mat-stroked-button type="button" class="db-photo-add"
+                  [disabled]="photosFull()" (click)="attachPhoto()"
+                  aria-label="Attach an image">
+            <mat-icon aria-hidden="true">add_photo_alternate</mat-icon> Attach image
+          </button>
+          <span class="db-photos-count">{{ photos().length }}/{{ maxPhotos }}</span>
         </div>
-      }
-    </div>
+        @if (photos().length > 0) {
+          <div class="db-photo-chips" role="group" aria-label="Chosen meal photos">
+            @for (p of photos(); track $index) {
+              <div class="db-photo-chip">
+                <img [src]="photoUrl(p)" alt="Chosen meal photo {{ $index + 1 }}" />
+                <button mat-icon-button type="button" class="db-photo-del" (click)="removePhoto($index)"
+                        [attr.aria-label]="'Remove photo ' + ($index + 1)">
+                  <mat-icon>close</mat-icon>
+                </button>
+              </div>
+            }
+          </div>
+        }
+        <p class="db-note">Photos are only read to draft your day — never stored.</p>
+      </div>
+    }
 
     <p class="db-date-line">
       Logging to <strong>{{ dateHeading() }}</strong>.

@@ -14,11 +14,12 @@ import { MatSnackBar } from '@angular/material/snack-bar';
 import { TextFieldModule } from '@angular/cdk/text-field';
 
 import { Api } from '../../core/api';
+import { AuthService } from '../../core/auth';
 import {
   BuildDayResponse, ClarifyAnswer, ClarifyQuestion, DayDraft, DraftActivity, DraftDrink, DraftExercise,
-  DraftFood, DraftWeight, Meal, MealDraft, UnitSystem,
+  DraftFood, DraftWeight, ImageRequest, Meal, MealDraft, PERM, UnitSystem,
 } from '../../core/models';
-import { captureImage, confirmPhotoNotice } from './ai-image';
+import { captureImage, pickImage, confirmPhotoNotice } from './ai-image';
 import { mlToOz, ozToMl, kgToLb, lbToKg, metersToMiles, milesToMeters } from './units';
 
 /**
@@ -88,7 +89,12 @@ export class AiDayBuilderDialog {
   private ref = inject(MatDialogRef<AiDayBuilderDialog, AiDayBuilderResult>);
   private api = inject(Api);
   private snack = inject(MatSnackBar);
+  private auth = inject(AuthService);
   readonly data = inject<AiDayBuilderData>(MAT_DIALOG_DATA);
+
+  /** Multimodal (image) AI is a SEPARATE, off-by-default permission from the tracker.ai group gate. The
+   *  photo buttons are hidden unless held, so we never offer a vision action the build-day endpoint 403s. */
+  readonly canUseVision = this.auth.hasPermission(PERM.aiVision);
 
   readonly imperial = this.data.unitSystem === 'Imperial';
   readonly reviewMeals = REVIEW_MEALS;
@@ -144,13 +150,30 @@ export class AiDayBuilderDialog {
 
   // ─────────────────────────────────────────── input ───────────────────────────────────────────
 
-  /** Add a meal photo through the shared capture + one-time privacy-notice path (caps at MAX_PHOTOS). */
-  async addPhoto(): Promise<void> {
-    if (this.photos().length >= MAX_PHOTOS) return;
+  /** True once the photo slots are full (gates BOTH the camera + attach buttons). */
+  readonly photosFull = computed(() => this.photos().length >= MAX_PHOTOS);
+
+  /** 📷 Snap a meal photo (rear camera on mobile). Thin wrapper over {@link addPhoto} with the camera source. */
+  snapPhoto(): Promise<void> {
+    return this.addPhoto(captureImage);
+  }
+
+  /** 🖼️ Attach an existing image from the gallery/files (no `capture` hint). Sibling of {@link snapPhoto}. */
+  attachPhoto(): Promise<void> {
+    return this.addPhoto(pickImage);
+  }
+
+  /**
+   * Add a meal photo through the shared one-time privacy-notice path, obtaining the image via `source`
+   * (camera or gallery), and append it (caps at MAX_PHOTOS). Gated by {@link canUseVision} so we never
+   * capture an image the server would 403. The image is read only to draft the day — it is never stored.
+   */
+  private async addPhoto(source: () => Promise<ImageRequest | null>): Promise<void> {
+    if (!this.canUseVision || this.photosFull()) return;
     const ok = await confirmPhotoNotice();
     if (!ok) return;
     try {
-      const img = await captureImage();
+      const img = await source();
       if (!img) return;
       this.photos.update(p => (p.length >= MAX_PHOTOS ? p : [...p, img]));
     } catch (e) {

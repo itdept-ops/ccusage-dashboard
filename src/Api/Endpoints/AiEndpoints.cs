@@ -270,10 +270,20 @@ public static class AiEndpoints
             if (!hasText && validImages.Count == 0 && body?.PriorDraft is null)
                 return Results.BadRequest(new { message = "Describe your day or attach a photo." });
 
-            if (!gemini.IsConfigured) return Unconfigured();
-
             // The caller's OWN body weight (read server-side) sharpens exercise calorie estimates.
             var caller = (await me.GetUserAsync(ct))!;
+
+            // PERMISSION SPLIT: a text-only build runs on tracker.ai alone (the group gate). The moment any
+            // image is attached the call becomes multimodal (vision), which is a SEPARATE, OFF-by-default
+            // capability — so the image-bearing path ADDITIONALLY requires ai.vision (403 without it). This is
+            // checked here (not on the route) because the route gate can't see whether images were sent.
+            if (validImages.Count > 0 && !caller.Permissions.Contains(Permissions.AiVision))
+                return Results.Json(
+                    new { message = $"You don't have permission: {Permissions.AiVision}" },
+                    statusCode: StatusCodes.Status403Forbidden);
+
+            if (!gemini.IsConfigured) return Unconfigured();
+
             var weight = await db.TrackerProfiles.AsNoTracking()
                 .Where(p => p.UserEmail == caller.Email)
                 .Select(p => p.WeightKg)
