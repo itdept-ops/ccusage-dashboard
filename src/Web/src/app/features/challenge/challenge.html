@@ -1,0 +1,327 @@
+<section class="challenge">
+  <header class="challenge__head">
+    <div class="challenge__title">
+      <h1>75 Hard</h1>
+      <p class="challenge__sub">Six daily tasks, 75 days — the Relaxed ruleset. Diet, water &amp; workouts
+        score live from your tracker.</p>
+    </div>
+
+    <div class="challenge__head-actions">
+      <!-- Shared-view selector: view your own challenge or a contact's (read-only). -->
+      @if (store.shared().length > 0) {
+        <button mat-stroked-button type="button" class="challenge__viewbtn" [matMenuTriggerFor]="viewMenu"
+                aria-label="Whose challenge to view">
+          <mat-icon>visibility</mat-icon>
+          {{ viewingUser ? viewingUser.name : 'My 75 Hard' }}
+          <mat-icon class="challenge__caret">expand_more</mat-icon>
+        </button>
+        <mat-menu #viewMenu="matMenu">
+          <button mat-menu-item type="button" (click)="viewSelf()">
+            <mat-icon>person</mat-icon> My 75 Hard
+          </button>
+          @for (u of store.shared(); track u.userId) {
+            <button mat-menu-item type="button" (click)="viewOther(u.userId)">
+              <mat-icon>group</mat-icon> {{ u.name }}
+            </button>
+          }
+        </mat-menu>
+      }
+    </div>
+  </header>
+
+  <!-- Read-only banner when viewing someone else. -->
+  @if (viewingUser; as vu) {
+    <div class="challenge__readonly" role="status">
+      <span class="challenge__readonly-avatar">{{ initials(vu) }}</span>
+      <span>Viewing <strong>{{ vu.name }}</strong>’s 75 Hard — read-only.</span>
+      @if (refreshing()) {
+        <span class="challenge__refreshnote" aria-hidden="true">
+          <mat-icon class="challenge__refreshspin">autorenew</mat-icon> Updating…
+        </span>
+      }
+      <button mat-icon-button type="button" (click)="refreshReadOnly()" [disabled]="refreshing()"
+              aria-label="Refresh this challenge" matTooltip="Refresh">
+        <mat-icon>refresh</mat-icon>
+      </button>
+      <button mat-button type="button" class="challenge__exitview" (click)="viewSelf()">Back to mine</button>
+    </div>
+  }
+
+  <!-- Visually-hidden polite live region. -->
+  <span class="challenge__sr-status" aria-live="polite" aria-atomic="true">{{ statusMsg() }}</span>
+
+  @if (store.loading() && !store.challenge()) {
+    <mat-progress-bar mode="indeterminate" aria-label="Loading challenge" />
+  }
+
+  @if (store.error(); as err) {
+    <div class="challenge__error" role="alert">{{ err }}</div>
+  }
+
+  <!-- (1) START EMPTY STATE — own view, loaded, no active challenge. -->
+  @if (store.loaded() && !store.challenge() && !store.readOnly() && !store.error()) {
+    <div class="challenge__start challenge__card">
+      <mat-icon class="challenge__start-icon" aria-hidden="true">local_fire_department</mat-icon>
+      <div class="challenge__start-copy">
+        <h2>Start your 75 Hard</h2>
+        <p>Commit to six tasks every day for 75 days: follow your diet, drink a gallon of water, do two
+          45-minute workouts (one outdoors), read 10 pages, and take a progress photo. On the Relaxed
+          ruleset a missed day pauses your streak instead of wiping it — and a confession or a pre-declared
+          cheat day keeps your run counted.</p>
+        <div class="challenge__start-fields">
+          <mat-form-field appearance="outline" class="challenge__date">
+            <mat-label>Start date</mat-label>
+            <input matInput type="date" [ngModel]="startDate()" (ngModelChange)="startDate.set($event)" />
+          </mat-form-field>
+          <button mat-flat-button color="primary" type="button" (click)="start()" [disabled]="starting()">
+            @if (starting()) {
+              <mat-progress-spinner mode="indeterminate" diameter="18" aria-hidden="true" />
+            } @else {
+              <mat-icon aria-hidden="true">rocket_launch</mat-icon>
+            }
+            Start day 1
+          </button>
+        </div>
+      </div>
+    </div>
+  }
+
+  <!-- A viewed user with no active challenge (read-only). -->
+  @if (store.loaded() && !store.challenge() && store.readOnly() && !store.error()) {
+    <div class="challenge__start challenge__card">
+      <mat-icon class="challenge__start-icon" aria-hidden="true">hourglass_empty</mat-icon>
+      <div class="challenge__start-copy">
+        <h2>No active challenge</h2>
+        <p>This person doesn’t have a 75 Hard in progress right now.</p>
+      </div>
+    </div>
+  }
+
+  @if (store.challenge(); as c) {
+    <!-- (2) HERO: Day N of 75 + streaks + finisher state -->
+    <section class="challenge__hero challenge__card" [class.challenge__hero--done]="finished()"
+             aria-label="Challenge progress">
+      <div class="challenge__hero-day">
+        @if (finished()) {
+          <mat-icon class="challenge__hero-trophy" aria-hidden="true">emoji_events</mat-icon>
+          <div class="challenge__hero-daynum">
+            <span class="challenge__hero-big">Finished</span>
+            <span class="challenge__hero-small">all 75 days complete</span>
+          </div>
+        } @else {
+          <div class="challenge__hero-daynum">
+            <span class="challenge__hero-big">Day {{ c.currentDay }}</span>
+            <span class="challenge__hero-small">of {{ c.totalDays }}</span>
+          </div>
+        }
+      </div>
+
+      <div class="challenge__hero-meter" role="img"
+           [attr.aria-label]="c.completedDays + ' of ' + c.totalDays + ' days fully complete'">
+        <div class="challenge__hero-bar"><span [style.width.%]="completionPct()"></span></div>
+        <span class="challenge__hero-meter-label">{{ c.completedDays }} / {{ c.totalDays }} days complete</span>
+      </div>
+
+      <dl class="challenge__hero-stats">
+        <div>
+          <dt>Current streak</dt>
+          <dd>{{ c.currentStreak }} <span class="challenge__unit">days</span></dd>
+        </div>
+        <div>
+          <dt>Longest streak</dt>
+          <dd>{{ c.longestStreak }} <span class="challenge__unit">days</span></dd>
+        </div>
+        <div>
+          <dt>Confessions</dt>
+          <dd>{{ c.confessionsUsed }}</dd>
+        </div>
+      </dl>
+    </section>
+
+    <!-- Day navigator within the challenge window. -->
+    <div class="challenge__datenav" role="group" aria-label="Choose day">
+      <button mat-icon-button type="button" (click)="prevDay()" aria-label="Previous day">
+        <mat-icon>chevron_left</mat-icon>
+      </button>
+      <div class="challenge__datelabel">
+        <span class="challenge__dateheading" id="challenge-dateheading">{{ dateHeading() }}</span>
+        <input class="challenge__dateinput" type="date" [value]="store.date()"
+               (change)="onDateInput($any($event.target).value)" aria-label="Pick a date"
+               aria-describedby="challenge-dateheading" />
+      </div>
+      <button mat-icon-button type="button" (click)="nextDay()" aria-label="Next day">
+        <mat-icon>chevron_right</mat-icon>
+      </button>
+      <button mat-stroked-button type="button" class="challenge__today" (click)="goToday()">Today</button>
+    </div>
+
+    @if (day(); as d) {
+      @if (d.dayNumber != null) {
+        <p class="challenge__daynote">
+          Day {{ d.dayNumber }} of {{ c.totalDays }}
+          @if (d.complete) { · <strong class="challenge__pill challenge__pill--ok">Complete</strong> }
+          @if (d.isCheatDay) { · <span class="challenge__pill challenge__pill--cheat">Cheat day</span> }
+        </p>
+      } @else {
+        <p class="challenge__daynote challenge__daynote--out">This date is outside your 75-day window.</p>
+      }
+
+      <!-- (3) THE SIX DAILY TASKS -->
+      <section class="challenge__tasks" aria-label="Today’s six tasks">
+        @for (t of taskRows; track t.key) {
+          <div class="challenge__task"
+               [class.challenge__task--pass]="t.auto ? autoPass(t.key) : manualPass($any(t.key))">
+            <span class="challenge__task-state" aria-hidden="true">
+              <mat-icon>{{ (t.auto ? autoPass(t.key) : manualPass($any(t.key))) ? 'check_circle' : 'radio_button_unchecked' }}</mat-icon>
+            </span>
+            <mat-icon class="challenge__task-glyph" aria-hidden="true">{{ t.icon }}</mat-icon>
+            <div class="challenge__task-body">
+              <span class="challenge__task-label">{{ t.label }}</span>
+
+              @if (t.auto) {
+                <span class="challenge__task-hint">
+                  <mat-icon aria-hidden="true">bolt</mat-icon> Auto from tracker — {{ autoHint(t.key) }}
+                </span>
+              }
+            </div>
+
+            <!-- AUTO tasks: a deep link to the tracker to log; manual ones: a checkbox. -->
+            @if (t.auto) {
+              @if (!store.readOnly()) {
+                <a mat-icon-button class="challenge__task-link" routerLink="/tracker"
+                   [attr.aria-label]="'Open the tracker to log: ' + t.label" matTooltip="Log in the tracker">
+                  <mat-icon>open_in_new</mat-icon>
+                </a>
+              }
+            } @else {
+              <mat-checkbox class="challenge__task-check"
+                            [disabled]="store.readOnly()"
+                            [checked]="manualPass($any(t.key))"
+                            (change)="toggleManual(t.key === 'read' ? 'readOk' : 'photoTaken', $event.checked)"
+                            [attr.aria-label]="t.label">
+              </mat-checkbox>
+            }
+          </div>
+        }
+      </section>
+
+      @if (!store.readOnly()) {
+        <!-- Attestations: workout-2 outdoor + diet override -->
+        <section class="challenge__attest challenge__card" aria-label="Attestations">
+          <div class="challenge__attest-row">
+            <div class="challenge__attest-copy">
+              <span class="challenge__attest-label">Second workout was outdoors</span>
+              <span class="challenge__attest-sub">75 Hard asks that one of your two daily workouts be outside.</span>
+            </div>
+            <mat-slide-toggle [checked]="d.workout2Outdoor" (change)="toggleOutdoor($event.checked)"
+                              aria-label="Second workout was outdoors">
+              {{ d.workout2Outdoor ? 'Outdoors' : 'Not set' }}
+            </mat-slide-toggle>
+          </div>
+
+          <div class="challenge__attest-row">
+            <div class="challenge__attest-copy">
+              <span class="challenge__attest-label">Diet result</span>
+              <span class="challenge__attest-sub">
+                @if (dietOverride() === null) {
+                  Auto-scored from your tracker — currently
+                  <strong>{{ autoPass('diet') ? 'on plan' : 'off plan' }}</strong>. Override it if the day
+                  went differently than the numbers show.
+                } @else {
+                  Manually overridden. Set it to match how the day actually went.
+                }
+              </span>
+            </div>
+            <mat-button-toggle-group class="challenge__diet-toggle"
+                                     [value]="dietOverride() === null ? null : (dietOverride() ? 'pass' : 'fail')"
+                                     aria-label="Diet result override" hideSingleSelectionIndicator>
+              <mat-button-toggle value="pass" (click)="setDietOverride('pass')">On plan</mat-button-toggle>
+              <mat-button-toggle value="fail" (click)="setDietOverride('fail')">Off plan</mat-button-toggle>
+            </mat-button-toggle-group>
+          </div>
+        </section>
+
+        <!-- (4) No-alcohol toggle + confession -->
+        <section class="challenge__accountability challenge__card" aria-label="Accountability">
+          <div class="challenge__attest-row">
+            <div class="challenge__attest-copy">
+              <span class="challenge__attest-label">No alcohol today</span>
+              <span class="challenge__attest-sub">A day only counts as complete when this holds.</span>
+            </div>
+            <mat-slide-toggle [checked]="d.noAlcohol" (change)="toggleNoAlcohol($event.checked)"
+                              aria-label="No alcohol today">
+              {{ d.noAlcohol ? 'Kept' : 'Not today' }}
+            </mat-slide-toggle>
+          </div>
+
+          <mat-form-field appearance="outline" class="challenge__confession">
+            <mat-label>Confession (optional)</mat-label>
+            <textarea matInput rows="2" maxlength="280" [ngModel]="confessionDraft()"
+                      (ngModelChange)="confessionDraft.set($event)" (blur)="saveConfession()"
+                      placeholder="Missed a task? A short, honest note keeps your run counted on the Relaxed ruleset."></textarea>
+            <mat-hint align="end">{{ confessionDraft().length }} / 280</mat-hint>
+          </mat-form-field>
+        </section>
+      } @else if (d.confession) {
+        <!-- A viewer never sees confessions (server nulls them); this only renders for the owner. -->
+        <section class="challenge__accountability challenge__card" aria-label="Confession">
+          <p class="challenge__confession-read">{{ d.confession }}</p>
+        </section>
+      }
+    }
+
+    <!-- (5) PRE-DECLARE CHEAT DAYS (future-only, owner) -->
+    @if (!store.readOnly() && !finished()) {
+      <section class="challenge__cheat challenge__card" aria-label="Cheat days">
+        <h2 class="challenge__card-title">Pre-declare cheat days</h2>
+        <p class="challenge__card-sub">Plan ahead for a known event. A cheat day keeps your run counted
+          without completing — future dates only, up to {{ 10 }} within your window.</p>
+
+        @if (cheatDays().length) {
+          <ul class="challenge__cheat-list">
+            @for (cd of cheatDays(); track cd.date) {
+              <li class="challenge__cheat-chip">
+                <mat-icon aria-hidden="true">free_breakfast</mat-icon>
+                {{ friendlyDate(cd.date) }}
+                <button mat-icon-button type="button" (click)="removeCheatDay(cd)"
+                        [attr.aria-label]="'Remove cheat day ' + friendlyDate(cd.date)">
+                  <mat-icon>close</mat-icon>
+                </button>
+              </li>
+            }
+          </ul>
+        }
+
+        <div class="challenge__cheat-add">
+          <mat-form-field appearance="outline" class="challenge__date">
+            <mat-label>Add a future date</mat-label>
+            <input matInput type="date" [ngModel]="cheatPick()" (ngModelChange)="cheatPick.set($event)"
+                   [min]="minCheatDate()" [max]="maxChallengeDate()" />
+          </mat-form-field>
+          <button mat-stroked-button type="button" (click)="addCheatDay()" [disabled]="!cheatPick()">
+            <mat-icon aria-hidden="true">add</mat-icon> Add cheat day
+          </button>
+        </div>
+      </section>
+    }
+  }
+
+  <!-- (6) SHARED WITH ME — only when there's someone to view and you're on your own page. -->
+  @if (store.shared().length > 0 && !store.readOnly()) {
+    <section class="challenge__shared challenge__card" aria-label="Shared with me">
+      <h2 class="challenge__card-title">Shared with me</h2>
+      <p class="challenge__card-sub">People whose 75 Hard you can follow (read-only).</p>
+      <ul class="challenge__shared-list">
+        @for (u of store.shared(); track u.userId) {
+          <li class="challenge__shared-row">
+            <span class="challenge__readonly-avatar" aria-hidden="true">{{ initials(u) }}</span>
+            <span class="challenge__shared-name">{{ u.name }}</span>
+            <button mat-stroked-button type="button" (click)="viewOther(u.userId)">
+              <mat-icon aria-hidden="true">visibility</mat-icon> View
+            </button>
+          </li>
+        }
+      </ul>
+    </section>
+  }
+</section>

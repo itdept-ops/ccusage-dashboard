@@ -96,6 +96,14 @@ export const routes: Routes = [
     title: 'Usage IQ · Tracker',
   },
   {
+    // 75 Hard — a six-task daily challenge layered on the tracker. Gated by the SAME tracker permission
+    // (tracker.self); a coach/admin read of someone else is enforced server-side via tracker.viewall.
+    path: 'challenge',
+    canActivate: [permissionGuard(PERM.trackerSelf)],
+    loadComponent: () => import('./features/challenge/challenge').then(m => m.Challenge),
+    title: 'Usage IQ · 75 Hard',
+  },
+  {
     // Family Hub — a warm, household-private section. The whole group is gated by family.use; the
     // owner-only controls inside (rename, add/remove member) are enforced server-side too.
     path: 'family',

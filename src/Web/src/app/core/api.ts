@@ -12,6 +12,7 @@ import {
   SyncResult, SyncStatus, TrackerDayDto, TrackerProfileDto, TrackerRecapResult, UpsertActivityRequest, UsageFilter, UsageRecord, UsageStats,
   WatchActivityDto, WeeklyReviewResponse, WeightInsightResponse, WeightPointDto, WeightStatsDto, WorkoutXSearchResultDto,
   CycleData, CyclePeriod, CycleNote, CycleSettings, CycleSettingsPatch, CycleOverlayMember,
+  HardChallengeDto, HardSharedPersonDto, StartChallengeRequest, UpsertHardDayRequest, HardDayDto, CheatDaysRequest,
 } from './models';
 
 @Injectable({ providedIn: 'root' })
@@ -1494,6 +1495,50 @@ export class Api {
   cycleOverlay(fromUtc: string, toUtc: string): Observable<CycleOverlayMember[]> {
     const params = new HttpParams().set('fromUtc', fromUtc).set('toUtc', toUtc);
     return this.http.get<CycleOverlayMember[]>(`${this.base}/family/cycle/overlay`, { params });
+  }
+
+  // ---- 75 Hard challenge (/api/challenge) — gated by the SAME tracker permissions (tracker.self own
+  // use; tracker.viewall coach read). AUTO scoring is recomputed live from the tracker server-side; only
+  // the manual portion is persisted. The client never sends an email — it sends ?user={userId}. ----
+
+  /**
+   * The caller's active challenge, or — when `user` is set — someone else's (read-only) if permitted.
+   * Resolves to `null` when there's no active challenge (the server writes a JSON `null` body, which
+   * Angular parses to null). A non-viewable / non-existent target is 404 (never leaks existence).
+   */
+  challenge(user?: number): Observable<HardChallengeDto | null> {
+    const params = user != null ? new HttpParams().set('user', String(user)) : undefined;
+    return this.http.get<HardChallengeDto | null>(`${this.base}/challenge/`, { params });
+  }
+
+  /** Start a challenge (owner; one active at a time — 409 when one already exists). */
+  startChallenge(body: StartChallengeRequest = {}): Observable<HardChallengeDto> {
+    return this.http.post<HardChallengeDto>(`${this.base}/challenge/`, body);
+  }
+
+  /** One day's six-task breakdown (auto fields computed live). Pass `user` for a read-only view. */
+  challengeDay(date: string, user?: number): Observable<HardDayDto> {
+    let p = new HttpParams().set('date', date);
+    if (user != null) p = p.set('user', String(user));
+    return this.http.get<HardDayDto>(`${this.base}/challenge/day`, { params: p });
+  }
+
+  /**
+   * Upsert the MANUAL portion of a day (owner): read, photo-boolean, no-alcohol, confession,
+   * workout-2 outdoor, diet override. There is NO image payload, EVER. Returns the rebuilt day.
+   */
+  upsertChallengeDay(body: UpsertHardDayRequest): Observable<HardDayDto> {
+    return this.http.put<HardDayDto>(`${this.base}/challenge/day`, body);
+  }
+
+  /** Pre-declare / clear FUTURE-only cheat dates within the window (owner). Returns the rebuilt challenge. */
+  setChallengeCheatDays(body: CheatDaysRequest): Observable<HardChallengeDto> {
+    return this.http.post<HardChallengeDto>(`${this.base}/challenge/cheat-days`, body);
+  }
+
+  /** People whose 75 Hard the caller may view read-only (userId + name only, NEVER email). */
+  challengeShared(): Observable<HardSharedPersonDto[]> {
+    return this.http.get<HardSharedPersonDto[]>(`${this.base}/challenge/shared`);
   }
 
   // ---- Family Hub F6: Google Calendar (OAuth code flow; the caller's own primary calendar) ----

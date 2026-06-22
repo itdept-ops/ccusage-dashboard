@@ -78,9 +78,10 @@
         </mat-menu>
       }
 
-      <!-- Standalone: Tracker, Family, Chat -->
+      <!-- Standalone: Tracker, 75 Hard, Family, Chat -->
       @if (auth.hasPermission('tracker.self')) {
         <a mat-button class="nav__item" routerLink="/tracker" routerLinkActive="active">Tracker</a>
+        <a mat-button class="nav__item" routerLink="/challenge" routerLinkActive="active">75 Hard</a>
       }
       @if (auth.hasPermission('family.use')) {
         <a mat-button class="nav__item nav__item--family" routerLink="/family" routerLinkActive="active">
@@ -331,9 +332,11 @@
     }
 
     @if (auth.hasPermission('tracker.self')) {
-      <div class="mobile-nav__head" role="presentation">Tracker</div>
+      <div class="mobile-nav__head" role="presentation">Fitness</div>
       <a class="mobile-nav__item" routerLink="/tracker" routerLinkActive="active"
          (click)="closeMobileNav()">Tracker</a>
+      <a class="mobile-nav__item" routerLink="/challenge" routerLinkActive="active"
+         (click)="closeMobileNav()">75 Hard</a>
     }
 
     @if (auth.hasPermission('family.use')) {

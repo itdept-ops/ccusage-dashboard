@@ -480,6 +480,7 @@ app.MapChatEndpoints();
 app.MapContactsEndpoints();
 app.MapInboxEndpoints();
 app.MapTrackerEndpoints();
+app.MapHardChallengeEndpoints();
 app.MapAiEndpoints();
 app.MapFamilyEndpoints();
 app.MapFamilyLocationsEndpoints();

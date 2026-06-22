@@ -1206,24 +1206,10 @@ public static class TrackerEndpoints
     /// true when the caller holds <see cref="Permissions.TrackerViewAll"/>, OR the target has
     /// <c>ShareWithContacts=true</c> and the caller is in the target's mutual chat circle.
     /// </summary>
-    private static async Task<bool> CanViewAsync(
+    private static Task<bool> CanViewAsync(
         UsageDbContext db, CurrentUserAccessor.CurrentUser caller, string target, CancellationToken ct)
-    {
-        // A viewall holder (coach/admin) may read anyone — but only a real user, so an arbitrary
-        // address can't be probed via an empty 200 day; a non-user falls through to 404.
-        if (caller.Permissions.Contains(Permissions.TrackerViewAll))
-            return await db.Users.AnyAsync(u => u.Email == target, ct);
-
-        var shares = await db.TrackerProfiles.AsNoTracking()
-            .Where(p => p.UserEmail == target)
-            .Select(p => (bool?)p.ShareWithContacts)
-            .FirstOrDefaultAsync(ct);
-        if (shares != true) return false;
-
-        // The caller is in the target's circle iff a row OwnerEmail=target, ContactEmail=caller exists.
-        return await db.ChatContacts.AsNoTracking()
-            .AnyAsync(c => c.OwnerEmail == target && c.ContactEmail == caller.Email, ct);
-    }
+        // Single source of truth — shared with the 75 Hard feature (HardChallengeEndpoints).
+        => Services.TrackerVisibility.CanViewAsync(db, caller, target, ct);
 
     // ===================================================================================
     // Day aggregation
@@ -1585,12 +1571,9 @@ public static class TrackerEndpoints
             System.Globalization.DateTimeStyles.None, out result);
 
     /// <summary>The app's display timezone, mirroring UsageQueries (UTC fallback on a bad/blank id).</summary>
-    private static async Task<TimeZoneInfo> DisplayTzAsync(UsageDbContext db, CancellationToken ct)
-    {
-        var id = (await db.AppConfigs.AsNoTracking().FirstOrDefaultAsync(ct))?.DisplayTimeZone;
-        if (string.IsNullOrWhiteSpace(id)) return TimeZoneInfo.Utc;
-        try { return TimeZoneInfo.FindSystemTimeZoneById(id); } catch { return TimeZoneInfo.Utc; }
-    }
+    private static Task<TimeZoneInfo> DisplayTzAsync(UsageDbContext db, CancellationToken ct)
+        // Single source of truth — shared with the 75 Hard feature (HardChallengeEndpoints).
+        => Services.TrackerVisibility.DisplayTzAsync(db, ct);
 
     // ===================================================================================
     // Mapping + small helpers
@@ -1720,5 +1703,6 @@ public static class TrackerEndpoints
     private static int? Positive(int? v) => v is { } i && i > 0 ? i : null;
 
     private static bool IsUniqueViolation(DbUpdateException ex) =>
-        ex.InnerException is Npgsql.PostgresException pg && pg.SqlState == Npgsql.PostgresErrorCodes.UniqueViolation;
+        // Single source of truth — shared with the 75 Hard feature (HardChallengeEndpoints).
+        Services.TrackerVisibility.IsUniqueViolation(ex);
 }

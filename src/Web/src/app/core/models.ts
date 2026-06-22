@@ -3108,6 +3108,126 @@ export interface CycleOverlayMember {
   phases: CycleOverlaySpan[];
 }
 
+// ──────────────────────────────────────────────────────────────────────────────────────────────
+// 75 Hard challenge (the Relaxed ruleset) — a six-task daily challenge layered on the food/fitness
+// tracker. Gated by the SAME tracker permissions (tracker.self own use; tracker.viewall coach read).
+// Mirrors the /api/challenge (HardChallengeEndpoints) contract. AUTO scoring (diet/water/workouts)
+// is recomputed LIVE from the tracker server-side; only the MANUAL portion is persisted. There is
+// NEVER an image — the progress photo is a boolean attestation only.
+// ──────────────────────────────────────────────────────────────────────────────────────────────
+
+/** Lifecycle of a challenge (mirrors HardChallengeStatus, by name). */
+export type HardChallengeStatus = 'Active' | 'Completed' | 'Abandoned';
+
+/** The rule set a run follows (mirrors HardRuleset, by name). Only "Relaxed" exists today. */
+export type HardRuleset = 'Relaxed';
+
+/**
+ * One day in the 75-Hard grid (mirrors DayDto). The five AUTO task results (diet/water/workout1/
+ * workout2) are recomputed LIVE from the tracker; the manual flags (read, photo-boolean, no-alcohol)
+ * + the diet override + the workout-2 outdoor attestation are persisted. `dayNumber` is 1..75 within
+ * the window, else null. `confession` is NULLED for a viewer (never the owner's private narration).
+ */
+export interface HardDayDto {
+  /** The day, plain ISO ("YYYY-MM-DD"). */
+  date: string;
+  /** 1..75 within the challenge window, else null (a date outside the window). */
+  dayNumber: number | null;
+  /** AUTO: calories-in within the daily calorie goal AND within every SET macro goal (override wins). */
+  dietOk: boolean;
+  /** Manual override of the diet result: true/false WINS over the auto computation; null = use auto. */
+  dietOverride: boolean | null;
+  /** AUTO: the day's hydration sum is at least one US gallon (3785 ml). */
+  waterGallonOk: boolean;
+  /** AUTO: at least one logged exercise of >= 45 minutes that day. */
+  workout1Ok: boolean;
+  /** AUTO: at least two logged exercises of >= 45 minutes that day. */
+  workout2Ok: boolean;
+  /** User attestation that the second workout was outdoors. */
+  workout2Outdoor: boolean;
+  /** Manual: the day's reading (10 pages) was done. */
+  readOk: boolean;
+  /** Manual BOOLEAN attestation that a progress photo was taken (NO image is ever stored). */
+  photoTaken: boolean;
+  /** Whether the no-alcohol rule held that day (defaults true). */
+  noAlcohol: boolean;
+  /** Whether this day was pre-declared a cheat day (keeps the run counted without completing). */
+  isCheatDay: boolean;
+  /** True when all six tasks pass AND no-alcohol holds. */
+  complete: boolean;
+  /** Optional Relaxed-ruleset confession (<= 280 chars); NULL for a viewer. */
+  confession: string | null;
+}
+
+/**
+ * The active challenge with its derived current day, streaks, and the full day grid (mirrors
+ * ChallengeDto). GET /api/challenge returns this or `null` when there's no active challenge.
+ * `readOnly` is true when viewing someone else's (a coach/contact read); identity is userId + display
+ * NAME only — NEVER an email (email-privacy).
+ */
+export interface HardChallengeDto {
+  id: number;
+  /** The owner's AppUser id (the client opens their challenge via GET /challenge?user={userId}). */
+  userId: number;
+  /** The owner's display name (never an email). */
+  userName: string;
+  /** True when viewing someone else's challenge (no edit controls; confessions nulled). */
+  readOnly: boolean;
+  /** Day 1 = this date, plain ISO ("YYYY-MM-DD"). */
+  startDate: string;
+  ruleset: HardRuleset;
+  status: HardChallengeStatus;
+  /** Derived current day, clamped 1..75. */
+  currentDay: number;
+  /** Always 75. */
+  totalDays: number;
+  /** Count of days that fully passed all six tasks. */
+  completedDays: number;
+  /** Current Relaxed-streak length. */
+  currentStreak: number;
+  /** Longest contiguous kept-run length. */
+  longestStreak: number;
+  /** How many confessions (the Relaxed "keep the run going" lever) have been used. */
+  confessionsUsed: number;
+  /** The full 75-day grid (oldest-first), each day's six task results recomputed live. */
+  days: HardDayDto[];
+}
+
+/** A person whose 75 Hard the caller may view (mirrors SharedPersonDto) — userId + name only, NEVER email. */
+export interface HardSharedPersonDto {
+  userId: number;
+  name: string;
+  picture?: string;
+}
+
+/** Start-a-challenge payload (POST /api/challenge). `startDate` defaults to local today when omitted. */
+export interface StartChallengeRequest {
+  startDate?: string | null;
+}
+
+/**
+ * Upsert the MANUAL portion of a day (PUT /api/challenge/day). Every field is optional; a null/omitted
+ * field means "leave as-is" (the auto bits are recomputed live, never written from input). There is NO
+ * image field, EVER — `photoTaken` is a boolean attestation only.
+ */
+export interface UpsertHardDayRequest {
+  date: string;
+  readOk?: boolean | null;
+  photoTaken?: boolean | null;
+  noAlcohol?: boolean | null;
+  confession?: string | null;
+  workout2Outdoor?: boolean | null;
+  dietOverride?: boolean | null;
+}
+
+/** Pre-declare / clear FUTURE-only cheat dates within the window (POST /api/challenge/cheat-days). */
+export interface CheatDaysRequest {
+  /** ISO dates ("YYYY-MM-DD") to mark as cheat days (future-only, within the window, <= 10 total). */
+  add?: string[];
+  /** ISO dates ("YYYY-MM-DD") to clear the cheat flag from. */
+  remove?: string[];
+}
+
 /** Canonical permission keys (mirror of the backend catalog). */
 export const PERM = {
   dashboardView: 'dashboard.view',

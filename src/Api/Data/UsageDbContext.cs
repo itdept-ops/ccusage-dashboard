@@ -62,6 +62,8 @@ public class UsageDbContext(DbContextOptions<UsageDbContext> options) : DbContex
     public DbSet<FamilyEventAnnouncement> FamilyEventAnnouncements => Set<FamilyEventAnnouncement>();
     public DbSet<CycleProfile> CycleProfiles => Set<CycleProfile>();
     public DbSet<CyclePeriod> CyclePeriods => Set<CyclePeriod>();
+    public DbSet<HardChallenge> HardChallenges => Set<HardChallenge>();
+    public DbSet<HardChallengeDay> HardChallengeDays => Set<HardChallengeDay>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -745,6 +747,31 @@ public class UsageDbContext(DbContextOptions<UsageDbContext> options) : DbContex
             // The own-history read filters by UserEmail and pages newest-start-first; this composite serves it
             // directly and also feeds the gap-based prediction.
             e.HasIndex(x => new { x.UserEmail, x.StartDate }).IsDescending(false, true);
+        });
+
+        b.Entity<HardChallenge>(e =>
+        {
+            e.Property(x => x.UserEmail).HasMaxLength(256);
+            e.Property(x => x.CreatedUtc).HasColumnType("timestamp with time zone");
+            e.Property(x => x.UpdatedUtc).HasColumnType("timestamp with time zone");
+            // INVARIANT: at most one ACTIVE (Status=0) challenge per user. A FILTERED unique index lets a user
+            // keep many completed/abandoned rows but only ever one active run; the start endpoint also catches
+            // the unique violation. (Status=0 is HardChallengeStatus.Active.)
+            e.HasIndex(x => x.UserEmail).IsUnique().HasFilter("\"Status\" = 0");
+        });
+
+        b.Entity<HardChallengeDay>(e =>
+        {
+            e.Property(x => x.UserEmail).HasMaxLength(256);
+            e.Property(x => x.Confession).HasMaxLength(280);
+            e.Property(x => x.NoAlcohol).HasDefaultValue(true);
+            e.Property(x => x.CreatedUtc).HasColumnType("timestamp with time zone");
+            e.Property(x => x.UpdatedUtc).HasColumnType("timestamp with time zone");
+            // One day row per (user, local date); also the day-grid read.
+            e.HasIndex(x => new { x.UserEmail, x.LocalDate }).IsUnique();
+            // Cascade the day rows with their owning challenge.
+            e.HasOne(x => x.Challenge).WithMany()
+                .HasForeignKey(x => x.ChallengeId).OnDelete(DeleteBehavior.Cascade);
         });
     }
 }
