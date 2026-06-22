@@ -13,6 +13,9 @@ import {
   WatchActivityDto, WeeklyReviewResponse, WeightInsightResponse, WeightPointDto, WeightStatsDto, WorkoutXSearchResultDto,
   CycleData, CyclePeriod, CycleNote, CycleSettings, CycleSettingsPatch, CycleOverlayMember,
   CycleDayLog, CycleDayLogPatch,
+  IdentityMapData, IdentityRole, IdentityRoleInput, IdentityRolePatch, IdentityTimeEntry, IdentityTimeInput,
+  IdentityRule, IdentityRuleInput, IdentityCalendarStatus, IdentityImportPreview, IdentityImportCommit,
+  IdentityImportResult,
   HardChallengeDto, HardSharedPersonDto, StartChallengeRequest, UpsertHardDayRequest, HardDayDto, CheatDaysRequest,
 } from './models';
 
@@ -1598,6 +1601,77 @@ export class Api {
   cycleOverlay(fromUtc: string, toUtc: string): Observable<CycleOverlayMember[]> {
     const params = new HttpParams().set('fromUtc', fromUtc).set('toUtc', toUtc);
     return this.http.get<CycleOverlayMember[]>(`${this.base}/family/cycle/overlay`, { params });
+  }
+
+  // ---- Identity Map — PRIVATE + owner-scoped (/family/identity) ----
+  // Every call is gated by identity.map ON TOP OF the group's family.use and owner-scoped server-side: a
+  // caller only ever reads/edits their OWN roles, time entries and rules. The split is computed by the
+  // server (GroupBy role over the range). Manual time logging always works; the calendar import is a purely
+  // OPTIONAL enhancement that reuses the already-connected Google Calendar and degrades gracefully when it
+  // isn't configured/connected. No email is ever on the wire (it's the caller's own data); no AI is involved.
+
+  /** The caller's OWN roles + the aggregated minutes-per-role over [fromUtc, toUtc) + their rules. The
+   *  window defaults server-side (last ~30 days) and is hard-capped; pass plain ISO dates ("YYYY-MM-DD"). */
+  identityMap(fromUtc?: string, toUtc?: string): Observable<IdentityMapData> {
+    let params = new HttpParams();
+    if (fromUtc) params = params.set('fromUtc', fromUtc);
+    if (toUtc) params = params.set('toUtc', toUtc);
+    return this.http.get<IdentityMapData>(`${this.base}/family/identity`, { params });
+  }
+
+  /** Create one of the caller's OWN roles (name + hex colour). Returns the created role. */
+  createIdentityRole(body: IdentityRoleInput): Observable<IdentityRole> {
+    return this.http.post<IdentityRole>(`${this.base}/family/identity/roles`, body);
+  }
+
+  /** Rename / recolor / archive / reorder one of the caller's OWN roles (owner-scoped). Returns the role. */
+  patchIdentityRole(id: number, patch: IdentityRolePatch): Observable<IdentityRole> {
+    return this.http.patch<IdentityRole>(`${this.base}/family/identity/roles/${id}`, patch);
+  }
+
+  /** Delete one of the caller's OWN roles AND its time entries + rules (owner-scoped; 204, or 404 if none). */
+  deleteIdentityRole(id: number): Observable<void> {
+    return this.http.delete<void>(`${this.base}/family/identity/roles/${id}`);
+  }
+
+  /** Log one manual time entry against a role — the always-available path (no calendar needed). */
+  addIdentityTime(body: IdentityTimeInput): Observable<IdentityTimeEntry> {
+    return this.http.post<IdentityTimeEntry>(`${this.base}/family/identity/time`, body);
+  }
+
+  /** Delete one of the caller's OWN time entries by id (owner-scoped; 204, or 404 if none). */
+  deleteIdentityTime(id: number): Observable<void> {
+    return this.http.delete<void>(`${this.base}/family/identity/time/${id}`);
+  }
+
+  /** Whether calendar is configured on the server + whether the caller has connected theirs. Drives the
+   *  OPTIONAL "Import from calendar" affordance — calendar is NEVER required for the page to work. */
+  identityCalendarStatus(): Observable<IdentityCalendarStatus> {
+    return this.http.get<IdentityCalendarStatus>(`${this.base}/family/identity/calendar-status`);
+  }
+
+  /** Preview a calendar import over [fromUtc, toUtc): read the caller's OWN events, classify each by the
+   *  stored rules, and return matched + unmatched + an already-imported count. Creates NOTHING (confirm
+   *  first). Degrades to a `notReady` body when the calendar isn't configured/connected — never a 500. */
+  identityImportPreview(fromUtc: string, toUtc: string): Observable<IdentityImportPreview> {
+    return this.http.post<IdentityImportPreview>(`${this.base}/family/identity/import/preview`,
+      { fromUtc, toUtc });
+  }
+
+  /** Persist confirmed imported rows + optionally upsert "remember this" rules. Re-commit is idempotent
+   *  (the source-event-id dedup index skips already-imported events). Returns { imported, skipped }. */
+  identityImportCommit(body: IdentityImportCommit): Observable<IdentityImportResult> {
+    return this.http.post<IdentityImportResult>(`${this.base}/family/identity/import/commit`, body);
+  }
+
+  /** Create/update a classification rule directly (manage rules outside an import). Returns the rule. */
+  upsertIdentityRule(body: IdentityRuleInput): Observable<IdentityRule> {
+    return this.http.post<IdentityRule>(`${this.base}/family/identity/rules`, body);
+  }
+
+  /** Delete one of the caller's OWN classification rules by id (owner-scoped; 204, or 404 if none). */
+  deleteIdentityRule(id: number): Observable<void> {
+    return this.http.delete<void>(`${this.base}/family/identity/rules/${id}`);
   }
 
   // ---- 75 Hard challenge (/api/challenge) — gated by the SAME tracker permissions (tracker.self own

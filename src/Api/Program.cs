@@ -495,6 +495,7 @@ app.MapFamilyQuickAddEndpoints();
 app.MapFamilyAssistantEndpoints();
 app.MapCycleEndpoints();
 app.MapCycleOverlayEndpoints();
+app.MapIdentityEndpoints();
 app.MapHub<ChatHub>("/api/hubs/chat");
 app.MapGet("/", () => app.Environment.IsDevelopment()
     ? Results.Redirect("/swagger")

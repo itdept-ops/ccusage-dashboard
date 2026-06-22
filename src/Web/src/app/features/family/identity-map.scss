@@ -1,0 +1,99 @@
+/* Identity Map — layered on the shared family.scss. A radial role-time web + role manager + optional
+   calendar import. Owner-only, informational. */
+
+.idm__loading {
+  display: flex; align-items: center; gap: var(--tech-space-3, 12px);
+  padding: var(--tech-space-4, 16px) 0; color: var(--tech-text-secondary); font-size: var(--tech-fs-body);
+}
+
+.idm__state, .idm__empty {
+  text-align: center; display: flex; flex-direction: column; align-items: center; gap: var(--tech-space-2, 8px);
+}
+.idm__state-crest mat-icon { color: var(--tech-warn); }
+.idm__state-title, .idm__empty-title { margin: var(--tech-space-2, 8px) 0 0; font-size: var(--tech-fs-h3, 1.05rem); }
+.idm__state-body, .idm__empty-body { margin: 0; color: var(--tech-text-secondary); max-width: 46ch; }
+
+/* ── Range selector ── */
+.idm__range {
+  display: flex; flex-wrap: wrap; align-items: center; gap: var(--tech-space-2, 8px);
+  margin-bottom: var(--tech-space-4, 16px);
+}
+.idm__range-btn {
+  border: 1px solid var(--tech-border); background: var(--tech-panel-2, transparent); color: var(--tech-text);
+  border-radius: var(--tech-r-pill, 999px); padding: 6px 14px; font-size: var(--tech-fs-caption, 0.82rem);
+  font-family: inherit; cursor: pointer;
+  &--on { background: var(--tech-accent); border-color: var(--tech-accent); color: #fff; font-weight: 600; }
+}
+.idm__range-custom { display: inline-flex; gap: var(--tech-space-2, 8px); margin-left: auto; flex-wrap: wrap; }
+.idm__date { width: 150px; max-width: 46vw; }
+
+/* ── Two-column: chart | side ── */
+.idm__layout {
+  display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+  gap: var(--tech-space-5, 20px); align-items: start;
+  @media (max-width: 880px) { grid-template-columns: 1fr; }
+}
+.idm__side { display: flex; flex-direction: column; gap: var(--tech-space-5, 20px); min-width: 0; }
+
+/* ── Chart + breakdown ── */
+.idm__chart { position: relative; min-width: 0; }
+.idm__chart-total {
+  position: absolute; top: 44%; left: 0; right: 0; text-align: center;
+  font-size: var(--tech-fs-h3, 1.1rem); font-weight: 700; color: var(--tech-text); pointer-events: none;
+}
+.idm__chart-empty { margin: var(--tech-space-3, 12px) 0; color: var(--tech-text-secondary); font-size: var(--tech-fs-body); }
+
+.idm__breakdown { list-style: none; margin: var(--tech-space-3, 12px) 0 0; padding: 0; }
+.idm__bd-row {
+  display: grid; grid-template-columns: 14px 1fr auto auto; align-items: center; gap: var(--tech-space-3, 12px);
+  padding: var(--tech-space-2, 8px) 0;
+  & + .idm__bd-row { border-top: 1px solid var(--tech-border); }
+}
+.idm__bd-dot { width: 12px; height: 12px; border-radius: 4px; }
+.idm__bd-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--tech-text); }
+.idm__bd-min { color: var(--tech-text); font-weight: 600; }
+.idm__bd-pct { color: var(--tech-text-tertiary); }
+
+/* ── Log time ── */
+.idm__log-fields { display: flex; flex-wrap: wrap; gap: var(--tech-space-3, 12px); }
+.idm__log-role { flex: 1 1 160px; }
+.idm__log-min { flex: 0 1 110px; }
+.idm__log-date { flex: 1 1 150px; }
+.idm__log-note { width: 100%; }
+
+/* ── Roles manager ── */
+.idm__addrole { display: flex; flex-wrap: wrap; align-items: center; gap: var(--tech-space-3, 12px); margin-bottom: var(--tech-space-3, 12px); }
+.idm__addrole-name { flex: 1 1 160px; }
+.idm__swatches, .idm__role-swatches { display: inline-flex; gap: 5px; flex-wrap: wrap; }
+.idm__swatch {
+  width: 22px; height: 22px; border-radius: 6px; border: 2px solid transparent; cursor: pointer; padding: 0;
+  &--sm { width: 16px; height: 16px; border-radius: 5px; }
+  &--on { border-color: var(--tech-text); box-shadow: 0 0 0 2px var(--tech-panel); }
+}
+.idm__roles { list-style: none; margin: 0; padding: 0; }
+.idm__role-row {
+  display: flex; align-items: center; gap: var(--tech-space-2, 8px); padding: var(--tech-space-2, 8px) 0;
+  flex-wrap: wrap;
+  & + .idm__role-row { border-top: 1px solid var(--tech-border); }
+}
+.idm__role-dot { width: 12px; height: 12px; border-radius: 4px; flex: none; }
+.idm__role-name {
+  flex: 1 1 120px; min-width: 0; background: transparent; border: 1px solid transparent; border-radius: 8px;
+  padding: 4px 8px; color: var(--tech-text); font: inherit;
+  &:hover, &:focus { border-color: var(--tech-border); background: var(--tech-panel-2, transparent); outline: none; }
+}
+
+/* ── Calendar import ── */
+.idm__import-help { margin: 0 0 var(--tech-space-3, 12px); color: var(--tech-text-tertiary); font-size: var(--tech-fs-caption, 0.82rem); line-height: 1.4; }
+.idm__import-range { display: flex; flex-wrap: wrap; align-items: center; gap: var(--tech-space-2, 8px); }
+.idm__import-rows { list-style: none; margin: var(--tech-space-3, 12px) 0 0; padding: 0; }
+.idm__import-row {
+  display: flex; align-items: center; gap: var(--tech-space-3, 12px); padding: var(--tech-space-2, 8px) 0;
+  flex-wrap: wrap;
+  & + .idm__import-row { border-top: 1px solid var(--tech-border); }
+}
+.idm__import-evt { display: flex; flex-direction: column; min-width: 0; flex: 1 1 160px; }
+.idm__import-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--tech-text); }
+.idm__import-meta { font-size: var(--tech-fs-caption, 0.78rem); color: var(--tech-text-tertiary); }
+.idm__import-role { flex: 0 1 150px; }
+.idm__import-actions { display: flex; justify-content: flex-end; gap: var(--tech-space-2, 8px); margin-top: var(--tech-space-3, 12px); }

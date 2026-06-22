@@ -3325,6 +3325,150 @@ export interface CycleOverlayMember {
 }
 
 // ──────────────────────────────────────────────────────────────────────────────────────────────
+// Identity Map (Family Hub /family/identity) — a PRIVATE, owner-scoped web of the ROLES you play and
+// how much TIME goes into each. Every /api/family/identity call is gated by identity.map ON TOP OF the
+// group's family.use and owner-scoped server-side (you only ever see your OWN roles/time/rules). Data
+// comes from MANUAL time logging (always available) plus an OPTIONAL Google-Calendar import that
+// classifies events into roles by stored keyword RULES. No email, no AI — classification is deterministic.
+// ──────────────────────────────────────────────────────────────────────────────────────────────
+
+/** One role the owner defined (mirrors RoleDto): a label + a hex colour for the chart. `archived` roles
+ *  keep their history but drop out of the picker + default chart. */
+export interface IdentityRole {
+  id: number;
+  name: string;
+  color: string;
+  archived: boolean;
+  sortOrder: number;
+  createdUtc: string;
+}
+
+/** Aggregated minutes for one role over the selected range (mirrors RoleTotalDto) — drives the chart. */
+export interface IdentityRoleTotal {
+  roleId: number;
+  roleName: string;
+  color: string;
+  minutes: number;
+}
+
+/** A stored classification rule (mirrors RuleDto): a keyword that maps an event title to a role. Higher
+ *  `priority` wins when multiple keywords match one title. */
+export interface IdentityRule {
+  id: number;
+  keyword: string;
+  roleId: number;
+  priority: number;
+  createdUtc: string;
+}
+
+/** One logged time fact (mirrors TimeEntryDto). `source` is 'manual' or 'calendar'; `date` is a plain ISO
+ *  date ("YYYY-MM-DD"). Calendar rows carry the source event id for idempotent re-import (never shown). */
+export interface IdentityTimeEntry {
+  id: number;
+  roleId: number;
+  date: string;
+  minutes: number;
+  source: 'manual' | 'calendar';
+  note: string | null;
+  createdUtc: string;
+}
+
+/** The main GET /api/family/identity payload (mirrors IdentityMapDto): the owner's roles, the aggregated
+ *  minutes-per-role over the chosen range, and their classification rules. */
+export interface IdentityMapData {
+  roles: IdentityRole[];
+  totals: IdentityRoleTotal[];
+  rules: IdentityRule[];
+}
+
+/** A POST /api/family/identity/roles body. */
+export interface IdentityRoleInput {
+  name: string;
+  color: string;
+}
+
+/** A PATCH /api/family/identity/roles/{id} body (all optional — rename / recolor / archive / reorder). */
+export interface IdentityRolePatch {
+  name?: string;
+  color?: string;
+  archived?: boolean;
+  sortOrder?: number;
+}
+
+/** A POST /api/family/identity/time body (manual time log) — the path that always works without a calendar. */
+export interface IdentityTimeInput {
+  roleId: number;
+  date: string;
+  minutes: number;
+  note?: string | null;
+}
+
+/** Calendar-import status (mirrors the calendar status shape) — drives whether the optional "Import from
+ *  calendar" affordance shows. Calendar is NEVER required for the page to work. */
+export interface IdentityCalendarStatus {
+  configured: boolean;
+  connected: boolean;
+}
+
+/** One event the import matched to a role via the stored rules (mirrors ProposedTimeDto): the suggested
+ *  role is pre-filled but the user can override before committing. */
+export interface IdentityProposedTime {
+  sourceEventId: string;
+  title: string;
+  date: string;
+  minutes: number;
+  /** The role the rules matched, or null when the user must pick one (an unmatched event). */
+  suggestedRoleId: number | null;
+}
+
+/** The preview of a calendar import (mirrors ImportPreviewDto). Creates NOTHING — the user confirms first.
+ *  `alreadyImported` counts events skipped because their id is already a time entry (idempotent re-import). */
+export interface IdentityImportPreview {
+  /** Events the rules classified (suggestedRoleId set). */
+  matched: IdentityProposedTime[];
+  /** Events with no rule hit — the user assigns a role (suggestedRoleId is null). */
+  unmatched: IdentityProposedTime[];
+  /** Count of events skipped as already-imported (deduped on the source event id). */
+  alreadyImported: number;
+  /** True when the calendar isn't configured/connected — the preview is empty and import is unavailable. */
+  notReady?: boolean;
+}
+
+/** One confirmed import row to persist (mirrors the commit item). */
+export interface IdentityImportItem {
+  sourceEventId: string;
+  roleId: number;
+  date: string;
+  minutes: number;
+  note?: string | null;
+}
+
+/** A new "remember this mapping" rule to upsert on commit so the NEXT import auto-classifies the title. */
+export interface IdentityNewRule {
+  keyword: string;
+  roleId: number;
+}
+
+/** A POST /api/family/identity/import/commit body. */
+export interface IdentityImportCommit {
+  items: IdentityImportItem[];
+  newRules?: IdentityNewRule[];
+}
+
+/** The result of committing an import (mirrors the commit result). */
+export interface IdentityImportResult {
+  imported: number;
+  skipped: number;
+}
+
+/** A POST /api/family/identity/rules body (create/update a classification rule). */
+export interface IdentityRuleInput {
+  keyword: string;
+  roleId: number;
+  priority?: number;
+}
+
+// ──────────────────────────────────────────────────────────────────────────────────────────────
 // 75 Hard challenge (the Relaxed ruleset) — a six-task daily challenge layered on the food/fitness
 // tracker. Gated by the SAME tracker permissions (tracker.self own use; tracker.viewall coach read).
 // Mirrors the /api/challenge (HardChallengeEndpoints) contract. AUTO scoring (diet/water/workouts)
@@ -3476,6 +3620,8 @@ export const PERM = {
   familyUse: 'family.use',
   familyFinance: 'family.finance',
   cycleTrack: 'cycle.track',
+  /** Identity Map: log time against the roles you play + see the split (optionally import from your calendar). */
+  identityMap: 'identity.map',
   /** A CHILD capability: claim/submit chores from the marketplace + see their OWN allowance (never default). */
   choreClaim: 'chore.claim',
   /** A PARENT capability: approve/reject chores + manage every child's allowance (never default). */
@@ -3527,6 +3673,7 @@ export const PERM_GROUP_OF: Readonly<Record<string, string>> = {
   [PERM.familyUse]: 'Family',
   [PERM.familyFinance]: 'Family',
   [PERM.cycleTrack]: 'Family',
+  [PERM.identityMap]: 'Family',
   [PERM.choreClaim]: 'Family',
   [PERM.allowanceManage]: 'Family',
   // ---- Chat ----

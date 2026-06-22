@@ -190,6 +190,15 @@ export const routes: Routes = [
         title: 'Usage IQ · Cycle',
       },
       {
+        // Identity Map — PRIVATE, owner-scoped: gated by identity.map ON TOP OF the group's family.use. Every
+        // /api/family/identity route is gated by identity.map server-side too; you only ever see your OWN
+        // roles/time/rules. Manual time logging always works; the calendar import is an optional enhancement.
+        path: 'identity',
+        canActivate: [permissionGuard(PERM.identityMap)],
+        loadComponent: () => import('./features/family/identity-map').then(m => m.FamilyIdentityMap),
+        title: 'Usage IQ · Identity Map',
+      },
+      {
         // Finance — extra-sensitive: gated by family.finance ON TOP OF the group's family.use. Every
         // /api/family/finance route is double-gated server-side too (family.use AND family.finance).
         path: 'finance',

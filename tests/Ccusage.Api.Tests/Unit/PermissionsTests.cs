@@ -6,7 +6,7 @@ namespace Ccusage.Api.Tests.Unit;
 
 public class PermissionsTests
 {
-    // The full catalog of 41 keys.
+    // The full catalog of 42 keys.
     private static readonly string[] AllKeys =
     {
         "dashboard.view", "dashboard.export", "sync.run",
@@ -18,7 +18,7 @@ public class PermissionsTests
         "chat.read", "chat.send", "chat.moderate", "chat.contacts.manage",
         "tracker.self", "tracker.viewall",
         "shares.view", "shares.manage",
-        "family.use", "family.finance", "cycle.track", "chore.claim", "allowance.manage",
+        "family.use", "family.finance", "cycle.track", "chore.claim", "allowance.manage", "identity.map",
         "location.self", "location.share", "location.view-all",
         "users.view", "users.manage", "activity.view", "ai.usage.view",
         "tracker.ai", "family.ai", "family.ai.assistant", "finance.ai", "chat.ai", "ai.vision",
@@ -53,6 +53,7 @@ public class PermissionsTests
     [InlineData("cycle.track")]
     [InlineData("chore.claim")]
     [InlineData("allowance.manage")]
+    [InlineData("identity.map")]
     [InlineData("location.self")]
     [InlineData("location.share")]
     [InlineData("location.view-all")]
@@ -112,6 +113,7 @@ public class PermissionsTests
         Permissions.CycleTrack.Should().Be("cycle.track");
         Permissions.ChoreClaim.Should().Be("chore.claim");
         Permissions.AllowanceManage.Should().Be("allowance.manage");
+        Permissions.IdentityMap.Should().Be("identity.map");
         Permissions.LocationSelf.Should().Be("location.self");
         Permissions.LocationShare.Should().Be("location.share");
         Permissions.LocationViewAll.Should().Be("location.view-all");
@@ -128,9 +130,9 @@ public class PermissionsTests
     }
 
     [Fact]
-    public void All_contains_exactly_the_forty_one_known_keys()
+    public void All_contains_exactly_the_forty_two_known_keys()
     {
-        Permissions.All.Should().HaveCount(41);
+        Permissions.All.Should().HaveCount(42);
         Permissions.All.Should().BeEquivalentTo(AllKeys);
     }
 
@@ -141,9 +143,9 @@ public class PermissionsTests
     }
 
     [Fact]
-    public void Catalog_has_forty_one_entries()
+    public void Catalog_has_forty_two_entries()
     {
-        Permissions.Catalog.Should().HaveCount(41);
+        Permissions.Catalog.Should().HaveCount(42);
     }
 
     [Fact]
@@ -239,6 +241,27 @@ public class PermissionsTests
             .Permissions.Should().NotContain(Permissions.CycleTrack);
         // It is not a page-view gate.
         Permissions.Views.Should().NotContain(Permissions.CycleTrack);
+    }
+
+    [Fact]
+    public void IdentityMap_is_in_the_Family_group_non_ai_not_defaultable_and_granted_deliberately()
+    {
+        // Private, personal time/role data: identity.map lives in the Family group, is NOT an AI key, and is
+        // never defaultable — an admin grants it deliberately to the person who maps their time.
+        Permissions.Catalog.Single(p => p.Key == Permissions.IdentityMap).Group.Should().Be("Family");
+        Permissions.Catalog.Single(p => p.Key == Permissions.IdentityMap).IsAi.Should().BeFalse();
+        Permissions.IsAi(Permissions.IdentityMap).Should().BeFalse();
+        Permissions.IsDefaultable(Permissions.IdentityMap).Should().BeFalse();
+        // It is part of the administrator preset (the full catalog) AND the family-member preset (a full
+        // household member maps their own time).
+        Permissions.Presets.Single(p => p.Key == "administrator")
+            .Permissions.Should().Contain(Permissions.IdentityMap);
+        Permissions.Presets.Single(p => p.Key == "family-member")
+            .Permissions.Should().Contain(Permissions.IdentityMap);
+        // It is NOT in the child preset and is not a page-view gate.
+        Permissions.Presets.Single(p => p.Key == "child")
+            .Permissions.Should().NotContain(Permissions.IdentityMap);
+        Permissions.Views.Should().NotContain(Permissions.IdentityMap);
     }
 
     [Fact]

@@ -66,6 +66,11 @@ public static class Permissions
     /// payouts/spends/adjustments + view all household children's balances. Never default — granted to an
     /// owner/adult, never to a child.</summary>
     public const string AllowanceManage = "allowance.manage";
+    /// <summary>Identity Map (PRIVATE, owner-scoped): define the ROLES you play, log TIME against them, and see
+    /// your time split as a radial web. Optionally imports from your OWN connected Google Calendar with
+    /// deterministic keyword→role rules. Never default — the data is personal, granted deliberately per user;
+    /// every endpoint is owner-scoped (you only ever see your own roles/time).</summary>
+    public const string IdentityMap = "identity.map";
 
     // ---- Location (GPS feature; never default) ----
     public const string LocationSelf = "location.self";
@@ -124,6 +129,7 @@ public static class Permissions
         new PermissionInfo(CycleTrack, "Family", "Track cycle", "Log and view your own private cycle calendar (informational, non-medical), and choose whether to overlay only predicted phases on the family calendar."),
         new PermissionInfo(ChoreClaim, "Family", "Claim chores (child)", "A child capability: claim chores from the family chore marketplace, submit your own chores for approval, and view your own allowance balance and history (only your own — never another member's)."),
         new PermissionInfo(AllowanceManage, "Family", "Manage allowance", "A parent capability: approve or reject submitted chores, record cash payouts, spends, and adjustments, and view every household child's allowance balance."),
+        new PermissionInfo(IdentityMap, "Family", "Identity Map", "Log time against the roles you play (parent, coder, athlete…) and see your time split as a radial web. Optionally import from your connected calendar — only your own data, never anyone else's."),
 
         // ---- Chat ----
         new PermissionInfo(ChatRead, "Chat", "View chat", "See channels and direct messages you belong to and read their messages."),
@@ -187,6 +193,8 @@ public static class Permissions
                 FamilyUse, FamilyFinance,
                 // A full member is a PARENT — they manage the chore marketplace + allowance.
                 AllowanceManage,
+                // A full member maps their own time/roles (private, owner-scoped).
+                IdentityMap,
                 ChatRead, ChatSend,
                 TrackerSelf,
                 CalendarView, DashboardView,
@@ -234,7 +242,8 @@ public static class Permissions
     /// Likewise excludes the chore-marketplace keys (<see cref="ChoreClaim"/>, <see cref="AllowanceManage"/>):
     /// a child capability and a parent allowance-management capability respectively, both granted deliberately
     /// (via the "child"/"family-member" presets) so open sign-up can never auto-mint a child or an allowance
-    /// manager.
+    /// manager. Likewise excludes <see cref="IdentityMap"/>: the Identity Map holds private, personal
+    /// time/role data, so it must be granted deliberately per user, never inherited by every new account.
     /// Finally excludes ALL AI keys (<see cref="AiKeys"/>) and ALL Location keys (<see cref="LocationKeys"/>):
     /// AI capabilities spend tokens and the Location feature reveals where a user is, so both must be
     /// granted deliberately per user — every new account starts with AI off and location off.
@@ -242,7 +251,7 @@ public static class Permissions
     public static bool IsDefaultable(string key) =>
         IsValid(key) && key != UsersManage && key != ChatModerate && key != ChatContactsManage
         && key != TrackerViewAll && key != FamilyUse && key != FamilyFinance && key != CycleTrack
-        && key != ChoreClaim && key != AllowanceManage
+        && key != ChoreClaim && key != AllowanceManage && key != IdentityMap
         && key != AiUsageView
         && !AiKeys.Contains(key) && !LocationKeys.Contains(key);
 }

@@ -1,0 +1,217 @@
+<section class="family identity">
+  @if (loading()) {
+    <div class="idm__loading" role="status" aria-live="polite">
+      <mat-progress-spinner mode="indeterminate" diameter="36" aria-hidden="true" />
+      <span>Loading your identity map…</span>
+    </div>
+  }
+
+  <header class="family__hero">
+    <div class="family__hero-id">
+      <span class="family__crest" aria-hidden="true"><mat-icon>hub</mat-icon></span>
+      <div>
+        <p class="family__eyebrow">Private</p>
+        <h1 class="family__name">Identity Map</h1>
+        <p class="family__sub">The roles you play and where your time goes. Define roles, log time against
+          them, and see the split — only you can see this.</p>
+      </div>
+    </div>
+  </header>
+
+  @if (!loading() && error()) {
+    <div class="family__card idm__state" role="alert">
+      <span class="family__crest idm__state-crest" aria-hidden="true"><mat-icon>error_outline</mat-icon></span>
+      <h2 class="idm__state-title">We couldn't load your identity map</h2>
+      <p class="idm__state-body">Something went wrong just now. Please try again in a moment.</p>
+    </div>
+  } @else if (!loading() && !error()) {
+
+    @if (!hasRoles()) {
+      <!-- First-run empty state: prompt to create a role before anything else. -->
+      <div class="family__card idm__empty" role="status">
+        <span class="family__crest" aria-hidden="true"><mat-icon>category</mat-icon></span>
+        <h2 class="idm__empty-title">Start with a role</h2>
+        <p class="idm__empty-body">Add the roles you play — Parent, Coder, Athlete, Friend — then log the time
+          you spend in each to see your week as a web.</p>
+      </div>
+    }
+
+    <!-- Range selector -->
+    <div class="idm__range" role="group" aria-label="Time range">
+      @for (p of rangePresets; track p.key) {
+        <button type="button" class="idm__range-btn" [class.idm__range-btn--on]="rangeKey() === p.key"
+                (click)="selectRange(p.key)">{{ p.label }}</button>
+      }
+      <span class="idm__range-custom">
+        <mat-form-field appearance="outline" subscriptSizing="dynamic" class="idm__date">
+          <mat-label>From</mat-label>
+          <input matInput type="date" [ngModel]="fromDate()" (ngModelChange)="fromDate.set($event)"
+                 (change)="onCustomRange()" [max]="toDate()" />
+        </mat-form-field>
+        <mat-form-field appearance="outline" subscriptSizing="dynamic" class="idm__date">
+          <mat-label>To</mat-label>
+          <input matInput type="date" [ngModel]="toDate()" (ngModelChange)="toDate.set($event)"
+                 (change)="onCustomRange()" [min]="fromDate()" />
+        </mat-form-field>
+      </span>
+    </div>
+
+    <div class="idm__layout">
+      <!-- Left: the radial web + breakdown -->
+      <section class="family__card idm__chart-card" aria-label="Time by role">
+        <h2 class="family__card-title">Time by role</h2>
+        @if (hasTime()) {
+          <div class="idm__chart" role="img" [attr.aria-label]="chartAria()">
+            <div aria-hidden="true"><app-chart [option]="option()" /></div>
+            <span class="idm__chart-total" aria-hidden="true">{{ minutesLabel(totalMinutes()) }}</span>
+          </div>
+          <ul class="idm__breakdown">
+            @for (b of breakdown(); track b.roleId) {
+              <li class="idm__bd-row">
+                <span class="idm__bd-dot" [style.background]="b.color" aria-hidden="true"></span>
+                <span class="idm__bd-name">{{ b.roleName }}</span>
+                <span class="idm__bd-min mono-num">{{ minutesLabel(b.minutes) }}</span>
+                <span class="idm__bd-pct mono-num">{{ b.pct }}%</span>
+              </li>
+            }
+          </ul>
+        } @else {
+          <p class="idm__chart-empty">No time logged in this range yet — log some below and your web fills in.</p>
+        }
+      </section>
+
+      <div class="idm__side">
+        <!-- Log time -->
+        <section class="family__card idm__log-card" aria-label="Log time">
+          <h2 class="family__card-title">Log time</h2>
+          <div class="idm__log-fields">
+            <mat-form-field appearance="outline" subscriptSizing="dynamic" class="idm__log-role">
+              <mat-label>Role</mat-label>
+              <mat-select [ngModel]="logRoleId()" (ngModelChange)="logRoleId.set($event)">
+                @for (r of activeRoles(); track r.id) {
+                  <mat-option [value]="r.id">{{ r.name }}</mat-option>
+                }
+              </mat-select>
+            </mat-form-field>
+            <mat-form-field appearance="outline" subscriptSizing="dynamic" class="idm__log-min">
+              <mat-label>Minutes</mat-label>
+              <input matInput type="number" min="1" max="1440" inputmode="numeric"
+                     [ngModel]="logMinutes()" (ngModelChange)="logMinutes.set($event)" />
+            </mat-form-field>
+            <mat-form-field appearance="outline" subscriptSizing="dynamic" class="idm__log-date">
+              <mat-label>Date</mat-label>
+              <input matInput type="date" [ngModel]="logDate()" (ngModelChange)="logDate.set($event)" />
+            </mat-form-field>
+          </div>
+          <mat-form-field appearance="outline" subscriptSizing="dynamic" class="idm__log-note">
+            <mat-label>Note (optional)</mat-label>
+            <input matInput [ngModel]="logNote()" (ngModelChange)="logNote.set($event)" maxlength="200" />
+          </mat-form-field>
+          <button mat-flat-button color="primary" type="button" (click)="logTime()"
+                  [disabled]="logging() || !hasRoles()">
+            @if (logging()) { <mat-progress-spinner mode="indeterminate" diameter="18" aria-hidden="true" /> }
+            @else { <mat-icon aria-hidden="true">add</mat-icon> }
+            Log time
+          </button>
+        </section>
+
+        <!-- Roles manager -->
+        <section class="family__card idm__roles-card" aria-label="Roles">
+          <h2 class="family__card-title">Roles</h2>
+          <div class="idm__addrole">
+            <mat-form-field appearance="outline" subscriptSizing="dynamic" class="idm__addrole-name">
+              <mat-label>New role</mat-label>
+              <input matInput [ngModel]="newRoleName()" (ngModelChange)="newRoleName.set($event)"
+                     (keydown.enter)="addRole()" maxlength="40" placeholder="e.g. Athlete" />
+            </mat-form-field>
+            <div class="idm__swatches" role="group" aria-label="Role colour">
+              @for (c of palette; track c) {
+                <button type="button" class="idm__swatch" [class.idm__swatch--on]="newRoleColor() === c"
+                        [style.background]="c" (click)="newRoleColor.set(c)"
+                        [attr.aria-label]="'Colour ' + c" [attr.aria-pressed]="newRoleColor() === c"></button>
+              }
+            </div>
+            <button mat-stroked-button type="button" (click)="addRole()" [disabled]="addingRole()">
+              <mat-icon aria-hidden="true">add</mat-icon> Add
+            </button>
+          </div>
+
+          <ul class="idm__roles">
+            @for (r of activeRoles(); track r.id) {
+              <li class="idm__role-row">
+                <span class="idm__role-dot" [style.background]="r.color" aria-hidden="true"></span>
+                <input class="idm__role-name" [value]="r.name" (change)="renameRole(r, $any($event.target).value)"
+                       [attr.aria-label]="'Rename ' + r.name" maxlength="40" />
+                <span class="idm__role-swatches">
+                  @for (c of palette; track c) {
+                    <button type="button" class="idm__swatch idm__swatch--sm" [style.background]="c"
+                            [class.idm__swatch--on]="r.color === c" (click)="recolorRole(r, c)"
+                            [attr.aria-label]="'Set ' + r.name + ' colour'"></button>
+                  }
+                </span>
+                <button mat-icon-button type="button" (click)="deleteRole(r)"
+                        [attr.aria-label]="'Delete ' + r.name"><mat-icon>delete_outline</mat-icon></button>
+              </li>
+            }
+          </ul>
+        </section>
+
+        <!-- Optional calendar import -->
+        @if (calendarConfigured()) {
+          <section class="family__card idm__import-card" aria-label="Import from calendar">
+            <h2 class="family__card-title">Import from calendar</h2>
+            <p class="idm__import-help">Pull events from your connected Google Calendar and assign each to a
+              role. Re-importing won't double-count.</p>
+            <div class="idm__import-range">
+              <mat-form-field appearance="outline" subscriptSizing="dynamic" class="idm__date">
+                <mat-label>From</mat-label>
+                <input matInput type="date" [ngModel]="importFrom()" (ngModelChange)="importFrom.set($event)" />
+              </mat-form-field>
+              <mat-form-field appearance="outline" subscriptSizing="dynamic" class="idm__date">
+                <mat-label>To</mat-label>
+                <input matInput type="date" [ngModel]="importTo()" (ngModelChange)="importTo.set($event)" />
+              </mat-form-field>
+              <button mat-stroked-button type="button" (click)="runPreview()" [disabled]="importPreviewing()">
+                @if (importPreviewing()) { <mat-progress-spinner mode="indeterminate" diameter="18" aria-hidden="true" /> }
+                @else { <mat-icon aria-hidden="true">event</mat-icon> }
+                Preview
+              </button>
+            </div>
+
+            @if (importRows().length) {
+              <ul class="idm__import-rows">
+                @for (row of importRows(); track row.item.sourceEventId) {
+                  <li class="idm__import-row">
+                    <span class="idm__import-evt">
+                      <span class="idm__import-title">{{ row.item.title }}</span>
+                      <span class="idm__import-meta">{{ row.item.date }} · {{ minutesLabel(row.item.minutes) }}</span>
+                    </span>
+                    <mat-form-field appearance="outline" subscriptSizing="dynamic" class="idm__import-role">
+                      <mat-label>Role</mat-label>
+                      <mat-select [ngModel]="row.roleId" (ngModelChange)="setImportRole(row, $event)">
+                        <mat-option [value]="null">— skip —</mat-option>
+                        @for (r of activeRoles(); track r.id) {
+                          <mat-option [value]="r.id">{{ r.name }}</mat-option>
+                        }
+                      </mat-select>
+                    </mat-form-field>
+                    <mat-slide-toggle [checked]="row.remember" (change)="toggleRemember(row)"
+                                      matTooltip="Remember this title→role for next time">Remember</mat-slide-toggle>
+                  </li>
+                }
+              </ul>
+              <div class="idm__import-actions">
+                <button mat-button type="button" (click)="cancelImport()">Discard</button>
+                <button mat-flat-button color="primary" type="button" (click)="commitImport()"
+                        [disabled]="importCommitting() || !canCommitImport()">
+                  @if (importCommitting()) { <mat-progress-spinner mode="indeterminate" diameter="18" aria-hidden="true" /> }
+                  Import assigned
+                </button>
+              </div>
+            }
+          </section>
+        }
+      </div>
+    </div>
+  }
+</section>

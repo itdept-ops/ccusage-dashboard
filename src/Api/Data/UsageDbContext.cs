@@ -65,6 +65,9 @@ public class UsageDbContext(DbContextOptions<UsageDbContext> options) : DbContex
     public DbSet<CycleProfile> CycleProfiles => Set<CycleProfile>();
     public DbSet<CyclePeriod> CyclePeriods => Set<CyclePeriod>();
     public DbSet<CycleDayLog> CycleDayLogs => Set<CycleDayLog>();
+    public DbSet<IdentityRole> IdentityRoles => Set<IdentityRole>();
+    public DbSet<IdentityTimeEntry> IdentityTimeEntries => Set<IdentityTimeEntry>();
+    public DbSet<IdentityRule> IdentityRules => Set<IdentityRule>();
     public DbSet<HardChallenge> HardChallenges => Set<HardChallenge>();
     public DbSet<HardChallengeDay> HardChallengeDays => Set<HardChallengeDay>();
 
@@ -803,6 +806,49 @@ public class UsageDbContext(DbContextOptions<UsageDbContext> options) : DbContex
             e.Property(x => x.UpdatedUtc).HasColumnType("timestamp with time zone");
             // One day-log per (user, local date); also the per-date upsert/lookup + the recent read.
             e.HasIndex(x => new { x.UserEmail, x.LocalDate }).IsUnique();
+        });
+
+        // ---- Identity Map (owner-scoped: roles + time entries + classification rules) ----
+        b.Entity<IdentityRole>(e =>
+        {
+            e.Property(x => x.UserEmail).HasMaxLength(256);
+            e.Property(x => x.Name).HasMaxLength(64);
+            e.Property(x => x.Color).HasMaxLength(16);
+            e.Property(x => x.Archived).HasDefaultValue(false);
+            e.Property(x => x.SortOrder).HasDefaultValue(0);
+            e.Property(x => x.CreatedUtc).HasColumnType("timestamp with time zone");
+            // A user can't have two roles with the same name; also resolves a rule's role-name to one row.
+            e.HasIndex(x => new { x.UserEmail, x.Name }).IsUnique();
+        });
+
+        b.Entity<IdentityTimeEntry>(e =>
+        {
+            e.Property(x => x.UserEmail).HasMaxLength(256);
+            e.Property(x => x.Source).HasConversion<int>();
+            e.Property(x => x.SourceEventId).HasMaxLength(1024);
+            e.Property(x => x.Note).HasMaxLength(256);
+            e.Property(x => x.CreatedUtc).HasColumnType("timestamp with time zone");
+            // The own-range read filters by UserEmail and pages newest-day-first; this composite serves it
+            // directly and feeds the per-role minutes aggregation.
+            e.HasIndex(x => new { x.UserEmail, x.Date }).IsDescending(false, true);
+            // FILTERED UNIQUE: a Google event id is imported AT MOST ONCE per owner, so re-importing the same
+            // window never double-counts. Manual entries (SourceEventId null) are exempt from the constraint.
+            e.HasIndex(x => new { x.UserEmail, x.SourceEventId })
+                .IsUnique()
+                .HasFilter("\"SourceEventId\" IS NOT NULL");
+            // Aggregation + cascade lookups by role.
+            e.HasIndex(x => x.RoleId);
+        });
+
+        b.Entity<IdentityRule>(e =>
+        {
+            e.Property(x => x.UserEmail).HasMaxLength(256);
+            e.Property(x => x.Keyword).HasMaxLength(128);
+            e.Property(x => x.Priority).HasDefaultValue(0);
+            e.Property(x => x.CreatedUtc).HasColumnType("timestamp with time zone");
+            // Confirming the same mapping twice UPDATES rather than duplicates.
+            e.HasIndex(x => new { x.UserEmail, x.Keyword }).IsUnique();
+            e.HasIndex(x => x.RoleId);
         });
 
         b.Entity<HardChallenge>(e =>
