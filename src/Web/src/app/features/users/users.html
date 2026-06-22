@@ -2,15 +2,14 @@
   <div class="head-text">
     <span class="micro-label head-eyebrow">~/users — access control</span>
     <h2>Users &amp; permissions</h2>
-    <p class="sub">Grant per-capability access. Changes apply <strong>immediately</strong> — the server re-checks
-      permissions on every request, so removing access takes effect on a user's next action.</p>
+    <p class="sub">Pick a role to seed access, fine-tune the exact capabilities, then save. Changes apply
+      <strong>immediately</strong> — the server re-checks permissions on every request.</p>
   </div>
 
   <div class="head-tools">
     @if (auth.hasPermission(PERM.usersView)) {
     <button mat-stroked-button class="reveal-toggle" type="button"
-            [class.revealed]="emailsRevealed()"
-            [disabled]="revealing()"
+            [class.revealed]="emailsRevealed()" [disabled]="revealing()"
             [attr.aria-pressed]="emailsRevealed()"
             [attr.aria-label]="emailsRevealed() ? 'Hide email addresses' : 'Show email addresses (requires a key)'"
             [matTooltip]="emailsRevealed() ? 'Hide email addresses' : 'Show email addresses (requires a key)'"
@@ -28,14 +27,17 @@
 
 @if (loading()) { <mat-progress-bar mode="indeterminate" /> }
 
-<!-- Add user (collapsible — the permission picker is large, so a preset gives a one-click start) -->
+<!-- Visually-hidden polite live region (selection + contacts announcements). -->
+<span class="sr-status" aria-live="polite" aria-atomic="true">{{ liveStatus() }}</span>
+
+<!-- Add user (collapsible — the role row gives a one-click start) -->
 <mat-card appearance="outlined" class="panel add-card">
   <div class="panel-header add-header">
     <span>Add a user</span>
-    <button mat-button type="button" class="add-toggle" (click)="addExpanded.set(!addExpanded())"
-            [attr.aria-expanded]="addExpanded()">
-      <mat-icon class="expand-chevron" [class.open]="addExpanded()">expand_more</mat-icon>
-      {{ addExpanded() ? 'Fewer options' : 'Permissions' }}
+    <button mat-button type="button" class="add-toggle" (click)="addOpen.set(!addOpen())"
+            [attr.aria-expanded]="addOpen()">
+      <mat-icon class="chevron" [class.open]="addOpen()">expand_more</mat-icon>
+      {{ addOpen() ? 'Fewer options' : 'Permissions' }}
     </button>
   </div>
 
@@ -48,13 +50,12 @@
 
     <mat-slide-toggle [ngModel]="newEnabled()" (ngModelChange)="newEnabled.set($event)">Enabled</mat-slide-toggle>
 
-    <!-- Preset starter (a STARTING POINT — fully editable below before adding) -->
     @if (presets().length) {
-      <div class="preset-starter">
-        <span class="preset-starter-label micro-label">Start from</span>
+      <div class="role-starter">
+        <span class="micro-label starter-label">Start as</span>
         @for (p of presets(); track p.key) {
-          <button mat-stroked-button type="button" class="preset-chip"
-                  [matTooltip]="p.description" (click)="applyPresetToNew(p.key)">{{ p.label }}</button>
+          <button mat-stroked-button type="button" class="role-chip"
+                  [matTooltip]="p.description" (click)="applyRoleToNew(p.key)">{{ p.label }}</button>
         }
       </div>
     }
@@ -64,12 +65,12 @@
     </button>
   </div>
 
-  @if (addExpanded()) {
+  @if (addOpen()) {
     <div class="add-perms">
       @for (g of featureGroups(); track g.name) {
-        <div class="add-perm-group">
-          <span class="add-perm-group-name micro-label">{{ g.name }}</span>
-          <div class="add-perm-group-items">
+        <div class="perm-group">
+          <span class="perm-group-name micro-label">{{ g.name }}</span>
+          <div class="perm-group-items">
             @for (p of g.perms; track p.key) {
               <mat-checkbox [checked]="newHasPerm(p.key)" (change)="toggleNewPerm(p.key, $event.checked)"
                             [matTooltip]="p.description">{{ p.label }}</mat-checkbox>
@@ -77,11 +78,10 @@
           </div>
         </div>
       }
-      <!-- AI group, visually distinct (token-spending; off by default) -->
       @for (g of aiGroups(); track g.name) {
-        <div class="add-perm-group add-perm-group--ai">
-          <span class="add-perm-group-name micro-label"><mat-icon class="ai-spark">auto_awesome</mat-icon> {{ g.name }} · token-spending</span>
-          <div class="add-perm-group-items">
+        <div class="perm-group perm-group--ai">
+          <span class="perm-group-name micro-label"><mat-icon class="shield">shield</mat-icon> {{ g.name }} · token-spending</span>
+          <div class="perm-group-items">
             @for (p of g.perms; track p.key) {
               <mat-checkbox [checked]="newHasPerm(p.key)" (change)="toggleNewPerm(p.key, $event.checked)"
                             [matTooltip]="p.description">{{ p.label }}</mat-checkbox>
@@ -93,10 +93,15 @@
   }
 </mat-card>
 
-<!-- Search + filter toolbar -->
-<mat-card appearance="outlined" class="panel filter-card">
-  <div class="filter-row">
-    <mat-form-field appearance="outline" class="filter-search" subscriptSizing="dynamic">
+<!-- ============================================================= -->
+<!-- MASTER-DETAIL — one responsive layout (two-pane → card grid)  -->
+<!-- ============================================================= -->
+<div class="md" [class.detail-open]="mobileDetailOpen()">
+
+  <!-- LEFT: search + filters + the user list -->
+  <section class="md-list" aria-label="Users">
+    <!-- Search -->
+    <mat-form-field appearance="outline" class="list-search" subscriptSizing="dynamic">
       <mat-icon matPrefix>search</mat-icon>
       <mat-label>Search name{{ emailsRevealed() ? ' or email' : '' }}</mat-label>
       <input matInput [ngModel]="search()" (ngModelChange)="search.set($event)"
@@ -108,66 +113,444 @@
       }
     </mat-form-field>
 
-    <mat-form-field appearance="outline" class="filter-perm" subscriptSizing="dynamic">
-      <mat-label>Has permission</mat-label>
-      <mat-select [ngModel]="filterMode() === 'perm' ? filterPerm() : ''"
-                  (ngModelChange)="setFilterPerm($event)">
-        <mat-option value="">— any —</mat-option>
-        @for (g of groups(); track g.name) {
-          <mat-optgroup [label]="g.name">
-            @for (p of g.perms; track p.key) {
-              <mat-option [value]="p.key">{{ p.label }}</mat-option>
-            }
-          </mat-optgroup>
-        }
-      </mat-select>
-    </mat-form-field>
+    <!-- Filter chips: capability axes + a role filter -->
+    <div class="filter-chips" role="group" aria-label="Filters">
+      <button type="button" class="chip" [class.on]="capFilter() === 'ai'"
+              (click)="toggleCap('ai')" [attr.aria-pressed]="capFilter() === 'ai'">
+        <mat-icon class="shield">shield</mat-icon> Has AI
+      </button>
+      <button type="button" class="chip" [class.on]="capFilter() === 'enabled'"
+              (click)="toggleCap('enabled')" [attr.aria-pressed]="capFilter() === 'enabled'">
+        <mat-icon>check_circle</mat-icon> Enabled
+      </button>
+      <button type="button" class="chip" [class.on]="capFilter() === 'disabled'"
+              (click)="toggleCap('disabled')" [attr.aria-pressed]="capFilter() === 'disabled'">
+        <mat-icon>block</mat-icon> Disabled
+      </button>
 
-    <mat-form-field appearance="outline" class="filter-preset" subscriptSizing="dynamic">
-      <mat-label>Matches template</mat-label>
-      <mat-select [ngModel]="filterMode() === 'preset' ? filterPreset() : ''"
-                  (ngModelChange)="setFilterPreset($event)">
-        <mat-option value="">— any —</mat-option>
-        @for (p of presets(); track p.key) {
-          <mat-option [value]="p.key">{{ p.label }}</mat-option>
-        }
-      </mat-select>
-    </mat-form-field>
+      <mat-form-field appearance="outline" class="chip-select" subscriptSizing="dynamic">
+        <mat-label>Role</mat-label>
+        <mat-select [ngModel]="filterRole()" (ngModelChange)="setFilterRole($event)">
+          <mat-option value="">Any role</mat-option>
+          @for (p of presets(); track p.key) { <mat-option [value]="p.key">{{ p.label }}</mat-option> }
+        </mat-select>
+      </mat-form-field>
 
-    <div class="filter-meta">
-      <span class="filter-count">
-        @if (isFiltering()) {
-          {{ filteredUsers().length }} of {{ users().length }}
-        } @else {
-          {{ users().length }} users
-        }
-      </span>
+      <mat-form-field appearance="outline" class="chip-select" subscriptSizing="dynamic">
+        <mat-label>Can do</mat-label>
+        <mat-select [ngModel]="capFilter() === 'perm' ? filterPerm() : ''" (ngModelChange)="setFilterPerm($event)">
+          <mat-option value="">Any capability</mat-option>
+          @for (g of groups(); track g.name) {
+            <mat-optgroup [label]="g.name">
+              @for (p of g.perms; track p.key) { <mat-option [value]="p.key">{{ p.label }}</mat-option> }
+            </mat-optgroup>
+          }
+        </mat-select>
+      </mat-form-field>
+    </div>
+
+    <div class="list-meta">
+      <mat-checkbox class="select-all" [checked]="allVisibleSelected()" [indeterminate]="someVisibleSelected()"
+                    (change)="toggleSelectAllVisible($event.checked)"
+                    [disabled]="!filteredUsers().length || bulkRunning()">Select all</mat-checkbox>
+      <span class="count">{{ filteredUsers().length }} of {{ users().length }} shown</span>
       @if (isFiltering()) {
-        <button mat-button type="button" class="filter-clear" (click)="clearFilters()">
+        <button mat-button type="button" class="clear-filters" (click)="clearFilters()">
           <mat-icon>filter_alt_off</mat-icon> Clear
         </button>
       }
     </div>
-  </div>
-</mat-card>
 
-<!-- Bulk action bar (appears when one or more users are selected) -->
-@if (selectedCount()) {
+    <!-- The user rows / cards (one markup, styled responsively) -->
+    <ul class="user-list" role="listbox" aria-label="Users">
+      @for (u of filteredUsers(); track u.id) {
+        <li class="user-row" role="option"
+            [class.active]="selectedId() === u.id"
+            [class.disabled]="!u.isEnabled"
+            [class.checked]="isSelected(u.id)"
+            [attr.aria-selected]="selectedId() === u.id">
+          <mat-checkbox class="row-check" [checked]="isSelected(u.id)" [disabled]="bulkRunning()"
+                        (change)="toggleSelect(u.id, $event.checked)" (click)="$event.stopPropagation()"
+                        [attr.aria-label]="'Select ' + (u.name || u.email || ('user ' + u.id))"></mat-checkbox>
+
+          <button type="button" class="row-main" (click)="select(u, true)">
+            @if (u.picture) {
+              <img class="avatar" [src]="u.picture" alt="" referrerpolicy="no-referrer" />
+            } @else {
+              <span class="avatar avatar--init">{{ userInitial(u) }}</span>
+            }
+            <span class="row-id">
+              <span class="row-top">
+                @if (u.email) {
+                  <span class="row-email mono-num">{{ u.email }}</span>
+                } @else if (u.name) {
+                  <span class="row-email">{{ u.name }}</span>
+                } @else {
+                  <span class="row-email email-hidden" role="img" aria-label="email hidden">
+                    <mat-icon class="email-hidden-icon">lock</mat-icon>••••••
+                  </span>
+                }
+                @if (!u.isEnabled) { <span class="pill pill--off">Disabled</span> }
+              </span>
+              <span class="row-summary">{{ oneLineSummary(u) }}</span>
+              <span class="row-badges">
+                <span class="role-badge">{{ roleLabel(u) }}</span>
+                @if (hasAnyAi(u.permissions)) {
+                  <span class="ai-badge" matTooltip="Holds AI (token-spending) capabilities">
+                    <mat-icon class="shield">shield</mat-icon> AI
+                  </span>
+                }
+              </span>
+            </span>
+            <mat-icon class="row-go">chevron_right</mat-icon>
+          </button>
+        </li>
+      } @empty {
+        @if (!loading()) {
+          <li class="list-empty">
+            @if (isFiltering()) { No users match this search/filter. } @else { No users yet. }
+          </li>
+        }
+      }
+    </ul>
+  </section>
+
+  <!-- RIGHT: the selected-user detail -->
+  <section class="md-detail" aria-label="User detail">
+    @if (selected(); as u) {
+      <!-- Detail header -->
+      <div class="detail-head">
+        <button mat-button type="button" class="back-btn" (click)="closeDetail()">
+          <mat-icon>arrow_back</mat-icon> Back
+        </button>
+
+        <div class="detail-who">
+          @if (u.picture) {
+            <img class="avatar avatar--lg" [src]="u.picture" alt="" referrerpolicy="no-referrer" />
+          } @else {
+            <span class="avatar avatar--lg avatar--init">{{ userInitial(u) }}</span>
+          }
+          <div class="detail-id">
+            <h3 #detailHeading tabindex="-1" class="detail-name">{{ u.name || 'Unnamed user' }}</h3>
+            @if (u.email) {
+              <span class="detail-email mono-num">{{ u.email }}</span>
+            } @else {
+              <span class="detail-email email-hidden" role="img" aria-label="email hidden">
+                <mat-icon class="email-hidden-icon">lock</mat-icon>•••••• <span class="reveal-hint">(reveal to show)</span>
+              </span>
+            }
+            <span class="detail-last micro-label">{{ u.lastLoginUtc ? 'last in ' + (u.lastLoginUtc | date: 'MMM d, HH:mm') : 'never signed in' }}</span>
+          </div>
+        </div>
+
+        <div class="detail-head-controls">
+          <mat-slide-toggle class="enabled-toggle" [ngModel]="draftEnabled()" (ngModelChange)="draftEnabled.set($event)">
+            {{ draftEnabled() ? 'Enabled' : 'Disabled' }}
+          </mat-slide-toggle>
+
+          @if (canManage()) {
+            <button mat-stroked-button type="button" class="signout-btn"
+                    [disabled]="loggingOutId() === u.id"
+                    [attr.aria-busy]="loggingOutId() === u.id ? true : null"
+                    matTooltip="Sign out of every active session" (click)="forceLogout(u)">
+              @if (loggingOutId() === u.id) {
+                <mat-progress-spinner class="inline-spinner" mode="indeterminate" [diameter]="18" />
+              } @else { <mat-icon>logout</mat-icon> }
+              Force logout
+            </button>
+          }
+        </div>
+      </div>
+
+      <!-- Lands on (home page) — only routes the SAVED grants can reach -->
+      <div class="detail-block lands-on">
+        <mat-form-field appearance="outline" class="lands-select" subscriptSizing="dynamic">
+          <mat-icon matPrefix>home</mat-icon>
+          <mat-label>Lands on</mat-label>
+          <mat-select [ngModel]="u.homeRoute ?? ''" (ngModelChange)="setHomeRoute($event)"
+                      [disabled]="homeSavingId() === u.id">
+            <mat-option value="">First page they can reach (default)</mat-option>
+            @for (o of homeOptions(); track o.route) { <mat-option [value]="o.route">{{ o.label }}</mat-option> }
+          </mat-select>
+        </mat-form-field>
+        @if (homeSavingId() === u.id) { <mat-progress-spinner class="inline-spinner" mode="indeterminate" [diameter]="18" /> }
+        <span class="lands-hint micro-label">Only pages this user can currently reach are offered.</span>
+      </div>
+
+      <!-- Role picker — the primary spine; applying SEEDS the grants -->
+      <div class="detail-block role-block">
+        <div class="block-head">
+          <mat-icon class="block-head-icon">badge</mat-icon>
+          <span class="block-head-title">Role</span>
+          <span class="block-head-sub micro-label">applying a role seeds the capabilities below</span>
+        </div>
+        <div class="role-picker" role="radiogroup" aria-label="Role">
+          @for (p of presets(); track p.key) {
+            <button type="button" class="role-seg" [class.on]="draftRole() === p.key"
+                    role="radio" [attr.aria-checked]="draftRole() === p.key"
+                    [matTooltip]="p.description" (click)="applyRole(p.key)">{{ p.label }}</button>
+          }
+          <span class="role-seg role-seg--custom" [class.on]="!draftRole()"
+                role="radio" [attr.aria-checked]="!draftRole()">Custom</span>
+        </div>
+
+        <!-- Delta vs the applied role (named, visible, reversible) -->
+        @if (appliedRole() && (roleDelta().added.length || roleDelta().removed.length)) {
+          <div class="role-delta">
+            <span class="delta-badge">
+              {{ presets().find(p => p.key === appliedRole())?.label }}
+              @if (roleDelta().added.length) { <span class="delta-add">+{{ roleDelta().added.length }}</span> }
+              @if (roleDelta().removed.length) { <span class="delta-rem">−{{ roleDelta().removed.length }}</span> }
+            </span>
+            <button mat-button type="button" class="reset-role" (click)="resetToRole()">
+              <mat-icon>restart_alt</mat-icon> Reset to role
+            </button>
+          </div>
+        }
+      </div>
+
+      <!-- Plain-language access summary (mandatory) -->
+      <div class="detail-block summary-block">
+        <div class="block-head">
+          <mat-icon class="block-head-icon">verified_user</mat-icon>
+          <span class="block-head-title">Can do</span>
+        </div>
+        <p class="access-sentence">{{ summaryFor(draftPerms()) }}</p>
+        @if (accessSummary(draftPerms()).length) {
+          <div class="access-summary">
+            @for (s of accessSummary(draftPerms()); track s.name) {
+              <div class="access-group">
+                <span class="access-group-name micro-label">{{ s.name }}</span>
+                <div class="access-labels">
+                  @for (l of s.labels; track l) { <span class="access-pill">{{ l }}</span> }
+                </div>
+              </div>
+            }
+          </div>
+        } @else {
+          <div class="block-empty">No feature access — this account can't reach any page yet.</div>
+        }
+      </div>
+
+      <!-- Capability accordions (feature groups) -->
+      <div class="detail-block">
+        <div class="block-head">
+          <mat-icon class="block-head-icon">tune</mat-icon>
+          <span class="block-head-title">Capabilities</span>
+          <span class="block-head-sub micro-label">fine-tune the exact access</span>
+        </div>
+        <div class="accordions">
+          @for (g of featureGroups(); track g.name) {
+            <div class="acc" [class.collapsed]="isGroupCollapsed(g.name)">
+              <button type="button" class="acc-head" (click)="toggleGroup(g.name)"
+                      [attr.aria-expanded]="!isGroupCollapsed(g.name)">
+                <mat-icon class="chevron" [class.open]="!isGroupCollapsed(g.name)">expand_more</mat-icon>
+                <span class="acc-name">{{ g.name }}</span>
+                <span class="acc-count micro-label">{{ groupOnCount(g) }} of {{ g.perms.length }} on</span>
+              </button>
+              @if (!isGroupCollapsed(g.name)) {
+                <div class="acc-body">
+                  @for (p of g.perms; track p.key) {
+                    <mat-checkbox class="cap" [checked]="draftHas(p.key)"
+                                  (change)="toggleDraftPerm(p.key, $event.checked)" [matTooltip]="p.description">
+                      <span class="cap-label">{{ p.label }}</span>
+                      <span class="cap-desc">{{ p.description }}</span>
+                    </mat-checkbox>
+                  }
+                </div>
+              }
+            </div>
+          }
+        </div>
+      </div>
+
+      <!-- AI & sensitive panel — its own tinted, shield-marked section, set apart -->
+      @for (g of aiGroups(); track g.name) {
+        <div class="detail-block ai-panel">
+          <div class="block-head ai-head">
+            <mat-icon class="shield ai-head-icon">shield</mat-icon>
+            <span class="block-head-title">AI &amp; token-spending</span>
+            <span class="block-head-sub micro-label">off by default · each grant spends tokens</span>
+          </div>
+          <p class="ai-note">These capabilities call paid AI models. Grant them deliberately — they are confirmed on Save.</p>
+          <div class="ai-items">
+            @for (p of g.perms; track p.key) {
+              <mat-checkbox class="cap cap--ai" [checked]="draftHas(p.key)"
+                            (change)="toggleDraftPerm(p.key, $event.checked)" [matTooltip]="p.description">
+                <span class="cap-label">{{ p.label }}</span>
+                <span class="cap-desc">{{ p.description }}</span>
+              </mat-checkbox>
+            }
+          </div>
+        </div>
+      }
+
+      <!-- Admin oversight: location history (preserved GPS affordance) -->
+      @if (auth.hasPermission(PERM.locationViewAll)) {
+        <div class="detail-block">
+          <a class="locations-link" mat-stroked-button
+             [routerLink]="['/admin/locations']" [queryParams]="{ user: u.id }"
+             matTooltip="View this user's location history on the admin map">
+            <mat-icon aria-hidden="true">map</mat-icon> View locations
+          </a>
+        </div>
+      }
+
+      <!-- Disclosure: sign-in history -->
+      <details class="detail-disclosure">
+        <summary><mat-icon>login</mat-icon> Sign-in history <span class="micro-label">most recent first · up to 200</span></summary>
+        @if (loginHistory(u.id); as h) {
+          @if (h.loading) {
+            <div class="block-state"><mat-progress-bar mode="indeterminate" /></div>
+          } @else if (h.error) {
+            <div class="block-state block-empty">Couldn't load sign-in history.</div>
+          } @else if (!h.events.length) {
+            <div class="block-state block-empty">No sign-ins recorded</div>
+          } @else {
+            <table class="logins-table">
+              <thead>
+                <tr><th>When</th><th>IP</th><th>Status</th><th>Reason</th><th class="lc-agent">User agent</th></tr>
+              </thead>
+              <tbody>
+                @for (e of h.events; track e.id) {
+                  <tr>
+                    <td class="mono-num">{{ e.whenUtc | date: 'MMM d, y, HH:mm:ss' }}</td>
+                    <td class="mono-num">{{ e.ip || '—' }}</td>
+                    <td><span class="login-badge" [class.ok]="e.success" [class.denied]="!e.success">{{ e.success ? 'Success' : 'Denied' }}</span></td>
+                    <td>{{ e.reason }}</td>
+                    <td class="lc-agent" [matTooltip]="e.userAgent || ''">{{ e.userAgent || '—' }}</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+            <div class="logins-cards">
+              @for (e of h.events; track e.id) {
+                <div class="login-item">
+                  <div class="login-item-top">
+                    <span class="mono-num login-item-when">{{ e.whenUtc | date: 'MMM d, y, HH:mm:ss' }}</span>
+                    <span class="login-badge" [class.ok]="e.success" [class.denied]="!e.success">{{ e.success ? 'Success' : 'Denied' }}</span>
+                  </div>
+                  <div class="login-item-line"><span class="li-lbl micro-label">IP</span> <span class="mono-num">{{ e.ip || '—' }}</span></div>
+                  <div class="login-item-line"><span class="li-lbl micro-label">Reason</span> <span>{{ e.reason }}</span></div>
+                  <div class="login-item-line login-item-agent"><span class="li-lbl micro-label">Agent</span> <span>{{ e.userAgent || '—' }}</span></div>
+                </div>
+              }
+            </div>
+          }
+        }
+      </details>
+
+      <!-- Disclosure: chat contacts (chat.contacts.manage only) -->
+      @if (canEditContacts()) {
+        <details class="detail-disclosure" [attr.aria-busy]="contactsState(u.id)?.busyUserId != null ? true : null">
+          <summary><mat-icon>group</mat-icon> Chat contacts <span class="micro-label">their circle · the chat picker draws from this</span></summary>
+          @if (contactsState(u.id); as cs) {
+            @if (cs.loading) {
+              <div class="block-state"><mat-progress-bar mode="indeterminate" /></div>
+            } @else if (cs.error) {
+              <div class="block-state block-empty">Couldn't load chat contacts.</div>
+            } @else {
+              @if (cs.contacts.length) {
+                <ul class="contacts-chips" aria-label="Current contacts">
+                  @for (c of cs.contacts; track c.userId) {
+                    <li class="contact-chip">
+                      @if (c.picture) {
+                        <img class="contact-chip-avatar" [src]="c.picture" alt="" referrerpolicy="no-referrer" />
+                      } @else {
+                        <span class="contact-chip-avatar contact-chip-avatar--init">{{ contactInitials(c) }}</span>
+                      }
+                      <span class="contact-chip-name">{{ c.name }}</span>
+                      <button mat-icon-button class="contact-chip-remove" type="button"
+                              [disabled]="cs.busyUserId === c.userId" [attr.aria-label]="'Remove ' + c.name"
+                              matTooltip="Remove from circle" (click)="removeContact(u, c.userId)">
+                        <mat-icon>close</mat-icon>
+                      </button>
+                    </li>
+                  }
+                </ul>
+              } @else {
+                <div class="block-state block-empty">No contacts yet — add some below.</div>
+              }
+              <div class="contacts-add">
+                <mat-form-field appearance="outline" class="contacts-search" subscriptSizing="dynamic">
+                  <mat-icon matPrefix>search</mat-icon>
+                  <mat-label>Add a contact</mat-label>
+                  <input matInput [ngModel]="cs.query" (ngModelChange)="setContactsQuery(u.id, $event)"
+                         placeholder="Search people to add" autocomplete="off" />
+                </mat-form-field>
+                @if (cs.query.trim()) {
+                  <div class="contacts-results" role="list" aria-label="People to add">
+                    @for (cand of addCandidates(u); track cand.userId) {
+                      <button type="button" class="contact-result" role="listitem"
+                              [disabled]="cs.busyUserId === cand.userId" (click)="addContact(u, cand.userId)">
+                        @if (cand.picture) {
+                          <img class="contact-chip-avatar" [src]="cand.picture" alt="" referrerpolicy="no-referrer" />
+                        } @else {
+                          <span class="contact-chip-avatar contact-chip-avatar--init">{{ contactInitials(cand) }}</span>
+                        }
+                        <span class="contact-chip-name">{{ cand.name }}</span>
+                        <mat-icon class="contact-result-add">add_circle_outline</mat-icon>
+                      </button>
+                    } @empty {
+                      <p class="block-empty contacts-noresults">No matching people to add.</p>
+                    }
+                  </div>
+                }
+              </div>
+            }
+          }
+        </details>
+      }
+
+      <!-- Danger zone: remove -->
+      <div class="detail-block danger-zone">
+        <button mat-stroked-button type="button" class="remove-btn" (click)="remove(u)">
+          <mat-icon>delete_outline</mat-icon> Remove user
+        </button>
+      </div>
+
+      <!-- Sticky save (diff) bar -->
+      @if (dirty()) {
+        <div class="save-bar" role="region" aria-label="Unsaved changes">
+          <span class="save-summary">
+            <strong>{{ saveCount() }}</strong> change{{ saveCount() === 1 ? '' : 's' }}
+            @if (saveDiff().added.length) { <span class="diff-add">+{{ saveDiff().added.length }}</span> }
+            @if (saveDiff().removed.length) { <span class="diff-rem">−{{ saveDiff().removed.length }}</span> }
+            @if (saveNeedsConfirm()) { <span class="save-warn"><mat-icon class="shield">shield</mat-icon> needs confirm</span> }
+          </span>
+          <span class="save-actions">
+            <button mat-button type="button" (click)="resetDraft()">Discard</button>
+            <button mat-flat-button color="primary" class="save-go" [disabled]="saving()" (click)="save()">
+              @if (saving()) { <mat-progress-spinner class="inline-spinner" mode="indeterminate" [diameter]="18" /> }
+              <mat-icon>save</mat-icon> Save
+            </button>
+          </span>
+        </div>
+      }
+    } @else {
+      <div class="detail-empty">
+        <mat-icon>arrow_back</mat-icon>
+        <p>Select a user to view and edit their access.</p>
+      </div>
+    }
+  </section>
+</div>
+
+<!-- Bulk action bar (appears when one or more users are checked) -->
+@if (bulkCount()) {
   <div class="bulk-bar" role="region" aria-label="Bulk actions">
-    <span class="bulk-count"><strong>{{ selectedCount() }}</strong> selected</span>
-
+    <span class="bulk-count"><strong>{{ bulkCount() }}</strong> selected</span>
     @if (bulkRunning()) {
       <span class="bulk-progress">
-        <mat-progress-spinner mode="indeterminate" [diameter]="16" />
-        Applying… {{ bulkDone() }}/{{ bulkTotal() }}
+        <mat-progress-spinner mode="indeterminate" [diameter]="16" /> Applying… {{ bulkDone() }}/{{ bulkTotal() }}
       </span>
     } @else {
-      <button mat-stroked-button class="bulk-act" [matMenuTriggerFor]="presetMenu">
-        <mat-icon>auto_fix_high</mat-icon> Apply template
+      <button mat-stroked-button class="bulk-act" [matMenuTriggerFor]="roleMenu">
+        <mat-icon>badge</mat-icon> Apply role
       </button>
-      <mat-menu #presetMenu="matMenu">
+      <mat-menu #roleMenu="matMenu">
         @for (p of presets(); track p.key) {
-          <button mat-menu-item (click)="bulkApplyPreset(p.key)">
+          <button mat-menu-item (click)="bulkApplyRole(p.key)">
             <span class="menu-label">{{ p.label }}</span>
             <span class="menu-desc">{{ p.description }}</span>
           </button>
@@ -175,488 +558,31 @@
       </mat-menu>
 
       <button mat-stroked-button class="bulk-act" [matMenuTriggerFor]="grantMenu">
-        <mat-icon>add</mat-icon> Grant permission
+        <mat-icon>add</mat-icon> Grant
       </button>
       <mat-menu #grantMenu="matMenu">
         @for (g of groups(); track g.name) {
           <div class="menu-group-label">{{ g.name }}</div>
-          @for (p of g.perms; track p.key) {
-            <button mat-menu-item (click)="bulkGrant(p.key)">{{ p.label }}</button>
-          }
+          @for (p of g.perms; track p.key) { <button mat-menu-item (click)="bulkGrant(p.key)">{{ p.label }}</button> }
         }
       </mat-menu>
 
       <button mat-stroked-button class="bulk-act" [matMenuTriggerFor]="revokeMenu">
-        <mat-icon>remove</mat-icon> Revoke permission
+        <mat-icon>remove</mat-icon> Revoke
       </button>
       <mat-menu #revokeMenu="matMenu">
         @for (g of groups(); track g.name) {
           <div class="menu-group-label">{{ g.name }}</div>
-          @for (p of g.perms; track p.key) {
-            <button mat-menu-item (click)="bulkRevoke(p.key)">{{ p.label }}</button>
-          }
+          @for (p of g.perms; track p.key) { <button mat-menu-item (click)="bulkRevoke(p.key)">{{ p.label }}</button> }
         }
       </mat-menu>
 
-      <button mat-stroked-button class="bulk-act" (click)="bulkSetEnabled(true)">
-        <mat-icon>check_circle</mat-icon> Enable
-      </button>
-      <button mat-stroked-button class="bulk-act" (click)="bulkSetEnabled(false)">
-        <mat-icon>block</mat-icon> Disable
-      </button>
-
-      <button mat-button class="bulk-clear" (click)="clearSelection()">Clear selection</button>
+      <button mat-stroked-button class="bulk-act" (click)="bulkSetEnabled(true)"><mat-icon>check_circle</mat-icon> Enable</button>
+      <button mat-stroked-button class="bulk-act" (click)="bulkSetEnabled(false)"><mat-icon>block</mat-icon> Disable</button>
+      <button mat-button class="bulk-clear" (click)="clearSelection()">Clear</button>
     }
   </div>
 }
-
-<!-- Permission matrix -->
-<mat-card appearance="outlined" class="panel table-card">
-  <span class="contacts-sr-status" aria-live="polite" aria-atomic="true">{{ contactsStatus() }}</span>
-  <div class="table-scroll matrix-desktop">
-    <table class="perm-table">
-      <thead>
-        <tr class="group-row">
-          <th class="col-select" rowspan="2">
-            <mat-checkbox [checked]="allVisibleSelected()" [indeterminate]="someVisibleSelected()"
-                          (change)="toggleSelectAllVisible($event.checked)"
-                          aria-label="Select all visible users"></mat-checkbox>
-          </th>
-          <th class="col-expand" rowspan="2"></th>
-          <th class="col-user" rowspan="2">User</th>
-          <th class="col-enabled" rowspan="2">Enabled</th>
-          @for (g of groups(); track g.name) {
-            <th class="col-group" [class.col-group--ai]="g.isAi" [attr.colspan]="g.perms.length">
-              @if (g.isAi) { <mat-icon class="ai-spark">auto_awesome</mat-icon> }
-              {{ g.name }}
-            </th>
-          }
-          <th class="col-actions" rowspan="2"></th>
-        </tr>
-        <tr class="perm-row">
-          @for (g of groups(); track g.name) {
-            @for (p of g.perms; track p.key) {
-              <th class="col-perm" [class.group-start]="$first" [class.col-perm--ai]="g.isAi"
-                  [matTooltip]="p.description">{{ p.label }}</th>
-            }
-          }
-        </tr>
-      </thead>
-      <tbody>
-        @for (u of filteredUsers(); track u.id) {
-          <tr [class.disabled]="!u.isEnabled" [class.expanded]="isExpanded(u.id)" [class.row-selected]="isSelected(u.id)">
-            <td class="col-select">
-              <mat-checkbox [checked]="isSelected(u.id)" (change)="toggleSelect(u.id, $event.checked)"
-                            [disabled]="bulkRunning()"
-                            [attr.aria-label]="'Select ' + (u.name || u.email || ('user ' + u.id))"></mat-checkbox>
-            </td>
-            <td class="col-expand">
-              <button mat-icon-button class="expand-btn" (click)="toggleExpand(u)"
-                      [attr.aria-expanded]="isExpanded(u.id)"
-                      [attr.aria-label]="isExpanded(u.id) ? 'Hide details' : 'Show details'"
-                      [matTooltip]="isExpanded(u.id) ? 'Hide details' : 'Show details (access summary + sign-ins)'">
-                <mat-icon class="expand-chevron" [class.open]="isExpanded(u.id)">chevron_right</mat-icon>
-              </button>
-            </td>
-            <td class="col-user">
-              <div class="u-cell">
-                @if (u.picture) {
-                  <img class="u-avatar" [src]="u.picture" alt="" referrerpolicy="no-referrer" />
-                } @else {
-                  <span class="u-avatar u-avatar--init">{{ userInitial(u) }}</span>
-                }
-                <div class="u-id">
-                  @if (u.email) {
-                    <span class="u-email mono-num">{{ u.email }}</span>
-                  } @else {
-                    <span class="u-email email-hidden" role="img" aria-label="email hidden">
-                      <mat-icon class="email-hidden-icon">lock</mat-icon>••••••
-                    </span>
-                  }
-                  @if (u.name) { <span class="u-name">{{ u.name }}</span> }
-                  <span class="u-meta">
-                    <span class="u-last micro-label">{{ u.lastLoginUtc ? 'last in ' + (u.lastLoginUtc | date: 'MMM d, HH:mm') : 'never signed in' }}</span>
-                    @if (hasAnyAi(u)) {
-                      <span class="ai-badge" matTooltip="Has AI (token-spending) capabilities"><mat-icon>auto_awesome</mat-icon> AI</span>
-                    }
-                  </span>
-                </div>
-              </div>
-            </td>
-            <td class="col-enabled">
-              <mat-slide-toggle [ngModel]="u.isEnabled" (ngModelChange)="u.isEnabled = $event" [disabled]="bulkRunning()"></mat-slide-toggle>
-            </td>
-            @for (g of groups(); track g.name) {
-              @for (p of g.perms; track p.key) {
-                <td class="col-perm" [class.group-start]="$first" [class.col-perm--ai]="g.isAi">
-                  <mat-checkbox [checked]="hasPerm(u, p.key)" (change)="togglePerm(u, p.key, $event.checked)"
-                                [disabled]="bulkRunning()"></mat-checkbox>
-                </td>
-              }
-            }
-            <td class="col-actions">
-              @if (presets().length) {
-                <button mat-icon-button class="preset-btn" [matMenuTriggerFor]="rowPresetMenu"
-                        matTooltip="Seed from a template" aria-label="Seed permissions from a template" [disabled]="bulkRunning()">
-                  <mat-icon>auto_fix_high</mat-icon>
-                </button>
-                <mat-menu #rowPresetMenu="matMenu">
-                  <div class="menu-group-label">Seed checkboxes (then Save)</div>
-                  @for (p of presets(); track p.key) {
-                    <button mat-menu-item (click)="applyPresetToUser(u, p.key)">
-                      <span class="menu-label">{{ p.label }}</span>
-                      <span class="menu-desc">{{ p.description }}</span>
-                    </button>
-                  }
-                </mat-menu>
-              }
-              <button mat-stroked-button class="save-btn" [disabled]="savingId() === u.id || bulkRunning()" (click)="save(u)">
-                <mat-icon>save</mat-icon> Save
-              </button>
-              @if (canManage()) {
-                <button mat-icon-button class="signout-btn" [disabled]="loggingOutId() === u.id || bulkRunning()"
-                        [attr.aria-busy]="loggingOutId() === u.id ? true : null"
-                        [attr.aria-label]="'Sign ' + (u.name || u.email) + ' out of their current session'"
-                        matTooltip="Sign out of current session" (click)="forceLogout(u)">
-                  @if (loggingOutId() === u.id) {
-                    <mat-progress-spinner class="signout-spinner" mode="indeterminate" [diameter]="18" />
-                  } @else {
-                    <mat-icon>logout</mat-icon>
-                  }
-                </button>
-              }
-              <button mat-icon-button class="del-btn" [disabled]="bulkRunning()" [attr.aria-label]="'Remove ' + (u.email || u.name)" matTooltip="Remove user" (click)="remove(u)">
-                <mat-icon>delete_outline</mat-icon>
-              </button>
-            </td>
-          </tr>
-
-          <!-- Expandable inline detail: access summary + AI + sign-in history (+ contacts) -->
-          @if (isExpanded(u.id)) {
-            <tr class="detail-row">
-              <td [attr.colspan]="columnCount()">
-                <div class="detail-panel">
-                  <ng-container [ngTemplateOutlet]="detailContent" [ngTemplateOutletContext]="{ u: u }"></ng-container>
-                </div>
-              </td>
-            </tr>
-          }
-        }
-        @if (!filteredUsers().length && !loading()) {
-          <tr class="empty-row">
-            <td [attr.colspan]="columnCount()">
-              <div class="table-empty">
-                @if (isFiltering()) { No users match this search/filter. } @else { No users yet. }
-              </div>
-            </td>
-          </tr>
-        }
-      </tbody>
-    </table>
-  </div>
-
-  <!-- Mobile: per-user cards (phones) — same signals/handlers as the matrix above -->
-  <div class="matrix-mobile">
-    @if (filteredUsers().length) {
-      <div class="mcard-selectall">
-        <mat-checkbox [checked]="allVisibleSelected()" [indeterminate]="someVisibleSelected()"
-                      (change)="toggleSelectAllVisible($event.checked)">Select all shown</mat-checkbox>
-      </div>
-    }
-    @for (u of filteredUsers(); track u.id) {
-      <div class="ucard" [class.disabled]="!u.isEnabled" [class.card-selected]="isSelected(u.id)">
-        <div class="ucard-top">
-          <mat-checkbox class="ucard-select" [checked]="isSelected(u.id)" [disabled]="bulkRunning()"
-                        (change)="toggleSelect(u.id, $event.checked)"
-                        [attr.aria-label]="'Select ' + (u.name || u.email || ('user ' + u.id))"></mat-checkbox>
-          <div class="u-cell">
-            @if (u.picture) {
-              <img class="u-avatar" [src]="u.picture" alt="" referrerpolicy="no-referrer" />
-            } @else {
-              <span class="u-avatar u-avatar--init">{{ userInitial(u) }}</span>
-            }
-            <div class="u-id">
-              @if (u.email) {
-                <span class="u-email mono-num">{{ u.email }}</span>
-              } @else {
-                <span class="u-email email-hidden" role="img" aria-label="email hidden">
-                  <mat-icon class="email-hidden-icon">lock</mat-icon>••••••
-                </span>
-              }
-              @if (u.name) { <span class="u-name">{{ u.name }}</span> }
-              <span class="u-meta">
-                <span class="u-last micro-label">{{ u.lastLoginUtc ? 'last in ' + (u.lastLoginUtc | date: 'MMM d, HH:mm') : 'never signed in' }}</span>
-                @if (hasAnyAi(u)) {
-                  <span class="ai-badge"><mat-icon>auto_awesome</mat-icon> AI</span>
-                }
-              </span>
-            </div>
-          </div>
-          <mat-slide-toggle class="ucard-enabled" [ngModel]="u.isEnabled" (ngModelChange)="u.isEnabled = $event" [disabled]="bulkRunning()">Enabled</mat-slide-toggle>
-        </div>
-
-        @if (presets().length) {
-          <div class="ucard-preset">
-            <span class="preset-starter-label micro-label">Seed</span>
-            @for (p of presets(); track p.key) {
-              <button mat-stroked-button type="button" class="preset-chip" [matTooltip]="p.description"
-                      [disabled]="bulkRunning()" (click)="applyPresetToUser(u, p.key)">{{ p.label }}</button>
-            }
-          </div>
-        }
-
-        <div class="ucard-perms">
-          @for (g of featureGroups(); track g.name) {
-            <div class="add-perm-group">
-              <span class="add-perm-group-name micro-label">{{ g.name }}</span>
-              <div class="add-perm-group-items">
-                @for (p of g.perms; track p.key) {
-                  <mat-checkbox [checked]="hasPerm(u, p.key)" (change)="togglePerm(u, p.key, $event.checked)"
-                                [disabled]="bulkRunning()" [matTooltip]="p.description">{{ p.label }}</mat-checkbox>
-                }
-              </div>
-            </div>
-          }
-          @for (g of aiGroups(); track g.name) {
-            <div class="add-perm-group add-perm-group--ai">
-              <span class="add-perm-group-name micro-label"><mat-icon class="ai-spark">auto_awesome</mat-icon> {{ g.name }} · token-spending</span>
-              <div class="add-perm-group-items">
-                @for (p of g.perms; track p.key) {
-                  <mat-checkbox [checked]="hasPerm(u, p.key)" (change)="togglePerm(u, p.key, $event.checked)"
-                                [disabled]="bulkRunning()" [matTooltip]="p.description">{{ p.label }}</mat-checkbox>
-                }
-              </div>
-            </div>
-          }
-        </div>
-
-        <div class="ucard-actions">
-          <button mat-stroked-button class="save-btn" [disabled]="savingId() === u.id || bulkRunning()" (click)="save(u)">
-            <mat-icon>save</mat-icon> Save
-          </button>
-          @if (canManage()) {
-            <button mat-icon-button class="signout-btn" [disabled]="loggingOutId() === u.id || bulkRunning()"
-                    [attr.aria-busy]="loggingOutId() === u.id ? true : null"
-                    [attr.aria-label]="'Sign ' + (u.name || u.email) + ' out of their current session'"
-                    matTooltip="Sign out of current session" (click)="forceLogout(u)">
-              @if (loggingOutId() === u.id) {
-                <mat-progress-spinner class="signout-spinner" mode="indeterminate" [diameter]="18" />
-              } @else {
-                <mat-icon>logout</mat-icon>
-              }
-            </button>
-          }
-          <button mat-icon-button class="del-btn" [disabled]="bulkRunning()" [attr.aria-label]="'Remove ' + (u.email || u.name)" matTooltip="Remove user" (click)="remove(u)">
-            <mat-icon>delete_outline</mat-icon>
-          </button>
-          <button mat-button class="ucard-history-btn" (click)="toggleExpand(u)"
-                  [attr.aria-expanded]="isExpanded(u.id)">
-            <mat-icon class="expand-chevron" [class.open]="isExpanded(u.id)">chevron_right</mat-icon>
-            Details
-          </button>
-        </div>
-
-        @if (isExpanded(u.id)) {
-          <div class="detail-panel ucard-detail">
-            <ng-container [ngTemplateOutlet]="detailContent" [ngTemplateOutletContext]="{ u: u }"></ng-container>
-          </div>
-        }
-      </div>
-    } @empty {
-      @if (!loading()) {
-        <div class="table-empty">
-          @if (isFiltering()) { No users match this search/filter. } @else { No users yet. }
-        </div>
-      }
-    }
-  </div>
-</mat-card>
-
-<!-- ============================================================== -->
-<!-- Shared inline-detail content (used by both desktop + mobile)   -->
-<!-- ============================================================== -->
-<ng-template #detailContent let-u="u">
-  <!-- Readable access summary -->
-  <div class="detail-block">
-    <div class="logins-head">
-      <mat-icon class="logins-head-icon">verified_user</mat-icon>
-      <span class="logins-head-title">Can access</span>
-      <span class="logins-head-sub micro-label">{{ featurePermCount(u) }} feature permission(s)</span>
-    </div>
-    @if (accessSummary(u).length) {
-      <div class="access-summary">
-        @for (s of accessSummary(u); track s.name) {
-          <div class="access-group">
-            <span class="access-group-name micro-label">{{ s.name }}</span>
-            <div class="access-labels">
-              @for (l of s.labels; track l) { <span class="access-pill">{{ l }}</span> }
-            </div>
-          </div>
-        }
-      </div>
-    } @else {
-      <div class="logins-state logins-empty">No feature access — this account can't reach any page yet.</div>
-    }
-
-    <!-- AI capabilities (distinct line) -->
-    <div class="ai-summary">
-      <span class="access-group-name micro-label ai-summary-label"><mat-icon class="ai-spark">auto_awesome</mat-icon> AI capabilities</span>
-      @if (aiSummary(u).length) {
-        <div class="access-labels">
-          @for (l of aiSummary(u); track l) { <span class="access-pill access-pill--ai">{{ l }}</span> }
-        </div>
-      } @else {
-        <span class="ai-off micro-label">AI is off for this user.</span>
-      }
-    </div>
-
-    <!-- Admin oversight: jump to this user's location history (only for admins holding location.view-all;
-         deep-links the admin Locations map preselected to this user). -->
-    @if (auth.hasPermission(PERM.locationViewAll)) {
-      <a class="locations-link" mat-stroked-button
-         [routerLink]="['/admin/locations']" [queryParams]="{ user: u.id }"
-         matTooltip="View this user's location history on the admin map">
-        <mat-icon aria-hidden="true">map</mat-icon> View locations
-      </a>
-    }
-  </div>
-
-  <!-- Sign-in history -->
-  <div class="detail-block">
-    <div class="logins-head">
-      <mat-icon class="logins-head-icon">login</mat-icon>
-      <span class="logins-head-title">Sign-in history</span>
-      <span class="logins-head-sub micro-label">most recent first · up to 200</span>
-    </div>
-
-    @if (loginHistory(u.id); as h) {
-      @if (h.loading) {
-        <div class="logins-state"><mat-progress-bar mode="indeterminate" /></div>
-      } @else if (h.error) {
-        <div class="logins-state logins-empty">Couldn't load sign-in history.</div>
-      } @else if (!h.events.length) {
-        <div class="logins-state logins-empty">No sign-ins recorded</div>
-      } @else {
-        <!-- Wide table (desktop); the card list collapses to stacked items via CSS on phones. -->
-        <table class="logins-table">
-          <thead>
-            <tr>
-              <th class="lc-when">When</th>
-              <th class="lc-ip">IP</th>
-              <th class="lc-status">Status</th>
-              <th class="lc-reason">Reason</th>
-              <th class="lc-agent">User agent</th>
-            </tr>
-          </thead>
-          <tbody>
-            @for (e of h.events; track e.id) {
-              <tr>
-                <td class="lc-when mono-num">{{ e.whenUtc | date: 'MMM d, y, HH:mm:ss' }}</td>
-                <td class="lc-ip mono-num">{{ e.ip || '—' }}</td>
-                <td class="lc-status">
-                  <span class="login-badge" [class.ok]="e.success" [class.denied]="!e.success">
-                    {{ e.success ? 'Success' : 'Denied' }}
-                  </span>
-                </td>
-                <td class="lc-reason">{{ e.reason }}</td>
-                <td class="lc-agent" [matTooltip]="e.userAgent || ''">{{ e.userAgent || '—' }}</td>
-              </tr>
-            }
-          </tbody>
-        </table>
-        <div class="logins-cards">
-          @for (e of h.events; track e.id) {
-            <div class="login-item">
-              <div class="login-item-top">
-                <span class="mono-num login-item-when">{{ e.whenUtc | date: 'MMM d, y, HH:mm:ss' }}</span>
-                <span class="login-badge" [class.ok]="e.success" [class.denied]="!e.success">
-                  {{ e.success ? 'Success' : 'Denied' }}
-                </span>
-              </div>
-              <div class="login-item-line"><span class="li-lbl micro-label">IP</span> <span class="mono-num">{{ e.ip || '—' }}</span></div>
-              <div class="login-item-line"><span class="li-lbl micro-label">Reason</span> <span>{{ e.reason }}</span></div>
-              <div class="login-item-line login-item-agent"><span class="li-lbl micro-label">Agent</span> <span>{{ e.userAgent || '—' }}</span></div>
-            </div>
-          }
-        </div>
-      }
-    }
-  </div>
-
-  <!-- Admin chat-contacts editor (chat.contacts.manage only; userId-keyed, name-only) -->
-  @if (canEditContacts()) {
-    <div class="detail-block contacts-block" [attr.aria-busy]="contactsState(u.id)?.busyUserId != null ? true : null">
-      <div class="logins-head">
-        <mat-icon class="logins-head-icon">group</mat-icon>
-        <span class="logins-head-title">Chat contacts</span>
-        <span class="logins-head-sub micro-label">their circle · the chat picker draws from this</span>
-      </div>
-
-      @if (contactsState(u.id); as cs) {
-        @if (cs.loading) {
-          <div class="logins-state"><mat-progress-bar mode="indeterminate" /></div>
-        } @else if (cs.error) {
-          <div class="logins-state logins-empty">Couldn't load chat contacts.</div>
-        } @else {
-          @if (cs.contacts.length) {
-            <ul class="contacts-chips" aria-label="Current contacts">
-              @for (c of cs.contacts; track c.userId) {
-                <li class="contact-chip">
-                  @if (c.picture) {
-                    <img class="contact-chip-avatar" [src]="c.picture" alt="" referrerpolicy="no-referrer" />
-                  } @else {
-                    <span class="contact-chip-avatar contact-chip-avatar--init">{{ contactInitials(c) }}</span>
-                  }
-                  <span class="contact-chip-id">
-                    <span class="contact-chip-name">{{ c.name }}</span>
-                  </span>
-                  <button mat-icon-button class="contact-chip-remove" type="button"
-                          [disabled]="cs.busyUserId === c.userId"
-                          [attr.aria-label]="'Remove ' + c.name"
-                          matTooltip="Remove from circle" (click)="removeContact(u, c.userId)">
-                    <mat-icon>close</mat-icon>
-                  </button>
-                </li>
-              }
-            </ul>
-          } @else {
-            <div class="logins-state logins-empty">No contacts yet — add some below.</div>
-          }
-
-          <div class="contacts-add">
-            <mat-form-field appearance="outline" class="contacts-search" subscriptSizing="dynamic">
-              <mat-icon matPrefix>search</mat-icon>
-              <mat-label>Add a contact</mat-label>
-              <input matInput [ngModel]="cs.query" (ngModelChange)="setContactsQuery(u.id, $event)"
-                     placeholder="Search people to add" autocomplete="off" />
-            </mat-form-field>
-
-            @if (cs.query.trim()) {
-              <div class="contacts-results" role="list" aria-label="People to add">
-                @for (cand of addCandidates(u); track cand.userId) {
-                  <button type="button" class="contact-result" role="listitem"
-                          [disabled]="cs.busyUserId === cand.userId" (click)="addContact(u, cand.userId)">
-                    @if (cand.picture) {
-                      <img class="contact-chip-avatar" [src]="cand.picture" alt="" referrerpolicy="no-referrer" />
-                    } @else {
-                      <span class="contact-chip-avatar contact-chip-avatar--init">{{ contactInitials(cand) }}</span>
-                    }
-                    <span class="contact-chip-id">
-                      <span class="contact-chip-name">{{ cand.name }}</span>
-                    </span>
-                    <mat-icon class="contact-result-add">add_circle_outline</mat-icon>
-                  </button>
-                } @empty {
-                  <p class="cc-empty contacts-noresults">No matching people to add.</p>
-                }
-              </div>
-            }
-          </div>
-        }
-      }
-    </div>
-  }
-</ng-template>
 
 <!-- Access policy (open sign-up + default permissions) -->
 @if (canManage() && policy(); as pol) {
@@ -666,9 +592,7 @@
       is auto-provisioned with the default permissions below. Turn it off to require an admin to add users by hand.</p>
 
     <div class="policy-toggle">
-      <mat-slide-toggle [ngModel]="pol.openSignupEnabled" (ngModelChange)="setOpenSignup($event)">
-        Open sign-up
-      </mat-slide-toggle>
+      <mat-slide-toggle [ngModel]="pol.openSignupEnabled" (ngModelChange)="setOpenSignup($event)">Open sign-up</mat-slide-toggle>
       <span class="policy-toggle-state" [class.on]="pol.openSignupEnabled">
         {{ pol.openSignupEnabled ? 'New Google accounts are auto-provisioned' : 'New accounts must be added by an admin' }}
       </span>
@@ -681,11 +605,9 @@
       }
       <div class="policy-perms">
         @for (g of policyGroups(); track g.name) {
-          <div class="add-perm-group" [class.add-perm-group--ai]="g.isAi">
-            <span class="add-perm-group-name micro-label">
-              @if (g.isAi) { <mat-icon class="ai-spark">auto_awesome</mat-icon> }{{ g.name }}
-            </span>
-            <div class="add-perm-group-items">
+          <div class="perm-group">
+            <span class="perm-group-name micro-label">{{ g.name }}</span>
+            <div class="perm-group-items">
               @for (p of g.perms; track p.key) {
                 <mat-checkbox [checked]="policyHasPerm(p.key)" (change)="togglePolicyPerm(p.key, $event.checked)"
                               [matTooltip]="p.description">{{ p.label }}</mat-checkbox>

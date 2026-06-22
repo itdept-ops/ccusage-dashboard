@@ -534,6 +534,11 @@ public sealed class UserDto
     public string? Picture { get; set; }
     public bool IsEnabled { get; set; }
     public string[] Permissions { get; set; } = Array.Empty<string>();
+
+    /// <summary>The user's chosen landing page route, or null for the default first-accessible page.
+    /// Projection-only (AppUser.HomeRoute already exists) so the Users page can read + preselect it.</summary>
+    public string? HomeRoute { get; set; }
+
     public DateTime CreatedUtc { get; set; }
     public DateTime? LastLoginUtc { get; set; }
 }

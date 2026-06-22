@@ -338,6 +338,16 @@ export class Api {
     return this.http.post<{ ok: boolean }>(`${this.base}/users/${userId}/logout`, {});
   }
 
+  /**
+   * Admin set-home: set (or clear) ANOTHER user's landing page (PATCH /api/users/{id}/home). Pass a
+   * known page route the TARGET user can reach, or null to clear (default first-accessible page).
+   * Validated server-side against the TARGET's persisted permissions (400 if they can't reach it).
+   * Requires users.manage. Returns the updated ManagedUser (its homeRoute reflects the change).
+   */
+  adminSetHomeRoute(userId: number, route: string | null): Observable<ManagedUser> {
+    return this.http.patch<ManagedUser>(`${this.base}/users/${userId}/home`, { route });
+  }
+
   // ---- Chat (channels, DMs, messages) — gated by chat.read/chat.send/chat.moderate ----
 
   /** All channels + DMs the caller can see, with unread counts and last-message previews. */

@@ -231,6 +231,36 @@ public static class UsersEndpoints
 
             return Results.Ok(new { ok = true });
         }).RequirePermission(Permissions.UsersManage);
+
+        // Admin set-home: set (or clear) ANOTHER user's landing page. Gated by users.manage (NOT just
+        // auth — this writes a different user's home). Kept SEPARATE from PUT /api/users/{id} on purpose,
+        // so the route is always validated against the TARGET user's ALREADY-PERSISTED permissions: a
+        // combined grant+set-home edit would be wrongly rejected by ordering (the new grant isn't saved
+        // yet). Unlike the self-service PATCH /api/auth/home (which validates vs the CALLER), this
+        // validates vs the TARGET — an admin can't pin a user to a page that user can't reach.
+        users.MapPatch("/{id:int}/home", async (int id, SetHomeRequest req, UsageDbContext db, AuditLogger audit, CancellationToken ct) =>
+        {
+            var user = await db.Users.Include(u => u.Permissions).FirstOrDefaultAsync(u => u.Id == id, ct);
+            if (user is null) return Results.NotFound();
+
+            var route = string.IsNullOrWhiteSpace(req.Route) ? null : req.Route.Trim();
+
+            if (route is not null)
+            {
+                if (!HomeRoutes.IsKnown(route))
+                    return Results.BadRequest(new { message = $"'{route}' is not a valid home route." });
+
+                var perms = user.Permissions.Select(p => p.Permission).ToHashSet(StringComparer.Ordinal);
+                if (!HomeRoutes.CanAccess(route, perms))
+                    return Results.BadRequest(new { message = "That user does not have access to that page." });
+            }
+
+            user.HomeRoute = route;
+            await db.SaveChangesAsync(ct);
+            await audit.LogAsync("user.homeroute", user.Email, $"home={route ?? "(default)"}", ct);
+
+            return Results.Ok(ToDto(user));
+        }).RequirePermission(Permissions.UsersManage);
     }
 
     private static string[] ValidPermissions(string[]? requested) =>
@@ -287,6 +317,7 @@ public static class UsersEndpoints
         Picture = u.Picture,
         IsEnabled = u.IsEnabled,
         Permissions = u.Permissions.Select(p => p.Permission).OrderBy(p => p).ToArray(),
+        HomeRoute = u.HomeRoute,
         CreatedUtc = u.CreatedUtc,
         LastLoginUtc = u.LastLoginUtc,
     };

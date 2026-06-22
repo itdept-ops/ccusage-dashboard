@@ -21,6 +21,7 @@ public static class HomeRoutes
         ["/chat"] = new[] { Permissions.ChatRead },
         ["/tracker"] = new[] { Permissions.TrackerSelf },
         ["/family"] = new[] { Permissions.FamilyUse },
+        ["/locations"] = new[] { Permissions.LocationSelf },
         ["/users"] = new[] { Permissions.UsersView },
         ["/activity"] = new[] { Permissions.ActivityView },
     };

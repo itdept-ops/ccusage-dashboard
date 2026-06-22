@@ -1083,4 +1083,104 @@ public class AuthIntegrationTests(WebAppFactory factory)
     [Fact]
     public async Task Set_home_requires_authentication()
         => (await PatchHome(Client(), "/")).StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+
+    // ---- Admin set-home (PATCH /api/users/{id}/home — set ANOTHER user's home, gated users.manage) ----
+
+    private async Task<HttpResponseMessage> AdminPatchHome(HttpClient c, int id, string? route)
+        => await c.PatchAsync($"/api/users/{id}/home", HomeBody(route));
+
+    /// <summary>Provisions a user with an exact permission set and returns (id, email, client).</summary>
+    private async Task<(int Id, string Email, HttpClient Client)> ProvisionUserWithId(params string[] permissions)
+    {
+        var email = $"ah-{Guid.NewGuid():N}@test.local";
+        var created = await Client(WebAppFactory.AdminEmail).PostAsJsonAsync("/api/users",
+            new { email, isEnabled = true, permissions });
+        created.StatusCode.Should().Be(HttpStatusCode.Created);
+        var id = (await created.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("id").GetInt32();
+        return (id, email, Client(email));
+    }
+
+    [Fact]
+    public async Task Admin_sets_a_users_home_persists_and_appears_in_the_dto()
+    {
+        var admin = Client(WebAppFactory.AdminEmail);
+        var (id, email, target) = await ProvisionUserWithId("dashboard.view", "calendar.view");
+
+        var res = await AdminPatchHome(admin, id, "/calendar");
+        res.StatusCode.Should().Be(HttpStatusCode.OK);
+        (await res.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("homeRoute").GetString().Should().Be("/calendar");
+
+        // Persisted on the target's own /me.
+        var me = await (await target.GetAsync("/api/auth/me")).Content.ReadFromJsonAsync<JsonElement>();
+        me.GetProperty("homeRoute").GetString().Should().Be("/calendar");
+
+        // ...and surfaced in the users-list DTO (reading WITH the reveal key to match by email).
+        var req = new HttpRequestMessage(HttpMethod.Get, "/api/users");
+        req.Headers.Add("X-Email-Reveal-Key", "Starbucks");
+        var users = await (await admin.SendAsync(req)).Content.ReadFromJsonAsync<JsonElement>();
+        var row = users.EnumerateArray().First(u => u.GetProperty("email").GetString() == email);
+        row.GetProperty("homeRoute").GetString().Should().Be("/calendar");
+    }
+
+    [Fact]
+    public async Task Admin_set_home_400_when_the_target_lacks_the_routes_permission()
+    {
+        // The admin HAS users.view, but the TARGET does not — so /users is rejected as the target's home
+        // (validation is against the TARGET's perms, not the caller's). Nothing is persisted.
+        var admin = Client(WebAppFactory.AdminEmail);
+        var (id, _, target) = await ProvisionUserWithId("dashboard.view");
+
+        var res = await AdminPatchHome(admin, id, "/users");
+        res.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+
+        var me = await (await target.GetAsync("/api/auth/me")).Content.ReadFromJsonAsync<JsonElement>();
+        me.GetProperty("homeRoute").ValueKind.Should().Be(JsonValueKind.Null);
+    }
+
+    [Fact]
+    public async Task Admin_set_home_rejects_an_unknown_route()
+    {
+        var admin = Client(WebAppFactory.AdminEmail);
+        var (id, _, _) = await ProvisionUserWithId("dashboard.view");
+        (await AdminPatchHome(admin, id, "/not-a-real-page")).StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task Admin_set_home_to_null_clears_it()
+    {
+        var admin = Client(WebAppFactory.AdminEmail);
+        var (id, _, target) = await ProvisionUserWithId("dashboard.view");
+
+        (await AdminPatchHome(admin, id, "/")).StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var cleared = await AdminPatchHome(admin, id, null);
+        cleared.StatusCode.Should().Be(HttpStatusCode.OK);
+        (await cleared.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("homeRoute").ValueKind.Should().Be(JsonValueKind.Null);
+
+        var me = await (await target.GetAsync("/api/auth/me")).Content.ReadFromJsonAsync<JsonElement>();
+        me.GetProperty("homeRoute").ValueKind.Should().Be(JsonValueKind.Null);
+    }
+
+    [Fact]
+    public async Task Admin_set_home_requires_users_manage()
+    {
+        var (id, _, _) = await ProvisionUserWithId("dashboard.view");
+
+        var viewer = $"viewer-ah-{Guid.NewGuid():N}@test.local";
+        await Client(WebAppFactory.AdminEmail).PostAsJsonAsync("/api/users",
+            new { email = viewer, isEnabled = true, permissions = new[] { "users.view" } });
+
+        (await AdminPatchHome(Client(viewer), id, "/")).StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
+
+    [Fact]
+    public async Task Admin_set_home_requires_authentication()
+    {
+        var (id, _, _) = await ProvisionUserWithId("dashboard.view");
+        (await AdminPatchHome(Client(), id, "/")).StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async Task Admin_set_home_on_an_unknown_user_is_404()
+        => (await AdminPatchHome(Client(WebAppFactory.AdminEmail), 999999, "/")).StatusCode.Should().Be(HttpStatusCode.NotFound);
 }

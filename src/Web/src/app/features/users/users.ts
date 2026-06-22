@@ -1,5 +1,7 @@
 import { CommonModule } from '@angular/common';
-import { Component, computed, inject, signal } from '@angular/core';
+import {
+  Component, ElementRef, computed, effect, inject, signal, viewChild,
+} from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { HttpErrorResponse } from '@angular/common/http';
@@ -19,7 +21,7 @@ import { MatMenuModule } from '@angular/material/menu';
 import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import {
-  MatDialog, MatDialogModule, MatDialogRef,
+  MatDialog, MatDialogModule, MatDialogRef, MAT_DIALOG_DATA,
 } from '@angular/material/dialog';
 
 import { Api } from '../../core/api';
@@ -77,7 +79,49 @@ export class EmailRevealDialog {
   cancel(): void { this.ref.close(undefined); }
 }
 
-/** Lazy-loaded login-history state for one expanded user row. */
+/**
+ * A named-button confirm dialog for sensitive actions (AI/destructive grants, disable, force-logout,
+ * delete). Unlike the routine Undo-toast path, these REQUIRE a deliberate click on a labelled button so a
+ * fast click can't fat-finger a token-spending grant or a disruptive change. The confirm button carries
+ * the action's own verb (never a bare "OK") and can be tinted as a danger action.
+ */
+interface ConfirmData {
+  title: string;
+  /** Body lines (e.g. the named affected users + what will change). */
+  lines: string[];
+  /** The labelled confirm button text (the action's verb, e.g. "Disable 3 users"). */
+  confirmLabel: string;
+  /** Tint the confirm button as a destructive/danger action. */
+  danger?: boolean;
+}
+
+@Component({
+  selector: 'app-users-confirm-dialog',
+  imports: [MatDialogModule, MatButtonModule, MatIconModule],
+  template: `
+    <h2 mat-dialog-title>{{ data.title }}</h2>
+    <mat-dialog-content>
+      @for (l of data.lines; track $index) { <p class="ucd-line">{{ l }}</p> }
+    </mat-dialog-content>
+    <mat-dialog-actions align="end">
+      <button mat-button type="button" (click)="ref.close(false)">Cancel</button>
+      <button mat-flat-button type="button" [class.ucd-danger]="data.danger" color="primary"
+              cdkFocusInitial (click)="ref.close(true)">{{ data.confirmLabel }}</button>
+    </mat-dialog-actions>
+  `,
+  styles: [`
+    [mat-dialog-title] { font-family: var(--tech-font-ui); }
+    .ucd-line { margin: 0 0 8px; max-width: 420px; font-size: 13px; line-height: 1.5; color: var(--tech-text-secondary); }
+    .ucd-line:last-child { margin-bottom: 0; }
+    .ucd-danger { --mdc-filled-button-container-color: var(--tech-error, #ff5c6c); --mdc-filled-button-label-text-color: #fff; }
+  `],
+})
+export class UsersConfirmDialog {
+  readonly ref = inject(MatDialogRef<UsersConfirmDialog, boolean>);
+  readonly data = inject<ConfirmData>(MAT_DIALOG_DATA);
+}
+
+/** Lazy-loaded login-history state for one user's detail. */
 interface LoginHistory {
   loading: boolean;
   loaded: boolean;
@@ -85,7 +129,7 @@ interface LoginHistory {
   events: LoginEvent[];
 }
 
-/** Lazy-loaded chat-contacts (circle) state for one expanded user row. Only shown to contact managers. */
+/** Lazy-loaded chat-contacts (circle) state for one user's detail. Only shown to contact managers. */
 interface ContactsState {
   loading: boolean;
   loaded: boolean;
@@ -98,7 +142,7 @@ interface ContactsState {
   busyUserId: number | null;
 }
 
-/** A catalog group with its ordered permission items — drives the grouped matrix + editors. */
+/** A catalog group with its ordered permission items — drives the grouped accordions + summaries. */
 interface PermGroup {
   name: string;
   perms: PermissionItem[];
@@ -106,8 +150,14 @@ interface PermGroup {
   isAi: boolean;
 }
 
-/** How the list is filtered by capability: a single permission key, a preset's exact key-set, or none. */
-type FilterMode = 'all' | 'perm' | 'preset';
+/** How the list is filtered by capability: a single permission key, the "has AI" axis, or none. */
+type CapFilter = 'all' | 'ai' | 'enabled' | 'disabled' | 'perm';
+
+/** A landing-page option for the "Lands on" picker (route + label), shown only when the user can reach it. */
+interface HomeOption { route: string; label: string; }
+
+/** The delta of a staged grant-set vs an applied role: keys added on top of, and removed from, the role. */
+interface RoleDelta { added: string[]; removed: string[]; }
 
 @Component({
   selector: 'app-users',
@@ -125,6 +175,9 @@ export class Users {
   private dialog = inject(MatDialog);
   readonly auth = inject(AuthService);
   readonly PERM = PERM;
+
+  /** The detail heading — selection moves focus here (accessibility). */
+  private detailHeading = viewChild<ElementRef<HTMLElement>>('detailHeading');
 
   // ---- Email reveal (gated by a key) ----
   // The key lives in COMPONENT MEMORY ONLY — never localStorage, never a URL. Null => emails are masked.
@@ -144,46 +197,50 @@ export class Users {
   readonly users = signal<ManagedUser[]>([]);
   readonly audit = signal<AuditEntry[]>([]);
   readonly loading = signal(true);
-  readonly savingId = signal<number | null>(null);
-  // The user currently being force-logged-out (disables that row's Sign-out control + shows busy state).
+  readonly saving = signal(false);
+  // The user currently being force-logged-out / home-set (disables those controls + shows busy state).
   readonly loggingOutId = signal<number | null>(null);
+  readonly homeSavingId = signal<number | null>(null);
 
   // ---- Search + filter ----
   /** Free-text search across name + email (email matched only when revealed). */
   readonly search = signal('');
-  /** Capability filter mode + its argument (a permission key or a preset key). */
-  readonly filterMode = signal<FilterMode>('all');
+  /** Capability filter axis + (for 'perm') its key. */
+  readonly capFilter = signal<CapFilter>('all');
   readonly filterPerm = signal<string>('');
-  readonly filterPreset = signal<string>('');
+  /** Filter to a single role's exact key-set (a clean role match), or '' for any. */
+  readonly filterRole = signal<string>('');
+
+  // ---- Master-detail selection ----
+  /** The AppUser id currently open in the detail pane (null = none). */
+  readonly selectedId = signal<number | null>(null);
+  /** On narrow screens, the card grid drills into a full-screen detail; this flags that drill-in. */
+  readonly mobileDetailOpen = signal(false);
+
+  // ---- Staged edit (the working copy of the selected user; Save flushes it via the existing PUT) ----
+  /** The selected user's staged grant set (mutated by toggles/role-picks until Save). */
+  readonly draftPerms = signal<Set<string>>(new Set());
+  /** The selected user's staged enabled flag. */
+  readonly draftEnabled = signal(true);
+  /** The role key the admin last APPLIED to the selected user (drives the delta badge), or '' if none. */
+  readonly appliedRole = signal<string>('');
 
   // ---- Bulk selection ----
-  /** AppUser ids currently selected for a bulk action. */
+  /** AppUser ids currently checked for a bulk action. */
   readonly selectedIds = signal<Set<number>>(new Set());
-  /** In-flight guard while a bulk action runs (disables the bulk bar + per-row controls). */
   readonly bulkRunning = signal(false);
-  /** Live progress while a bulk action runs: how many of `bulkTotal` have completed. */
   readonly bulkDone = signal(0);
   readonly bulkTotal = signal(0);
 
-  // Per-user login history: which rows are expanded + their lazy-loaded sign-in logs (keyed by user id).
-  readonly expanded = signal<Set<number>>(new Set());
+  // ---- Per-user detail lazy data (login history + contacts) ----
   readonly logins = signal<Map<number, LoginHistory>>(new Map());
-
-  // Per-user chat contacts (the circle), lazy-loaded on first expand (keyed by user id). Only loaded
-  // for managers — gated by chat.contacts.manage, same gate the backend enforces.
   readonly contacts = signal<Map<number, ContactsState>>(new Map());
-  // The chat directory (all enabled users except the caller), loaded once for the add-control search.
   readonly directory = signal<ChatContactDto[]>([]);
   private directoryLoaded = false;
-  /** Polite SR announcement for the contacts editor (add/remove); read by an aria-live region. */
-  readonly contactsStatus = signal('');
+  /** Polite SR announcement (selection change + contacts add/remove); read by an aria-live region. */
+  readonly liveStatus = signal('');
   /** Visible only to contact managers; mirrors the chat.contacts.manage backend gate. */
   readonly canManageContacts = computed(() => this.auth.hasPermission(PERM.chatContactsManage));
-  /**
-   * The in-row contacts editor is keyed by AppUser id and renders only display names (email-privacy) —
-   * no other-user address is fetched or shown — so it doesn't need the email-reveal gate. Shown to any
-   * contact manager; the login-history part of the expanded row stays visible regardless.
-   */
   readonly canEditContacts = computed(() => this.canManageContacts());
 
   // new-user form
@@ -191,8 +248,7 @@ export class Users {
   readonly newEnabled = signal(true);
   readonly newPerms = signal<Set<string>>(new Set([PERM.dashboardView]));
   readonly adding = signal(false);
-  /** Collapse the (now large) add-user permission picker by default; the preset row gives a one-click start. */
-  readonly addExpanded = signal(false);
+  readonly addOpen = signal(false);
 
   // access policy (open sign-up + default permissions)
   readonly policy = signal<AccessPolicy | null>(null);
@@ -200,10 +256,48 @@ export class Users {
   readonly savingPolicy = signal(false);
   readonly canManage = computed(() => this.auth.hasPermission(PERM.usersManage));
 
+  /** Collapsed-state of each detail group accordion (keyed by group name). AI panel is separate. */
+  readonly collapsedGroups = signal<Set<string>>(new Set());
+
+  /**
+   * route -> the permission key(s) that grant access; the caller needs ANY one. Mirrors auth.ts's
+   * homePerms (and the backend HomeRoutes.Map) EXACTLY so the "Lands on" picker only offers pages the
+   * TARGET user can actually reach (intersect their grant set with this map).
+   */
+  private static readonly homePerms: Readonly<Record<string, readonly string[]>> = {
+    '/': [PERM.dashboardView],
+    '/calendar': [PERM.calendarView],
+    '/pricing': [PERM.pricingView],
+    '/reporter': [PERM.reporterView, PERM.reporterManage, PERM.reporterSelf],
+    '/fleet': [PERM.fleetView, PERM.reporterManage],
+    '/tracker': [PERM.trackerSelf],
+    '/family': [PERM.familyUse],
+    '/chat': [PERM.chatRead],
+    '/locations': [PERM.locationSelf],
+    '/users': [PERM.usersView],
+    '/activity': [PERM.activityView],
+    '/settings': [PERM.settingsView],
+  };
+
+  /** Landing-page options in nav order (route + label) — mirrors app.ts's homeOptionDefs. */
+  private static readonly homeOptionDefs: readonly HomeOption[] = [
+    { route: '/', label: 'Dashboard' },
+    { route: '/calendar', label: 'Calendar' },
+    { route: '/pricing', label: 'Pricing' },
+    { route: '/reporter', label: 'Reporter' },
+    { route: '/fleet', label: 'Fleet' },
+    { route: '/tracker', label: 'Tracker' },
+    { route: '/family', label: 'Family' },
+    { route: '/chat', label: 'Chat' },
+    { route: '/locations', label: 'My locations' },
+    { route: '/users', label: 'Users' },
+    { route: '/activity', label: 'Activity' },
+    { route: '/settings', label: 'Settings' },
+  ];
+
   /**
    * Permission catalog grouped by the server-provided group, in PERM_GROUP_ORDER. Any group the order
-   * list doesn't mention is appended after (so a future backend group is never dropped). The AI group is
-   * flagged so the template can render it as a separate, visually distinct section.
+   * list doesn't mention is appended after. The AI group is flagged for its separate, tinted section.
    */
   readonly groups = computed<PermGroup[]>(() => {
     const byGroup = new Map<string, PermissionItem[]>();
@@ -221,14 +315,14 @@ export class Users {
     return ordered;
   });
 
-  /** The non-AI (feature-access) groups. */
+  /** The non-AI (feature-access) groups — the accordion spine of the detail editor. */
   readonly featureGroups = computed(() => this.groups().filter(g => !g.isAi));
-  /** The AI groups (normally exactly one) — rendered as a separated section. */
+  /** The AI groups (normally exactly one) — rendered as a separated, tinted panel. */
   readonly aiGroups = computed(() => this.groups().filter(g => g.isAi));
-  /** The AI permission keys, for the bulk menu + per-user AI summary. */
-  readonly aiKeys = computed(() => this.aiGroups().flatMap(g => g.perms.map(p => p.key)));
+  /** Every AI permission key (for the AI summary, AI filter, AI badge). */
+  readonly aiKeys = computed(() => new Set(this.aiGroups().flatMap(g => g.perms.map(p => p.key))));
 
-  /** Quick label/description lookup for a permission key (for summaries + the bulk menu). */
+  /** Quick label/description lookup for a permission key (for summaries + menus). */
   readonly permByKey = computed(() => {
     const m = new Map<string, PermissionItem>();
     for (const p of this.perms()) m.set(p.key, p);
@@ -237,9 +331,8 @@ export class Users {
 
   /**
    * The permission keys the server refuses to persist as an open-sign-up default (mirrors the backend's
-   * Permissions.IsDefaultable). New accounts must never INHERIT these — they're admin/privileged/private/
-   * token-spending capabilities that have to be granted deliberately per user. We hide them from the
-   * default-permissions picker so an admin can't check a box the server would silently drop on save.
+   * Permissions.IsDefaultable). New accounts must never INHERIT these — admin/privileged/private/
+   * token-spending capabilities granted deliberately per user. Hidden from the default-permissions picker.
    */
   private readonly nonDefaultable = new Set<string>([
     PERM.usersManage, PERM.chatModerate, PERM.chatContactsManage, PERM.trackerViewAll,
@@ -248,68 +341,163 @@ export class Users {
     PERM.trackerAi, PERM.familyAi, PERM.familyAiAssistant, PERM.financeAi, PERM.chatAi, PERM.aiVision,
   ]);
 
-  /**
-   * Catalog groups for the default-permissions picker, filtered to keys the server will actually accept
-   * as a default (see {@link nonDefaultable}). The whole AI + Location groups drop out (none defaultable).
-   */
+  /** Catalog groups for the default-permissions picker, filtered to server-defaultable keys. */
   readonly policyGroups = computed<PermGroup[]>(() =>
     this.groups()
       .map(g => ({ ...g, perms: g.perms.filter(p => !this.nonDefaultable.has(p.key)) }))
       .filter(g => g.perms.length),
   );
 
-  /** The users left after applying the search box + capability filter. */
+  // ---- The selected user + its derived editor state ----
+
+  /** The currently-selected user row (the canonical saved copy — the draft signals hold edits). */
+  readonly selected = computed<ManagedUser | null>(() => {
+    const id = this.selectedId();
+    return id == null ? null : this.users().find(u => u.id === id) ?? null;
+  });
+
+  /**
+   * Detect which role a permission SET matches exactly (a clean role match), or '' if none. Used to seed
+   * the role picker when a user is selected, and to label the list rows + the role filter.
+   */
+  matchRole(permKeys: string[] | Set<string>): string {
+    const have = permKeys instanceof Set ? permKeys : new Set(permKeys);
+    for (const p of this.presets()) {
+      if (p.permissions.length !== have.size) continue;
+      if (p.permissions.every(k => have.has(k))) return p.key;
+    }
+    return '';
+  }
+
+  /** The role currently reflected by the STAGED grants ('' = custom / no clean match). */
+  readonly draftRole = computed(() => this.matchRole(this.draftPerms()));
+
+  /**
+   * The delta of the staged grants vs the APPLIED role: what's been added on top, and removed from, the
+   * role. Empty when no role is applied or the draft matches it exactly. Drives the "+x / −y" badge.
+   */
+  readonly roleDelta = computed<RoleDelta>(() => {
+    const role = this.presets().find(p => p.key === this.appliedRole());
+    if (!role) return { added: [], removed: [] };
+    const roleSet = new Set(role.permissions);
+    const draft = this.draftPerms();
+    const added = [...draft].filter(k => !roleSet.has(k));
+    const removed = role.permissions.filter(k => !draft.has(k));
+    return { added, removed };
+  });
+
+  /** Whether the staged edits differ from the saved row (drives the dirty Save bar). */
+  readonly dirty = computed(() => {
+    const u = this.selected();
+    if (!u) return false;
+    if (this.draftEnabled() !== u.isEnabled) return true;
+    const saved = new Set(u.permissions);
+    const draft = this.draftPerms();
+    if (saved.size !== draft.size) return true;
+    for (const k of draft) if (!saved.has(k)) return true;
+    return false;
+  });
+
+  /** The grant DIFF vs the saved row: keys added (+) and removed (−) by the staged edits. */
+  readonly saveDiff = computed<RoleDelta>(() => {
+    const u = this.selected();
+    if (!u) return { added: [], removed: [] };
+    const saved = new Set(u.permissions);
+    const draft = this.draftPerms();
+    return {
+      added: [...draft].filter(k => !saved.has(k)),
+      removed: u.permissions.filter(k => !draft.has(k)),
+    };
+  });
+
+  /** The total count of staged changes (grant adds + removes + an enabled flip) for the Save bar. */
+  readonly saveCount = computed(() => {
+    const d = this.saveDiff();
+    const u = this.selected();
+    const enabledFlip = u && this.draftEnabled() !== u.isEnabled ? 1 : 0;
+    return d.added.length + d.removed.length + enabledFlip;
+  });
+
+  /** True when the staged save adds any AI key, or disables the user — needs a named-button confirm. */
+  readonly saveNeedsConfirm = computed(() => {
+    const u = this.selected();
+    if (!u) return false;
+    const ai = this.aiKeys();
+    const disabling = u.isEnabled && !this.draftEnabled();
+    return disabling || this.saveDiff().added.some(k => ai.has(k));
+  });
+
+  /** The "Lands on" home-page options for the SELECTED user — pages their SAVED grant set can reach. */
+  readonly homeOptions = computed<HomeOption[]>(() => {
+    const u = this.selected();
+    if (!u) return [];
+    const held = new Set(u.permissions);
+    return Users.homeOptionDefs.filter(o => {
+      const req = Users.homePerms[o.route];
+      return req && req.some(k => held.has(k));
+    });
+  });
+
+  /** The users left after the search box + capability/role filter. */
   readonly filteredUsers = computed<ManagedUser[]>(() => {
     const q = this.search().trim().toLowerCase();
-    const mode = this.filterMode();
+    const cap = this.capFilter();
     const permKey = this.filterPerm();
-    const preset = this.presets().find(p => p.key === this.filterPreset());
-    const presetSet = preset ? new Set(preset.permissions) : null;
+    const role = this.presets().find(p => p.key === this.filterRole());
+    const roleSet = role ? new Set(role.permissions) : null;
+    const ai = this.aiKeys();
 
     return this.users().filter(u => {
       if (q) {
         const hay = `${u.name ?? ''} ${u.email ?? ''}`.toLowerCase();
         if (!hay.includes(q)) return false;
       }
-      if (mode === 'perm' && permKey) {
-        if (!u.permissions.includes(permKey)) return false;
-      } else if (mode === 'preset' && presetSet) {
-        // "Matches preset" = the user holds EXACTLY the preset's keys (a clean match, not a superset).
-        if (u.permissions.length !== presetSet.size) return false;
-        if (!u.permissions.every(k => presetSet.has(k))) return false;
+      if (roleSet) {
+        if (u.permissions.length !== roleSet.size) return false;
+        if (!u.permissions.every(k => roleSet.has(k))) return false;
+      }
+      switch (cap) {
+        case 'ai': if (!u.permissions.some(k => ai.has(k))) return false; break;
+        case 'enabled': if (!u.isEnabled) return false; break;
+        case 'disabled': if (u.isEnabled) return false; break;
+        case 'perm': if (permKey && !u.permissions.includes(permKey)) return false; break;
       }
       return true;
     });
   });
 
-  /** True when any search/filter is narrowing the list (drives the "showing N of M" + clear control). */
+  /** True when any search/filter is narrowing the list. */
   readonly isFiltering = computed(() =>
-    !!this.search().trim() || this.filterMode() !== 'all',
-  );
-
-  /** Total <td> count of a body row — drives the colspan of the expanded detail sub-row. */
-  readonly columnCount = computed(() =>
-    3 + this.groups().reduce((n, g) => n + g.perms.length, 0) + 2, // select + expand + user + enabled + perms + actions
+    !!this.search().trim() || this.capFilter() !== 'all' || !!this.filterRole(),
   );
 
   // ---- Bulk selection helpers ----
   isSelected(id: number): boolean { return this.selectedIds().has(id); }
-  readonly selectedCount = computed(() => this.selectedIds().size);
-  /** True when every currently-visible (filtered) user is selected. */
+  readonly bulkCount = computed(() => this.selectedIds().size);
   readonly allVisibleSelected = computed(() => {
     const vis = this.filteredUsers();
     if (!vis.length) return false;
     const sel = this.selectedIds();
     return vis.every(u => sel.has(u.id));
   });
-  /** True when some — but not all — visible users are selected (header tri-state). */
   readonly someVisibleSelected = computed(() => {
     const sel = this.selectedIds();
     const n = this.filteredUsers().filter(u => sel.has(u.id)).length;
     return n > 0 && n < this.filteredUsers().length;
   });
 
-  constructor() { this.load(); }
+  constructor() {
+    this.load();
+    // When the selected user changes, move focus to the detail heading + announce (accessibility).
+    effect(() => {
+      const u = this.selected();
+      if (!u) return;
+      queueMicrotask(() => {
+        this.detailHeading()?.nativeElement.focus();
+        this.liveStatus.set(`Editing ${u.name || this.userLabel(u)}.`);
+      });
+    });
+  }
 
   private load(): void {
     this.loading.set(true);
@@ -323,6 +511,7 @@ export class Users {
         this.presets.set(r.presets);
         this.users.set(r.users);
         this.pruneSelection();
+        this.reconcileSelection();
         this.loading.set(false);
       },
       error: () => { this.loading.set(false); this.snack.open('Failed to load users', 'Dismiss', { duration: 4000 }); },
@@ -331,13 +520,22 @@ export class Users {
     this.loadPolicy();
   }
 
-  /** Drop any selected ids that no longer exist (e.g. after a reload/delete). */
+  /** Drop any bulk-selected ids that no longer exist (e.g. after a reload/delete). */
   private pruneSelection(): void {
     const live = new Set(this.users().map(u => u.id));
     this.selectedIds.update(s => {
       const next = new Set([...s].filter(id => live.has(id)));
       return next.size === s.size ? s : next;
     });
+  }
+
+  /** After a reload, keep the open detail in sync (re-seed the draft from the fresh saved row, or close). */
+  private reconcileSelection(): void {
+    const id = this.selectedId();
+    if (id == null) return;
+    const u = this.users().find(x => x.id === id);
+    if (!u) { this.selectedId.set(null); this.mobileDetailOpen.set(false); return; }
+    this.seedDraft(u);
   }
 
   private loadPolicy(): void {
@@ -354,46 +552,38 @@ export class Users {
   // ---- Search + filter ----
   clearFilters(): void {
     this.search.set('');
-    this.filterMode.set('all');
+    this.capFilter.set('all');
     this.filterPerm.set('');
-    this.filterPreset.set('');
+    this.filterRole.set('');
   }
 
-  /** Switch to "has permission X" filtering (called from the perm picker). */
+  /** Toggle a capability axis chip; clicking the active one clears it. */
+  toggleCap(cap: CapFilter): void {
+    this.capFilter.update(c => c === cap ? 'all' : cap);
+    if (this.capFilter() !== 'perm') this.filterPerm.set('');
+  }
+
   setFilterPerm(key: string): void {
     this.filterPerm.set(key);
-    this.filterMode.set(key ? 'perm' : 'all');
+    this.capFilter.set(key ? 'perm' : 'all');
   }
 
-  /** Switch to "matches preset" filtering. */
-  setFilterPreset(key: string): void {
-    this.filterPreset.set(key);
-    this.filterMode.set(key ? 'preset' : 'all');
-  }
+  setFilterRole(key: string): void { this.filterRole.set(key); }
 
   // ---- Email-reveal toggle ----
-
-  /** Toggle entry point: prompt for a key when hidden; clear + re-fetch (masked) when revealed. */
   toggleEmails(): void {
     if (this.emailsRevealed()) { this.hideEmails(); return; }
     this.promptForKey();
   }
 
-  /** Open the key prompt; on submit, re-fetch users + audit WITH the key and verify the reveal worked. */
   private promptForKey(): void {
     const ref = this.dialog.open(EmailRevealDialog, { width: '380px', autoFocus: 'dialog', restoreFocus: true });
     ref.afterClosed().subscribe((key: string | undefined) => {
-      if (!key) return; // cancelled
+      if (!key) return;
       this.applyRevealKey(key);
     });
   }
 
-  /**
-   * Re-fetch users + audit with the candidate key. The server returns real emails only when the key is
-   * correct; the caller's OWN email is always real, so we confirm success by checking that SOME OTHER
-   * user's email came back non-null (or, in a single-user tenant, that any audit email did). Wrong key
-   * => everything but our own row stays null => snackbar + stay hidden.
-   */
   private applyRevealKey(key: string): void {
     this.revealing.set(true);
     forkJoin({ users: this.api.users(key), audit: this.api.auditLog(key) }).subscribe({
@@ -403,6 +593,7 @@ export class Users {
           this.revealKey = key;
           this.users.set(users);
           this.audit.set(audit);
+          this.reconcileSelection();
           this.emailsRevealed.set(true);
           this.snack.open('Emails revealed', 'OK', { duration: 2000 });
         } else {
@@ -417,11 +608,6 @@ export class Users {
     });
   }
 
-  /**
-   * Did the key actually unmask anything? True if any email belonging to someone OTHER than the caller
-   * came back non-null (their own email is always real, so it can't confirm the key). Falls back to the
-   * audit log's actor/target emails so a single-admin tenant can still confirm a correct key.
-   */
   private didReveal(users: ManagedUser[], audit: AuditEntry[]): boolean {
     const mine = this.myEmail;
     const isOther = (e: string | null) => !!e && e.toLowerCase() !== mine;
@@ -429,34 +615,53 @@ export class Users {
       || audit.some(a => isOther(a.actorEmail) || isOther(a.targetEmail));
   }
 
-  /** Clear the in-memory key and re-fetch masked (emails back to hidden). */
   private hideEmails(): void {
     this.revealKey = null;
     this.emailsRevealed.set(false);
     this.load();
   }
 
-  // ---- Per-user inline detail (expandable rows, lazy-loaded on first expand) ----
-  isExpanded(id: number): boolean { return this.expanded().has(id); }
+  // ---- Master-detail selection ----
 
-  loginHistory(id: number): LoginHistory | undefined { return this.logins().get(id); }
-
-  toggleExpand(u: ManagedUser): void {
-    const next = new Set(this.expanded());
-    if (next.has(u.id)) {
-      next.delete(u.id);
-    } else {
-      next.add(u.id);
-      // Lazy-load on first expand only; cached thereafter (and across collapses).
-      if (!this.logins().has(u.id)) this.loadLogins(u.id);
-      // Contacts editor loads for any contact manager (userId-keyed, name-only — no email reveal needed).
-      if (this.canEditContacts()) {
-        if (!this.contacts().has(u.id)) this.loadContacts(u);
-        this.ensureDirectory();
-      }
+  /** Open a user in the detail pane (seeds the staged edit + lazy-loads detail data). */
+  select(u: ManagedUser, mobileDrill = false): void {
+    // Guard an unsaved edit before switching away.
+    if (this.selectedId() != null && this.selectedId() !== u.id && this.dirty()) {
+      if (!confirm('You have unsaved changes. Discard them and switch users?')) return;
     }
-    this.expanded.set(next);
+    this.selectedId.set(u.id);
+    this.seedDraft(u);
+    if (mobileDrill) this.mobileDetailOpen.set(true);
+    if (!this.logins().has(u.id)) this.loadLogins(u.id);
+    if (this.canEditContacts()) {
+      if (!this.contacts().has(u.id)) this.loadContacts(u);
+      this.ensureDirectory();
+    }
   }
+
+  /** Seed the staged draft from a saved row + detect its current role. */
+  private seedDraft(u: ManagedUser): void {
+    this.draftPerms.set(new Set(u.permissions));
+    this.draftEnabled.set(u.isEnabled);
+    this.appliedRole.set(this.matchRole(u.permissions));
+    this.collapsedGroups.set(new Set());
+  }
+
+  /** Close the detail (mobile Back / deselect). Guards an unsaved edit. */
+  closeDetail(): void {
+    if (this.dirty() && !confirm('You have unsaved changes. Discard them?')) return;
+    this.mobileDetailOpen.set(false);
+    this.selectedId.set(null);
+  }
+
+  /** Revert the staged edit back to the saved row. */
+  resetDraft(): void {
+    const u = this.selected();
+    if (u) this.seedDraft(u);
+  }
+
+  // ---- Login history ----
+  loginHistory(id: number): LoginHistory | undefined { return this.logins().get(id); }
 
   private setLoginHistory(id: number, state: LoginHistory): void {
     this.logins.update(m => new Map(m).set(id, state));
@@ -470,41 +675,262 @@ export class Users {
     });
   }
 
-  // ---- Per-user access summary (readable "what they can reach") ----
+  // ---- Access summary (readable "what they can DO") — derived from the STAGED draft ----
 
   /**
-   * A readable summary of a user's FEATURE (non-AI) access, grouped: the group names they hold at least
-   * one permission in, each with its granted labels. Drives the inline "what they can access" panel.
+   * A readable summary of a grant set's FEATURE (non-AI) access, grouped: the groups they hold at least
+   * one permission in, each with its granted labels. Drives the plain-language access summary.
    */
-  accessSummary(u: ManagedUser): { name: string; labels: string[] }[] {
-    const held = new Set(u.permissions);
+  accessSummary(permKeys: Set<string>): { name: string; labels: string[] }[] {
     const out: { name: string; labels: string[] }[] = [];
     for (const g of this.featureGroups()) {
-      const labels = g.perms.filter(p => held.has(p.key)).map(p => p.label);
+      const labels = g.perms.filter(p => permKeys.has(p.key)).map(p => p.label);
       if (labels.length) out.push({ name: g.name, labels });
     }
     return out;
   }
 
-  /** The AI capabilities a user holds (labels), for the distinct AI line in the summary. */
-  aiSummary(u: ManagedUser): string[] {
-    const held = new Set(u.permissions);
-    return this.aiGroups().flatMap(g => g.perms).filter(p => held.has(p.key)).map(p => p.label);
+  /** The AI capabilities held (labels), for the distinct AI line in the summary. */
+  aiSummary(permKeys: Set<string>): string[] {
+    return this.aiGroups().flatMap(g => g.perms).filter(p => permKeys.has(p.key)).map(p => p.label);
   }
 
-  /** True when a user holds any AI permission (drives the AI badge on the row). */
-  hasAnyAi(u: ManagedUser): boolean {
-    const held = new Set(u.permissions);
-    return this.aiKeys().some(k => held.has(k));
+  /**
+   * A single plain-language sentence of what a user can DO, derived from grants. Reused for both the
+   * one-line list/card summary and the mandatory per-user summary line ("Manages the family, tracks
+   * fitness, uses Family & Chat AI; no admin or finance").
+   */
+  oneLineSummary(u: ManagedUser): string {
+    return this.summaryFor(new Set(u.permissions));
   }
 
-  /** Count of feature (non-AI) permissions a user holds — a compact row badge. */
-  featurePermCount(u: ManagedUser): number {
-    const ai = new Set(this.aiKeys());
-    return u.permissions.filter(k => !ai.has(k)).length;
+  /** Plain-language summary of a grant set (used by oneLineSummary + the live detail echo). */
+  summaryFor(held: Set<string>): string {
+    const has = (k: string) => held.has(k);
+    const parts: string[] = [];
+    if (has(PERM.usersManage)) parts.push('Administers users');
+    else if (has(PERM.usersView)) parts.push('Views users');
+    if (has(PERM.familyUse)) parts.push(has(PERM.familyFinance) ? 'manages the family incl. finance' : 'manages the family');
+    if (has(PERM.trackerSelf)) parts.push('tracks fitness');
+    if (has(PERM.chatRead)) parts.push('uses chat');
+    if (has(PERM.dashboardView)) parts.push('sees usage');
+    if (has(PERM.locationSelf)) parts.push('shares location');
+
+    const ai = this.aiSummary(held);
+    let sentence = parts.length
+      ? parts.join(', ').replace(/^./, c => c.toUpperCase())
+      : 'No access yet';
+    if (ai.length) sentence += `; uses AI (${ai.length})`;
+    else sentence += '; no AI';
+    return sentence;
   }
 
-  // ---- Per-user chat contacts (the circle) — admin editor in the expanded row (chat.contacts.manage) ----
+  /** True when a grant set holds any AI permission (drives the AI badge). */
+  hasAnyAi(permKeys: string[] | Set<string>): boolean {
+    const ai = this.aiKeys();
+    const it = permKeys instanceof Set ? permKeys : new Set(permKeys);
+    for (const k of it) if (ai.has(k)) return true;
+    return false;
+  }
+
+  /** A short role/AI badge label for a list row ("Administrator", "Family member", "Custom"). */
+  roleLabel(u: ManagedUser): string {
+    const key = this.matchRole(u.permissions);
+    if (key) return this.presets().find(p => p.key === key)?.label ?? 'Custom';
+    return u.permissions.length ? 'Custom' : 'No role';
+  }
+
+  // ---- Detail editor: grant toggles + role picker ----
+
+  draftHas(key: string): boolean { return this.draftPerms().has(key); }
+
+  toggleDraftPerm(key: string, checked: boolean): void {
+    this.draftPerms.update(s => {
+      const next = new Set(s);
+      if (checked) next.add(key); else next.delete(key);
+      return next;
+    });
+  }
+
+  /** Apply a role to the staged draft — SEEDS the grants (replaces the draft) + records the applied role. */
+  applyRole(roleKey: string): void {
+    const role = this.presets().find(p => p.key === roleKey);
+    if (!role) return;
+    this.draftPerms.set(new Set(role.permissions));
+    this.appliedRole.set(roleKey);
+    this.liveStatus.set(`Seeded ${role.label}. Review and Save.`);
+  }
+
+  /** "Reset to role" — restore the applied role's exact grant set (clears the delta). */
+  resetToRole(): void {
+    const role = this.presets().find(p => p.key === this.appliedRole());
+    if (role) this.draftPerms.set(new Set(role.permissions));
+  }
+
+  /** Count of a group's permissions currently on in the draft (for the accordion "N of M on" header). */
+  groupOnCount(g: PermGroup): number {
+    const draft = this.draftPerms();
+    return g.perms.filter(p => draft.has(p.key)).length;
+  }
+
+  isGroupCollapsed(name: string): boolean { return this.collapsedGroups().has(name); }
+
+  toggleGroup(name: string): void {
+    this.collapsedGroups.update(s => {
+      const next = new Set(s);
+      if (next.has(name)) next.delete(name); else next.add(name);
+      return next;
+    });
+  }
+
+  // ---- Home-route ("Lands on") picker ----
+
+  /** Set (or clear) the SELECTED user's landing page via adminSetHomeRoute (PATCH /api/users/{id}/home). */
+  setHomeRoute(route: string | null): void {
+    const u = this.selected();
+    if (!u) return;
+    const value = route || null;
+    this.homeSavingId.set(u.id);
+    this.api.adminSetHomeRoute(u.id, value).subscribe({
+      next: updated => {
+        this.homeSavingId.set(null);
+        this.users.update(list => list.map(x => x.id === updated.id ? updated : x));
+        this.loadAudit();
+        this.snack.open(`Set landing page for ${u.name || this.userLabel(u)}`, 'OK', { duration: 2500 });
+      },
+      error: (err: HttpErrorResponse) => {
+        this.homeSavingId.set(null);
+        this.snack.open(err.error?.message ?? 'Could not set landing page', 'Dismiss', { duration: 5000 });
+      },
+    });
+  }
+
+  // ---- Stage-and-save ----
+
+  /** Flush the staged edit to the server (the existing per-user PUT). Routine vs sensitive paths differ. */
+  save(): void {
+    const u = this.selected();
+    if (!u || !this.dirty()) return;
+    if (this.saveNeedsConfirm()) { this.confirmAndSave(u); return; }
+    this.commitSave(u, /*announceUndo*/ true);
+  }
+
+  /** Named-button confirm for an AI/disable-bearing save before committing. */
+  private confirmAndSave(u: ManagedUser): void {
+    const diff = this.saveDiff();
+    const ai = this.aiKeys();
+    const aiAdds = diff.added.filter(k => ai.has(k)).map(k => this.permByKey().get(k)?.label ?? k);
+    const disabling = u.isEnabled && !this.draftEnabled();
+    const lines = [`User: ${u.name || this.userLabel(u)}.`];
+    if (aiAdds.length) lines.push(`Grants token-spending AI: ${aiAdds.join(', ')}.`);
+    if (disabling) lines.push('Disables the account — they can no longer sign in.');
+    const ref = this.dialog.open(UsersConfirmDialog, {
+      width: '440px',
+      data: { title: 'Confirm sensitive changes', lines, confirmLabel: 'Save changes', danger: disabling } as ConfirmData,
+    });
+    ref.afterClosed().subscribe(ok => { if (ok) this.commitSave(u, /*announceUndo*/ false); });
+  }
+
+  /** The actual PUT. On the routine path, offer an Undo snackbar that re-saves the prior grant set. */
+  private commitSave(u: ManagedUser, announceUndo: boolean): void {
+    const prior = { permissions: [...u.permissions], isEnabled: u.isEnabled };
+    const body = { name: u.name, isEnabled: this.draftEnabled(), permissions: [...this.draftPerms()] };
+    this.saving.set(true);
+    this.api.updateUser(u.id, body).subscribe({
+      next: updated => {
+        this.saving.set(false);
+        this.users.update(list => list.map(x => x.id === updated.id ? updated : x));
+        this.seedDraft(updated);
+        this.loadAudit();
+        if (announceUndo) {
+          const ref = this.snack.open(`Saved ${this.userLabel(u)}`, 'Undo', { duration: 6000 });
+          ref.onAction().subscribe(() => this.undoSave(u.id, prior));
+        } else {
+          this.snack.open(`Saved ${this.userLabel(u)}`, 'OK', { duration: 2500 });
+        }
+      },
+      error: (err: HttpErrorResponse) => {
+        this.saving.set(false);
+        this.snack.open(err.error?.message ?? 'Save failed', 'Dismiss', { duration: 5000 });
+        this.load();
+      },
+    });
+  }
+
+  /** Re-save a user's prior grant set (the Undo action of a routine save). */
+  private undoSave(id: number, prior: { permissions: string[]; isEnabled: boolean }): void {
+    const u = this.users().find(x => x.id === id);
+    const name = u ? this.userLabel(u) : `user #${id}`;
+    this.api.updateUser(id, { name: u?.name, isEnabled: prior.isEnabled, permissions: prior.permissions }).subscribe({
+      next: updated => {
+        this.users.update(list => list.map(x => x.id === updated.id ? updated : x));
+        if (this.selectedId() === id) this.seedDraft(updated);
+        this.loadAudit();
+        this.snack.open(`Reverted ${name}`, 'OK', { duration: 2500 });
+      },
+      error: () => this.snack.open('Could not undo', 'Dismiss', { duration: 4000 }),
+    });
+  }
+
+  /**
+   * Force-log a user out of their current session (invalidates their active JWT). Non-destructive — the
+   * account stays enabled and they can sign back in. Named-button confirm (disruptive).
+   */
+  forceLogout(u: ManagedUser): void {
+    const ref = this.dialog.open(UsersConfirmDialog, {
+      width: '420px',
+      data: {
+        title: 'Sign out of all sessions?',
+        lines: [
+          `${u.name || this.userLabel(u)} will be signed out of every active session.`,
+          'Non-destructive — the account stays enabled and they can sign back in.',
+        ],
+        confirmLabel: 'Sign out',
+      } as ConfirmData,
+    });
+    ref.afterClosed().subscribe(ok => {
+      if (!ok) return;
+      this.loggingOutId.set(u.id);
+      this.api.forceLogout(u.id).subscribe({
+        next: () => {
+          this.loggingOutId.set(null);
+          this.loadAudit();
+          this.snack.open(`Signed ${u.name || this.userLabel(u)} out of their sessions.`, 'OK', { duration: 2500 });
+        },
+        error: (err: HttpErrorResponse) => {
+          this.loggingOutId.set(null);
+          this.snack.open(err.error?.message ?? 'Could not sign user out', 'Dismiss', { duration: 5000 });
+        },
+      });
+    });
+  }
+
+  remove(u: ManagedUser): void {
+    const ref = this.dialog.open(UsersConfirmDialog, {
+      width: '420px',
+      data: {
+        title: 'Remove user?',
+        lines: [`${u.name || this.userLabel(u)} will lose access immediately.`, 'This cannot be undone.'],
+        confirmLabel: 'Remove user',
+        danger: true,
+      } as ConfirmData,
+    });
+    ref.afterClosed().subscribe(ok => {
+      if (!ok) return;
+      this.api.deleteUser(u.id).subscribe({
+        next: () => {
+          this.users.update(list => list.filter(x => x.id !== u.id));
+          this.selectedIds.update(s => { if (!s.has(u.id)) return s; const n = new Set(s); n.delete(u.id); return n; });
+          if (this.selectedId() === u.id) { this.selectedId.set(null); this.mobileDetailOpen.set(false); }
+          this.loadAudit();
+          this.snack.open(`Removed ${this.userLabel(u)}`, 'OK', { duration: 2500 });
+        },
+        error: (err: HttpErrorResponse) => this.snack.open(err.error?.message ?? 'Delete failed', 'Dismiss', { duration: 5000 }),
+      });
+    });
+  }
+
+  // ---- Contacts (the circle) — admin editor in the detail (chat.contacts.manage) ----
   contactsState(id: number): ContactsState | undefined { return this.contacts().get(id); }
 
   private setContactsState(id: number, patch: Partial<ContactsState>): void {
@@ -515,7 +941,6 @@ export class Users {
   }
 
   private loadContacts(u: ManagedUser): void {
-    // Addressed by AppUser id (email-privacy); the editor renders display names only.
     this.setContactsState(u.id, { loading: true, loaded: false, error: false, contacts: [], query: '', busyUserId: null });
     this.api.userContacts(u.id).subscribe({
       next: contacts => this.setContactsState(u.id, { loading: false, loaded: true, error: false, contacts }),
@@ -523,23 +948,17 @@ export class Users {
     });
   }
 
-  /** Fetch the directory once (the add-control's search pool). Failure is non-fatal — the list stays empty. */
   private ensureDirectory(): void {
     if (this.directoryLoaded) return;
     this.directoryLoaded = true;
     this.api.chatDirectory().subscribe({
       next: dir => this.directory.set(dir),
-      error: () => { this.directoryLoaded = false; /* allow a retry on next expand */ },
+      error: () => { this.directoryLoaded = false; },
     });
   }
 
   setContactsQuery(id: number, q: string): void { this.setContactsState(id, { query: q }); }
 
-  /**
-   * Directory candidates for a user's add-control: everyone in the directory except the user themselves
-   * and anyone already in their circle, filtered by the search box. Identity is by AppUser id; the
-   * filter matches display name only (no email is carried).
-   */
   addCandidates(u: ManagedUser): ChatContactDto[] {
     const state = this.contactsState(u.id);
     const have = new Set((state?.contacts ?? []).map(c => c.userId));
@@ -555,7 +974,7 @@ export class Users {
     this.api.addUserContact(u.id, contactUserId).subscribe({
       next: contacts => {
         this.setContactsState(u.id, { contacts, query: '', busyUserId: null });
-        this.contactsStatus.set(`Added ${added?.name || 'contact'} to circle.`);
+        this.liveStatus.set(`Added ${added?.name || 'contact'} to circle.`);
         this.loadAudit();
       },
       error: (err: HttpErrorResponse) => {
@@ -571,7 +990,7 @@ export class Users {
     this.api.removeUserContact(u.id, contactUserId).subscribe({
       next: contacts => {
         this.setContactsState(u.id, { contacts, busyUserId: null });
-        this.contactsStatus.set(`Removed ${removed?.name || 'contact'} from circle.`);
+        this.liveStatus.set(`Removed ${removed?.name || 'contact'} from circle.`);
         this.loadAudit();
       },
       error: (err: HttpErrorResponse) => {
@@ -581,89 +1000,20 @@ export class Users {
     });
   }
 
-  /** Two-letter initials for a contact avatar fallback (display name only — no email). */
   contactInitials(c: ChatContactDto): string {
     const parts = (c.name || '').split(/[\s@.]+/).filter(Boolean);
     return ((parts[0]?.[0] ?? '') + (parts[1]?.[0] ?? '')).toUpperCase() || 'U';
   }
 
-  /** First-letter avatar fallback for a managed user (name first, email next, else "?"). Null-safe. */
   userInitial(u: ManagedUser): string {
     return ((u.name || u.email || '?').charAt(0) || '?').toUpperCase();
   }
 
-  /** Whether a managed user's email is currently masked (null) — drives the masked-chip placeholder. */
   isMasked(u: ManagedUser): boolean { return u.email == null; }
 
-  /** A human label for a user in toasts/confirms that never shows null — email if present, else name, else id. */
   private userLabel(u: ManagedUser): string { return u.email || u.name || `user #${u.id}`; }
 
-  hasPerm(u: ManagedUser, key: string): boolean { return u.permissions.includes(key); }
-
-  togglePerm(u: ManagedUser, key: string, checked: boolean): void {
-    u.permissions = checked
-      ? [...new Set([...u.permissions, key])]
-      : u.permissions.filter(p => p !== key);
-  }
-
-  /** Apply a preset to one user's checkboxes as a STARTING POINT (replaces the in-row selection; unsaved). */
-  applyPresetToUser(u: ManagedUser, presetKey: string): void {
-    const preset = this.presets().find(p => p.key === presetKey);
-    if (!preset) return;
-    u.permissions = [...preset.permissions];
-    this.snack.open(`Seeded "${preset.label}" — review and Save`, 'OK', { duration: 3000 });
-  }
-
-  save(u: ManagedUser): void {
-    this.savingId.set(u.id);
-    this.api.updateUser(u.id, { name: u.name, isEnabled: u.isEnabled, permissions: u.permissions }).subscribe({
-      next: updated => {
-        this.savingId.set(null);
-        this.users.update(list => list.map(x => x.id === updated.id ? updated : x));
-        this.loadAudit();
-        this.snack.open(`Saved ${this.userLabel(u)}`, 'OK', { duration: 2500 });
-      },
-      error: (err: HttpErrorResponse) => {
-        this.savingId.set(null);
-        this.snack.open(err.error?.message ?? 'Save failed', 'Dismiss', { duration: 5000 });
-        this.load();
-      },
-    });
-  }
-
-  /**
-   * Force-log a user out of their current session (invalidates their active JWT). Non-destructive: the
-   * account stays enabled and they can sign back in immediately — distinct from Disable, which blocks re-login.
-   */
-  forceLogout(u: ManagedUser): void {
-    this.loggingOutId.set(u.id);
-    this.api.forceLogout(u.id).subscribe({
-      next: () => {
-        this.loggingOutId.set(null);
-        this.loadAudit();
-        this.snack.open(`Signed ${u.name || this.userLabel(u)} out of their sessions.`, 'OK', { duration: 2500 });
-      },
-      error: (err: HttpErrorResponse) => {
-        this.loggingOutId.set(null);
-        this.snack.open(err.error?.message ?? 'Could not sign user out', 'Dismiss', { duration: 5000 });
-      },
-    });
-  }
-
-  remove(u: ManagedUser): void {
-    if (!confirm(`Remove ${this.userLabel(u)}? They will lose access immediately.`)) return;
-    this.api.deleteUser(u.id).subscribe({
-      next: () => {
-        this.users.update(list => list.filter(x => x.id !== u.id));
-        this.selectedIds.update(s => { if (!s.has(u.id)) return s; const n = new Set(s); n.delete(u.id); return n; });
-        this.loadAudit();
-        this.snack.open(`Removed ${this.userLabel(u)}`, 'OK', { duration: 2500 });
-      },
-      error: (err: HttpErrorResponse) => this.snack.open(err.error?.message ?? 'Delete failed', 'Dismiss', { duration: 5000 }),
-    });
-  }
-
-  // ---- Bulk selection + actions (done CLIENT-SIDE via the existing per-user updateUser) ----
+  // ---- Bulk selection + actions (CLIENT-SIDE via the existing per-user updateUser) ----
 
   toggleSelect(id: number, checked: boolean): void {
     this.selectedIds.update(s => {
@@ -673,7 +1023,6 @@ export class Users {
     });
   }
 
-  /** Select / clear all currently-visible (filtered) users. */
   toggleSelectAllVisible(checked: boolean): void {
     const vis = this.filteredUsers().map(u => u.id);
     this.selectedIds.update(s => {
@@ -685,57 +1034,76 @@ export class Users {
 
   clearSelection(): void { this.selectedIds.set(new Set()); }
 
-  /** The selected users (in current list order). */
   private selectedUsers(): ManagedUser[] {
     const sel = this.selectedIds();
     return this.users().filter(u => sel.has(u.id));
   }
 
-  /** Apply a preset to every selected user (seeds + SAVES each, replacing their grants). Confirmed first. */
-  bulkApplyPreset(presetKey: string): void {
-    const preset = this.presets().find(p => p.key === presetKey);
-    const targets = this.selectedUsers();
-    if (!preset || !targets.length) return;
-    if (!confirm(`Apply the "${preset.label}" template to ${targets.length} selected user(s)? `
-      + `This REPLACES each one's permissions with the template (then saves).`)) return;
-    this.runBulk(targets, u => ({ ...this.payload(u), permissions: [...preset.permissions] }),
-      `Applied "${preset.label}" to`);
+  /** A short newline list of the affected users for the named confirm (capped, "+N more"). */
+  private nameList(users: ManagedUser[], cap = 8): string {
+    const names = users.map(u => u.name || this.userLabel(u));
+    if (names.length <= cap) return names.join(', ');
+    return `${names.slice(0, cap).join(', ')} +${names.length - cap} more`;
   }
 
-  /** Grant one permission to every selected user (added to their existing grants; saves each). */
+  /** Apply a role to every selected user (REPLACES + SAVES each). Named confirm. */
+  bulkApplyRole(roleKey: string): void {
+    const role = this.presets().find(p => p.key === roleKey);
+    const targets = this.selectedUsers();
+    if (!role || !targets.length) return;
+    this.confirmBulk(
+      `Apply "${role.label}" to ${targets.length} user(s)?`,
+      [`Replaces each one's permissions with the role, then saves.`, this.nameList(targets)],
+      `Apply role`,
+      this.hasAnyAi(role.permissions),
+      () => this.runBulk(targets, u => ({ ...this.payload(u), permissions: [...role.permissions] }), `Applied "${role.label}" to`),
+    );
+  }
+
   bulkGrant(key: string): void {
     const targets = this.selectedUsers().filter(u => !u.permissions.includes(key));
     const label = this.permByKey().get(key)?.label ?? key;
     if (!targets.length) { this.snack.open(`All selected users already have "${label}"`, 'OK', { duration: 2500 }); return; }
-    this.runBulk(targets, u => ({ ...this.payload(u), permissions: [...new Set([...u.permissions, key])] }),
-      `Granted "${label}" to`);
+    const ai = this.aiKeys().has(key);
+    const run = () => this.runBulk(targets, u => ({ ...this.payload(u), permissions: [...new Set([...u.permissions, key])] }), `Granted "${label}" to`);
+    if (ai) {
+      this.confirmBulk(`Grant token-spending "${label}" to ${targets.length} user(s)?`,
+        ['This is an AI capability that spends tokens.', this.nameList(targets)], `Grant ${label}`, true, run);
+    } else { run(); }
   }
 
-  /** Revoke one permission from every selected user (removed from their grants; saves each). */
   bulkRevoke(key: string): void {
     const targets = this.selectedUsers().filter(u => u.permissions.includes(key));
     const label = this.permByKey().get(key)?.label ?? key;
     if (!targets.length) { this.snack.open(`No selected user has "${label}"`, 'OK', { duration: 2500 }); return; }
-    this.runBulk(targets, u => ({ ...this.payload(u), permissions: u.permissions.filter(k => k !== key) }),
-      `Revoked "${label}" from`);
+    this.runBulk(targets, u => ({ ...this.payload(u), permissions: u.permissions.filter(k => k !== key) }), `Revoked "${label}" from`);
   }
 
-  /** Enable / disable every selected user (saves each). */
   bulkSetEnabled(enabled: boolean): void {
     const targets = this.selectedUsers().filter(u => u.isEnabled !== enabled);
     if (!targets.length) { this.snack.open(`Selected users are already ${enabled ? 'enabled' : 'disabled'}`, 'OK', { duration: 2500 }); return; }
-    this.runBulk(targets, u => ({ ...this.payload(u), isEnabled: enabled }), `${enabled ? 'Enabled' : 'Disabled'}`);
+    const run = () => this.runBulk(targets, u => ({ ...this.payload(u), isEnabled: enabled }), `${enabled ? 'Enabled' : 'Disabled'}`);
+    if (!enabled) {
+      this.confirmBulk(`Disable ${targets.length} user(s)?`,
+        ['They can no longer sign in until re-enabled.', this.nameList(targets)], 'Disable', false, run, /*danger*/ true);
+    } else { run(); }
   }
 
-  /** The base update payload for a user (name + current enabled + current perms). */
+  /** Open a named-button confirm for a bulk action; runs `onConfirm` on accept. */
+  private confirmBulk(title: string, lines: string[], confirmLabel: string, _ai: boolean, onConfirm: () => void, danger = false): void {
+    const ref = this.dialog.open(UsersConfirmDialog, {
+      width: '460px', data: { title, lines, confirmLabel, danger } as ConfirmData,
+    });
+    ref.afterClosed().subscribe(ok => { if (ok) onConfirm(); });
+  }
+
   private payload(u: ManagedUser): { name?: string; isEnabled: boolean; permissions: string[] } {
     return { name: u.name, isEnabled: u.isEnabled, permissions: u.permissions };
   }
 
   /**
-   * Run a bulk mutation over a set of users sequentially via the existing per-user updateUser endpoint
-   * (no new backend endpoint needed). Updates the local rows from each response, tracks progress, and
-   * reports a single summary toast. Failures are counted and surfaced without aborting the rest.
+   * Run a bulk mutation over a set of users sequentially via the existing per-user updateUser endpoint.
+   * Updates the local rows from each response, tracks progress, and reports one summary toast.
    */
   private runBulk(
     targets: ManagedUser[],
@@ -751,10 +1119,9 @@ export class Users {
       if (i >= targets.length) {
         this.bulkRunning.set(false);
         this.loadAudit();
+        if (this.selectedId() != null) this.reconcileSelection();
         const ok = targets.length - failures;
-        const msg = failures
-          ? `${verb} ${ok} user(s); ${failures} failed`
-          : `${verb} ${ok} user(s)`;
+        const msg = failures ? `${verb} ${ok} user(s); ${failures} failed` : `${verb} ${ok} user(s)`;
         this.snack.open(msg, 'OK', { duration: 3500 });
         return;
       }
@@ -771,6 +1138,7 @@ export class Users {
     step(0);
   }
 
+  // ---- Add user ----
   newHasPerm(key: string): boolean { return this.newPerms().has(key); }
 
   toggleNewPerm(key: string, checked: boolean): void {
@@ -779,13 +1147,12 @@ export class Users {
     this.newPerms.set(set);
   }
 
-  /** Seed the new-user picker from a preset (a starting point; the admin then edits before adding). */
-  applyPresetToNew(presetKey: string): void {
-    const preset = this.presets().find(p => p.key === presetKey);
-    if (!preset) return;
-    this.newPerms.set(new Set(preset.permissions));
-    this.addExpanded.set(true);
-    this.snack.open(`Seeded "${preset.label}" — review and Add`, 'OK', { duration: 3000 });
+  applyRoleToNew(roleKey: string): void {
+    const role = this.presets().find(p => p.key === roleKey);
+    if (!role) return;
+    this.newPerms.set(new Set(role.permissions));
+    this.addOpen.set(true);
+    this.snack.open(`Seeded "${role.label}" — review and Add`, 'OK', { duration: 3000 });
   }
 
   addUser(): void {
@@ -799,6 +1166,7 @@ export class Users {
         this.newEmail.set('');
         this.newEnabled.set(true);
         this.newPerms.set(new Set([PERM.dashboardView]));
+        this.addOpen.set(false);
         this.loadAudit();
         this.snack.open(`Added ${u.email}`, 'OK', { duration: 2500 });
       },

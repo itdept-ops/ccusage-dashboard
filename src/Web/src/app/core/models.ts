@@ -461,6 +461,8 @@ export interface ManagedUser {
   picture: string | null;
   isEnabled: boolean;
   permissions: string[];
+  /** The user's chosen landing route, or null for the default first-accessible page. Admin-settable via PATCH /api/users/{id}/home. */
+  homeRoute: string | null;
   createdUtc: string;
   lastLoginUtc: string | null;
 }
