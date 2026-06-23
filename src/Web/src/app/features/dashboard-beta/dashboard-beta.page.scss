@@ -1,0 +1,226 @@
+// ============================================================================
+// Dashboard Beta — "Pulse" design system + shell layout.
+//
+// ISOLATED design system: every token here is declared on :host of app-dashboard-beta so all child
+// cards/sheets inherit them via the cascade. NONE of the global Usage IQ --tech-* tokens are used.
+//
+// The shared bottom-sheet (tracker-beta/ui/bottom-sheet.ts) reads a handful of generic tokens
+// (--glass, --blur-glass, --r-glass, --r-pill, --glass-edge, --ink-faint, --lift-3, --ease-out);
+// those are aliased to the Pulse palette below so the sheet inherits a consistent look.
+//
+// A prefers-reduced-motion killswitch, a prefers-reduced-transparency / prefers-contrast blur-drop,
+// and env() safe-area insets are all honored. content-visibility defers below-fold cards.
+// ============================================================================
+
+:host {
+  // Dark-only (matches the rest of Usage IQ); declaring the scheme renders dark UA chrome.
+  color-scheme: dark;
+
+  // ---- PULSE PALETTE (AXON-mobile observability) ----
+  --pulse-bg: #0a0d16;
+  --pulse-rise: #121826;
+  --pulse-glass: rgba(18, 24, 38, .66);
+  --pulse-edge: rgba(255, 255, 255, .09);
+  --pulse-ink: #eef2fb;
+  --pulse-ink-dim: #93a0bd;
+
+  --cost-a: #f472b6;
+  --cost-b: #c026d3; // cost magenta
+  --tok-a: #3d8bff;
+  --tok-b: #8b7cff;  // tokens blue->violet (harmonized with the AXON chart theme)
+  --cache-hit: #3dd68c;
+  --warn: #f0a35a;   // estimated-pricing chip (warm, never red)
+
+  // ---- RADII ----
+  --r-glass: 26px;
+  --r-card: 20px;
+  --r-pill: 999px;
+
+  // ---- ELEVATION ----
+  --lift-1: 0 2px 8px rgba(4, 6, 20, .35);
+  --lift-2: 0 8px 24px rgba(4, 6, 20, .45), inset 0 1px 0 var(--pulse-edge);
+  --lift-3: 0 16px 48px rgba(4, 6, 20, .55), inset 0 1px 0 var(--pulse-edge);
+
+  // ---- MOTION ----
+  --ease-out: cubic-bezier(.22, 1, .36, 1);
+
+  // ---- BLUR (restricted to the floating surfaces) ----
+  --blur-glass: 18px;
+
+  // ---- TYPE (hero numerals) ----
+  --hero-num-family: "Clash Display", system-ui, sans-serif;
+  --hero-num-size: 44px;
+
+  // ---- Safe-area gutters ----
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --gutter: max(16px, env(safe-area-inset-left, 0px));
+  --gutter-r: max(16px, env(safe-area-inset-right, 0px));
+
+  // ---- Fixed-chrome heights ----
+  --strip-h: 52px;
+
+  // ---- Bottom-sheet alias tokens (the shared sheet reads these generic names) ----
+  --glass: var(--pulse-glass);
+  --glass-edge: var(--pulse-edge);
+  --ink-faint: var(--pulse-ink-dim);
+
+  display: block;
+  position: relative;
+  width: 100%;
+  min-height: 100svh;
+  background: var(--pulse-bg);
+  color: var(--pulse-ink);
+  font-family: "Plus Jakarta Sans", system-ui, sans-serif;
+  font-size: 15px;
+  line-height: 1.4;
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  overscroll-behavior: none;
+}
+
+// ---- a11y: reduced transparency / forced contrast => drop blur, solidify glass ----
+@media (prefers-reduced-transparency: reduce), (prefers-contrast: more) {
+  :host {
+    --blur-glass: 0px;
+    --pulse-glass: var(--pulse-rise);
+    --glass: var(--pulse-rise);
+  }
+}
+
+// ---- MOTION KILLSWITCH: collapse every animation/transition to instant ----
+@media (prefers-reduced-motion: reduce) {
+  :host,
+  :host *,
+  :host *::before,
+  :host *::after {
+    animation-duration: .001ms !important;
+    animation-delay: 0ms !important;
+    transition-duration: .001ms !important;
+    transition-delay: 0ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+// ============================================================================
+// SHELL LAYOUT
+// ============================================================================
+
+// Sticky glass RANGE STRIP — fixed chrome at the top, safe-area aware.
+.pb-strip {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 30;
+  min-height: calc(var(--strip-h) + var(--safe-top));
+  padding-top: var(--safe-top);
+  padding-inline: var(--gutter) var(--gutter-r);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--pulse-glass);
+  backdrop-filter: blur(var(--blur-glass)) saturate(1.4);
+  -webkit-backdrop-filter: blur(var(--blur-glass)) saturate(1.4);
+  border-bottom: 1px solid var(--pulse-edge);
+}
+
+// Range pills — horizontal scroll-snap, hidden scrollbar.
+.pb-pills {
+  flex: 1 1 auto;
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scroll-snap-type: x proximity;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+
+  &::-webkit-scrollbar { display: none; }
+}
+
+.pill {
+  flex: 0 0 auto;
+  scroll-snap-align: start;
+  min-height: 44px;
+  padding: 0 16px;
+  border-radius: var(--r-pill);
+  border: 1px solid var(--pulse-edge);
+  background: var(--pulse-rise);
+  color: var(--pulse-ink-dim);
+  font: inherit;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background 160ms var(--ease-out), color 160ms var(--ease-out), border-color 160ms var(--ease-out);
+}
+.pill--on {
+  background: linear-gradient(120deg, var(--tok-a), var(--tok-b));
+  color: #07101f;
+  font-weight: 600;
+  border-color: transparent;
+}
+
+.pb-filter {
+  flex: 0 0 auto;
+  position: relative;
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  border-radius: var(--r-pill);
+  border: 1px solid var(--pulse-edge);
+  background: var(--pulse-rise);
+  color: var(--pulse-ink);
+  cursor: pointer;
+}
+.pb-filter__badge {
+  position: absolute;
+  top: -3px;
+  right: -3px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  border-radius: var(--r-pill);
+  background: var(--cost-a);
+  color: #0a0d16;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 18px;
+  text-align: center;
+}
+
+// The single vertical scroll region. 100dvh so it tracks the dynamic viewport under the fixed strip.
+.pb-scroll {
+  min-height: 100dvh;
+  overflow-x: hidden;
+  padding-top: calc(var(--strip-h) + var(--safe-top) + 12px);
+  padding-bottom: calc(var(--safe-bottom) + 32px);
+  padding-inline: var(--gutter) var(--gutter-r);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+// Stacked cards — matte rise, --lift-2.
+.pb-card {
+  border-radius: var(--r-card);
+  background: var(--pulse-rise);
+  box-shadow: var(--lift-2);
+  border: 1px solid var(--pulse-edge);
+  padding: 16px;
+}
+
+// Defer below-fold render work (paired with contain-intrinsic-size for CLS~=0).
+.pb-defer {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 320px;
+}
+
+// ---- Own visible focus ring (never outline:none without a replacement) ----
+:host ::ng-deep :focus-visible {
+  outline: 2px solid var(--tok-a);
+  outline-offset: 2px;
+  border-radius: 6px;
+}

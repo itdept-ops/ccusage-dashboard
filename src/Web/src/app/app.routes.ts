@@ -138,6 +138,15 @@ export const routes: Routes = [
     loadChildren: () => import('./features/beta/beta-home.routes').then(m => m.BETA_HOME_ROUTES),
   },
   {
+    // Dashboard "Pulse" — the mobile-first usage-analytics redesign over the SAME summary/records/
+    // cache-efficiency endpoints + DTOs (read-only) as the live /dashboard, so it shows identical numbers
+    // for the same filters. Purely additive; the lazy children file keeps echarts out of the initial bundle
+    // and holds the beta.access guard. Placed before the `beta` hub route so the more-specific
+    // `beta/dashboard` matches first (Angular is first-match). The live /dashboard page is untouched.
+    path: 'beta/dashboard',
+    loadChildren: () => import('./features/dashboard-beta/dashboard-beta.routes').then(m => m.DASHBOARD_BETA_ROUTES),
+  },
+  {
     // Beta hub — a permission-gated index of experimental surfaces. Purely additive: lives in the normal
     // app shell, gated by beta.access; each experiment card inside is further gated by its own feature perm.
     path: 'beta',

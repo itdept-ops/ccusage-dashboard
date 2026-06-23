@@ -122,6 +122,13 @@ export class BetaHubPage {
       // No `perm` → always visible to anyone who can reach the hub (holds beta.access). The page's own
       // widgets self-gate on their domain perms, and the route guard re-checks beta.access on direct nav.
     },
+    {
+      title: 'Dashboard',
+      blurb: 'Your token + cost analytics, glanceable on mobile',
+      route: '/beta/dashboard',
+      icon: 'insights',
+      // No `perm` → the route guard re-checks beta.access; same data as the live dashboard.
+    },
   ];
 
   /** Experiments visible to the current session (cards without a `perm` always show). */
