@@ -138,6 +138,14 @@ export class BetaHubPage {
       // direct nav re-checks both. Mirrors the live family glance — never surfaces cycle/finance data.
       perm: 'family.use',
     },
+    {
+      title: 'Wrapped',
+      blurb: 'Your Hub, the highlight reel',
+      route: '/beta/wrapped',
+      icon: 'auto_awesome',
+      // No `perm` → the route guard re-checks beta.access; the page itself is gated server-side by
+      // tracker.self (the /api/wrapped endpoint), and only ever shows the caller's OWN data.
+    },
   ];
 
   /** Experiments visible to the current session (cards without a `perm` always show). */

@@ -79,7 +79,7 @@ public static class TrophyEndpoints
     /// <see cref="HardChallenge"/> columns (kept fresh by the owner's own challenge-page reads) — cumulative over
     /// the user's most-recent run, with a finisher flag for any completed run.
     /// </summary>
-    private static async Task<TrophyComposer.TrophyInputs> LoadInputsAsync(
+    internal static async Task<TrophyComposer.TrophyInputs> LoadInputsAsync(
         UsageDbContext db, string email, DateOnly today, CancellationToken ct)
     {
         // ---- Tracker simple counts ----

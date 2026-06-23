@@ -4249,6 +4249,68 @@ export interface TrophiesResponse {
   badges: TrophyBadgeDto[];
 }
 
+// ---- Hub Wrapped (/api/wrapped) ----
+// The caller's OWN "year in the Hub" story-card recap over a chosen period (month / year / all-time).
+// Every number is DERIVED server-side by REUSING the existing owner-scoped aggregations (so Wrapped agrees
+// with the rest of the app) — no parallel rollup, no migration. userId + display NAME only — NEVER an email,
+// never a secret. Cards drop when their headline value is 0 (only the parts of the story that happened).
+
+/** One Wrapped story card (mirrors WrappedCard): a stable key, the big headline value, a label, optional sub + accent. */
+export interface WrappedCard {
+  key: string;
+  headline: string;
+  label: string;
+  sub?: string | null;
+  /** Accent hint that maps to a gradient on the frontend ("primary"|"exercise"|"food"|… ). */
+  accent?: string | null;
+}
+
+/** The 75-Hard slice of a Wrapped period (null when the caller has no active challenge). */
+export interface WrappedHardSlice {
+  currentStreak: number;
+  totalPoints: number;
+  weekPoints: number;
+  completedDays: number;
+}
+
+/**
+ * The caller's own Wrapped for a period (mirrors WrappedResponse). `cards` is the display story; the structured
+ * fields below carry the same numbers for the frontend. userId + display NAME only — NEVER an email.
+ */
+export interface WrappedResponse {
+  userId: number;
+  userName: string;
+  period: string;     // "month" | "year" | "all"
+  fromDate: string;   // yyyy-MM-dd
+  toDate: string;     // yyyy-MM-dd
+  generatedUtc: string;
+  cards: WrappedCard[];
+  // ---- structured extras (same numbers as the cards) ----
+  daysTracked: number;
+  workouts: number;
+  workoutMinutes: number;
+  caloriesInTotal: number;
+  caloriesOutTotal: number;
+  proteinAvgG: number;
+  stepsTotal: number;
+  hydrationGoalHits: number;
+  hydrationDays: number;
+  hydrationBestStreak: number;
+  coffeeCups: number;
+  weightDeltaKg: number | null;
+  sleepAvgHours: number | null;
+  hard: WrappedHardSlice | null;
+  trophiesEarned: number;   // lifetime (trophies are cumulative by design)
+  trophiesTotal: number;
+  billsSettled: number;     // lifetime (bills have no settled timestamp)
+  usageCostUsd: number;
+  usageTokens: number;
+  usageRequests: number;
+}
+
+/** The Wrapped period selector value. */
+export type WrappedPeriod = 'month' | 'year' | 'all';
+
 /** Start-a-challenge payload (POST /api/challenge). `startDate` defaults to local today when omitted. */
 export interface StartChallengeRequest {
   startDate?: string | null;

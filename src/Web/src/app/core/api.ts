@@ -23,6 +23,8 @@ import {
   HardChallengeDto, HardSharedPersonDto, StartChallengeRequest, UpsertHardDayRequest, HardDayDto, CheatDaysRequest,
   HardTaskDto, CreateHardTaskRequest, UpdateHardTaskRequest, HardLeaderboardRowDto, HardCoachDto,
   TrophiesResponse,
+  WrappedPeriod,
+  WrappedResponse,
   BillDto, BillItemRequest, BillShareToggleResult, CreateBillRequest, PaymentHandlesDto,
   PublicBillDto, ReceiptBreakdownDto, UpdateBillRequest,
   ProfilePrefs,
@@ -2093,6 +2095,16 @@ export class Api {
   /** The caller's own trophy wall: badges DERIVED from existing tracker/75-Hard/bills data (no email). */
   trophies(): Observable<TrophiesResponse> {
     return this.http.get<TrophiesResponse>(`${this.base}/trophies/`);
+  }
+
+  // ---- Hub Wrapped (/api/wrapped) — the caller's OWN period story, gated by tracker.self ----
+
+  /**
+   * The caller's own Wrapped for a period (month / year / all-time). Every number is DERIVED server-side by
+   * reusing the existing owner-scoped aggregations (so it agrees with the rest of the app) — no email, no secret.
+   */
+  wrapped(period: WrappedPeriod = 'month'): Observable<WrappedResponse> {
+    return this.http.get<WrappedResponse>(`${this.base}/wrapped`, { params: { period } });
   }
 
   // ---- Family Hub F6: Google Calendar (OAuth code flow; the caller's own primary calendar) ----

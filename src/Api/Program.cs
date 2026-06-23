@@ -506,6 +506,7 @@ app.MapInboxEndpoints();
 app.MapTrackerEndpoints();
 app.MapHardChallengeEndpoints();
 app.MapTrophyEndpoints();
+app.MapWrappedEndpoints();
 app.MapFeedEndpoints();
 app.MapRulesEndpoints();
 app.MapAiEndpoints();

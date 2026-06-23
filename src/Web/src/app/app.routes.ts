@@ -184,6 +184,15 @@ export const routes: Routes = [
     loadChildren: () => import('./features/family-beta/family-beta.routes').then(m => m.FAMILY_BETA_ROUTES),
   },
   {
+    // Hub Wrapped — the mobile-first "year in the Hub" highlight-reel of the caller's OWN data over a chosen
+    // period (month / year / all-time), DERIVED server-side by reusing the existing owner-scoped aggregations
+    // (so the numbers agree with the rest of the app). Purely additive + read-only; the lazy children file
+    // keeps it out of the initial bundle and holds the beta.access guard. Placed before the `beta` hub route
+    // so the more-specific `beta/wrapped` matches first (Angular is first-match). No live page is touched.
+    path: 'beta/wrapped',
+    loadChildren: () => import('./features/wrapped-beta/wrapped-beta.routes').then(m => m.WRAPPED_BETA_ROUTES),
+  },
+  {
     // Beta hub — a permission-gated index of experimental surfaces. Purely additive: lives in the normal
     // app shell, gated by beta.access; each experiment card inside is further gated by its own feature perm.
     path: 'beta',
