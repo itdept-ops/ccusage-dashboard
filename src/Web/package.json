@@ -4,7 +4,8 @@
   "scripts": {
     "ng": "ng",
     "start": "ng serve",
-    "build": "ng build",
+    "build": "node scripts/ng-build-ci.mjs",
+    "build:raw": "ng build",
     "watch": "ng build --watch --configuration development",
     "test": "ng test"
   },
