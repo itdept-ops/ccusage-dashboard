@@ -561,13 +561,16 @@ public static class ChatEndpoints
         var distinct = emails.Where(e => !string.IsNullOrEmpty(e)).Distinct(StringComparer.Ordinal).ToArray();
         if (distinct.Length == 0) return new(StringComparer.Ordinal);
 
-        return await db.Users.AsNoTracking()
+        var rows = await db.Users.AsNoTracking()
             .Where(u => distinct.Contains(u.Email))
-            .ToDictionaryAsync(
-                u => u.Email,
-                u => new ChatNotificationService.SenderIdentity(
-                    u.Id, string.IsNullOrEmpty(u.Name) ? "Unknown user" : u.Name, u.Picture),
-                StringComparer.Ordinal, ct);
+            .Select(u => new { u.Email, u.Id, u.Name, u.DisplayNameMode, u.Nickname, u.Picture })
+            .ToListAsync(ct);
+
+        return rows.ToDictionary(
+            u => u.Email,
+            u => new ChatNotificationService.SenderIdentity(
+                u.Id, DisplayName.Format(u.Name, u.DisplayNameMode, u.Nickname), u.Picture),
+            StringComparer.Ordinal);
     }
 
     /// <summary>The fallback identity for an email with no AppUser row: id 0, name "Unknown user", no picture.</summary>
@@ -577,11 +580,11 @@ public static class ChatEndpoints
     {
         var u = await db.Users.AsNoTracking()
             .Where(x => x.Email == email)
-            .Select(x => new { x.Id, x.Name, x.Picture })
+            .Select(x => new { x.Id, x.Name, x.DisplayNameMode, x.Nickname, x.Picture })
             .FirstOrDefaultAsync(ct);
         return u is null
             ? UnknownSender
-            : new ChatNotificationService.SenderIdentity(u.Id, string.IsNullOrEmpty(u.Name) ? "Unknown user" : u.Name, u.Picture);
+            : new ChatNotificationService.SenderIdentity(u.Id, DisplayName.Format(u.Name, u.DisplayNameMode, u.Nickname), u.Picture);
     }
 
     // ===== Chat-AI helpers (catch-up / smart-replies) =====

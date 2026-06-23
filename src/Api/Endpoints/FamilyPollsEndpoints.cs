@@ -438,13 +438,9 @@ public static class FamilyPollsEndpoints
     private static async Task<Dictionary<int, string>> NamesAsync(
         UsageDbContext db, IEnumerable<int> userIds, CancellationToken ct)
     {
-        var ids = userIds.Distinct().ToList();
-        if (ids.Count == 0) return new Dictionary<int, string>();
-        return await db.Users.AsNoTracking()
-            .Where(u => ids.Contains(u.Id))
-            .ToDictionaryAsync(
-                u => u.Id,
-                u => string.IsNullOrEmpty(u.Name) ? "Unknown user" : u.Name, ct);
+        // Centralized: each TARGET user's wire name applies their own DisplayNameMode/Nickname
+        // (presence/chat/family/leaderboard all show the same chosen form). Never an email.
+        return await DisplayName.ResolveNamesByIdAsync(db, userIds, ct);
     }
 
     private static string Name(Dictionary<int, string> names, int userId) =>

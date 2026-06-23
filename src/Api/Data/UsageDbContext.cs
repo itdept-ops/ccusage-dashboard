@@ -179,6 +179,13 @@ public class UsageDbContext(DbContextOptions<UsageDbContext> options) : DbContex
             e.Property(x => x.LocationShareHousehold).HasDefaultValue(false);
             // Calendar event-sharing to the household is OFF by default (privacy: opt-in, like location).
             e.Property(x => x.CalendarShareHousehold).HasDefaultValue(false);
+            // Display-name preference (how the user appears to OTHERS): default FirstInitial ("First L.").
+            e.Property(x => x.DisplayNameMode).HasDefaultValue(DisplayNameMode.FirstInitial);
+            e.Property(x => x.Nickname).HasMaxLength(64);
+            e.Property(x => x.PresenceStatus).HasMaxLength(120);
+            // Appear-offline + auto-context sharing are OFF by default (visible-by-default presence, no auto-context).
+            e.Property(x => x.AppearOffline).HasDefaultValue(false);
+            e.Property(x => x.ShareAutoContext).HasDefaultValue(false);
             e.HasIndex(x => x.Email).IsUnique();
             // One Google account maps to at most one user row (nulls allowed for not-yet-logged-in users).
             e.HasIndex(x => x.GoogleSubject).IsUnique().HasFilter("\"GoogleSubject\" IS NOT NULL");

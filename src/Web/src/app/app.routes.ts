@@ -72,6 +72,14 @@ export const routes: Routes = [
     title: 'Usage IQ · Settings',
   },
   {
+    // "How others see me" — identity + presence prefs. Any authenticated user (no permission gate),
+    // since it only governs how THEY appear to everyone.
+    path: 'profile',
+    canActivate: [authGuard],
+    loadComponent: () => import('./features/profile/profile').then(m => m.Profile),
+    title: 'Usage IQ · Profile',
+  },
+  {
     path: 'reporter',
     canActivate: [anyPermissionGuard(PERM.reporterView, PERM.reporterManage, PERM.reporterSelf)],
     loadComponent: () => import('./features/reporter/reporter').then(m => m.ReporterPage),

@@ -49,7 +49,7 @@ public static class FamilyLocationsEndpoints
                 .Where(m => m.HouseholdId == household.Id)
                 .Join(db.Users.AsNoTracking(), m => m.UserId, u => u.Id, (m, u) => new
                 {
-                    u.Id, u.Email, u.Name, u.LocationShareHousehold,
+                    u.Id, u.Email, u.Name, u.DisplayNameMode, u.Nickname, u.LocationShareHousehold,
                 })
                 .ToListAsync(ct);
 
@@ -86,7 +86,7 @@ public static class FamilyLocationsEndpoints
                     return new FamilyMemberLocationDto
                     {
                         UserId = owner?.Id ?? 0,
-                        Name = string.IsNullOrWhiteSpace(owner?.Name) ? "Unknown user" : owner!.Name,
+                        Name = owner is null ? "Unknown user" : DisplayName.Format(owner.Name, owner.DisplayNameMode, owner.Nickname),
                         IsSelf = owner is not null && owner.Id == caller.Id,
                         Lat = latest.Lat,
                         Lng = latest.Lng,

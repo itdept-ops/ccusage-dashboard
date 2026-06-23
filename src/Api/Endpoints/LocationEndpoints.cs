@@ -176,7 +176,7 @@ public static class LocationEndpoints
             var lowerEmails = recentRows.Select(r => r.UserEmail).Distinct().ToList();
             var usersByEmail = (await db.Users.AsNoTracking()
                     .Where(u => lowerEmails.Contains(u.Email))
-                    .Select(u => new { u.Id, u.Email, u.Name }).ToListAsync(ct))
+                    .Select(u => new { u.Id, u.Email, u.Name, u.DisplayNameMode, u.Nickname }).ToListAsync(ct))
                 .ToDictionary(u => u.Email, StringComparer.OrdinalIgnoreCase);
 
             var result = recentRows
@@ -188,7 +188,7 @@ public static class LocationEndpoints
                     return new AdminUserLocationDto
                     {
                         UserId = u?.Id,
-                        Name = string.IsNullOrWhiteSpace(u?.Name) ? "Unknown user" : u!.Name,
+                        Name = u is null ? "Unknown user" : DisplayName.Format(u.Name, u.DisplayNameMode, u.Nickname),
                         Latest = ToDto(ordered[0]),
                         Recent = ordered.Take(AdminRecentPerUser).Select(ToDto).ToList(),
                     };

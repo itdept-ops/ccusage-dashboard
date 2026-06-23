@@ -47,9 +47,58 @@ public static class AuthEndpoints
                 UserId = u.Id,
                 Email = u.Email,
                 Name = u.Name,
+                Picture = u.Picture,
                 IsEnabled = u.IsEnabled,
                 Permissions = u.Permissions.ToArray(),
                 HomeRoute = u.HomeRoute,
+                DisplayNameMode = DisplayName.ModeToWire(u.DisplayNameMode),
+                Nickname = u.Nickname,
+                AppearOffline = u.AppearOffline,
+                PresenceStatus = u.PresenceStatus,
+                ShareAutoContext = u.ShareAutoContext,
+            });
+        }).RequireAuthorization();
+
+        // Self-service: update the CALLER's OWN display/presence preferences (how THEY appear to everyone,
+        // their appear-offline toggle, their status + auto-context opt-in). Authentication only — never
+        // users.manage; a user can only ever change their own row. Partial: only non-null fields apply.
+        // Nickname/status are sanitized server-side (never an email). Returns the fresh effective values.
+        auth.MapPatch("/profile", async (SetProfileRequest req, CurrentUserAccessor accessor, UsageDbContext db, CancellationToken ct) =>
+        {
+            var caller = await accessor.GetUserAsync(ct);
+            if (caller is null || !caller.IsEnabled)
+                return Results.Json(new { message = "Your account is not provisioned or has been disabled." },
+                    statusCode: StatusCodes.Status403Forbidden);
+
+            var user = await db.Users.FirstOrDefaultAsync(x => x.Id == caller.Id, ct);
+            if (user is null)
+                return Results.Json(new { message = "Your account is not provisioned or has been disabled." },
+                    statusCode: StatusCodes.Status403Forbidden);
+
+            if (req.DisplayNameMode is not null)
+            {
+                if (!DisplayName.TryParseMode(req.DisplayNameMode, out var mode))
+                    return Results.BadRequest(new { message = $"'{req.DisplayNameMode}' is not a valid display-name mode." });
+                user.DisplayNameMode = mode;
+            }
+
+            // Empty string clears; any other value is sanitized (control chars / '@' / length capped).
+            if (req.Nickname is not null)
+                user.Nickname = DisplayName.SanitizeNickname(req.Nickname);
+            if (req.PresenceStatus is not null)
+                user.PresenceStatus = DisplayName.SanitizeStatus(req.PresenceStatus);
+            if (req.AppearOffline is { } off) user.AppearOffline = off;
+            if (req.ShareAutoContext is { } share) user.ShareAutoContext = share;
+
+            await db.SaveChangesAsync(ct);
+
+            return Results.Ok(new
+            {
+                displayNameMode = DisplayName.ModeToWire(user.DisplayNameMode),
+                nickname = user.Nickname,
+                appearOffline = user.AppearOffline,
+                presenceStatus = user.PresenceStatus,
+                shareAutoContext = user.ShareAutoContext,
             });
         }).RequireAuthorization();
 

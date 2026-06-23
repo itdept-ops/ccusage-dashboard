@@ -452,12 +452,12 @@ public sealed class ChatNotificationService(UsageDbContext db, IHubContext<ChatH
 
         var rows = await db.Users.AsNoTracking()
             .Where(u => emails.Contains(u.Email))
-            .Select(u => new { u.Email, u.Id, u.Name })
+            .Select(u => new { u.Email, u.Id, u.Name, u.DisplayNameMode, u.Nickname })
             .ToListAsync(ct);
 
         return rows.ToDictionary(
             x => x.Email,
-            x => new ActorIdentity(x.Id, string.IsNullOrEmpty(x.Name) ? "Unknown user" : x.Name),
+            x => new ActorIdentity(x.Id, DisplayName.Format(x.Name, x.DisplayNameMode, x.Nickname)),
             StringComparer.Ordinal);
     }
 

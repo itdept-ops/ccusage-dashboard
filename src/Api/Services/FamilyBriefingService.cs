@@ -277,7 +277,7 @@ public sealed class FamilyBriefingService(
         await db.SaveChangesAsync(ct);
 
         var sender = new ChatNotificationService.SenderIdentity(
-            owner.Id, string.IsNullOrEmpty(owner.Name) ? "Unknown user" : owner.Name, null);
+            owner.Id, DisplayName.Format(owner.Name, owner.DisplayNameMode, owner.Nickname), null);
         // No mentions; the fan-out broadcasts to the channel group + writes per-member unread.
         await notifier.FanOutMessageAsync(channel, msg, sender, Array.Empty<int>(), ct);
     }

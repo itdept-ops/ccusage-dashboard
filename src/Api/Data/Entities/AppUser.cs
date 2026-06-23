@@ -60,6 +60,42 @@ public class AppUser
     /// </summary>
     public bool CalendarShareHousehold { get; set; }
 
+    /// <summary>
+    /// How the user's name is shown TO OTHER USERS everywhere a name reaches another person (presence,
+    /// chat, family, fleet attribution labels, the 75-Hard leaderboard, etc.). The user controls how
+    /// they appear to everyone — see <see cref="Services.DisplayName"/>. Default
+    /// <see cref="DisplayNameMode.FirstInitial"/> ("First L."). The admin Users table deliberately ignores
+    /// this and shows the real <see cref="Name"/>.
+    /// </summary>
+    public DisplayNameMode DisplayNameMode { get; set; } = DisplayNameMode.FirstInitial;
+
+    /// <summary>
+    /// An optional self-chosen display name, used only when <see cref="DisplayNameMode"/> is
+    /// <see cref="DisplayNameMode.Nickname"/> (and falling back to the formatted real name when blank).
+    /// Sanitized/length-capped on write. Never an email.
+    /// </summary>
+    public string? Nickname { get; set; }
+
+    /// <summary>
+    /// When true, the user is hidden from the online roster, count, and avatar stack that OTHER users see
+    /// (the app still works normally for them; they still see themselves). False by default. Durable, like
+    /// the other self-toggles below.
+    /// </summary>
+    public bool AppearOffline { get; set; }
+
+    /// <summary>
+    /// An optional short, free-text status the user broadcasts on the presence roster (e.g. "heads-down",
+    /// "in a meeting"). Sanitized/length-capped on write. Null/blank means no status shown.
+    /// </summary>
+    public string? PresenceStatus { get; set; }
+
+    /// <summary>
+    /// Per-user OPT-IN to share lightweight auto-derived context (e.g. coarse city / last-seen-derived
+    /// activity) alongside their presence status. False by default — the explicit
+    /// <see cref="PresenceStatus"/> is always shown; this gates the optional auto-context section.
+    /// </summary>
+    public bool ShareAutoContext { get; set; }
+
     public DateTime CreatedUtc { get; set; }
     public DateTime? LastLoginUtc { get; set; }
 

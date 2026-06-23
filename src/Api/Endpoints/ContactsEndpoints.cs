@@ -34,16 +34,18 @@ public static class ContactsEndpoints
         g.MapGet("/directory", async (CurrentUserAccessor me, UsageDbContext db, CancellationToken ct) =>
         {
             var user = (await me.GetUserAsync(ct))!;
-            var people = await db.Users.AsNoTracking()
-                .Where(u => u.IsEnabled && u.Email != user.Email)
-                .OrderBy(u => u.Name == "" ? u.Email : u.Name)
+            var people = (await db.Users.AsNoTracking()
+                    .Where(u => u.IsEnabled && u.Email != user.Email)
+                    .OrderBy(u => u.Name == "" ? u.Email : u.Name)
+                    .Select(u => new { u.Id, u.Name, u.DisplayNameMode, u.Nickname, u.Picture })
+                    .ToListAsync(ct))
                 .Select(u => new ChatContactDto
                 {
                     UserId = u.Id,
-                    Name = string.IsNullOrEmpty(u.Name) ? "Unknown user" : u.Name,
+                    Name = DisplayName.Format(u.Name, u.DisplayNameMode, u.Nickname),
                     Picture = u.Picture,
                 })
-                .ToListAsync(ct);
+                .ToList();
             return Results.Ok(people);
         }).RequirePermission(Permissions.ChatContactsManage);
 
@@ -104,16 +106,18 @@ public static class ContactsEndpoints
     /// The contact is exposed by AppUser id only — the raw email is NEVER put on the wire (email-privacy).</summary>
     private static async Task<List<ChatContactDto>> ContactsForAsync(
         UsageDbContext db, string owner, CancellationToken ct) =>
-        await db.ChatContacts.AsNoTracking()
+        (await db.ChatContacts.AsNoTracking()
             .Where(c => c.OwnerEmail == owner)
             .Join(db.Users.AsNoTracking(), c => c.ContactEmail, u => u.Email, (c, u) => u)
             .Where(u => u.IsEnabled)
             .OrderBy(u => u.Name == "" ? u.Email : u.Name)
+            .Select(u => new { u.Id, u.Name, u.DisplayNameMode, u.Nickname, u.Picture })
+            .ToListAsync(ct))
             .Select(u => new ChatContactDto
             {
                 UserId = u.Id,
-                Name = string.IsNullOrEmpty(u.Name) ? "Unknown user" : u.Name,
+                Name = DisplayName.Format(u.Name, u.DisplayNameMode, u.Nickname),
                 Picture = u.Picture,
             })
-            .ToListAsync(ct);
+            .ToList();
 }

@@ -66,7 +66,7 @@ public static class CycleOverlayEndpoints
             // the projection needs). One pass each, scoped to the subjects.
             var users = await db.Users.AsNoTracking()
                 .Where(u => subjectIds.Contains(u.Id))
-                .Select(u => new { u.Id, u.Email, u.Name })
+                .Select(u => new { u.Id, u.Email, u.Name, u.DisplayNameMode, u.Nickname })
                 .ToListAsync(ct);
             var profiles = (await db.CycleProfiles.AsNoTracking()
                     .Where(p => subjectIds.Contains(p.UserId))
@@ -96,7 +96,7 @@ public static class CycleOverlayEndpoints
 
                 result.Add(new MemberOverlayDto(
                     u.Id,
-                    string.IsNullOrWhiteSpace(u.Name) ? "Unknown user" : u.Name,
+                    DisplayName.Format(u.Name, u.DisplayNameMode, u.Nickname),
                     spans.Select(s => new PhaseSpanDto(s.Kind, s.Start, s.End, true)).ToList()));
             }
 

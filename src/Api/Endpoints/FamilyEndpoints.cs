@@ -190,7 +190,7 @@ public static class FamilyEndpoints
             .Where(m => m.HouseholdId == household.Id)
             .Join(db.Users.AsNoTracking(), m => m.UserId, u => u.Id, (m, u) => new
             {
-                u.Id, u.Name, u.Picture, m.Role,
+                u.Id, u.Name, u.DisplayNameMode, u.Nickname, u.Picture, m.Role,
             })
             // Owner first, then by display name.
             .OrderBy(x => x.Role == "owner" ? 0 : 1)
@@ -199,7 +199,7 @@ public static class FamilyEndpoints
 
         var members = rows.Select(x => new MemberDto(
             x.Id,
-            string.IsNullOrEmpty(x.Name) ? "Unknown user" : x.Name,
+            DisplayName.Format(x.Name, x.DisplayNameMode, x.Nickname),
             x.Picture,
             x.Role,
             x.Id == callerId)).ToList();
@@ -232,13 +232,12 @@ public static class FamilyEndpoints
                 && (u.Permissions.Any(p => p.Permission == Permissions.FamilyUse)
                     || contactEmails.Contains(u.Email)))
             .OrderBy(u => u.Name)
-            .Select(u => new CandidateDto(
-                u.Id,
-                string.IsNullOrEmpty(u.Name) ? "Unknown user" : u.Name,
-                u.Picture))
+            .Select(u => new { u.Id, u.Name, u.DisplayNameMode, u.Nickname, u.Picture })
             .ToListAsync(ct);
 
-        return people;
+        return people
+            .Select(u => new CandidateDto(u.Id, DisplayName.Format(u.Name, u.DisplayNameMode, u.Nickname), u.Picture))
+            .ToList();
     }
 
     private static async Task<bool> IsOwnerAsync(UsageDbContext db, int householdId, int userId, CancellationToken ct) =>

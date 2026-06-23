@@ -235,13 +235,9 @@ public sealed class FamilyTodayService(
     /// <summary>Resolve a set of userIds to display names (email is never read). Missing → "Unknown user".</summary>
     private async Task<Dictionary<int, string>> NamesAsync(IEnumerable<int> userIds, CancellationToken ct)
     {
-        var ids = userIds.Distinct().ToList();
-        if (ids.Count == 0) return new();
-        return await db.Users.AsNoTracking()
-            .Where(u => ids.Contains(u.Id))
-            .ToDictionaryAsync(
-                u => u.Id,
-                u => string.IsNullOrEmpty(u.Name) ? "Unknown user" : u.Name, ct);
+        // Route through the central DisplayName resolver so every Family-Today name (reminder targets,
+        // timer starters) honors each target's DisplayNameMode/Nickname — same as the other migrated helpers.
+        return await DisplayName.ResolveNamesByIdAsync(db, userIds, ct);
     }
 
     private static string Name(Dictionary<int, string> names, int userId) =>

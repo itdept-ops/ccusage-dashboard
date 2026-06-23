@@ -353,9 +353,8 @@ public static class BillEndpoints
                 .Select(i => i.ClaimedByUserId!.Value))
             .Distinct().ToList();
         if (ids.Count == 0) return new Dictionary<int, string>();
-        return await db.Users.AsNoTracking()
-            .Where(u => ids.Contains(u.Id))
-            .ToDictionaryAsync(u => u.Id, u => string.IsNullOrEmpty(u.Name) ? "Unknown user" : u.Name, ct);
+        // Centralized: each TARGET user's wire name applies their own DisplayNameMode/Nickname.
+        return await DisplayName.ResolveNamesByIdAsync(db, ids, ct);
     }
 
     // ===================================================================================

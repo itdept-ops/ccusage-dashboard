@@ -364,6 +364,10 @@ export interface Presence {
    * a city name at most. Populated only after a location fix is recorded; absent on older sessions.
    */
   city?: string | null;
+  /** The user's explicit, opt-in status (e.g. "heads-down"); null/absent when none set. Always safe to show. */
+  status?: string | null;
+  /** Optional lightweight auto-derived context (coarse city), present only when the user opted into sharing it. */
+  autoContext?: string | null;
 }
 
 // ---- Location / GPS (privacy-sensitive: PRIVATE by default, capture is OPT-IN) ----------------------
@@ -451,6 +455,49 @@ export interface AuthSession {
    * {@link AuthService.homeRoute} honours it only while the caller still holds that route's permission.
    */
   homeRoute?: string | null;
+  /**
+   * The caller's OWN display/presence preferences, mirrored into the session from /me (applyMe) so the
+   * shell can react without an extra fetch — e.g. show the "you're hidden" hint when appearOffline is on,
+   * or preview their chosen display name. Absent on a session restored from before these landed; picked
+   * up on the next /me poll. The Profile page is the canonical editor (PATCH /api/auth/profile).
+   */
+  displayNameMode?: DisplayNameMode;
+  nickname?: string | null;
+  appearOffline?: boolean;
+  presenceStatus?: string | null;
+  shareAutoContext?: boolean;
+}
+
+/** How the caller's name is shown to OTHERS. "firstInitial" ("First L.") is the default. */
+export type DisplayNameMode = 'full' | 'firstName' | 'firstInitial' | 'nickname';
+
+/**
+ * The caller's OWN display/presence preferences (GET /me carries these; PATCH /api/auth/profile updates
+ * them — see {@link ApiService.setProfile}). These govern how the caller appears to EVERYONE and their
+ * presence visibility/status — never another user's settings.
+ */
+export interface ProfilePrefs {
+  /** How the caller's name is rendered to others everywhere a name reaches another person. */
+  displayNameMode: DisplayNameMode;
+  /** The caller's chosen nickname (used only when displayNameMode === 'nickname'); null when unset. */
+  nickname: string | null;
+  /** When true, the caller is hidden from the online roster others see (the app still works for them). */
+  appearOffline: boolean;
+  /** The caller's short presence status broadcast on the roster, or null. */
+  presenceStatus: string | null;
+  /** When true, the caller opts in to sharing lightweight auto-derived context alongside presence. */
+  shareAutoContext: boolean;
+}
+
+/** The GET /api/auth/me payload: live identity + permissions + the caller's own profile prefs. */
+export interface MeResponse extends ProfilePrefs {
+  userId: number;
+  email: string;
+  name: string;
+  picture: string | null;
+  permissions: string[];
+  isEnabled: boolean;
+  homeRoute: string | null;
 }
 
 export interface ManagedUser {

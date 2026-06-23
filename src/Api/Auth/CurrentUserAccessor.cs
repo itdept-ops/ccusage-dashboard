@@ -11,7 +11,11 @@ namespace Ccusage.Api.Auth;
 /// </summary>
 public sealed class CurrentUserAccessor(UsageDbContext db, IHttpContextAccessor http)
 {
-    public sealed record CurrentUser(int Id, string Email, string Name, bool IsEnabled, IReadOnlySet<string> Permissions, string? HomeRoute = null);
+    public sealed record CurrentUser(
+        int Id, string Email, string Name, bool IsEnabled, IReadOnlySet<string> Permissions,
+        string? HomeRoute = null, string? Picture = null,
+        DisplayNameMode DisplayNameMode = DisplayNameMode.FirstInitial, string? Nickname = null,
+        bool AppearOffline = false, string? PresenceStatus = null, bool ShareAutoContext = false);
 
     /// <summary>
     /// HttpContext.Items key under which the JWT <c>OnTokenValidated</c> handler stashes the AppUser it
@@ -46,5 +50,6 @@ public sealed class CurrentUserAccessor(UsageDbContext db, IHttpContextAccessor 
     private static CurrentUser Map(AppUser u) => new(
         u.Id, u.Email, u.Name, u.IsEnabled,
         u.Permissions.Select(p => p.Permission).ToHashSet(StringComparer.Ordinal),
-        u.HomeRoute);
+        u.HomeRoute, u.Picture,
+        u.DisplayNameMode, u.Nickname, u.AppearOffline, u.PresenceStatus, u.ShareAutoContext);
 }

@@ -24,6 +24,8 @@ import { NotificationBell } from './features/notifications/notification-bell';
 interface OnlineUser extends Presence {
   initials: string;
   isYou: boolean;
+  /** Derived AWAY state: the caller's own idle flag for their row; for others, a stale-lastSeen threshold. */
+  away: boolean;
 }
 
 /** A quick-link row in the account menu, shown only when the user holds `perm`. */
@@ -71,6 +73,17 @@ export class App {
   readonly status = signal<SyncStatus | null>(null);
   readonly online = signal<Presence[]>([]);
   readonly now = signal(Date.now());
+
+  /**
+   * Client-side IDLE detection. We stamp the last time the user touched the page (pointer/key/scroll, or
+   * the tab becoming visible). If that's older than IDLE_MS the caller is treated as AWAY on the roster.
+   * Others' away is derived purely from how stale their server `lastSeenUtc` is (AWAY_MS) — no client hack.
+   */
+  private static readonly IDLE_MS = 5 * 60_000; // ~5 min of no interaction → self is away
+  private static readonly AWAY_MS = 60_000;     // another user not seen in >60s (their polls are ~20s) → away
+  private readonly lastActivity = signal(Date.now());
+  /** Whether the caller is currently idle (no interaction for ~5 min). Drives their own roster "away" badge. */
+  readonly selfAway = computed(() => this.now() - this.lastActivity() >= App.IDLE_MS);
 
   /** Total user count for the toolbar (null until first loaded / when the caller lacks users.view). */
   readonly userCount = signal<number | null>(null);
@@ -206,12 +219,24 @@ export class App {
    * flag taken straight from the server's `isSelf` (no client-side email comparison). The server
    * orders them, so we preserve that order and just tag the caller.
    */
-  readonly onlineUsers = computed<OnlineUser[]>(() =>
-    this.online().map(u => ({
+  readonly onlineUsers = computed<OnlineUser[]>(() => {
+    const now = this.now();
+    const selfAway = this.selfAway();
+    return this.online().map(u => ({
       ...u,
       initials: App.initialsOf(u.name),
       isYou: u.isSelf,
-    })));
+      // The caller's own away comes from local idle detection; everyone else's from a stale-lastSeen
+      // threshold (the server stamps lastSeenUtc on every authenticated request).
+      away: u.isSelf ? selfAway : (now - new Date(u.lastSeenUtc).getTime() >= App.AWAY_MS),
+    }));
+  });
+
+  /**
+   * Whether the caller has chosen to "appear offline" (mirrored from /me into the session). When true the
+   * roster others see excludes them server-side, so we surface a hint in their own roster that they're hidden.
+   */
+  readonly selfHidden = computed(() => this.auth.session()?.appearOffline === true);
 
   /** How many teammates are online right now. */
   readonly onlineCount = computed(() => this.onlineUsers().length);
@@ -288,6 +313,12 @@ export class App {
         this.currentPath.set(this.router.url.split('?')[0]);
         this.closeMobileNav(); // never leave the drawer open across a route change
       });
+
+    // Lightweight clock tick (~15s) so the relative "active …" labels AND the derived away/idle states
+    // recompute even between data polls. Cheap: it only advances the `now` signal.
+    timer(15000, 15000)
+      .pipe(takeUntilDestroyed())
+      .subscribe(() => this.now.set(Date.now()));
 
     // Poll sync status only when signed in; "now" keeps the relative label fresh.
     timer(0, 15000)
@@ -459,6 +490,30 @@ export class App {
     } else if (active === last || !root.contains(active)) {
       e.preventDefault();
       first.focus();
+    }
+  }
+
+  /**
+   * IDLE tracking: any real interaction (pointer move/down, key, scroll, wheel, touch) refreshes the
+   * activity stamp, so the caller's own roster "away" badge clears the instant they're back. Passive +
+   * lightweight; we only stamp a timestamp (no per-event work).
+   */
+  @HostListener('document:pointerdown')
+  @HostListener('document:pointermove')
+  @HostListener('document:keydown')
+  @HostListener('document:wheel')
+  @HostListener('document:touchstart')
+  @HostListener('document:scroll')
+  onUserActivity(): void {
+    this.lastActivity.set(Date.now());
+  }
+
+  /** Returning to the tab counts as activity (and refreshes "now" so stale-away derivations recompute). */
+  @HostListener('document:visibilitychange')
+  onVisibilityChange(): void {
+    if (document.visibilityState === 'visible') {
+      this.lastActivity.set(Date.now());
+      this.now.set(Date.now());
     }
   }
 

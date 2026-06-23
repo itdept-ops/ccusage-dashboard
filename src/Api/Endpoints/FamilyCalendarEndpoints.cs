@@ -261,14 +261,14 @@ public static class FamilyCalendarEndpoints
             var requested = (req.MemberUserIds ?? Array.Empty<int>()).Distinct().ToHashSet();
             var members = await db.HouseholdMembers.AsNoTracking()
                 .Where(m => m.HouseholdId == household.Id)
-                .Join(db.Users.AsNoTracking(), m => m.UserId, u => u.Id, (m, u) => new { u.Id, u.Name })
+                .Join(db.Users.AsNoTracking(), m => m.UserId, u => u.Id, (m, u) => new { u.Id, u.Name, u.DisplayNameMode, u.Nickname })
                 .Where(x => requested.Count == 0 || requested.Contains(x.Id))
                 .ToListAsync(ct);
 
             // FreeBusyAsync itself SKIPS any member who isn't connected — unconnected members simply
             // don't appear in the result (and their absence never leaks anything about them).
             var busy = await cal.FreeBusyAsync(
-                members.Select(m => (m.Id, string.IsNullOrEmpty(m.Name) ? "Unknown user" : m.Name)), start, end, ct);
+                members.Select(m => (m.Id, DisplayName.Format(m.Name, m.DisplayNameMode, m.Nickname))), start, end, ct);
 
             var dtos = busy.Select(mb => new MemberBusyDto(
                 mb.UserId, mb.Name,
@@ -298,12 +298,12 @@ public static class FamilyCalendarEndpoints
             // own token and SKIPS anyone unconnected). Identity is userId + name (NEVER email).
             var sharers = await db.HouseholdMembers.AsNoTracking()
                 .Where(m => m.HouseholdId == household.Id && m.UserId != caller.Id)
-                .Join(db.Users.AsNoTracking(), m => m.UserId, u => u.Id, (m, u) => new { u.Id, u.Name, u.CalendarShareHousehold })
+                .Join(db.Users.AsNoTracking(), m => m.UserId, u => u.Id, (m, u) => new { u.Id, u.Name, u.DisplayNameMode, u.Nickname, u.CalendarShareHousehold })
                 .Where(x => x.CalendarShareHousehold)
                 .ToListAsync(ct);
 
             var memberEvents = await cal.FamilyEventsAsync(
-                sharers.Select(s => (s.Id, string.IsNullOrEmpty(s.Name) ? "Unknown user" : s.Name)), start, end, ct);
+                sharers.Select(s => (s.Id, DisplayName.Format(s.Name, s.DisplayNameMode, s.Nickname))), start, end, ct);
 
             var dtos = memberEvents.Select(mev => new FamilyMemberEventsDto(
                 mev.UserId, mev.Name,
@@ -536,17 +536,17 @@ public static class FamilyCalendarEndpoints
         var requested = memberUserIds.Distinct().ToHashSet();
         var members = await db.HouseholdMembers.AsNoTracking()
             .Where(m => m.HouseholdId == householdId)
-            .Join(db.Users.AsNoTracking(), m => m.UserId, u => u.Id, (m, u) => new { u.Id, u.Name })
+            .Join(db.Users.AsNoTracking(), m => m.UserId, u => u.Id, (m, u) => new { u.Id, u.Name, u.DisplayNameMode, u.Nickname })
             .Where(x => requested.Count == 0 || requested.Contains(x.Id))
             .ToListAsync(ct);
 
         var busy = await cal.FreeBusyAsync(
-            members.Select(m => (m.Id, string.IsNullOrEmpty(m.Name) ? "Unknown user" : m.Name)), start, end, ct);
+            members.Select(m => (m.Id, DisplayName.Format(m.Name, m.DisplayNameMode, m.Nickname))), start, end, ct);
         var connectedIds = busy.Select(b => b.UserId).ToHashSet();
 
         var considered = members
             .Select(m => new ConsideredMemberDto(
-                m.Id, string.IsNullOrEmpty(m.Name) ? "Unknown user" : m.Name, connectedIds.Contains(m.Id)))
+                m.Id, DisplayName.Format(m.Name, m.DisplayNameMode, m.Nickname), connectedIds.Contains(m.Id)))
             .ToList();
 
         var found = SlotFinder.FindFreeSlots(

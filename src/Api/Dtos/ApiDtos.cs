@@ -532,12 +532,48 @@ public sealed class MeDto
 
     /// <summary>The user's chosen landing route, or null to use the default first-accessible page.</summary>
     public string? HomeRoute { get; set; }
+
+    /// <summary>How the caller's name is shown to OTHERS: "full" | "firstName" | "firstInitial" | "nickname".
+    /// Default "firstInitial". The caller's OWN name fields above remain the real values.</summary>
+    public string DisplayNameMode { get; set; } = "firstInitial";
+
+    /// <summary>The caller's chosen nickname (used when DisplayNameMode is "nickname"). Null when unset.</summary>
+    public string? Nickname { get; set; }
+
+    /// <summary>When true the caller is hidden from the online roster others see (still works for them).</summary>
+    public bool AppearOffline { get; set; }
+
+    /// <summary>The caller's short presence status broadcast on the roster, or null.</summary>
+    public string? PresenceStatus { get; set; }
+
+    /// <summary>When true the caller opts in to sharing lightweight auto-derived context with presence.</summary>
+    public bool ShareAutoContext { get; set; }
 }
 
 /// <summary>Body for <c>PATCH /api/auth/home</c>: the route to land on, or null to clear (use default).</summary>
 public sealed class SetHomeRequest
 {
     public string? Route { get; set; }
+}
+
+/// <summary>
+/// Body for <c>PATCH /api/auth/profile</c>: the caller's OWN display/presence preferences. Every field is
+/// optional — only the non-null ones are applied (partial update), so the SPA can patch a single toggle.
+/// </summary>
+public sealed class SetProfileRequest
+{
+    /// <summary>"full" | "firstName" | "firstInitial" | "nickname" (case-insensitive). Unknown ⇒ 400.</summary>
+    public string? DisplayNameMode { get; set; }
+
+    /// <summary>New nickname (sanitized server-side). Empty string clears it.</summary>
+    public string? Nickname { get; set; }
+
+    public bool? AppearOffline { get; set; }
+
+    /// <summary>New presence status (sanitized server-side). Empty string clears it.</summary>
+    public string? PresenceStatus { get; set; }
+
+    public bool? ShareAutoContext { get; set; }
 }
 
 /// <summary>One teammate currently online (active within the presence window). Carries public identity
@@ -556,6 +592,14 @@ public sealed class PresenceDto
     /// <summary>The user's latest COARSE city, shown ONLY to themselves and (when they share-to-household)
     /// to fellow household members. Null otherwise — precise location is never exposed via presence.</summary>
     public string? City { get; set; }
+
+    /// <summary>The user's explicit, opt-in presence status (e.g. "heads-down"), sanitized at write time.
+    /// Null/blank when they set none. Always safe to show — never an email.</summary>
+    public string? Status { get; set; }
+
+    /// <summary>Optional lightweight auto-derived context (currently the coarse city), present only when the
+    /// user opted in via ShareAutoContext (or for their own row). Null otherwise.</summary>
+    public string? AutoContext { get; set; }
 }
 
 public sealed class UserDto

@@ -470,11 +470,13 @@ public static class HardChallengeEndpoints
         g.MapGet("/shared", async (CurrentUserAccessor me, UsageDbContext db, CancellationToken ct) =>
         {
             var caller = (await me.GetUserAsync(ct))!;
-            var people = await SharingUsersQuery(db, caller)
-                .OrderBy(u => u.Name == "" ? u.Email : u.Name)
+            var people = (await SharingUsersQuery(db, caller)
+                    .OrderBy(u => u.Name == "" ? u.Email : u.Name)
+                    .Select(u => new { u.Id, u.Name, u.DisplayNameMode, u.Nickname, u.Picture })
+                    .ToListAsync(ct))
                 .Select(u => new SharedPersonDto(
-                    u.Id, string.IsNullOrEmpty(u.Name) ? "Unknown user" : u.Name, u.Picture))
-                .ToListAsync(ct);
+                    u.Id, DisplayName.Format(u.Name, u.DisplayNameMode, u.Nickname), u.Picture))
+                .ToList();
             return Results.Ok(people);
         });
 
@@ -488,11 +490,14 @@ public static class HardChallengeEndpoints
 
             // The set of people to rank: the caller + everyone whose tracker they may view (sharing contacts /
             // viewall). Build a lookup of (email → user) so we can compute each one's challenge stats.
-            var others = await SharingUsersQuery(db, caller)
-                .Select(u => new { u.Id, u.Email, u.Name, u.Picture })
-                .ToListAsync(ct);
-            var self = await db.Users.AsNoTracking().Where(u => u.Email == caller.Email)
-                .Select(u => new { u.Id, u.Email, u.Name, u.Picture }).FirstAsync(ct);
+            var others = (await SharingUsersQuery(db, caller)
+                    .Select(u => new { u.Id, u.Email, u.Name, u.DisplayNameMode, u.Nickname, u.Picture })
+                    .ToListAsync(ct))
+                .Select(u => new { u.Id, u.Email, Name = DisplayName.Format(u.Name, u.DisplayNameMode, u.Nickname), u.Picture })
+                .ToList();
+            var selfRow = await db.Users.AsNoTracking().Where(u => u.Email == caller.Email)
+                .Select(u => new { u.Id, u.Email, u.Name, u.DisplayNameMode, u.Nickname, u.Picture }).FirstAsync(ct);
+            var self = new { selfRow.Id, selfRow.Email, Name = DisplayName.Format(selfRow.Name, selfRow.DisplayNameMode, selfRow.Nickname), selfRow.Picture };
 
             var rows = new List<LeaderboardRowDto>();
 
@@ -651,13 +656,13 @@ public static class HardChallengeEndpoints
 
         var owner = await db.Users.AsNoTracking()
             .Where(u => u.Email == email)
-            .Select(u => new { u.Id, u.Name })
+            .Select(u => new { u.Id, u.Name, u.DisplayNameMode, u.Nickname })
             .FirstOrDefaultAsync(ct);
 
         return new ChallengeDto(
             challenge.Id,
             owner?.Id ?? 0,
-            owner is null || string.IsNullOrEmpty(owner.Name) ? "Unknown user" : owner.Name,
+            owner is null ? "Unknown user" : DisplayName.Format(owner.Name, owner.DisplayNameMode, owner.Nickname),
             readOnly,
             challenge.StartDate.ToString("yyyy-MM-dd"),
             challenge.Ruleset.ToString(),

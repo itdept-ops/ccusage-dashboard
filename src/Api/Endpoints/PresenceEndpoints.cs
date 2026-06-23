@@ -20,11 +20,16 @@ public static class PresenceEndpoints
                 var online = presence.Online(PresenceTracker.DefaultWindow);
                 var callerEmail = caller.FindFirstValue("email")?.Trim().ToLowerInvariant();
 
-                // One DB round-trip: resolve the online emails to public identity + the location-share flag.
+                // One DB round-trip: resolve the online emails to public identity + the location-share flag
+                // + the presence prefs (display-name choice, appear-offline, status, auto-context opt-in).
                 var emails = online.Select(e => e.Email).ToArray();
                 var users = await db.Users.AsNoTracking()
                     .Where(u => emails.Contains(u.Email))
-                    .Select(u => new { u.Id, u.Email, u.Name, u.Picture, u.LocationShareHousehold })
+                    .Select(u => new
+                    {
+                        u.Id, u.Email, u.Name, u.DisplayNameMode, u.Nickname, u.Picture,
+                        u.LocationShareHousehold, u.AppearOffline, u.PresenceStatus, u.ShareAutoContext,
+                    })
                     .ToListAsync(ct);
                 var byEmail = users.ToDictionary(u => u.Email, StringComparer.OrdinalIgnoreCase);
 
@@ -49,25 +54,40 @@ public static class PresenceEndpoints
                         var isSelf = callerEmail is not null
                                      && string.Equals(e.Email, callerEmail, StringComparison.OrdinalIgnoreCase);
 
+                        // Appear-offline: a user who opted to hide is excluded from the roster OTHERS see
+                        // (count + avatars + list all derive from this list). They still see themselves, so
+                        // the feature is non-destructive for them.
+                        if (u is { AppearOffline: true } && !isSelf) return null;
+
                         // Show the city to self always; to others only when the user shares-to-household AND
                         // is a member of the caller's household. Otherwise the city is suppressed.
                         var cityVisible = isSelf
                             || (u is not null && u.LocationShareHousehold && householdUserIds.Contains(u.Id));
 
+                        // Auto-context (coarse city) rides along ONLY when the user opted in (or it's self).
+                        var autoContextVisible = isSelf || (u is { ShareAutoContext: true });
+
                         return new PresenceDto
                         {
                             UserId = u?.Id,
-                            // Prefer the user-row name; fall back to the tracker entry's name. Defense in
-                            // depth: the fallback is scrubbed so an email-shaped name claim can't leak an
-                            // address through the "name" field (email-privacy) — real display names are
-                            // unaffected.
-                            Name = string.IsNullOrWhiteSpace(u?.Name) ? ScrubName(e.Name) : u!.Name,
+                            // The wire-facing display name: apply the TARGET user's own preference via the
+                            // central formatter. Fall back to the (scrubbed) tracker entry name when there's
+                            // no AppUser row, so an email-shaped claim can't leak an address (email-privacy).
+                            Name = u is not null
+                                ? DisplayName.Format(u.Name, u.DisplayNameMode, u.Nickname)
+                                : ScrubName(e.Name),
                             Picture = u?.Picture ?? e.Picture,
                             LastSeenUtc = e.LastSeenUtc,
                             IsSelf = isSelf,
                             City = cityVisible ? e.City : null,
+                            // The user's explicit, opt-in status broadcast (sanitized at write time).
+                            Status = u?.PresenceStatus,
+                            // Optional auto-derived context section, gated on the user's opt-in.
+                            AutoContext = autoContextVisible ? e.City : null,
                         };
                     })
+                    .Where(p => p is not null)
+                    .Select(p => p!)
                     .OrderBy(p => p.Name, StringComparer.OrdinalIgnoreCase)
                     .ToList();
 

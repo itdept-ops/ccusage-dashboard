@@ -191,9 +191,12 @@ public static class ShareEndpoints
             return new Dictionary<string, (int, string)>(StringComparer.OrdinalIgnoreCase);
         return (await db.Users.AsNoTracking()
                 .Where(u => lower.Contains(u.Email))
-                .Select(u => new { u.Id, u.Email, u.Name }).ToListAsync(ct))
+                .Select(u => new { u.Id, u.Email, u.Name, u.DisplayNameMode, u.Nickname }).ToListAsync(ct))
             .GroupBy(u => u.Email, StringComparer.OrdinalIgnoreCase)
-            .ToDictionary(g => g.Key, g => (g.First().Id, g.First().Name), StringComparer.OrdinalIgnoreCase);
+            .ToDictionary(
+                g => g.Key,
+                g => (g.First().Id, DisplayName.Format(g.First().Name, g.First().DisplayNameMode, g.First().Nickname)),
+                StringComparer.OrdinalIgnoreCase);
     }
 
     /// <summary>Map a raw creator email to {id, name}: the matching AppUser, else {null, "Unknown user"} for

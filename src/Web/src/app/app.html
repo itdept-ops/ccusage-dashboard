@@ -182,23 +182,47 @@
         <div class="pres-head" role="presentation">
           <span class="pres-head__dot" aria-hidden="true"></span>
           <span class="pres-head__title">Online now</span>
-          <span class="pres-head__count mono-num">{{ onlineCount() }}</span>
+          <span class="pres-head__count mono-num" aria-live="polite"
+                [attr.aria-label]="onlineCount() + ' online'">{{ onlineCount() }}</span>
         </div>
-        <div class="pres-list" role="presentation">
+
+        <!-- The caller chose "appear offline": tell them they're hidden from everyone else's roster. -->
+        @if (selfHidden()) {
+          <div class="pres-hidden" role="note">
+            <mat-icon class="pres-hidden__icon" aria-hidden="true">visibility_off</mat-icon>
+            <span class="pres-hidden__text">You're appearing offline — others don't see you here.
+              <a routerLink="/profile">Change</a>
+            </span>
+          </div>
+        }
+
+        <ul class="pres-list" aria-label="People online">
           @for (u of onlineUsers(); track u.userId ?? u.name + $index) {
-            <div class="pres-item" role="presentation">
-              @if (u.picture) {
-                <img class="pres-item__avatar" [src]="u.picture" alt="" referrerpolicy="no-referrer" />
-              } @else {
-                <span class="pres-item__avatar pres-item__avatar--init">{{ u.initials }}</span>
-              }
+            <li class="pres-item" [class.pres-item--away]="u.away">
+              <span class="pres-item__avatar-wrap">
+                @if (u.picture) {
+                  <img class="pres-item__avatar" [src]="u.picture" alt="" referrerpolicy="no-referrer" />
+                } @else {
+                  <span class="pres-item__avatar pres-item__avatar--init">{{ u.initials }}</span>
+                }
+                <span class="pres-item__presence-dot" [class.away]="u.away" aria-hidden="true"></span>
+              </span>
               <div class="pres-item__id">
                 <div class="pres-item__name">
                   {{ u.name }}
                   @if (u.isYou) { <span class="pres-item__you">you</span> }
+                  @if (u.away) { <span class="pres-item__away-badge">away</span> }
                 </div>
+                @if (u.status) {
+                  <div class="pres-item__status">{{ u.status }}</div>
+                }
                 <div class="pres-item__seen">
                   active {{ timeAgo(u.lastSeenUtc, now()) }}
+                  @if (u.autoContext && !u.city) {
+                    <span class="pres-item__city">
+                      <mat-icon class="pres-item__city-icon" aria-hidden="true">place</mat-icon>{{ u.autoContext }}
+                    </span>
+                  }
                   @if (u.city) {
                     <span class="pres-item__city">
                       <mat-icon class="pres-item__city-icon" aria-hidden="true">place</mat-icon>{{ u.city }}
@@ -206,9 +230,9 @@
                   }
                 </div>
               </div>
-            </div>
+            </li>
           }
-        </div>
+        </ul>
       </mat-menu>
     }
 
@@ -262,6 +286,12 @@
       </div>
 
       <div class="acct-section" role="presentation">
+        <!-- "How others see me": identity + presence prefs. Reachable by ANY authenticated user. -->
+        <a mat-menu-item class="acct-item" routerLink="/profile">
+          <mat-icon class="acct-item__icon" aria-hidden="true">badge</mat-icon>
+          <span class="acct-item__label">How others see me</span>
+        </a>
+
         @for (link of quickLinks(); track link.route) {
           <a mat-menu-item class="acct-item" [routerLink]="link.route">
             <mat-icon class="acct-item__icon" aria-hidden="true">{{ link.icon }}</mat-icon>

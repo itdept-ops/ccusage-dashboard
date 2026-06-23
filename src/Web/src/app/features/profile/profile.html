@@ -1,0 +1,95 @@
+<div class="head">
+  <div>
+    <h2>How others see me</h2>
+    <p class="sub">Control how your name appears to everyone across chat, presence, family, and shared
+      pages — and manage your online visibility and status. These are your own settings; they never
+      change how anyone else appears to you.</p>
+  </div>
+</div>
+
+@if (loading()) { <mat-progress-bar mode="indeterminate" /> }
+
+@if (loadError()) {
+  <mat-card appearance="outlined" class="panel load-error">
+    <mat-icon aria-hidden="true">cloud_off</mat-icon>
+    <p>Couldn't load your profile. Check your connection and try again.</p>
+    <button mat-stroked-button (click)="load()">
+      <mat-icon aria-hidden="true">refresh</mat-icon> Retry
+    </button>
+  </mat-card>
+} @else if (!loading()) {
+  <!-- Display name -->
+  <mat-card appearance="outlined" class="panel">
+    <div class="panel-head"><span class="panel-title">Display name</span></div>
+    <p class="hint">Choose how your name is shortened wherever it reaches another person.</p>
+
+    <!-- Live preview of the chosen rendering. aria-live so a screen reader announces changes. -->
+    <div class="preview" aria-live="polite">
+      <span class="preview__label">Others see you as</span>
+      <span class="preview__value">{{ preview() }}</span>
+    </div>
+
+    <mat-form-field appearance="outline" class="full">
+      <mat-label>Name shown to others</mat-label>
+      <mat-select [ngModel]="mode()" (ngModelChange)="mode.set($event)" aria-label="Display name mode">
+        @for (opt of modeOptions; track opt.value) {
+          <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
+        }
+      </mat-select>
+      <mat-hint>{{ modeHint() }}</mat-hint>
+    </mat-form-field>
+
+    @if (nicknameActive()) {
+      <mat-form-field appearance="outline" class="full">
+        <mat-label>Nickname</mat-label>
+        <input matInput maxlength="64" placeholder="What should people call you?"
+               [ngModel]="nickname()" (ngModelChange)="nickname.set($event)" aria-label="Nickname" />
+        <mat-hint>Up to 64 characters. Leave blank to fall back to "First&nbsp;L.".</mat-hint>
+      </mat-form-field>
+    }
+  </mat-card>
+
+  <!-- Presence / online visibility -->
+  <mat-card appearance="outlined" class="panel">
+    <div class="panel-head"><span class="panel-title">Online presence</span></div>
+    <p class="hint">Manage whether others can see you online and what your status says.</p>
+
+    <div class="toggle-row">
+      <div class="toggle-row__text">
+        <span class="toggle-row__label">Appear offline</span>
+        <span class="toggle-row__sub">Hide yourself from everyone's "online now" list. The app keeps working normally for you.</span>
+      </div>
+      <mat-slide-toggle [ngModel]="appearOffline()" (ngModelChange)="appearOffline.set($event)"
+                        aria-label="Appear offline" />
+    </div>
+
+    @if (appearOffline()) {
+      <div class="callout" role="note">
+        <mat-icon aria-hidden="true">visibility_off</mat-icon>
+        <span>You're hidden — others won't see you in their online roster. You'll still see everyone else.</span>
+      </div>
+    }
+
+    <mat-form-field appearance="outline" class="full">
+      <mat-label>Status</mat-label>
+      <input matInput maxlength="120" placeholder="e.g. heads-down, on a call, away until 3pm"
+             [ngModel]="status()" (ngModelChange)="status.set($event)" aria-label="Status" />
+      <mat-hint>A short note shown next to your name on the roster. Up to 120 characters; leave blank to clear.</mat-hint>
+    </mat-form-field>
+
+    <div class="toggle-row">
+      <div class="toggle-row__text">
+        <span class="toggle-row__label">Share what section I'm on</span>
+        <span class="toggle-row__sub">Let presence include lightweight context (a coarse area) alongside your status. Off by default.</span>
+      </div>
+      <mat-slide-toggle [ngModel]="shareAutoContext()" (ngModelChange)="shareAutoContext.set($event)"
+                        aria-label="Share what section I'm on" />
+    </div>
+  </mat-card>
+
+  <div class="actions">
+    <button mat-flat-button color="primary" [disabled]="saving()" (click)="save()">
+      <mat-icon aria-hidden="true">save</mat-icon> {{ saving() ? 'Saving…' : 'Save profile' }}
+    </button>
+  </div>
+}

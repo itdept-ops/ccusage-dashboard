@@ -1,7 +1,7 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { Observable, tap } from 'rxjs';
-import { AuthSession, PERM } from './models';
+import { AuthSession, MeResponse, ProfilePrefs, PERM } from './models';
 
 const STORAGE_KEY = 'usage_iq_session';
 
@@ -81,13 +81,13 @@ export class AuthService {
     return '/welcome';
   }
 
-  /** Live identity + permissions from the server (403 when the account is disabled/removed). */
-  me(): Observable<{ userId: number; email: string; name: string; permissions: string[]; isEnabled: boolean; homeRoute: string | null }> {
-    return this.http.get<{ userId: number; email: string; name: string; permissions: string[]; isEnabled: boolean; homeRoute: string | null }>('/api/auth/me');
+  /** Live identity + permissions + the caller's own display/presence prefs (403 when disabled/removed). */
+  me(): Observable<MeResponse> {
+    return this.http.get<MeResponse>('/api/auth/me');
   }
 
   /** Merge a fresh /me result into the stored session so the UI reflects permission/identity changes. */
-  applyMe(me: { name: string; permissions: string[]; userId?: number; homeRoute?: string | null }): void {
+  applyMe(me: MeResponse): void {
     const s = this._session();
     if (!s) return;
     const updated: AuthSession = {
@@ -100,6 +100,33 @@ export class AuthService {
       // The login response doesn't carry the home preference, so /me is where it lands. The field is
       // always present on the MeDto (null = no preference), so take it verbatim.
       homeRoute: me.homeRoute ?? null,
+      // Mirror the caller's own display/presence prefs so the shell (and the Profile editor) read them
+      // straight off the session without a second fetch. /me always carries these, so take them verbatim.
+      displayNameMode: me.displayNameMode,
+      nickname: me.nickname ?? null,
+      appearOffline: me.appearOffline,
+      presenceStatus: me.presenceStatus ?? null,
+      shareAutoContext: me.shareAutoContext,
+    };
+    this._session.set(updated);
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(updated)); } catch { /* ignore */ }
+  }
+
+  /**
+   * Merge the caller's own profile/presence prefs into the session after a successful PATCH
+   * /api/auth/profile, so the shell (appear-offline hint, name preview) reflects them immediately —
+   * without waiting for the next /me poll.
+   */
+  applyProfilePrefs(p: ProfilePrefs): void {
+    const s = this._session();
+    if (!s) return;
+    const updated: AuthSession = {
+      ...s,
+      displayNameMode: p.displayNameMode,
+      nickname: p.nickname ?? null,
+      appearOffline: p.appearOffline,
+      presenceStatus: p.presenceStatus ?? null,
+      shareAutoContext: p.shareAutoContext,
     };
     this._session.set(updated);
     try { localStorage.setItem(STORAGE_KEY, JSON.stringify(updated)); } catch { /* ignore */ }

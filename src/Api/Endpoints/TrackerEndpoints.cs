@@ -861,15 +861,17 @@ public static class TrackerEndpoints
                 usersQ = ContactGraph.SharingUsers(db, caller.Email);
             }
 
-            var people = await usersQ
-                .OrderBy(u => u.Name == "" ? u.Email : u.Name)
+            var people = (await usersQ
+                    .OrderBy(u => u.Name == "" ? u.Email : u.Name)
+                    .Select(u => new { u.Id, u.Name, u.DisplayNameMode, u.Nickname, u.Picture })
+                    .ToListAsync(ct))
                 .Select(u => new SharedUserDto
                 {
                     UserId = u.Id,
-                    Name = string.IsNullOrEmpty(u.Name) ? "Unknown user" : u.Name,
+                    Name = DisplayName.Format(u.Name, u.DisplayNameMode, u.Nickname),
                     Picture = u.Picture,
                 })
-                .ToListAsync(ct);
+                .ToList();
             return Results.Ok(people);
         }).RequirePermission(Permissions.TrackerSelf);
 
@@ -1462,14 +1464,14 @@ public static class TrackerEndpoints
         // (email-privacy). db.Users.Email is stored lower-cased.
         var owner = await db.Users.AsNoTracking()
             .Where(u => u.Email == email)
-            .Select(u => new { u.Id, u.Name })
+            .Select(u => new { u.Id, u.Name, u.DisplayNameMode, u.Nickname })
             .FirstOrDefaultAsync(ct);
 
         return new TrackerDayDto
         {
             Date = date.ToString("yyyy-MM-dd"),
             UserId = owner?.Id ?? 0,
-            UserName = owner is null || string.IsNullOrEmpty(owner.Name) ? "Unknown user" : owner.Name,
+            UserName = owner is null ? "Unknown user" : DisplayName.Format(owner.Name, owner.DisplayNameMode, owner.Nickname),
             ReadOnly = readOnly,
             Profile = profileDto,
             Stats = stats,

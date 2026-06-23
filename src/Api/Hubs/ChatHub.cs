@@ -190,10 +190,10 @@ public sealed class ChatHub(IServiceScopeFactory scopeFactory) : Hub
     {
         var u = await db.Users.AsNoTracking()
             .Where(x => x.Email == email)
-            .Select(x => new { x.Id, x.Name, x.Picture })
+            .Select(x => new { x.Id, x.Name, x.DisplayNameMode, x.Nickname, x.Picture })
             .FirstOrDefaultAsync();
         return u is null
             ? new ChatNotificationService.SenderIdentity(0, "Unknown user", null)
-            : new ChatNotificationService.SenderIdentity(u.Id, string.IsNullOrEmpty(u.Name) ? "Unknown user" : u.Name, u.Picture);
+            : new ChatNotificationService.SenderIdentity(u.Id, DisplayName.Format(u.Name, u.DisplayNameMode, u.Nickname), u.Picture);
     }
 }

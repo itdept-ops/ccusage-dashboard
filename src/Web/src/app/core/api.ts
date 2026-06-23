@@ -21,6 +21,7 @@ import {
   HardTaskDto, CreateHardTaskRequest, UpdateHardTaskRequest, HardLeaderboardRowDto, HardCoachDto,
   BillDto, BillItemRequest, BillShareToggleResult, CreateBillRequest, PaymentHandlesDto,
   PublicBillDto, ReceiptBreakdownDto, UpdateBillRequest,
+  ProfilePrefs,
 } from './models';
 
 @Injectable({ providedIn: 'root' })
@@ -673,6 +674,16 @@ export class Api {
    */
   setHomeRoute(route: string | null): Observable<{ homeRoute: string | null }> {
     return this.http.patch<{ homeRoute: string | null }>(`${this.base}/auth/home`, { route });
+  }
+
+  /**
+   * Update the CALLER's own display/presence preferences (PATCH /api/auth/profile). Every field is
+   * optional — send only the ones you're changing. displayNameMode controls how the caller appears to
+   * EVERYONE ("full" | "firstName" | "firstInitial" | "nickname"); nickname/presenceStatus are sanitized
+   * server-side (empty string clears). Returns the fresh effective values.
+   */
+  setProfile(body: Partial<ProfilePrefs>): Observable<ProfilePrefs> {
+    return this.http.patch<ProfilePrefs>(`${this.base}/auth/profile`, body);
   }
 
   // ---- Access policy (open sign-up + default permissions; requires users.manage to edit) ----
