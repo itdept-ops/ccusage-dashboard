@@ -1,0 +1,109 @@
+<div class="ask">
+  <!-- ── Header ── -->
+  <header class="ask__head">
+    <div class="ask__title">
+      <mat-icon aria-hidden="true">auto_awesome</mat-icon>
+      <h1>Ask my life</h1>
+    </div>
+    <p class="ask__sub">
+      Ask anything about your own tracked data — food, fitness, sleep, 75&nbsp;Hard, bills, family, usage.
+      Answers are grounded only in your numbers; nothing is changed.
+    </p>
+  </header>
+
+  <!-- ── Transcript ── -->
+  <div class="ask__feed" role="log" aria-live="polite">
+    @if (turns().length === 0 && !loading()) {
+      <!-- Empty state: suggestions to seed the box -->
+      <div class="ask__empty">
+        <mat-icon class="ask__empty-glyph" aria-hidden="true">forum</mat-icon>
+        <p class="ask__empty-lead">What would you like to know?</p>
+        <div class="ask__chips" role="list" aria-label="Suggested questions">
+          @for (s of suggestions; track s) {
+            <button type="button" class="chip" role="listitem" (click)="askSuggestion(s)" [disabled]="loading()">
+              {{ s }}
+            </button>
+          }
+        </div>
+      </div>
+    }
+
+    @for (turn of turns(); track $index) {
+      <div class="turn">
+        <!-- Question bubble -->
+        <div class="turn__q">
+          <span class="turn__q-text">{{ turn.question }}</span>
+        </div>
+        <!-- Answer bubble -->
+        <div class="turn__a">
+          <mat-icon class="turn__a-glyph" aria-hidden="true">auto_awesome</mat-icon>
+          <div class="turn__a-body">
+            <p class="turn__a-text">{{ turn.answer }}</p>
+            @if (!turn.aiUsed) {
+              <span class="turn__badge" matTooltip="AI answering is off — this is a plain summary of the data you have.">
+                <mat-icon aria-hidden="true">info</mat-icon> Plain summary (AI off)
+              </span>
+            }
+            @if (turn.domains.length > 0) {
+              <div class="turn__domains" aria-label="Data this drew on">
+                @for (d of turn.domains; track d) {
+                  <span class="dchip">{{ domainLabel(d) }}</span>
+                }
+              </div>
+            }
+          </div>
+        </div>
+      </div>
+    }
+
+    @if (loading()) {
+      <div class="turn__a turn__a--loading">
+        <mat-icon class="turn__a-glyph" aria-hidden="true">auto_awesome</mat-icon>
+        <div class="turn__a-body ask__thinking">
+          <mat-spinner [diameter]="18" />
+          <span>Thinking…</span>
+        </div>
+      </div>
+    }
+
+    @if (error()) {
+      <div class="ask__error" role="alert">
+        <mat-icon aria-hidden="true">error_outline</mat-icon>
+        <span>{{ error() }}</span>
+        <button mat-stroked-button type="button" (click)="submit()">Try again</button>
+      </div>
+    }
+
+    <!-- scroll anchor -->
+    <div #anchor></div>
+  </div>
+
+  <!-- ── Composer ── -->
+  <form class="ask__composer" (submit)="$event.preventDefault(); submit()">
+    <textarea
+      class="ask__input"
+      [(ngModel)]="question"
+      name="question"
+      rows="1"
+      placeholder="Ask about your tracked data…"
+      aria-label="Ask a question about your tracked data"
+      maxlength="1000"
+      [disabled]="loading()"
+      (keydown)="onKeydown($event)"></textarea>
+    <button
+      mat-flat-button
+      color="primary"
+      type="submit"
+      class="ask__send"
+      [disabled]="!canSubmit()"
+      aria-label="Ask">
+      @if (loading()) {
+        <mat-spinner [diameter]="20" />
+      } @else {
+        <mat-icon aria-hidden="true">send</mat-icon>
+      }
+    </button>
+  </form>
+
+  <span class="sr-only" aria-live="polite">{{ announce() }}</span>
+</div>

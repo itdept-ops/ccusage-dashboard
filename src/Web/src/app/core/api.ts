@@ -13,6 +13,7 @@ import {
   SavedViewUpsertRequest, SessionDetail, Settings, ShareAccessItem, ShareCreated, ShareListItem, SharedUserDto, SuggestGoalResponse, SuggestWorkoutRequest, SuggestWorkoutResponse, SummaryResponse,
   SyncResult, SyncStatus, TrackerDayDto, TrackerProfileDto, TrackerRecapResult, UpsertActivityRequest, UsageFilter, UsageRecord, UsageStats,
   WatchActivityDto, WeeklyReviewResponse, WeightInsightResponse, WeightPointDto, WeightStatsDto, WhatToEatRequest, WhatToEatResult, WorkoutXSearchResultDto,
+  AskRequest, AskResponse,
   CycleData, CyclePeriod, CycleNote, CycleSettings, CycleSettingsPatch, CycleOverlayMember,
   CycleDayLog, CycleDayLogPatch,
   IdentityMapData, IdentityRole, IdentityRoleInput, IdentityRolePatch, IdentityTimeEntry, IdentityTimeInput,
@@ -984,6 +985,18 @@ export class Api {
       constraints: body.constraints ?? null,
       meal: body.meal ?? null,
     });
+  }
+
+  /**
+   * "Ask my life": a grounded, cross-domain Q&A over the CALLER's OWN tracked data. Sends ONLY the free-text
+   * `question` (treated as DATA) — NO identity. The server assembles a perm-filtered, caller-scoped snapshot
+   * (tracker/sleep/75-Hard/bills/family/usage — only the domains the caller has permission for) and Gemini
+   * answers strictly from it. ALWAYS 200: when AI is off/unavailable it floors to a deterministic plain
+   * summary (`aiUsed:false`) naming the domains it has data for — never a 503. Gated tracker.ai; rate-limited
+   * "ai". A 400 is only returned for an empty question (guarded client-side).
+   */
+  askMyLife(question: string): Observable<AskResponse> {
+    return this.http.post<AskResponse>(`${this.base}/ai/ask`, { question } as AskRequest);
   }
 
   /** Quick verdict + healthier swaps on a free-text meal. */

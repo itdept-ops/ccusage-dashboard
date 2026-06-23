@@ -3227,6 +3227,27 @@ export interface WhatToEatResult {
 }
 
 /**
+ * "Ask my life" request (POST /api/ai/ask): ONLY a free-text question, treated strictly as DATA. Identity is
+ * NEVER sent — the server resolves the caller from the JWT and assembles a perm-filtered, caller-scoped
+ * snapshot of their own data server-side.
+ */
+export interface AskRequest {
+  question: string;
+}
+
+/**
+ * "Ask my life" response: the grounded `answer`, whether the AI produced it (`aiUsed:false` ⇒ the
+ * deterministic plain floor was returned because AI is off/unavailable), and which `domains` the snapshot
+ * drew on (e.g. 'tracker', 'sleep', 'hard75', 'bills', 'family', 'usage') so the UI can hint at coverage.
+ * Carries NO email / secret / other-user data — the endpoint always returns 200.
+ */
+export interface AskResponse {
+  answer: string;
+  aiUsed: boolean;
+  domains: string[];
+}
+
+/**
  * "✨ What should I eat?" request (POST /api/ai/what-to-eat). Everything optional — on open we send an
  * empty body and the server reads the caller's own context. `craving`/`constraints` are a free-text refine
  * ("high protein", "quick", a pasted craving); `meal` is the slot hint carried back into the add-to-tracker

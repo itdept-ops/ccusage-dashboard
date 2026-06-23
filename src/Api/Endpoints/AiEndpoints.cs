@@ -364,6 +364,41 @@ public static class AiEndpoints
             return result is null ? Unavailable() : Results.Ok(result);
         });
 
+        // ---- "ASK MY LIFE": a grounded, cross-domain Q&A over the CALLER's OWN data (ALWAYS 200) ----
+        // Reads ONLY the caller's own numbers, and ONLY from the domains the caller has permission for, into a
+        // compact DATA snapshot assembled server-side; Gemini answers strictly from it (or says it lacks the
+        // data). Answer-only — proposes/writes NOTHING. Like /what-to-eat it NEVER 503s: when AI is off /
+        // unconfigured / errors it floors to a deterministic plain summary of the same snapshot (aiUsed:false),
+        // so a tracker.ai user always gets an answer. Identity comes from the JWT — NEVER the body (only the
+        // question is read from the body, and it is treated strictly as DATA). NO email / secret / other-user /
+        // other-household-private data ever enters the snapshot (each domain is perm-gated below).
+        g.MapPost("/ask", async (
+            AskRequest body, CurrentUserAccessor me, GeminiService gemini, UsageDbContext db,
+            CurrentHouseholdAccessor households, FamilyTodayService familyToday, UsageQueries usage,
+            CancellationToken ct) =>
+        {
+            var question = Snip(body?.Question, 1000);
+            if (question.Length == 0)
+                return Results.BadRequest(new { message = "Ask a question about your tracked data." });
+
+            var caller = (await me.GetUserAsync(ct))!;
+            var (snapshot, domains) = await BuildAskSnapshotAsync(
+                db, households, familyToday, usage, caller, ct);
+
+            // Prefer the grounded AI answer; fall back to a deterministic plain summary so this never 503s.
+            AskMyLifeResult? ai = null;
+            if (gemini.IsConfigured)
+            {
+                try { ai = await gemini.AskMyLifeAsync(snapshot, question, ct); }
+                catch { ai = null; }
+            }
+
+            if (ai is null || string.IsNullOrWhiteSpace(ai.Answer))
+                return Results.Ok(new AskResponse(PlainAskFloor(domains), false, domains));
+
+            return Results.Ok(new AskResponse(ai.Answer, true, domains));
+        });
+
         // ---- A warm, read-only weekly recap of the caller's OWN last 7 local days (cached 6h, ALWAYS 200) ----
         // Unlike the other AI routes, this one is gated by tracker.self (NOT tracker.ai) and ALWAYS returns 200:
         // its deterministic plain floor needs no AI, so a tracker.self user always gets the recap (the warm AI
@@ -647,6 +682,207 @@ public static class AiEndpoints
             || (activity is not null && (activity.Steps is not null || activity.DistanceMeters is not null
                 || activity.ActiveCalories is not null));
         return (sb.ToString(), anythingLogged);
+    }
+
+    // ===================================================================================
+    // "Ask my life" — cross-domain, caller-scoped, perm-filtered snapshot aggregator
+    // ===================================================================================
+
+    /// <summary>The request body for POST /api/ai/ask: ONLY a free-text question (treated as DATA). Identity is
+    /// NEVER taken from the body — it comes from the JWT via the CurrentUserAccessor.</summary>
+    public sealed record AskRequest(string? Question);
+
+    /// <summary>The POST /api/ai/ask response: the grounded <see cref="Answer"/>, whether the AI produced it
+    /// (<see cref="AiUsed"/> false ⇒ the deterministic plain floor was returned), and which DOMAINS the snapshot
+    /// included (so the UI can hint what's covered). Carries NO email / secret / other-user data.</summary>
+    public sealed record AskResponse(string Answer, bool AiUsed, IReadOnlyList<string> Domains);
+
+    /// <summary>
+    /// Assemble the CALLER's cross-domain DATA snapshot for "Ask my life" from ONLY the domains the caller has
+    /// permission for. Every read is keyed by the resolved <paramref name="caller"/> (email for the tracker/
+    /// sleep/75-Hard reads; household membership for family-today) — NOTHING comes from the request body. The
+    /// snapshot is labeled DATA blocks (the model narrates, never recomputes) and NEVER contains an email, a
+    /// secret (webhook/token/key), another user's data, or another household member's private data:
+    /// <list type="bullet">
+    ///   <item>tracker today + 7-day recap + sleep — always (the caller's own; gated by tracker.self, which the
+    ///   tracker.ai group caller effectively holds; still checked);</item>
+    ///   <item>75-Hard — only when the caller has an ACTIVE challenge (else absent);</item>
+    ///   <item>bills — only with <see cref="Permissions.BillsUse"/>; reports the caller's OWN bills only
+    ///   (counts + the caller-owned totals/unclaimed), never another person's bucket/name;</item>
+    ///   <item>family-today — only with <see cref="Permissions.FamilyUse"/>; counts + titles by display name,
+    ///   never an email or another member's private data;</item>
+    ///   <item>token usage — only with <see cref="Permissions.DashboardView"/>; month-to-date cost + tokens.</item>
+    /// </list>
+    /// Returns the snapshot text plus the list of included domain labels (for the response / the plain floor).
+    /// </summary>
+    private static async Task<(string snapshot, IReadOnlyList<string> domains)> BuildAskSnapshotAsync(
+        UsageDbContext db, CurrentHouseholdAccessor households, FamilyTodayService familyToday,
+        UsageQueries usage, CurrentUserAccessor.CurrentUser caller, CancellationToken ct)
+    {
+        var today = await TodayAsync(db, ct);
+        var sb = new System.Text.StringBuilder();
+        var domains = new List<string>();
+
+        // ---- Tracker (the caller's own; gated by tracker.self) ----
+        if (caller.Permissions.Contains(Permissions.TrackerSelf))
+        {
+            var (todaySummary, _) = await BuildLoggedDaySummaryAsync(db, caller.Email, today, ct);
+            sb.Append("TRACKER_TODAY (").Append(today.ToString("yyyy-MM-dd")).Append("):\n");
+            sb.Append(Indent(todaySummary));
+
+            var facts = await ComputeWeekRecapFactsAsync(db, caller.Email, today, ct);
+            sb.Append("TRACKER_WEEK:\n").Append(Indent(TrackerRecapFacts(facts)));
+            domains.Add("tracker");
+
+            // ---- Sleep (OWNER-ONLY; this is the caller's own data, so tracker.self is sufficient) ----
+            var sleep = await BuildSleepSummaryAsync(db, caller.Email, today, ct);
+            if (sleep is not null)
+            {
+                sb.Append("SLEEP:\n").Append(Indent(sleep));
+                domains.Add("sleep");
+            }
+
+            // ---- 75-Hard (only when an active challenge exists) ----
+            var hard = await HardChallengeEndpoints.ComputeWeeklyRecapStatsAsync(
+                db, caller.Email, today.AddDays(-6), today, today, ct);
+            if (hard is not null)
+            {
+                sb.Append("HARD_75:\n")
+                  .Append("  current_streak: ").Append(hard.CurrentStreak).Append('\n')
+                  .Append("  total_points: ").Append(hard.TotalPoints.ToString("0.#", CultureInfo.InvariantCulture)).Append('\n')
+                  .Append("  week_points: ").Append(hard.WeekPoints.ToString("0.#", CultureInfo.InvariantCulture)).Append('\n')
+                  .Append("  full_days_complete_this_week: ").Append(hard.WeekCompletedDays).Append('\n');
+                domains.Add("hard75");
+            }
+        }
+
+        // ---- Bills (caller-OWNED only; bills.use) ----
+        if (caller.Permissions.Contains(Permissions.BillsUse))
+        {
+            var bills = await db.Bills.AsNoTracking()
+                .Where(b => b.OwnerEmail == caller.Email)
+                .Select(b => new
+                {
+                    b.Status, b.TaxAmount, b.TipAmount,
+                    ItemsTotal = b.Items.Sum(i => (decimal?)i.Amount) ?? 0m,
+                    Unclaimed = b.Items.Where(i => i.AssignedToUserId == null && i.ClaimedByUserId == null
+                        && (i.ClaimedByName == null || i.ClaimedByName == "")).Sum(i => (decimal?)i.Amount) ?? 0m,
+                })
+                .ToListAsync(ct);
+            var open = bills.Count(b => b.Status != "settled");
+            var settled = bills.Count(b => b.Status == "settled");
+            var grandTotal = bills.Sum(b => b.ItemsTotal + (b.TaxAmount ?? 0m) + (b.TipAmount ?? 0m));
+            var unclaimed = bills.Sum(b => b.Unclaimed);
+            sb.Append("BILLS (your own):\n")
+              .Append("  open_bills: ").Append(open).Append('\n')
+              .Append("  settled_bills: ").Append(settled).Append('\n')
+              .Append("  your_bills_total_usd: ").Append(grandTotal.ToString("0.00", CultureInfo.InvariantCulture)).Append('\n')
+              .Append("  unclaimed_usd: ").Append(unclaimed.ToString("0.00", CultureInfo.InvariantCulture)).Append('\n');
+            domains.Add("bills");
+        }
+
+        // ---- Family today (family.use; counts + titles by display name, never email/private data) ----
+        if (caller.Permissions.Contains(Permissions.FamilyUse))
+        {
+            var household = await households.GetForCallerAsync(caller, ct);
+            if (household is not null)
+            {
+                var t = await familyToday.BuildAsync(household, caller, null, ct);
+                sb.Append("FAMILY_TODAY:\n");
+                sb.Append("  events: ").Append(t.Events.Count).Append('\n');
+                foreach (var e in t.Events.Take(10))
+                    sb.Append("  - ").Append(string.IsNullOrEmpty(e.LocalTime) ? "" : e.LocalTime + " ")
+                      .Append(Snip(e.Title, 80)).Append('\n');
+                sb.Append("  reminders_today: ").Append(t.Reminders.Count).Append('\n');
+                sb.Append("  active_timers: ").Append(t.Timers.Count).Append('\n');
+                if (t.Lists.Count > 0)
+                {
+                    sb.Append("  open_lists:\n");
+                    foreach (var l in t.Lists.Take(12))
+                        sb.Append("  - ").Append(Snip(l.Name, 60)).Append(" (").Append(l.OpenCount).Append(" open)\n");
+                }
+                sb.Append("  pinned_notes: ").Append(t.PinnedNotes.Count).Append('\n');
+                domains.Add("family");
+            }
+        }
+
+        // ---- Token usage (dashboard.view; month-to-date cost + tokens — org-level usage the caller may view) ----
+        if (caller.Permissions.Contains(Permissions.DashboardView))
+        {
+            var monthStart = new DateOnly(today.Year, today.Month, 1);
+            var filter = new UsageFilterQuery(monthStart, today, null, null, null, null);
+            var summary = await usage.SummaryAsync(filter, "month", ct);
+            sb.Append("USAGE_THIS_MONTH:\n")
+              .Append("  total_cost_usd: ").Append(summary.Total.CostUsd.ToString("0.00", CultureInfo.InvariantCulture)).Append('\n')
+              .Append("  total_tokens: ").Append(summary.Total.TotalTokens).Append('\n');
+            domains.Add("usage");
+        }
+
+        return (sb.ToString(), domains);
+    }
+
+    /// <summary>Indent a multi-line DATA block two spaces so nested sections read clearly in the snapshot.</summary>
+    private static string Indent(string block)
+    {
+        var sb = new System.Text.StringBuilder();
+        foreach (var line in block.Split('\n'))
+        {
+            if (line.Length == 0) continue;
+            sb.Append("  ").Append(line).Append('\n');
+        }
+        return sb.ToString();
+    }
+
+    /// <summary>
+    /// The caller's OWN sleep summary for "Ask my life": last-night hours/quality + the rolling 7-day averages,
+    /// mirroring the owner-only read in TrackerEndpoints (caller-only; NEVER another user's). Returns null when
+    /// the caller has logged no sleep in the window (the section is then simply absent from the snapshot).
+    /// </summary>
+    private static async Task<string?> BuildSleepSummaryAsync(
+        UsageDbContext db, string email, DateOnly date, CancellationToken ct)
+    {
+        var windowFrom = date.AddDays(-6);
+        var window = await db.SleepEntries.AsNoTracking()
+            .Where(s => s.UserEmail == email && s.LocalDate >= windowFrom && s.LocalDate <= date)
+            .Select(s => new { s.LocalDate, s.Hours, s.Quality })
+            .ToListAsync(ct);
+        if (window.Count == 0) return null;
+
+        var sb = new System.Text.StringBuilder();
+        var lastNight = window.Where(s => s.LocalDate == date).ToList();
+        if (lastNight.Count > 0)
+        {
+            sb.Append("last_night_hours: ")
+              .Append(Math.Round(lastNight.Average(s => (double)s.Hours), 1)).Append('\n');
+            sb.Append("last_night_quality: ")
+              .Append(Math.Round(lastNight.Average(s => (double)s.Quality), 1)).Append('\n');
+        }
+        sb.Append("avg_hours_7d: ").Append(Math.Round(window.Average(s => (double)s.Hours), 1)).Append('\n');
+        sb.Append("avg_quality_7d: ").Append(Math.Round(window.Average(s => (double)s.Quality), 1)).Append('\n');
+        return sb.ToString();
+    }
+
+    /// <summary>The GUARANTEED deterministic floor for "Ask my life" when AI is off/unconfigured/errors: it does
+    /// NOT answer the free-text question (no AI to ground it) but honestly states which of the caller's domains
+    /// have data ready, so the endpoint NEVER 503s. NEVER leaks anything (it only names the included domains).</summary>
+    private static string PlainAskFloor(IReadOnlyList<string> domains)
+    {
+        if (domains.Count == 0)
+            return "AI is off and I don't see any tracked data to summarize yet. Log some food, sleep, or other "
+                 + "activity and I'll be able to answer questions about it.";
+        var labels = domains.Select(d => d switch
+        {
+            "tracker" => "your food & fitness tracker",
+            "sleep" => "your sleep",
+            "hard75" => "your 75-Hard challenge",
+            "bills" => "your bills",
+            "family" => "your family hub",
+            "usage" => "your token usage",
+            _ => d,
+        }).ToList();
+        return "AI answering is off right now, but I have your latest data ready for "
+             + string.Join(", ", labels)
+             + ". Turn on tracker AI to ask questions in plain language.";
     }
 
     // ===================================================================================

@@ -295,6 +295,7 @@ export class App implements AfterViewInit {
     { route: '/reporter', label: 'Reporter', perms: [PERM.reporterView, PERM.reporterManage, PERM.reporterSelf] },
     { route: '/fleet', label: 'Fleet', perms: [PERM.fleetView, PERM.reporterManage] },
     { route: '/tracker', label: 'Tracker', perms: [PERM.trackerSelf] },
+    { route: '/ask', label: 'Ask my life', perms: [PERM.trackerAi] },
     { route: '/tracker-beta', label: 'Tracker Beta', perms: [PERM.trackerBeta] },
     { route: '/challenge', label: '75 Hard', perms: [PERM.trackerSelf] },
     { route: '/trophies', label: 'Trophies', perms: [PERM.trackerSelf] },

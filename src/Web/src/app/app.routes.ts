@@ -113,6 +113,16 @@ export const routes: Routes = [
     title: 'Usage IQ · Tracker',
   },
   {
+    // "Ask my life" — grounded, cross-domain Q&A over the caller's OWN tracked data (read-only; the page
+    // proposes/writes nothing). Gated by tracker.ai (the OFF-by-default text-AI permission), matching the
+    // POST /api/ai/ask route guard. The endpoint always returns 200 (it floors to a plain summary when AI
+    // is off), so the page degrades gracefully. Purely additive.
+    path: 'ask',
+    canActivate: [permissionGuard(PERM.trackerAi)],
+    loadComponent: () => import('./features/ask/ask').then(m => m.Ask),
+    title: 'Usage IQ · Ask my life',
+  },
+  {
     // Activity feed — the social circle feed (reverse-chron, day-grouped). DISTINCT from the admin audit
     // page at /activity (the RequestLog trail). Gated by the SAME tracker permission (tracker.self) the
     // backend feed endpoint reuses; the per-user share/view opt-ins (default OFF) further gate what shows.
