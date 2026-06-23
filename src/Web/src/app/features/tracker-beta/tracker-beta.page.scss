@@ -12,6 +12,10 @@
 // ============================================================================
 
 :host {
+  // Dark-only (matches the rest of Usage IQ). Declaring the scheme makes the browser render dark UA
+  // chrome (scrollbars, form controls, tap highlights) and stops a light-mode device from flipping the
+  // page to light. A real opt-in light theme is a separate, app-wide feature.
+  color-scheme: dark;
   // ---- DARK (default) ----
   --bg-base: #0d0e16;
   --bg-rise: #15172a;
@@ -98,24 +102,8 @@
   }
 }
 
-// ---- LIGHT (prefers-color-scheme: light). Accents identical; pass contrast on both floors. ----
-@media (prefers-color-scheme: light) {
-  :host {
-    --bg-base: #eef0f8;
-    --bg-rise: #ffffff;
-    --bg-sink: #e3e6f2;
-    --glass: rgba(255, 255, 255, .66);
-    --glass-edge: rgba(255, 255, 255, .85);
-    --hairline: rgba(20, 24, 54, .08);
-    --ink: #171a2e;
-    --ink-dim: #565b80;
-    --ink-faint: #8b8fb0;
-    --lift-1: 0 2px 8px rgba(20, 24, 54, .10);
-    --lift-2: 0 8px 24px rgba(20, 24, 54, .12), inset 0 1px 0 var(--glass-edge);
-    --lift-3: 0 16px 48px rgba(20, 24, 54, .16), inset 0 1px 0 var(--glass-edge);
-    --press: inset 0 2px 8px rgba(20, 24, 54, .14);
-  }
-}
+// Dark-only by design — no prefers-color-scheme:light override (it was flipping the whole page to
+// light on light-mode phones). A proper opt-in light theme is a separate app-wide feature.
 
 // ---- a11y: reduced transparency / forced contrast => drop blur, solidify glass ----
 @media (prefers-reduced-transparency: reduce), (prefers-contrast: more) {

@@ -290,21 +290,33 @@ export class TrackerBetaPage {
   // ── day navigation ──
   protected shift(days: number): void {
     if (days > 0 && this.isToday()) return;
-    this.withTransition(() => void this.store.shiftDate(days));
+    this.withTransition(() => this.store.shiftDate(days));
   }
 
   protected today(): void {
-    this.withTransition(() => void this.store.goToday());
+    this.withTransition(() => this.store.goToday());
   }
 
-  /** Run a day change inside a feature-detected, reduced-motion-gated View-Transitions slide. */
-  private withTransition(mutate: () => void): void {
-    const doc = document as Document & { startViewTransition?: (cb: () => void) => unknown };
+  /**
+   * Run a day change, optionally inside a View-Transitions slide. The mutate is ASYNC (it fetches the
+   * new day), so we RETURN its promise into startViewTransition — otherwise the transition captured the
+   * stale DOM and could freeze the snapshot on mobile, which looked like "the day won't change". The
+   * change is guaranteed to run regardless: reduced-motion / no-VT calls it directly, and a thrown VT
+   * still runs it in the catch.
+   */
+  private withTransition(mutate: () => void | Promise<void>): void {
+    const doc = document as Document & {
+      startViewTransition?: (cb: () => void | Promise<void>) => unknown;
+    };
     if (this.reduceMotion || typeof doc.startViewTransition !== 'function') {
-      mutate();
+      void Promise.resolve(mutate());
       return;
     }
-    doc.startViewTransition(() => mutate());
+    try {
+      doc.startViewTransition(() => mutate());
+    } catch {
+      void Promise.resolve(mutate());
+    }
   }
 
   // ── quick rail ──
