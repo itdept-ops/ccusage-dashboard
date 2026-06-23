@@ -1,0 +1,54 @@
+@if (visible()) {
+  <!-- Scrim: click anywhere outside the panel closes the palette. -->
+  <div class="cmdp" role="presentation" (click)="onScrimClick()">
+    <!-- Panel: a centered modal. stopPropagation so clicks inside don't bubble to the scrim. -->
+    <div class="cmdp__panel glass" role="dialog" aria-modal="true" aria-label="Command palette"
+         (click)="$event.stopPropagation()">
+
+      <!-- Search row -->
+      <div class="cmdp__search">
+        <mat-icon class="cmdp__search-icon" aria-hidden="true">search</mat-icon>
+        <input #search type="text" class="cmdp__input" [value]="query()"
+               (input)="onQueryInput($any($event.target).value)"
+               placeholder="Search pages and actions…"
+               role="combobox" aria-expanded="true" aria-controls="cmdp-list"
+               [attr.aria-activedescendant]="hasResults() ? 'cmdp-opt-' + activeIndex() : null"
+               aria-label="Search pages and actions"
+               autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" />
+        <kbd class="cmdp__esc" aria-hidden="true">esc</kbd>
+      </div>
+
+      <!-- Results -->
+      <div class="cmdp__results" id="cmdp-list" role="listbox" aria-label="Commands">
+        @if (hasResults()) {
+          @for (group of groups(); track group.name; let gi = $index) {
+            <div class="cmdp__group-head" role="presentation">{{ group.name }}</div>
+            @for (cmd of group.items; track cmd.id; let li = $index) {
+              @let idx = globalIndex(gi, li);
+              <button type="button" class="cmdp__row" [attr.data-index]="idx" [id]="'cmdp-opt-' + idx"
+                      role="option" [attr.aria-selected]="idx === activeIndex()"
+                      [class.cmdp__row--active]="idx === activeIndex()"
+                      (mouseenter)="activeIndex.set(idx)" (click)="runAt(idx)">
+                <mat-icon class="cmdp__row-icon" aria-hidden="true">{{ cmd.icon }}</mat-icon>
+                <span class="cmdp__row-label">{{ cmd.label }}</span>
+                <span class="cmdp__row-group" aria-hidden="true">{{ cmd.group }}</span>
+              </button>
+            }
+          }
+        } @else {
+          <div class="cmdp__empty" role="status">
+            <mat-icon class="cmdp__empty-icon" aria-hidden="true">search_off</mat-icon>
+            <span>No commands match “{{ query() }}”.</span>
+          </div>
+        }
+      </div>
+
+      <!-- Footer hints -->
+      <div class="cmdp__footer" role="presentation">
+        <span class="cmdp__hint"><kbd>↑</kbd><kbd>↓</kbd> navigate</span>
+        <span class="cmdp__hint"><kbd>↵</kbd> open</span>
+        <span class="cmdp__hint"><kbd>esc</kbd> close</span>
+      </div>
+    </div>
+  </div>
+}

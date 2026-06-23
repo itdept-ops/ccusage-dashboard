@@ -1,0 +1,194 @@
+:host {
+  display: contents;
+}
+
+/* Scrim: a full-viewport modal backdrop above the toolbar (z-50) and CDK menus (~1000). */
+.cmdp {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 12vh 16px 16px;
+  background: var(--tech-glass-scrim);
+  backdrop-filter: blur(2px);
+  animation: cmdp-scrim var(--tech-t-panel) var(--tech-ease);
+}
+
+/* Panel: centered modal card. `.glass` (from styles.scss) layers the chrome blur + inset highlight. */
+.cmdp__panel {
+  width: min(640px, 100%);
+  max-height: min(70vh, 560px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--tech-glass-popover);
+  border: 1px solid var(--tech-border-strong);
+  border-radius: var(--tech-radius);
+  box-shadow: var(--tech-shadow-popover);
+  color: var(--tech-text);
+  font-family: var(--tech-font-ui);
+  animation: cmdp-pop var(--tech-t-panel) var(--tech-ease);
+}
+
+/* Search row */
+.cmdp__search {
+  display: flex;
+  align-items: center;
+  gap: var(--tech-space-3);
+  padding: var(--tech-space-3) var(--tech-space-4);
+  border-bottom: 1px solid var(--tech-border);
+}
+
+.cmdp__search-icon {
+  flex: none;
+  color: var(--tech-text-secondary);
+}
+
+.cmdp__input {
+  flex: 1 1 auto;
+  min-width: 0;
+  background: transparent;
+  border: 0;
+  outline: none;
+  color: var(--tech-text);
+  font-family: var(--tech-font-ui);
+  font-size: 1.05rem;
+  line-height: 1.4;
+
+  &::placeholder { color: var(--tech-text-tertiary); }
+}
+
+.cmdp__esc {
+  flex: none;
+  font-family: var(--tech-font-mono);
+  font-size: 0.7rem;
+  color: var(--tech-text-tertiary);
+  background: var(--tech-input);
+  border: 1px solid var(--tech-border);
+  border-radius: 6px;
+  padding: 2px 6px;
+}
+
+/* Results list */
+.cmdp__results {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  padding: var(--tech-space-2);
+  scrollbar-width: thin;
+  scrollbar-color: var(--tech-border-strong) transparent;
+}
+
+.cmdp__group-head {
+  padding: var(--tech-space-3) var(--tech-space-3) var(--tech-space-1);
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--tech-text-tertiary);
+}
+
+.cmdp__row {
+  display: flex;
+  align-items: center;
+  gap: var(--tech-space-3);
+  width: 100%;
+  padding: var(--tech-space-2) var(--tech-space-3);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--tech-r-control);
+  color: var(--tech-text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color var(--tech-t-panel) var(--tech-ease),
+              border-color var(--tech-t-panel) var(--tech-ease);
+
+  &--active {
+    background: var(--tech-panel-raised);
+    border-color: var(--tech-border-strong);
+    box-shadow: var(--tech-glow);
+  }
+}
+
+.cmdp__row-icon {
+  flex: none;
+  color: var(--tech-accent);
+}
+
+.cmdp__row-label {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cmdp__row-group {
+  flex: none;
+  font-size: 0.7rem;
+  color: var(--tech-text-tertiary);
+}
+
+.cmdp__empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--tech-space-2);
+  padding: var(--tech-space-8) var(--tech-space-4);
+  color: var(--tech-text-secondary);
+  text-align: center;
+
+  &-icon { color: var(--tech-text-tertiary); }
+}
+
+/* Footer hints */
+.cmdp__footer {
+  display: flex;
+  gap: var(--tech-space-4);
+  padding: var(--tech-space-2) var(--tech-space-4);
+  border-top: 1px solid var(--tech-border);
+  color: var(--tech-text-tertiary);
+  font-size: 0.72rem;
+}
+
+.cmdp__hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+
+  kbd {
+    font-family: var(--tech-font-mono);
+    font-size: 0.66rem;
+    color: var(--tech-text-secondary);
+    background: var(--tech-input);
+    border: 1px solid var(--tech-border);
+    border-radius: 5px;
+    padding: 1px 5px;
+  }
+}
+
+/* Phones: dock the panel near the top and let it use the full width. */
+@media (max-width: 600px) {
+  .cmdp { padding: 8vh 10px 10px; }
+  .cmdp__panel { max-height: 80vh; }
+  .cmdp__row-group { display: none; }
+}
+
+@keyframes cmdp-scrim {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes cmdp-pop {
+  from { opacity: 0; transform: translateY(-8px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* Respect reduced-motion: no entrance animation, no row transitions. */
+@media (prefers-reduced-motion: reduce) {
+  .cmdp,
+  .cmdp__panel { animation: none; }
+  .cmdp__row { transition: none; }
+}

@@ -253,6 +253,14 @@
     @if (auth.hasPermission('chat.read')) {
       <app-notification-bell />
     }
+
+    <!-- Command palette trigger: opens the global search/commands overlay (⌘K / Ctrl-K, or "/").
+         A single icon so it survives the mobile nav-burger collapse and stays reachable on phones. -->
+    <button mat-icon-button type="button" class="cmdp-trigger" (click)="palette.show()"
+            matTooltip="Search & commands ( ⌘K )" matTooltipClass="axon-tip"
+            aria-label="Open command palette" aria-keyshortcuts="Meta+K Control+K">
+      <mat-icon>search</mat-icon>
+    </button>
   }
 
   <a mat-icon-button class="gh" href="https://github.com/itdept-ops/usage-iq" target="_blank" rel="noopener"
@@ -458,3 +466,7 @@
     <mat-icon aria-hidden="true">bolt</mat-icon>
   </button>
 }
+
+<!-- Global command palette overlay: mounted once for the whole shell. Renders nothing unless opened AND
+     the caller is authenticated (it's inert on the bare/public chrome). Driven by CommandPaletteService. -->
+<app-command-palette />

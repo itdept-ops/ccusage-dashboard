@@ -1,4 +1,4 @@
-import { Component, computed, effect, ElementRef, HostListener, inject, signal } from '@angular/core';
+import { AfterViewInit, Component, computed, effect, ElementRef, HostListener, inject, signal, viewChild } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { RouterOutlet, RouterLink, RouterLinkActive, Router, NavigationEnd } from '@angular/router';
 import { timer, switchMap, catchError, of, filter } from 'rxjs';
@@ -11,9 +11,11 @@ import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatDialog } from '@angular/material/dialog';
 
 import { QuickAddDialog } from './features/family/quick-add-dialog';
+import { CommandPalette } from './features/command-palette/command-palette';
 
 import { Api } from './core/api';
 import { AuthService } from './core/auth';
+import { CommandPaletteService } from './core/command-palette';
 import { ChatRealtime } from './core/chat-realtime';
 import { LocationCapture } from './core/location-capture';
 import { Presence, SyncStatus, PERM, QuickAddResult } from './core/models';
@@ -49,12 +51,12 @@ interface HomeOption {
   imports: [
     RouterOutlet, RouterLink, RouterLinkActive,
     MatToolbarModule, MatButtonModule, MatIconModule, MatTooltipModule, MatMenuModule,
-    NotificationBell,
+    NotificationBell, CommandPalette,
   ],
   templateUrl: './app.html',
   styleUrl: './app.scss',
 })
-export class App {
+export class App implements AfterViewInit {
   private api = inject(Api);
   private router = inject(Router);
   readonly auth = inject(AuthService);
@@ -63,6 +65,10 @@ export class App {
   private snack = inject(MatSnackBar);
   private dialog = inject(MatDialog);
   private host = inject(ElementRef<HTMLElement>);
+  readonly palette = inject(CommandPaletteService);
+
+  /** The mounted palette overlay, so the shell can wire its Quick-Add / Sign-out action handlers once. */
+  private readonly commandPalette = viewChild(CommandPalette);
 
   /** Whether the quick-add dialog is currently open (so the shortcut + FAB don't stack copies). */
   private quickAddOpen = false;
@@ -401,6 +407,37 @@ export class App {
         this.onForcedLogout();
       }
     });
+  }
+
+  /**
+   * Wire the palette's two shell-owned actions (Quick-Add + Sign out) once the overlay is mounted. The
+   * palette stays decoupled from `App` — it just invokes these thin callbacks — so the only coupling is
+   * these two assignments. Navigation commands are self-contained in the palette (it has Router).
+   */
+  ngAfterViewInit(): void {
+    const p = this.commandPalette();
+    if (!p) return;
+    p.setQuickAddHandler(() => this.openQuickAdd());
+    p.setLogoutHandler(() => this.logout());
+  }
+
+  /**
+   * Global command-palette opener: ⌘K / Ctrl-K anywhere, OR a bare "/" when NOT typing in a field. We
+   * reuse {@link App.isTypingTarget} (the same guard the bare-"q" Quick-Add handler uses) so "/" stays a
+   * normal character in inputs and never collides with that convention. ⌘K/Ctrl-K is preventDefault'd so
+   * the browser doesn't hijack it for the address bar. No-op on the bare/public chrome or while the mobile
+   * drawer is open. The palette itself owns Escape/Arrow/Enter once it's visible (see CommandPalette).
+   */
+  @HostListener('document:keydown', ['$event'])
+  onPaletteKeydown(e: KeyboardEvent): void {
+    if (!this.auth.isAuthenticated() || this.bareLayout() || this.mobileNavOpen()) return;
+
+    const cmdk = (e.metaKey || e.ctrlKey) && !e.altKey && !e.shiftKey && (e.key === 'k' || e.key === 'K');
+    const slash = e.key === '/' && !e.ctrlKey && !e.metaKey && !e.altKey && !App.isTypingTarget(e.target);
+    if (!cmdk && !slash) return;
+
+    e.preventDefault();
+    this.palette.toggle();
   }
 
   /**
