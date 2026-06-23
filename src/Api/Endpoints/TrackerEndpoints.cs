@@ -332,7 +332,7 @@ public static class TrackerEndpoints
 
         // ---- Log an exercise (OWN only; MET-estimate calories when omitted) ----
         g.MapPost("/exercise", async (
-            AddExerciseRequest req, CurrentUserAccessor me, UsageDbContext db, CancellationToken ct) =>
+            AddExerciseRequest req, CurrentUserAccessor me, UsageDbContext db, ActivityEmitter activity, CancellationToken ct) =>
         {
             var caller = (await me.GetUserAsync(ct))!;
 
@@ -385,6 +385,10 @@ public static class TrackerEndpoints
             var isManual = source.Length == 0 && req.ExerciseId is null;
             if (isManual || source == "custom")
                 await UpsertCustomExerciseAsync(db, caller.Email, entry, bumpOnly: source == "custom", ct);
+
+            // Activity feed (fire-and-forget; no-op unless the caller opted to share): a logged workout.
+            // Non-sensitive payload only — the snapshotted exercise NAME + optional duration; NO calories.
+            _ = activity.EmitAsync(caller.Email, ActivityEmitter.Kinds.WorkoutLogged, entry.DurationMin, entry.Name);
 
             return Results.Ok(ToExerciseDto(entry));
         }).RequirePermission(Permissions.TrackerSelf);
@@ -647,7 +651,7 @@ public static class TrackerEndpoints
 
         // ---- Log a drink onto a day (OWN only; many drinks per day, no upsert) ----
         g.MapPost("/hydration", async (
-            AddHydrationRequest req, CurrentUserAccessor me, UsageDbContext db, CancellationToken ct) =>
+            AddHydrationRequest req, CurrentUserAccessor me, UsageDbContext db, ActivityEmitter activity, CancellationToken ct) =>
         {
             var caller = (await me.GetUserAsync(ct))!;
 
@@ -656,9 +660,25 @@ public static class TrackerEndpoints
             if (!(req.AmountMl >= 1 && req.AmountMl <= 5000))
                 return Results.BadRequest(new { message = "Amount must be between 1 and 5000 ml." });
 
+            // Day total BEFORE this drink, to detect the goal CROSSING (emit only on the first drink that
+            // reaches the goal — never on every drink once over).
+            var priorMl = await db.HydrationEntries.AsNoTracking()
+                .Where(h => h.UserEmail == caller.Email && h.LocalDate == localDate)
+                .SumAsync(h => h.AmountMl, ct);
+
             var entry = BuildHydrationEntry(caller.Email, localDate, req.AmountMl, req.Label);
             db.HydrationEntries.Add(entry);
             await db.SaveChangesAsync(ct);
+
+            // Activity feed (fire-and-forget; no-op unless sharing): emit ONLY on the crossing into the goal.
+            // Non-sensitive: just the boolean fact — no amounts on the wire.
+            var goalMl = await db.TrackerProfiles.AsNoTracking()
+                .Where(p => p.UserEmail == caller.Email)
+                .Select(p => p.HydrationGoalMl)
+                .FirstOrDefaultAsync(ct) ?? DefaultHydrationGoalMl;
+            if (goalMl > 0 && priorMl < goalMl && priorMl + req.AmountMl >= goalMl)
+                _ = activity.EmitAsync(caller.Email, ActivityEmitter.Kinds.HydrationGoalHit);
+
             return Results.Ok(ToHydrationDto(entry));
         }).RequirePermission(Permissions.TrackerSelf);
 

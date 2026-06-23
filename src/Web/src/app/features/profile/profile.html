@@ -87,6 +87,33 @@
     </div>
   </mat-card>
 
+  <!-- Activity feed (the social circle feed). Both opt-ins default OFF. -->
+  <mat-card appearance="outlined" class="panel">
+    <div class="panel-head"><span class="panel-title">Activity feed</span></div>
+    <p class="hint">A circle feed of non-sensitive milestones — workouts logged, 75-Hard days completed,
+      water goals hit. Nothing about your health detail, amounts, notes, or location is ever shared.</p>
+
+    <div class="toggle-row">
+      <div class="toggle-row__text">
+        <span class="toggle-row__label">Share my activity</span>
+        <span class="toggle-row__sub">Let the people in your circle see when you log a workout, complete a
+          75-Hard day, or hit your water goal. Off by default — turn this on to appear in their feed.</span>
+      </div>
+      <mat-slide-toggle [ngModel]="shareActivity()" (ngModelChange)="shareActivity.set($event)"
+                        aria-label="Share my activity" />
+    </div>
+
+    <div class="toggle-row">
+      <div class="toggle-row__text">
+        <span class="toggle-row__label">Show me my circle's feed</span>
+        <span class="toggle-row__sub">See activity from the people you're connected with (who've also
+          turned sharing on). When off, your feed shows only your own activity.</span>
+      </div>
+      <mat-slide-toggle [ngModel]="viewActivityFeed()" (ngModelChange)="viewActivityFeed.set($event)"
+                        aria-label="Show me my circle's feed" />
+    </div>
+  </mat-card>
+
   <div class="actions">
     <button mat-flat-button color="primary" [disabled]="saving()" (click)="save()">
       <mat-icon aria-hidden="true">save</mat-icon> {{ saving() ? 'Saving…' : 'Save profile' }}

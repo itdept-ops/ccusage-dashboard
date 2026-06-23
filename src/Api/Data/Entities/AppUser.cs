@@ -96,6 +96,21 @@ public class AppUser
     /// </summary>
     public bool ShareAutoContext { get; set; }
 
+    /// <summary>
+    /// Per-user OPT-IN to SHARE the user's activity to the social feed (the event spine). False by default:
+    /// even with the <c>tracker.self</c> permission, NO action becomes an <see cref="ActivityEvent"/> until
+    /// the user flips this on (PATCH /api/auth/profile). The emitter reads this once and NO-OPS when false,
+    /// so a private action never becomes an event. This is the real privacy control for the feed.
+    /// </summary>
+    public bool ShareActivity { get; set; }
+
+    /// <summary>
+    /// Per-user OPT-IN to VIEW the social feed (the circle activity feed). False by default. The feed read
+    /// is ALSO circle-scoped (you only ever see your own events + a sharing contact's events), so this is a
+    /// secondary gate the user controls; when false the feed returns only the user's OWN events.
+    /// </summary>
+    public bool ViewActivityFeed { get; set; }
+
     public DateTime CreatedUtc { get; set; }
     public DateTime? LastLoginUtc { get; set; }
 

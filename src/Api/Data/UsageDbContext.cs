@@ -77,6 +77,7 @@ public class UsageDbContext(DbContextOptions<UsageDbContext> options) : DbContex
     public DbSet<HardChallengeDay> HardChallengeDays => Set<HardChallengeDay>();
     public DbSet<HardChallengeTask> HardChallengeTasks => Set<HardChallengeTask>();
     public DbSet<HardChallengeDayTask> HardChallengeDayTasks => Set<HardChallengeDayTask>();
+    public DbSet<ActivityEvent> ActivityEvents => Set<ActivityEvent>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -186,6 +187,9 @@ public class UsageDbContext(DbContextOptions<UsageDbContext> options) : DbContex
             // Appear-offline + auto-context sharing are OFF by default (visible-by-default presence, no auto-context).
             e.Property(x => x.AppearOffline).HasDefaultValue(false);
             e.Property(x => x.ShareAutoContext).HasDefaultValue(false);
+            // Activity-feed share + view opt-ins are OFF by default (privacy: opt-in to share AND to view).
+            e.Property(x => x.ShareActivity).HasDefaultValue(false);
+            e.Property(x => x.ViewActivityFeed).HasDefaultValue(false);
             e.HasIndex(x => x.Email).IsUnique();
             // One Google account maps to at most one user row (nulls allowed for not-yet-logged-in users).
             e.HasIndex(x => x.GoogleSubject).IsUnique().HasFilter("\"GoogleSubject\" IS NOT NULL");
@@ -990,6 +994,19 @@ public class UsageDbContext(DbContextOptions<UsageDbContext> options) : DbContex
             // Cascade with the owning task (and thus the challenge).
             e.HasOne(x => x.Task).WithMany()
                 .HasForeignKey(x => x.TaskId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        b.Entity<ActivityEvent>(e =>
+        {
+            e.Property(x => x.ActorEmail).HasMaxLength(256);
+            e.Property(x => x.Kind).HasMaxLength(64);
+            e.Property(x => x.Label).HasMaxLength(128);
+            e.Property(x => x.CreatedUtc).HasColumnType("timestamp with time zone");
+            // The feed pages newest-first across the viewer's circle (actor set + Id < before keyset); the
+            // ActorEmail prefix also serves "this actor's events" and the own-events branch.
+            e.HasIndex(x => new { x.ActorEmail, x.Id }).IsDescending(false, true);
+            // Cross-actor keyset paging is ordered by Id desc.
+            e.HasIndex(x => x.Id).IsDescending();
         });
     }
 }

@@ -56,6 +56,8 @@ public static class AuthEndpoints
                 AppearOffline = u.AppearOffline,
                 PresenceStatus = u.PresenceStatus,
                 ShareAutoContext = u.ShareAutoContext,
+                ShareActivity = u.ShareActivity,
+                ViewActivityFeed = u.ViewActivityFeed,
             });
         }).RequireAuthorization();
 
@@ -89,6 +91,8 @@ public static class AuthEndpoints
                 user.PresenceStatus = DisplayName.SanitizeStatus(req.PresenceStatus);
             if (req.AppearOffline is { } off) user.AppearOffline = off;
             if (req.ShareAutoContext is { } share) user.ShareAutoContext = share;
+            if (req.ShareActivity is { } shareAct) user.ShareActivity = shareAct;
+            if (req.ViewActivityFeed is { } viewFeed) user.ViewActivityFeed = viewFeed;
 
             await db.SaveChangesAsync(ct);
 
@@ -99,6 +103,8 @@ public static class AuthEndpoints
                 appearOffline = user.AppearOffline,
                 presenceStatus = user.PresenceStatus,
                 shareAutoContext = user.ShareAutoContext,
+                shareActivity = user.ShareActivity,
+                viewActivityFeed = user.ViewActivityFeed,
             });
         }).RequireAuthorization();
 

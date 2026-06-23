@@ -22,6 +22,7 @@ import {
   BillDto, BillItemRequest, BillShareToggleResult, CreateBillRequest, PaymentHandlesDto,
   PublicBillDto, ReceiptBreakdownDto, UpdateBillRequest,
   ProfilePrefs,
+  FeedPage,
 } from './models';
 
 @Injectable({ providedIn: 'root' })
@@ -694,6 +695,20 @@ export class Api {
    */
   setProfile(body: Partial<ProfilePrefs>): Observable<ProfilePrefs> {
     return this.http.patch<ProfilePrefs>(`${this.base}/auth/profile`, body);
+  }
+
+  /**
+   * The caller's circle ACTIVITY FEED (GET /api/feed) — the social feed, DISTINCT from the admin audit
+   * page at /activity (GET /api/logs). Newest-first, keyset paged: pass `before` = the oldest id already
+   * loaded to fetch the next (older) page; `limit` caps the page (1..100). The response carries a
+   * `nextBefore` cursor (null when there are no more). Actors are an id + DisplayName-formatted name —
+   * never an email. Audience + opt-in gating are enforced server-side.
+   */
+  feed(opts: { before?: number; limit?: number } = {}): Observable<FeedPage> {
+    let p = new HttpParams();
+    if (opts.before != null) p = p.set('before', opts.before);
+    if (opts.limit != null) p = p.set('limit', opts.limit);
+    return this.http.get<FeedPage>(`${this.base}/feed`, { params: p });
   }
 
   // ---- Access policy (open sign-up + default permissions; requires users.manage to edit) ----

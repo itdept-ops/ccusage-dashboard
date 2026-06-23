@@ -1,0 +1,80 @@
+<header class="head">
+  <span class="head-eyebrow mono-num">~/feed</span>
+  <h2>Activity</h2>
+  <p class="sub">What's happening in your circle — workouts, challenge milestones, and goals hit by the
+    people you're connected with. Only people who've turned activity sharing on appear here.</p>
+</header>
+
+@if (loading()) {
+  <!-- Loading -->
+  <div class="state" role="status" aria-live="polite">
+    <mat-progress-spinner mode="indeterminate" diameter="36" />
+    <p>Loading your feed…</p>
+  </div>
+} @else if (error()) {
+  <!-- Load error -->
+  <div class="state state--error" role="alert">
+    <mat-icon aria-hidden="true">cloud_off</mat-icon>
+    <p>We couldn't load your feed just now.</p>
+    <button mat-stroked-button type="button" (click)="load()">
+      <mat-icon aria-hidden="true">refresh</mat-icon> Try again
+    </button>
+  </div>
+} @else if (isEmpty()) {
+  <!-- Empty -->
+  <div class="state state--empty">
+    <mat-icon aria-hidden="true">bolt</mat-icon>
+    @if (viewsCircle()) {
+      <p>No activity yet. As you and the people in your circle log workouts, complete challenge days, or
+        hit goals, they'll show up here.</p>
+    } @else {
+      <p>You're only seeing your own activity. Turn on <strong>Show me my circle's feed</strong> in your
+        profile to see what the people you're connected with are up to.</p>
+      <a mat-stroked-button routerLink="/profile">
+        <mat-icon aria-hidden="true">tune</mat-icon> Profile settings
+      </a>
+    }
+  </div>
+} @else {
+  <!-- The feed: reverse-chron, grouped by day -->
+  <div class="feed" role="feed" aria-label="Activity feed">
+    @for (group of groups(); track trackGroup($index, group)) {
+      <section class="day">
+        <h3 class="day__head">{{ group.label }}</h3>
+        <ul class="rows">
+          @for (item of group.items; track trackItem($index, item)) {
+            <li class="row" role="article">
+              <span class="avatar-wrap" aria-hidden="true">
+                <span class="avatar avatar--init">{{ item.initials }}</span>
+                <span class="kind-badge"><mat-icon>{{ item.icon }}</mat-icon></span>
+              </span>
+              <div class="row__body">
+                <p class="row__text">
+                  <span class="row__name">{{ item.actorName }}</span>
+                  <span class="row__verb">{{ item.verb }}</span>
+                </p>
+                <time class="row__time" [attr.datetime]="item.createdUtc">{{ timeAgo(item.createdUtc) }}</time>
+              </div>
+            </li>
+          }
+        </ul>
+      </section>
+    }
+  </div>
+
+  <!-- Paged load-more -->
+  @if (hasMore()) {
+    <div class="more">
+      @if (moreError()) {
+        <p class="more__error" role="alert">Couldn't load more.</p>
+      }
+      <button mat-stroked-button type="button" [disabled]="loadingMore()" (click)="loadMore()">
+        @if (loadingMore()) {
+          <span class="more__btn"><mat-progress-spinner mode="indeterminate" diameter="18" /> Loading…</span>
+        } @else {
+          <span class="more__btn"><mat-icon aria-hidden="true">expand_more</mat-icon> Load more</span>
+        }
+      </button>
+    </div>
+  }
+}

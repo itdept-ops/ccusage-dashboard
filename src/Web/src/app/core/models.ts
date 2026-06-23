@@ -404,6 +404,42 @@ export interface PersonDto {
   sharesLocation: boolean;
 }
 
+// ---- Activity feed (the social circle feed; GET /api/feed) ------------------------------------------
+// The READ side of the activity spine. Distinct from the admin audit page (/activity, GET /api/logs).
+// Privacy: an actor is identified by an AppUser id + a DisplayName-formatted name — the raw email is
+// NEVER on the wire. Payloads carry only the non-sensitive int/label the emitter stored (a duration, a
+// day number, an exercise name) — never raw private content, amounts, coordinates, or health detail.
+
+/** The event kinds the emitter can produce. Unknown kinds render with a generic verb (forward-compatible). */
+export type ActivityKind =
+  | 'workout.logged'
+  | 'challenge.dayComplete'
+  | 'challenge.started'
+  | 'hydration.goalHit';
+
+/** One feed row (mirrors FeedEndpoints.FeedItemDto). The actor is an id + display name — never an email. */
+export interface FeedItem {
+  id: number;
+  /** The actor's AppUser id (the dedup/identity key; pass to a profile/DM deep-link). */
+  actorUserId: number;
+  /** DisplayName-formatted name (never raw name, never email). */
+  actorName: string;
+  /** The event kind — see {@link ActivityKind}; treat unknown values as a generic activity. */
+  kind: string;
+  /** A non-sensitive count: workout duration (min) or 75-Hard day number; null for kinds that carry none. */
+  intValue: number | null;
+  /** A non-sensitive label (e.g. the exercise name); null for kinds that carry none. */
+  label: string | null;
+  /** ISO-8601 UTC timestamp the event was recorded. */
+  createdUtc: string;
+}
+
+/** A page of feed items + the keyset cursor for the next (older) page; nextBefore is null at the end. */
+export interface FeedPage {
+  items: FeedItem[];
+  nextBefore: number | null;
+}
+
 // ---- Location / GPS (privacy-sensitive: PRIVATE by default, capture is OPT-IN) ----------------------
 // Mirrors the API's LocationDtos.cs. The precise lat/lng is only ever returned to the SHARER (their own
 // history, GET /api/location/me) or to an admin holding location.view-all (GET /api/location/admin);
@@ -500,6 +536,10 @@ export interface AuthSession {
   appearOffline?: boolean;
   presenceStatus?: string | null;
   shareAutoContext?: boolean;
+  /** OPT-IN to SHARE activity (default OFF); mirrored from /me so the Profile editor reads it without a fetch. */
+  shareActivity?: boolean;
+  /** OPT-IN to VIEW the circle feed (default OFF); mirrored from /me. */
+  viewActivityFeed?: boolean;
 }
 
 /** How the caller's name is shown to OTHERS. "firstInitial" ("First L.") is the default. */
@@ -521,6 +561,18 @@ export interface ProfilePrefs {
   presenceStatus: string | null;
   /** When true, the caller opts in to sharing lightweight auto-derived context alongside presence. */
   shareAutoContext: boolean;
+  /**
+   * OPT-IN to SHARE (default OFF): when true, the caller's own non-sensitive actions (logged a workout,
+   * 75-Hard day complete, hit the water goal) become activity events visible to their circle. The real
+   * privacy control — the emitter no-ops when this is off, so nothing about the user is ever emitted.
+   */
+  shareActivity: boolean;
+  /**
+   * OPT-IN to VIEW (default OFF): when true, the activity feed shows the caller's circle (contacts who
+   * are also sharing); when off, the feed returns ONLY the caller's own events. A user always sees their
+   * own events regardless of this flag.
+   */
+  viewActivityFeed: boolean;
 }
 
 /** The GET /api/auth/me payload: live identity + permissions + the caller's own profile prefs. */

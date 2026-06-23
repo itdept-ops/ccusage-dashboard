@@ -52,6 +52,11 @@ export class Profile {
   readonly appearOffline = signal<boolean>(false);
   readonly status = signal<string>('');
   readonly shareAutoContext = signal<boolean>(false);
+  // Activity-feed opt-ins (both default OFF). shareActivity is the real privacy control — the emitter
+  // no-ops when it's off, so nothing about you is ever shared. viewActivityFeed gates whether your feed
+  // shows your circle (vs only your own events).
+  readonly shareActivity = signal<boolean>(false);
+  readonly viewActivityFeed = signal<boolean>(false);
 
   /** The caller's real (full) name, from the session — the formatter's input; never edited here. */
   readonly fullName = computed(() => this.auth.session()?.name?.trim() || this.auth.session()?.email || '');
@@ -99,6 +104,8 @@ export class Profile {
             appearOffline: s.appearOffline ?? false,
             presenceStatus: s.presenceStatus ?? null,
             shareAutoContext: s.shareAutoContext ?? false,
+            shareActivity: s.shareActivity ?? false,
+            viewActivityFeed: s.viewActivityFeed ?? false,
           });
           this.loading.set(false);
         } else {
@@ -115,6 +122,8 @@ export class Profile {
     this.appearOffline.set(p.appearOffline);
     this.status.set(p.presenceStatus ?? '');
     this.shareAutoContext.set(p.shareAutoContext);
+    this.shareActivity.set(p.shareActivity);
+    this.viewActivityFeed.set(p.viewActivityFeed);
   }
 
   save(): void {
@@ -126,6 +135,8 @@ export class Profile {
       appearOffline: this.appearOffline(),
       presenceStatus: this.status().trim(),
       shareAutoContext: this.shareAutoContext(),
+      shareActivity: this.shareActivity(),
+      viewActivityFeed: this.viewActivityFeed(),
     };
     this.api.setProfile(body).subscribe({
       next: saved => {

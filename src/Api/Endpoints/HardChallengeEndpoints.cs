@@ -133,7 +133,7 @@ public static class HardChallengeEndpoints
 
         // ---- POST / : start a challenge (owner; one active at a time) — seeds the DEFAULT task set ----
         g.MapPost("/", async (
-            StartChallengeRequest? req, CurrentUserAccessor me, UsageDbContext db, CancellationToken ct) =>
+            StartChallengeRequest? req, CurrentUserAccessor me, UsageDbContext db, ActivityEmitter activity, CancellationToken ct) =>
         {
             var caller = (await me.GetUserAsync(ct))!;
 
@@ -176,6 +176,10 @@ public static class HardChallengeEndpoints
             }
 
             var dto = await BuildChallengeAsync(db, challenge, caller.Email, readOnly: false, persist: true, ct);
+
+            // Activity feed (fire-and-forget; no-op unless sharing): started a 75-Hard challenge. No payload.
+            _ = activity.EmitAsync(caller.Email, ActivityEmitter.Kinds.ChallengeStarted);
+
             return Results.Ok(dto);
         });
 
@@ -203,7 +207,7 @@ public static class HardChallengeEndpoints
 
         // ---- PUT /day : upsert the day-level flags + MANUAL per-task progress (owner only) ----
         g.MapPut("/day", async (
-            UpsertDayRequest req, CurrentUserAccessor me, UsageDbContext db, CancellationToken ct) =>
+            UpsertDayRequest req, CurrentUserAccessor me, UsageDbContext db, ActivityEmitter activity, CancellationToken ct) =>
         {
             var caller = (await me.GetUserAsync(ct))!;
 
@@ -267,6 +271,15 @@ public static class HardChallengeEndpoints
             }
 
             var dto = await BuildDayDtoAsync(db, caller.Email, challenge, localDate, readOnly: false, ct);
+
+            // Activity feed (fire-and-forget; no-op unless sharing): a 75-Hard day COMPLETED. Emit only on the
+            // CROSSING into complete — de-dupe against an existing event for the SAME (actor, day number) so a
+            // later PUT to an already-complete day never re-emits. Non-sensitive: the day number only (NEVER
+            // the private Confession narration).
+            if (dto.Complete && dto.DayNumber is { } dayNum)
+                _ = activity.EmitOnceAsync(
+                    caller.Email, ActivityEmitter.Kinds.ChallengeDayComplete, intValue: dayNum);
+
             return Results.Ok(dto);
         });
 

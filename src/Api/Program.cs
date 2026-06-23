@@ -182,6 +182,8 @@ builder.Services.AddSignalR();
 builder.Services.AddSingleton<IUserIdProvider, EmailUserIdProvider>();
 builder.Services.AddScoped<ChatNotificationService>();
 builder.Services.AddScoped<ChatLocationShareService>();
+// Social activity feed: the fire-and-forget emitter for the event spine (no-op when the actor isn't sharing).
+builder.Services.AddScoped<ActivityEmitter>();
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
@@ -496,6 +498,7 @@ app.MapPeopleEndpoints();
 app.MapInboxEndpoints();
 app.MapTrackerEndpoints();
 app.MapHardChallengeEndpoints();
+app.MapFeedEndpoints();
 app.MapAiEndpoints();
 app.MapFamilyEndpoints();
 app.MapFamilyLocationsEndpoints();

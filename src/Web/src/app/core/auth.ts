@@ -45,6 +45,7 @@ export class AuthService {
     '/fleet': [PERM.fleetView, PERM.reporterManage],
     '/chat': [PERM.chatRead],
     '/tracker': [PERM.trackerSelf],
+    '/feed': [PERM.trackerSelf],
     '/family': [PERM.familyUse],
     '/locations': [PERM.locationSelf],
     '/users': [PERM.usersView],
@@ -72,7 +73,7 @@ export class AuthService {
     // in lock-step with homePerms + the nav grouping (every route is represented — no dead landings).
     const order = [
       '/', '/calendar', '/pricing', '/reporter', '/fleet',
-      '/tracker', '/family', '/chat', '/locations',
+      '/tracker', '/feed', '/family', '/chat', '/locations',
       '/users', '/activity', '/settings',
     ];
     for (const route of order) {
@@ -107,6 +108,8 @@ export class AuthService {
       appearOffline: me.appearOffline,
       presenceStatus: me.presenceStatus ?? null,
       shareAutoContext: me.shareAutoContext,
+      shareActivity: me.shareActivity,
+      viewActivityFeed: me.viewActivityFeed,
     };
     this._session.set(updated);
     try { localStorage.setItem(STORAGE_KEY, JSON.stringify(updated)); } catch { /* ignore */ }
@@ -127,6 +130,8 @@ export class AuthService {
       appearOffline: p.appearOffline,
       presenceStatus: p.presenceStatus ?? null,
       shareAutoContext: p.shareAutoContext,
+      shareActivity: p.shareActivity,
+      viewActivityFeed: p.viewActivityFeed,
     };
     this._session.set(updated);
     try { localStorage.setItem(STORAGE_KEY, JSON.stringify(updated)); } catch { /* ignore */ }

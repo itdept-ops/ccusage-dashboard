@@ -548,6 +548,13 @@ public sealed class MeDto
 
     /// <summary>When true the caller opts in to sharing lightweight auto-derived context with presence.</summary>
     public bool ShareAutoContext { get; set; }
+
+    /// <summary>When true the caller opts IN to SHARE their activity to the social feed (default false).</summary>
+    public bool ShareActivity { get; set; }
+
+    /// <summary>When true the caller opts IN to VIEW the circle activity feed (default false); when false the
+    /// feed shows only their own events.</summary>
+    public bool ViewActivityFeed { get; set; }
 }
 
 /// <summary>Body for <c>PATCH /api/auth/home</c>: the route to land on, or null to clear (use default).</summary>
@@ -574,6 +581,12 @@ public sealed class SetProfileRequest
     public string? PresenceStatus { get; set; }
 
     public bool? ShareAutoContext { get; set; }
+
+    /// <summary>Opt in/out of SHARING activity to the social feed.</summary>
+    public bool? ShareActivity { get; set; }
+
+    /// <summary>Opt in/out of VIEWING the circle activity feed.</summary>
+    public bool? ViewActivityFeed { get; set; }
 }
 
 /// <summary>One teammate currently online (active within the presence window). Carries public identity

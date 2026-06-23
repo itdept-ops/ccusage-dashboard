@@ -113,6 +113,15 @@ export const routes: Routes = [
     title: 'Usage IQ · Tracker',
   },
   {
+    // Activity feed — the social circle feed (reverse-chron, day-grouped). DISTINCT from the admin audit
+    // page at /activity (the RequestLog trail). Gated by the SAME tracker permission (tracker.self) the
+    // backend feed endpoint reuses; the per-user share/view opt-ins (default OFF) further gate what shows.
+    path: 'feed',
+    canActivate: [permissionGuard(PERM.trackerSelf)],
+    loadComponent: () => import('./features/feed/feed').then(m => m.Feed),
+    title: 'Usage IQ · Activity feed',
+  },
+  {
     // Tracker Beta — the redesigned, mobile-first "Strata" dashboard over the SAME tracker data
     // (reuses the root TrackerStore). The lazy children file keeps echarts AND the OptimisticTracker
     // route provider out of the initial bundle; the tracker.beta guard lives inside it, so the beta
