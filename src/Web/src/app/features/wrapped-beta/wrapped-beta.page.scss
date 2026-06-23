@@ -197,10 +197,16 @@
   margin: 10px 0 0;
   font: 800 clamp(40px, 13vw, 72px)/.95 var(--font-num);
   letter-spacing: -.02em;
-  background: linear-gradient(110deg, var(--spark-a), var(--spark-b) 45%, var(--spark-c));
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
+  color: var(--ink); // readable fallback when gradient-text clipping isn't applied
+}
+// Gradient-fill the title ONLY where background-clip:text is supported; else the solid --ink shows.
+@supports ((-webkit-background-clip: text) or (background-clip: text)) {
+  .wb-cover__title {
+    background: linear-gradient(110deg, var(--spark-a), var(--spark-b) 45%, var(--spark-c));
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
 }
 .wb-cover__sub {
   margin: 12px 0 0;
@@ -270,12 +276,17 @@
   margin: 0;
   font: 800 clamp(46px, 15vw, 88px)/.92 var(--font-num);
   letter-spacing: -.03em;
-  color: var(--ink);
-  // gradient-fill the number itself for the showcase pop
-  background: var(--accent, var(--grad-primary));
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
+  color: var(--ink); // readable fallback so the number never collapses to the card colour
+}
+// Gradient-fill the number for the showcase pop ONLY where background-clip:text is supported;
+// otherwise the solid --ink above shows (was: color:transparent with no fallback → invisible text).
+@supports ((-webkit-background-clip: text) or (background-clip: text)) {
+  .wb-card__headline {
+    background: var(--accent, var(--grad-primary));
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
 }
 .wb-card__label {
   position: relative;
