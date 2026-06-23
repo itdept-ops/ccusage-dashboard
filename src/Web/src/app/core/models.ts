@@ -1538,12 +1538,46 @@ export interface SuggestWorkoutResponse {
   estCalories: number;
 }
 
-/** Parse-meal request (POST /api/ai/parse-meal): free-text meal to split into items ("Big Mac, fries, Coke"). Mirrors ParseMealRequest. */
+/**
+ * Parse-meal request (POST /api/ai/parse-meal): a free-text meal ("Big Mac, fries, Coke") OR a meal PHOTO,
+ * split into editable items the user confirms before logging. Mirrors ParseMealRequest. Exactly one input
+ * is sent: `text` for Describe/Speak, or `imageBase64`+`mimeType` (raw base64, NO `data:` prefix) for Photo
+ * (the image path is additionally ai.vision-gated server-side). PARSE-ONLY — the endpoint writes nothing.
+ */
 export interface ParseMealRequest {
-  text: string;
+  text?: string;
+  imageBase64?: string;
+  mimeType?: string;
 }
 
-/** One parsed food item (clamped server-side). Mirrors MealItemDto. */
+/**
+ * One parsed food item from {@link ParseMealResultDto} (clamped server-side). Mirrors ParsedFoodItemDto.
+ * Field shape deliberately matches {@link AddFoodRequest} (note `carbG`, not `carbsG`) so each confirmed
+ * item commits straight to POST /api/tracker/food with no remap.
+ */
+export interface ParsedFoodItemDto {
+  description: string;
+  quantity: number;
+  calories: number;
+  proteinG: number;
+  carbG: number;
+  fatG: number;
+}
+
+/**
+ * Parse-meal result (POST /api/ai/parse-meal): an always-200 floor. `aiUsed` is false (with empty `items`)
+ * when AI is off / unconfigured / unparseable / errored, so the dialog falls back to manual entry. Mirrors
+ * ParseMealResultDto.
+ */
+export interface ParseMealResultDto {
+  aiUsed: boolean;
+  items: ParsedFoodItemDto[];
+}
+
+/**
+ * One parsed food item (clamped server-side). Mirrors MealItemDto. Still used by the dormant photo-meal
+ * route ({@link Api.photoMeal}) and the tracker-beta food sheet; uses USDA-style `carbsG`.
+ */
 export interface MealItemDto {
   description: string;
   calories: number;
@@ -1552,7 +1586,7 @@ export interface MealItemDto {
   fatG: number;
 }
 
-/** A parsed meal: zero or more items, each with clamped macros (POST /api/ai/parse-meal). Mirrors ParseMealResponse. */
+/** A parsed meal: zero or more items, each with clamped macros (POST /api/ai/photo-meal). Mirrors ParseMealResponse. */
 export interface ParseMealResponse {
   items: MealItemDto[];
 }

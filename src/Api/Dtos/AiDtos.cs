@@ -147,10 +147,51 @@ public sealed class SuggestWorkoutResponse
 // parse-meal / photo-meal — multi-item meal parsing
 // ===================================================================================
 
-/// <summary>Free-text meal description to parse into individual items ("Big Mac, fries, Coke").</summary>
+/// <summary>
+/// Parse a meal into individual items — from free text ("Big Mac, fries, Coke") OR from a meal photo
+/// (exactly ONE of <see cref="Text"/> or the image fields is supplied). The image path is multimodal and
+/// ADDITIONALLY gated by <c>ai.vision</c>; its bytes are digested IN-MEMORY and NEVER stored (the
+/// receipt/meal-photo rule). Both inputs are treated strictly as DATA — never instructions. PARSE-ONLY:
+/// the endpoint writes NOTHING; the caller posts each confirmed item to <c>POST /api/tracker/food</c>.
+/// </summary>
 public sealed class ParseMealRequest
 {
+    /// <summary>The free-text meal to parse. Provide this OR <see cref="ImageBase64"/>, not both.</summary>
     public string? Text { get; set; }
+
+    /// <summary>Raw base64 of a meal photo (no <c>data:</c> prefix needed). When present the parse is
+    /// multimodal and requires <c>ai.vision</c>; mime must be jpeg/png/webp and decode under ~5 MB.</summary>
+    public string? ImageBase64 { get; set; }
+
+    /// <summary>The image mime type (image/jpeg, image/png, image/webp) — required when <see cref="ImageBase64"/> is set.</summary>
+    public string? MimeType { get; set; }
+}
+
+/// <summary>
+/// One parsed food item ready to drop into the add-food review list. Fields mirror what
+/// <c>POST /api/tracker/food</c> (AddFoodRequest) stores for a MANUAL entry — note <see cref="CarbG"/>
+/// (not <c>carbsG</c>) and the explicit <see cref="Quantity"/>. Numbers are CLAMPED to sane ranges
+/// (calories 0..5000, macros 0..500 g, quantity 0.1..100).
+/// </summary>
+public sealed class ParsedFoodItemDto
+{
+    public string Description { get; set; } = "";
+    public double Quantity { get; set; } = 1;
+    public int Calories { get; set; }
+    public double ProteinG { get; set; }
+    public double CarbG { get; set; }
+    public double FatG { get; set; }
+}
+
+/// <summary>
+/// The parse-meal result: <see cref="AiUsed"/> is false when AI is off/unconfigured/unparseable (the
+/// always-200 floor — <see cref="Items"/> is then empty and the dialog steers the user to manual entry);
+/// true when the model produced the items. PARSE-ONLY — nothing is written.
+/// </summary>
+public sealed class ParseMealResultDto
+{
+    public bool AiUsed { get; set; }
+    public IReadOnlyList<ParsedFoodItemDto> Items { get; set; } = Array.Empty<ParsedFoodItemDto>();
 }
 
 /// <summary>One parsed food item; numbers CLAMPED to sane ranges (calories 0..5000, macros 0..500 g).</summary>

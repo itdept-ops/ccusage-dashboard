@@ -55,13 +55,48 @@ public static class AiEndpoints
             return result is null ? Unavailable() : Results.Ok(result);
         });
 
-        // ---- Parse a multi-item meal from free text ("Big Mac, fries, Coke") ----
+        // ---- ADD-FOOD PARSE: free-text OR meal-photo -> reviewable, per-item food list (PARSE-ONLY) ----
+        // The single entry point behind the add-food dialog's "Describe/Speak" and "Photo" modes. A TEXT
+        // body runs on tracker.ai alone (the group gate); the moment an IMAGE is attached the call becomes
+        // multimodal -> the SEPARATE, OFF-by-default ai.vision capability is ALSO required (checked here, not
+        // on the route, because the route gate can't see the body). The image is validated FIRST (clear 400
+        // on bad mime/oversize), then digested IN-MEMORY and NEVER stored (mirrors the receipt/meal rule).
+        // Identity is the JWT caller; text/image are treated strictly as DATA (injection-guarded in the
+        // service). It WRITES NOTHING — the frontend posts each confirmed item to POST /api/tracker/food.
+        // Like /ask + /voice-parse it NEVER 503s: AI off / unconfigured / unparseable floors to
+        // 200 { aiUsed:false, items:[] } so the dialog falls back to manual entry. Macros/quantity are CLAMPED.
         g.MapPost("/parse-meal", async (
-            ParseMealRequest body, GeminiService gemini, CancellationToken ct) =>
+            ParseMealRequest body, CurrentUserAccessor me, GeminiService gemini, CancellationToken ct) =>
         {
-            if (!gemini.IsConfigured) return Unconfigured();
-            var result = await gemini.ParseMealAsync(body?.Text, ct);
-            return result is null ? Unavailable() : Results.Ok(result);
+            // An IMAGE makes the call multimodal -> validate it (400 on bad/oversize) and gate it on ai.vision
+            // (403 without it, the route gate can't see the body). A text-only call skips both.
+            (string base64, string mime)? image = null;
+            if (!string.IsNullOrWhiteSpace(body?.ImageBase64))
+            {
+                if (!TryValidateImage(
+                        new ImageRequest { ImageBase64 = body!.ImageBase64, MimeType = body.MimeType },
+                        out var b64, out var mime, out var bad))
+                    return bad;
+
+                var caller0 = (await me.GetUserAsync(ct))!;
+                if (!caller0.Permissions.Contains(Permissions.AiVision))
+                    return Results.Json(
+                        new { message = $"You don't have permission: {Permissions.AiVision}" },
+                        statusCode: StatusCodes.Status403Forbidden);
+
+                image = (b64, mime);
+            }
+
+            // Friendly always-200 floor when AI is off/unconfigured (NEVER a 503 from the add-food parse).
+            if (!gemini.IsConfigured) return Results.Ok(new ParseMealResultDto());
+
+            IReadOnlyList<ParsedFoodItemDto>? items;
+            try { items = await gemini.ParseMealItemsAsync(body?.Text, image, ct); }
+            catch { items = null; }
+
+            // Unavailable / unparseable / nothing usable -> the same friendly floor (200), not a 503.
+            if (items is null) return Results.Ok(new ParseMealResultDto());
+            return Results.Ok(new ParseMealResultDto { AiUsed = true, Items = items });
         });
 
         // ---- MULTIMODAL: identify foods + macros from a meal photo (tighter rate cap) ----
