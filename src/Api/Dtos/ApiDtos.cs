@@ -1225,6 +1225,18 @@ public sealed class TrackerDayDto
     /// <summary>The day's supplement entries, oldest-first. Visible to a permitted viewer too (read-only).</summary>
     public SupplementEntryDto[] Supplements { get; set; } = Array.Empty<SupplementEntryDto>();
 
+    /// <summary>The day's sleep entries (usually one, naps allowed), oldest-first. OWNER-ONLY: empty for any
+    /// non-self viewer — sleep is mildly personal and never shared.</summary>
+    public SleepEntryDto[] Sleep { get; set; } = Array.Empty<SleepEntryDto>();
+    /// <summary>Total hours slept on this day (sum over <see cref="Sleep"/>); 0 when none. OWNER-ONLY.</summary>
+    public double SleepHours { get; set; }
+    /// <summary>Rolling 7-day (this day + the prior 6) average hours slept per night, over days that HAVE a
+    /// sleep entry (empty nights are excluded so a gap doesn't drag the average down), or null when none in
+    /// the window. OWNER-ONLY (null for a viewer).</summary>
+    public double? SleepAvgHours7d { get; set; }
+    /// <summary>Rolling 7-day average sleep quality (1..5), over days that have an entry, or null. OWNER-ONLY.</summary>
+    public double? SleepAvgQuality7d { get; set; }
+
     /// <summary>The day's recorded watch stats (steps/distance/active calories + mode), or null when none
     /// recorded. Visible to a permitted viewer too (read-only).</summary>
     public WatchActivityDto? Activity { get; set; }
@@ -1302,6 +1314,38 @@ public sealed class AddSupplementRequest
     public double? Protein { get; set; }
     public double? Carb { get; set; }
     public double? Fat { get; set; }
+}
+
+/// <summary>One logged night of sleep: hours slept, a 1..5 quality rating, optional bedtime/wake time
+/// ("HH:mm" local, no date), an optional note, and when it was logged. OWNER-ONLY (never shared).</summary>
+public sealed class SleepEntryDto
+{
+    public long Id { get; set; }
+    public double Hours { get; set; }
+    public int Quality { get; set; }
+    /// <summary>Local bedtime as "HH:mm" (24-hour), or null.</summary>
+    public string? BedTime { get; set; }
+    /// <summary>Local wake time as "HH:mm" (24-hour), or null.</summary>
+    public string? WakeTime { get; set; }
+    public string? Note { get; set; }
+    /// <summary>ISO-8601 UTC timestamp of when the sleep was logged.</summary>
+    public string CreatedUtc { get; set; } = "";
+}
+
+/// <summary>
+/// Log a night of sleep onto a day (the WAKE date). <see cref="Hours"/> is required and must be in [0, 24];
+/// <see cref="Quality"/> is a 1..5 rating (defaults to 3 when out of range/absent); <see cref="BedTime"/>
+/// and <see cref="WakeTime"/> are optional "HH:mm" local times (ignored when unparseable); <see cref="Note"/>
+/// is optional free text (&lt;= 200 chars). OWNER-ONLY.
+/// </summary>
+public sealed class AddSleepRequest
+{
+    public string Date { get; set; } = "";
+    public double Hours { get; set; }
+    public int? Quality { get; set; }
+    public string? BedTime { get; set; }
+    public string? WakeTime { get; set; }
+    public string? Note { get; set; }
 }
 
 /// <summary>A person whose tracker the caller may view (a sharing mutual contact, or anyone when the

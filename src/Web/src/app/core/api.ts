@@ -6,6 +6,7 @@ import {
   CreateShareRequest, CustomExerciseDto, CustomFoodDto, DailyCoachResponse, EstimateExerciseRequest, EstimateExerciseResponse, EstimateMacrosRequest, EstimateMacrosResponse, ExerciseEntryDto, ExerciseLibraryDto, Fleet, FleetDeleteRequest,
   FamilyAssistantResult, FamilyBriefing, FamilyChore, FamilyChoreRecurrence, FamilyChoreSource, FamilyChores, FamilyMemberEvents, ChoreSuggestAiRequest, ChoreSuggestAiResult, ChoreBalanceAiResult, ChoreValuesAiResult, ChoreSummaryAiResult, Allowance, AllowanceMe, AllowanceMoveRequest, FamilyList, FamilyListKind, FamilyMeal, FamilyMealDay, FamilyMealMacroProposal, FamilyMealMacroSource, FamilyMealSlot, FamilyNote, FamilyPoll, FamilyPollCreate, FamilyRecurrence, FamilyReminder, FamilySettings, FamilySettingsUpdate, FamilyTimer, FamilyPollKind, FamilyToday, FindTimeRequest, FindTimeAiResult, PollOptionsAiResult, PollSummaryAiResult, ReminderAiResult, ListItemsAiResult, ListSuggestAiResult, NoteDraftAiResult, NoteSummaryAiResult, AskNotesAiResult, NoteTransformAction, NoteTransformAiResult, PlanWeekAiRequest, PlanWeekAiResult, RecipeAiResult, RecipeBreakdownResult, WhatCanIMakeAiResult, TimerAiResult, FindTimeResult, QuickAddKind, QuickAddRequest, QuickAddResult, FinanceAccount, FinanceAccountPatch, FinanceAccountSummary, FinanceImportBatch, FinanceImportResult, FinanceMoneyCoachResult, FinanceSummary, FinanceSummaryAiResult, FinanceTransactionsPage, FinanceTxnKind, FinanceOwner, FleetDeleteResult, FleetReassignRequest, FleetReassignResult, FleetRevokeKeysRequest, FleetRevokeKeysResult, FoodEntryDto, FoodSearchItemDto, GroupBy, Household, HouseholdCandidate, FamilyMemberLocation,
   AddSupplementRequest, SupplementEntryDto, SupplementMacrosRequest, SupplementMacrosResponse,
+  AddSleepRequest, SleepEntryDto,
   CoffeeEntryDto, HeatmapCell, HydrationEntryDto, HydrationSuggestResponse, ImageRequest, IngestionSource, IngestKey, IngestKeyCreated, LocationFix, LocationSettings, LocationSettingsUpdate, AdminUserLocation, RecordLocationRequest, LogWeightRequest, LoginEvent, MachineStat, ManagedUser, MealFeedbackRequest, MealFeedbackResponse, ModelStat, MoveDayRequest, MoveDayResult, NaturalGoalRequest, NaturalGoalResponse, NotificationDto, NotificationPreferenceDto, NotificationSettings,
   AiUsageFilter, AiUsageResponse,
   NotificationUpdate, DiscordRoute, DiscordRouteUpdate, MyDiscord, MyDiscordUpdate, RecapPreview, PagedResult, ParseExerciseRequest, ParseExerciseResponse, ParseHydrationRequest, ParseHydrationResponse, ParseMealRequest, ParseMealResponse, PermissionItem, PermissionPreset, Presence, PersonDto, Pricing, ProjectDto, PublicShare, ReactionGroupDto, ReadLabelResponse, RecipeMacrosRequest, RecipeMacrosResponse, RequestLogEntry, SavedView, ScheduleAiResult, ScheduleFromImageRequest, ScheduleImageFile,
@@ -1087,6 +1088,16 @@ export class Api {
   /** Delete a logged supplement entry (owner-only; 404 otherwise). */
   deleteSupplement(id: number): Observable<unknown> {
     return this.http.delete(`${this.base}/tracker/supplement/${id}`);
+  }
+
+  /** Log a night of sleep onto the day's WAKE date (OWN tracker only; owner-only data). Returns the created entry. */
+  addSleep(body: AddSleepRequest): Observable<SleepEntryDto> {
+    return this.http.post<SleepEntryDto>(`${this.base}/tracker/sleep`, body);
+  }
+
+  /** Delete a logged sleep entry (owner-only; 404 otherwise). */
+  deleteSleep(id: number): Observable<unknown> {
+    return this.http.delete(`${this.base}/tracker/sleep/${id}`);
   }
 
   /**

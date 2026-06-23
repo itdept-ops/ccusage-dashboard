@@ -18,7 +18,7 @@ import { TrackerStore } from '../../core/tracker-store';
 import {
   ActivityCalorieMode, AddCoffeeRequest, AddExerciseRequest, AddFoodRequest, AddHydrationRequest, CoffeeEntryDto, CommitDayResponse, CustomFoodDto, DailyCoachResponse,
   DaySummaryResponse, ExerciseEntryDto, FoodEntryDto,
-  HydrationEntryDto, LogWeightRequest, Meal, MoveDayRequest, MoveDayResult, PERM, QuickFoodTile, SharedUserDto, SupplementEntryDto, SupplementKind, TrackerDayDto, TrackerProfileDto,
+  HydrationEntryDto, LogWeightRequest, Meal, MoveDayRequest, MoveDayResult, PERM, QuickFoodTile, SharedUserDto, SleepEntryDto, SupplementEntryDto, SupplementKind, TrackerDayDto, TrackerProfileDto,
   TrackerRecapResult, UpsertActivityRequest, WeeklyReviewResponse, WeightPointDto, WeightStatsDto,
 } from '../../core/models';
 import { CalorieRing } from './calorie-ring';
@@ -30,6 +30,7 @@ import { AddExerciseDialog, AddExerciseData } from './add-exercise-dialog';
 import { AddHydrationDialog, AddHydrationData, AddHydrationResult } from './add-hydration-dialog';
 import { AddCoffeeDialog, AddCoffeeData, AddCoffeeResult } from './add-coffee-dialog';
 import { AddSupplementDialog, AddSupplementData, AddSupplementResult } from './add-supplement-dialog';
+import { AddSleepDialog, AddSleepData, AddSleepResult } from './add-sleep-dialog';
 import { AddActivityDialog, AddActivityData } from './add-activity-dialog';
 import { ProfileDialog, ProfileData } from './profile-dialog';
 import { LogWeightDialog, LogWeightData } from './log-weight-dialog';
@@ -853,6 +854,52 @@ export class Tracker {
     if (this.store.readOnly()) return;
     this.store.deleteSupplement(s.id)
       .then(() => this.announceSupplement(`Removed ${s.name}`))
+      .catch(() => this.snack.open('Could not remove entry', 'Dismiss', { duration: 4000 }));
+  }
+
+  // ---- sleep & recovery (owner-only; never shown in a read-only view) ----
+
+  /** The day's logged sleep entries (owner-only; empty when viewing someone else). */
+  readonly sleep = computed(() => this.store.day()?.sleep ?? []);
+
+  /** A short word label for a 1..5 quality rating, for the entry list + SR text. */
+  sleepQualityLabel(quality: number): string {
+    return ['', 'Poor', 'Fair', 'OK', 'Good', 'Great'][Math.max(1, Math.min(5, quality))];
+  }
+
+  /**
+   * Announce a sleep change to the single SR live region (statusMsg), suffixed with the day's total
+   * hours + the rolling 7-day average so the user hears their recovery trend.
+   */
+  private announceSleep(prefix: string): void {
+    const day = this.store.day();
+    const total = day?.sleepHours ?? 0;
+    const avg = day?.sleepAvgHours7d;
+    const avgText = avg != null ? `, 7-day average ${avg.toFixed(1)} hours` : '';
+    this.statusMsg.set(`${prefix}. ${total.toFixed(1)} hours slept${avgText}.`);
+  }
+
+  /** Open the log-sleep dialog (hours + quality + optional bed/wake + note); pass an entry to edit it. */
+  openAddSleep(edit?: SleepEntryDto): void {
+    if (this.store.readOnly()) return;
+    const data: AddSleepData = { date: this.store.date(), edit };
+    this.dialog.open(AddSleepDialog, { data, width: '420px', maxWidth: '95vw', panelClass: 'tracker-dialog', autoFocus: false })
+      .afterClosed().subscribe(async (res: AddSleepResult | undefined) => {
+        if (!res) return;
+        try {
+          if (res.replaceId != null) await this.store.deleteSleep(res.replaceId);
+          await this.store.addSleep(res.request);
+          this.announceSleep(edit ? 'Updated sleep' : 'Logged sleep');
+        } catch {
+          this.snack.open('Could not log sleep', 'Dismiss', { duration: 4000 });
+        }
+      });
+  }
+
+  removeSleep(s: SleepEntryDto): void {
+    if (this.store.readOnly()) return;
+    this.store.deleteSleep(s.id)
+      .then(() => this.announceSleep('Removed sleep'))
       .catch(() => this.snack.open('Could not remove entry', 'Dismiss', { duration: 4000 }));
   }
 

@@ -753,6 +753,37 @@ public static class TrackerEndpoints
             return deleted == 0 ? Results.NotFound() : Results.NoContent();
         }).RequirePermission(Permissions.TrackerSelf);
 
+        // ---- Log a night of sleep onto a day (OWN only; mapped to the WAKE date) ----
+        // Sleep is mildly personal: OWNER-ONLY end to end — it is never surfaced to a viewer (the day DTO
+        // nulls it for non-self), never in the family overlay, and emits NO activity-feed event.
+        g.MapPost("/sleep", async (
+            AddSleepRequest req, CurrentUserAccessor me, UsageDbContext db, CancellationToken ct) =>
+        {
+            var caller = (await me.GetUserAsync(ct))!;
+
+            if (!TryParseDate(req.Date, out var localDate))
+                return Results.BadRequest(new { message = "A valid date (yyyy-MM-dd) is required." });
+            if (!(req.Hours >= 0 && req.Hours <= 24))
+                return Results.BadRequest(new { message = "Hours must be between 0 and 24." });
+
+            var entry = BuildSleepEntry(caller.Email, localDate, req);
+            db.SleepEntries.Add(entry);
+            await db.SaveChangesAsync(ct);
+            return Results.Ok(ToSleepDto(entry));
+        }).RequirePermission(Permissions.TrackerSelf);
+
+        // ---- Delete a logged sleep (owner only) ----
+        g.MapDelete("/sleep/{id:long}", async (
+            long id, CurrentUserAccessor me, UsageDbContext db, CancellationToken ct) =>
+        {
+            var caller = (await me.GetUserAsync(ct))!;
+            // 404 when the entry doesn't exist OR isn't the caller's (never reveal someone else's row).
+            var deleted = await db.SleepEntries
+                .Where(s => s.Id == id && s.UserEmail == caller.Email)
+                .ExecuteDeleteAsync(ct);
+            return deleted == 0 ? Results.NotFound() : Results.NoContent();
+        }).RequirePermission(Permissions.TrackerSelf);
+
         // ---- Upsert the caller's watch activity stats for a day (OWN only; one row per day) ----
         // Records steps/distance/active calories + the calorie mode (add|override) that controls how the
         // active calories factor into the day's calories out. Upserts the single (caller, date) row.
@@ -1351,6 +1382,33 @@ public static class TrackerEndpoints
         };
     }
 
+    /// <summary>Build a <see cref="SleepEntry"/> from the request (hours caller-validated to [0,24], rounded
+    /// to 1dp; quality clamped to [1,5] with a 3 default; bed/wake times parsed as "HH:mm" local-of-day and
+    /// dropped when unparseable; note trimmed + 200-capped).</summary>
+    private static SleepEntry BuildSleepEntry(string email, DateOnly localDate, AddSleepRequest req)
+    {
+        var note = Trunc(req.Note?.Trim(), 200);
+        var quality = req.Quality is { } q ? Math.Clamp(q, 1, 5) : 3;
+        return new SleepEntry
+        {
+            UserEmail = email,
+            LocalDate = localDate,
+            Hours = Math.Round((decimal)req.Hours, 1),
+            Quality = quality,
+            BedTime = TryParseTime(req.BedTime, out var bed) ? bed : null,
+            WakeTime = TryParseTime(req.WakeTime, out var wake) ? wake : null,
+            Note = string.IsNullOrEmpty(note) ? null : note,
+            CreatedUtc = DateTime.UtcNow,
+        };
+    }
+
+    /// <summary>Parse a local time-of-day in 24-hour "HH:mm" (e.g. "23:30", "06:15"); false on null/blank/bad.</summary>
+    private static bool TryParseTime(string? value, out TimeOnly time) =>
+        TimeOnly.TryParseExact(
+            (value ?? "").Trim(), "HH:mm",
+            System.Globalization.CultureInfo.InvariantCulture,
+            System.Globalization.DateTimeStyles.None, out time);
+
     /// <summary>Parse the supplement kind (lower-cased enum name, case-insensitive); Supplement on anything
     /// absent/unknown.</summary>
     private static SupplementKind ParseSupplementKind(string? value) =>
@@ -1446,6 +1504,32 @@ public static class TrackerEndpoints
             .Where(s => s.UserEmail == email && s.LocalDate == date)
             .OrderBy(s => s.Id)
             .ToListAsync(ct);
+        // Sleep is OWNER-ONLY (mildly personal): read it (the day's entries + the rolling 7-day average)
+        // ONLY for the owner; a viewer gets an empty list + null averages so it never leaks. The 7-day
+        // window is this day + the prior 6, averaged over the nights that HAVE an entry (a gap is skipped,
+        // not counted as zero), so an occasional missed log doesn't sink the average.
+        List<SleepEntry> sleep = new();
+        double? sleepAvgHours = null;
+        double? sleepAvgQuality = null;
+        if (!readOnly)
+        {
+            sleep = await db.SleepEntries.AsNoTracking()
+                .Where(s => s.UserEmail == email && s.LocalDate == date)
+                .OrderBy(s => s.Id)
+                .ToListAsync(ct);
+
+            var windowFrom = date.AddDays(-6);
+            var window = await db.SleepEntries.AsNoTracking()
+                .Where(s => s.UserEmail == email && s.LocalDate >= windowFrom && s.LocalDate <= date)
+                .Select(s => new { s.Hours, s.Quality })
+                .ToListAsync(ct);
+            if (window.Count > 0)
+            {
+                sleepAvgHours = Math.Round(window.Average(s => (double)s.Hours), 1);
+                sleepAvgQuality = Math.Round(window.Average(s => (double)s.Quality), 1);
+            }
+        }
+
         // The day's recorded watch stats (at most one per day), part of the day like hydration/exercise:
         // a permitted viewer sees them (and the resolved burn) read-only too — we do NOT null it.
         var activity = await db.DailyActivities.AsNoTracking()
@@ -1518,6 +1602,10 @@ public static class TrackerEndpoints
             SupplementCarbG = supplementCarbs,
             SupplementFatG = supplementFat,
             Supplements = supplements.Select(ToSupplementDto).ToArray(),
+            Sleep = sleep.Select(ToSleepDto).ToArray(),
+            SleepHours = Math.Round(sleep.Sum(s => (double)s.Hours), 1),
+            SleepAvgHours7d = sleepAvgHours,
+            SleepAvgQuality7d = sleepAvgQuality,
             Activity = activity is null ? null : ToActivityDto(activity),
             StepGoal = profile?.StepGoal,
         };
@@ -1923,6 +2011,17 @@ public static class TrackerEndpoints
         ProteinG = (double)s.ProteinG,
         CarbG = (double)s.CarbG,
         FatG = (double)s.FatG,
+        CreatedUtc = s.CreatedUtc.ToString("o", System.Globalization.CultureInfo.InvariantCulture),
+    };
+
+    private static SleepEntryDto ToSleepDto(SleepEntry s) => new()
+    {
+        Id = s.Id,
+        Hours = (double)s.Hours,
+        Quality = s.Quality,
+        BedTime = s.BedTime?.ToString("HH:mm", System.Globalization.CultureInfo.InvariantCulture),
+        WakeTime = s.WakeTime?.ToString("HH:mm", System.Globalization.CultureInfo.InvariantCulture),
+        Note = s.Note,
         CreatedUtc = s.CreatedUtc.ToString("o", System.Globalization.CultureInfo.InvariantCulture),
     };
 

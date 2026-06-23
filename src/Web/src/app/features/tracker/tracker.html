@@ -608,6 +608,76 @@
       </div>
     </section>
 
+    <!-- ── Sleep card: today's logged sleep (hours + quality dots) + 7-day average + log/edit/delete.
+         OWNER-ONLY: the backend returns an empty list for any viewer, so the whole card is hidden in a
+         read-only (someone else's) view. ── -->
+    @if (!store.readOnly()) {
+      <section class="tracker__sleep" aria-label="Sleep and recovery">
+        <div class="tracker__meal-head">
+          <h2 class="tracker__meal-title">
+            <mat-icon aria-hidden="true">bedtime</mat-icon> Sleep
+          </h2>
+          <span class="tracker__meal-cal mono-num">
+            {{ day.sleepHours | number:'1.0-1' }} h
+            @if (day.sleepAvgHours7d != null) {
+              · 7-day avg {{ day.sleepAvgHours7d | number:'1.0-1' }} h
+            }
+          </span>
+        </div>
+
+        <div class="tracker__sleep-body">
+          <button mat-stroked-button type="button" class="tracker__sleepbtn tracker__sleepbtn--custom"
+                  (click)="openAddSleep()" aria-label="Log a night of sleep">
+            <mat-icon>add</mat-icon> Log sleep
+          </button>
+
+          <!-- Today's sleep entries: hours · quality stars · times/note, edit + remove. -->
+          <ul class="tracker__entries tracker__sleepentries">
+            @for (s of day.sleep; track s.id) {
+              <li class="tracker__entry">
+                <div class="tracker__entry-id">
+                  <span class="tracker__entry-name">
+                    <span class="tracker__sleepstars" [attr.aria-label]="sleepQualityLabel(s.quality) + ' quality, ' + s.quality + ' of 5'">
+                      @for (n of [1,2,3,4,5]; track n) {
+                        <mat-icon aria-hidden="true" class="tracker__sleepstar"
+                                  [class.tracker__sleepstar--on]="n <= s.quality">
+                          {{ n <= s.quality ? 'star' : 'star_border' }}
+                        </mat-icon>
+                      }
+                    </span>
+                  </span>
+                  <span class="tracker__entry-meta">
+                    {{ sleepQualityLabel(s.quality) }}
+                    @if (s.bedTime && s.wakeTime) { · {{ s.bedTime }}–{{ s.wakeTime }} }
+                    @else if (s.wakeTime) { · woke {{ s.wakeTime }} }
+                    @if (s.note) { · {{ s.note }} }
+                  </span>
+                </div>
+                <span class="tracker__entry-cal mono-num">{{ s.hours | number:'1.0-1' }} h</span>
+                <button mat-icon-button type="button" class="tracker__entry-del"
+                        (click)="openAddSleep(s)" aria-label="Edit this sleep entry">
+                  <mat-icon>edit</mat-icon>
+                </button>
+                <button mat-icon-button type="button" class="tracker__entry-del"
+                        (click)="removeSleep(s)" aria-label="Remove this sleep entry">
+                  <mat-icon>close</mat-icon>
+                </button>
+              </li>
+            } @empty {
+              <li class="tracker__entry tracker__entry--empty">No sleep logged yet.</li>
+            }
+          </ul>
+
+          @if (day.sleepAvgQuality7d != null) {
+            <p class="tracker__sleep-note">
+              <mat-icon aria-hidden="true">insights</mat-icon>
+              7-day average quality: <strong class="mono-num">{{ day.sleepAvgQuality7d | number:'1.0-1' }}</strong> / 5
+            </p>
+          }
+        </div>
+      </section>
+    }
+
     <!-- ── Activity card: steps ring vs step goal + distance + active calories add/override toggle ── -->
     <section class="tracker__activity" aria-label="Watch activity">
       <div class="tracker__meal-head">

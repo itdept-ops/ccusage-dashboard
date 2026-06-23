@@ -44,6 +44,7 @@ public class UsageDbContext(DbContextOptions<UsageDbContext> options) : DbContex
     public DbSet<HydrationEntry> HydrationEntries => Set<HydrationEntry>();
     public DbSet<CoffeeEntry> CoffeeEntries => Set<CoffeeEntry>();
     public DbSet<SupplementEntry> SupplementEntries => Set<SupplementEntry>();
+    public DbSet<SleepEntry> SleepEntries => Set<SleepEntry>();
     public DbSet<DailyActivity> DailyActivities => Set<DailyActivity>();
     public DbSet<Household> Households => Set<Household>();
     public DbSet<HouseholdMember> HouseholdMembers => Set<HouseholdMember>();
@@ -601,6 +602,16 @@ public class UsageDbContext(DbContextOptions<UsageDbContext> options) : DbContex
             e.Property(x => x.Kind).HasConversion<int>();
             e.Property(x => x.CreatedUtc).HasColumnType("timestamp with time zone");
             // The day view reads one user's supplements for one local date (no unique — many per day).
+            e.HasIndex(x => new { x.UserEmail, x.LocalDate });
+        });
+
+        b.Entity<SleepEntry>(e =>
+        {
+            e.Property(x => x.UserEmail).HasMaxLength(256);
+            e.Property(x => x.Note).HasMaxLength(200);
+            e.Property(x => x.CreatedUtc).HasColumnType("timestamp with time zone");
+            // The day view reads one user's sleep for one local date; the same prefix serves the rolling
+            // 7-day average window read (no unique — naps / split sleep allowed).
             e.HasIndex(x => new { x.UserEmail, x.LocalDate });
         });
 

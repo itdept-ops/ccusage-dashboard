@@ -3,8 +3,8 @@ import { firstValueFrom } from 'rxjs';
 
 import { Api } from './api';
 import {
-  AddCoffeeRequest, AddExerciseRequest, AddFoodRequest, AddHydrationRequest, AddSupplementRequest, CoffeeEntryDto, HydrationEntryDto, LogWeightRequest,
-  SharedUserDto, TrackerDayDto, TrackerProfileDto, UpsertActivityRequest, WeightPointDto, WeightStatsDto,
+  AddCoffeeRequest, AddExerciseRequest, AddFoodRequest, AddHydrationRequest, AddSleepRequest, AddSupplementRequest, CoffeeEntryDto, HydrationEntryDto, LogWeightRequest,
+  SharedUserDto, SleepEntryDto, TrackerDayDto, TrackerProfileDto, UpsertActivityRequest, WeightPointDto, WeightStatsDto,
 } from './models';
 
 /** Format a Date as a local `YYYY-MM-DD` string (matches the dashboard/fleet date convention). */
@@ -54,6 +54,9 @@ export class TrackerStore {
 
   /** The day's coffee entries (oldest-first), or empty before the first load. */
   readonly coffee = computed<CoffeeEntryDto[]>(() => this.day()?.coffee ?? []);
+
+  /** The day's sleep entries (oldest-first), or empty. OWNER-ONLY (empty when viewing someone else). */
+  readonly sleep = computed<SleepEntryDto[]>(() => this.day()?.sleep ?? []);
 
   /** Load (or reload) the current day for the current date + view target. */
   async load(): Promise<void> {
@@ -177,6 +180,18 @@ export class TrackerStore {
   /** Delete a logged supplement entry, then refresh the day. */
   async deleteSupplement(id: number): Promise<void> {
     await firstValueFrom(this.api.deleteSupplement(id));
+    await this.load();
+  }
+
+  /** Log a night of sleep (the wake date), then refresh the day so totals/averages update. */
+  async addSleep(body: AddSleepRequest): Promise<void> {
+    await firstValueFrom(this.api.addSleep(body));
+    await this.load();
+  }
+
+  /** Delete a logged sleep entry, then refresh the day. */
+  async deleteSleep(id: number): Promise<void> {
+    await firstValueFrom(this.api.deleteSleep(id));
     await this.load();
   }
 

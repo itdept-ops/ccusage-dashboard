@@ -1510,6 +1510,136 @@ public class TrackerIntegrationTests(WebAppFactory factory)
         aliceAfter.GetProperty("supplements").EnumerateArray().Should().HaveCount(2); // unchanged by Bob's write
     }
 
+    // ---- Sleep: add + appears on the day (entry + total hours), then delete ----
+
+    [Fact]
+    public async Task Adding_sleep_appears_on_the_day_with_entry_and_total_then_deletes()
+    {
+        var (_, user) = await ProvisionUser("tracker.self");
+
+        var add = await user.PostAsJsonAsync("/api/tracker/sleep", new
+        {
+            date = Today, hours = 7.5, quality = 4, bedTime = "23:30", wakeTime = "07:00", note = "Solid night",
+        });
+        add.StatusCode.Should().Be(HttpStatusCode.OK);
+        var s = await Json(add);
+        var sleepId = s.GetProperty("id").GetInt64();
+        s.GetProperty("hours").GetDouble().Should().Be(7.5);
+        s.GetProperty("quality").GetInt32().Should().Be(4);
+        s.GetProperty("bedTime").GetString().Should().Be("23:30");
+        s.GetProperty("wakeTime").GetString().Should().Be("07:00");
+        s.GetProperty("note").GetString().Should().Be("Solid night");
+        s.GetProperty("createdUtc").GetString().Should().NotBeNullOrEmpty();
+
+        // It appears on the day; sleepHours is the total + the single-night 7-day averages reflect it.
+        var day = await Json(await user.GetAsync($"/api/tracker/day?date={Today}"));
+        day.GetProperty("sleep").EnumerateArray().Should().ContainSingle();
+        day.GetProperty("sleepHours").GetDouble().Should().Be(7.5);
+        day.GetProperty("sleepAvgHours7d").GetDouble().Should().Be(7.5);
+        day.GetProperty("sleepAvgQuality7d").GetDouble().Should().Be(4.0);
+
+        // Delete → 204, and the day drops the entry + averages go back to null.
+        (await user.DeleteAsync($"/api/tracker/sleep/{sleepId}")).StatusCode.Should().Be(HttpStatusCode.NoContent);
+        var after = await Json(await user.GetAsync($"/api/tracker/day?date={Today}"));
+        after.GetProperty("sleep").EnumerateArray().Should().BeEmpty();
+        after.GetProperty("sleepHours").GetDouble().Should().Be(0.0);
+        after.GetProperty("sleepAvgHours7d").ValueKind.Should().Be(JsonValueKind.Null);
+        after.GetProperty("sleepAvgQuality7d").ValueKind.Should().Be(JsonValueKind.Null);
+    }
+
+    [Fact]
+    public async Task Sleep_rolling_7day_average_uses_the_window_and_skips_gaps_and_excludes_older_nights()
+    {
+        var (_, user) = await ProvisionUser("tracker.self");
+
+        // Inside the 7-day window (Today 2026-06-17 + prior 6 => from 2026-06-11): two nights, one gap.
+        await user.PostAsJsonAsync("/api/tracker/sleep", new { date = Today, hours = 8.0, quality = 5 });
+        await user.PostAsJsonAsync("/api/tracker/sleep", new { date = "2026-06-12", hours = 6.0, quality = 3 });
+        // OUTSIDE the window (2026-06-09 is 8 days back) — must NOT affect the average.
+        await user.PostAsJsonAsync("/api/tracker/sleep", new { date = "2026-06-09", hours = 2.0, quality = 1 });
+
+        var day = await Json(await user.GetAsync($"/api/tracker/day?date={Today}"));
+        // Average over the two in-window nights only (gap days are skipped, not counted as zero):
+        // hours (8 + 6)/2 = 7.0, quality (5 + 3)/2 = 4.0. The today-only total is 8.0.
+        day.GetProperty("sleepHours").GetDouble().Should().Be(8.0);
+        day.GetProperty("sleepAvgHours7d").GetDouble().Should().Be(7.0);
+        day.GetProperty("sleepAvgQuality7d").GetDouble().Should().Be(4.0);
+    }
+
+    [Fact]
+    public async Task Sleep_hours_must_be_in_range_and_date_must_be_valid_and_quality_clamps()
+    {
+        var (_, user) = await ProvisionUser("tracker.self");
+
+        (await user.PostAsJsonAsync("/api/tracker/sleep", new { date = Today, hours = 25.0 }))
+            .StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        (await user.PostAsJsonAsync("/api/tracker/sleep", new { date = Today, hours = -1.0 }))
+            .StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        (await user.PostAsJsonAsync("/api/tracker/sleep", new { date = "not-a-date", hours = 7.0 }))
+            .StatusCode.Should().Be(HttpStatusCode.BadRequest);
+
+        // Quality out of range clamps to [1,5]; an unparseable time is dropped (null), not an error.
+        var add = await user.PostAsJsonAsync("/api/tracker/sleep", new
+        {
+            date = Today, hours = 7.0, quality = 99, bedTime = "nope",
+        });
+        add.StatusCode.Should().Be(HttpStatusCode.OK);
+        var s = await Json(add);
+        s.GetProperty("quality").GetInt32().Should().Be(5);
+        s.GetProperty("bedTime").ValueKind.Should().Be(JsonValueKind.Null);
+    }
+
+    [Fact]
+    public async Task Deleting_sleep_you_dont_own_is_404()
+    {
+        var (_, owner) = await ProvisionUser("tracker.self");
+        var (_, other) = await ProvisionUser("tracker.self");
+
+        var add = await owner.PostAsJsonAsync("/api/tracker/sleep", new { date = Today, hours = 7.0 });
+        var sleepId = (await Json(add)).GetProperty("id").GetInt64();
+
+        // Another tracker.self user can't delete it (404, not 403 — never reveal the row).
+        (await other.DeleteAsync($"/api/tracker/sleep/{sleepId}")).StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    // ---- Sleep is OWNER-ONLY: never surfaced to a permitted viewer, and no email anywhere ----
+
+    [Fact]
+    public async Task Sleep_is_never_visible_to_a_sharing_contact_or_a_viewall_coach()
+    {
+        var (aliceEmail, alice) = await ProvisionUser("tracker.self");
+        var (bobEmail, bob) = await ProvisionUser("tracker.self");
+        var (_, coach) = await ProvisionUser("tracker.self", "tracker.viewall");
+        await MakeContacts(aliceEmail, bobEmail);
+
+        await alice.PutAsJsonAsync("/api/tracker/profile", new { goal = "Maintain", shareWithContacts = true });
+        await alice.PostAsJsonAsync("/api/tracker/sleep", new { date = Today, hours = 7.5, quality = 4 });
+
+        var aliceId = await UserIdFor(aliceEmail);
+
+        // A sharing mutual contact CAN view Alice's day, but sleep is owner-only: empty list, null averages.
+        var viewedByContact = await Json(await bob.GetAsync($"/api/tracker/day?date={Today}&user={aliceId}"));
+        viewedByContact.GetProperty("readOnly").GetBoolean().Should().BeTrue();
+        viewedByContact.GetProperty("sleep").EnumerateArray().Should().BeEmpty();
+        viewedByContact.GetProperty("sleepHours").GetDouble().Should().Be(0.0);
+        viewedByContact.GetProperty("sleepAvgHours7d").ValueKind.Should().Be(JsonValueKind.Null);
+        viewedByContact.GetProperty("sleepAvgQuality7d").ValueKind.Should().Be(JsonValueKind.Null);
+
+        // A tracker.viewall coach is likewise blind to sleep specifically.
+        var viewedByCoach = await Json(await coach.GetAsync($"/api/tracker/day?date={Today}&user={aliceId}"));
+        viewedByCoach.GetProperty("sleep").EnumerateArray().Should().BeEmpty();
+        viewedByCoach.GetProperty("sleepAvgHours7d").ValueKind.Should().Be(JsonValueKind.Null);
+
+        // No email leak anywhere in the viewer payloads.
+        viewedByContact.GetRawText().Should().NotContain(aliceEmail);
+        viewedByCoach.GetRawText().Should().NotContain(aliceEmail);
+
+        // Alice still sees her own sleep fully.
+        var own = await Json(await alice.GetAsync($"/api/tracker/day?date={Today}"));
+        own.GetProperty("sleep").EnumerateArray().Should().ContainSingle();
+        own.GetProperty("sleepAvgHours7d").GetDouble().Should().Be(7.5);
+    }
+
     // ---- Watch activity: upsert appears on the day (steps/distance/active calories/mode) + clear ----
 
     [Fact]

@@ -1323,6 +1323,42 @@ export interface SupplementEntryDto {
   createdUtc: string;
 }
 
+/**
+ * One logged night of sleep on a tracker day (the WAKE date). `hours` is the hours slept (0..24, 1dp);
+ * `quality` is a 1..5 rating; `bedTime`/`wakeTime` are optional local "HH:mm" (24-hour) strings; `note`
+ * is optional free text (<=200 chars). OWNER-ONLY — sleep is mildly personal and is never surfaced to a
+ * sharing contact, a viewall coach, the family overlay, or the activity feed (the day DTO returns an
+ * empty list + null averages for any non-self viewer). `createdUtc` is an ISO-8601 UTC string.
+ * Mirrors SleepEntryDto.
+ */
+export interface SleepEntryDto {
+  id: number;
+  hours: number;
+  /** 1..5 quality rating. */
+  quality: number;
+  /** Local bedtime as "HH:mm" (24-hour), or undefined. */
+  bedTime?: string;
+  /** Local wake time as "HH:mm" (24-hour), or undefined. */
+  wakeTime?: string;
+  note?: string;
+  createdUtc: string;
+}
+
+/**
+ * Log-a-night-of-sleep payload (POST /api/tracker/sleep). `hours` is required, in [0, 24] (rounded to
+ * 1dp server-side); `quality` is a 1..5 rating (clamped, defaults to 3); `bedTime`/`wakeTime` are
+ * optional "HH:mm" local times (dropped when unparseable); `note` is optional (<=200 chars, trimmed).
+ * The night maps to the WAKE date. OWN tracker only (no user param). Mirrors AddSleepRequest.
+ */
+export interface AddSleepRequest {
+  date: string;
+  hours: number;
+  quality?: number;
+  bedTime?: string;
+  wakeTime?: string;
+  note?: string;
+}
+
 /** How a day's watch active-calories combine with the logged-exercise sum. Mirrors ActivityCalorieMode. */
 export type ActivityCalorieMode = 'add' | 'override';
 
@@ -1940,6 +1976,21 @@ export interface TrackerDayDto {
   supplementFatG: number;
   /** The day's supplement entries, oldest-first (by id). Visible even when read-only (like food). */
   supplements: SupplementEntryDto[];
+  /**
+   * The day's sleep entries (usually one, naps allowed), oldest-first. OWNER-ONLY: empty for any
+   * non-self viewer — sleep is mildly personal and never shared.
+   */
+  sleep: SleepEntryDto[];
+  /** Total hours slept on this day (sum over {@link sleep}); 0 when none. OWNER-ONLY. */
+  sleepHours: number;
+  /**
+   * Rolling 7-day (this day + the prior 6) average hours slept per night, over days that HAVE a sleep
+   * entry (empty nights are excluded so a gap doesn't drag it down), or null when none in the window.
+   * OWNER-ONLY (null for a viewer).
+   */
+  sleepAvgHours7d?: number | null;
+  /** Rolling 7-day average sleep quality (1..5), over days that have an entry, or null. OWNER-ONLY. */
+  sleepAvgQuality7d?: number | null;
 }
 
 /** Someone whose tracker the caller may view read-only (GET /api/tracker/shared). Mirrors SharedUserDto. */
