@@ -234,16 +234,27 @@ body {
 
   color: var(--tech-text);
   background-color: var(--tech-bg);
+}
 
-  /* Techy atmosphere: two corner mesh glows + faint 32px grid. Canvas only. */
+/* Techy atmosphere: two corner mesh glows + a faint 32px grid. Painted on a FIXED, full-viewport layer
+   (a real positioned element — NOT `background-attachment: fixed`, which iOS Safari mis-renders, and which
+   only ever covered <body>'s box ≈ one viewport, so scrolling a tall/gated page fell through to the
+   near-black <html> void → the "black footer riding up"). As a fixed element behind the content it always
+   covers the viewport at every scroll position, so the void is never revealed. Mirrors the marketing
+   pages' .bg-fx layer. */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-color: var(--tech-bg);
   background-image:
     radial-gradient(1100px 560px at 78% -12%, rgba(61, 139, 255, 0.07), transparent 60%),
     radial-gradient(900px 520px at 8% 112%, rgba(139, 124, 255, 0.06), transparent 60%),
     linear-gradient(0deg, rgba(255, 255, 255, 0.018) 1px, transparent 1px),
     linear-gradient(90deg, rgba(255, 255, 255, 0.018) 1px, transparent 1px);
   background-size: 100% 100%, 100% 100%, 100% 32px, 32px 100%;
-  background-position: 0 0, 0 0, 0 0, 0 0;
-  background-attachment: fixed;
 }
 
 /* =========================================================================
