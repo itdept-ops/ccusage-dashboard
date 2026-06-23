@@ -105,6 +105,13 @@ export const routes: Routes = [
     loadChildren: () => import('./features/tracker-beta/tracker-beta.routes').then(m => m.TRACKER_BETA_ROUTES),
   },
   {
+    // Bills Beta — the mobile-first "Tally" split-the-check redesign over the SAME bills data (reuses the
+    // bills Api methods + DTOs). Purely additive; the lazy children file keeps it out of the initial bundle
+    // and holds the beta.access guard. The live /bills page (below) is untouched.
+    path: 'beta/bills',
+    loadChildren: () => import('./features/bills-beta/bills-beta.routes').then(m => m.BILLS_BETA_ROUTES),
+  },
+  {
     // Beta hub — a permission-gated index of experimental surfaces. Purely additive: lives in the normal
     // app shell, gated by beta.access; each experiment card inside is further gated by its own feature perm.
     path: 'beta',

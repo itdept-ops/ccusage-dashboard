@@ -1,0 +1,431 @@
+// ============================================================================
+// Bills Beta — "Tally" design system + shell layout.
+//
+// ISOLATED design system: every token here is defined on :host of app-bills-beta
+// so all child components (and the IMPORTED tracker-beta primitives BottomSheet /
+// SwipeRow) inherit them via the cascade. NONE of the global Usage IQ --tech-*
+// tokens are used. This mirrors how tracker-beta defines its own :host tokens.
+//
+// Palette is the "receipt-paper / ink" set from the Tally build brief. Dark only.
+// A prefers-reduced-motion killswitch, a reduced-transparency / forced-contrast
+// blur-drop, and env() safe-area insets are honored here so children inherit a
+// consistent contract.
+//
+// NOTE: the imported BottomSheet + SwipeRow reference a handful of tracker-beta
+// token names (--glass, --blur-glass, --r-glass, --lift-3, --ink-faint, --r-pill,
+// --ease-out, --glass-edge, --r-tile, --warn, --bg-rise, --ease-spring). Those are
+// ALIASED into the receipt-paper palette below so the imported primitives render
+// correctly without modifying them.
+// ============================================================================
+
+:host {
+  color-scheme: dark;
+
+  // ---- RECEIPT-PAPER / INK palette (Tally brief, verbatim) ----
+  --paper: #14140f;
+  --paper-rise: #1d1c14;
+  --paper-sink: #0f0f0b;
+  --ink: #f7f3e7;
+  --ink-dim: #b3ad95;
+  --rule: rgba(247, 243, 231, .08);
+  --claimed: #4ade80;   // claimed / settled = green
+  --owed: #f0a35a;       // amount owed / unclaimed = warm AMBER, NEVER red
+  --me: #38bdf8;          // "you" accent
+
+  // ---- RADII ----
+  --r-card: 20px;
+  --r-pill: 999px;
+  --r-row: 14px;
+
+  // ---- TAP TARGET ----
+  --tap: 56px;
+
+  // ---- TYPE ----
+  --font-num: "Clash Display", system-ui, sans-serif; // numerals / totals
+  --font-ui: "Plus Jakarta Sans", system-ui, sans-serif; // labels / body
+
+  // ---- MOTION ----
+  --ease-spring: cubic-bezier(.34, 1.56, .64, 1);
+  --ease-out: cubic-bezier(.22, 1, .36, 1);
+
+  // ---- Safe-area gutters ----
+  --safe-b: env(safe-area-inset-bottom, 0px);
+  --safe-top: env(safe-area-inset-top, 0px);
+  --gutter: max(16px, env(safe-area-inset-left, 0px));
+  --gutter-r: max(16px, env(safe-area-inset-right, 0px));
+
+  // ---- Fixed-chrome heights (the scroll region reserves space for these) ----
+  --switcher-h: 56px;
+  --share-bar-h: 72px;
+
+  // ---- ALIASES for the imported tracker-beta primitives (BottomSheet / SwipeRow) ----
+  // These map the Strata token names those components reference onto the Tally palette.
+  --glass: rgba(29, 28, 20, .82);
+  --glass-edge: var(--rule);
+  --blur-glass: 18px;
+  --r-glass: var(--r-card);
+  --r-tile: var(--r-row);
+  --ink-faint: var(--ink-dim);
+  --bg-rise: var(--paper-rise);
+  --warn: var(--owed);
+  --lift-3: 0 16px 48px rgba(0, 0, 0, .55), inset 0 1px 0 var(--rule);
+  --lift-2: 0 8px 24px rgba(0, 0, 0, .45), inset 0 1px 0 var(--rule);
+
+  display: block;
+  position: relative;
+  width: 100%;
+  min-height: 100svh;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-ui);
+  font-size: 15px;
+  line-height: 1.4;
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  overscroll-behavior: none;
+}
+
+// ---- a11y: reduced transparency / forced contrast => drop blur, solidify glass ----
+@media (prefers-reduced-transparency: reduce), (prefers-contrast: more) {
+  :host {
+    --blur-glass: 0px;
+    --glass: var(--paper-rise);
+  }
+}
+
+// ---- MOTION KILLSWITCH ----
+@media (prefers-reduced-motion: reduce) {
+  :host,
+  :host *,
+  :host *::before,
+  :host *::after {
+    animation-duration: .001ms !important;
+    animation-delay: 0ms !important;
+    transition-duration: .001ms !important;
+    transition-delay: 0ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+// ============================================================================
+// SHELL LAYOUT
+// ============================================================================
+
+// The single vertical scroll region. 100dvh tracks the dynamic viewport under the
+// fixed chrome (sticky switcher up top, share bar at the bottom).
+.bb-scroll {
+  height: 100dvh;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior-y: contain;
+  -webkit-overflow-scrolling: touch;
+  padding-top: calc(var(--switcher-h) + var(--safe-top));
+  padding-bottom: calc(var(--share-bar-h) + var(--safe-b) + 16px);
+  padding-inline: var(--gutter) var(--gutter-r);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+// ---- Sticky bill-switcher pill scroller (fixed top) ----
+.bb-switcher {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 30;
+  min-height: calc(var(--switcher-h) + var(--safe-top));
+  padding-top: var(--safe-top);
+  padding-inline: var(--gutter) var(--gutter-r);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--glass);
+  backdrop-filter: blur(var(--blur-glass)) saturate(1.4);
+  -webkit-backdrop-filter: blur(var(--blur-glass)) saturate(1.4);
+  border-bottom: 1px solid var(--rule);
+}
+
+.bb-switcher__rail {
+  flex: 1 1 auto;
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scroll-snap-type: x proximity;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  padding: 8px 2px;
+
+  &::-webkit-scrollbar { display: none; }
+}
+
+.bb-pill {
+  flex: 0 0 auto;
+  scroll-snap-align: start;
+  min-height: 40px;
+  padding: 0 16px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--rule);
+  border-radius: var(--r-pill);
+  background: var(--paper-rise);
+  color: var(--ink-dim);
+  font: 600 14px/1 var(--font-ui);
+  white-space: nowrap;
+  cursor: pointer;
+  transition: color 140ms var(--ease-out), border-color 140ms var(--ease-out), background 140ms var(--ease-out);
+
+  &.is-active {
+    color: var(--ink);
+    border-color: var(--ink-dim);
+    background: var(--paper-sink);
+  }
+  &.is-settled .bb-pill__dot { background: var(--claimed); }
+}
+.bb-pill__dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: var(--owed);
+}
+.bb-add {
+  flex: 0 0 auto;
+  width: 40px; height: 40px;
+  display: grid; place-items: center;
+  border: 1px solid var(--rule);
+  border-radius: var(--r-pill);
+  background: var(--paper-rise);
+  color: var(--ink);
+  cursor: pointer;
+}
+
+// ---- Generic Tally card (matte paper extrusion) ----
+.bb-card {
+  flex: 0 0 auto;
+  border-radius: var(--r-card);
+  background: var(--paper-rise);
+  box-shadow: var(--lift-2);
+  padding: 16px;
+}
+
+// ---- Hero capture card ----
+.bb-hero {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.bb-hero__title {
+  margin: 0;
+  font: 600 15px/1.2 var(--font-ui);
+  color: var(--ink);
+  display: flex; align-items: center; gap: 8px;
+}
+.bb-hero__title input {
+  flex: 1 1 auto; min-width: 0;
+  background: transparent; border: none; outline: none;
+  color: var(--ink); font: 700 18px/1.2 var(--font-num);
+  border-bottom: 1px solid transparent;
+  padding: 4px 0;
+  &:focus { border-bottom-color: var(--rule); }
+}
+.bb-dropzone {
+  display: flex; gap: 12px;
+}
+.bb-dropbtn {
+  flex: 1 1 0;
+  min-height: 112px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px;
+  border: 1.5px dashed var(--rule);
+  border-radius: var(--r-row);
+  background: var(--paper-sink);
+  color: var(--ink-dim);
+  font: 600 13px/1.2 var(--font-ui);
+  cursor: pointer;
+  transition: border-color 140ms var(--ease-out), color 140ms var(--ease-out);
+  &:active { border-color: var(--me); color: var(--ink); }
+  mat-icon { font-size: 28px; width: 28px; height: 28px; color: var(--me); }
+}
+// slim add bar once items exist
+.bb-addbar {
+  display: flex; gap: 8px; align-items: center;
+}
+.bb-addbar__field {
+  flex: 1 1 auto; min-width: 0;
+  display: flex; align-items: center; gap: 6px;
+  min-height: var(--tap);
+  padding: 0 14px;
+  border: 1px solid var(--rule);
+  border-radius: var(--r-row);
+  background: var(--paper-sink);
+}
+.bb-addbar__field input {
+  background: transparent; border: none; outline: none; color: var(--ink);
+  font: 500 15px/1 var(--font-ui); min-width: 0;
+}
+.bb-addbar__name { flex: 1 1 auto; }
+.bb-addbar__amt { width: 84px; text-align: right; font-family: var(--font-num); font-weight: 600; }
+.bb-addbar__btn,
+.bb-iconbtn {
+  flex: 0 0 auto;
+  width: var(--tap); height: var(--tap);
+  display: grid; place-items: center;
+  border: 1px solid var(--rule);
+  border-radius: var(--r-row);
+  background: var(--paper-sink);
+  color: var(--ink);
+  cursor: pointer;
+  &:disabled { opacity: .4; cursor: default; }
+}
+
+// ---- Section heading ----
+.bb-section-h {
+  margin: 4px 2px -4px;
+  font: 600 12px/1 var(--font-ui);
+  letter-spacing: .08em; text-transform: uppercase;
+  color: var(--ink-dim);
+}
+
+// ---- Items list ----
+.bb-items {
+  display: flex; flex-direction: column; gap: 8px;
+}
+
+// ---- Tax / tip steppers ----
+.bb-taxtip {
+  display: flex; gap: 10px;
+}
+.bb-stepper {
+  flex: 1 1 0;
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  min-height: var(--tap);
+  padding: 0 8px 0 14px;
+  border-radius: var(--r-row);
+  background: var(--paper-sink);
+}
+.bb-stepper__lbl { font: 600 13px/1 var(--font-ui); color: var(--ink-dim); }
+.bb-stepper__v { font: 700 16px/1 var(--font-num); color: var(--ink); min-width: 56px; text-align: right; }
+.bb-stepper__btns { display: flex; gap: 4px; }
+.bb-stepper__btn {
+  width: 40px; height: 40px;
+  display: grid; place-items: center;
+  border: 1px solid var(--rule);
+  border-radius: 10px;
+  background: var(--paper-rise);
+  color: var(--ink);
+  cursor: pointer;
+}
+
+// ---- Per-person totals snap rail ----
+.bb-totals-rail {
+  display: flex; gap: 12px;
+  overflow-x: auto; overflow-y: hidden;
+  scroll-snap-type: x mandatory;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  padding: 2px;
+  margin-inline: calc(var(--gutter) * -1) calc(var(--gutter-r) * -1);
+  padding-inline: var(--gutter) var(--gutter-r);
+
+  &::-webkit-scrollbar { display: none; }
+}
+
+// ---- Bill total summary line ----
+.bb-billtotal {
+  display: flex; align-items: baseline; justify-content: space-between;
+  padding: 4px 4px 0;
+}
+.bb-billtotal__lbl { font: 600 13px/1 var(--font-ui); color: var(--ink-dim); text-transform: uppercase; letter-spacing: .06em; }
+.bb-billtotal__v { font: 700 26px/1 var(--font-num); color: var(--ink); }
+
+// ---- Sticky bottom SHARE bar ----
+.bb-share-bar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 30;
+  min-height: calc(var(--share-bar-h) + var(--safe-b));
+  padding-bottom: max(12px, var(--safe-b));
+  padding-top: 10px;
+  padding-inline: var(--gutter) var(--gutter-r);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--glass);
+  backdrop-filter: blur(var(--blur-glass)) saturate(1.4);
+  -webkit-backdrop-filter: blur(var(--blur-glass)) saturate(1.4);
+  border-top: 1px solid var(--rule);
+  box-shadow: var(--lift-3);
+}
+.bb-share-btn {
+  flex: 1 1 auto;
+  min-height: var(--tap);
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  border: none;
+  border-radius: var(--r-pill);
+  background: var(--ink);
+  color: var(--paper);
+  font: 700 15px/1 var(--font-ui);
+  cursor: pointer;
+
+  &.is-active { background: color-mix(in srgb, var(--claimed) 22%, var(--paper-rise)); color: var(--claimed); border: 1px solid var(--claimed); }
+  &:disabled { opacity: .4; cursor: default; }
+}
+.bb-share-copy {
+  flex: 0 0 auto;
+  width: var(--tap); height: var(--tap);
+  display: grid; place-items: center;
+  border: 1px solid var(--rule);
+  border-radius: var(--r-pill);
+  background: var(--paper-rise);
+  color: var(--ink);
+  cursor: pointer;
+}
+
+// ---- Empty / loading states ----
+.bb-empty {
+  margin: 40px auto;
+  max-width: 280px;
+  text-align: center;
+  color: var(--ink-dim);
+  display: flex; flex-direction: column; align-items: center; gap: 12px;
+  mat-icon { font-size: 40px; width: 40px; height: 40px; color: var(--ink-dim); opacity: .6; }
+}
+.bb-empty__btn {
+  min-height: var(--tap); padding: 0 22px;
+  border: none; border-radius: var(--r-pill);
+  background: var(--ink); color: var(--paper);
+  font: 700 15px/1 var(--font-ui); cursor: pointer;
+}
+
+.bb-skeleton {
+  background: linear-gradient(100deg, var(--paper-sink) 30%, var(--paper-rise) 50%, var(--paper-sink) 70%);
+  background-size: 200% 100%;
+  animation: bb-shimmer 1.4s var(--ease-out) infinite;
+  border-radius: var(--r-card);
+}
+@keyframes bb-shimmer { to { background-position: -200% 0; } }
+
+// ---- determinate receipt-import bar ----
+.bb-importing {
+  display: flex; align-items: center; gap: 10px;
+  font: 600 13px/1.2 var(--font-ui); color: var(--ink-dim);
+}
+.bb-importing__track {
+  flex: 1 1 auto; height: 6px; border-radius: var(--r-pill);
+  background: var(--paper-sink); overflow: hidden;
+}
+.bb-importing__fill {
+  height: 100%; background: var(--me); border-radius: var(--r-pill);
+  transition: width 200ms var(--ease-out);
+}
+
+// ---- Own focus ring ----
+:host ::ng-deep :focus-visible {
+  outline: 2px solid var(--me);
+  outline-offset: 2px;
+  border-radius: 6px;
+}

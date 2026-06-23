@@ -107,6 +107,13 @@ export class BetaHubPage {
       icon: 'fitness_center',
       perm: 'tracker.beta',
     },
+    {
+      title: 'Bills',
+      blurb: 'Snap a receipt, split it, share a claim link — mobile-first',
+      route: '/beta/bills',
+      icon: 'receipt_long',
+      perm: 'bills.use',
+    },
   ];
 
   /** Experiments visible to the current session (cards without a `perm` always show). */
