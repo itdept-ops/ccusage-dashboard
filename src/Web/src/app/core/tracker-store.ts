@@ -3,7 +3,7 @@ import { firstValueFrom } from 'rxjs';
 
 import { Api } from './api';
 import {
-  AddCoffeeRequest, AddExerciseRequest, AddFoodRequest, AddHydrationRequest, AddSleepRequest, AddSupplementRequest, CoffeeEntryDto, HydrationEntryDto, LogWeightRequest,
+  AddCoffeeRequest, AddExerciseRequest, AddFoodRequest, UpdateFoodRequest, AddHydrationRequest, AddSleepRequest, AddSupplementRequest, CoffeeEntryDto, HydrationEntryDto, LogWeightRequest,
   SharedUserDto, SleepEntryDto, TrackerDayDto, TrackerProfileDto, UpsertActivityRequest, WeightPointDto, WeightStatsDto,
 } from './models';
 
@@ -127,6 +127,16 @@ export class TrackerStore {
     // Refresh once if anything landed (or if nothing did but we still want fresh state after errors).
     await this.load();
     return { added, failed: results.length - added };
+  }
+
+  /**
+   * Edit a logged food entry, then refresh the day (mirrors `addFood`: mutate then full reload, so the
+   * day roll-up reflects the edit). The server recomputes macros for a priced row from the new quantity;
+   * a manual row takes the sent description/macros directly. Owner-only (a read-only view never calls this).
+   */
+  async updateFood(id: number, body: UpdateFoodRequest): Promise<void> {
+    await firstValueFrom(this.api.updateFood(id, body));
+    await this.load();
   }
 
   /** Delete a logged food entry, then refresh the day. */

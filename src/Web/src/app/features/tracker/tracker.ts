@@ -17,7 +17,7 @@ import { AuthService } from '../../core/auth';
 import { TrackerStore } from '../../core/tracker-store';
 import {
   ActivityCalorieMode, AddCoffeeRequest, AddExerciseRequest, AddFoodRequest, AddHydrationRequest, CoffeeEntryDto, CommitDayResponse, CustomFoodDto, DailyCoachResponse,
-  DaySummaryResponse, ExerciseEntryDto, FoodEntryDto,
+  DaySummaryResponse, ExerciseEntryDto, FoodEntryDto, UpdateFoodRequest,
   HydrationEntryDto, LogWeightRequest, Meal, MoveDayRequest, MoveDayResult, PERM, QuickFoodTile, SharedUserDto, SleepEntryDto, SupplementEntryDto, SupplementKind, TrackerDayDto, TrackerProfileDto,
   TrackerRecapResult, UpsertActivityRequest, WeeklyReviewResponse, WeightPointDto, WeightStatsDto,
 } from '../../core/models';
@@ -51,6 +51,11 @@ const DEFAULT_STEP_GOAL = 10_000;
 
 /** Re-fetch the viewed tracker every this many ms while in a read-only (someone else's) view. */
 const READONLY_REFRESH_MS = 30_000;
+
+/** Coerce a possibly-null / NaN / non-finite numeric input to a finite number (0 when unusable). */
+function safeNum(n: number | null | undefined): number {
+  return typeof n === 'number' && Number.isFinite(n) ? n : 0;
+}
 
 interface MealSection { meal: Meal; label: string; icon: string }
 
@@ -1287,6 +1292,152 @@ export class Tracker {
     this.store.deleteFood(f.id)
       .then(() => this.statusMsg.set(`Removed ${f.description}`))
       .catch(() => this.snack.open('Could not remove entry', 'Dismiss', { duration: 4000 }));
+  }
+
+  // ---- inline food editing (owner-only; hidden in read-only views) ----------------------------------
+
+  /** The id of the food row currently being edited inline, or null when no row is open. */
+  readonly editingFoodId = signal<number | null>(null);
+
+  /** True while a save (PUT) is in flight — disables the Save/Cancel controls to block a double-submit. */
+  readonly savingEdit = signal(false);
+
+  /**
+   * Whether the row being edited is a PRICED food (a known/saved/USDA entry, stored with an fdcId). For
+   * a priced row only the quantity is editable (the server recomputes macros from the stored per-unit
+   * basis); a manual row (no fdcId) edits the raw description + calories/macros directly.
+   */
+  readonly editIsPriced = signal(false);
+
+  /** The original quantity of the row being edited (the priced-row macro preview scales against this). */
+  private editOrigQuantity = 1;
+  /** The original calories/macros of the row being edited (the priced-row per-unit basis is derived from these). */
+  private editOrig = { calories: 0, proteinG: 0, carbG: 0, fatG: 0 };
+
+  // Edit-form fields (mirrors the add-food dialog's manual fields + a quantity for priced rows).
+  readonly editMeal = signal<Meal>('breakfast');
+  readonly editQuantity = signal<number>(1);
+  readonly editDesc = signal('');
+  readonly editCalories = signal<number | null>(null);
+  readonly editProtein = signal<number | null>(null);
+  readonly editCarb = signal<number | null>(null);
+  readonly editFat = signal<number | null>(null);
+
+  /** The meal options for the inline meal-slot picker (matches the add-food dialog set). */
+  readonly editMeals: { value: Meal; label: string }[] = [
+    { value: 'breakfast', label: 'Breakfast' },
+    { value: 'lunch', label: 'Lunch' },
+    { value: 'dinner', label: 'Dinner' },
+    { value: 'snack', label: 'Snacks' },
+  ];
+
+  /**
+   * Live macro preview for the PRICED edit form: rescale the original (stored) totals by the new quantity
+   * over the old, mirroring the server recompute (perUnit = storedTotal / oldQty; new = perUnit * newQty).
+   * Rounded like the server (calories int, macros 1dp, floored at 0). Null for a manual row / bad quantity.
+   */
+  readonly editPreview = computed<{ calories: number; proteinG: number; carbG: number; fatG: number } | null>(() => {
+    if (!this.editIsPriced()) return null;
+    const q = this.editQuantity();
+    if (!(q > 0) || !Number.isFinite(q) || this.editOrigQuantity <= 0) return null;
+    const factor = q / this.editOrigQuantity;
+    const round = (n: number) => Math.max(0, Math.round(n * factor * 10) / 10);
+    return {
+      calories: Math.max(0, Math.round(this.editOrig.calories * factor)),
+      proteinG: round(this.editOrig.proteinG),
+      carbG: round(this.editOrig.carbG),
+      fatG: round(this.editOrig.fatG),
+    };
+  });
+
+  /** Whether the inline edit form is valid enough to save (quantity for priced; description + calories for manual). */
+  readonly canSaveEdit = computed(() => {
+    if (this.savingEdit()) return false;
+    if (this.editIsPriced()) {
+      const q = this.editQuantity();
+      return Number.isFinite(q) && q > 0 && q <= 9999;
+    }
+    const cal = this.editCalories();
+    return this.editDesc().trim().length > 0 && cal != null && Number.isFinite(cal) && cal >= 0;
+  });
+
+  /** True when the given row is the one currently open for inline editing. */
+  isEditing(f: FoodEntryDto): boolean {
+    return this.editingFoodId() === f.id;
+  }
+
+  /** Open the inline editor for a logged food row (no-op in read-only views). */
+  startEditFood(f: FoodEntryDto): void {
+    if (this.store.readOnly()) return;
+    this.editingFoodId.set(f.id);
+    this.editIsPriced.set(f.fdcId != null);
+    this.editOrigQuantity = f.quantity > 0 ? f.quantity : 1;
+    this.editOrig = { calories: f.calories, proteinG: f.proteinG, carbG: f.carbG, fatG: f.fatG };
+    this.editMeal.set(f.meal);
+    this.editQuantity.set(f.quantity > 0 ? f.quantity : 1);
+    this.editDesc.set(f.description);
+    this.editCalories.set(f.calories);
+    this.editProtein.set(f.proteinG);
+    this.editCarb.set(f.carbG);
+    this.editFat.set(f.fatG);
+  }
+
+  /** Close the inline editor without saving. */
+  cancelEditFood(): void {
+    this.editingFoodId.set(null);
+    this.savingEdit.set(false);
+  }
+
+  /**
+   * Persist the inline edit OPTIMISTICALLY: patch the day signal in place immediately (so the row + the
+   * calorie ring / macro bars update without a flicker), then PUT. On error, revert the day to its prior
+   * snapshot and snackbar. Mirrors the optimistic add/delete pattern; the server is authoritative on a
+   * priced row's recomputed macros, so on success the store's reload reconciles the exact figures.
+   */
+  async saveEditFood(f: FoodEntryDto): Promise<void> {
+    if (this.store.readOnly() || !this.canSaveEdit()) return;
+    const priced = this.editIsPriced();
+    const meal = this.editMeal();
+
+    // Build the request: priced rows send only the quantity (+ meal); manual rows send the raw fields.
+    const body: UpdateFoodRequest = priced
+      ? { quantity: this.editQuantity(), meal }
+      : {
+          meal,
+          description: this.editDesc().trim(),
+          calories: Math.max(0, Math.round(safeNum(this.editCalories()))),
+          proteinG: Math.max(0, safeNum(this.editProtein())),
+          carbG: Math.max(0, safeNum(this.editCarb())),
+          fatG: Math.max(0, safeNum(this.editFat())),
+        };
+
+    // The optimistic local shape of the edited row. For a priced row we reuse the live preview (which
+    // mirrors the server recompute); for a manual row the typed totals are authoritative.
+    const preview = this.editPreview();
+    const optimistic: FoodEntryDto = priced
+      ? { ...f, meal, quantity: this.editQuantity(),
+          calories: preview?.calories ?? f.calories, proteinG: preview?.proteinG ?? f.proteinG,
+          carbG: preview?.carbG ?? f.carbG, fatG: preview?.fatG ?? f.fatG }
+      : { ...f, meal, description: body.description!, calories: body.calories!,
+          proteinG: body.proteinG!, carbG: body.carbG!, fatG: body.fatG! };
+
+    const prevDay = this.store.day();
+    this.savingEdit.set(true);
+    // Patch the day signal in place so the row + roll-ups move immediately.
+    if (prevDay) {
+      this.store.day.set({ ...prevDay, foods: prevDay.foods.map(x => (x.id === f.id ? optimistic : x)) });
+    }
+    this.editingFoodId.set(null);
+
+    try {
+      await this.store.updateFood(f.id, body); // PUT then full reload → server-authoritative reconcile.
+      this.statusMsg.set(`Updated ${optimistic.description}, ${optimistic.calories} calories`);
+    } catch {
+      if (prevDay) this.store.day.set(prevDay); // revert the optimistic patch.
+      this.snack.open('Could not save the change', 'Dismiss', { duration: 4000 });
+    } finally {
+      this.savingEdit.set(false);
+    }
   }
 
   removeExercise(e: ExerciseEntryDto): void {

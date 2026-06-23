@@ -888,23 +888,115 @@
 
         <ul class="tracker__entries">
           @for (f of foodsFor(s.meal); track f.id) {
-            <li class="tracker__entry">
-              <div class="tracker__entry-id">
-                <span class="tracker__entry-name">{{ f.description }}</span>
-                <span class="tracker__entry-meta">
-                  @if (f.brand) { {{ f.brand }} · }
-                  @if (f.servingDesc) { {{ f.servingDesc }} · }
-                  <span class="mono-num">{{ f.proteinG }}P {{ f.carbG }}C {{ f.fatG }}F</span>
-                </span>
-              </div>
-              <span class="tracker__entry-cal mono-num">{{ f.calories | number }}</span>
-              @if (!store.readOnly()) {
-                <button mat-icon-button type="button" class="tracker__entry-del"
-                        (click)="removeFood(f)" [attr.aria-label]="'Remove ' + f.description">
-                  <mat-icon>close</mat-icon>
-                </button>
-              }
-            </li>
+            @if (!store.readOnly() && isEditing(f)) {
+              <!-- Inline editor: quantity for a priced/saved food (macros recompute), or the raw
+                   description + calories/macros for a manual entry, plus the meal slot. -->
+              <li class="tracker__entry tracker__entry--editing">
+                <form class="tracker__edit" (ngSubmit)="saveEditFood(f)"
+                      [attr.aria-label]="'Edit ' + f.description">
+                  @if (editIsPriced()) {
+                    <div class="tracker__edit-row">
+                      <span class="tracker__edit-name">{{ f.description }}</span>
+                    </div>
+                    <div class="tracker__edit-row">
+                      <label class="tracker__edit-field tracker__edit-field--qty">
+                        <span class="tracker__edit-lbl">Quantity</span>
+                        <input class="tracker__edit-input mono-num" type="number" min="0.1" step="0.1"
+                               inputmode="decimal" [ngModel]="editQuantity()" name="editQty"
+                               (ngModelChange)="editQuantity.set($any($event))" />
+                      </label>
+                      <label class="tracker__edit-field">
+                        <span class="tracker__edit-lbl">Meal</span>
+                        <select class="tracker__edit-input" [ngModel]="editMeal()" name="editMeal"
+                                (ngModelChange)="editMeal.set($any($event))">
+                          @for (m of editMeals; track m.value) {
+                            <option [value]="m.value">{{ m.label }}</option>
+                          }
+                        </select>
+                      </label>
+                    </div>
+                    @if (editPreview(); as p) {
+                      <p class="tracker__edit-preview mono-num">
+                        {{ p.calories | number }} kcal · {{ p.proteinG }}P {{ p.carbG }}C {{ p.fatG }}F
+                      </p>
+                    }
+                  } @else {
+                    <div class="tracker__edit-row">
+                      <label class="tracker__edit-field tracker__edit-field--grow">
+                        <span class="tracker__edit-lbl">Food</span>
+                        <input class="tracker__edit-input" type="text" maxlength="256"
+                               [ngModel]="editDesc()" name="editDesc"
+                               (ngModelChange)="editDesc.set($any($event))" />
+                      </label>
+                      <label class="tracker__edit-field">
+                        <span class="tracker__edit-lbl">Meal</span>
+                        <select class="tracker__edit-input" [ngModel]="editMeal()" name="editMeal"
+                                (ngModelChange)="editMeal.set($any($event))">
+                          @for (m of editMeals; track m.value) {
+                            <option [value]="m.value">{{ m.label }}</option>
+                          }
+                        </select>
+                      </label>
+                    </div>
+                    <div class="tracker__edit-row tracker__edit-macros">
+                      <label class="tracker__edit-field">
+                        <span class="tracker__edit-lbl">Calories</span>
+                        <input class="tracker__edit-input mono-num" type="number" min="0" step="1"
+                               inputmode="numeric" [ngModel]="editCalories()" name="editCal"
+                               (ngModelChange)="editCalories.set($any($event))" />
+                      </label>
+                      <label class="tracker__edit-field">
+                        <span class="tracker__edit-lbl">Protein</span>
+                        <input class="tracker__edit-input mono-num" type="number" min="0" step="0.1"
+                               inputmode="decimal" [ngModel]="editProtein()" name="editP"
+                               (ngModelChange)="editProtein.set($any($event))" />
+                      </label>
+                      <label class="tracker__edit-field">
+                        <span class="tracker__edit-lbl">Carbs</span>
+                        <input class="tracker__edit-input mono-num" type="number" min="0" step="0.1"
+                               inputmode="decimal" [ngModel]="editCarb()" name="editC"
+                               (ngModelChange)="editCarb.set($any($event))" />
+                      </label>
+                      <label class="tracker__edit-field">
+                        <span class="tracker__edit-lbl">Fat</span>
+                        <input class="tracker__edit-input mono-num" type="number" min="0" step="0.1"
+                               inputmode="decimal" [ngModel]="editFat()" name="editF"
+                               (ngModelChange)="editFat.set($any($event))" />
+                      </label>
+                    </div>
+                  }
+                  <div class="tracker__edit-actions">
+                    <button mat-button type="button" class="tracker__edit-cancel"
+                            (click)="cancelEditFood()" [disabled]="savingEdit()">Cancel</button>
+                    <button mat-flat-button type="submit" class="tracker__edit-save"
+                            [disabled]="!canSaveEdit()">Save</button>
+                  </div>
+                </form>
+              </li>
+            } @else {
+              <li class="tracker__entry"
+                  [class.tracker__entry--editable]="!store.readOnly()">
+                <div class="tracker__entry-id">
+                  <span class="tracker__entry-name">{{ f.description }}</span>
+                  <span class="tracker__entry-meta">
+                    @if (f.brand) { {{ f.brand }} · }
+                    @if (f.servingDesc) { {{ f.servingDesc }} · }
+                    <span class="mono-num">{{ f.proteinG }}P {{ f.carbG }}C {{ f.fatG }}F</span>
+                  </span>
+                </div>
+                <span class="tracker__entry-cal mono-num">{{ f.calories | number }}</span>
+                @if (!store.readOnly()) {
+                  <button mat-icon-button type="button" class="tracker__entry-edit"
+                          (click)="startEditFood(f)" [attr.aria-label]="'Edit ' + f.description">
+                    <mat-icon>edit</mat-icon>
+                  </button>
+                  <button mat-icon-button type="button" class="tracker__entry-del"
+                          (click)="removeFood(f)" [attr.aria-label]="'Remove ' + f.description">
+                    <mat-icon>close</mat-icon>
+                  </button>
+                }
+              </li>
+            }
           } @empty {
             <li class="tracker__entry tracker__entry--empty">Nothing logged yet.</li>
           }

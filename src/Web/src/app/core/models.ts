@@ -2048,6 +2048,26 @@ export interface AddFoodRequest {
 }
 
 /**
+ * Edit-a-food payload (PUT /api/tracker/food/{id}) — mirrors UpdateFoodRequest. Every field is optional.
+ * The server is authoritative on priced-vs-manual (keyed by the STORED row's fdcId):
+ *  - PRICED row (stored fdcId != null): only `quantity` (+ optional `meal`/`date`) are honoured; the
+ *    server RECOMPUTES calories/macros from the stored per-unit basis. Macro fields here are ignored.
+ *  - MANUAL row (stored fdcId == null): `description` + `calories`/`proteinG`/`carbG`/`fatG` are stored
+ *    as the totals directly (clamped), plus optional `meal`/`date`.
+ * An omitted `meal`/`date` leaves the slot/day unchanged.
+ */
+export interface UpdateFoodRequest {
+  date?: string;
+  meal?: string;
+  quantity?: number;
+  description?: string;
+  calories?: number;
+  proteinG?: number;
+  carbG?: number;
+  fatG?: number;
+}
+
+/**
  * One of the caller's saved "My foods" (GET /api/tracker/foods/saved) — a per-user library auto-built
  * from manual food logs. Calories/macros are the verbatim totals first logged; the dialog can scale
  * them by quantity when re-picking. Mirrors CustomFoodDto.

@@ -330,6 +330,85 @@ public static class TrackerEndpoints
             return deleted == 0 ? Results.NotFound() : Results.NoContent();
         }).RequirePermission(Permissions.TrackerSelf);
 
+        // ---- Edit a logged food (owner only; priced rows recompute macros server-side) ----
+        // Owner-scoped exactly like DELETE: the row MUST belong to the caller; a missing/foreign id is a
+        // 404 (never 403 / existence leak). The priced-vs-manual split is keyed by the STORED row's FdcId
+        // (the only persisted signal — Source isn't stored), and is server-authoritative:
+        //   - PRICED row (FdcId != null): only quantity (+ optional meal/date) are honoured. Calories &
+        //     macros are RECOMPUTED from the per-unit basis derived off the stored row
+        //     (perUnit = storedTotal / storedQuantity, exact since the stored total was perUnit*oldQty),
+        //     then scaled to the new quantity. Client-sent macros are IGNORED for a priced row.
+        //   - MANUAL row (FdcId == null): description + the four macro TOTALS are stored directly (clamped
+        //     like the add path), plus optional meal/date. An omitted field leaves that column unchanged.
+        g.MapPut("/food/{id:long}", async (
+            long id, UpdateFoodRequest req, CurrentUserAccessor me, UsageDbContext db, CancellationToken ct) =>
+        {
+            var caller = (await me.GetUserAsync(ct))!;
+
+            // Owner-scoped fetch: a missing OR foreign row is a 404 (never reveal someone else's entry).
+            var entry = await db.FoodEntries
+                .FirstOrDefaultAsync(f => f.Id == id && f.UserEmail == caller.Email, ct);
+            if (entry is null) return Results.NotFound();
+
+            // Optional meal/date move (validated; blank/absent leaves the slot/day unchanged).
+            if (!string.IsNullOrWhiteSpace(req.Meal))
+            {
+                if (!TryParseMeal(req.Meal, out var meal))
+                    return Results.BadRequest(new { message = "Meal must be breakfast, lunch, dinner, or snack." });
+                entry.Meal = meal;
+            }
+            if (!string.IsNullOrWhiteSpace(req.Date))
+            {
+                if (!TryParseDate(req.Date, out var localDate))
+                    return Results.BadRequest(new { message = "A valid date (yyyy-MM-dd) is required." });
+                entry.LocalDate = localDate;
+            }
+
+            if (entry.FdcId is not null)
+            {
+                // PRICED (USDA-derived) row: recompute totals from the per-unit basis. Quantity is the only
+                // nutritional input; client macros are ignored entirely.
+                if (req.Quantity is { } rawQty)
+                {
+                    var newQty = !double.IsFinite(rawQty) || rawQty <= 0 ? 1 : Math.Min(rawQty, 9999);
+                    var oldQty = entry.Quantity;
+                    if (oldQty > 0)
+                    {
+                        // perUnit = storedTotal / oldQty (exact: stored total was perUnit * oldQty); rescale.
+                        entry.Calories = Math.Max(0, (int)Math.Round(entry.Calories / oldQty * newQty,
+                            MidpointRounding.AwayFromZero));
+                        entry.ProteinG = NonNeg(Math.Round(entry.ProteinG / oldQty * newQty, 1));
+                        entry.CarbG = NonNeg(Math.Round(entry.CarbG / oldQty * newQty, 1));
+                        entry.FatG = NonNeg(Math.Round(entry.FatG / oldQty * newQty, 1));
+                    }
+                    entry.Quantity = newQty;
+                }
+            }
+            else
+            {
+                // MANUAL row: edit raw totals + description directly (each field optional; clamp like add).
+                if (req.Description is not null)
+                {
+                    var description = req.Description.Trim();
+                    if (description.Length == 0)
+                        return Results.BadRequest(new { message = "A food description is required." });
+                    if (description.Length > 256) description = description[..256];
+                    entry.Description = description;
+                }
+                if (req.Calories is { } cal) entry.Calories = Math.Max(0, cal);
+                if (req.ProteinG is { } p) entry.ProteinG = NonNeg(p);
+                if (req.CarbG is { } c) entry.CarbG = NonNeg(c);
+                if (req.FatG is { } fat) entry.FatG = NonNeg(fat);
+                // A manual row's quantity is informational (totals are stored directly); honour an edit but
+                // never rescale macros off it.
+                if (req.Quantity is { } q)
+                    entry.Quantity = !double.IsFinite(q) || q <= 0 ? 1 : Math.Min(q, 9999);
+            }
+
+            await db.SaveChangesAsync(ct);
+            return Results.Ok(ToFoodDto(entry));
+        }).RequirePermission(Permissions.TrackerSelf);
+
         // ---- Log an exercise (OWN only; MET-estimate calories when omitted) ----
         g.MapPost("/exercise", async (
             AddExerciseRequest req, CurrentUserAccessor me, UsageDbContext db, ActivityEmitter activity, CancellationToken ct) =>

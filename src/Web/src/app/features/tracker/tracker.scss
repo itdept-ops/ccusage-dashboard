@@ -458,6 +458,11 @@
     font-style: italic;
     justify-content: flex-start;
   }
+
+  /* On an owner row, reveal the edit affordance on hover/focus-within for a lighter resting state. */
+  &--editable .tracker__entry-edit { opacity: 0.55; transition: opacity 0.12s ease; }
+  &--editable:hover .tracker__entry-edit,
+  &--editable:focus-within .tracker__entry-edit { opacity: 1; }
 }
 
 .tracker__entry-id { display: flex; flex-direction: column; min-width: 0; flex: 1 1 auto; gap: 1px; }
@@ -488,6 +493,90 @@
   color: var(--tech-text-tertiary);
   &:hover { color: var(--tech-error); }
 }
+
+.tracker__entry-edit {
+  flex: 0 0 auto;
+  width: 44px;
+  height: 44px;
+  color: var(--tech-text-tertiary);
+  &:hover { color: var(--tech-accent); }
+  mat-icon { font-size: 18px; width: 18px; height: 18px; }
+}
+
+/* ── Inline food editor (owner-only; quantity for priced rows, raw fields for manual) ── */
+.tracker__entry--editing {
+  display: block;
+  padding: var(--tech-space-3) var(--tech-space-4);
+  background: var(--tech-surface-2, rgba(255, 255, 255, 0.03));
+}
+
+.tracker__edit {
+  display: flex;
+  flex-direction: column;
+  gap: var(--tech-space-3);
+}
+
+.tracker__edit-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--tech-space-3);
+  align-items: flex-end;
+}
+
+.tracker__edit-name {
+  font-size: var(--tech-fs-body);
+  font-weight: 600;
+  color: var(--tech-text);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+.tracker__edit-field {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  flex: 1 1 6rem;
+  min-width: 0;
+
+  &--qty { flex: 0 0 7rem; }
+  &--grow { flex: 2 1 10rem; }
+}
+
+.tracker__edit-lbl {
+  font-size: var(--tech-fs-label);
+  color: var(--tech-text-tertiary);
+}
+
+.tracker__edit-input {
+  appearance: none;
+  width: 100%;
+  min-height: 44px;
+  box-sizing: border-box;
+  padding: 0 var(--tech-space-3);
+  background: var(--tech-surface, rgba(0, 0, 0, 0.2));
+  color: var(--tech-text);
+  border: 1px solid var(--tech-border-subtle);
+  border-radius: var(--tech-radius);
+  font-size: var(--tech-fs-body);
+
+  &:focus-visible { outline: none; border-color: var(--tech-accent); box-shadow: var(--tech-focus-ring); }
+}
+
+.tracker__edit-macros { gap: var(--tech-space-2); }
+
+.tracker__edit-preview {
+  margin: 0;
+  font-size: var(--tech-fs-label);
+  color: var(--tech-accent);
+}
+
+.tracker__edit-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--tech-space-2);
+
+  button { min-height: 44px; font-weight: 600; }
+}
+.tracker__edit-save { color: var(--tech-on-accent, #fff); }
 
 .tracker__add {
   margin: var(--tech-space-2);

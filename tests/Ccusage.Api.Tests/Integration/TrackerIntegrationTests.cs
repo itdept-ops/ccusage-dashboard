@@ -172,6 +172,139 @@ public class TrackerIntegrationTests(WebAppFactory factory)
         (await other.DeleteAsync($"/api/tracker/food/{foodId}")).StatusCode.Should().Be(HttpStatusCode.NotFound);
     }
 
+    // ---- Food: edit own (PUT /food/{id}) ----
+
+    [Fact]
+    public async Task Editing_a_priced_food_quantity_recomputes_macros_from_the_per_unit_basis()
+    {
+        var (_, user) = await ProvisionUser("tracker.self");
+
+        // A USDA-sourced (priced) log: 1 serving = 300 kcal / 10P / 54C / 5F (the snapshot is the TOTAL).
+        var add = await user.PostAsJsonAsync("/api/tracker/food", new
+        {
+            date = Today, meal = "breakfast", fdcId = 12345, description = "Oatmeal", source = "usda",
+            quantity = 1.0, calories = 300, proteinG = 10.0, carbG = 54.0, fatG = 5.0,
+        });
+        var foodId = (await Json(add)).GetProperty("id").GetInt64();
+
+        // Bump to 2.5 servings: server recomputes from per-unit (storedTotal / oldQty), client macros ignored.
+        var edit = await user.PutAsJsonAsync($"/api/tracker/food/{foodId}", new
+        {
+            quantity = 2.5, calories = 99999, proteinG = 0.0, carbG = 0.0, fatG = 0.0, // bogus macros -> ignored
+        });
+        edit.StatusCode.Should().Be(HttpStatusCode.OK);
+        var updated = await Json(edit);
+        updated.GetProperty("quantity").GetDouble().Should().Be(2.5);
+        updated.GetProperty("calories").GetInt32().Should().Be(750);   // 300 * 2.5
+        updated.GetProperty("proteinG").GetDouble().Should().Be(25.0); // 10 * 2.5
+        updated.GetProperty("carbG").GetDouble().Should().Be(135.0);   // 54 * 2.5
+        updated.GetProperty("fatG").GetDouble().Should().Be(12.5);     // 5 * 2.5
+
+        // The day roll-up reflects the edit.
+        var day = await Json(await user.GetAsync($"/api/tracker/day?date={Today}"));
+        day.GetProperty("caloriesIn").GetInt32().Should().Be(750);
+    }
+
+    [Fact]
+    public async Task Editing_a_manual_food_updates_raw_description_and_macros()
+    {
+        var (_, user) = await ProvisionUser("tracker.self");
+
+        // A manual log (no fdcId/source) stores raw totals directly.
+        var add = await user.PostAsJsonAsync("/api/tracker/food", new
+        {
+            date = Today, meal = "lunch", description = "Sandwich", quantity = 1.0,
+            calories = 400, proteinG = 20.0, carbG = 40.0, fatG = 12.0,
+        });
+        var foodId = (await Json(add)).GetProperty("id").GetInt64();
+
+        var edit = await user.PutAsJsonAsync($"/api/tracker/food/{foodId}", new
+        {
+            description = "Big sandwich", calories = 550, proteinG = 28.0, carbG = 55.0, fatG = 18.0,
+        });
+        edit.StatusCode.Should().Be(HttpStatusCode.OK);
+        var updated = await Json(edit);
+        updated.GetProperty("description").GetString().Should().Be("Big sandwich");
+        updated.GetProperty("calories").GetInt32().Should().Be(550);
+        updated.GetProperty("proteinG").GetDouble().Should().Be(28.0);
+        updated.GetProperty("carbG").GetDouble().Should().Be(55.0);
+        updated.GetProperty("fatG").GetDouble().Should().Be(18.0);
+
+        var day = await Json(await user.GetAsync($"/api/tracker/day?date={Today}"));
+        day.GetProperty("caloriesIn").GetInt32().Should().Be(550);
+    }
+
+    [Fact]
+    public async Task Editing_a_food_can_move_it_to_another_meal_slot()
+    {
+        var (_, user) = await ProvisionUser("tracker.self");
+
+        var add = await user.PostAsJsonAsync("/api/tracker/food", new
+        {
+            date = Today, meal = "breakfast", description = "Yogurt", quantity = 1.0,
+            calories = 150, proteinG = 12.0, carbG = 15.0, fatG = 4.0,
+        });
+        var foodId = (await Json(add)).GetProperty("id").GetInt64();
+
+        var edit = await user.PutAsJsonAsync($"/api/tracker/food/{foodId}", new { meal = "snack" });
+        edit.StatusCode.Should().Be(HttpStatusCode.OK);
+        (await Json(edit)).GetProperty("meal").GetString().Should().Be("snack");
+
+        // The macros are untouched by a slot-only move; the day total is unchanged.
+        var day = await Json(await user.GetAsync($"/api/tracker/day?date={Today}"));
+        day.GetProperty("caloriesIn").GetInt32().Should().Be(150);
+        day.GetProperty("foods").EnumerateArray().Single().GetProperty("meal").GetString().Should().Be("snack");
+    }
+
+    [Fact]
+    public async Task Editing_a_food_you_dont_own_is_404()
+    {
+        var (_, owner) = await ProvisionUser("tracker.self");
+        var (_, other) = await ProvisionUser("tracker.self");
+
+        var add = await owner.PostAsJsonAsync("/api/tracker/food", new
+        {
+            date = Today, meal = "dinner", description = "Steak", quantity = 1.0,
+            calories = 500, proteinG = 40.0, carbG = 0.0, fatG = 30.0,
+        });
+        var foodId = (await Json(add)).GetProperty("id").GetInt64();
+
+        // A foreign edit is a 404 (never 403 / existence leak), and the owner's row is unchanged.
+        (await other.PutAsJsonAsync($"/api/tracker/food/{foodId}", new { calories = 1 }))
+            .StatusCode.Should().Be(HttpStatusCode.NotFound);
+        var day = await Json(await owner.GetAsync($"/api/tracker/day?date={Today}"));
+        day.GetProperty("caloriesIn").GetInt32().Should().Be(500);
+    }
+
+    [Fact]
+    public async Task Editing_a_food_clamps_negative_macros_and_rejects_a_bad_meal()
+    {
+        var (_, user) = await ProvisionUser("tracker.self");
+
+        var add = await user.PostAsJsonAsync("/api/tracker/food", new
+        {
+            date = Today, meal = "lunch", description = "Soup", quantity = 1.0,
+            calories = 200, proteinG = 8.0, carbG = 20.0, fatG = 6.0,
+        });
+        var foodId = (await Json(add)).GetProperty("id").GetInt64();
+
+        // A bad meal slot -> 400.
+        (await user.PutAsJsonAsync($"/api/tracker/food/{foodId}", new { meal = "brunch" }))
+            .StatusCode.Should().Be(HttpStatusCode.BadRequest);
+
+        // Negative macros are floored at 0 (manual row stores totals directly).
+        var edit = await user.PutAsJsonAsync($"/api/tracker/food/{foodId}", new
+        {
+            calories = -50, proteinG = -3.0, carbG = -1.0, fatG = -2.0,
+        });
+        edit.StatusCode.Should().Be(HttpStatusCode.OK);
+        var updated = await Json(edit);
+        updated.GetProperty("calories").GetInt32().Should().Be(0);
+        updated.GetProperty("proteinG").GetDouble().Should().Be(0.0);
+        updated.GetProperty("carbG").GetDouble().Should().Be(0.0);
+        updated.GetProperty("fatG").GetDouble().Should().Be(0.0);
+    }
+
     // ---- Day summary roll-up: in/out/net + macros + remaining vs goal ----
 
     [Fact]

@@ -1400,6 +1400,43 @@ public sealed class AddFoodRequest
 }
 
 /// <summary>
+/// Edit an existing logged food (owner only). The server is authoritative on the priced-vs-manual
+/// distinction, keyed by the STORED row's <c>FdcId</c> — client-sent macros are never trusted for a
+/// priced (USDA-derived) row:
+/// <list type="bullet">
+///   <item><b>Priced row (stored <c>FdcId != null</c>):</b> only <see cref="Quantity"/> and the optional
+///   <see cref="Meal"/>/<see cref="Date"/> are honoured. Calories+macros are RECOMPUTED server-side from
+///   the per-unit basis derived off the stored row (<c>perUnit = storedTotal / storedQuantity</c>); the
+///   macro fields below are ignored.</item>
+///   <item><b>Manual row (stored <c>FdcId == null</c>):</b> <see cref="Description"/> and
+///   <see cref="Calories"/>/<see cref="ProteinG"/>/<see cref="CarbG"/>/<see cref="FatG"/> are stored as the
+///   TOTALS directly (clamped like <c>AddFoodRequest</c>), plus the optional <see cref="Meal"/>/<see cref="Date"/>.</item>
+/// </list>
+/// All fields are optional; an omitted <see cref="Meal"/>/<see cref="Date"/> leaves the slot/day unchanged.
+/// </summary>
+public sealed class UpdateFoodRequest
+{
+    /// <summary>New day (yyyy-MM-dd). Null/blank leaves the day unchanged.</summary>
+    public string? Date { get; set; }
+    /// <summary>New meal slot ("breakfast"|"lunch"|"dinner"|"snack"). Null/blank leaves the slot unchanged.</summary>
+    public string? Meal { get; set; }
+
+    /// <summary>New servings count (priced rows recompute macros from this; manual rows store it as-is).</summary>
+    public double? Quantity { get; set; }
+
+    /// <summary>Manual rows only: new description (trimmed + 256-capped).</summary>
+    public string? Description { get; set; }
+    /// <summary>Manual rows only: new total calories (floored at 0).</summary>
+    public int? Calories { get; set; }
+    /// <summary>Manual rows only: new total protein g (floored at 0).</summary>
+    public double? ProteinG { get; set; }
+    /// <summary>Manual rows only: new total carb g (floored at 0).</summary>
+    public double? CarbG { get; set; }
+    /// <summary>Manual rows only: new total fat g (floored at 0).</summary>
+    public double? FatG { get; set; }
+}
+
+/// <summary>
 /// Log ONE serving of a planned Family Hub meal onto the caller's OWN tracker day (Slice 2 tie-in). The
 /// <see cref="MealId"/> names a <c>FamilyMeal</c> in a household the caller is a member of (else 404 — never
 /// leaked); the endpoint logs the meal's DERIVED per-serving macros (dish total / servings). <see cref="LocalDate"/>
