@@ -31,6 +31,14 @@
   </mat-card>
 
   <mat-card appearance="outlined" class="stat-card">
+    <div class="stat-label">Est. cost</div>
+    <div class="stat-value mono-num">{{ fmtCost(summary()?.totalEstimatedCostUsd) }}</div>
+    <div class="stat-foot">
+      {{ summary()?.hasUnpricedModels ? 'some calls use placeholder pricing' : 'at current model rates' }}
+    </div>
+  </mat-card>
+
+  <mat-card appearance="outlined" class="stat-card">
     <div class="stat-label">Top user</div>
     <div class="stat-value stat-value--text" [matTooltip]="topUser()?.key || ''">
       {{ topUser()?.key || '—' }}
@@ -111,6 +119,7 @@
           <th class="c-model">Model</th>
           <th class="c-outcome">Outcome</th>
           <th class="c-tokens">Tokens</th>
+          <th class="c-cost">Est. cost</th>
           <th class="c-latency">Latency</th>
         </tr>
       </thead>
@@ -135,16 +144,19 @@
                 <span class="tok-split">({{ fmtNum(r.promptTokens) }}/{{ fmtNum(r.outputTokens) }})</span>
               }
             </td>
+            <td class="c-cost mono-num" data-label="Est. cost"
+                [matTooltip]="r.estimatedCostUsd == null ? 'No price for this model — set a rate on the Pricing page' : ''"
+                [matTooltipDisabled]="r.estimatedCostUsd != null">{{ fmtCost(r.estimatedCostUsd) }}</td>
             <td class="c-latency mono-num" data-label="Latency">{{ r.durationMs != null ? r.durationMs + ' ms' : '—' }}</td>
           </tr>
         }
         @if (loading() && !rows().length) {
           @for (i of [1, 2, 3, 4, 5]; track i) {
-            <tr class="skeleton-row"><td colspan="7"><span class="skeleton-bar"></span></td></tr>
+            <tr class="skeleton-row"><td colspan="8"><span class="skeleton-bar"></span></td></tr>
           }
         }
         @if (error() && !loading()) {
-          <tr><td colspan="7" class="empty error-cell">
+          <tr><td colspan="8" class="empty error-cell">
             Couldn’t load AI usage — the request failed.
             <button mat-stroked-button class="retry-btn" (click)="reload()">
               <mat-icon aria-hidden="true">refresh</mat-icon> Retry
@@ -152,7 +164,7 @@
           </td></tr>
         }
         @if (!error() && !rows().length && !loading()) {
-          <tr><td colspan="7" class="empty">No AI calls in this window — adjust the filters or use an AI feature, then refresh.</td></tr>
+          <tr><td colspan="8" class="empty">No AI calls in this window — adjust the filters or use an AI feature, then refresh.</td></tr>
         }
       </tbody>
     </table>

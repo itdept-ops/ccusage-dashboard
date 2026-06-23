@@ -879,6 +879,9 @@ export interface AiUsageRow {
   promptTokens: number | null;
   outputTokens: number | null;
   totalTokens: number | null;
+  /** Estimated USD cost (model rates × tokens), computed on read. Null when the model has no real price or
+   * the call reported no tokens — shown as "—", never a misleading $0. */
+  estimatedCostUsd: number | null;
   /** A short status/reason hint (never response content), e.g. "HTTP 503" or "timeout". */
   errorHint: string | null;
 }
@@ -900,6 +903,10 @@ export interface AiUsageSummary {
   totalPromptTokens: number;
   totalOutputTokens: number;
   totalTokens: number;
+  /** Sum of the priced rows' estimated USD cost over the window; null if nothing was priceable. */
+  totalEstimatedCostUsd: number | null;
+  /** True when some window calls use a model with no real price (cost shown as "—"); drives a footnote. */
+  hasUnpricedModels: boolean;
   topUsers: AiUsageCount[];
   topFeatures: AiUsageCount[];
 }

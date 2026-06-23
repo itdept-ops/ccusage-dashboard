@@ -158,4 +158,15 @@ export class AiUsage {
     if (n == null) return '—';
     return n.toLocaleString();
   }
+
+  /** Format an estimated USD cost. Null (unpriced model / no tokens) renders "—", never a fake $0. Sub-cent
+   * costs keep more precision so a real cost never collapses to $0.00. */
+  fmtCost(n: number | null | undefined): string {
+    if (n == null) return '—';
+    const digits = n !== 0 && Math.abs(n) < 0.01 ? 4 : 2;
+    return n.toLocaleString(undefined, {
+      style: 'currency', currency: 'USD',
+      minimumFractionDigits: digits, maximumFractionDigits: digits,
+    });
+  }
 }

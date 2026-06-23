@@ -1,6 +1,7 @@
 using Ccusage.Api.Auth;
 using Ccusage.Api.Data;
 using Ccusage.Api.Dtos;
+using Ccusage.Api.Ingestion;
 using Microsoft.EntityFrameworkCore;
 
 namespace Ccusage.Api.Endpoints;
@@ -146,6 +147,46 @@ public static class ObservabilityEndpoints
                     })
                     .FirstOrDefaultAsync(ct);
 
+                // ---- Estimated cost (computed ON READ; no stored cost column — pricing can change) ----
+                // Reuse the core product's PricingMatcher + ModelPricing rates: exact > longest-prefix > '*'
+                // fallback. A row is priced only when its model resolves to real (non-zero) rates AND it
+                // reported tokens; otherwise its cost is null/"—" (never a misleading $0). Gemini logs no cache
+                // split, so cache token args are 0 — cost = prompt×inputRate + output×outputRate (per million).
+                var matcher = new PricingMatcher(
+                    await db.ModelPricings.AsNoTracking().ToListAsync(ct));
+
+                decimal? CostOf(string? model, int? prompt, int? output, int? total)
+                {
+                    if (string.IsNullOrEmpty(model) || total == null || matcher.IsUnpriced(model))
+                        return null;
+                    return matcher.Cost(model, prompt ?? 0, output ?? 0, 0, 0, 0);
+                }
+
+                // Window-wide total: sum the per-(model) token totals priced at that model's rates. Grouping by
+                // model keeps this a single aggregate query rather than per-row. Unpriced models contribute null
+                // (excluded from the sum) and flip HasUnpricedModels so the UI can footnote placeholder pricing.
+                var costByModel = await window
+                    .GroupBy(r => r.Model)
+                    .Select(g => new
+                    {
+                        Model = g.Key,
+                        Prompt = g.Sum(r => (long?)r.PromptTokens) ?? 0,
+                        Output = g.Sum(r => (long?)r.OutputTokens) ?? 0,
+                        HasTokens = g.Sum(r => (long?)r.TotalTokens) ?? 0,
+                    })
+                    .ToListAsync(ct);
+
+                decimal? totalCostUsd = null;
+                var hasUnpricedModels = false;
+                foreach (var g in costByModel)
+                {
+                    if (string.IsNullOrEmpty(g.Model)) continue;
+                    if (g.HasTokens == 0) continue; // models whose calls reported no tokens — nothing to price
+                    if (matcher.IsUnpriced(g.Model)) { hasUnpricedModels = true; continue; }
+                    totalCostUsd = (totalCostUsd ?? 0m)
+                        + matcher.Cost(g.Model, g.Prompt, g.Output, 0, 0, 0);
+                }
+
                 var topFeatures = (await window
                         .GroupBy(r => r.Feature)
                         .Select(g => new { Key = g.Key, Count = g.Count(), Tokens = g.Sum(r => (long?)r.TotalTokens) ?? 0 })
@@ -191,6 +232,7 @@ public static class ObservabilityEndpoints
                         PromptTokens = r.PromptTokens,
                         OutputTokens = r.OutputTokens,
                         TotalTokens = r.TotalTokens,
+                        EstimatedCostUsd = CostOf(r.Model, r.PromptTokens, r.OutputTokens, r.TotalTokens),
                         ErrorHint = r.ErrorHint,
                     };
                 }).ToList();
@@ -226,6 +268,8 @@ public static class ObservabilityEndpoints
                         TotalPromptTokens = tokenTotals?.Prompt ?? 0,
                         TotalOutputTokens = tokenTotals?.Output ?? 0,
                         TotalTokens = tokenTotals?.Total ?? 0,
+                        TotalEstimatedCostUsd = totalCostUsd,
+                        HasUnpricedModels = hasUnpricedModels,
                         TopUsers = topUsers,
                         TopFeatures = topFeatures,
                     },

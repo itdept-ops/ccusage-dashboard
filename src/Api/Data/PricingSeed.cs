@@ -40,5 +40,16 @@ public static class PricingSeed
         // Catch-all for any other GPT model.
         new() { Id = 9, ModelPattern = "gpt-", DisplayName = "Other GPT (placeholder)",
             InputPerMTok = 1.25m, OutputPerMTok = 10.00m, CacheWrite5mPerMTok = 0m, CacheWrite1hPerMTok = 0m, CacheReadPerMTok = 0.125m, IsPlaceholder = true },
+
+        // --- Google Gemini (the in-app AI; drives the admin AI-usage cost estimate) ---
+        // gemini-2.5-flash is the model the app actually uses. Rates are the public Gemini 2.5 Flash tiers
+        // (USD per Mtok); the AI-usage log carries no cache-token split, so cache rates stay 0. Editable on
+        // the Pricing page. IsPlaceholder=false — these are real published rates, not a guess.
+        new() { Id = 10, ModelPattern = "gemini-2.5-flash", DisplayName = "Gemini 2.5 Flash",
+            InputPerMTok = 0.30m, OutputPerMTok = 2.50m, CacheWrite5mPerMTok = 0m, CacheWrite1hPerMTok = 0m, CacheReadPerMTok = 0.075m, IsPlaceholder = false },
+        // Prefix catch-all for other Gemini variants (e.g. gemini-2.5-pro) until separately priced — uses the
+        // Flash tier as a sensible editable default rather than $0.
+        new() { Id = 11, ModelPattern = "gemini-", DisplayName = "Other Gemini (estimated)",
+            InputPerMTok = 0.30m, OutputPerMTok = 2.50m, CacheWrite5mPerMTok = 0m, CacheWrite1hPerMTok = 0m, CacheReadPerMTok = 0.075m, IsPlaceholder = false },
     ];
 }

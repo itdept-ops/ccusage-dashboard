@@ -54,12 +54,12 @@ public class AiUsageLogIntegrationTests(WebAppFactory factory)
 
     private static AiUsageLog Row(
         string feature, string outcome, string? email = null, int total = 100,
-        DateTime? whenUtc = null) => new()
+        DateTime? whenUtc = null, string model = "gemini-2.5-flash") => new()
     {
         WhenUtc = whenUtc ?? DateTime.UtcNow,
         UserEmail = email,
         Feature = feature,
-        Model = "gemini-2.5-flash",
+        Model = model,
         Outcome = outcome,
         HttpStatus = outcome == "ok" ? 200 : outcome == "rate-limited" ? 429 : outcome == "unavailable" ? 503 : null,
         DurationMs = 42,
@@ -189,6 +189,70 @@ public class AiUsageLogIntegrationTests(WebAppFactory factory)
         var unknown = await (await Admin().GetAsync($"/api/ai-usage?feature={marker}&user=2147483600"))
             .Content.ReadFromJsonAsync<JsonElement>();
         unknown.GetProperty("summary").GetProperty("totalCalls").GetInt32().Should().Be(0);
+    }
+
+    [Fact]
+    public async Task Estimated_cost_is_tokens_times_the_gemini_rate_and_the_window_total_sums_the_rows()
+    {
+        var email = $"aiuse-cost-{Guid.NewGuid():N}@test.local";
+        await CreateUser(email, "tracker.ai");
+        var marker = $"cost-{Guid.NewGuid():N}";
+
+        // Two priced gemini-2.5-flash calls. Seeded rate: input $0.30 / output $2.50 per Mtok.
+        // total=2,000,000 => prompt=output=1,000,000 => 1*0.30 + 1*2.50 = $2.80 each; $5.60 total.
+        await SeedAsync(
+            Row(marker, "ok", email, total: 2_000_000),
+            Row(marker, "ok", email, total: 2_000_000));
+
+        var body = await (await Admin().GetAsync($"/api/ai-usage?feature={marker}"))
+            .Content.ReadFromJsonAsync<JsonElement>();
+
+        var rows = body.GetProperty("rows");
+        rows.GetArrayLength().Should().Be(2);
+        rows[0].GetProperty("estimatedCostUsd").GetDecimal().Should().Be(2.80m);
+
+        var summary = body.GetProperty("summary");
+        summary.GetProperty("totalEstimatedCostUsd").GetDecimal().Should().Be(5.60m);
+        summary.GetProperty("hasUnpricedModels").GetBoolean().Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task Estimated_cost_is_null_for_an_unpriced_model_and_flags_the_window()
+    {
+        var email = $"aiuse-unpriced-{Guid.NewGuid():N}@test.local";
+        await CreateUser(email, "tracker.ai");
+        var marker = $"unpriced-{Guid.NewGuid():N}";
+
+        // A model with no ModelPricing row resolves only to the '*' fallback -> cost must be null (not $0).
+        await SeedAsync(Row(marker, "ok", email, total: 2_000_000, model: "made-up-model-xyz"));
+
+        var body = await (await Admin().GetAsync($"/api/ai-usage?feature={marker}"))
+            .Content.ReadFromJsonAsync<JsonElement>();
+
+        var cost = body.GetProperty("rows")[0].GetProperty("estimatedCostUsd");
+        cost.ValueKind.Should().Be(JsonValueKind.Null);
+
+        var summary = body.GetProperty("summary");
+        summary.GetProperty("hasUnpricedModels").GetBoolean().Should().BeTrue();
+        // No priceable rows in this window -> the window total is null (never a misleading $0).
+        summary.GetProperty("totalEstimatedCostUsd").ValueKind.Should().Be(JsonValueKind.Null);
+    }
+
+    [Fact]
+    public async Task A_non_ok_call_with_no_tokens_has_null_cost_and_does_not_crash()
+    {
+        var email = $"aiuse-notok-{Guid.NewGuid():N}@test.local";
+        await CreateUser(email, "tracker.ai");
+        var marker = $"notok-{Guid.NewGuid():N}";
+
+        await SeedAsync(Row(marker, "error", email)); // PromptTokens/TotalTokens null
+
+        var body = await (await Admin().GetAsync($"/api/ai-usage?feature={marker}"))
+            .Content.ReadFromJsonAsync<JsonElement>();
+
+        body.GetProperty("rows")[0].GetProperty("estimatedCostUsd").ValueKind.Should().Be(JsonValueKind.Null);
+        // A priced model that simply reported no tokens is NOT an "unpriced model".
+        body.GetProperty("summary").GetProperty("hasUnpricedModels").GetBoolean().Should().BeFalse();
     }
 
     [Fact]

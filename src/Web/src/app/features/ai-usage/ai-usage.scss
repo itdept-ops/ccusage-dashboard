@@ -133,6 +133,7 @@ mat-progress-bar {
   .c-latency { color: var(--tech-text-secondary); text-align: right; }
   .c-tokens { text-align: right; }
   .c-tokens .tok-split { color: var(--tech-text-tertiary); margin-left: 4px; font-size: var(--tech-fs-label, 12px); }
+  .c-cost { text-align: right; white-space: nowrap; }
 }
 
 /* feature pill */
@@ -274,7 +275,7 @@ mat-form-field { --mat-form-field-container-text-size: 13px; }
     .c-outcome { grid-row: 1; grid-column: 2; text-align: right; }
 
     /* Remaining fields: labelled key/value lines. */
-    .c-when, .c-user, .c-model, .c-tokens, .c-latency {
+    .c-when, .c-user, .c-model, .c-tokens, .c-cost, .c-latency {
       grid-column: 1 / -1;
       font-size: var(--tech-fs-label, 12px);
       max-width: none;
@@ -282,7 +283,7 @@ mat-form-field { --mat-form-field-container-text-size: 13px; }
       text-align: left;
     }
     .c-when::before, .c-user::before, .c-model::before,
-    .c-tokens::before, .c-latency::before {
+    .c-tokens::before, .c-cost::before, .c-latency::before {
       content: attr(data-label) ": ";
       color: var(--tech-text-tertiary);
       text-transform: uppercase;

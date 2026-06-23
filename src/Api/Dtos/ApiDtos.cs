@@ -750,6 +750,10 @@ public sealed class AiUsageLogDto
     public int? PromptTokens { get; set; }
     public int? OutputTokens { get; set; }
     public int? TotalTokens { get; set; }
+    /// <summary>Estimated USD cost for this call, computed ON READ from the row's model + token counts against
+    /// the editable ModelPricing rates (input×prompt + output×output, per million). Null when the model has no
+    /// real price (unpriced/all-zero) or the call reported no tokens — never a misleading $0.00.</summary>
+    public decimal? EstimatedCostUsd { get; set; }
     public string? ErrorHint { get; set; }
 }
 
@@ -773,6 +777,13 @@ public sealed class AiUsageSummaryDto
     public long TotalPromptTokens { get; set; }
     public long TotalOutputTokens { get; set; }
     public long TotalTokens { get; set; }
+    /// <summary>Sum of the priced rows' <see cref="AiUsageLogDto.EstimatedCostUsd"/> over the whole window
+    /// (unpriced/no-token calls contribute nothing). Null only if NOTHING in the window was priceable.</summary>
+    public decimal? TotalEstimatedCostUsd { get; set; }
+    /// <summary>True when the window contains calls whose model has no real price (resolved to the catch-all
+    /// fallback or all-zero rates) — drives a "some calls use placeholder pricing" footnote, mirroring the
+    /// core dashboard. Their cost is shown as "—", never a fake $0.</summary>
+    public bool HasUnpricedModels { get; set; }
     public List<AiUsageCountDto> TopUsers { get; set; } = new();
     public List<AiUsageCountDto> TopFeatures { get; set; } = new();
 }
