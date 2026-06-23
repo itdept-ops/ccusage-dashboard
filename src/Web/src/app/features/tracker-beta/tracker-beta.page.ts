@@ -346,7 +346,7 @@ export class TrackerBetaPage {
   protected onQuickAdjust(key: string): void {
     if (this.readOnly()) return;
     switch (key) {
-      case 'water': this.foodOpen.set(false); this.openWater(); break;
+      case 'water': this.openWater(); break;
       case 'coffee': this.coffeeOpen.set(true); break;
       case 'weigh': this.weightOpen.set(true); break;
       case 'meal': this.openFood('breakfast'); break;

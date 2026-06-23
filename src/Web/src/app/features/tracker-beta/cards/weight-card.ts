@@ -234,8 +234,15 @@ export class WeightCard {
     }
   }
 
-  /** Latest weight in metric kg — prefer the freshest history point, fall back to the live profile. */
+  /**
+   * Latest weight in metric kg. Prefer the freshly-patched optimistic profile on the day signal — after
+   * a weigh-in the page patches `day().profile.weightKg` synchronously, so a just-logged value shows
+   * instantly (before refresh() re-pulls the history). Fall back to the newest history point, then the
+   * live profile.
+   */
   protected readonly latestKg = computed<number | null>(() => {
+    const optimistic = this.opt.day()?.profile?.weightKg;
+    if (optimistic != null) return optimistic;
     const pts = this.points();
     if (pts.length) return pts[pts.length - 1].weightKg;
     return this.opt.profile()?.weightKg ?? null;

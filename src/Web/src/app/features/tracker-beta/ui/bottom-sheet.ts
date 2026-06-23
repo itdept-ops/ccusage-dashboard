@@ -32,6 +32,7 @@ const DETENT_FRACTION: Record<SheetDetent, number> = { peek: 0.32, half: 0.62, f
       <div class="tb-sheet-scrim" (click)="onScrim()" aria-hidden="true"
            [style.opacity]="dragging() ? scrimOpacity() : null"></div>
       <div #panel class="tb-sheet-panel" role="dialog" aria-modal="true" tabindex="-1" [attr.aria-label]="label()"
+           (keydown)="onKeydown($event)"
            [style.transform]="panelTransform()"
            [style.transition]="dragging() ? 'none' : null"
            [style.--sheet-frac]="DETENT_FRACTION[detent()]">
@@ -117,14 +118,20 @@ export class BottomSheet {
     return Math.max(0, 1 - this.dragY() / h);
   });
 
+  /** The element focused when the sheet opened — focus is returned here on close (a11y). */
+  private opener: HTMLElement | null = null;
+
   constructor() {
     // Mirror open() onto the [hidden] host attr so the fixed overlay never traps taps when closed.
     effect(() => {
       this.host.nativeElement.toggleAttribute('hidden', !this.open());
     });
-    // Move focus into the panel on open (focus-trap entry point).
+    // Move focus into the panel on open (focus-trap entry point); remember the opener to restore later.
     effect(() => {
       if (this.open()) {
+        const active = (typeof document !== 'undefined' ? document.activeElement : null) as HTMLElement | null;
+        // Don't capture our own panel as the opener on a re-entrant focus.
+        if (active && !this.host.nativeElement.contains(active)) this.opener = active;
         queueMicrotask(() => this.panel()?.nativeElement.focus?.());
       }
     });
@@ -132,6 +139,15 @@ export class BottomSheet {
 
   protected onScrim(): void {
     if (this.dismissable()) this.dismiss();
+  }
+
+  /** Escape dismisses the sheet (when dismissable), matching the scrim-tap / swipe-down affordances. */
+  protected onKeydown(e: KeyboardEvent): void {
+    if (e.key === 'Escape' && this.dismissable()) {
+      e.preventDefault();
+      e.stopPropagation();
+      this.dismiss();
+    }
   }
 
   protected onGripDown(e: PointerEvent): void {
@@ -161,9 +177,13 @@ export class BottomSheet {
     }
   }
 
-  /** Animate out then fire closed + clear open. */
+  /** Animate out then fire closed + clear open. Returns focus to the element that opened the sheet. */
   private dismiss(): void {
     this.open.set(false);
     this.closed.emit();
+    // Restore focus to the opener so keyboard/AT users land back where they were (focus-trap exit).
+    const opener = this.opener;
+    this.opener = null;
+    if (opener?.isConnected) queueMicrotask(() => opener.focus?.());
   }
 }
