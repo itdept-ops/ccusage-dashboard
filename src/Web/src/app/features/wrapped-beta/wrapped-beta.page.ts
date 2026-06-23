@@ -88,7 +88,12 @@ interface PeriodOption {
             <span class="wb-card__icon" [style.background]="gradientFor(c.accent)">
               <mat-icon aria-hidden="true">{{ iconFor(c) }}</mat-icon>
             </span>
-            <p class="wb-card__headline" [style.background]="gradientFor(c.accent)">{{ c.headline }}</p>
+            <!-- NO inline [style.background] here: the headline is gradient-CLIPPED to text via the
+                 stylesheet (background:var(--accent) + background-clip:text). An inline `background`
+                 SHORTHAND resets background-clip to border-box (and wins over the stylesheet), which
+                 made the gradient fill the whole box + -webkit-text-fill-color:transparent hid the
+                 number. The accent comes from --accent set on the card above. -->
+            <p class="wb-card__headline">{{ c.headline }}</p>
             <p class="wb-card__label">{{ c.label }}</p>
             @if (c.sub) { <p class="wb-card__sub">{{ c.sub }}</p> }
           </article>
