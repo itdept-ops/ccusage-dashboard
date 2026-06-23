@@ -28,6 +28,10 @@ public static class HardChallengeScoring
     /// <summary>The DEFAULT required workout count (two 45-minute workouts).</summary>
     public const int WorkoutTargetCount = 2;
 
+    /// <summary>The DEFAULT smartwatch active-calories threshold that earns ONE workout credit (capped at 1) on a
+    /// Workout task when the task does not set its own <see cref="HardChallengeTask.ActiveCalPerWorkout"/>.</summary>
+    public const int DefaultActiveCalPerWorkout = 300;
+
     /// <summary>The DEFAULT reading target (pages).</summary>
     public const int ReadingTargetPages = 10;
 
@@ -54,7 +58,8 @@ public static class HardChallengeScoring
         int HydrationMl,
         IReadOnlyList<int> WorkoutDurationsMin,
         bool? DietOverride,
-        bool NoAlcohol);
+        bool NoAlcohol,
+        int? ActiveCalories = null);
 
     /// <summary>
     /// AUTO diet result: calories-in is within the daily calorie goal AND within every SET macro goal (an unset
@@ -80,6 +85,37 @@ public static class HardChallengeScoring
 
     /// <summary>A scored task: its raw progress fraction (0..1), the earned points, and whether it is complete.</summary>
     public readonly record struct TaskScore(int TaskId, string Key, double Progress, decimal Points, bool Complete);
+
+    /// <summary>
+    /// The transparent breakdown of a <see cref="HardTaskAutoSource.Workout"/> task's effective count:
+    /// the logged workouts (durations &gt;= the task's MinMinutes), the smartwatch active-calories credit (0 or 1 —
+    /// earned when the day's active calories reach the task's <see cref="ActiveCalThreshold"/>), the day's recorded
+    /// active calories (or null), and the threshold used. Effective count = LoggedWorkouts + WatchCredit.
+    /// </summary>
+    public readonly record struct WorkoutBreakdown(
+        int LoggedWorkouts, int WatchCredit, int? ActiveCalories, int ActiveCalThreshold)
+    {
+        /// <summary>The effective workout count credited toward the target (logged + the capped-at-1 watch credit).</summary>
+        public int Count => LoggedWorkouts + WatchCredit;
+    }
+
+    /// <summary>
+    /// Compute a Workout task's transparent breakdown from the day input: logged workouts (durations &gt;= the
+    /// task's MinMinutes), plus ONE watch credit (capped at 1) when the day's active calories reach the task's
+    /// <see cref="HardChallengeTask.ActiveCalPerWorkout"/> threshold (default <see cref="DefaultActiveCalPerWorkout"/>).
+    /// </summary>
+    public static WorkoutBreakdown WorkoutBreakdownFor(HardChallengeTask task, HardDayInput input)
+    {
+        var min = task.MinMinutes ?? WorkoutMinMinutes;
+        var logged = input.WorkoutDurationsMin.Count(d => d >= min);
+        var threshold = task.ActiveCalPerWorkout ?? DefaultActiveCalPerWorkout;
+        var watchCredit = input.ActiveCalories is { } cal && cal >= threshold ? 1 : 0;
+        return new WorkoutBreakdown(logged, watchCredit, input.ActiveCalories, threshold);
+    }
+
+    /// <summary>The effective workout count for a Workout task = logged workouts + the capped-at-1 watch credit.</summary>
+    private static int WorkoutCount(HardChallengeTask task, HardDayInput input)
+        => WorkoutBreakdownFor(task, input).Count;
 
     /// <summary>
     /// The completion FRACTION (0..1) of a single task against its custom target, drawing auto-source progress
@@ -109,10 +145,9 @@ public static class HardChallengeScoring
 
             case HardTaskAutoSource.Workout:
             {
-                var min = task.MinMinutes ?? WorkoutMinMinutes;
-                var count = input.WorkoutDurationsMin.Count(d => d >= min);
                 var target = (double)(task.TargetValue ?? WorkoutTargetCount);
                 if (target <= 0) return 1.0;
+                var count = WorkoutCount(task, input);
                 return Math.Clamp(count / target, 0.0, 1.0);
             }
 

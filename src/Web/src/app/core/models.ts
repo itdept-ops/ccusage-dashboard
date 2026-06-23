@@ -3688,6 +3688,11 @@ export interface HardTaskDto {
   targetValue: number | null;
   /** For a Workout task: the minimum logged-exercise minutes that count toward the target count. */
   minMinutes: number | null;
+  /**
+   * For a Workout task: the smartwatch active-calories threshold that earns ONE workout credit for the
+   * day (server-clamped 1..100000). `null` → the server default (300). Other task types ignore it.
+   */
+  activeCalPerWorkout: number | null;
   /** Unit label for a measurable task ("ml" / "workouts" / "pages" / …), else "". */
   unit: string;
   /** Points the task is worth at 100% (user-assigned, 0..1000). */
@@ -3717,6 +3722,27 @@ export interface HardDayTaskDto {
   partialCredit: boolean;
   /** True when progress >= 100%. */
   complete: boolean;
+  /**
+   * Transparent breakdown for the Workout task only (null on every other task). When a smartwatch
+   * active-calories credit applies, `value` already folds in `watchWorkoutCredit`; this exposes how the
+   * credited count splits between logged workouts and the watch credit.
+   */
+  workout: HardWorkoutBreakdownDto | null;
+}
+
+/**
+ * The Workout task's credit breakdown (mirrors the nested `workout` object on DayTaskDto). The Workout
+ * `value` = `loggedWorkouts + watchWorkoutCredit`; this shows the split so the UI can be transparent.
+ */
+export interface HardWorkoutBreakdownDto {
+  /** Count of logged exercises whose duration met the minutes target. */
+  loggedWorkouts: number;
+  /** Smartwatch active-calories credit (0 or 1), capped at one workout per day. */
+  watchWorkoutCredit: 0 | 1;
+  /** The day's recorded active calories, or null when there's no watch row. */
+  activeCalories: number | null;
+  /** The active-cal threshold applied (the task's value, or the server default 300). */
+  threshold: number;
 }
 
 /**
@@ -3848,6 +3874,8 @@ export interface UpdateHardTaskRequest {
   targetValue?: number | null;
   /** Workout tasks only. */
   minMinutes?: number | null;
+  /** Workout tasks only — smartwatch active-cal threshold for a watch credit (clamp 1..100000; null = default 300). */
+  activeCalPerWorkout?: number | null;
   unit?: string | null;
   pointValue?: number | null;
   partialCredit?: boolean | null;

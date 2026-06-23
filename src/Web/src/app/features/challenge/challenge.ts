@@ -273,6 +273,20 @@ export class Challenge {
     return `${value} / ${target}${t.unit ? ' ' + t.unit : ''}`;
   }
 
+  /**
+   * The transparent watch-credit breakdown for the Workout task, or '' when no watch credit applies.
+   * e.g. "1 logged · 1 from watch (420 active cal)" or "1 from watch (420 active cal)" (watch-only).
+   */
+  workoutBreakdown(t: HardDayTaskDto): string {
+    const w = t.workout;
+    if (!w || w.watchWorkoutCredit < 1) return '';
+    const cals = w.activeCalories != null ? ` (${this.fmt(w.activeCalories)} active cal)` : '';
+    const watch = `1 from watch${cals}`;
+    return w.loggedWorkouts > 0
+      ? `${this.fmt(w.loggedWorkouts)} logged · ${watch}`
+      : watch;
+  }
+
   /** A short scoring hint for an auto task (how it derives from the tracker). */
   autoHint(t: HardDayTaskDto): string {
     switch (t.autoSource) {
@@ -368,6 +382,18 @@ export class Challenge {
   async saveTaskMinMinutes(t: HardTaskDto, value: number | null): Promise<void> {
     if (value == null || isNaN(value) || value <= 0) return;
     await this.patchTask(t.id, { minMinutes: Math.round(value) });
+  }
+
+  /**
+   * Commit the workout watch-credit active-cal threshold (owner; workout tasks only). Server clamps
+   * 1..100000; a blank/invalid value resets to the default (null → server default 300).
+   */
+  async saveTaskActiveCal(t: HardTaskDto, value: number | null): Promise<void> {
+    const next = value == null || isNaN(value) || value <= 0
+      ? null
+      : Math.min(100000, Math.max(1, Math.round(value)));
+    if (next === t.activeCalPerWorkout) return;
+    await this.patchTask(t.id, { activeCalPerWorkout: next });
   }
 
   /** Commit an edited point value for a task (owner). */

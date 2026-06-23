@@ -52,21 +52,28 @@ public static class HardChallengeEndpoints
     /// auto tasks (target/points/enable) and custom tasks (everything except key/source).</summary>
     public sealed record UpdateTaskRequest(
         string? Label, decimal? TargetValue, int? MinMinutes, string? Unit,
-        int? PointValue, bool? PartialCredit, bool? Enabled, int? SortOrder);
+        int? PointValue, bool? PartialCredit, bool? Enabled, int? SortOrder, int? ActiveCalPerWorkout = null);
 
     // ---- Response DTOs ----
     /// <summary>A task's config (the editable set).</summary>
     public sealed record TaskDto(
         int Id, string Key, string Label, string AutoSource,
         decimal? TargetValue, int? MinMinutes, string Unit,
-        int PointValue, bool PartialCredit, bool Enabled, int SortOrder);
+        int PointValue, bool PartialCredit, bool Enabled, int SortOrder, int? ActiveCalPerWorkout = null);
 
     /// <summary>One task's per-day RESULT: its progress fraction (0..1), the raw measured value (for measurable
     /// tasks), the points earned, and whether it is complete.</summary>
     public sealed record DayTaskDto(
         int TaskId, string Key, string Label, string AutoSource,
         decimal? TargetValue, string Unit, decimal? Value,
-        double Progress, decimal Points, int PointValue, bool PartialCredit, bool Complete);
+        double Progress, decimal Points, int PointValue, bool PartialCredit, bool Complete,
+        WorkoutCreditDto? Workout = null);
+
+    /// <summary>For a Workout task only: the transparent split of the credited count into logged workouts vs the
+    /// smartwatch active-calories credit (0|1), with the day's recorded active calories and the threshold used.
+    /// Null on non-workout tasks. <c>LoggedWorkouts + WatchWorkoutCredit</c> is the count scored against the target.</summary>
+    public sealed record WorkoutCreditDto(
+        int LoggedWorkouts, int WatchWorkoutCredit, int? ActiveCalories, int Threshold);
 
     /// <summary>One day in the grid: the per-task results + day-level flags + day points + completeness.
     /// <see cref="Confession"/> is NULLED for a viewer (never the owner's private narration).</summary>
@@ -348,6 +355,8 @@ public static class HardChallengeEndpoints
                 task.TargetValue = ClampTarget(tv);
             if (req?.MinMinutes is { } mm && task.AutoSource == HardTaskAutoSource.Workout)
                 task.MinMinutes = Math.Clamp(mm, 1, 1440);
+            if (req?.ActiveCalPerWorkout is { } acpw && task.AutoSource == HardTaskAutoSource.Workout)
+                task.ActiveCalPerWorkout = Math.Clamp(acpw, 1, 100000);
             if (req?.Unit is { } unit) task.Unit = Trunc(unit.Trim(), 32) ?? "";
             if (req?.PointValue is { } pts) task.PointValue = ClampPoints(pts);
             if (req?.PartialCredit is { } pc) task.PartialCredit = pc;
@@ -684,7 +693,8 @@ public static class HardChallengeEndpoints
 
     /// <summary>The tracker facts for one day, used to recompute its auto scoring.</summary>
     private readonly record struct DayFacts(
-        int CaloriesIn, double ProteinG, double CarbG, double FatG, int HydrationMl, List<int> WorkoutDurationsMin);
+        int CaloriesIn, double ProteinG, double CarbG, double FatG, int HydrationMl, List<int> WorkoutDurationsMin,
+        int? ActiveCalories = null);
 
     /// <summary>
     /// Load the per-day tracker facts for [from, to]. caloriesIn/macros = day food sums; hydration = day drink
@@ -719,6 +729,13 @@ public static class HardChallengeEndpoints
             .Select(grp => new { Date = grp.Key, Ml = grp.Sum(h => h.AmountMl) })
             .ToListAsync(ct);
 
+        // The smartwatch active-calories aggregate per day (at most one row per (user, local date)); feeds the
+        // Workout task's watch credit (a watch activity day can stand in for one logged workout).
+        var activity = await db.DailyActivities.AsNoTracking()
+            .Where(a => a.UserEmail == email && a.LocalDate >= from && a.LocalDate <= to && a.ActiveCalories != null)
+            .Select(a => new { a.LocalDate, a.ActiveCalories })
+            .ToListAsync(ct);
+
         var map = new Dictionary<DateOnly, DayFacts>();
         DayFacts Get(DateOnly d) => map.TryGetValue(d, out var f) ? f : new DayFacts(0, 0, 0, 0, 0, new List<int>());
         foreach (var f in foods)
@@ -733,6 +750,8 @@ public static class HardChallengeEndpoints
             map[w.Key] = Get(w.Key) with { WorkoutDurationsMin = w.Select(x => x.Dur).ToList() };
         foreach (var h in hydration)
             map[h.Date] = Get(h.Date) with { HydrationMl = h.Ml };
+        foreach (var a in activity)
+            map[a.LocalDate] = Get(a.LocalDate) with { ActiveCalories = a.ActiveCalories };
         return map;
     }
 
@@ -768,7 +787,7 @@ public static class HardChallengeEndpoints
             f.CaloriesIn, f.ProteinG, f.CarbG, f.FatG,
             profile?.DailyCalorieGoal, profile?.ProteinGoalG, profile?.CarbGoalG, profile?.FatGoalG,
             f.HydrationMl, f.WorkoutDurationsMin ?? new List<int>(),
-            row?.DietOverride, row?.NoAlcohol ?? true);
+            row?.DietOverride, row?.NoAlcohol ?? true, f.ActiveCalories);
 
         var manual = manualByDate.TryGetValue(date, out var m) ? m : new Dictionary<int, HardChallengeScoring.DayManual>();
         var score = HardChallengeScoring.ScoreDay(tasks, input, manual);
@@ -779,18 +798,29 @@ public static class HardChallengeEndpoints
         {
             if (!t.Enabled) continue;
             scoreByTask.TryGetValue(t.Id, out var ts);
+            // For a Workout task, surface the transparent split (logged workouts + the capped-at-1 watch credit).
+            WorkoutCreditDto? workout = null;
+            if (t.AutoSource == HardTaskAutoSource.Workout)
+            {
+                var bd = HardChallengeScoring.WorkoutBreakdownFor(t, input);
+                workout = new WorkoutCreditDto(bd.LoggedWorkouts, bd.WatchCredit, bd.ActiveCalories, bd.ActiveCalThreshold);
+            }
             // The raw measured VALUE for the row (auto: from tracker; manual: stored), for display.
             decimal? value = t.AutoSource switch
             {
                 HardTaskAutoSource.Water => f.HydrationMl,
-                HardTaskAutoSource.Workout => (f.WorkoutDurationsMin ?? new List<int>()).Count(d => d >= (t.MinMinutes ?? HardChallengeScoring.WorkoutMinMinutes)),
+                // The effective credited workout count (logged >= MinMinutes PLUS the watch credit), capped at
+                // the target so an over-achiever (2 logged + a watch credit) shows "2 / 2", not "3 / 2".
+                HardTaskAutoSource.Workout => Math.Min(
+                    workout!.LoggedWorkouts + workout.WatchWorkoutCredit,
+                    t.TargetValue ?? HardChallengeScoring.WorkoutTargetCount),
                 HardTaskAutoSource.None => manual.TryGetValue(t.Id, out var dm) ? dm.Value : null,
                 _ => null,
             };
             taskDtos.Add(new DayTaskDto(
                 t.Id, t.Key, t.Label, t.AutoSource.ToString(),
                 t.TargetValue, t.Unit, value,
-                ts.Progress, ts.Points, t.PointValue, t.PartialCredit, ts.Complete));
+                ts.Progress, ts.Points, t.PointValue, t.PartialCredit, ts.Complete, workout));
         }
 
         var dto = new DayDto(
@@ -809,7 +839,8 @@ public static class HardChallengeEndpoints
 
     private static TaskDto ToTaskDto(HardChallengeTask t) => new(
         t.Id, t.Key, t.Label, t.AutoSource.ToString(),
-        t.TargetValue, t.MinMinutes, t.Unit, t.PointValue, t.PartialCredit, t.Enabled, t.SortOrder);
+        t.TargetValue, t.MinMinutes, t.Unit, t.PointValue, t.PartialCredit, t.Enabled, t.SortOrder,
+        t.ActiveCalPerWorkout);
 
     // =====================================================================================
     // Leaderboard + coach stats (lightweight; reuse the in-memory scorer)

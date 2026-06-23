@@ -222,6 +222,13 @@
                 </div>
               }
 
+              @if (workoutBreakdown(t); as wb) {
+                <span class="challenge__task-breakdown"
+                      matTooltip="A qualifying smartwatch day earns one workout credit toward your target.">
+                  <mat-icon aria-hidden="true">watch</mat-icon> {{ wb }}
+                </span>
+              }
+
               @if (isAuto(t)) {
                 <span class="challenge__task-hint">
                   <mat-icon aria-hidden="true">bolt</mat-icon> Auto — {{ autoHint(t) }}
@@ -375,6 +382,14 @@
                     <mat-label>Min minutes</mat-label>
                     <input matInput type="number" min="1" step="1" [ngModel]="t.minMinutes"
                            (blur)="saveTaskMinMinutes(t, $any($event.target).valueAsNumber)" />
+                  </mat-form-field>
+                  <mat-form-field appearance="outline" class="challenge__cfg-num"
+                                  matTooltip="A day hitting this many active calories on your watch earns one workout credit. Leave blank for the default (300).">
+                    <mat-label>Watch active cal</mat-label>
+                    <input matInput type="number" min="1" step="10" placeholder="300"
+                           [ngModel]="t.activeCalPerWorkout"
+                           (blur)="saveTaskActiveCal(t, $any($event.target).valueAsNumber)" />
+                    <span matTextSuffix>cal</span>
                   </mat-form-field>
                 }
                 <mat-form-field appearance="outline" class="challenge__cfg-num">

@@ -14,7 +14,7 @@ public class HardChallengeScoringTests
 {
     private static HardChallengeTask Task(
         string key, HardTaskAutoSource src, decimal? target, int points, bool partial,
-        int? minMinutes = null, bool enabled = true, int id = 0)
+        int? minMinutes = null, bool enabled = true, int id = 0, int? activeCalPerWorkout = null)
         => new()
         {
             Id = id == 0 ? key.GetHashCode() & 0x7fffffff : id,
@@ -23,6 +23,7 @@ public class HardChallengeScoringTests
             AutoSource = src,
             TargetValue = target,
             MinMinutes = minMinutes,
+            ActiveCalPerWorkout = activeCalPerWorkout,
             PointValue = points,
             PartialCredit = partial,
             Enabled = enabled,
@@ -30,9 +31,9 @@ public class HardChallengeScoringTests
 
     private static HardChallengeScoring.HardDayInput Input(
         int hydrationMl = 0, IReadOnlyList<int>? workouts = null, bool noAlcohol = true,
-        int caloriesIn = 0, int? calorieGoal = null, bool? dietOverride = null)
+        int caloriesIn = 0, int? calorieGoal = null, bool? dietOverride = null, int? activeCalories = null)
         => new(caloriesIn, 0, 0, 0, calorieGoal, null, null, null,
-            hydrationMl, workouts ?? Array.Empty<int>(), dietOverride, noAlcohol);
+            hydrationMl, workouts ?? Array.Empty<int>(), dietOverride, noAlcohol, activeCalories);
 
     // ---- Diet auto (kept from v1) ----
 
@@ -120,6 +121,114 @@ public class HardChallengeScoringTests
         var lax = Task("w", HardTaskAutoSource.Workout, target: 2, points: 10, partial: true, minMinutes: 20);
         HardChallengeScoring.TaskProgress(strict, input, null, null).Should().Be(0.0);
         HardChallengeScoring.TaskProgress(lax, input, null, null).Should().Be(1.0);
+    }
+
+    // ---- Workout watch credit (smartwatch active calories) ----
+
+    [Fact]
+    public void Watch_active_calories_at_or_above_threshold_earn_one_workout_credit()
+    {
+        // Target 2, default threshold 300 (task ActiveCalPerWorkout null), no logged workouts, 320 active cals →
+        // 1 credit → 1/2 = 50% (partial). Never more than one credit.
+        var task = Task("workout", HardTaskAutoSource.Workout, target: 2, points: 10, partial: true, minMinutes: 45);
+        var bd = HardChallengeScoring.WorkoutBreakdownFor(task, Input(activeCalories: 320));
+        bd.LoggedWorkouts.Should().Be(0);
+        bd.WatchCredit.Should().Be(1);
+        bd.Count.Should().Be(1);
+        bd.ActiveCalThreshold.Should().Be(HardChallengeScoring.DefaultActiveCalPerWorkout);
+        HardChallengeScoring.TaskProgress(task, Input(activeCalories: 320), null, null).Should().BeApproximately(0.5, 1e-9);
+
+        // Exactly at the threshold also earns the credit.
+        HardChallengeScoring.WorkoutBreakdownFor(task, Input(activeCalories: 300)).WatchCredit.Should().Be(1);
+    }
+
+    [Fact]
+    public void Watch_credit_is_capped_at_one_even_with_huge_active_calories()
+    {
+        var task = Task("workout", HardTaskAutoSource.Workout, target: 2, points: 10, partial: true, minMinutes: 45);
+        HardChallengeScoring.WorkoutBreakdownFor(task, Input(activeCalories: 5000)).WatchCredit.Should().Be(1);
+    }
+
+    [Fact]
+    public void Watch_active_calories_below_threshold_earn_no_credit()
+    {
+        var task = Task("workout", HardTaskAutoSource.Workout, target: 2, points: 10, partial: true, minMinutes: 45);
+        var bd = HardChallengeScoring.WorkoutBreakdownFor(task, Input(activeCalories: 299));
+        bd.WatchCredit.Should().Be(0);
+        bd.Count.Should().Be(0);
+        HardChallengeScoring.TaskProgress(task, Input(activeCalories: 299), null, null).Should().Be(0.0);
+    }
+
+    [Fact]
+    public void No_watch_record_earns_no_credit()
+    {
+        var task = Task("workout", HardTaskAutoSource.Workout, target: 2, points: 10, partial: true, minMinutes: 45);
+        var bd = HardChallengeScoring.WorkoutBreakdownFor(task, Input(activeCalories: null));
+        bd.WatchCredit.Should().Be(0);
+        bd.ActiveCalories.Should().BeNull();
+        HardChallengeScoring.TaskProgress(task, Input(activeCalories: null), null, null).Should().Be(0.0);
+    }
+
+    [Fact]
+    public void One_logged_workout_plus_watch_credit_completes_a_target_two_task()
+    {
+        // 1 logged (>=45) + 1 watch credit = 2/2 = 100%.
+        var task = Task("workout", HardTaskAutoSource.Workout, target: 2, points: 10, partial: true, minMinutes: 45);
+        var input = Input(workouts: new[] { 50 }, activeCalories: 400);
+        var bd = HardChallengeScoring.WorkoutBreakdownFor(task, input);
+        bd.LoggedWorkouts.Should().Be(1);
+        bd.WatchCredit.Should().Be(1);
+        bd.Count.Should().Be(2);
+        HardChallengeScoring.TaskProgress(task, input, null, null).Should().Be(1.0);
+        HardChallengeScoring.TaskPoints(task, 1.0).Should().Be(10m);
+    }
+
+    [Fact]
+    public void Two_logged_workouts_ignore_the_watch_credit_since_count_is_capped_at_target()
+    {
+        // 2 logged already hits the target; the watch credit cannot push progress above 100%.
+        var task = Task("workout", HardTaskAutoSource.Workout, target: 2, points: 10, partial: true, minMinutes: 45);
+        var input = Input(workouts: new[] { 50, 60 }, activeCalories: 800);
+        // The breakdown still reports the earned credit (count = 3), but progress clamps to 1.0.
+        HardChallengeScoring.WorkoutBreakdownFor(task, input).Count.Should().Be(3);
+        HardChallengeScoring.TaskProgress(task, input, null, null).Should().Be(1.0);
+        HardChallengeScoring.TaskPoints(task, HardChallengeScoring.TaskProgress(task, input, null, null)).Should().Be(10m);
+    }
+
+    [Fact]
+    public void Just_watch_credit_on_a_target_two_task_is_a_partial_one_half()
+    {
+        // Watch only (1 credit) on a target-2 task → 1/2 partial → half points.
+        var task = Task("workout", HardTaskAutoSource.Workout, target: 2, points: 10, partial: true, minMinutes: 45);
+        var input = Input(activeCalories: 350);
+        var progress = HardChallengeScoring.TaskProgress(task, input, null, null);
+        progress.Should().BeApproximately(0.5, 1e-9);
+        HardChallengeScoring.TaskPoints(task, progress).Should().Be(5m);
+    }
+
+    [Fact]
+    public void A_custom_active_calorie_threshold_is_honored()
+    {
+        // Custom threshold 500: 400 active cals → no credit; 520 → credit.
+        var task = Task("workout", HardTaskAutoSource.Workout, target: 2, points: 10, partial: true,
+            minMinutes: 45, activeCalPerWorkout: 500);
+        HardChallengeScoring.WorkoutBreakdownFor(task, Input(activeCalories: 400)).WatchCredit.Should().Be(0);
+        HardChallengeScoring.WorkoutBreakdownFor(task, Input(activeCalories: 520)).WatchCredit.Should().Be(1);
+        HardChallengeScoring.WorkoutBreakdownFor(task, Input(activeCalories: 520)).ActiveCalThreshold.Should().Be(500);
+    }
+
+    [Fact]
+    public void Active_calories_do_not_affect_non_workout_tasks()
+    {
+        var input = Input(hydrationMl: 1000, activeCalories: 9999, noAlcohol: true);
+        var water = Task("water", HardTaskAutoSource.Water, target: 2000, points: 10, partial: true);
+        var diet = Task("diet", HardTaskAutoSource.Diet, target: null, points: 10, partial: false);
+        var noAlc = Task("no-alcohol", HardTaskAutoSource.NoAlcohol, target: null, points: 10, partial: false);
+        // Water progress is unchanged by active calories (1000/2000 = 0.5).
+        HardChallengeScoring.TaskProgress(water, input, null, null).Should().BeApproximately(0.5, 1e-9);
+        // Diet has no calorie goal → 0; active calories irrelevant.
+        HardChallengeScoring.TaskProgress(diet, input, null, null).Should().Be(0.0);
+        HardChallengeScoring.TaskProgress(noAlc, input, null, null).Should().Be(1.0);
     }
 
     // ---- Day scoring + completeness ----

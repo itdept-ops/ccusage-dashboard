@@ -61,6 +61,12 @@ public class HardChallengeTask
     /// (minutes) that counts toward the target count. Default 45. Null/ignored for non-workout tasks.</summary>
     public int? MinMinutes { get; set; }
 
+    /// <summary>For a <see cref="HardTaskAutoSource.Workout"/> task: the smartwatch ACTIVE-CALORIES threshold that
+    /// earns ONE extra workout credit (capped at 1) when the day's recorded active calories reach it. Lets a watch
+    /// activity day stand in for a single logged workout. Default <see cref="HardChallengeScoring.DefaultActiveCalPerWorkout"/>
+    /// (300) when null. Null/ignored for non-workout tasks.</summary>
+    public int? ActiveCalPerWorkout { get; set; }
+
     /// <summary>The unit label for a measurable task ("ml", "workouts", "pages", …), or "" for binary.</summary>
     public string Unit { get; set; } = "";
 

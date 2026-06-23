@@ -250,6 +250,21 @@
 .challenge__task-link mat-icon { font-size: 18px; width: 18px; height: 18px; }
 .challenge__task-check { flex: none; }
 
+/* Transparent watch-credit breakdown for the Workout task (e.g. "1 logged · 1 from watch (420 active cal)"). */
+.challenge__task-breakdown {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 2px;
+  font-size: var(--tech-fs-caption, 0.78rem);
+  color: var(--tech-text-secondary, var(--tech-text-tertiary));
+  font-variant-numeric: tabular-nums;
+  mat-icon {
+    font-size: 14px; width: 14px; height: 14px;
+    color: var(--tech-accent, var(--ch-fire));
+  }
+}
+
 /* Per-task partial-progress meter (measurable tasks). */
 .challenge__task-meter { display: flex; flex-direction: column; gap: 3px; margin-top: 6px; }
 .challenge__task-bar {
