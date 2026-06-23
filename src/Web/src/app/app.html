@@ -345,6 +345,16 @@
       <app-notification-bell />
     }
 
+    <!-- Quick add: a toolbar icon-button (was a floating FAB). Shown only to family.use holders;
+         opens the compact capture dialog (also the "q" shortcut). -->
+    @if (showQuickAdd()) {
+      <button mat-icon-button type="button" class="quick-add-trigger" (click)="openQuickAdd()"
+              matTooltip="Quick add (press q)" matTooltipClass="axon-tip"
+              aria-label="Quick add a list item, reminder, or note">
+        <mat-icon>bolt</mat-icon>
+      </button>
+    }
+
     <!-- Command palette trigger: opens the global search/commands overlay (⌘K / Ctrl-K, or "/").
          A single icon so it survives the mobile nav-burger collapse and stays reachable on phones. -->
     <button mat-icon-button type="button" class="cmdp-trigger" (click)="palette.show()"
@@ -560,15 +570,8 @@
   <router-outlet />
 </main>
 
-@if (showQuickAdd()) {
-  <!-- Global family Quick-Add: a floating action button (bottom-right) + the "q" / Ctrl·Cmd-Shift-A
-       shortcut. Shown only to family.use holders; opens the compact capture dialog. Mobile-friendly. -->
-  <button type="button" class="quick-add-fab" (click)="openQuickAdd()"
-          matTooltip="Quick add (press q)" matTooltipClass="axon-tip"
-          aria-label="Quick add a list item, reminder, or note">
-    <mat-icon aria-hidden="true">bolt</mat-icon>
-  </button>
-}
+<!-- Quick-Add moved from a floating FAB into the top toolbar (the bolt icon-button); still driven by
+     the "q" / Ctrl·Cmd-Shift-A shortcut + the ⌘K palette. -->
 
 <!-- Global command palette overlay: mounted once for the whole shell. Renders nothing unless opened AND
      the caller is authenticated (it's inert on the bare/public chrome). Driven by CommandPaletteService. -->

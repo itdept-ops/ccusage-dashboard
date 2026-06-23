@@ -1209,65 +1209,8 @@
   }
 }
 
-/* ---- Family Quick-Add FAB ----------------------------------------- */
-/* A floating action button, bottom-right, on the brand gradient. Sits above page content but below
-   modals/menus. Shown only to family.use holders (gated in the template). Mobile-friendly tap target. */
-.quick-add-fab {
-  position: fixed;
-  right: clamp(16px, 4vw, 28px);
-  bottom: clamp(16px, 4vw, 28px);
-  z-index: 40;
-
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 56px;
-  height: 56px;
-  padding: 0;
-  border: none;
-  border-radius: 999px;
-  cursor: pointer;
-
-  color: #fff;
-  background: linear-gradient(135deg, #3d8bff 0%, #8b7cff 52%, #3fd8d0 100%);
-  box-shadow:
-    0 6px 20px rgba(61, 139, 255, 0.35),
-    0 2px 6px rgba(0, 0, 0, 0.3);
-  transition:
-    transform var(--tech-t-control, 140ms) ease,
-    box-shadow var(--tech-t-control, 140ms) ease,
-    filter var(--tech-t-control, 140ms) ease;
-
-  mat-icon {
-    font-size: 26px;
-    width: 26px;
-    height: 26px;
-  }
-
-  &:hover {
-    transform: translateY(-2px);
-    filter: brightness(1.06);
-    box-shadow:
-      0 10px 26px rgba(61, 139, 255, 0.45),
-      0 3px 8px rgba(0, 0, 0, 0.35);
-  }
-  &:active {
-    transform: translateY(0);
-  }
-  &:focus-visible {
-    outline: 2px solid var(--tech-text-accent, #9fb4d4);
-    outline-offset: 3px;
-  }
-}
-
 /* ---- Reduced motion ------------------------------------------------ */
 @media (prefers-reduced-motion: reduce) {
-  .quick-add-fab {
-    transition: none;
-  }
-  .quick-add-fab:hover {
-    transform: none;
-  }
   .caret,
   .status__dot,
   .presence__dot,
