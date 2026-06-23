@@ -518,3 +518,18 @@ code, pre, kbd, samp {
     }
   }
 }
+
+/* ── Tracker-Beta ("Strata"): lift the global Quick-Add FAB above Strata's own bottom action bar ──────
+   The /tracker-beta page mounts its OWN fixed bottom "+ LOG" action bar (.tb-action-bar, ~72px tall +
+   safe-area). The shell's global Quick-Add FAB (.quick-add-fab, bottom-right, fixed) otherwise sits in
+   that same bottom zone and overlaps the LOG bar on phones. The user wants BOTH reachable, so while the
+   Strata page is mounted we raise the FAB to clear the action bar (its height + safe-area + a gap),
+   keeping it tappable just above the bar. This MUST live in the global sheet (the FAB lives in the
+   app-root view; .tb-action-bar's height tokens live on the page host) and is route-scoped via :has() —
+   it reverts automatically the moment the user navigates away from /tracker-beta. The Strata tokens
+   (--action-bar-h: 72px) are mirrored here as literals with safe defaults so the offset is correct even
+   though those custom props are scoped to the page's :host and don't cascade to the body. */
+body:has(app-tracker-beta) .quick-add-fab {
+  /* action-bar height (72px) + its own bottom safe-area + a clear gap above it */
+  bottom: calc(72px + env(safe-area-inset-bottom, 0px) + clamp(16px, 4vw, 24px));
+}

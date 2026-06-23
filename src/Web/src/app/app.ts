@@ -575,8 +575,9 @@ export class App implements AfterViewInit {
     this.closeMobileNav();
     this.dialog
       .open<QuickAddDialog, void, QuickAddResult>(QuickAddDialog, {
-        width: '460px',
-        maxWidth: '94vw',
+        width: 'min(96vw, 460px)',
+        maxWidth: '96vw',
+        panelClass: 'family-dialog',
         autoFocus: 'first-tabbable',
         restoreFocus: true,
       })

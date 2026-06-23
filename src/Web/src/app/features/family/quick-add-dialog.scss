@@ -12,32 +12,96 @@
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
-  min-width: min(420px, 80vw);
+  // Fill the dialog (sized by MatDialog config) instead of forcing a min-width that
+  // fought the mobile width and cramped the outline notch / toggle row.
+  min-width: 0;
+  width: 100%;
   padding-top: 0.25rem;
 }
 
 .qadd__field {
   width: 100%;
+
+  // The floating label was clipping onto the TOP BORDER instead of sitting in the outline's notch.
+  // That happens when the notched-outline path doesn't reserve a gap for the raised label, so the
+  // label has no cut-out to live in and overlaps the stroke. Belt-and-suspenders: ensure the floating
+  // label paints ABOVE the outline (so it's never hidden behind the stroke) and give it the dialog
+  // surface colour behind it so, even if the notch gap is thin, the label reads cleanly over the
+  // border rather than colliding with it.
+  ::ng-deep .mdc-floating-label--float-above {
+    z-index: 1;
+  }
+  ::ng-deep .mdc-text-field--outlined .mdc-floating-label--float-above {
+    padding: 0 4px;
+    background: var(--mdc-dialog-container-color, var(--tech-panel, #111722));
+  }
 }
 
-.qadd__kinds {
+// 2×2 grid on mobile so the four kinds never collide (the old flex row targeted
+// `.mat-button-toggle` without ::ng-deep, so it never applied under emulated encapsulation).
+// Material's own `.mat-button-toggle-group { display: inline-flex }` host rule has equal specificity
+// to a bare `.qadd__kinds`, so it could win on load order and snap the toggles back into a cramped
+// single row — qualify the host selector with `&.mat-button-toggle-group` to out-specify it and force
+// the grid to stick.
+.qadd__kinds.mat-button-toggle-group {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.5rem;
   width: 100%;
-  flex-wrap: wrap;
+  // The connected-group chrome (shared borders / rounding) fights a real grid — drop it.
+  border: 0;
 
-  // Let each of the four kinds share the row evenly; they wrap on very narrow phones.
-  .mat-button-toggle {
-    flex: 1 1 0;
-    min-width: 5rem;
+  ::ng-deep .mat-button-toggle {
+    flex: none;
+    min-width: 0;
+    border: 1px solid var(--tech-border, rgba(255, 255, 255, 0.16));
+    border-radius: 10px;
+    overflow: hidden;
   }
 
-  mat-icon {
+  // Material draws a hairline divider between connected toggles; in a real grid it lands mid-cell and
+  // reads as a stray line, so suppress it.
+  ::ng-deep .mat-button-toggle + .mat-button-toggle .mat-button-toggle-button::before {
+    display: none;
+  }
+
+  // Make the inner button fill its cell and center the icon + label; 44px+ tall target.
+  ::ng-deep .mat-button-toggle-button {
+    width: 100%;
+    height: 100%;
+  }
+
+  ::ng-deep .mat-button-toggle-label-content {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 0;
+    min-height: 44px;
+    padding: 0 0.5rem;
+    line-height: 1.2;
+  }
+
+  ::ng-deep mat-icon {
+    flex: none;
     margin-right: 0.35rem;
     vertical-align: middle;
   }
 }
 
 .qadd__kind-label {
+  // Longest label is "Reminder" — ellipsis rather than overlap if a cell is tight.
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   vertical-align: middle;
+}
+
+// Roomier on tablets/desktop: one 1×4 row.
+@media (min-width: 480px) {
+  .qadd__kinds.mat-button-toggle-group {
+    grid-template-columns: repeat(4, 1fr);
+  }
 }
 
 .qadd__error {

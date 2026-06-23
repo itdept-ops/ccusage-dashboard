@@ -169,9 +169,11 @@ export type HeroFace = 'rings' | 'macros';
     }
 
     /* ── rings ── */
+    /* Sized off the hero's inner width so the ring fills the card (it no longer floats in a tall
+       near-empty box). Capped so it stays glanceable on big phones / small tablets. */
     .hr-ringbox {
       position: relative;
-      width: min(62vw, 232px);
+      width: min(72vw, 260px);
       aspect-ratio: 1 / 1;
       display: grid; place-items: center;
     }

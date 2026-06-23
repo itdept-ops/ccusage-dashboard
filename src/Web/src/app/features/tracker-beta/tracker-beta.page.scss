@@ -172,14 +172,18 @@
 }
 
 // HERO FLOATING LAYER — glass card, --lift-3, --r-ring. One of the 3 blurred surfaces.
+// Height is content-driven (the ring + macro chips set it) with only a modest floor, so the card
+// hugs its contents instead of stretching into a tall near-empty box. The internal padding is tight
+// at the top/bottom so the ring + chips read as a dense-but-airy unit.
 .tb-hero {
   flex: 0 0 auto;
-  min-height: 38svh;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 20px;
+  gap: 4px;
+  padding: 18px 16px;
   border-radius: var(--r-ring);
   background: var(--glass);
   backdrop-filter: blur(var(--blur-glass)) saturate(1.4);
