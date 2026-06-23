@@ -114,6 +114,14 @@ export class BetaHubPage {
       icon: 'receipt_long',
       perm: 'bills.use',
     },
+    {
+      title: 'Home',
+      blurb: 'Your cross-domain glance surface — rings, events, who\'s online',
+      route: '/beta/home',
+      icon: 'space_dashboard',
+      // No `perm` → always visible to anyone who can reach the hub (holds beta.access). The page's own
+      // widgets self-gate on their domain perms, and the route guard re-checks beta.access on direct nav.
+    },
   ];
 
   /** Experiments visible to the current session (cards without a `perm` always show). */

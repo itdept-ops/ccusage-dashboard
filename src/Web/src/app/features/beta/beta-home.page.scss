@@ -1,0 +1,181 @@
+// ============================================================================
+// Home "Atrium" — command-center design tokens + shell layout.
+//
+// ISOLATED design system: every token here is defined on :host of app-beta-home so all child widgets
+// inherit them via the cascade. NONE of the global Usage IQ --tech-* tokens are used or imported — this
+// mirrors how tracker-beta ("Strata") scopes its tokens. Child widgets reference var(--atr-card) etc.
+//
+// Palette is VERBATIM from the Atrium build brief. Dark-only by design. The prefers-reduced-motion
+// killswitch, the prefers-reduced-transparency / prefers-contrast blur-drop, and env() safe-area insets
+// are all honored here so child widgets inherit a consistent contract.
+// ============================================================================
+
+:host {
+  // Declaring dark renders dark UA chrome (scrollbars, tap highlights) and stops a light-mode device
+  // from flipping the page. A real opt-in light theme is a separate, app-wide concern.
+  color-scheme: dark;
+
+  // ---- COMMAND-CENTER PALETTE ----
+  --atr-bg: #0b0d18;
+  --atr-card: #161a2e;
+  --atr-edge: rgba(255, 255, 255, .08);
+  --atr-ink: #eef0fb;
+  --atr-ink-dim: #9aa0c4;
+
+  // domain accents
+  --atr-rings: #7c5cff;
+  --atr-hard: #f0a35a;
+  --atr-event: #38bdf8;
+  --atr-online: #34d399;
+  --atr-spend: #fb7185;
+
+  // glass for the fixed bar
+  --atr-glass: rgba(18, 22, 40, .72);
+  --atr-blur: 16px;
+
+  // ---- RADII / ELEVATION / MOTION ----
+  --r-card: 22px;
+  --lift: 0 8px 24px rgba(4, 6, 20, .45), inset 0 1px 0 var(--atr-edge);
+  --atr-ease: cubic-bezier(.22, 1, .36, 1);
+
+  // ---- CHROME + SAFE AREA ----
+  --atr-bar-h: 56px;
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --gutter: max(16px, env(safe-area-inset-left, 0px));
+  --gutter-r: max(16px, env(safe-area-inset-right, 0px));
+
+  display: block;
+  position: relative;
+  width: 100%;
+  min-height: 100svh;
+  background: var(--atr-bg);
+  color: var(--atr-ink);
+  font-family: "Plus Jakarta Sans", system-ui, sans-serif;
+  font-size: 15px;
+  line-height: 1.4;
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  overscroll-behavior: none;
+}
+
+// ---- a11y: reduced transparency / forced contrast => drop blur, solidify glass ----
+@media (prefers-reduced-transparency: reduce), (prefers-contrast: more) {
+  :host {
+    --atr-blur: 0px;
+    --atr-glass: #11162a;
+  }
+}
+
+// ---- MOTION KILLSWITCH: collapse every animation/transition to instant ----
+@media (prefers-reduced-motion: reduce) {
+  :host,
+  :host *,
+  :host *::before,
+  :host *::after {
+    animation-duration: .001ms !important;
+    animation-delay: 0ms !important;
+    transition-duration: .001ms !important;
+    transition-delay: 0ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+// ============================================================================
+// SHELL LAYOUT
+// ============================================================================
+
+// Fixed glass top bar — greeting + date + actions, safe-area aware. Hairline, no heavy shadow.
+.atr-bar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 30;
+  height: calc(var(--atr-bar-h) + var(--safe-top));
+  padding-top: var(--safe-top);
+  padding-inline: var(--gutter) var(--gutter-r);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  background: var(--atr-glass);
+  backdrop-filter: blur(var(--atr-blur)) saturate(1.4);
+  -webkit-backdrop-filter: blur(var(--atr-blur)) saturate(1.4);
+  border-bottom: 1px solid var(--atr-edge);
+}
+
+.atr-bar__text { display: flex; flex-direction: column; min-width: 0; }
+.atr-bar__greet {
+  font-weight: 700; font-size: 15px; color: var(--atr-ink);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.atr-bar__date { font-size: 12px; color: var(--atr-ink-dim); }
+
+.atr-bar__actions { display: flex; align-items: center; gap: 6px; flex: 0 0 auto; }
+.atr-bar__btn {
+  display: inline-grid; place-items: center;
+  min-width: 44px; min-height: 44px; padding: 0 10px;
+  border-radius: 12px; border: 1px solid transparent; background: transparent;
+  color: var(--atr-ink); text-decoration: none; font: inherit; font-size: 14px; cursor: pointer;
+  transition: background 120ms var(--atr-ease);
+}
+.atr-bar__btn:hover { background: rgba(255, 255, 255, .06); }
+.atr-bar__btn--primary { border-color: var(--atr-edge); font-weight: 700; }
+.atr-bar__btn mat-icon { font-size: 22px; width: 22px; height: 22px; }
+
+// The single vertical scroll region. 100dvh tracks the dynamic viewport under the fixed bar.
+.atr-scroll {
+  height: 100dvh;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior-y: contain;
+  scroll-snap-type: y proximity;
+  -webkit-overflow-scrolling: touch;
+  padding-top: calc(var(--atr-bar-h) + var(--safe-top) + 12px);
+  padding-bottom: calc(var(--safe-bottom) + 24px);
+  padding-inline: var(--gutter) var(--gutter-r);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+// Below-fold widgets: skip rendering work until they scroll near (paired with contain-intrinsic-size).
+.atr-defer {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 150px;
+}
+
+.atr-hint {
+  margin: 0; padding: 10px 14px; border-radius: 14px;
+  background: rgba(255, 255, 255, .04); border: 1px dashed var(--atr-edge);
+  font-size: 13px; color: var(--atr-ink-dim);
+}
+.atr-hint__reset {
+  margin-left: 8px; border: none; background: none; padding: 0;
+  color: var(--atr-event); font: inherit; font-size: 13px; cursor: pointer; text-decoration: underline;
+}
+
+.atr-empty {
+  margin: 8px 0; padding: 18px; border-radius: var(--r-card);
+  background: var(--atr-card); border: 1px solid var(--atr-edge);
+  color: var(--atr-ink-dim); font-size: 14px; text-align: center;
+}
+
+// Optional "+ Quick log" pill at the foot of the column (no fixed bottom bar).
+.atr-quicklog {
+  align-self: center;
+  display: inline-flex; align-items: center; gap: 6px;
+  min-height: 44px; padding: 0 18px; margin-top: 4px;
+  border-radius: 999px; border: 1px solid var(--atr-edge); background: var(--atr-card);
+  color: var(--atr-ink); text-decoration: none; font-weight: 600; font-size: 14px;
+}
+.atr-quicklog mat-icon { font-size: 20px; width: 20px; height: 20px; color: var(--atr-rings); }
+
+// Own visible focus ring (never outline:none without a replacement).
+:host ::ng-deep :focus-visible {
+  outline: 2px solid var(--atr-rings);
+  outline-offset: 2px;
+  border-radius: 8px;
+}

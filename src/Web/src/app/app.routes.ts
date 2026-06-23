@@ -120,6 +120,15 @@ export const routes: Routes = [
     loadChildren: () => import('./features/bills-beta/bills-beta.routes').then(m => m.BILLS_BETA_ROUTES),
   },
   {
+    // Home "Atrium" — the mobile-first cross-domain glance surface (rings / 75-Hard / next event /
+    // who's online / spend / activity) over EXISTING root stores + Api (read-only). Purely additive; the
+    // lazy children file keeps it out of the initial bundle and holds the beta.access guard. Placed
+    // before the `beta` hub route so the more-specific `beta/home` matches first (Angular is first-match,
+    // same as `beta/bills` above). No live page is touched.
+    path: 'beta/home',
+    loadChildren: () => import('./features/beta/beta-home.routes').then(m => m.BETA_HOME_ROUTES),
+  },
+  {
     // Beta hub — a permission-gated index of experimental surfaces. Purely additive: lives in the normal
     // app shell, gated by beta.access; each experiment card inside is further gated by its own feature perm.
     path: 'beta',
