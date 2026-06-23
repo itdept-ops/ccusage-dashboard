@@ -24,6 +24,7 @@ const child = spawn(process.execPath, [ngBin, 'build', ...args], { stdio: ['inhe
 
 let buf = '';
 let settled = false;
+let completeSeen = false;
 
 const onData = (chunk) => {
   const s = chunk.toString();
@@ -44,8 +45,14 @@ const hardTimer = setTimeout(
 
 function evaluate() {
   if (settled) return;
-  if (/Application bundle generation complete/.test(buf) && existsSync(distIndex)) {
-    settle(0, 'bundle complete + dist present');
+  if (!completeSeen && /Application bundle generation complete/.test(buf)) {
+    completeSeen = true;
+    // The builder can finish a SUCCESSFUL build and then never exit. The marker is printed ONLY on
+    // success, so once we see it we finish ourselves. Do NOT gate on a filesystem check — Angular has
+    // already written the output before printing this line, and checking existsSync at this exact
+    // instant raced in alpine/CI (file not yet visible) and left the wrapper hanging. A short grace
+    // lets stdout flush, then we exit.
+    setTimeout(() => settle(0, 'bundle complete'), 2000);
   } else if (/error TS\d|✘ \[ERROR\]|^ERROR /m.test(buf)) {
     settle(1, 'build error detected');
   }
