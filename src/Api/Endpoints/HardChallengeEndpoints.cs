@@ -896,6 +896,56 @@ public static class HardChallengeEndpoints
         return new ChallengeStats(CurrentDay(challenge.StartDate, today), streak.CurrentStreak, total, todayPoints);
     }
 
+    /// <summary>
+    /// A lightweight read of the user's 75-Hard standing for the WEEKLY RECAP — the run-wide current streak +
+    /// total points, plus the slice earned in the recap window [from, to]. Null when the user has no ACTIVE
+    /// challenge (so the recap simply omits the 75-Hard section). Reuses the SAME in-memory scorer the
+    /// leaderboard uses (no client input, no duplicated scoring). The window is clamped to the challenge's own
+    /// 75-day span and to days at-or-before today, so a recap can't count points for unstarted/future days.
+    /// </summary>
+    public sealed record WeeklyHardStats(int CurrentStreak, decimal TotalPoints, decimal WeekPoints, int WeekCompletedDays);
+
+    public static async Task<WeeklyHardStats?> ComputeWeeklyRecapStatsAsync(
+        UsageDbContext db, string email, DateOnly from, DateOnly to, DateOnly today, CancellationToken ct)
+    {
+        var challenge = await db.HardChallenges.AsNoTracking()
+            .FirstOrDefaultAsync(c => c.UserEmail == email && c.Status == HardChallengeStatus.Active, ct);
+        if (challenge is null) return null;
+
+        var windowEnd = challenge.StartDate.AddDays(TotalDays - 1);
+        var tasks = await LoadTasksAsync(db, challenge.Id, ct);
+        var rows = await db.HardChallengeDays.AsNoTracking()
+            .Where(x => x.UserEmail == email && x.LocalDate >= challenge.StartDate && x.LocalDate <= windowEnd)
+            .ToListAsync(ct);
+        var rowByDate = rows.ToDictionary(r => r.LocalDate);
+        var profile = await db.TrackerProfiles.AsNoTracking().FirstOrDefaultAsync(p => p.UserEmail == email, ct);
+        var facts = await LoadTrackerFactsAsync(db, email, challenge.StartDate, windowEnd, ct);
+        var manual = await LoadManualProgressAsync(db, email, challenge.StartDate, windowEnd, ct);
+
+        decimal total = 0m, weekPoints = 0m;
+        var weekCompleted = 0;
+        var streakDays = new List<HardChallengeScoring.StreakDay>();
+        for (var i = 0; i < TotalDays; i++)
+        {
+            var date = challenge.StartDate.AddDays(i);
+            rowByDate.TryGetValue(date, out var row);
+            var (_, score) = BuildDayInMemory(date, i + 1, row, tasks, profile, facts, manual, readOnly: true);
+            total += score.DayPoints;
+            // Only count the recap window, and never beyond today (unstarted/future days score 0 anyway,
+            // but clamping keeps "this week" honest if the window straddles the run's edges).
+            if (date >= from && date <= to && date <= today)
+            {
+                weekPoints += score.DayPoints;
+                if (score.Complete) weekCompleted++;
+            }
+            if (date <= today)
+                streakDays.Add(new HardChallengeScoring.StreakDay(
+                    score.Complete, row?.IsCheatDay ?? false, row?.Confession is not null));
+        }
+        var streak = HardChallengeScoring.RelaxedStreak(streakDays);
+        return new WeeklyHardStats(streak.CurrentStreak, total, weekPoints, weekCompleted);
+    }
+
     /// <summary>The server-computed facts the coach narrates (nothing comes from the client).</summary>
     private sealed record CoachFacts(
         int CurrentDay, int CurrentStreak, int LongestStreak, int CompletedDays,

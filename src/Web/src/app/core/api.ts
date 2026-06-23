@@ -8,7 +8,7 @@ import {
   AddSupplementRequest, SupplementEntryDto, SupplementMacrosRequest, SupplementMacrosResponse,
   CoffeeEntryDto, HeatmapCell, HydrationEntryDto, HydrationSuggestResponse, ImageRequest, IngestionSource, IngestKey, IngestKeyCreated, LocationFix, LocationSettings, LocationSettingsUpdate, AdminUserLocation, RecordLocationRequest, LogWeightRequest, LoginEvent, MachineStat, ManagedUser, MealFeedbackRequest, MealFeedbackResponse, ModelStat, MoveDayRequest, MoveDayResult, NaturalGoalRequest, NaturalGoalResponse, NotificationDto, NotificationPreferenceDto, NotificationSettings,
   AiUsageFilter, AiUsageResponse,
-  NotificationUpdate, DiscordRoute, DiscordRouteUpdate, MyDiscord, MyDiscordUpdate, PagedResult, ParseExerciseRequest, ParseExerciseResponse, ParseHydrationRequest, ParseHydrationResponse, ParseMealRequest, ParseMealResponse, PermissionItem, PermissionPreset, Presence, PersonDto, Pricing, ProjectDto, PublicShare, ReactionGroupDto, ReadLabelResponse, RecipeMacrosRequest, RecipeMacrosResponse, RequestLogEntry, SavedView, ScheduleAiResult, ScheduleFromImageRequest, ScheduleImageFile,
+  NotificationUpdate, DiscordRoute, DiscordRouteUpdate, MyDiscord, MyDiscordUpdate, RecapPreview, PagedResult, ParseExerciseRequest, ParseExerciseResponse, ParseHydrationRequest, ParseHydrationResponse, ParseMealRequest, ParseMealResponse, PermissionItem, PermissionPreset, Presence, PersonDto, Pricing, ProjectDto, PublicShare, ReactionGroupDto, ReadLabelResponse, RecipeMacrosRequest, RecipeMacrosResponse, RequestLogEntry, SavedView, ScheduleAiResult, ScheduleFromImageRequest, ScheduleImageFile,
   SavedViewUpsertRequest, SessionDetail, Settings, ShareAccessItem, ShareCreated, ShareListItem, SharedUserDto, SuggestFoodsResponse, SuggestGoalResponse, SuggestWorkoutRequest, SuggestWorkoutResponse, SummaryResponse,
   SyncResult, SyncStatus, TrackerDayDto, TrackerProfileDto, TrackerRecapResult, UpsertActivityRequest, UsageFilter, UsageRecord, UsageStats,
   WatchActivityDto, WeeklyReviewResponse, WeightInsightResponse, WeightPointDto, WeightStatsDto, WorkoutXSearchResultDto,
@@ -321,6 +321,17 @@ export class Api {
   // 200 { message } · 404 if no webhook saved · 502 if Discord rejects.
   testMyDiscord(): Observable<{ message: string }> {
     return this.http.post<{ message: string }>(`${this.base}/notifications/me/discord/test`, {});
+  }
+
+  // Weekly recap send-now: composes the caller's last 7 days + posts it to their own webhook immediately
+  // (ignores the opt-in toggle + the weekly idempotency guard). 200 { message } · 404 no webhook · 502 rejected.
+  sendMyDiscordRecap(): Observable<{ message: string }> {
+    return this.http.post<{ message: string }>(`${this.base}/notifications/me/discord/recap`, {});
+  }
+
+  // Weekly recap preview: composes the embed (period/headline/fields) WITHOUT sending. No webhook required.
+  previewMyDiscordRecap(): Observable<RecapPreview> {
+    return this.http.post<RecapPreview>(`${this.base}/notifications/me/discord/recap?preview=true`, {});
   }
 
   // ---- Ingest keys (reporter credentials) ----

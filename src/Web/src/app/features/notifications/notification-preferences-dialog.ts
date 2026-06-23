@@ -93,6 +93,7 @@ export class NotificationPreferencesDialog {
   readonly webhookInput = signal('');
   readonly discordBusy = signal(false);
   readonly discordTesting = signal(false);
+  readonly recapSending = signal(false);
 
   constructor() {
     // Load the caller's own Discord state. Swallows errors (the section just stays in its default empty state).
@@ -105,9 +106,14 @@ export class NotificationPreferencesDialog {
   /** Toggle "also forward my notifications to Discord" and persist it (keeps the stored webhook). */
   surfaceDiscordChange(value: boolean): void {
     const prev = this.discord();
-    this.discord.set({ configured: prev?.configured ?? false, hint: prev?.hint ?? null, surfaceDiscord: value });
+    this.discord.set({
+      configured: prev?.configured ?? false, hint: prev?.hint ?? null,
+      surfaceDiscord: value, weeklyRecapEnabled: prev?.weeklyRecapEnabled ?? false,
+    });
     this.discordBusy.set(true);
-    this.api.saveMyDiscord({ webhookUrl: null, surfaceDiscord: value }).subscribe({
+    this.api.saveMyDiscord({
+      webhookUrl: null, surfaceDiscord: value, weeklyRecapEnabled: prev?.weeklyRecapEnabled ?? false,
+    }).subscribe({
       next: d => { this.discord.set(d); this.discordBusy.set(false); },
       error: () => {
         this.discord.set(prev); // revert the optimistic flip
@@ -117,12 +123,52 @@ export class NotificationPreferencesDialog {
     });
   }
 
+  /** Toggle the weekly personal recap opt-in (Sunday summary of your own week) and persist it. */
+  weeklyRecapChange(value: boolean): void {
+    const prev = this.discord();
+    this.discord.set({
+      configured: prev?.configured ?? false, hint: prev?.hint ?? null,
+      surfaceDiscord: prev?.surfaceDiscord ?? false, weeklyRecapEnabled: value,
+    });
+    this.discordBusy.set(true);
+    this.api.saveMyDiscord({
+      webhookUrl: null, surfaceDiscord: prev?.surfaceDiscord ?? false, weeklyRecapEnabled: value,
+    }).subscribe({
+      next: d => { this.discord.set(d); this.discordBusy.set(false); },
+      error: () => {
+        this.discord.set(prev); // revert the optimistic flip
+        this.discordBusy.set(false);
+        this.snack.open('Could not update the weekly recap setting', 'Dismiss', { duration: 4000 });
+      },
+    });
+  }
+
+  /** Send this week's recap to the saved webhook right now (preview/test). 404 = none saved · 502 = rejected. */
+  sendRecapNow(): void {
+    if (this.recapSending()) return;
+    this.recapSending.set(true);
+    this.api.sendMyDiscordRecap().subscribe({
+      next: r => { this.recapSending.set(false); this.snack.open(r.message ?? 'Recap sent', 'OK', { duration: 4000 }); },
+      error: (e: HttpErrorResponse) => {
+        this.recapSending.set(false);
+        const fallback = e.status === 404
+          ? 'Save a webhook first, then send your recap.'
+          : e.status === 502 ? 'Discord rejected the recap.' : 'Could not send the recap.';
+        this.snack.open(e.error?.message ?? fallback, 'Dismiss', { duration: 5000 });
+      },
+    });
+  }
+
   /** Save the typed webhook URL (validated + encrypted server-side). Graceful 400 on a non-Discord URL. */
   saveWebhook(): void {
     const url = this.webhookInput().trim();
     if (!url || this.discordBusy()) return;
     this.discordBusy.set(true);
-    this.api.saveMyDiscord({ webhookUrl: url, surfaceDiscord: this.discord()?.surfaceDiscord ?? false }).subscribe({
+    this.api.saveMyDiscord({
+      webhookUrl: url,
+      surfaceDiscord: this.discord()?.surfaceDiscord ?? false,
+      weeklyRecapEnabled: this.discord()?.weeklyRecapEnabled ?? false,
+    }).subscribe({
       next: d => {
         this.discord.set(d);
         this.webhookInput.set('');
@@ -143,7 +189,11 @@ export class NotificationPreferencesDialog {
   clearWebhook(): void {
     if (this.discordBusy()) return;
     this.discordBusy.set(true);
-    this.api.saveMyDiscord({ webhookUrl: '', surfaceDiscord: this.discord()?.surfaceDiscord ?? false }).subscribe({
+    this.api.saveMyDiscord({
+      webhookUrl: '',
+      surfaceDiscord: this.discord()?.surfaceDiscord ?? false,
+      weeklyRecapEnabled: this.discord()?.weeklyRecapEnabled ?? false,
+    }).subscribe({
       next: d => { this.discord.set(d); this.webhookInput.set(''); this.discordBusy.set(false); this.snack.open('Discord webhook removed', 'OK', { duration: 2500 }); },
       error: () => { this.discordBusy.set(false); this.snack.open('Could not remove your Discord webhook', 'Dismiss', { duration: 4000 }); },
     });

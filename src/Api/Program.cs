@@ -85,6 +85,10 @@ builder.Services.AddHostedService<NotificationBackgroundService>();
 // the worker decrypts each user's webhook in-memory at send time, never blocking the request path.
 builder.Services.AddSingleton<DiscordForwarder>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<DiscordForwarder>());
+// Personal weekly recap composer: aggregates the caller's OWN week + sends it to their OWN webhook (reusing
+// the per-user encrypted/allowlisted send path). Scoped — it opens its own DB/protector/notifier scope. The
+// minute-tick NotificationBackgroundService drives the Sunday send; the send-now endpoint drives a preview.
+builder.Services.AddScoped<WeeklyRecapComposer>();
 
 // Food & fitness tracker: USDA FoodData Central proxy. The api_key is a secret (appsettings.Local.json
 // locally / Usda__ApiKey env var in prod) and is never logged; when blank the food lookup endpoints

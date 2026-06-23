@@ -48,6 +48,21 @@ public sealed class DiscordNotifier(IHttpClientFactory httpFactory, UsageDbConte
                 ("🧠 Top models", BreakdownText(d.TopModels), true),
             }, ct);
 
+    /// <summary>One name/value/inline tuple of a weekly-recap embed (the composer builds these from the
+    /// user's own week). Kept as an explicit DTO so the recap composer never touches the private post core.</summary>
+    public readonly record struct RecapField(string Name, string Value, bool Inline);
+
+    /// <summary>
+    /// Send a PERSONAL weekly recap to the user's OWN webhook: a green, never-pinging embed titled with the
+    /// week range, an optional headline description, and the supplied metric fields. Mirrors the
+    /// <see cref="SendDigestAsync"/> shape (multi-field) but carries the user's own life-tracker numbers, not
+    /// usage spend. Returns the post outcome (incl. HTTP status) so a caller can surface 502 / respect a 429.
+    /// </summary>
+    public Task<DiscordPostResult> SendWeeklyRecapAsync(
+        string url, string period, string? headline, IReadOnlyList<RecapField> fields, CancellationToken ct) =>
+        PostWithResultAsync(url, "Your week in review", period, headline, Green,
+            fields.Select(f => (f.Name, f.Value, f.Inline)).ToArray(), ct);
+
     public async Task<bool> SendSnapshotAsync(string url, DateOnly today, CancellationToken ct)
     {
         var todayS = await SummarizeAsync(today, today, ct);

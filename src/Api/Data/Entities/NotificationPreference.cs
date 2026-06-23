@@ -43,5 +43,20 @@ public class NotificationPreference
     /// </summary>
     public string? DiscordWebhookHint { get; set; }
 
+    /// <summary>
+    /// Opt-in to the weekly personal recap (a Sunday summary of the user's OWN week — tracker totals,
+    /// workouts, 75-Hard, hydration goal hits, bills — posted to <see cref="DiscordWebhookEnc"/>). OFF by
+    /// default; only effective when a webhook is also configured. Independent of <see cref="SurfaceDiscord"/>.
+    /// </summary>
+    public bool WeeklyRecapEnabled { get; set; } = false;
+
+    /// <summary>
+    /// Idempotency marker for the weekly recap: the LOCAL date the recap was last successfully sent. The
+    /// scheduler sets it (to the recap day's local date) only AFTER a confirmed send, so a restart or an
+    /// extra minute-tick on the same day never double-sends. Null = never sent. The send-now/preview path
+    /// ignores this guard. (A DateOnly anchor mirrors NotificationSetting.LastWeeklySent.)
+    /// </summary>
+    public DateOnly? LastRecapSent { get; set; }
+
     public DateTime UpdatedUtc { get; set; }
 }

@@ -29,6 +29,16 @@ public sealed class NotificationBackgroundService(
         var db = scope.ServiceProvider.GetRequiredService<UsageDbContext>();
         var notifier = scope.ServiceProvider.GetRequiredService<DiscordNotifier>();
 
+        // The display timezone is shared by both the admin digests and the per-user recap.
+        var tz0 = await ResolveTzAsync(db, ct);
+        var nowLocal0 = TimeZoneInfo.ConvertTime(DateTimeOffset.UtcNow, tz0);
+
+        // PERSONAL WEEKLY RECAP — runs INDEPENDENTLY of the admin/global Discord config (different path: each
+        // opted-in user posts their OWN week to their OWN webhook). Done first so a disabled/absent admin
+        // webhook (the early-return below) never suppresses the per-user recap.
+        var recap = scope.ServiceProvider.GetRequiredService<WeeklyRecapComposer>();
+        await SendWeeklyRecapsAsync(db, recap, nowLocal0, ct);
+
         var s = await db.NotificationSettings.FirstOrDefaultAsync(ct);
         if (s is null || !s.Enabled || !DiscordNotifier.IsValidWebhook(s.DiscordWebhookUrl)) return;
 
@@ -38,8 +48,7 @@ public sealed class NotificationBackgroundService(
         bool Enabled(string key) => routes.TryGetValue(key, out var r) && r.Enabled;
         string? RouteMention(string key) => routes.TryGetValue(key, out var r) ? r.Mention : null;
 
-        var tz = await ResolveTzAsync(db, ct);
-        var nowLocal = TimeZoneInfo.ConvertTime(DateTimeOffset.UtcNow, tz);
+        var nowLocal = nowLocal0;
         var today = DateOnly.FromDateTime(nowLocal.DateTime);
         var url = s.DiscordWebhookUrl!;
 
@@ -89,6 +98,44 @@ public sealed class NotificationBackgroundService(
             await ForwardSecurityAsync(db, notifier, s, url, securityOn, signupOn,
                 RouteMention(DiscordRouteKeys.SecurityAlerts) ?? s.MentionOnAlert,
                 RouteMention(DiscordRouteKeys.NewUserSignup) ?? s.MentionOnAlert, ct);
+    }
+
+    /// <summary>The local hour (display tz) at/after which the Sunday recap goes out. ">= hour" (not "==")
+    /// so a restart spanning the minute still sends later that day rather than dropping it.</summary>
+    private const int RecapHourLocal = 9;
+
+    /// <summary>
+    /// PER-USER weekly recap pass: on Sunday at/after <see cref="RecapHourLocal"/> (display tz), every user
+    /// who OPTED IN and has a webhook configured, and who hasn't already been sent this week's recap, gets
+    /// exactly ONE recap covering the previous 7 days [today-7, today-1]. Idempotent across restarts/reticks:
+    /// the LastRecapSent guard is checked before sending and advanced (to today's local date) only AFTER a
+    /// confirmed send, inside its own SaveChanges — so a transient failure simply retries on the next tick.
+    /// </summary>
+    private static async Task SendWeeklyRecapsAsync(
+        UsageDbContext db, WeeklyRecapComposer recap, DateTimeOffset nowLocal, CancellationToken ct)
+    {
+        if (nowLocal.DayOfWeek != DayOfWeek.Sunday || nowLocal.Hour < RecapHourLocal) return;
+
+        var today = DateOnly.FromDateTime(nowLocal.DateTime);
+        var from = today.AddDays(-7);
+        var to = today.AddDays(-1);
+
+        // Candidates: opted-in, webhook present, not already sent today (the recap-day local date is the
+        // per-week anchor — at most one send per user per recap day). Project to emails only (no secrets).
+        var candidates = await db.NotificationPreferences.AsNoTracking()
+            .Where(p => p.WeeklyRecapEnabled && p.DiscordWebhookEnc != null && p.LastRecapSent != today)
+            .Select(p => p.UserEmail)
+            .ToListAsync(ct);
+
+        foreach (var email in candidates)
+        {
+            // The composer re-checks opt-in + webhook + validity and decrypts in-memory at send time.
+            if (!await recap.SendRecapAsync(email, from, to, today, ct)) continue;
+
+            // Advance the guard ONLY on a confirmed send. Re-load the tracked row so the marker persists.
+            var pref = await db.NotificationPreferences.FirstOrDefaultAsync(p => p.UserEmail == email, ct);
+            if (pref is not null) { pref.LastRecapSent = today; await db.SaveChangesAsync(ct); }
+        }
     }
 
     // The audit actions that represent a NEW USER arriving (open-signup auto-provision + admin-create).

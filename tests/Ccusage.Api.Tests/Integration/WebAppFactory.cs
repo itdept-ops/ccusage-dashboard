@@ -92,6 +92,23 @@ public sealed class WebAppFactory : WebApplicationFactory<Program>, IAsyncLifeti
         await _pg.DisposeAsync();
     }
 
+    /// <summary>
+    /// Captures every Discord webhook POST (the "discord" named client is rerouted here) so tests can assert
+    /// a send happened and inspect the embed payload, WITHOUT hitting the network. Returns 204 (Discord's real
+    /// success status) so the send path reports success. Thread-safe; tests read the last payload per token.
+    /// </summary>
+    public sealed class DiscordCapture
+    {
+        private readonly object _gate = new();
+        private readonly List<string> _payloads = new();
+
+        public void Record(string payload) { lock (_gate) _payloads.Add(payload); }
+        public IReadOnlyList<string> Payloads { get { lock (_gate) return _payloads.ToArray(); } }
+        public int Count { get { lock (_gate) return _payloads.Count; } }
+    }
+
+    public DiscordCapture Discord { get; } = new();
+
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         // Swap Google's real token validation for a fake the tests can drive (see FakeGoogleTokenValidator).
@@ -99,6 +116,14 @@ public sealed class WebAppFactory : WebApplicationFactory<Program>, IAsyncLifeti
         {
             services.RemoveAll<IGoogleTokenValidator>();
             services.AddSingleton<IGoogleTokenValidator, FakeGoogleTokenValidator>();
+
+            // Reroute the "discord" HttpClient to an in-memory capturing handler (no network; deterministic
+            // 204). Lets recap/digest tests assert a send + inspect the payload, and keeps existing
+            // fire-and-forget tests valid (they assert independence, not forward failure).
+            services.AddSingleton(Discord);
+            services.AddHttpClient("discord")
+                .ConfigurePrimaryHttpMessageHandler(sp =>
+                    new CapturingDiscordHandler(sp.GetRequiredService<DiscordCapture>()));
 
             // The Family Hub reminder/timer tick runs on a 30s background loop in production. In tests we
             // drive it deterministically (FamilyRemindersTimerTests invoke TickAsync directly with a fixed
@@ -113,6 +138,18 @@ public sealed class WebAppFactory : WebApplicationFactory<Program>, IAsyncLifeti
             // leaves RemoteIpAddress null). UseForwardedHeaders won't override it absent an X-Forwarded-For.
             services.AddSingleton<Microsoft.AspNetCore.Hosting.IStartupFilter, RemoteIpStartupFilter>();
         });
+    }
+
+    /// <summary>Records the JSON body of every Discord webhook POST and returns 204 No Content (Discord's
+    /// real success status), so the SSRF allowlist + post path run for real but no network call is made.</summary>
+    private sealed class CapturingDiscordHandler(DiscordCapture capture) : HttpMessageHandler
+    {
+        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
+        {
+            if (request.Content is not null)
+                capture.Record(await request.Content.ReadAsStringAsync(ct));
+            return new HttpResponseMessage(HttpStatusCode.NoContent) { RequestMessage = request };
+        }
     }
 
     private sealed class RemoteIpStartupFilter : Microsoft.AspNetCore.Hosting.IStartupFilter

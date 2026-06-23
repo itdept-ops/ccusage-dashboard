@@ -153,6 +153,7 @@ public static class NotificationsEndpoints
             }
 
             pref.SurfaceDiscord = req.SurfaceDiscord;
+            pref.WeeklyRecapEnabled = req.WeeklyRecapEnabled;
             pref.UpdatedUtc = DateTime.UtcNow;
             await db.SaveChangesAsync(ct);
             return Results.Ok(MyDiscord(pref));
@@ -178,6 +179,41 @@ public static class NotificationsEndpoints
                 : Results.Json(new { message = "Discord rejected the message — double-check the webhook URL." },
                     statusCode: StatusCodes.Status502BadGateway);
         }).RequireRateLimiting("notif-test");
+
+        // Weekly recap SEND-NOW / preview (the caller's OWN webhook; the SAME auth-only, own-webhook design as
+        // /test — a user acting on their own recap, NOT the admin notifications.manage config). With
+        // ?preview=true it composes + RETURNS the embed (period/headline/fields) without sending — no webhook
+        // needed. Otherwise it sends the last-7-days recap immediately, ignoring the opt-in toggle + the
+        // weekly idempotency guard (an explicit user action). 404 if no webhook saved; 502 if Discord rejects.
+        me.MapPost("/recap", async (
+            bool? preview, CurrentUserAccessor accessor, UsageDbContext db, WeeklyRecapComposer recap, CancellationToken ct) =>
+        {
+            var user = (await accessor.GetUserAsync(ct))!;
+            var today = await TrackerVisibility.DisplayTzTodayAsync(db, ct);
+            var from = today.AddDays(-7);
+            var to = today.AddDays(-1);
+
+            if (preview == true)
+            {
+                var (period, headline, fields) = await recap.PreviewAsync(db, user.Email, from, to, today, ct);
+                return Results.Ok(new
+                {
+                    period,
+                    headline,
+                    fields = fields.Select(f => new { f.Name, f.Value, f.Inline }),
+                });
+            }
+
+            return await recap.SendNowAsync(user.Email, from, to, today, ct) switch
+            {
+                WeeklyRecapComposer.SendNowResult.Sent =>
+                    Results.Ok(new { message = "Your weekly recap was sent to Discord." }),
+                WeeklyRecapComposer.SendNowResult.NoWebhook =>
+                    Results.NotFound(new { message = "Save your Discord webhook first." }),
+                _ => Results.Json(new { message = "Discord rejected the message — double-check the webhook URL." },
+                    statusCode: StatusCodes.Status502BadGateway),
+            };
+        }).RequireRateLimiting("notif-test");
     }
 
     private static DiscordRouteDto RouteDto(DiscordRoute r) => new()
@@ -194,6 +230,7 @@ public static class NotificationsEndpoints
         Configured = !string.IsNullOrEmpty(p?.DiscordWebhookEnc),
         Hint = p?.DiscordWebhookHint,
         SurfaceDiscord = p?.SurfaceDiscord ?? false,
+        WeeklyRecapEnabled = p?.WeeklyRecapEnabled ?? false,
     };
 
     private static NotificationSettingDto ToDto(NotificationSetting s) => new()

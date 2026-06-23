@@ -487,6 +487,8 @@ public class UsageDbContext(DbContextOptions<UsageDbContext> options) : DbContex
             e.Property(x => x.SurfaceToasts).HasDefaultValue(true);
             e.Property(x => x.SurfaceBrowser).HasDefaultValue(false);
             e.Property(x => x.SurfaceDiscord).HasDefaultValue(false);
+            e.Property(x => x.WeeklyRecapEnabled).HasDefaultValue(false);
+            // LastRecapSent is a nullable local DATE (the idempotency anchor) — no default; null = never sent.
             // The encrypted webhook is a base64 AES-GCM blob (nonce|tag|ciphertext) — generous cap (matches
             // GoogleCalendarConnection.EncryptedRefreshToken). The plaintext URL is NEVER persisted.
             e.Property(x => x.DiscordWebhookEnc).HasMaxLength(2048);

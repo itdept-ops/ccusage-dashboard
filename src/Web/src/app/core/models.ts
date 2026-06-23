@@ -702,6 +702,8 @@ export interface MyDiscord {
   configured: boolean;
   hint: string | null;
   surfaceDiscord: boolean;
+  /** Opted in to the weekly personal recap (Sunday summary of the caller's own week). */
+  weeklyRecapEnabled: boolean;
 }
 
 /** Set/clear the caller's OWN per-user Discord webhook + surface toggle. Mirrors MyDiscordUpdateRequest. */
@@ -709,6 +711,15 @@ export interface MyDiscordUpdate {
   /** null = leave unchanged · "" = clear · value = set (server validates it is a Discord webhook). */
   webhookUrl?: string | null;
   surfaceDiscord: boolean;
+  /** Opt in to the weekly personal recap (default OFF; only effective with a webhook). */
+  weeklyRecapEnabled: boolean;
+}
+
+/** A composed (but unsent) weekly-recap preview: the embed period/headline + the metric fields. */
+export interface RecapPreview {
+  period: string;
+  headline: string;
+  fields: { name: string; value: string; inline: boolean }[];
 }
 
 export interface HeatmapCell { day: number; hour: number; count: number; }

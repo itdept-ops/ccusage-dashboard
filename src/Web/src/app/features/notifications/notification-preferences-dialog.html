@@ -131,6 +131,32 @@
                         aria-label="Also send my notifications to my Discord" />
     </div>
 
+    <div class="np-row">
+      <div class="np-row__text">
+        <mat-icon class="np-row__icon">calendar_view_week</mat-icon>
+        <div class="np-row__id">
+          <div class="np-row__label">Weekly recap</div>
+          <div class="np-row__desc">A Sunday summary of your week — calories, workouts, hydration, 75 Hard, bills.</div>
+        </div>
+      </div>
+      <mat-slide-toggle class="np-toggle"
+                        [checked]="!!discord()?.weeklyRecapEnabled"
+                        [disabled]="discordBusy() || !discord()?.configured"
+                        (change)="weeklyRecapChange($event.checked)"
+                        aria-label="Send me a weekly recap on Discord" />
+    </div>
+
+    @if (discord()?.configured) {
+      <div class="np-discord-saved" role="status">
+        <span class="np-discord-saved__hint">Preview this week's recap without waiting for Sunday.</span>
+        <span class="np-discord-saved__spacer"></span>
+        <button mat-stroked-button type="button" class="np-discord-test"
+                [disabled]="recapSending()" (click)="sendRecapNow()">
+          <mat-icon aria-hidden="true">send</mat-icon> {{ recapSending() ? 'Sending…' : 'Send recap now' }}
+        </button>
+      </div>
+    }
+
     @if (discord()?.configured) {
       <div class="np-discord-saved" role="status">
         <mat-icon class="np-discord-saved__icon">check_circle</mat-icon>
