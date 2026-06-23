@@ -72,8 +72,14 @@ export interface QuickTile {
     }
     .tb-qicon {
       width: 24px; height: 24px; font-size: 24px; line-height: 24px;
-      background: linear-gradient(135deg, var(--qa), var(--qb));
-      -webkit-background-clip: text; background-clip: text; color: transparent;
+      color: var(--ink-dim); /* visible fallback if background-clip:text is unsupported */
+    }
+    @supports ((-webkit-background-clip: text) or (background-clip: text)) {
+      .tb-qicon {
+        background: linear-gradient(135deg, var(--qa), var(--qb));
+        -webkit-background-clip: text; background-clip: text;
+        -webkit-text-fill-color: transparent;
+      }
     }
     .tb-qlabel {
       font-size: 11px; font-weight: 600; letter-spacing: .02em; color: var(--ink-dim);

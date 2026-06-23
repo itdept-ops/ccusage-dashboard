@@ -133,8 +133,14 @@ interface LogOption {
     }
     .lm-lane-icon {
       width: 20px; height: 20px; font-size: 20px; line-height: 20px;
-      background: linear-gradient(135deg, var(--ga), var(--gb));
-      -webkit-background-clip: text; background-clip: text; color: transparent;
+      color: var(--ink); /* visible fallback if background-clip:text is unsupported */
+    }
+    @supports ((-webkit-background-clip: text) or (background-clip: text)) {
+      .lm-lane-icon {
+        background: linear-gradient(135deg, var(--ga), var(--gb));
+        -webkit-background-clip: text; background-clip: text;
+        -webkit-text-fill-color: transparent;
+      }
     }
     .lm-lane-label { white-space: nowrap; }
 
