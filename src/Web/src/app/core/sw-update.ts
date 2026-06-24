@@ -37,6 +37,12 @@ export class SwUpdateService {
       .pipe(filter((e): e is VersionReadyEvent => e.type === 'VERSION_READY'))
       .subscribe(() => this.promptReload());
 
+    // If the SW reaches a state it can't recover from (a needed cached asset is missing and can't be
+    // re-fetched), don't leave the user on a half-broken/blank app — unregister + hard-reload once to a
+    // fresh network shell. (A totally-blank boot is caught earlier by the index.html watchdog; this covers
+    // the case where the app DID boot far enough to run.)
+    this.updates.unrecoverable.subscribe(() => void this.recover());
+
     // Poll for updates only after the app stabilizes, then every 6h — cheap, and avoids fighting
     // initial bootstrap. The SW also checks on navigation; this just keeps long-lived tabs current.
     const stable$ = this.appRef.isStable.pipe(first((s) => s === true));
@@ -54,6 +60,22 @@ export class SwUpdateService {
       // activateUpdate swaps the SW to the new version; reload to pick up the fresh shell.
       this.updates.activateUpdate().then(() => document.location.reload());
     });
+  }
+
+  /** Self-heal from an unrecoverable SW state: unregister every worker, then hard-reload (once per session). */
+  private async recover(): Promise<void> {
+    try {
+      if (sessionStorage.getItem('uiq.swRecovered') === '1') return; // already healed this session — don't loop
+      sessionStorage.setItem('uiq.swRecovered', '1');
+    } catch {
+      /* sessionStorage unavailable — proceed without the guard */
+    }
+    try {
+      await this.disable(); // unregister all SWs for this origin
+    } catch {
+      /* ignore */
+    }
+    document.location.reload();
   }
 
   /**

@@ -41,6 +41,41 @@
         }
       })();
     </script>
+
+    <!-- PWA self-heal watchdog. If the app hasn't rendered after a grace period — e.g. a stale/broken
+         cached service-worker shell whose hashed JS no longer resolves, leaving a BLANK page (common on
+         installed mobile PWAs after a deploy + cache eviction) — unregister the service worker(s), drop
+         the caches, and hard-reload ONCE to pull a fresh shell from the network. A per-session flag stops
+         it ever looping; a normally-booting app populates <app-root> long before the timer fires. -->
+    <script>
+      (function () {
+        setTimeout(function () {
+          try {
+            var root = document.querySelector('app-root');
+            var booted = root && (root.children.length > 0 || (root.textContent || '').trim().length > 0);
+            if (booted) return;
+            if (sessionStorage.getItem('uiq.bootRecovered') === '1') return; // already tried this session
+            sessionStorage.setItem('uiq.bootRecovered', '1');
+          } catch (e) { return; }
+          var reload = function () { location.reload(); };
+          var clearCaches = function () {
+            if (!self.caches) return Promise.resolve();
+            return caches.keys().then(function (ks) {
+              return Promise.all(ks.map(function (k) { return caches.delete(k); }));
+            });
+          };
+          if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.getRegistrations()
+              .then(function (rs) { return Promise.all(rs.map(function (r) { return r.unregister(); })); })
+              .catch(function () {})
+              .then(clearCaches).catch(function () {})
+              .then(reload, reload);
+          } else {
+            clearCaches().then(reload, reload);
+          }
+        }, 15000);
+      })();
+    </script>
   </head>
   <body>
     <app-root></app-root>
