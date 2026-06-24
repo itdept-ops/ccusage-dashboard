@@ -26,6 +26,7 @@ import { CommandPalette } from './features/command-palette/command-palette';
 
 import { Api } from './core/api';
 import { AuthService } from './core/auth';
+import { ThemeService, ThemeMode } from './core/theme';
 import { CommandPaletteService } from './core/command-palette';
 import { ChatRealtime } from './core/chat-realtime';
 import { LocationCapture } from './core/location-capture';
@@ -90,6 +91,14 @@ export class App implements AfterViewInit {
   private dialog = inject(MatDialog);
   private host = inject(ElementRef<HTMLElement>);
   readonly palette = inject(CommandPaletteService);
+  readonly theme = inject(ThemeService);
+
+  /** Quick theme picker shown in the account menu (mirrors /preferences). */
+  readonly themeModes: readonly { value: ThemeMode; label: string; icon: string }[] = [
+    { value: 'system', label: 'System', icon: 'brightness_auto' },
+    { value: 'light', label: 'Light', icon: 'light_mode' },
+    { value: 'dark', label: 'Dark', icon: 'dark_mode' },
+  ];
 
   /** The mounted palette overlay, so the shell can wire its Quick-Add / Sign-out action handlers once. */
   private readonly commandPalette = viewChild(CommandPalette);

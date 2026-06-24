@@ -4,6 +4,35 @@
     <p class="prefs__note">Your personal preferences, all in one place. Changes save automatically.</p>
   </header>
 
+  <!-- ============================ DISPLAY / THEME ============================ -->
+  <article class="card">
+    <div class="card__head">
+      <span class="card__icon"><mat-icon aria-hidden="true">contrast</mat-icon></span>
+      <div class="card__id">
+        <h2 class="card__title">Display</h2>
+        <p class="card__sub">Choose how Usage IQ looks. System follows your device.</p>
+      </div>
+    </div>
+
+    <div class="group">
+      <div class="group__label">Theme</div>
+      <div class="theme-seg" role="radiogroup" aria-label="Theme">
+        @for (t of themeModes; track t.value) {
+          <button type="button" class="theme-seg__opt" role="radio"
+                  [class.theme-seg__opt--on]="theme.mode() === t.value"
+                  [attr.aria-checked]="theme.mode() === t.value"
+                  (click)="theme.setMode(t.value)">
+            <mat-icon class="theme-seg__icon" aria-hidden="true">{{ t.icon }}</mat-icon>
+            <span class="theme-seg__label">{{ t.label }}</span>
+          </button>
+        }
+      </div>
+      @if (theme.mode() === 'system') {
+        <p class="card__hint">Currently showing the {{ theme.resolved() }} theme (matching your device).</p>
+      }
+    </div>
+  </article>
+
   <!-- ============================ (A) NOTIFICATIONS ============================ -->
   @if (canChat()) {
     <article class="card">

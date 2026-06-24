@@ -13,6 +13,7 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 
 import { Api } from '../../core/api';
 import { AuthService } from '../../core/auth';
+import { ThemeService, ThemeMode } from '../../core/theme';
 import { PushNotifications } from '../../core/push-notifications';
 import { SwUpdateService, OFFLINE_DISABLED_KEY } from '../../core/sw-update';
 import {
@@ -59,6 +60,14 @@ export class Preferences {
   private push = inject(PushNotifications);
   private sw = inject(SwUpdateService);
   readonly auth = inject(AuthService);
+  readonly theme = inject(ThemeService);
+
+  /** Display / theme segmented options (System follows the OS preference). */
+  readonly themeModes: readonly { value: ThemeMode; label: string; icon: string }[] = [
+    { value: 'system', label: 'System', icon: 'brightness_auto' },
+    { value: 'light', label: 'Light', icon: 'light_mode' },
+    { value: 'dark', label: 'Dark', icon: 'dark_mode' },
+  ];
 
   // ---- Permission gates (each section/card hides when the caller can't use it) --------------------
   readonly canChat = computed(() => this.auth.hasPermission(PERM.chatRead));

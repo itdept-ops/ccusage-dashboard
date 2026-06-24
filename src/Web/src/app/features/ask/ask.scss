@@ -128,7 +128,7 @@
   align-self: flex-end;
   max-width: 85%;
   background: var(--tech-accent, #3d8bff);
-  color: #fff;
+  color: var(--tech-text-on-accent, #fff);
   border-radius: 14px 14px 4px 14px;
   padding: 10px 14px;
   font-size: 0.92rem;

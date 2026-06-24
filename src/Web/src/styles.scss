@@ -72,6 +72,10 @@ iframe[src*="accounts.google.com"] { color-scheme: normal !important; }
   --tech-warn-tint: rgba(242, 179, 64, 0.12);
   --tech-error: #ff5c6c;
   --tech-error-tint: rgba(255, 92, 108, 0.12);
+  /* Alert badge (notification count): a deeper red than --tech-error so #fff glyphs clear ~4.5:1.
+     Centralized here so it's part of the palette (brand red) and theme-aware. */
+  --tech-badge-alert: #c8102e;
+  --tech-badge-alert-on: #ffffff;
   --tech-info: #3d8bff;
   --tech-info-tint: rgba(61, 139, 255, 0.12);
 
@@ -200,6 +204,132 @@ iframe[src*="accounts.google.com"] { color-scheme: normal !important; }
 }
 
 /* =========================================================================
+   LIGHT THEME — opt-in palette override.
+   Applied when <html data-theme="light"> (set by the no-flash bootstrap in
+   index.html and ThemeService). Re-defines EVERY --tech-* / --mat-sys-* token
+   the dark :root declares, tuned for WCAG-AA text contrast on light surfaces:
+   bright surfaces, ink-dark text, contrast-darkened blue/violet accents (the
+   default #3d8bff fails AA on white, so links/accents shift darker), softened
+   shadows, and an inverted glass/grid atmosphere. Categorical chart accents are
+   handled in chart.ts; everything else flows from these vars. The BETA pages own
+   their own dark :host palettes and are unaffected (they don't read this :root).
+   ========================================================================= */
+:root[data-theme='light'] {
+  color-scheme: light;
+
+  /* ---- Background layers (deepest -> highest) ---- */
+  --tech-bg-void: #eef1f6;          /* page root / modal base */
+  --tech-bg: #f6f8fb;               /* app canvas (grid + mesh) */
+  --tech-bg-base: #f6f8fb;
+  --tech-bg-sunken: #eceff4;        /* inset wells, table body, chart wells */
+  --tech-panel: #ffffff;            /* default panel / card surface */
+  --tech-panel-raised: #f3f6fb;     /* hover/elevated panel, popover, active row */
+  --tech-input: #ffffff;            /* inputs, selects, search */
+
+  /* ---- Glass (floating chrome only) ---- */
+  --tech-glass-chrome: rgba(255, 255, 255, 0.82);
+  --tech-glass-popover: rgba(255, 255, 255, 0.92);
+  --tech-glass-scrim: rgba(15, 23, 42, 0.34);
+  --tech-glass-inset-hi: rgba(255, 255, 255, 0.7);
+
+  /* ---- Borders ---- */
+  --tech-border-subtle: #e6eaf1;
+  --tech-border: #d4dae4;
+  --tech-border-strong: #b3bdcc;
+  /* keep the neon gradient (used as an accent edge — reads fine on light) */
+
+  /* ---- Accents (darkened for AA on white text/links) ---- */
+  --tech-accent: #2563eb;           /* primary accent / links — ~5.2:1 on white */
+  --tech-accent-bright: #1d4ed8;    /* hover/active (darker = "lit" on light) */
+  --tech-accent-2: #6d4ddf;         /* secondary / violet — AA on white */
+  --tech-accent-2-bright: #5a35d1;
+  --tech-accent-cyan: #0e8f88;      /* darkened teal so it reads on light */
+  --tech-accent-magenta: #c026a0;
+
+  /* Vendor identity stays semantically blue/violet (used as fills, not text). */
+  --tech-vendor-claude: #2563eb;
+  --tech-vendor-codex: #6d4ddf;
+
+  /* ---- Semantic (darkened for text-on-light AA) ---- */
+  --tech-success: #0f9d58;
+  --tech-success-tint: rgba(15, 157, 88, 0.12);
+  --tech-warn: #b7791f;
+  --tech-warn-tint: rgba(183, 121, 31, 0.14);
+  --tech-error: #d83a4b;
+  --tech-error-tint: rgba(216, 58, 75, 0.12);
+  --tech-badge-alert: #d11f3a;      /* slightly brighter on a light field, still AA with white glyph */
+  --tech-badge-alert-on: #ffffff;
+  --tech-info: #2563eb;
+  --tech-info-tint: rgba(37, 99, 235, 0.12);
+
+  /* ---- Text (dark ink on light surfaces) ---- */
+  --tech-text: #16202e;             /* primary — ~14:1 on white */
+  --tech-text-secondary: #4a5a70;   /* labels, axis text — ~6.5:1 */
+  --tech-text-tertiary: #6b7a8f;    /* hints, units — ~4.6:1 (AA) */
+  --tech-text-accent: #1d4ed8;      /* emphasized/accented links */
+  --tech-text-on-accent: #ffffff;   /* text on solid blue/violet/cyan fills */
+
+  /* ---- Shadows / glow recipes (softened, neutral-tinted) ---- */
+  --tech-shadow-panel: 0 1px 0 rgba(255, 255, 255, 0.6) inset, 0 6px 18px -12px rgba(15, 23, 42, 0.22);
+  --tech-shadow-raised: 0 14px 38px -18px rgba(15, 23, 42, 0.28), 0 0 0 1px var(--tech-border);
+  --tech-shadow-popover: 0 24px 56px -24px rgba(15, 23, 42, 0.34);
+
+  --tech-glow: 0 0 0 1px rgba(37, 99, 235, 0.4), 0 0 16px -4px rgba(37, 99, 235, 0.28);
+  --tech-glow-blue: 0 0 0 1px rgba(37, 99, 235, 0.4), 0 0 16px -4px rgba(37, 99, 235, 0.28);
+  --tech-glow-violet: 0 0 0 1px rgba(109, 77, 223, 0.4), 0 0 16px -4px rgba(109, 77, 223, 0.28);
+  --tech-glow-cyan: 0 0 0 1px rgba(14, 143, 136, 0.4), 0 0 16px -4px rgba(14, 143, 136, 0.28);
+  --tech-glow-success: 0 0 0 1px rgba(15, 157, 88, 0.4), 0 0 14px -4px rgba(15, 157, 88, 0.3);
+  --tech-glow-error: 0 0 0 1px rgba(216, 58, 75, 0.4), 0 0 14px -4px rgba(216, 58, 75, 0.3);
+
+  --tech-focus-ring: 0 0 0 2px var(--tech-bg), 0 0 0 4px rgba(37, 99, 235, 0.5);
+  --tech-text-glow: none;           /* the neon number-glow reads as a smudge on light — drop it */
+
+  /* =====================================================================
+     Material 3 system tokens — light variants.
+     ===================================================================== */
+  --mat-sys-background: #f6f8fb;
+  --mat-sys-surface: #ffffff;
+  --mat-sys-surface-dim: #eceff4;
+  --mat-sys-surface-bright: #ffffff;
+  --mat-sys-surface-container-lowest: #ffffff;
+  --mat-sys-surface-container-low: #f3f6fb;
+  --mat-sys-surface-container: #eef2f7;
+  --mat-sys-surface-container-high: #e7ecf3;
+  --mat-sys-surface-container-highest: #e0e6ef;
+  --mat-sys-surface-variant: #eef2f7;
+  --mat-sys-inverse-surface: #16202e;
+  --mat-sys-inverse-on-surface: #f6f8fb;
+
+  --mat-sys-primary: #2563eb;
+  --mat-sys-on-primary: #ffffff;
+  --mat-sys-primary-container: #dbe7ff;
+  --mat-sys-on-primary-container: #0b2a66;
+  --mat-sys-inverse-primary: #9fc0ff;
+  --mat-sys-secondary: #6d4ddf;
+  --mat-sys-on-secondary: #ffffff;
+  --mat-sys-secondary-container: #e7e0ff;
+  --mat-sys-on-secondary-container: #2a1c63;
+  --mat-sys-tertiary: #0e8f88;
+  --mat-sys-on-tertiary: #ffffff;
+  --mat-sys-tertiary-container: #cdeeeb;
+  --mat-sys-on-tertiary-container: #0a3a37;
+
+  --mat-sys-error: #d83a4b;
+  --mat-sys-on-error: #ffffff;
+  --mat-sys-error-container: #ffdadd;
+  --mat-sys-on-error-container: #5a0a13;
+
+  --mat-sys-on-background: #16202e;
+  --mat-sys-on-surface: #16202e;
+  --mat-sys-on-surface-variant: #4a5a70;
+
+  --mat-sys-outline: #d4dae4;
+  --mat-sys-outline-variant: #e6eaf1;
+
+  --mat-sys-scrim: #0f172a;
+}
+
+/* =========================================================================
    Base / canvas
    ========================================================================= */
 * {
@@ -217,9 +347,6 @@ html {
 }
 
 body {
-  // Dark theme only.
-  color-scheme: dark;
-
   margin: 0;
   height: 100%;
   min-height: 100%;
@@ -255,6 +382,16 @@ body::before {
     linear-gradient(0deg, rgba(255, 255, 255, 0.018) 1px, transparent 1px),
     linear-gradient(90deg, rgba(255, 255, 255, 0.018) 1px, transparent 1px);
   background-size: 100% 100%, 100% 100%, 100% 32px, 32px 100%;
+}
+
+/* Light atmosphere: the white grid lines + dark-tuned mesh vanish on a light canvas, so re-tint them
+   with faint INK lines + softer colored glows that read against the bright surface. */
+:root[data-theme='light'] body::before {
+  background-image:
+    radial-gradient(1100px 560px at 78% -12%, rgba(37, 99, 235, 0.06), transparent 60%),
+    radial-gradient(900px 520px at 8% 112%, rgba(109, 77, 223, 0.05), transparent 60%),
+    linear-gradient(0deg, rgba(15, 23, 42, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(15, 23, 42, 0.04) 1px, transparent 1px);
 }
 
 /* =========================================================================

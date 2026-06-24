@@ -21,6 +21,25 @@
     />
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet" />
     <script src="https://accounts.google.com/gsi/client" async></script>
+    <!-- No-flash theme bootstrap: applied synchronously BEFORE the Angular bundle paints, so the very
+         first frame already carries the saved theme (no dark→light flash on a light-theme reload). Reads
+         the persisted mode from localStorage ('system' | 'light' | 'dark'; default 'system'), resolves
+         'system' via matchMedia, and sets <html data-theme="light|dark">. ThemeService (Angular) takes
+         over runtime changes + the live matchMedia listener once it boots — this is only the cold-start. -->
+    <script>
+      (function () {
+        try {
+          var mode = localStorage.getItem('uiq.theme') || 'system';
+          var dark =
+            mode === 'dark' ||
+            (mode === 'system' &&
+              !(window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches));
+          document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+        } catch (e) {
+          document.documentElement.dataset.theme = 'dark';
+        }
+      })();
+    </script>
   </head>
   <body>
     <app-root></app-root>

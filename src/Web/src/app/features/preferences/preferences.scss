@@ -78,6 +78,41 @@
   margin: var(--tech-space-1) 0 var(--tech-space-2);
 }
 
+// ---- Theme segmented control (System / Light / Dark) ----
+.theme-seg {
+  display: inline-flex;
+  gap: 4px;
+  padding: 4px;
+  border-radius: var(--tech-r-control, 8px);
+  background: var(--tech-bg-sunken);
+  border: 1px solid var(--tech-border);
+}
+.theme-seg__opt {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  border: 0;
+  border-radius: var(--tech-r-chip, 6px);
+  background: transparent;
+  color: var(--tech-text-secondary);
+  font-family: var(--tech-font-ui);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background var(--tech-t-control, 140ms) ease, color var(--tech-t-control, 140ms) ease;
+
+  .theme-seg__icon { font-size: 18px; width: 18px; height: 18px; }
+
+  &:hover { color: var(--tech-text); }
+  &:focus-visible { outline: none; box-shadow: var(--tech-focus-ring); }
+}
+.theme-seg__opt--on {
+  background: var(--tech-accent);
+  color: var(--tech-text-on-accent);
+  &:hover { color: var(--tech-text-on-accent); }
+}
+
 .row {
   display: flex;
   align-items: center;

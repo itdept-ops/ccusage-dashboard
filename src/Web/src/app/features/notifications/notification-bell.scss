@@ -63,9 +63,9 @@
     align-items: center;
     justify-content: center;
     border-radius: 999px;
-    /* Darker red than --tech-error so white text clears ~4.5:1 contrast against the white glyph. */
-    background: #c8102e;
-    color: #fff;
+    /* Deeper red than --tech-error so the white glyph clears ~4.5:1; a palette token (theme-aware). */
+    background: var(--tech-badge-alert, #c8102e);
+    color: var(--tech-badge-alert-on, #fff);
     font-size: 11px;
     font-weight: 700;
     line-height: 1;

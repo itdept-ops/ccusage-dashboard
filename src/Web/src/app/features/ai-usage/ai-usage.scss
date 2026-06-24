@@ -145,8 +145,8 @@ mat-progress-bar {
   letter-spacing: 0.02em;
   padding: 2px 8px;
   border-radius: var(--tech-r-pill, 999px);
-  background: color-mix(in srgb, #5aa9ff 18%, transparent);
-  color: #9cc8ff;
+  background: color-mix(in srgb, var(--tech-accent) 18%, transparent);
+  color: var(--tech-text-accent);
 }
 
 /* outcome pill — color-coded */

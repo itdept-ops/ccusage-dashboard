@@ -4,6 +4,7 @@ import {
   OnDestroy,
   afterNextRender,
   effect,
+  inject,
   input,
   viewChild,
   ChangeDetectionStrategy,
@@ -11,65 +12,124 @@ import {
 import * as echarts from 'echarts';
 import type { EChartsOption } from 'echarts';
 
+import { ThemeService } from '../core/theme';
+
 /**
- * AXON dark/neon ECharts base theme — applied as defaults to every chart so the
- * canvas reads as part of the dark observability console (transparent bg, mono
- * axes, dark glassy tooltip, neon categorical palette: Claude blue → Codex violet).
- * Per-series colors set by callers are preserved; this only fills in chrome.
+ * The categorical series palette — Claude blue, Codex violet, then data accents (cyan, success, warn,
+ * error, lit blue/violet). These saturated hues read on BOTH the dark console and a light canvas, so the
+ * palette is shared; only the chrome (axes, labels, tooltip, grid) flips with the theme below.
  */
-const AXON_CHART_BASE: EChartsOption = {
-  backgroundColor: 'transparent',
-  // Claude blue, Codex violet, then data accents (cyan, success, warn, error, lit blue/violet).
-  color: ['#3d8bff', '#8b7cff', '#3fd8d0', '#3dd68c', '#f2b340', '#ff5c6c', '#5ba3ff', '#a99bff'],
-  textStyle: { fontFamily: 'Inter, system-ui, sans-serif', color: '#9ba9bd' },
-  title: { textStyle: { color: '#e6edf6', fontFamily: 'Inter, system-ui, sans-serif' } },
-  legend: {
-    textStyle: { color: '#9ba9bd', fontFamily: 'Inter, system-ui, sans-serif', fontSize: 12 },
-    icon: 'roundRect',
-    itemWidth: 10,
-    itemHeight: 10,
-    inactiveColor: '#5e6c82',
-  },
-  tooltip: {
-    backgroundColor: 'rgba(16,21,32,0.86)',
-    borderColor: '#33425a',
-    borderWidth: 1,
-    textStyle: {
-      color: '#e6edf6',
-      fontFamily: 'JetBrains Mono, ui-monospace, monospace',
-      fontSize: 12,
-    },
-    extraCssText:
-      'border-radius:8px; backdrop-filter:blur(14px); box-shadow:0 24px 60px -20px rgba(0,0,0,.8);',
-    axisPointer: { type: 'line', lineStyle: { color: 'rgba(61,139,255,0.5)', type: 'dashed' } },
-  },
+const SERIES_COLORS = ['#3d8bff', '#8b7cff', '#3fd8d0', '#3dd68c', '#f2b340', '#ff5c6c', '#5ba3ff', '#a99bff'];
+
+/** Per-theme chrome colors (everything that must contrast with the surface, not the series). */
+interface ChartChrome {
+  text: string; // legend / general text
+  title: string; // chart title
+  inactive: string; // dimmed legend item
+  axisLine: string;
+  axisLabel: string;
+  splitLine: string;
+  tooltipBg: string;
+  tooltipBorder: string;
+  tooltipText: string;
+  tooltipShadow: string;
+  pointer: string;
+}
+
+const DARK_CHROME: ChartChrome = {
+  text: '#9ba9bd',
+  title: '#e6edf6',
+  inactive: '#5e6c82',
+  axisLine: '#26303f',
+  axisLabel: '#5e6c82',
+  splitLine: 'rgba(28,37,51,0.7)',
+  tooltipBg: 'rgba(16,21,32,0.86)',
+  tooltipBorder: '#33425a',
+  tooltipText: '#e6edf6',
+  tooltipShadow: '0 24px 60px -20px rgba(0,0,0,.8)',
+  pointer: 'rgba(61,139,255,0.5)',
 };
 
-/** Per-axis dark styling merged into every category/value axis on the chart. */
-const AXON_AXIS = {
-  axisLine: { lineStyle: { color: '#26303f' } },
-  axisTick: { show: false },
-  axisLabel: {
-    color: '#5e6c82',
-    fontFamily: 'JetBrains Mono, ui-monospace, monospace',
-    fontSize: 11,
-  },
-  splitLine: { lineStyle: { color: 'rgba(28,37,51,0.7)', type: 'dashed' } },
-} as const;
+const LIGHT_CHROME: ChartChrome = {
+  text: '#4a5a70',
+  title: '#16202e',
+  inactive: '#9aa7b8',
+  axisLine: '#d4dae4',
+  axisLabel: '#6b7a8f',
+  splitLine: 'rgba(15,23,42,0.08)',
+  tooltipBg: 'rgba(255,255,255,0.94)',
+  tooltipBorder: '#cbd4e1',
+  tooltipText: '#16202e',
+  tooltipShadow: '0 24px 56px -24px rgba(15,23,42,.34)',
+  pointer: 'rgba(37,99,235,0.45)',
+};
 
-/** Deep-merge AXON dark defaults under the caller's option (caller wins on conflicts). */
+/** Read the live theme off <html data-theme> (set by the no-flash bootstrap + ThemeService). */
+function currentChrome(): ChartChrome {
+  const t =
+    typeof document !== 'undefined' ? document.documentElement.dataset['theme'] : undefined;
+  return t === 'light' ? LIGHT_CHROME : DARK_CHROME;
+}
+
+/** Build the base option (legend/tooltip/title chrome) for the given theme. */
+function chartBase(c: ChartChrome): EChartsOption {
+  return {
+    backgroundColor: 'transparent',
+    color: SERIES_COLORS,
+    textStyle: { fontFamily: 'Inter, system-ui, sans-serif', color: c.text },
+    title: { textStyle: { color: c.title, fontFamily: 'Inter, system-ui, sans-serif' } },
+    legend: {
+      textStyle: { color: c.text, fontFamily: 'Inter, system-ui, sans-serif', fontSize: 12 },
+      icon: 'roundRect',
+      itemWidth: 10,
+      itemHeight: 10,
+      inactiveColor: c.inactive,
+    },
+    tooltip: {
+      backgroundColor: c.tooltipBg,
+      borderColor: c.tooltipBorder,
+      borderWidth: 1,
+      textStyle: {
+        color: c.tooltipText,
+        fontFamily: 'JetBrains Mono, ui-monospace, monospace',
+        fontSize: 12,
+      },
+      extraCssText: `border-radius:8px; backdrop-filter:blur(14px); box-shadow:${c.tooltipShadow};`,
+      axisPointer: { type: 'line', lineStyle: { color: c.pointer, type: 'dashed' } },
+    },
+  };
+}
+
+/** Per-axis styling merged into every category/value axis, themed by the active chrome. */
+function chartAxis(c: ChartChrome) {
+  return {
+    axisLine: { lineStyle: { color: c.axisLine } },
+    axisTick: { show: false },
+    axisLabel: {
+      color: c.axisLabel,
+      fontFamily: 'JetBrains Mono, ui-monospace, monospace',
+      fontSize: 11,
+    },
+    splitLine: { lineStyle: { color: c.splitLine, type: 'dashed' } },
+  };
+}
+
+/** Deep-merge AXON theme defaults (resolved for the CURRENT theme) under the caller's option. */
 function withAxonTheme(option: EChartsOption): EChartsOption {
+  const c = currentChrome();
+  const base = chartBase(c);
+  const axisDefaults = chartAxis(c);
   const themeAxis = (axis: unknown): unknown => {
-    if (Array.isArray(axis)) return axis.map((a) => ({ ...AXON_AXIS, ...(a as object) }));
-    if (axis && typeof axis === 'object') return { ...AXON_AXIS, ...(axis as object) };
+    if (Array.isArray(axis)) return axis.map((a) => ({ ...axisDefaults, ...(a as object) }));
+    if (axis && typeof axis === 'object') return { ...axisDefaults, ...(axis as object) };
     return axis;
   };
   const merged: EChartsOption = {
-    ...AXON_CHART_BASE,
+    ...base,
     ...option,
-    title: { ...AXON_CHART_BASE.title, ...(option.title as object) },
-    legend: { ...AXON_CHART_BASE.legend, ...(option.legend as object) },
-    tooltip: { ...AXON_CHART_BASE.tooltip, ...(option.tooltip as object) },
+    title: { ...base.title, ...(option.title as object) },
+    legend: { ...base.legend, ...(option.legend as object) },
+    tooltip: { ...base.tooltip, ...(option.tooltip as object) },
   };
   if (option.color) merged.color = option.color;
   if ('xAxis' in option && option.xAxis)
@@ -100,6 +160,7 @@ export class ChartComponent implements OnDestroy {
   private chart?: echarts.ECharts;
   private ro?: ResizeObserver;
   private rafId = 0;
+  private readonly theme = inject(ThemeService);
 
   constructor() {
     afterNextRender(() => {
@@ -114,8 +175,11 @@ export class ChartComponent implements OnDestroy {
       this.ro.observe(this.host().nativeElement);
     });
 
+    // Re-apply on either a new [option] OR a live theme switch: reading theme.resolved() registers the
+    // effect as a dependency, so toggling light/dark re-themes every mounted chart's axes/tooltip/labels.
     effect(() => {
       const opt = this.option();
+      this.theme.resolved();
       this.chart?.setOption(withAxonTheme(opt), true);
     });
   }
