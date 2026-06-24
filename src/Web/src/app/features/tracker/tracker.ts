@@ -1,4 +1,12 @@
-import { Component, DestroyRef, computed, effect, inject, signal } from '@angular/core';
+import {
+  Component,
+  DestroyRef,
+  computed,
+  effect,
+  inject,
+  signal,
+  ChangeDetectionStrategy,
+} from '@angular/core';
 import { DecimalPipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { firstValueFrom } from 'rxjs';
@@ -16,10 +24,37 @@ import { Api } from '../../core/api';
 import { AuthService } from '../../core/auth';
 import { TrackerStore } from '../../core/tracker-store';
 import {
-  ActivityCalorieMode, AddCoffeeRequest, AddExerciseRequest, AddFoodRequest, AddHydrationRequest, CoffeeEntryDto, CommitDayResponse, CustomFoodDto, DailyCoachResponse,
-  DaySummaryResponse, ExerciseEntryDto, FoodEntryDto, UpdateFoodRequest,
-  HydrationEntryDto, LogWeightRequest, Meal, MoveDayRequest, MoveDayResult, PERM, QuickFoodTile, SharedUserDto, SleepEntryDto, SupplementEntryDto, SupplementKind, TrackerDayDto, TrackerProfileDto,
-  TrackerRecapResult, UpsertActivityRequest, WeeklyReviewResponse, WeightPointDto, WeightStatsDto,
+  ActivityCalorieMode,
+  AddCoffeeRequest,
+  AddExerciseRequest,
+  AddFoodRequest,
+  AddHydrationRequest,
+  CoffeeEntryDto,
+  CommitDayResponse,
+  CustomFoodDto,
+  DailyCoachResponse,
+  DaySummaryResponse,
+  ExerciseEntryDto,
+  FoodEntryDto,
+  UpdateFoodRequest,
+  HydrationEntryDto,
+  LogWeightRequest,
+  Meal,
+  MoveDayRequest,
+  MoveDayResult,
+  PERM,
+  QuickFoodTile,
+  SharedUserDto,
+  SleepEntryDto,
+  SupplementEntryDto,
+  SupplementKind,
+  TrackerDayDto,
+  TrackerProfileDto,
+  TrackerRecapResult,
+  UpsertActivityRequest,
+  WeeklyReviewResponse,
+  WeightPointDto,
+  WeightStatsDto,
 } from '../../core/models';
 import { CalorieRing } from './calorie-ring';
 import { HydrationRing } from './hydration-ring';
@@ -29,7 +64,11 @@ import { AddFoodDialog, AddFoodData } from './add-food-dialog';
 import { AddExerciseDialog, AddExerciseData } from './add-exercise-dialog';
 import { AddHydrationDialog, AddHydrationData, AddHydrationResult } from './add-hydration-dialog';
 import { AddCoffeeDialog, AddCoffeeData, AddCoffeeResult } from './add-coffee-dialog';
-import { AddSupplementDialog, AddSupplementData, AddSupplementResult } from './add-supplement-dialog';
+import {
+  AddSupplementDialog,
+  AddSupplementData,
+  AddSupplementResult,
+} from './add-supplement-dialog';
 import { AddSleepDialog, AddSleepData, AddSleepResult } from './add-sleep-dialog';
 import { AddActivityDialog, AddActivityData } from './add-activity-dialog';
 import { ProfileDialog, ProfileData } from './profile-dialog';
@@ -57,7 +96,11 @@ function safeNum(n: number | null | undefined): number {
   return typeof n === 'number' && Number.isFinite(n) ? n : 0;
 }
 
-interface MealSection { meal: Meal; label: string; icon: string }
+interface MealSection {
+  meal: Meal;
+  label: string;
+  icon: string;
+}
 
 const MEAL_SECTIONS: MealSection[] = [
   { meal: 'breakfast', label: 'Breakfast', icon: 'bakery_dining' },
@@ -72,14 +115,81 @@ const MEAL_SECTIONS: MealSection[] = [
  * coffee quick-add UX). Logged with source 'custom' so they don't pollute the manual "My foods" library.
  */
 const QUICK_FOOD_TILES: QuickFoodTile[] = [
-  { description: 'Red Bull', brand: 'Red Bull', servingDesc: '8.4 oz can', calories: 110, proteinG: 1, carbG: 28, fatG: 0, icon: 'bolt' },
-  { description: 'Monster Energy', brand: 'Monster', servingDesc: '16 oz can', calories: 210, proteinG: 0, carbG: 54, fatG: 0, icon: 'flash_on' },
-  { description: 'Black coffee', servingDesc: '12 oz', calories: 5, proteinG: 0, carbG: 0, fatG: 0, icon: 'local_cafe' },
-  { description: 'La Croix', brand: 'La Croix', servingDesc: '12 oz can', calories: 0, proteinG: 0, carbG: 0, fatG: 0, icon: 'bubble_chart' },
-  { description: 'Banana', servingDesc: '1 medium', calories: 105, proteinG: 1, carbG: 27, fatG: 0, icon: 'lunch_dining' },
-  { description: 'Large egg', servingDesc: '1 large', calories: 72, proteinG: 6, carbG: 0, fatG: 5, icon: 'egg' },
-  { description: 'Protein shake', servingDesc: '1 shake', calories: 160, proteinG: 30, carbG: 5, fatG: 2, icon: 'fitness_center' },
-  { description: 'Apple', servingDesc: '1 medium', calories: 95, proteinG: 0, carbG: 25, fatG: 0, icon: 'nutrition' },
+  {
+    description: 'Red Bull',
+    brand: 'Red Bull',
+    servingDesc: '8.4 oz can',
+    calories: 110,
+    proteinG: 1,
+    carbG: 28,
+    fatG: 0,
+    icon: 'bolt',
+  },
+  {
+    description: 'Monster Energy',
+    brand: 'Monster',
+    servingDesc: '16 oz can',
+    calories: 210,
+    proteinG: 0,
+    carbG: 54,
+    fatG: 0,
+    icon: 'flash_on',
+  },
+  {
+    description: 'Black coffee',
+    servingDesc: '12 oz',
+    calories: 5,
+    proteinG: 0,
+    carbG: 0,
+    fatG: 0,
+    icon: 'local_cafe',
+  },
+  {
+    description: 'La Croix',
+    brand: 'La Croix',
+    servingDesc: '12 oz can',
+    calories: 0,
+    proteinG: 0,
+    carbG: 0,
+    fatG: 0,
+    icon: 'bubble_chart',
+  },
+  {
+    description: 'Banana',
+    servingDesc: '1 medium',
+    calories: 105,
+    proteinG: 1,
+    carbG: 27,
+    fatG: 0,
+    icon: 'lunch_dining',
+  },
+  {
+    description: 'Large egg',
+    servingDesc: '1 large',
+    calories: 72,
+    proteinG: 6,
+    carbG: 0,
+    fatG: 5,
+    icon: 'egg',
+  },
+  {
+    description: 'Protein shake',
+    servingDesc: '1 shake',
+    calories: 160,
+    proteinG: 30,
+    carbG: 5,
+    fatG: 2,
+    icon: 'fitness_center',
+  },
+  {
+    description: 'Apple',
+    servingDesc: '1 medium',
+    calories: 95,
+    proteinG: 0,
+    carbG: 25,
+    fatG: 0,
+    icon: 'nutrition',
+  },
 ];
 
 /**
@@ -92,11 +202,26 @@ const QUICK_FOOD_TILES: QuickFoodTile[] = [
 @Component({
   selector: 'app-tracker',
   imports: [
-    DecimalPipe, FormsModule, MatIconModule, MatButtonModule, MatProgressBarModule, MatMenuModule,
-    MatTooltipModule, MatDialogModule, MatSnackBarModule, MatProgressSpinnerModule,
-    CalorieRing, HydrationRing, CoffeeRing, ActivityRing, WeightTrend, WeightStats, OnboardingCard,
+    DecimalPipe,
+    FormsModule,
+    MatIconModule,
+    MatButtonModule,
+    MatProgressBarModule,
+    MatMenuModule,
+    MatTooltipModule,
+    MatDialogModule,
+    MatSnackBarModule,
+    MatProgressSpinnerModule,
+    CalorieRing,
+    HydrationRing,
+    CoffeeRing,
+    ActivityRing,
+    WeightTrend,
+    WeightStats,
+    OnboardingCard,
   ],
   templateUrl: './tracker.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrl: './tracker.scss',
 })
 export class Tracker {
@@ -118,7 +243,7 @@ export class Tracker {
 
   /** Recent/saved foods minus anything already covered by a curated tile (case-insensitive name match). */
   readonly recentFoodTiles = computed<CustomFoodDto[]>(() => {
-    const curated = new Set(QUICK_FOOD_TILES.map(t => t.description.trim().toLowerCase()));
+    const curated = new Set(QUICK_FOOD_TILES.map((t) => t.description.trim().toLowerCase()));
     const seen = new Set<string>();
     const out: CustomFoodDto[] = [];
     for (const f of this.recentFoods()) {
@@ -138,14 +263,20 @@ export class Tracker {
    * (these endpoints read the caller's own day server-side — they're meaningless / hidden in read-only
    * views of someone else). Everything AI checks this first.
    */
-  readonly aiEnabled = computed(() => this.auth.hasPermission(PERM.trackerAi) && !this.store.readOnly());
+  readonly aiEnabled = computed(
+    () => this.auth.hasPermission(PERM.trackerAi) && !this.store.readOnly(),
+  );
 
   /** True once the OWN day has something logged — we only spend the rate-limited key when there's data. */
   readonly hasDataForAi = computed(() => {
     const day = this.store.day();
     if (!day) return false;
-    return day.foods.length > 0 || day.exercises.length > 0 || day.hydration.length > 0
-      || (day.activity?.steps ?? 0) > 0;
+    return (
+      day.foods.length > 0 ||
+      day.exercises.length > 0 ||
+      day.hydration.length > 0 ||
+      (day.activity?.steps ?? 0) > 0
+    );
   });
 
   // Daily coach card (GET daily-coach; cached server-side per day). Lazy: fetched on demand / once per
@@ -219,7 +350,9 @@ export class Tracker {
     effect(() => {
       const day = this.store.day();
       if (!day) return;
-      this.statusMsg.set(`Showing ${this.dateHeading()}, ${Math.round(day.netCalories)} net calories`);
+      this.statusMsg.set(
+        `Showing ${this.dateHeading()}, ${Math.round(day.netCalories)} net calories`,
+      );
     });
 
     // Refresh the weight trend whenever a fresh OWN day loads (weight history is private — own only).
@@ -305,7 +438,10 @@ export class Tracker {
    * (recent=true). Own tracker only — best-effort, so a blip just leaves the curated tiles showing.
    */
   private async loadRecentFoods(): Promise<void> {
-    if (this.store.readOnly()) { this.recentFoods.set([]); return; }
+    if (this.store.readOnly()) {
+      this.recentFoods.set([]);
+      return;
+    }
     try {
       this.recentFoods.set(await firstValueFrom(this.api.savedFoods(undefined, true)));
     } catch {
@@ -332,9 +468,16 @@ export class Tracker {
   quickAddFood(tile: QuickFoodTile): void {
     if (this.store.readOnly()) return;
     this.logQuickFood({
-      date: this.store.date(), meal: this.defaultMeal(),
-      description: tile.description, brand: tile.brand, quantity: 1, servingDesc: tile.servingDesc,
-      calories: tile.calories, proteinG: tile.proteinG, carbG: tile.carbG, fatG: tile.fatG,
+      date: this.store.date(),
+      meal: this.defaultMeal(),
+      description: tile.description,
+      brand: tile.brand,
+      quantity: 1,
+      servingDesc: tile.servingDesc,
+      calories: tile.calories,
+      proteinG: tile.proteinG,
+      carbG: tile.carbG,
+      fatG: tile.fatG,
       source: 'custom',
     });
   }
@@ -346,9 +489,16 @@ export class Tracker {
   quickAddRecent(food: CustomFoodDto): void {
     if (this.store.readOnly()) return;
     this.logQuickFood({
-      date: this.store.date(), meal: this.defaultMeal(),
-      description: food.description, brand: food.brand, quantity: 1, servingDesc: food.servingDesc,
-      calories: food.calories, proteinG: food.proteinG, carbG: food.carbG, fatG: food.fatG,
+      date: this.store.date(),
+      meal: this.defaultMeal(),
+      description: food.description,
+      brand: food.brand,
+      quantity: 1,
+      servingDesc: food.servingDesc,
+      calories: food.calories,
+      proteinG: food.proteinG,
+      carbG: food.carbG,
+      fatG: food.fatG,
       source: 'custom',
     });
   }
@@ -358,11 +508,12 @@ export class Tracker {
    * snackbar with an Undo that deletes exactly the entry just created (diffed against the prior ids).
    */
   private logQuickFood(req: AddFoodRequest): void {
-    const before = new Set((this.store.day()?.foods ?? []).map(f => f.id));
-    this.store.addFood(req)
+    const before = new Set((this.store.day()?.foods ?? []).map((f) => f.id));
+    this.store
+      .addFood(req)
       .then(() => {
         void this.loadRecentFoods();
-        const created = (this.store.day()?.foods ?? []).find(f => !before.has(f.id));
+        const created = (this.store.day()?.foods ?? []).find((f) => !before.has(f.id));
         this.statusMsg.set(`Added ${req.description}, ${req.calories} calories`);
         const ref = this.snack.open(`Added ${req.description}`, 'Undo', { duration: 5000 });
         if (created) ref.onAction().subscribe(() => this.removeFood(created));
@@ -380,7 +531,8 @@ export class Tracker {
   /** Progress toward goal weight as 0..100 (relative to current vs goal, monotonic toward goal). */
   goalProgressPct(): number | null {
     const p = this.store.profile();
-    const w = p?.weightKg, g = p?.goalWeightKg;
+    const w = p?.weightKg,
+      g = p?.goalWeightKg;
     if (w == null || g == null || g <= 0 || w <= 0) return null;
     if (w === g) return 100;
     // Distance remaining as a share of the current gap; we just show "how far from goal" inverted.
@@ -392,38 +544,56 @@ export class Tracker {
   /** Weight remaining to goal, formatted with direction, in display units (null when not computable). */
   goalDelta(): { text: string; toLose: boolean } | null {
     const p = this.store.profile();
-    const w = p?.weightKg, g = p?.goalWeightKg;
+    const w = p?.weightKg,
+      g = p?.goalWeightKg;
     if (w == null || g == null || g <= 0 || w <= 0) return null;
     const diffKg = w - g;
     if (Math.abs(diffKg) < 0.05) return { text: 'at goal', toLose: false };
     const mag = this.imperial() ? Math.abs(kgToLb(diffKg)) : Math.abs(diffKg);
     const unit = this.imperial() ? 'lb' : 'kg';
-    return { text: `${mag.toFixed(1)} ${unit} to ${diffKg > 0 ? 'lose' : 'gain'}`, toLose: diffKg > 0 };
+    return {
+      text: `${mag.toFixed(1)} ${unit} to ${diffKg > 0 ? 'lose' : 'gain'}`,
+      toLose: diffKg > 0,
+    };
   }
 
   /** CSS class for the BMI category chip. */
   bmiClass(): string {
     const cat = this.stats()?.bmiCategory;
     switch (cat) {
-      case 'Underweight': return 'is-under';
-      case 'Normal': return 'is-normal';
-      case 'Overweight': return 'is-over';
-      case 'Obese': return 'is-obese';
-      default: return '';
+      case 'Underweight':
+        return 'is-under';
+      case 'Normal':
+        return 'is-normal';
+      case 'Overweight':
+        return 'is-over';
+      case 'Obese':
+        return 'is-obese';
+      default:
+        return '';
     }
   }
 
   // ---- date navigation ----
-  prevDay(): void { void this.store.shiftDate(-1); }
-  nextDay(): void { void this.store.shiftDate(1); }
-  today(): void { void this.store.goToday(); }
-  onDateInput(value: string): void { if (value) void this.store.setDate(value); }
+  prevDay(): void {
+    void this.store.shiftDate(-1);
+  }
+  nextDay(): void {
+    void this.store.shiftDate(1);
+  }
+  today(): void {
+    void this.store.goToday();
+  }
+  onDateInput(value: string): void {
+    if (value) void this.store.setDate(value);
+  }
 
   /** A friendly heading for the viewed date (Today / Yesterday / weekday). */
   readonly dateHeading = computed(() => {
     const iso = this.store.date();
     const d = new Date(iso + 'T00:00:00');
-    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
     const diff = Math.round((d.getTime() - today.getTime()) / 86_400_000);
     if (diff === 0) return 'Today';
     if (diff === -1) return 'Yesterday';
@@ -437,7 +607,13 @@ export class Tracker {
     if (!day || day.readOnly) return false;
     const p = day.profile;
     const empty = day.foods.length === 0 && day.exercises.length === 0;
-    return empty && !p.dailyCalorieGoal && (!p.goal || p.goal === 'Maintain') && !p.weightKg && !p.shareWithContacts;
+    return (
+      empty &&
+      !p.dailyCalorieGoal &&
+      (!p.goal || p.goal === 'Maintain') &&
+      !p.weightKg &&
+      !p.shareWithContacts
+    );
   });
 
   /**
@@ -455,7 +631,7 @@ export class Tracker {
 
   // ---- macro helpers ----
   foodsFor(meal: Meal): FoodEntryDto[] {
-    return this.store.day()?.foods.filter(f => f.meal === meal) ?? [];
+    return this.store.day()?.foods.filter((f) => f.meal === meal) ?? [];
   }
 
   caloriesFor(meal: Meal): number {
@@ -474,19 +650,35 @@ export class Tracker {
     const userId = this.store.viewUser();
     if (userId == null) return null;
     // Fall back to the server-resolved name on the loaded day when the picker list lacks the row.
-    return this.store.shared().find(s => s.userId === userId)
-      ?? { userId, name: this.store.day()?.userName ?? 'Unknown user' };
+    return (
+      this.store.shared().find((s) => s.userId === userId) ?? {
+        userId,
+        name: this.store.day()?.userName ?? 'Unknown user',
+      }
+    );
   }
 
-  viewSelf(): void { void this.store.viewUserTracker(null); }
-  viewOther(userId: number): void { void this.store.viewUserTracker(userId); }
+  viewSelf(): void {
+    void this.store.viewUserTracker(null);
+  }
+  viewOther(userId: number): void {
+    void this.store.viewUserTracker(userId);
+  }
 
   // ---- dialogs ----
   openAddFood(meal: Meal): void {
     if (this.store.readOnly()) return;
     const data: AddFoodData = { date: this.store.date(), meal };
-    this.dialog.open(AddFoodDialog, { data, width: '500px', maxWidth: '95vw', panelClass: 'tracker-dialog', autoFocus: false })
-      .afterClosed().subscribe((req: AddFoodRequest | AddFoodRequest[] | undefined) => {
+    this.dialog
+      .open(AddFoodDialog, {
+        data,
+        width: '500px',
+        maxWidth: '95vw',
+        panelClass: 'tracker-dialog',
+        autoFocus: false,
+      })
+      .afterClosed()
+      .subscribe((req: AddFoodRequest | AddFoodRequest[] | undefined) => {
         if (!req) return;
         // The AI multi-item flows (photo / "describe your meal") resolve with an ARRAY; log them as a
         // batch (one day reload, partial-success aware) rather than N serial POST+reload round trips.
@@ -494,18 +686,22 @@ export class Tracker {
         if (reqs.length === 0) return;
         if (reqs.length === 1) {
           const r = reqs[0];
-          this.store.addFood(r)
+          this.store
+            .addFood(r)
             .then(() => {
               // A single manual log (no provider source + no FDC id) is auto-saved to "My foods".
               const wasManual = !r.source && r.fdcId == null;
               this.snack.open(
                 wasManual ? `Added ${r.description} · saved to My foods` : `Added ${r.description}`,
-                'OK', { duration: 2500 });
+                'OK',
+                { duration: 2500 },
+              );
             })
             .catch(() => this.snack.open('Could not add food', 'Dismiss', { duration: 4000 }));
           return;
         }
-        this.store.addFoods(reqs)
+        this.store
+          .addFoods(reqs)
           .then(({ added, failed }) => {
             if (failed === 0) {
               this.snack.open(`Added ${added} foods`, 'OK', { duration: 2500 });
@@ -513,7 +709,11 @@ export class Tracker {
               this.snack.open('Could not add foods', 'Dismiss', { duration: 4000 });
             } else {
               // Partial success: be honest about how many landed so the user knows to retry the rest.
-              this.snack.open(`Added ${added} of ${added + failed} foods — ${failed} failed`, 'Dismiss', { duration: 5000 });
+              this.snack.open(
+                `Added ${added} of ${added + failed} foods — ${failed} failed`,
+                'Dismiss',
+                { duration: 5000 },
+              );
             }
           })
           .catch(() => this.snack.open('Could not add food', 'Dismiss', { duration: 4000 }));
@@ -528,10 +728,19 @@ export class Tracker {
       goal: p?.goal ?? '',
       hasWeight: (p?.weightKg ?? 0) > 0,
     };
-    this.dialog.open(AddExerciseDialog, { data, width: '820px', maxWidth: '94vw', panelClass: 'tracker-dialog', autoFocus: false })
-      .afterClosed().subscribe((req: AddExerciseRequest | undefined) => {
+    this.dialog
+      .open(AddExerciseDialog, {
+        data,
+        width: '820px',
+        maxWidth: '94vw',
+        panelClass: 'tracker-dialog',
+        autoFocus: false,
+      })
+      .afterClosed()
+      .subscribe((req: AddExerciseRequest | undefined) => {
         if (!req) return;
-        this.store.addExercise(req)
+        this.store
+          .addExercise(req)
           .then(() => this.snack.open('Exercise logged', 'OK', { duration: 2000 }))
           .catch(() => this.snack.open('Could not log exercise', 'Dismiss', { duration: 4000 }));
       });
@@ -539,13 +748,27 @@ export class Tracker {
 
   openProfile(): void {
     if (this.store.readOnly()) return;
-    const profile: TrackerProfileDto = this.store.profile()
-      ?? { goal: 'Maintain', shareWithContacts: false, sex: 'Unspecified', activityLevel: 'Sedentary', unitSystem: 'Imperial' };
+    const profile: TrackerProfileDto = this.store.profile() ?? {
+      goal: 'Maintain',
+      shareWithContacts: false,
+      sex: 'Unspecified',
+      activityLevel: 'Sedentary',
+      unitSystem: 'Imperial',
+    };
     const data: ProfileData = { profile };
-    this.dialog.open(ProfileDialog, { data, width: '460px', maxWidth: '95vw', panelClass: 'tracker-dialog', autoFocus: false })
-      .afterClosed().subscribe((req: TrackerProfileDto | undefined) => {
+    this.dialog
+      .open(ProfileDialog, {
+        data,
+        width: '460px',
+        maxWidth: '95vw',
+        panelClass: 'tracker-dialog',
+        autoFocus: false,
+      })
+      .afterClosed()
+      .subscribe((req: TrackerProfileDto | undefined) => {
         if (!req) return;
-        this.store.saveProfile(req)
+        this.store
+          .saveProfile(req)
           .then(() => this.snack.open('Goals saved', 'OK', { duration: 2000 }))
           .catch(() => this.snack.open('Could not save goals', 'Dismiss', { duration: 4000 }));
       });
@@ -566,7 +789,7 @@ export class Tracker {
       // Seed today's weigh-in only if today doesn't already have one (avoid clobbering an existing entry).
       const today = this.store.date();
       const history = await this.store.weightHistory(7).catch(() => []);
-      const hasToday = history.some(w => w.date === today);
+      const hasToday = history.some((w) => w.date === today);
       if (!hasToday) {
         await this.store.logWeight({ date: today, weightKg: result.weightKg });
       }
@@ -586,13 +809,22 @@ export class Tracker {
     const p = this.store.profile();
     const data: LogWeightData = {
       date: this.store.date(),
-      unitSystem: (p?.unitSystem ?? 'Imperial'),
+      unitSystem: p?.unitSystem ?? 'Imperial',
       currentKg: p?.weightKg ?? null,
     };
-    this.dialog.open(LogWeightDialog, { data, width: '360px', maxWidth: '95vw', panelClass: 'tracker-dialog', autoFocus: false })
-      .afterClosed().subscribe((req: LogWeightRequest | undefined) => {
+    this.dialog
+      .open(LogWeightDialog, {
+        data,
+        width: '360px',
+        maxWidth: '95vw',
+        panelClass: 'tracker-dialog',
+        autoFocus: false,
+      })
+      .afterClosed()
+      .subscribe((req: LogWeightRequest | undefined) => {
         if (!req) return;
-        this.store.logWeight(req)
+        this.store
+          .logWeight(req)
           .then(() => {
             this.snack.open('Weight logged', 'OK', { duration: 2000 });
             void this.loadWeightHistory();
@@ -609,8 +841,16 @@ export class Tracker {
   openMoveDay(): void {
     if (this.store.readOnly()) return;
     const data: MoveDayData = { fromDate: this.store.date() };
-    this.dialog.open(MoveDayDialog, { data, width: '420px', maxWidth: '95vw', panelClass: 'tracker-dialog', autoFocus: false })
-      .afterClosed().subscribe((req: MoveDayRequest | undefined) => {
+    this.dialog
+      .open(MoveDayDialog, {
+        data,
+        width: '420px',
+        maxWidth: '95vw',
+        panelClass: 'tracker-dialog',
+        autoFocus: false,
+      })
+      .afterClosed()
+      .subscribe((req: MoveDayRequest | undefined) => {
         if (!req) return;
         void this.runMoveDay(req);
       });
@@ -626,7 +866,9 @@ export class Tracker {
       this.statusMsg.set(msg);
       this.snack.open(msg, 'OK', { duration: 4000 });
     } catch {
-      this.snack.open('Could not move the day — nothing was changed', 'Dismiss', { duration: 4000 });
+      this.snack.open('Could not move the day — nothing was changed', 'Dismiss', {
+        duration: 4000,
+      });
     }
   }
 
@@ -642,16 +884,16 @@ export class Tracker {
 
     const to = this.shortDate(res.toDate);
     if (bits.length === 0) return `Nothing to move to ${to}`;
-    const list = bits.length === 1
-      ? bits[0]
-      : `${bits.slice(0, -1).join(', ')} & ${bits[bits.length - 1]}`;
+    const list =
+      bits.length === 1 ? bits[0] : `${bits.slice(0, -1).join(', ')} & ${bits[bits.length - 1]}`;
     return `Moved ${list} to ${to}`;
   }
 
   /** A short "Jun 20" style label for a YYYY-MM-DD date (Today/Yesterday for the obvious cases). */
   private shortDate(iso: string): string {
     const d = new Date(iso + 'T00:00:00');
-    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
     const diff = Math.round((d.getTime() - today.getTime()) / 86_400_000);
     if (diff === 0) return 'today';
     if (diff === -1) return 'yesterday';
@@ -669,8 +911,11 @@ export class Tracker {
   /** Quick-add a fixed amount (Glass/Bottle/Large/Seltzer) to today's hydration, with an optional drink label. */
   quickHydration(amountMl: number, label?: string): void {
     if (this.store.readOnly()) return;
-    this.store.addHydration({ date: this.store.date(), amountMl, label: label || undefined })
-      .then(() => this.announceHydration(`Added ${label ? label + ', ' : ''}${this.volumeLabel(amountMl)}`))
+    this.store
+      .addHydration({ date: this.store.date(), amountMl, label: label || undefined })
+      .then(() =>
+        this.announceHydration(`Added ${label ? label + ', ' : ''}${this.volumeLabel(amountMl)}`),
+      )
       .catch(() => this.snack.open('Could not log drink', 'Dismiss', { duration: 4000 }));
   }
 
@@ -693,9 +938,20 @@ export class Tracker {
   openAddHydration(): void {
     if (this.store.readOnly()) return;
     const p = this.store.profile();
-    const data: AddHydrationData = { date: this.store.date(), unitSystem: p?.unitSystem ?? 'Imperial' };
-    this.dialog.open(AddHydrationDialog, { data, width: '400px', maxWidth: '95vw', panelClass: 'tracker-dialog', autoFocus: false })
-      .afterClosed().subscribe((res: AddHydrationResult | undefined) => {
+    const data: AddHydrationData = {
+      date: this.store.date(),
+      unitSystem: p?.unitSystem ?? 'Imperial',
+    };
+    this.dialog
+      .open(AddHydrationDialog, {
+        data,
+        width: '400px',
+        maxWidth: '95vw',
+        panelClass: 'tracker-dialog',
+        autoFocus: false,
+      })
+      .afterClosed()
+      .subscribe((res: AddHydrationResult | undefined) => {
         if (!res) return;
         if (res.kind === 'goal') {
           this.applyHydrationGoal(res.targetMl);
@@ -712,7 +968,9 @@ export class Tracker {
       try {
         await this.store.addHydration(req);
         ok++;
-      } catch { /* keep going; report the shortfall at the end */ }
+      } catch {
+        /* keep going; report the shortfall at the end */
+      }
     }
     if (ok === 0) {
       this.snack.open('Could not log drink', 'Dismiss', { duration: 4000 });
@@ -727,14 +985,18 @@ export class Tracker {
   private applyHydrationGoal(targetMl: number): void {
     const current = this.store.profile();
     if (!current) return;
-    this.store.saveProfile({ ...current, hydrationGoalMl: targetMl })
+    this.store
+      .saveProfile({ ...current, hydrationGoalMl: targetMl })
       .then(() => this.snack.open('Hydration goal updated', 'OK', { duration: 2000 }))
-      .catch(() => this.snack.open('Could not update hydration goal', 'Dismiss', { duration: 4000 }));
+      .catch(() =>
+        this.snack.open('Could not update hydration goal', 'Dismiss', { duration: 4000 }),
+      );
   }
 
   removeHydration(h: HydrationEntryDto): void {
     if (this.store.readOnly()) return;
-    this.store.deleteHydration(h.id)
+    this.store
+      .deleteHydration(h.id)
       .then(() => this.announceHydration('Removed drink'))
       .catch(() => this.snack.open('Could not remove entry', 'Dismiss', { duration: 4000 }));
   }
@@ -751,8 +1013,13 @@ export class Tracker {
   /** Quick-add a fixed cup count (Mug/Espresso/Cold Brew) to today's coffee, with a label + caffeine estimate. */
   quickCoffee(cups: number, label?: string, caffeineMg?: number): void {
     if (this.store.readOnly()) return;
-    this.store.addCoffee({ date: this.store.date(), cups, label: label || undefined, caffeineMg })
-      .then(() => this.announceCoffee(`Added ${label ? label + ', ' : ''}${cups} cup${cups === 1 ? '' : 's'}`))
+    this.store
+      .addCoffee({ date: this.store.date(), cups, label: label || undefined, caffeineMg })
+      .then(() =>
+        this.announceCoffee(
+          `Added ${label ? label + ', ' : ''}${cups} cup${cups === 1 ? '' : 's'}`,
+        ),
+      )
       .catch(() => this.snack.open('Could not log coffee', 'Dismiss', { duration: 4000 }));
   }
 
@@ -771,8 +1038,16 @@ export class Tracker {
   openAddCoffee(): void {
     if (this.store.readOnly()) return;
     const data: AddCoffeeData = { date: this.store.date() };
-    this.dialog.open(AddCoffeeDialog, { data, width: '400px', maxWidth: '95vw', panelClass: 'tracker-dialog', autoFocus: false })
-      .afterClosed().subscribe((res: AddCoffeeResult | undefined) => {
+    this.dialog
+      .open(AddCoffeeDialog, {
+        data,
+        width: '400px',
+        maxWidth: '95vw',
+        panelClass: 'tracker-dialog',
+        autoFocus: false,
+      })
+      .afterClosed()
+      .subscribe((res: AddCoffeeResult | undefined) => {
         if (!res) return;
         this.logCoffees(res.requests);
       });
@@ -785,7 +1060,9 @@ export class Tracker {
       try {
         await this.store.addCoffee(req);
         ok++;
-      } catch { /* keep going; report the shortfall at the end */ }
+      } catch {
+        /* keep going; report the shortfall at the end */
+      }
     }
     if (ok === 0) {
       this.snack.open('Could not log coffee', 'Dismiss', { duration: 4000 });
@@ -798,7 +1075,8 @@ export class Tracker {
 
   removeCoffee(c: CoffeeEntryDto): void {
     if (this.store.readOnly()) return;
-    this.store.deleteCoffee(c.id)
+    this.store
+      .deleteCoffee(c.id)
       .then(() => this.announceCoffee('Removed coffee'))
       .catch(() => this.snack.open('Could not remove entry', 'Dismiss', { duration: 4000 }));
   }
@@ -808,12 +1086,18 @@ export class Tracker {
   /** Human label for a supplement kind, for the entry list. */
   supplementKindLabel(kind: SupplementKind): string {
     switch (kind) {
-      case 'vitamin': return 'Vitamin';
-      case 'protein': return 'Protein';
-      case 'medication': return 'Medication';
-      case 'preworkout': return 'Pre-workout';
-      case 'other': return 'Other';
-      default: return 'Supplement';
+      case 'vitamin':
+        return 'Vitamin';
+      case 'protein':
+        return 'Protein';
+      case 'medication':
+        return 'Medication';
+      case 'preworkout':
+        return 'Pre-workout';
+      case 'other':
+        return 'Other';
+      default:
+        return 'Supplement';
     }
   }
 
@@ -821,13 +1105,24 @@ export class Tracker {
    * Quick-add a common supplement by name (Whey/Creatine/Multivitamin/…). Carries a sensible kind +
    * macro preset (only protein powders carry real macros; the rest are all-zeros). Own tracker only.
    */
-  quickSupplement(name: string, kind: SupplementKind, dose?: string,
-                  macros?: { calories?: number; protein?: number; carb?: number; fat?: number }): void {
+  quickSupplement(
+    name: string,
+    kind: SupplementKind,
+    dose?: string,
+    macros?: { calories?: number; protein?: number; carb?: number; fat?: number },
+  ): void {
     if (this.store.readOnly()) return;
-    this.store.addSupplement({
-      date: this.store.date(), name, kind, dose: dose || undefined,
-      calories: macros?.calories, protein: macros?.protein, carb: macros?.carb, fat: macros?.fat,
-    })
+    this.store
+      .addSupplement({
+        date: this.store.date(),
+        name,
+        kind,
+        dose: dose || undefined,
+        calories: macros?.calories,
+        protein: macros?.protein,
+        carb: macros?.carb,
+        fat: macros?.fat,
+      })
       .then(() => this.announceSupplement(`Added ${name}`))
       .catch(() => this.snack.open('Could not log supplement', 'Dismiss', { duration: 4000 }));
   }
@@ -840,17 +1135,28 @@ export class Tracker {
     const day = this.store.day();
     const count = day?.supplements.length ?? 0;
     const cals = day?.supplementCalories ?? 0;
-    this.statusMsg.set(`${prefix}. ${count} supplement${count === 1 ? '' : 's'} today, ${cals} calories toward your day total.`);
+    this.statusMsg.set(
+      `${prefix}. ${count} supplement${count === 1 ? '' : 's'} today, ${cals} calories toward your day total.`,
+    );
   }
 
   /** Open the add-supplement dialog (Name + Dose + Kind + AI/manual macros), then log the result. */
   openAddSupplement(presetName?: string): void {
     if (this.store.readOnly()) return;
     const data: AddSupplementData = { date: this.store.date(), presetName };
-    this.dialog.open(AddSupplementDialog, { data, width: '440px', maxWidth: '95vw', panelClass: 'tracker-dialog', autoFocus: false })
-      .afterClosed().subscribe((res: AddSupplementResult | undefined) => {
+    this.dialog
+      .open(AddSupplementDialog, {
+        data,
+        width: '440px',
+        maxWidth: '95vw',
+        panelClass: 'tracker-dialog',
+        autoFocus: false,
+      })
+      .afterClosed()
+      .subscribe((res: AddSupplementResult | undefined) => {
         if (!res) return;
-        this.store.addSupplement(res.request)
+        this.store
+          .addSupplement(res.request)
           .then(() => this.announceSupplement(`Added ${res.request.name}`))
           .catch(() => this.snack.open('Could not log supplement', 'Dismiss', { duration: 4000 }));
       });
@@ -858,7 +1164,8 @@ export class Tracker {
 
   removeSupplement(s: SupplementEntryDto): void {
     if (this.store.readOnly()) return;
-    this.store.deleteSupplement(s.id)
+    this.store
+      .deleteSupplement(s.id)
       .then(() => this.announceSupplement(`Removed ${s.name}`))
       .catch(() => this.snack.open('Could not remove entry', 'Dismiss', { duration: 4000 }));
   }
@@ -889,8 +1196,16 @@ export class Tracker {
   openAddSleep(edit?: SleepEntryDto): void {
     if (this.store.readOnly()) return;
     const data: AddSleepData = { date: this.store.date(), edit };
-    this.dialog.open(AddSleepDialog, { data, width: '420px', maxWidth: '95vw', panelClass: 'tracker-dialog', autoFocus: false })
-      .afterClosed().subscribe(async (res: AddSleepResult | undefined) => {
+    this.dialog
+      .open(AddSleepDialog, {
+        data,
+        width: '420px',
+        maxWidth: '95vw',
+        panelClass: 'tracker-dialog',
+        autoFocus: false,
+      })
+      .afterClosed()
+      .subscribe(async (res: AddSleepResult | undefined) => {
         if (!res) return;
         try {
           if (res.replaceId != null) await this.store.deleteSleep(res.replaceId);
@@ -904,7 +1219,8 @@ export class Tracker {
 
   removeSleep(s: SleepEntryDto): void {
     if (this.store.readOnly()) return;
-    this.store.deleteSleep(s.id)
+    this.store
+      .deleteSleep(s.id)
       .then(() => this.announceSleep('Removed sleep'))
       .catch(() => this.snack.open('Could not remove entry', 'Dismiss', { duration: 4000 }));
   }
@@ -956,9 +1272,15 @@ export class Tracker {
       activeCalories: act?.activeCalories ?? null,
       calorieMode: mode,
     };
-    this.store.upsertActivity(body)
-      .then(() => this.snack.open(
-        mode === 'override' ? 'Watch replaces workouts' : 'Watch adds to workouts', 'OK', { duration: 2000 }))
+    this.store
+      .upsertActivity(body)
+      .then(() =>
+        this.snack.open(
+          mode === 'override' ? 'Watch replaces workouts' : 'Watch adds to workouts',
+          'OK',
+          { duration: 2000 },
+        ),
+      )
       .catch(() => this.snack.open('Could not update', 'Dismiss', { duration: 4000 }));
   }
 
@@ -971,18 +1293,30 @@ export class Tracker {
       unitSystem: p?.unitSystem ?? 'Imperial',
       activity: this.activity(),
     };
-    this.dialog.open(AddActivityDialog, { data, width: '380px', maxWidth: '95vw', panelClass: 'tracker-dialog', autoFocus: false })
-      .afterClosed().subscribe((res: UpsertActivityRequest | 'clear' | undefined) => {
+    this.dialog
+      .open(AddActivityDialog, {
+        data,
+        width: '380px',
+        maxWidth: '95vw',
+        panelClass: 'tracker-dialog',
+        autoFocus: false,
+      })
+      .afterClosed()
+      .subscribe((res: UpsertActivityRequest | 'clear' | undefined) => {
         if (!res) return;
         if (res === 'clear') {
-          this.store.clearActivity(this.store.date())
+          this.store
+            .clearActivity(this.store.date())
             .then(() => this.snack.open('Watch stats cleared', 'OK', { duration: 2000 }))
             .catch(() => this.snack.open('Could not clear', 'Dismiss', { duration: 4000 }));
           return;
         }
-        this.store.upsertActivity(res)
+        this.store
+          .upsertActivity(res)
           .then(() => this.snack.open('Watch stats saved', 'OK', { duration: 2000 }))
-          .catch(() => this.snack.open('Could not save watch stats', 'Dismiss', { duration: 4000 }));
+          .catch(() =>
+            this.snack.open('Could not save watch stats', 'Dismiss', { duration: 4000 }),
+          );
       });
   }
 
@@ -1002,7 +1336,9 @@ export class Tracker {
     try {
       const res = await firstValueFrom(this.api.dailyCoach());
       this.coach.set(res);
-      this.coachAnnounce.set(`Coach: ${res.insight}` + (res.tips.length ? ` ${res.tips.length} tips.` : ''));
+      this.coachAnnounce.set(
+        `Coach: ${res.insight}` + (res.tips.length ? ` ${res.tips.length} tips.` : ''),
+      );
     } catch {
       this.coach.set(null);
       this.coachUnavailable.set(true);
@@ -1043,25 +1379,40 @@ export class Tracker {
     if (!this.aiEnabled() || this.store.readOnly()) return;
     const day = this.store.day();
     const p = this.store.profile();
-    const rem = (p && day && p.dailyCalorieGoal != null)
-      ? {
-          calories: Math.max(0, Math.round((p.dailyCalorieGoal ?? 0) - day.caloriesIn)),
-          proteinG: Math.max(0, Math.round((p.proteinGoalG ?? 0) - day.proteinG)),
-          carbG: Math.max(0, Math.round((p.carbGoalG ?? 0) - day.carbG)),
-          fatG: Math.max(0, Math.round((p.fatGoalG ?? 0) - day.fatG)),
-        }
-      : null;
+    const rem =
+      p && day && p.dailyCalorieGoal != null
+        ? {
+            calories: Math.max(0, Math.round((p.dailyCalorieGoal ?? 0) - day.caloriesIn)),
+            proteinG: Math.max(0, Math.round((p.proteinGoalG ?? 0) - day.proteinG)),
+            carbG: Math.max(0, Math.round((p.carbGoalG ?? 0) - day.carbG)),
+            fatG: Math.max(0, Math.round((p.fatGoalG ?? 0) - day.fatG)),
+          }
+        : null;
     const data: WhatToEatData = {
-      date: this.store.date(), meal: this.defaultMeal(), remaining: rem,
+      date: this.store.date(),
+      meal: this.defaultMeal(),
+      remaining: rem,
       // The meal-plan / grocery actions are family.use-gated server-side; hide them for tracker-only users.
       canFamily: this.auth.hasPermission(PERM.familyUse),
       canRecipes: this.auth.hasPermission(PERM.recipesUse),
     };
-    this.dialog.open(WhatToEatDialog, { data, width: '640px', maxWidth: '95vw', maxHeight: '92dvh', panelClass: 'tracker-dialog', autoFocus: false })
-      .afterClosed().subscribe((result?: string) => {
+    this.dialog
+      .open(WhatToEatDialog, {
+        data,
+        width: '640px',
+        maxWidth: '95vw',
+        maxHeight: '92dvh',
+        panelClass: 'tracker-dialog',
+        autoFocus: false,
+      })
+      .afterClosed()
+      .subscribe((result?: string) => {
         // The empty-state "Add food manually" button closes with 'manual' — hand off to the add-food
         // dialog (which logs + refreshes the day itself) instead of silently returning to the tracker.
-        if (result === 'manual') { this.openAddFood(this.defaultMeal()); return; }
+        if (result === 'manual') {
+          this.openAddFood(this.defaultMeal());
+          return;
+        }
         void this.store.load();
       });
   }
@@ -1088,7 +1439,11 @@ export class Tracker {
   /** Dismiss the hero hint for the rest of today (stamps today's date in localStorage). */
   dismissDayBuilderHint(): void {
     this.dayBuilderHintDismissed.set(true);
-    try { localStorage.setItem(DAYBUILDER_HINT_KEY, this.todayIso()); } catch { /* non-fatal */ }
+    try {
+      localStorage.setItem(DAYBUILDER_HINT_KEY, this.todayIso());
+    } catch {
+      /* non-fatal */
+    }
   }
 
   /**
@@ -1119,8 +1474,17 @@ export class Tracker {
       unitSystem: p?.unitSystem ?? 'Imperial',
       existingDayBrief: this.existingDayBrief(),
     };
-    this.dialog.open(AiDayBuilderDialog, { data, width: '720px', maxWidth: '96vw', maxHeight: '92dvh', panelClass: 'tracker-dialog', autoFocus: false })
-      .afterClosed().subscribe((res: AiDayBuilderResult) => {
+    this.dialog
+      .open(AiDayBuilderDialog, {
+        data,
+        width: '720px',
+        maxWidth: '96vw',
+        maxHeight: '92dvh',
+        panelClass: 'tracker-dialog',
+        autoFocus: false,
+      })
+      .afterClosed()
+      .subscribe((res: AiDayBuilderResult) => {
         if (!res) return;
         void this.commitBuiltDay(res);
       });
@@ -1135,8 +1499,17 @@ export class Tracker {
   openVoiceCapture(): void {
     if (!this.aiEnabled() || this.store.readOnly()) return;
     const data: VoiceCaptureData = { date: this.store.date() };
-    this.dialog.open(VoiceCaptureDialog, { data, width: '480px', maxWidth: '94vw', maxHeight: '92dvh', panelClass: 'tracker-dialog', autoFocus: false })
-      .afterClosed().subscribe((res: VoiceCaptureResult) => {
+    this.dialog
+      .open(VoiceCaptureDialog, {
+        data,
+        width: '480px',
+        maxWidth: '94vw',
+        maxHeight: '92dvh',
+        panelClass: 'tracker-dialog',
+        autoFocus: false,
+      })
+      .afterClosed()
+      .subscribe((res: VoiceCaptureResult) => {
         if (res && res.logged > 0) void this.store.load();
       });
   }
@@ -1154,9 +1527,13 @@ export class Tracker {
     // Snapshot the pre-commit entry ids so Undo can target only what this commit created.
     const before = this.captureEntryIds(this.store.day());
     try {
-      const commit = await firstValueFrom(this.api.bulkCommitDay({
-        buildId: result.buildId, date: this.store.date(), draft: result.draft,
-      }));
+      const commit = await firstValueFrom(
+        this.api.bulkCommitDay({
+          buildId: result.buildId,
+          date: this.store.date(),
+          draft: result.draft,
+        }),
+      );
 
       // Render the authoritative rebuilt day straight from the response (no extra round-trip).
       this.store.day.set(commit.day);
@@ -1167,23 +1544,32 @@ export class Tracker {
       }
       this.announceCommit(commit, before);
     } catch {
-      this.snack.open('Could not log your day — nothing was changed', 'Dismiss', { duration: 5000 });
+      this.snack.open('Could not log your day — nothing was changed', 'Dismiss', {
+        duration: 5000,
+      });
     } finally {
       this.buildingDay.set(false);
     }
   }
 
   /** The set of all food/exercise/hydration entry ids on a day (for the Undo diff). */
-  private captureEntryIds(day: TrackerDayDto | null): { foods: Set<number>; exercises: Set<number>; hydration: Set<number> } {
+  private captureEntryIds(day: TrackerDayDto | null): {
+    foods: Set<number>;
+    exercises: Set<number>;
+    hydration: Set<number>;
+  } {
     return {
-      foods: new Set((day?.foods ?? []).map(f => f.id)),
-      exercises: new Set((day?.exercises ?? []).map(e => e.id)),
-      hydration: new Set((day?.hydration ?? []).map(h => h.id)),
+      foods: new Set((day?.foods ?? []).map((f) => f.id)),
+      exercises: new Set((day?.exercises ?? []).map((e) => e.id)),
+      hydration: new Set((day?.hydration ?? []).map((h) => h.id)),
     };
   }
 
   /** Build + show the success snackbar with an Undo action that deletes exactly the new entries. */
-  private announceCommit(commit: CommitDayResponse, before: { foods: Set<number>; exercises: Set<number>; hydration: Set<number> }): void {
+  private announceCommit(
+    commit: CommitDayResponse,
+    before: { foods: Set<number>; exercises: Set<number>; hydration: Set<number> },
+  ): void {
     const c = commit.logged;
 
     const bits: string[] = [];
@@ -1198,13 +1584,17 @@ export class Tracker {
 
     // Diff the rebuilt day against the pre-commit snapshot to find exactly the new ids to undo.
     const after = commit.day;
-    const newFoods = after.foods.filter(f => !before.foods.has(f.id)).map(f => f.id);
-    const newExercises = after.exercises.filter(e => !before.exercises.has(e.id)).map(e => e.id);
-    const newDrinks = after.hydration.filter(h => !before.hydration.has(h.id)).map(h => h.id);
+    const newFoods = after.foods.filter((f) => !before.foods.has(f.id)).map((f) => f.id);
+    const newExercises = after.exercises
+      .filter((e) => !before.exercises.has(e.id))
+      .map((e) => e.id);
+    const newDrinks = after.hydration.filter((h) => !before.hydration.has(h.id)).map((h) => h.id);
 
     const ref = this.snack.open(msg, 'Undo', { duration: 8000 });
     const keptMetrics = !!c.weight || !!c.activity;
-    ref.onAction().subscribe(() => void this.undoCommit(newFoods, newExercises, newDrinks, keptMetrics));
+    ref
+      .onAction()
+      .subscribe(() => void this.undoCommit(newFoods, newExercises, newDrinks, keptMetrics));
   }
 
   /**
@@ -1213,16 +1603,25 @@ export class Tracker {
    * day afterward so the UI reflects the removals. `keptMetrics` is true when the commit also set weight or
    * activity, so the confirmation can say plainly that those were kept (undo doesn't roll them back).
    */
-  private async undoCommit(foodIds: number[], exerciseIds: number[], drinkIds: number[], keptMetrics = false): Promise<void> {
+  private async undoCommit(
+    foodIds: number[],
+    exerciseIds: number[],
+    drinkIds: number[],
+    keptMetrics = false,
+  ): Promise<void> {
     const calls: Promise<unknown>[] = [
-      ...foodIds.map(id => firstValueFrom(this.api.deleteFood(id)).catch(() => null)),
-      ...exerciseIds.map(id => firstValueFrom(this.api.deleteExercise(id)).catch(() => null)),
-      ...drinkIds.map(id => firstValueFrom(this.api.deleteHydration(id)).catch(() => null)),
+      ...foodIds.map((id) => firstValueFrom(this.api.deleteFood(id)).catch(() => null)),
+      ...exerciseIds.map((id) => firstValueFrom(this.api.deleteExercise(id)).catch(() => null)),
+      ...drinkIds.map((id) => firstValueFrom(this.api.deleteHydration(id)).catch(() => null)),
     ];
     try {
       await Promise.all(calls);
       await this.store.load();
-      this.snack.open(keptMetrics ? 'Entries removed — weight & activity were kept' : 'Undone', 'OK', { duration: 3000 });
+      this.snack.open(
+        keptMetrics ? 'Entries removed — weight & activity were kept' : 'Undone',
+        'OK',
+        { duration: 3000 },
+      );
     } catch {
       await this.store.load();
       this.snack.open('Could not fully undo', 'Dismiss', { duration: 4000 });
@@ -1244,7 +1643,9 @@ export class Tracker {
     try {
       const res = await firstValueFrom(this.api.daySummary({ date: this.store.date() }));
       this.daySummary.set(res);
-      this.daySummaryAnnounce.set(`${res.headline}` + (res.highlights.length ? ` ${res.highlights.length} highlights.` : ''));
+      this.daySummaryAnnounce.set(
+        `${res.headline}` + (res.highlights.length ? ` ${res.highlights.length} highlights.` : ''),
+      );
     } catch {
       this.daySummary.set(null);
       this.daySummaryUnavailable.set(true);
@@ -1295,7 +1696,8 @@ export class Tracker {
 
   removeFood(f: FoodEntryDto): void {
     if (this.store.readOnly()) return;
-    this.store.deleteFood(f.id)
+    this.store
+      .deleteFood(f.id)
       .then(() => this.statusMsg.set(`Removed ${f.description}`))
       .catch(() => this.snack.open('Could not remove entry', 'Dismiss', { duration: 4000 }));
   }
@@ -1342,7 +1744,12 @@ export class Tracker {
    * over the old, mirroring the server recompute (perUnit = storedTotal / oldQty; new = perUnit * newQty).
    * Rounded like the server (calories int, macros 1dp, floored at 0). Null for a manual row / bad quantity.
    */
-  readonly editPreview = computed<{ calories: number; proteinG: number; carbG: number; fatG: number } | null>(() => {
+  readonly editPreview = computed<{
+    calories: number;
+    proteinG: number;
+    carbG: number;
+    fatG: number;
+  } | null>(() => {
     if (!this.editIsPriced()) return null;
     const q = this.editQuantity();
     if (!(q > 0) || !Number.isFinite(q) || this.editOrigQuantity <= 0) return null;
@@ -1421,17 +1828,33 @@ export class Tracker {
     // mirrors the server recompute); for a manual row the typed totals are authoritative.
     const preview = this.editPreview();
     const optimistic: FoodEntryDto = priced
-      ? { ...f, meal, quantity: this.editQuantity(),
-          calories: preview?.calories ?? f.calories, proteinG: preview?.proteinG ?? f.proteinG,
-          carbG: preview?.carbG ?? f.carbG, fatG: preview?.fatG ?? f.fatG }
-      : { ...f, meal, description: body.description!, calories: body.calories!,
-          proteinG: body.proteinG!, carbG: body.carbG!, fatG: body.fatG! };
+      ? {
+          ...f,
+          meal,
+          quantity: this.editQuantity(),
+          calories: preview?.calories ?? f.calories,
+          proteinG: preview?.proteinG ?? f.proteinG,
+          carbG: preview?.carbG ?? f.carbG,
+          fatG: preview?.fatG ?? f.fatG,
+        }
+      : {
+          ...f,
+          meal,
+          description: body.description!,
+          calories: body.calories!,
+          proteinG: body.proteinG!,
+          carbG: body.carbG!,
+          fatG: body.fatG!,
+        };
 
     const prevDay = this.store.day();
     this.savingEdit.set(true);
     // Patch the day signal in place so the row + roll-ups move immediately.
     if (prevDay) {
-      this.store.day.set({ ...prevDay, foods: prevDay.foods.map(x => (x.id === f.id ? optimistic : x)) });
+      this.store.day.set({
+        ...prevDay,
+        foods: prevDay.foods.map((x) => (x.id === f.id ? optimistic : x)),
+      });
     }
     this.editingFoodId.set(null);
 
@@ -1448,7 +1871,8 @@ export class Tracker {
 
   removeExercise(e: ExerciseEntryDto): void {
     if (this.store.readOnly()) return;
-    this.store.deleteExercise(e.id)
+    this.store
+      .deleteExercise(e.id)
       .then(() => this.statusMsg.set(`Removed ${e.name}`))
       .catch(() => this.snack.open('Could not remove entry', 'Dismiss', { duration: 4000 }));
   }

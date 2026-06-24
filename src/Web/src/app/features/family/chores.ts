@@ -1,4 +1,11 @@
-import { Component, DestroyRef, computed, inject, signal } from '@angular/core';
+import {
+  Component,
+  DestroyRef,
+  computed,
+  inject,
+  signal,
+  ChangeDetectionStrategy,
+} from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { catchError, firstValueFrom, of, Observable } from 'rxjs';
@@ -15,8 +22,15 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 
 import { Api } from '../../core/api';
 import {
-  AllowanceMe, ChoreSummaryAiResult, FamilyChore, FamilyChoreRecurrence, FamilyChores as FamilyChoresDto,
-  FamilyChoreTally, FamilyHouseholdRole, Household, HouseholdMember,
+  AllowanceMe,
+  ChoreSummaryAiResult,
+  FamilyChore,
+  FamilyChoreRecurrence,
+  FamilyChores as FamilyChoresDto,
+  FamilyChoreTally,
+  FamilyHouseholdRole,
+  Household,
+  HouseholdMember,
 } from '../../core/models';
 import { FamilyConfirmDialog, ConfirmData } from './confirm-dialog';
 import { ChoreEditorDialog, ChoreEditorData, ChoreEditorResult } from './chore-editor-dialog';
@@ -76,10 +90,18 @@ interface ValueRow {
 @Component({
   selector: 'app-family-chores',
   imports: [
-    FormsModule, RouterLink, MatIconModule, MatButtonModule, MatTooltipModule, MatProgressSpinnerModule,
-    MatFormFieldModule, MatInputModule, MatSnackBarModule,
+    FormsModule,
+    RouterLink,
+    MatIconModule,
+    MatButtonModule,
+    MatTooltipModule,
+    MatProgressSpinnerModule,
+    MatFormFieldModule,
+    MatInputModule,
+    MatSnackBarModule,
   ],
   templateUrl: './chores.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrls: ['./family.scss', './chores.scss'],
 })
 export class FamilyChores {
@@ -108,35 +130,48 @@ export class FamilyChores {
 
   // ── PARENT marketplace buckets (the whole board, split by lifecycle) ──
   /** Submitted chores awaiting a parent's approve/reject (the approval queue). */
-  readonly awaitingApproval = computed(() => this.chores().filter(c => c.status === 'submitted'));
+  readonly awaitingApproval = computed(() => this.chores().filter((c) => c.status === 'submitted'));
   /** Open marketplace (pool) chores kids can claim. */
-  readonly poolOpen = computed(() => this.chores().filter(c => c.source === 'pool' && c.status === 'open'));
+  readonly poolOpen = computed(() =>
+    this.chores().filter((c) => c.source === 'pool' && c.status === 'open'),
+  );
   /** In-progress chores (claimed or rejected-awaiting-retry), not yet submitted/approved. */
   readonly inProgress = computed(() =>
-    this.chores().filter(c => c.status === 'claimed' || c.status === 'rejected'));
+    this.chores().filter((c) => c.status === 'claimed' || c.status === 'rejected'),
+  );
   /** Assigned chores still to do (open + not yet claimed/submitted), excluding pool chores. */
   readonly assignedOpen = computed(() =>
-    this.chores().filter(c => c.source === 'assigned' && c.status === 'open'));
+    this.chores().filter((c) => c.source === 'assigned' && c.status === 'open'),
+  );
 
   // ── CHILD scoped buckets (already rescoped server-side to the child's own + open pool) ──
   /** Marketplace chores the child can grab (open pool chores). */
-  readonly kidPool = computed(() => this.chores().filter(c => c.source === 'pool' && c.status === 'open'));
+  readonly kidPool = computed(() =>
+    this.chores().filter((c) => c.source === 'pool' && c.status === 'open'),
+  );
   /** The child's own chores in progress (claimed/assigned/rejected, not yet submitted/approved). */
   readonly kidMine = computed(() =>
-    this.chores().filter(c => c.status === 'claimed' || c.status === 'rejected'
-      || (c.source === 'assigned' && c.status === 'open')));
+    this.chores().filter(
+      (c) =>
+        c.status === 'claimed' ||
+        c.status === 'rejected' ||
+        (c.source === 'assigned' && c.status === 'open'),
+    ),
+  );
   /** The child's chores waiting on a parent's nod. */
-  readonly kidPending = computed(() => this.chores().filter(c => c.status === 'submitted'));
+  readonly kidPending = computed(() => this.chores().filter((c) => c.status === 'submitted'));
 
   /** Open chores (server already orders open-first; we split by `done`). Used by the legacy shared list. */
-  readonly open = computed(() => this.chores().filter(c => !c.done));
-  readonly done = computed(() => this.chores().filter(c => c.done));
+  readonly open = computed(() => this.chores().filter((c) => !c.done));
+  readonly done = computed(() => this.chores().filter((c) => c.done));
 
   /** Total stars earned across the household (the strip's headline figure). */
   readonly totalStars = computed(() => this.tally().reduce((n, t) => n + t.points, 0));
 
   /** The top earner's points (for a subtle leader emphasis on the strip). */
-  private readonly topPoints = computed(() => this.tally().reduce((m, t) => Math.max(m, t.points), 0));
+  private readonly topPoints = computed(() =>
+    this.tally().reduce((m, t) => Math.max(m, t.points), 0),
+  );
 
   // ---- ✨ AI assists (suggest / balance / values) — each reviews then applies via the existing writes ----
 
@@ -166,30 +201,46 @@ export class FamilyChores {
   constructor() {
     this.reload(true);
     // Household members drive the assignee picker (display identity only).
-    this.api.getHousehold()
-      .pipe(catchError(() => of<Household | null>(null)), takeUntilDestroyed())
-      .subscribe(h => { if (h) this.members.set(h.members); });
+    this.api
+      .getHousehold()
+      .pipe(
+        catchError(() => of<Household | null>(null)),
+        takeUntilDestroyed(),
+      )
+      .subscribe((h) => {
+        if (h) this.members.set(h.members);
+      });
   }
 
   /** The household's children (Role="child") — the assignee pool for an "assigned" chore. */
-  readonly childMembers = computed(() => this.members().filter(m => m.role === 'child'));
+  readonly childMembers = computed(() => this.members().filter((m) => m.role === 'child'));
 
   /**
    * Load the warm "Good job" weekly summary. It NEVER 503s server-side (a deterministic plain floor with
    * fellBackToPlain=true is the guarantee), so a network blip is the only failure — leave the card hidden then.
    */
   private loadSummary(): void {
-    this.api.choreSummaryAi()
-      .pipe(catchError(() => of<ChoreSummaryAiResult | null>(null)), takeUntilDestroyed(this.destroyRef))
-      .subscribe(s => this.summary.set(s));
+    this.api
+      .choreSummaryAi()
+      .pipe(
+        catchError(() => of<ChoreSummaryAiResult | null>(null)),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe((s) => this.summary.set(s));
   }
 
   private reload(initial = false): void {
     if (initial) this.loading.set(true);
-    this.api.familyChores()
-      .pipe(catchError(() => { if (initial) this.error.set(true); return of<FamilyChoresDto | null>(null); }),
-        takeUntilDestroyed(this.destroyRef))
-      .subscribe(board => {
+    this.api
+      .familyChores()
+      .pipe(
+        catchError(() => {
+          if (initial) this.error.set(true);
+          return of<FamilyChoresDto | null>(null);
+        }),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe((board) => {
         if (board) this.apply(board);
         this.loading.set(false);
       });
@@ -211,9 +262,13 @@ export class FamilyChores {
 
   /** Load the child's OWN balance + ledger (kid view only). Best-effort; a blip just hides the balance card. */
   private loadMyAllowance(): void {
-    this.api.myAllowance()
-      .pipe(catchError(() => of<AllowanceMe | null>(null)), takeUntilDestroyed(this.destroyRef))
-      .subscribe(a => this.myAllowance.set(a));
+    this.api
+      .myAllowance()
+      .pipe(
+        catchError(() => of<AllowanceMe | null>(null)),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe((a) => this.myAllowance.set(a));
   }
 
   recurrenceLabel(r: FamilyChoreRecurrence): string {
@@ -246,14 +301,21 @@ export class FamilyChores {
     const result = await this.openEditor(null);
     if (!result) return;
     try {
-      const board = await firstValueFrom(this.api.createFamilyChore({
-        title: result.title, assignedToUserId: result.assignedToUserId,
-        points: result.points, recurrence: result.recurrence,
-        source: result.source, creditValue: result.creditValue,
-      }));
+      const board = await firstValueFrom(
+        this.api.createFamilyChore({
+          title: result.title,
+          assignedToUserId: result.assignedToUserId,
+          points: result.points,
+          recurrence: result.recurrence,
+          source: result.source,
+          creditValue: result.creditValue,
+        }),
+      );
       this.apply(board);
     } catch (e) {
-      this.snack.open(this.messageOf(e, "Couldn't save that chore. Please try again."), 'OK', { duration: 4000 });
+      this.snack.open(this.messageOf(e, "Couldn't save that chore. Please try again."), 'OK', {
+        duration: 4000,
+      });
     }
   }
 
@@ -261,14 +323,21 @@ export class FamilyChores {
     const result = await this.openEditor(chore);
     if (!result) return;
     try {
-      const board = await firstValueFrom(this.api.patchFamilyChore(chore.id, {
-        title: result.title, assignedToUserId: result.assignedToUserId,
-        points: result.points, recurrence: result.recurrence,
-        source: result.source, creditValue: result.creditValue,
-      }));
+      const board = await firstValueFrom(
+        this.api.patchFamilyChore(chore.id, {
+          title: result.title,
+          assignedToUserId: result.assignedToUserId,
+          points: result.points,
+          recurrence: result.recurrence,
+          source: result.source,
+          creditValue: result.creditValue,
+        }),
+      );
       this.apply(board);
     } catch (e) {
-      this.snack.open(this.messageOf(e, "Couldn't save that chore. Please try again."), 'OK', { duration: 4000 });
+      this.snack.open(this.messageOf(e, "Couldn't save that chore. Please try again."), 'OK', {
+        duration: 4000,
+      });
     }
   }
 
@@ -279,21 +348,33 @@ export class FamilyChores {
 
   /** A kid claims an open marketplace chore. */
   async claim(chore: FamilyChore): Promise<void> {
-    await this.runChoreAction(chore, () => this.api.claimFamilyChore(chore.id),
-      'Claimed! It’s yours now 🙌', "Couldn't claim that chore.");
+    await this.runChoreAction(
+      chore,
+      () => this.api.claimFamilyChore(chore.id),
+      'Claimed! It’s yours now 🙌',
+      "Couldn't claim that chore.",
+    );
   }
 
   /** A kid marks their claimed/assigned chore done → it goes to a parent for approval. */
   async submit(chore: FamilyChore): Promise<void> {
-    await this.runChoreAction(chore, () => this.api.submitFamilyChore(chore.id),
-      'Sent for approval ✅', "Couldn't submit that chore.");
+    await this.runChoreAction(
+      chore,
+      () => this.api.submitFamilyChore(chore.id),
+      'Sent for approval ✅',
+      "Couldn't submit that chore.",
+    );
   }
 
   /** A parent approves a submitted chore → credits are awarded to the child. */
   async approve(chore: FamilyChore): Promise<void> {
     const credit = chore.creditValue > 0 ? ` ${this.money(chore.creditValue)} earned 💰` : '';
-    await this.runChoreAction(chore, () => this.api.approveFamilyChore(chore.id),
-      `Approved!${credit}`, "Couldn't approve that chore.");
+    await this.runChoreAction(
+      chore,
+      () => this.api.approveFamilyChore(chore.id),
+      `Approved!${credit}`,
+      "Couldn't approve that chore.",
+    );
   }
 
   /** A parent rejects a submitted chore → it goes back to the child to retry (awards nothing). */
@@ -303,14 +384,21 @@ export class FamilyChores {
       message: `“${chore.title}” will go back to ${chore.claimedByName ?? chore.assignedToName ?? 'the child'} to try again. Nothing is awarded.`,
     });
     if (!ok) return;
-    await this.runChoreAction(chore, () => this.api.rejectFamilyChore(chore.id),
-      'Sent back to try again.', "Couldn't reject that chore.");
+    await this.runChoreAction(
+      chore,
+      () => this.api.rejectFamilyChore(chore.id),
+      'Sent back to try again.',
+      "Couldn't reject that chore.",
+    );
   }
 
   /** Shared action runner: lock the row, call the endpoint, apply the refreshed board, toast the outcome. */
   private async runChoreAction(
-    chore: FamilyChore, call: () => Observable<FamilyChoresDto>,
-    okMsg: string, failMsg: string): Promise<void> {
+    chore: FamilyChore,
+    call: () => Observable<FamilyChoresDto>,
+    okMsg: string,
+    failMsg: string,
+  ): Promise<void> {
     if (this.busyId() != null) return;
     this.busyId.set(chore.id);
     try {
@@ -347,7 +435,10 @@ export class FamilyChores {
   /** Open a given assist sheet (toggles closed if already open). Switching sheets clears the prior review. */
   togglePanel(panel: Exclude<AiPanel, null>): void {
     if (this.aiBusy() || this.aiApplying()) return;
-    if (this.aiPanel() === panel) { this.aiPanel.set(null); return; }
+    if (this.aiPanel() === panel) {
+      this.aiPanel.set(null);
+      return;
+    }
     this.aiPanel.set(panel);
     this.aiStatus.set('');
     // Don't carry one sheet's staged rows into another.
@@ -366,7 +457,7 @@ export class FamilyChores {
     this.suggestRows.set([]);
     try {
       const result = await firstValueFrom(this.api.suggestChoresAi({ ages: this.parseAges() }));
-      const rows = (result.suggestions ?? []).map(s => ({
+      const rows = (result.suggestions ?? []).map((s) => ({
         key: ++this.suggestKey,
         title: s.title,
         points: s.points,
@@ -374,11 +465,18 @@ export class FamilyChores {
         ageHint: s.ageHint,
       }));
       this.suggestRows.set(rows);
-      this.aiStatus.set(rows.length === 0
-        ? "I couldn't think of new chores just now. Please try again."
-        : `Review ${rows.length === 1 ? 'this chore' : `these ${rows.length} chores`}, tweak anything, then add them.`);
+      this.aiStatus.set(
+        rows.length === 0
+          ? "I couldn't think of new chores just now. Please try again."
+          : `Review ${rows.length === 1 ? 'this chore' : `these ${rows.length} chores`}, tweak anything, then add them.`,
+      );
     } catch (e) {
-      this.aiStatus.set(this.aiError(e, "I couldn't reach the AI just now. Please try again, or add chores manually."));
+      this.aiStatus.set(
+        this.aiError(
+          e,
+          "I couldn't reach the AI just now. Please try again, or add chores manually.",
+        ),
+      );
     } finally {
       this.aiBusy.set(false);
     }
@@ -393,22 +491,26 @@ export class FamilyChores {
   private parseAges(): number[] {
     return this.suggestAges()
       .split(/[,\s]+/)
-      .map(s => parseInt(s, 10))
-      .filter(n => Number.isFinite(n) && n >= 0 && n <= 120);
+      .map((s) => parseInt(s, 10))
+      .filter((n) => Number.isFinite(n) && n >= 0 && n <= 120);
   }
 
   setSuggestTitle(row: SuggestRow, title: string): void {
-    this.suggestRows.set(this.suggestRows().map(r => r.key === row.key ? { ...r, title } : r));
+    this.suggestRows.set(this.suggestRows().map((r) => (r.key === row.key ? { ...r, title } : r)));
   }
   setSuggestPoints(row: SuggestRow, points: number): void {
     const p = Math.max(0, Math.min(1000, Math.round(points || 0)));
-    this.suggestRows.set(this.suggestRows().map(r => r.key === row.key ? { ...r, points: p } : r));
+    this.suggestRows.set(
+      this.suggestRows().map((r) => (r.key === row.key ? { ...r, points: p } : r)),
+    );
   }
   setSuggestRecurrence(row: SuggestRow, recurrence: FamilyChoreRecurrence): void {
-    this.suggestRows.set(this.suggestRows().map(r => r.key === row.key ? { ...r, recurrence } : r));
+    this.suggestRows.set(
+      this.suggestRows().map((r) => (r.key === row.key ? { ...r, recurrence } : r)),
+    );
   }
   removeSuggestRow(row: SuggestRow): void {
-    this.suggestRows.set(this.suggestRows().filter(r => r.key !== row.key));
+    this.suggestRows.set(this.suggestRows().filter((r) => r.key !== row.key));
   }
   clearSuggest(): void {
     this.suggestRows.set([]);
@@ -430,11 +532,18 @@ export class FamilyChores {
     const failed: SuggestRow[] = [];
     for (const row of rows) {
       const title = row.title.trim();
-      if (!title) { failed.push(row); continue; }
+      if (!title) {
+        failed.push(row);
+        continue;
+      }
       try {
-        lastBoard = await firstValueFrom(this.api.createFamilyChore({
-          title, points: row.points, recurrence: row.recurrence,
-        }));
+        lastBoard = await firstValueFrom(
+          this.api.createFamilyChore({
+            title,
+            points: row.points,
+            recurrence: row.recurrence,
+          }),
+        );
         added++;
       } catch {
         failed.push(row);
@@ -457,43 +566,54 @@ export class FamilyChores {
     this.balanceRows.set([]);
     try {
       const result = await firstValueFrom(this.api.balanceChoresAi());
-      const byId = new Map(this.chores().map(c => [c.id, c]));
-      const rows: BalanceRow[] = (result.assignments ?? []).map(a => {
-        const chore = byId.get(a.choreId);
-        return {
-          choreId: a.choreId,
-          title: chore?.title ?? 'Chore',
-          assignedToUserId: a.assignedToUserId,
-          assignedToName: a.assignedToName,
-          currentName: chore?.assignedToName ?? null,
-          accept: true,
-        };
-      // Only show rows where the assignee actually changes (no-op proposals add nothing).
-      }).filter(r => byId.get(r.choreId)?.assignedToUserId !== r.assignedToUserId);
+      const byId = new Map(this.chores().map((c) => [c.id, c]));
+      const rows: BalanceRow[] = (result.assignments ?? [])
+        .map((a) => {
+          const chore = byId.get(a.choreId);
+          return {
+            choreId: a.choreId,
+            title: chore?.title ?? 'Chore',
+            assignedToUserId: a.assignedToUserId,
+            assignedToName: a.assignedToName,
+            currentName: chore?.assignedToName ?? null,
+            accept: true,
+          };
+          // Only show rows where the assignee actually changes (no-op proposals add nothing).
+        })
+        .filter((r) => byId.get(r.choreId)?.assignedToUserId !== r.assignedToUserId);
       this.balanceRows.set(rows);
-      this.aiStatus.set(rows.length === 0
-        ? 'Looks balanced already — no changes to suggest.'
-        : `Review ${rows.length === 1 ? 'this assignment' : `these ${rows.length} assignments`}, then apply the ones you like.`);
+      this.aiStatus.set(
+        rows.length === 0
+          ? 'Looks balanced already — no changes to suggest.'
+          : `Review ${rows.length === 1 ? 'this assignment' : `these ${rows.length} assignments`}, then apply the ones you like.`,
+      );
     } catch (e) {
-      this.aiStatus.set(this.aiError(e, "I couldn't reach the AI just now. Please try again, or assign chores manually."));
+      this.aiStatus.set(
+        this.aiError(
+          e,
+          "I couldn't reach the AI just now. Please try again, or assign chores manually.",
+        ),
+      );
     } finally {
       this.aiBusy.set(false);
     }
   }
 
   toggleBalanceRow(row: BalanceRow): void {
-    this.balanceRows.set(this.balanceRows().map(r => r.choreId === row.choreId ? { ...r, accept: !r.accept } : r));
+    this.balanceRows.set(
+      this.balanceRows().map((r) => (r.choreId === row.choreId ? { ...r, accept: !r.accept } : r)),
+    );
   }
   clearBalance(): void {
     this.balanceRows.set([]);
     this.aiStatus.set('');
   }
   /** Count of accepted balance rows (drives the Apply button's label/disabled state). */
-  readonly balanceAcceptedCount = computed(() => this.balanceRows().filter(r => r.accept).length);
+  readonly balanceAcceptedCount = computed(() => this.balanceRows().filter((r) => r.accept).length);
 
   /** "Apply" — PATCH each accepted assignment. Partial-failure aware (failed rows stay, accepted). */
   async applyBalance(): Promise<void> {
-    const rows = this.balanceRows().filter(r => r.accept);
+    const rows = this.balanceRows().filter((r) => r.accept);
     if (this.aiApplying() || rows.length === 0) return;
     this.aiApplying.set(true);
     this.aiStatus.set('Applying assignments…');
@@ -503,9 +623,11 @@ export class FamilyChores {
     const failed: BalanceRow[] = [];
     for (const row of rows) {
       try {
-        lastBoard = await firstValueFrom(this.api.patchFamilyChore(row.choreId, {
-          assignedToUserId: row.assignedToUserId,
-        }));
+        lastBoard = await firstValueFrom(
+          this.api.patchFamilyChore(row.choreId, {
+            assignedToUserId: row.assignedToUserId,
+          }),
+        );
         applied++;
       } catch {
         failed.push(row);
@@ -513,7 +635,7 @@ export class FamilyChores {
     }
 
     // Keep the skipped rows (accept=false) plus any that failed, so the user can retry the failures.
-    const skipped = this.balanceRows().filter(r => !r.accept);
+    const skipped = this.balanceRows().filter((r) => !r.accept);
     this.balanceRows.set([...failed, ...skipped]);
     this.aiApplying.set(false);
     if (lastBoard) this.apply(lastBoard);
@@ -530,39 +652,50 @@ export class FamilyChores {
     this.valueRows.set([]);
     try {
       const result = await firstValueFrom(this.api.suggestChoreValuesAi());
-      const byId = new Map(this.chores().map(c => [c.id, c]));
-      const rows: ValueRow[] = (result.values ?? []).map(v => ({
-        choreId: v.choreId,
-        title: byId.get(v.choreId)?.title ?? 'Chore',
-        current: byId.get(v.choreId)?.points ?? 0,
-        points: v.points,
-        accept: true,
-      // Only show rows where the value actually changes.
-      })).filter(r => r.current !== r.points);
+      const byId = new Map(this.chores().map((c) => [c.id, c]));
+      const rows: ValueRow[] = (result.values ?? [])
+        .map((v) => ({
+          choreId: v.choreId,
+          title: byId.get(v.choreId)?.title ?? 'Chore',
+          current: byId.get(v.choreId)?.points ?? 0,
+          points: v.points,
+          accept: true,
+          // Only show rows where the value actually changes.
+        }))
+        .filter((r) => r.current !== r.points);
       this.valueRows.set(rows);
-      this.aiStatus.set(rows.length === 0
-        ? 'These star values look about right — nothing to change.'
-        : `Review ${rows.length === 1 ? 'this value' : `these ${rows.length} values`}, then apply the ones you like.`);
+      this.aiStatus.set(
+        rows.length === 0
+          ? 'These star values look about right — nothing to change.'
+          : `Review ${rows.length === 1 ? 'this value' : `these ${rows.length} values`}, then apply the ones you like.`,
+      );
     } catch (e) {
-      this.aiStatus.set(this.aiError(e, "I couldn't reach the AI just now. Please try again, or set stars manually."));
+      this.aiStatus.set(
+        this.aiError(
+          e,
+          "I couldn't reach the AI just now. Please try again, or set stars manually.",
+        ),
+      );
     } finally {
       this.aiBusy.set(false);
     }
   }
 
   toggleValueRow(row: ValueRow): void {
-    this.valueRows.set(this.valueRows().map(r => r.choreId === row.choreId ? { ...r, accept: !r.accept } : r));
+    this.valueRows.set(
+      this.valueRows().map((r) => (r.choreId === row.choreId ? { ...r, accept: !r.accept } : r)),
+    );
   }
   clearValues(): void {
     this.valueRows.set([]);
     this.aiStatus.set('');
   }
   /** Count of accepted value rows (drives the Apply button). */
-  readonly valuesAcceptedCount = computed(() => this.valueRows().filter(r => r.accept).length);
+  readonly valuesAcceptedCount = computed(() => this.valueRows().filter((r) => r.accept).length);
 
   /** "Apply" — PATCH each accepted point value. Partial-failure aware. */
   async applyValues(): Promise<void> {
-    const rows = this.valueRows().filter(r => r.accept);
+    const rows = this.valueRows().filter((r) => r.accept);
     if (this.aiApplying() || rows.length === 0) return;
     this.aiApplying.set(true);
     this.aiStatus.set('Updating stars…');
@@ -572,14 +705,16 @@ export class FamilyChores {
     const failed: ValueRow[] = [];
     for (const row of rows) {
       try {
-        lastBoard = await firstValueFrom(this.api.patchFamilyChore(row.choreId, { points: row.points }));
+        lastBoard = await firstValueFrom(
+          this.api.patchFamilyChore(row.choreId, { points: row.points }),
+        );
         applied++;
       } catch {
         failed.push(row);
       }
     }
 
-    const skipped = this.valueRows().filter(r => !r.accept);
+    const skipped = this.valueRows().filter((r) => !r.accept);
     this.valueRows.set([...failed, ...skipped]);
     this.aiApplying.set(false);
     if (lastBoard) this.apply(lastBoard);
@@ -599,14 +734,19 @@ export class FamilyChores {
       this.aiStatus.set('');
       this.aiPanel.set(null);
       if (done > 0) {
-        this.snack.open(`${done} ${done === 1 ? noun : noun + 's'} ${verb} ✨`, undefined, { duration: 2600 });
+        this.snack.open(`${done} ${done === 1 ? noun : noun + 's'} ${verb} ✨`, undefined, {
+          duration: 2600,
+        });
         this.loadSummary();
       }
     } else if (done === 0) {
-      this.aiStatus.set(`Couldn't ${verb === 'added' ? 'add' : 'apply'} those just now. Please try again.`);
+      this.aiStatus.set(
+        `Couldn't ${verb === 'added' ? 'add' : 'apply'} those just now. Please try again.`,
+      );
     } else {
       this.aiStatus.set(
-        `${verb === 'added' ? 'Added' : 'Applied'} ${done}. ${failed} couldn't be ${verb} — review the remaining ${failed === 1 ? 'one' : 'rows'} and try again.`);
+        `${verb === 'added' ? 'Added' : 'Applied'} ${done}. ${failed} couldn't be ${verb} — review the remaining ${failed === 1 ? 'one' : 'rows'} and try again.`,
+      );
     }
   }
 
@@ -618,15 +758,25 @@ export class FamilyChores {
   }
 
   private openEditor(chore: FamilyChore | null): Promise<ChoreEditorResult | undefined> {
-    const ref = this.dialog.open<ChoreEditorDialog, ChoreEditorData, ChoreEditorResult>(ChoreEditorDialog, {
-      data: { chore, members: this.members() }, width: '460px', maxWidth: '94vw', autoFocus: false, panelClass: 'family-dialog',
-    });
+    const ref = this.dialog.open<ChoreEditorDialog, ChoreEditorData, ChoreEditorResult>(
+      ChoreEditorDialog,
+      {
+        data: { chore, members: this.members() },
+        width: '460px',
+        maxWidth: '94vw',
+        autoFocus: false,
+        panelClass: 'family-dialog',
+      },
+    );
     return firstValueFrom(ref.afterClosed());
   }
 
   private confirm(data: ConfirmData): Promise<boolean | undefined> {
     const ref = this.dialog.open<FamilyConfirmDialog, ConfirmData, boolean>(FamilyConfirmDialog, {
-      data, width: '420px', maxWidth: '92vw', panelClass: 'family-dialog',
+      data,
+      width: '420px',
+      maxWidth: '92vw',
+      panelClass: 'family-dialog',
     });
     return firstValueFrom(ref.afterClosed());
   }

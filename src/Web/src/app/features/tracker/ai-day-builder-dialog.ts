@@ -1,4 +1,4 @@
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal, ChangeDetectionStrategy } from '@angular/core';
 import { DecimalPipe, LowerCasePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { firstValueFrom } from 'rxjs';
@@ -16,8 +16,20 @@ import { TextFieldModule } from '@angular/cdk/text-field';
 import { Api } from '../../core/api';
 import { AuthService } from '../../core/auth';
 import {
-  BuildDayResponse, ClarifyAnswer, ClarifyQuestion, DayDraft, DraftActivity, DraftDrink, DraftExercise,
-  DraftFood, DraftWeight, ImageRequest, Meal, MealDraft, PERM, UnitSystem,
+  BuildDayResponse,
+  ClarifyAnswer,
+  ClarifyQuestion,
+  DayDraft,
+  DraftActivity,
+  DraftDrink,
+  DraftExercise,
+  DraftFood,
+  DraftWeight,
+  ImageRequest,
+  Meal,
+  MealDraft,
+  PERM,
+  UnitSystem,
 } from '../../core/models';
 import { captureImage, pickImage, confirmPhotoNotice } from './ai-image';
 import { mlToOz, ozToMl, kgToLb, lbToKg, metersToMiles, milesToMeters } from './units';
@@ -40,7 +52,11 @@ export type AiDayBuilderResult = { draft: DayDraft; buildId: string } | undefine
 type Phase = 'input' | 'loading' | 'questions' | 'review' | 'committing' | 'done';
 
 /** A meal slot for the review groups, in dashboard order. */
-interface ReviewMeal { meal: Meal; label: string; icon: string }
+interface ReviewMeal {
+  meal: Meal;
+  label: string;
+  icon: string;
+}
 
 const REVIEW_MEALS: ReviewMeal[] = [
   { meal: 'breakfast', label: 'Breakfast', icon: 'bakery_dining' },
@@ -79,10 +95,20 @@ const WEIGHT_SLOTS: { value: string; label: string }[] = [
 @Component({
   selector: 'app-ai-day-builder-dialog',
   imports: [
-    DecimalPipe, LowerCasePipe, FormsModule, MatDialogModule, MatFormFieldModule, MatInputModule,
-    MatButtonModule, MatIconModule, MatProgressSpinnerModule, MatTooltipModule, TextFieldModule,
+    DecimalPipe,
+    LowerCasePipe,
+    FormsModule,
+    MatDialogModule,
+    MatFormFieldModule,
+    MatInputModule,
+    MatButtonModule,
+    MatIconModule,
+    MatProgressSpinnerModule,
+    MatTooltipModule,
+    TextFieldModule,
   ],
   templateUrl: './ai-day-builder-dialog.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrl: './ai-day-builder-dialog.scss',
 })
 export class AiDayBuilderDialog {
@@ -110,7 +136,8 @@ export class AiDayBuilderDialog {
   readonly dateHeading = computed(() => {
     const d = new Date(this.data.date + 'T00:00:00');
     if (isNaN(d.getTime())) return this.data.date;
-    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
     const diff = Math.round((d.getTime() - today.getTime()) / 86_400_000);
     if (diff === 0) return 'Today';
     if (diff === -1) return 'Yesterday';
@@ -120,12 +147,18 @@ export class AiDayBuilderDialog {
   /** The per-phase dialog title (also drives the sr heading). */
   readonly phaseTitle = computed(() => {
     switch (this.phase()) {
-      case 'questions': return 'A few quick questions';
-      case 'review': return 'Review your day';
-      case 'committing': return 'Logging your day…';
-      case 'done': return 'Logged';
-      case 'loading': return 'Building your day…';
-      default: return 'Tell me about your day';
+      case 'questions':
+        return 'A few quick questions';
+      case 'review':
+        return 'Review your day';
+      case 'committing':
+        return 'Logging your day…';
+      case 'done':
+        return 'Logged';
+      case 'loading':
+        return 'Building your day…';
+      default:
+        return 'Tell me about your day';
     }
   });
 
@@ -175,14 +208,16 @@ export class AiDayBuilderDialog {
     try {
       const img = await source();
       if (!img) return;
-      this.photos.update(p => (p.length >= MAX_PHOTOS ? p : [...p, img]));
+      this.photos.update((p) => (p.length >= MAX_PHOTOS ? p : [...p, img]));
     } catch (e) {
-      this.snack.open(e instanceof Error ? e.message : 'Could not read the image.', 'OK', { duration: 4000 });
+      this.snack.open(e instanceof Error ? e.message : 'Could not read the image.', 'OK', {
+        duration: 4000,
+      });
     }
   }
 
   removePhoto(index: number): void {
-    this.photos.update(p => p.filter((_, i) => i !== index));
+    this.photos.update((p) => p.filter((_, i) => i !== index));
   }
 
   /** A thumbnail data URL for a chosen photo chip. */
@@ -201,19 +236,25 @@ export class AiDayBuilderDialog {
     if (!this.canBuild() || this.phase() === 'loading') return;
     this.toLoading('Building your day with AI. This can take a few seconds.');
     try {
-      const res = await firstValueFrom(this.api.buildDay({
-        text: this.text().trim() || undefined,
-        date: this.data.date,
-        localTimeOfDay: this.localTimeOfDay(),
-        images: this.photos().length ? this.photos() : undefined,
-      }));
+      const res = await firstValueFrom(
+        this.api.buildDay({
+          text: this.text().trim() || undefined,
+          date: this.data.date,
+          localTimeOfDay: this.localTimeOfDay(),
+          images: this.photos().length ? this.photos() : undefined,
+        }),
+      );
       this.applyBuild(res);
     } catch {
       // AI unavailable / transient: return to the input screen WITHOUT closing — text() + photos() are
       // untouched, so nothing the user typed is lost and they can try again (or fill it in manually).
       this.phase.set('input');
-      this.announce.set('AI is unavailable right now — your summary is still here. Try again in a moment.');
-      this.snack.open('AI is unavailable right now — your summary is saved here, try again', 'OK', { duration: 6000 });
+      this.announce.set(
+        'AI is unavailable right now — your summary is still here. Try again in a moment.',
+      );
+      this.snack.open('AI is unavailable right now — your summary is saved here, try again', 'OK', {
+        duration: 6000,
+      });
     }
   }
 
@@ -225,33 +266,35 @@ export class AiDayBuilderDialog {
   }
 
   setAnswer(questionId: string, value: string): void {
-    this.answers.update(a => ({ ...a, [questionId]: value }));
+    this.answers.update((a) => ({ ...a, [questionId]: value }));
   }
 
   /** Clear a question's answer (the explicit "Skip" — server treats blank as best-guess). */
   skipQuestion(questionId: string): void {
-    this.answers.update(a => ({ ...a, [questionId]: '' }));
+    this.answers.update((a) => ({ ...a, [questionId]: '' }));
   }
 
   /** Refine: re-POST with the prior draft + the answers (TEXT-ONLY — photos are never resent). */
   async refine(): Promise<void> {
     const prior = this.draft();
     if (!prior || this.phase() === 'loading') return;
-    const answers: ClarifyAnswer[] = this.questions().map(q => ({
+    const answers: ClarifyAnswer[] = this.questions().map((q) => ({
       questionId: q.questionId,
       questionText: q.text,
       answer: (this.answers()[q.questionId] ?? '').trim(),
     }));
     this.toLoading('Refining your day with AI…');
     try {
-      const res = await firstValueFrom(this.api.buildDay({
-        text: this.text().trim() || undefined,
-        date: this.data.date,
-        localTimeOfDay: this.localTimeOfDay(),
-        images: [],
-        priorDraft: prior,
-        answers,
-      }));
+      const res = await firstValueFrom(
+        this.api.buildDay({
+          text: this.text().trim() || undefined,
+          date: this.data.date,
+          localTimeOfDay: this.localTimeOfDay(),
+          images: [],
+          priorDraft: prior,
+          answers,
+        }),
+      );
       this.applyBuild(res);
     } catch {
       // Refine failure: never dead-end — drop straight to review with the draft we already have.
@@ -271,7 +314,7 @@ export class AiDayBuilderDialog {
 
   /** The draft's foods for one meal (empty when the meal isn't in the draft yet). */
   foodsFor(meal: Meal): DraftFood[] {
-    return this.draft()?.meals.find(m => m.meal === meal)?.items ?? [];
+    return this.draft()?.meals.find((m) => m.meal === meal)?.items ?? [];
   }
 
   /** Mutate the draft immutably via a recipe over a shallow clone. */
@@ -285,30 +328,41 @@ export class AiDayBuilderDialog {
 
   /** Ensure a meal group exists in the draft and return it (for adds). */
   private ensureMeal(d: DayDraft, meal: Meal): MealDraft {
-    let m = d.meals.find(x => x.meal === meal);
-    if (!m) { m = { meal, items: [] }; d.meals.push(m); }
+    let m = d.meals.find((x) => x.meal === meal);
+    if (!m) {
+      m = { meal, items: [] };
+      d.meals.push(m);
+    }
     return m;
   }
 
   // -- food edits --
   setFood(meal: Meal, index: number, patch: Partial<DraftFood>): void {
-    this.patchDraft(d => {
-      const m = d.meals.find(x => x.meal === meal);
+    this.patchDraft((d) => {
+      const m = d.meals.find((x) => x.meal === meal);
       if (m && m.items[index]) Object.assign(m.items[index], patch);
     });
   }
 
   addFood(meal: Meal): void {
-    this.patchDraft(d => {
+    this.patchDraft((d) => {
       const m = this.ensureMeal(d, meal);
       if (m.items.length >= MAX_FOODS_PER_MEAL) return;
-      m.items.push({ description: '', calories: 0, proteinG: 0, carbG: 0, fatG: 0, confidence: 1, clamped: false });
+      m.items.push({
+        description: '',
+        calories: 0,
+        proteinG: 0,
+        carbG: 0,
+        fatG: 0,
+        confidence: 1,
+        clamped: false,
+      });
     });
   }
 
   removeFood(meal: Meal, index: number): void {
-    this.patchDraft(d => {
-      const m = d.meals.find(x => x.meal === meal);
+    this.patchDraft((d) => {
+      const m = d.meals.find((x) => x.meal === meal);
       if (m) m.items.splice(index, 1);
     });
   }
@@ -321,8 +375,8 @@ export class AiDayBuilderDialog {
    *  ate it. Moves the item between the draft's meal groups; no-ops if the target slot is already full. */
   moveFood(fromMeal: Meal, index: number, toMeal: Meal): void {
     if (fromMeal === toMeal) return;
-    this.patchDraft(d => {
-      const from = d.meals.find(x => x.meal === fromMeal);
+    this.patchDraft((d) => {
+      const from = d.meals.find((x) => x.meal === fromMeal);
       const food = from?.items[index];
       if (!from || !food) return;
       const to = this.ensureMeal(d, toMeal);
@@ -336,18 +390,28 @@ export class AiDayBuilderDialog {
   readonly exercises = computed<DraftExercise[]>(() => this.draft()?.exercises ?? []);
 
   setExercise(index: number, patch: Partial<DraftExercise>): void {
-    this.patchDraft(d => { if (d.exercises[index]) Object.assign(d.exercises[index], patch); });
+    this.patchDraft((d) => {
+      if (d.exercises[index]) Object.assign(d.exercises[index], patch);
+    });
   }
 
   addExercise(): void {
-    this.patchDraft(d => {
+    this.patchDraft((d) => {
       if (d.exercises.length >= MAX_EXERCISES) return;
-      d.exercises.push({ name: '', durationMin: null, caloriesBurned: 0, confidence: 1, clamped: false });
+      d.exercises.push({
+        name: '',
+        durationMin: null,
+        caloriesBurned: 0,
+        confidence: 1,
+        clamped: false,
+      });
     });
   }
 
   removeExercise(index: number): void {
-    this.patchDraft(d => { d.exercises.splice(index, 1); });
+    this.patchDraft((d) => {
+      d.exercises.splice(index, 1);
+    });
   }
 
   readonly canAddExercise = computed(() => this.exercises().length < MAX_EXERCISES);
@@ -363,22 +427,28 @@ export class AiDayBuilderDialog {
   /** Set a drink's amount from a display value (oz/ml), clamping to the server's 1..5000 ml range. */
   setDrinkAmount(index: number, disp: number | null): void {
     const ml = disp == null || disp <= 0 ? 0 : Math.round(this.imperial ? ozToMl(disp) : disp);
-    this.patchDraft(d => { if (d.hydration[index]) d.hydration[index].ml = Math.min(5000, Math.max(0, ml)); });
+    this.patchDraft((d) => {
+      if (d.hydration[index]) d.hydration[index].ml = Math.min(5000, Math.max(0, ml));
+    });
   }
 
   setDrinkLabel(index: number, label: string): void {
-    this.patchDraft(d => { if (d.hydration[index]) d.hydration[index].label = label; });
+    this.patchDraft((d) => {
+      if (d.hydration[index]) d.hydration[index].label = label;
+    });
   }
 
   addDrink(): void {
-    this.patchDraft(d => {
+    this.patchDraft((d) => {
       if (d.hydration.length >= MAX_DRINKS) return;
       d.hydration.push({ label: 'Water', ml: this.imperial ? Math.round(ozToMl(8)) : 250 });
     });
   }
 
   removeDrink(index: number): void {
-    this.patchDraft(d => { d.hydration.splice(index, 1); });
+    this.patchDraft((d) => {
+      d.hydration.splice(index, 1);
+    });
   }
 
   readonly canAddDrink = computed(() => this.drinks().length < MAX_DRINKS);
@@ -390,28 +460,39 @@ export class AiDayBuilderDialog {
   weightDisp(): number | null {
     const w = this.weight();
     if (!w) return null;
-    return this.imperial ? Math.round(kgToLb(w.weightKg) * 10) / 10 : Math.round(w.weightKg * 10) / 10;
+    return this.imperial
+      ? Math.round(kgToLb(w.weightKg) * 10) / 10
+      : Math.round(w.weightKg * 10) / 10;
   }
 
   setWeightDisp(disp: number | null): void {
     if (disp == null || disp <= 0) return;
     const kg = this.imperial ? lbToKg(disp) : disp;
-    this.patchDraft(d => {
+    this.patchDraft((d) => {
       const clamped = Math.min(1000, Math.max(1, Math.round(kg * 100) / 100));
       d.weight = { weightKg: clamped, slot: d.weight?.slot ?? 'unspecified' };
     });
   }
 
   setWeightSlot(slot: string): void {
-    this.patchDraft(d => { if (d.weight) d.weight.slot = slot; });
+    this.patchDraft((d) => {
+      if (d.weight) d.weight.slot = slot;
+    });
   }
 
   addWeight(): void {
-    this.patchDraft(d => { d.weight = { weightKg: this.imperial ? Math.round(lbToKg(150) * 100) / 100 : 70, slot: 'unspecified' }; });
+    this.patchDraft((d) => {
+      d.weight = {
+        weightKg: this.imperial ? Math.round(lbToKg(150) * 100) / 100 : 70,
+        slot: 'unspecified',
+      };
+    });
   }
 
   removeWeight(): void {
-    this.patchDraft(d => { d.weight = null; });
+    this.patchDraft((d) => {
+      d.weight = null;
+    });
   }
 
   // -- activity edits --
@@ -421,40 +502,62 @@ export class AiDayBuilderDialog {
   activityDistanceDisp(): number | null {
     const a = this.activity();
     if (!a || a.distanceMeters == null) return null;
-    return this.imperial ? Math.round(metersToMiles(a.distanceMeters) * 10) / 10 : Math.round((a.distanceMeters / 1000) * 10) / 10;
+    return this.imperial
+      ? Math.round(metersToMiles(a.distanceMeters) * 10) / 10
+      : Math.round((a.distanceMeters / 1000) * 10) / 10;
   }
 
   setActivityField(patch: Partial<DraftActivity>): void {
-    this.patchDraft(d => {
-      const base: DraftActivity = d.activity ?? { steps: null, distanceMeters: null, activeCalories: null, calorieMode: 'add' };
+    this.patchDraft((d) => {
+      const base: DraftActivity = d.activity ?? {
+        steps: null,
+        distanceMeters: null,
+        activeCalories: null,
+        calorieMode: 'add',
+      };
       d.activity = { ...base, ...patch };
     });
   }
 
   /** Set the activity distance from a display value (mi/km) → metres. */
   setActivityDistance(disp: number | null): void {
-    const meters = disp == null || disp < 0 ? null : Math.round(this.imperial ? milesToMeters(disp) : disp * 1000);
+    const meters =
+      disp == null || disp < 0
+        ? null
+        : Math.round(this.imperial ? milesToMeters(disp) : disp * 1000);
     this.setActivityField({ distanceMeters: meters });
   }
 
   addActivity(): void {
-    this.patchDraft(d => { d.activity = { steps: null, distanceMeters: null, activeCalories: null, calorieMode: 'add' }; });
+    this.patchDraft((d) => {
+      d.activity = { steps: null, distanceMeters: null, activeCalories: null, calorieMode: 'add' };
+    });
   }
 
   removeActivity(): void {
-    this.patchDraft(d => { d.activity = null; });
+    this.patchDraft((d) => {
+      d.activity = null;
+    });
   }
 
   // ---- running tally (recomputed client-side on every edit) ----
   readonly tally = computed(() => {
     const d = this.draft();
     if (!d) return { calIn: 0, calOut: 0, protein: 0 };
-    let calIn = 0, protein = 0;
-    for (const m of d.meals) for (const f of m.items) { calIn += f.calories || 0; protein += f.proteinG || 0; }
+    let calIn = 0,
+      protein = 0;
+    for (const m of d.meals)
+      for (const f of m.items) {
+        calIn += f.calories || 0;
+        protein += f.proteinG || 0;
+      }
     let calOut = 0;
     for (const e of d.exercises) calOut += e.caloriesBurned || 0;
     if (d.activity?.activeCalories != null) {
-      calOut = d.activity.calorieMode === 'override' ? d.activity.activeCalories : calOut + d.activity.activeCalories;
+      calOut =
+        d.activity.calorieMode === 'override'
+          ? d.activity.activeCalories
+          : calOut + d.activity.activeCalories;
     }
     return { calIn: Math.round(calIn), calOut: Math.round(calOut), protein: Math.round(protein) };
   });
@@ -463,12 +566,15 @@ export class AiDayBuilderDialog {
   readonly hasAnything = computed(() => {
     const d = this.draft();
     if (!d) return false;
-    const foods = d.meals.some(m => m.items.some(i => i.description.trim().length > 0));
-    const ex = d.exercises.some(e => e.name.trim().length > 0);
-    const drinks = d.hydration.some(h => h.ml >= 1);
+    const foods = d.meals.some((m) => m.items.some((i) => i.description.trim().length > 0));
+    const ex = d.exercises.some((e) => e.name.trim().length > 0);
+    const drinks = d.hydration.some((h) => h.ml >= 1);
     const hasWeight = d.weight != null && d.weight.weightKg >= 1;
-    const hasActivity = d.activity != null &&
-      ((d.activity.steps ?? 0) > 0 || (d.activity.distanceMeters ?? 0) > 0 || (d.activity.activeCalories ?? 0) > 0);
+    const hasActivity =
+      d.activity != null &&
+      ((d.activity.steps ?? 0) > 0 ||
+        (d.activity.distanceMeters ?? 0) > 0 ||
+        (d.activity.activeCalories ?? 0) > 0);
     return foods || ex || drinks || hasWeight || hasActivity;
   });
 
@@ -518,7 +624,9 @@ export class AiDayBuilderDialog {
 
   private toReview(): void {
     this.phase.set('review');
-    this.announce.set('Your day is ready to review. Edit anything, then log it — nothing is logged yet.');
+    this.announce.set(
+      'Your day is ready to review. Edit anything, then log it — nothing is logged yet.',
+    );
   }
 
   /** Apply a build response: store its draft/questions/round, then route to questions or review. */
@@ -531,7 +639,7 @@ export class AiDayBuilderDialog {
     const questions = res.questions ?? [];
     // Seed answer slots for any new questions (preserve prior answers by id).
     if (questions.length) {
-      this.answers.update(a => {
+      this.answers.update((a) => {
         const next = { ...a };
         for (const q of questions) if (!(q.questionId in next)) next[q.questionId] = '';
         return next;
@@ -542,7 +650,9 @@ export class AiDayBuilderDialog {
     if (questions.length > 0 && res.round < MAX_ROUNDS) {
       this.questions.set(questions);
       this.phase.set('questions');
-      this.announce.set(`AI has ${questions.length} quick question${questions.length === 1 ? '' : 's'}. Answer or skip, then refine.`);
+      this.announce.set(
+        `AI has ${questions.length} quick question${questions.length === 1 ? '' : 's'}. Answer or skip, then refine.`,
+      );
     } else {
       this.questions.set([]);
       this.toReview();

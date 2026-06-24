@@ -1,4 +1,4 @@
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal, ChangeDetectionStrategy } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { HttpErrorResponse } from '@angular/common/http';
 
@@ -31,10 +31,19 @@ interface ModeOption {
 @Component({
   selector: 'app-profile',
   imports: [
-    FormsModule, MatCardModule, MatFormFieldModule, MatInputModule, MatSelectModule,
-    MatButtonModule, MatIconModule, MatProgressBarModule, MatSlideToggleModule, MatSnackBarModule,
+    FormsModule,
+    MatCardModule,
+    MatFormFieldModule,
+    MatInputModule,
+    MatSelectModule,
+    MatButtonModule,
+    MatIconModule,
+    MatProgressBarModule,
+    MatSlideToggleModule,
+    MatSnackBarModule,
   ],
   templateUrl: './profile.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrl: './profile.scss',
 })
 export class Profile {
@@ -66,17 +75,33 @@ export class Profile {
   readonly nudgesOptOut = signal<boolean>(false);
 
   /** The caller's real (full) name, from the session — the formatter's input; never edited here. */
-  readonly fullName = computed(() => this.auth.session()?.name?.trim() || this.auth.session()?.email || '');
+  readonly fullName = computed(
+    () => this.auth.session()?.name?.trim() || this.auth.session()?.email || '',
+  );
 
   readonly modeOptions: readonly ModeOption[] = [
-    { value: 'full', label: 'Full name', hint: 'Your complete name, exactly as it appears on your account.' },
+    {
+      value: 'full',
+      label: 'Full name',
+      hint: 'Your complete name, exactly as it appears on your account.',
+    },
     { value: 'firstName', label: 'First name only', hint: 'Just your first name.' },
-    { value: 'firstInitial', label: 'First name + last initial', hint: 'e.g. "Jane D." — the default, a privacy-friendly middle ground.' },
-    { value: 'nickname', label: 'Nickname', hint: 'A name you choose below. Falls back to "First L." if left blank.' },
+    {
+      value: 'firstInitial',
+      label: 'First name + last initial',
+      hint: 'e.g. "Jane D." — the default, a privacy-friendly middle ground.',
+    },
+    {
+      value: 'nickname',
+      label: 'Nickname',
+      hint: 'A name you choose below. Falls back to "First L." if left blank.',
+    },
   ];
 
   /** The hint blurb for the currently-selected mode (shown under the picker). */
-  readonly modeHint = computed(() => this.modeOptions.find(o => o.value === this.mode())?.hint ?? '');
+  readonly modeHint = computed(
+    () => this.modeOptions.find((o) => o.value === this.mode())?.hint ?? '',
+  );
 
   /** Whether the nickname field is relevant (only when the Nickname mode is selected). */
   readonly nicknameActive = computed(() => this.mode() === 'nickname');
@@ -86,7 +111,9 @@ export class Profile {
    * DisplayName.Format: single-token names pass through; email-shaped names reduce to the local part;
    * FirstInitial = "First L."; Nickname falls back to FirstInitial when blank.
    */
-  readonly preview = computed(() => Profile.format(this.fullName(), this.mode(), this.nickname().trim()));
+  readonly preview = computed(() =>
+    Profile.format(this.fullName(), this.mode(), this.nickname().trim()),
+  );
 
   constructor() {
     this.load();
@@ -96,7 +123,7 @@ export class Profile {
     this.loading.set(true);
     this.loadError.set(false);
     this.auth.me().subscribe({
-      next: me => {
+      next: (me) => {
         this.seed(me);
         this.auth.applyMe(me); // keep the session's mirrored prefs fresh too
         this.loading.set(false);
@@ -149,7 +176,7 @@ export class Profile {
       nudgesOptOut: this.nudgesOptOut(),
     };
     this.api.setProfile(body).subscribe({
-      next: saved => {
+      next: (saved) => {
         this.seed(saved); // reflect the server's sanitized truth (e.g. trimmed/capped/cleared)
         this.auth.applyProfilePrefs(saved);
         this.saving.set(false);
@@ -157,7 +184,9 @@ export class Profile {
       },
       error: (e: HttpErrorResponse) => {
         this.saving.set(false);
-        this.snack.open(e.error?.message ?? 'Could not save your profile.', 'Dismiss', { duration: 5000 });
+        this.snack.open(e.error?.message ?? 'Could not save your profile.', 'Dismiss', {
+          duration: 5000,
+        });
       },
     });
   }
@@ -169,7 +198,7 @@ export class Profile {
   exportMyData(): void {
     this.exporting.set(true);
     this.api.exportMyData().subscribe({
-      next: blob => {
+      next: (blob) => {
         this.exporting.set(false);
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
@@ -205,10 +234,13 @@ export class Profile {
     if (parts.length <= 1) return name; // single-token names pass through for every mode
 
     switch (mode) {
-      case 'full': return name;
-      case 'firstName': return parts[0];
+      case 'full':
+        return name;
+      case 'firstName':
+        return parts[0];
       case 'firstInitial':
-      default: return Profile.firstInitial(name);
+      default:
+        return Profile.firstInitial(name);
     }
   }
 

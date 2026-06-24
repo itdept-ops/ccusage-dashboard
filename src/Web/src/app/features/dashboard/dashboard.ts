@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal, ChangeDetectionStrategy } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { forkJoin } from 'rxjs';
@@ -27,7 +27,21 @@ import { ShareDialog } from '../share/share-dialog';
 import { FamilyConfirmDialog } from '../family/confirm-dialog';
 import { SaveViewDialog } from './save-view-dialog';
 import { AuthService } from '../../core/auth';
-import { CacheEfficiency, CalendarDay, GroupBy, IngestionSource, MachineStat, ModelStat, PagedResult, ProjectDto, SavedView, SummaryResponse, UsageFilter, UsageRecord, PERM } from '../../core/models';
+import {
+  CacheEfficiency,
+  CalendarDay,
+  GroupBy,
+  IngestionSource,
+  MachineStat,
+  ModelStat,
+  PagedResult,
+  ProjectDto,
+  SavedView,
+  SummaryResponse,
+  UsageFilter,
+  UsageRecord,
+  PERM,
+} from '../../core/models';
 import { ChartComponent } from '../../shared/chart';
 import { CompactPipe } from '../../shared/format';
 
@@ -44,13 +58,30 @@ function isWeekday(localDate: string): boolean {
 @Component({
   selector: 'app-dashboard',
   imports: [
-    CommonModule, FormsModule, RouterLink,
-    MatCardModule, MatFormFieldModule, MatInputModule, MatSelectModule, MatButtonModule, MatMenuModule, MatDialogModule,
-    MatButtonToggleModule, MatSlideToggleModule, MatTableModule, MatPaginatorModule, MatSortModule,
-    MatProgressBarModule, MatIconModule, MatTooltipModule, MatSnackBarModule,
-    ChartComponent, CompactPipe,
+    CommonModule,
+    FormsModule,
+    RouterLink,
+    MatCardModule,
+    MatFormFieldModule,
+    MatInputModule,
+    MatSelectModule,
+    MatButtonModule,
+    MatMenuModule,
+    MatDialogModule,
+    MatButtonToggleModule,
+    MatSlideToggleModule,
+    MatTableModule,
+    MatPaginatorModule,
+    MatSortModule,
+    MatProgressBarModule,
+    MatIconModule,
+    MatTooltipModule,
+    MatSnackBarModule,
+    ChartComponent,
+    CompactPipe,
   ],
   templateUrl: './dashboard.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrl: './dashboard.scss',
 })
 export class Dashboard {
@@ -63,12 +94,23 @@ export class Dashboard {
   readonly PERM = PERM;
 
   // ---- filter + view state ----
-  readonly filter = signal<UsageFilter>({ from: null, to: null, projectIds: [], models: [], sources: [], machine: [], includeSidechain: true });
+  readonly filter = signal<UsageFilter>({
+    from: null,
+    to: null,
+    projectIds: [],
+    models: [],
+    sources: [],
+    machine: [],
+    includeSidechain: true,
+  });
   readonly groupBy = signal<GroupBy>('day');
   readonly activePreset = signal<string>('all');
   readonly presets = [
-    { key: '7d', label: '7d' }, { key: '30d', label: '30d' }, { key: '90d', label: '90d' },
-    { key: 'mtd', label: 'Month' }, { key: 'all', label: 'All' },
+    { key: '7d', label: '7d' },
+    { key: '30d', label: '30d' },
+    { key: '90d', label: '90d' },
+    { key: 'mtd', label: 'Month' },
+    { key: 'all', label: 'All' },
   ] as const;
   readonly exporting = signal(false);
 
@@ -98,15 +140,28 @@ export class Dashboard {
   readonly sort = signal('timestamp');
   readonly desc = signal(true);
 
-  readonly displayedColumns = ['localDate', 'source', 'model', 'projectName', 'sidechain', 'inputTokens', 'outputTokens', 'totalTokens', 'costUsd'];
+  readonly displayedColumns = [
+    'localDate',
+    'source',
+    'model',
+    'projectName',
+    'sidechain',
+    'inputTokens',
+    'outputTokens',
+    'totalTokens',
+    'costUsd',
+  ];
 
   // Estimated active engagement time (gap-based) for the current filter — per-day, from the calendar.
   readonly calendarDays = signal<CalendarDay[]>([]);
-  readonly activeHours = computed(() => this.calendarDays().reduce((a, d) => a + d.activeMinutes, 0) / 60);
+  readonly activeHours = computed(
+    () => this.calendarDays().reduce((a, d) => a + d.activeMinutes, 0) / 60,
+  );
   // Weekdays (Mon–Fri) with measurable engaged time. Weekend days are NOT counted toward the average's
   // denominator — but weekend hours still count in the total above ("keep the total, drop the days").
-  readonly activeWeekdays = computed(() =>
-    this.calendarDays().filter(d => d.activeMinutes > 0 && isWeekday(d.date)).length);
+  readonly activeWeekdays = computed(
+    () => this.calendarDays().filter((d) => d.activeMinutes > 0 && isWeekday(d.date)).length,
+  );
   // Average active hours per active weekday: total active hours (incl. weekends) ÷ active weekdays.
   readonly dailyAvgHours = computed(() => {
     const days = this.activeWeekdays();
@@ -138,11 +193,13 @@ export class Dashboard {
   private hydrateFromUrl(): void {
     const p = this.route.snapshot.queryParamMap;
     if (![...p.keys].length) return;
-    const list = (k: string) => (p.get(k)?.split(',').filter(Boolean) ?? []);
+    const list = (k: string) => p.get(k)?.split(',').filter(Boolean) ?? [];
     this.filter.set({
       from: p.get('from') || null,
       to: p.get('to') || null,
-      projectIds: list('p').map(Number).filter(n => !Number.isNaN(n)),
+      projectIds: list('p')
+        .map(Number)
+        .filter((n) => !Number.isNaN(n)),
       models: list('m'),
       sources: list('s'),
       machine: list('mc'),
@@ -172,51 +229,79 @@ export class Dashboard {
 
   /** Mirror the current view into the URL (replace, so it doesn't spam history). */
   private syncUrl(): void {
-    this.router.navigate([], { relativeTo: this.route, queryParams: this.shareParams(), replaceUrl: true });
+    this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: this.shareParams(),
+      replaceUrl: true,
+    });
   }
 
   /** Open a small, chrome-less stats window for one source — sized for screen-share/capture. */
   popOut(source: string): void {
-    window.open(`/widget/${encodeURIComponent(source)}`, `uiq-widget-${source}`, 'popup,width=440,height=360');
+    window.open(
+      `/widget/${encodeURIComponent(source)}`,
+      `uiq-widget-${source}`,
+      'popup,width=440,height=360',
+    );
   }
 
   /** Open the external-share dialog (public, token-based, time-limited links). */
   openShare(): void {
     this.dialog.open(ShareDialog, {
       data: { filter: this.filter(), groupBy: this.groupBy() },
-      width: '560px', maxWidth: '94vw', maxHeight: '90dvh', autoFocus: false, panelClass: 'uiq-dialog',
+      width: '560px',
+      maxWidth: '94vw',
+      maxHeight: '90dvh',
+      autoFocus: false,
+      panelClass: 'uiq-dialog',
     });
   }
-
 
   /** Build the upsert payload from the CURRENT dashboard state (filter + groupBy). */
   private viewPayload(name: string) {
     const f = this.filter();
     return {
       name,
-      from: f.from, to: f.to,
-      projectId: f.projectIds, model: f.models, source: f.sources,
-      includeSidechain: f.includeSidechain, groupBy: this.groupBy(),
+      from: f.from,
+      to: f.to,
+      projectId: f.projectIds,
+      model: f.models,
+      source: f.sources,
+      includeSidechain: f.includeSidechain,
+      groupBy: this.groupBy(),
     };
   }
 
   /** Save the current filter set as a named view (upsert-by-name on the server). */
   saveCurrentView(): void {
-    this.dialog.open(SaveViewDialog, { width: '420px', maxWidth: '94vw', maxHeight: '90dvh', autoFocus: false, panelClass: 'uiq-dialog' })
-      .afterClosed().subscribe((name?: string) => {
+    this.dialog
+      .open(SaveViewDialog, {
+        width: '420px',
+        maxWidth: '94vw',
+        maxHeight: '90dvh',
+        autoFocus: false,
+        panelClass: 'uiq-dialog',
+      })
+      .afterClosed()
+      .subscribe((name?: string) => {
         if (!name) return;
         this.savingView.set(true);
         this.api.saveView(this.viewPayload(name)).subscribe({
-          next: v => {
+          next: (v) => {
             this.savingView.set(false);
             // Upsert-by-name: replace if it already exists, else append; keep sorted by name.
-            this.savedViews.update(list => {
-              const rest = list.filter(x => x.id !== v.id && x.name.toLowerCase() !== v.name.toLowerCase());
+            this.savedViews.update((list) => {
+              const rest = list.filter(
+                (x) => x.id !== v.id && x.name.toLowerCase() !== v.name.toLowerCase(),
+              );
               return [...rest, v].sort((a, b) => a.name.localeCompare(b.name));
             });
             this.snack.open(`Saved view “${v.name}”`, 'OK', { duration: 2500 });
           },
-          error: () => { this.savingView.set(false); this.snack.open('Could not save view', 'Dismiss', { duration: 4000 }); },
+          error: () => {
+            this.savingView.set(false);
+            this.snack.open('Could not save view', 'Dismiss', { duration: 4000 });
+          },
         });
       });
   }
@@ -224,8 +309,11 @@ export class Dashboard {
   /** Load a saved view's filters + groupBy into dashboard state and apply through the normal path. */
   applyView(v: SavedView): void {
     this.filter.set({
-      from: v.from, to: v.to,
-      projectIds: [...v.projectId], models: [...v.model], sources: [...v.source],
+      from: v.from,
+      to: v.to,
+      projectIds: [...v.projectId],
+      models: [...v.model],
+      sources: [...v.source],
       machine: [],
       includeSidechain: v.includeSidechain,
     });
@@ -251,34 +339,57 @@ export class Dashboard {
   commitRename(v: SavedView, ev?: Event): void {
     ev?.stopPropagation();
     const name = this.renameDraft().trim();
-    if (!name || name === v.name) { this.renamingViewId.set(null); return; }
-    this.api.updateView(v.id, {
-      name,
-      from: v.from, to: v.to,
-      projectId: v.projectId, model: v.model, source: v.source,
-      includeSidechain: v.includeSidechain, groupBy: v.groupBy,
-    }).subscribe({
-      next: updated => {
-        this.renamingViewId.set(null);
-        this.savedViews.update(list =>
-          list.map(x => x.id === updated.id ? updated : x).sort((a, b) => a.name.localeCompare(b.name)));
-      },
-      error: () => this.snack.open('Rename failed', 'Dismiss', { duration: 4000 }),
-    });
+    if (!name || name === v.name) {
+      this.renamingViewId.set(null);
+      return;
+    }
+    this.api
+      .updateView(v.id, {
+        name,
+        from: v.from,
+        to: v.to,
+        projectId: v.projectId,
+        model: v.model,
+        source: v.source,
+        includeSidechain: v.includeSidechain,
+        groupBy: v.groupBy,
+      })
+      .subscribe({
+        next: (updated) => {
+          this.renamingViewId.set(null);
+          this.savedViews.update((list) =>
+            list
+              .map((x) => (x.id === updated.id ? updated : x))
+              .sort((a, b) => a.name.localeCompare(b.name)),
+          );
+        },
+        error: () => this.snack.open('Rename failed', 'Dismiss', { duration: 4000 }),
+      });
   }
 
   deleteView(v: SavedView, ev: Event): void {
     ev.stopPropagation();
-    this.dialog.open(FamilyConfirmDialog, {
-      width: '420px', maxWidth: '94vw', maxHeight: '90dvh', autoFocus: false, panelClass: 'uiq-dialog',
-      data: { title: 'Delete saved view', message: `Delete the saved view “${v.name}”?`, destructive: true },
-    }).afterClosed().subscribe((ok?: boolean) => {
-      if (!ok) return;
-      this.api.deleteView(v.id).subscribe({
-        next: () => this.savedViews.update(list => list.filter(x => x.id !== v.id)),
-        error: () => this.snack.open('Could not delete view', 'Dismiss', { duration: 4000 }),
+    this.dialog
+      .open(FamilyConfirmDialog, {
+        width: '420px',
+        maxWidth: '94vw',
+        maxHeight: '90dvh',
+        autoFocus: false,
+        panelClass: 'uiq-dialog',
+        data: {
+          title: 'Delete saved view',
+          message: `Delete the saved view “${v.name}”?`,
+          destructive: true,
+        },
+      })
+      .afterClosed()
+      .subscribe((ok?: boolean) => {
+        if (!ok) return;
+        this.api.deleteView(v.id).subscribe({
+          next: () => this.savedViews.update((list) => list.filter((x) => x.id !== v.id)),
+          error: () => this.snack.open('Could not delete view', 'Dismiss', { duration: 4000 }),
+        });
       });
-    });
   }
 
   private loadOptions(): void {
@@ -289,20 +400,25 @@ export class Dashboard {
       warned = true;
       this.snack.open('Could not load filter options', 'Dismiss', { duration: 4000 });
     };
-    this.api.projects().subscribe({ next: p => this.projects.set(p), error: onErr });
-    this.api.models().subscribe({ next: m => this.modelStats.set(m), error: onErr });
-    this.api.sources().subscribe({ next: s => this.sources.set(s), error: onErr });
-    this.api.machines().subscribe({ next: m => this.machines.set(m), error: onErr });
+    this.api.projects().subscribe({ next: (p) => this.projects.set(p), error: onErr });
+    this.api.models().subscribe({ next: (m) => this.modelStats.set(m), error: onErr });
+    this.api.sources().subscribe({ next: (s) => this.sources.set(s), error: onErr });
+    this.api.machines().subscribe({ next: (m) => this.machines.set(m), error: onErr });
     this.loadSavedViews();
   }
 
   private loadSavedViews(): void {
-    this.api.savedViews().subscribe({ next: v => this.savedViews.set(v), error: () => { /* non-critical */ } });
+    this.api.savedViews().subscribe({
+      next: (v) => this.savedViews.set(v),
+      error: () => {
+        /* non-critical */
+      },
+    });
   }
 
   // mutate filter helpers (immutability for signal change detection)
   patch<K extends keyof UsageFilter>(key: K, value: UsageFilter[K]): void {
-    this.filter.update(f => ({ ...f, [key]: value }));
+    this.filter.update((f) => ({ ...f, [key]: value }));
   }
 
   applyFilters(): void {
@@ -312,7 +428,8 @@ export class Dashboard {
   }
 
   setDatePreset(kind: string): void {
-    const fmt = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    const fmt = (d: Date) =>
+      `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
     const today = new Date();
     let from: string | null = null;
     if (kind === 'mtd') {
@@ -325,14 +442,14 @@ export class Dashboard {
     }
     const to = kind === 'all' ? null : fmt(today);
     this.activePreset.set(kind);
-    this.filter.update(f => ({ ...f, from, to }));
+    this.filter.update((f) => ({ ...f, from, to }));
     this.applyFilters();
   }
 
   exportCsv(): void {
     this.exporting.set(true);
     this.api.recordsCsv(this.filter()).subscribe({
-      next: blob => {
+      next: (blob) => {
         this.exporting.set(false);
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
@@ -341,12 +458,23 @@ export class Dashboard {
         a.click();
         URL.revokeObjectURL(url);
       },
-      error: () => { this.exporting.set(false); this.snack.open('Export failed', 'Dismiss', { duration: 4000 }); },
+      error: () => {
+        this.exporting.set(false);
+        this.snack.open('Export failed', 'Dismiss', { duration: 4000 });
+      },
     });
   }
 
   resetFilters(): void {
-    this.filter.set({ from: null, to: null, projectIds: [], models: [], sources: [], machine: [], includeSidechain: true });
+    this.filter.set({
+      from: null,
+      to: null,
+      projectIds: [],
+      models: [],
+      sources: [],
+      machine: [],
+      includeSidechain: true,
+    });
     this.activePreset.set('all');
     this.page.set(1);
     this.syncUrl();
@@ -363,32 +491,42 @@ export class Dashboard {
     this.loading.set(true);
     forkJoin({
       summary: this.api.summary(this.filter(), this.groupBy()),
-      records: this.api.records(this.filter(), this.page(), this.pageSize(), this.sort(), this.desc()),
+      records: this.api.records(
+        this.filter(),
+        this.page(),
+        this.pageSize(),
+        this.sort(),
+        this.desc(),
+      ),
       calendar: this.api.calendar(this.filter()),
       cacheEff: this.api.cacheEfficiency(this.filter()),
     }).subscribe({
-      next: r => {
+      next: (r) => {
         this.summary.set(r.summary);
         this.records.set(r.records);
         this.calendarDays.set(r.calendar);
         this.cacheEff.set(r.cacheEff);
         this.loading.set(false);
       },
-      error: () => { this.loading.set(false); this.snack.open('Failed to load data — is the API running?', 'Dismiss', { duration: 5000 }); },
+      error: () => {
+        this.loading.set(false);
+        this.snack.open('Failed to load data — is the API running?', 'Dismiss', { duration: 5000 });
+      },
     });
   }
 
   private reloadSummary(): void {
     this.api.summary(this.filter(), this.groupBy()).subscribe({
-      next: s => this.summary.set(s),
+      next: (s) => this.summary.set(s),
       error: () => this.snack.open('Could not update chart', 'Dismiss', { duration: 4000 }),
     });
   }
 
   private reloadRecords(): void {
-    this.api.records(this.filter(), this.page(), this.pageSize(), this.sort(), this.desc())
+    this.api
+      .records(this.filter(), this.page(), this.pageSize(), this.sort(), this.desc())
       .subscribe({
-        next: r => this.records.set(r),
+        next: (r) => this.records.set(r),
         error: () => this.snack.open('Could not load records', 'Dismiss', { duration: 4000 }),
       });
   }
@@ -400,7 +538,11 @@ export class Dashboard {
   }
 
   private static readonly SORT_MAP: Record<string, string> = {
-    localDate: 'timestamp', model: 'model', inputTokens: 'input', outputTokens: 'output', costUsd: 'cost',
+    localDate: 'timestamp',
+    model: 'model',
+    inputTokens: 'input',
+    outputTokens: 'output',
+    costUsd: 'cost',
   };
 
   onSort(e: Sort): void {
@@ -413,7 +555,7 @@ export class Dashboard {
   sync(): void {
     this.syncing.set(true);
     this.api.sync().subscribe({
-      next: r => {
+      next: (r) => {
         this.syncing.set(false);
         const msg = r.error
           ? `Sync error: ${r.error}`
@@ -422,7 +564,10 @@ export class Dashboard {
         this.loadOptions();
         this.reloadAll();
       },
-      error: () => { this.syncing.set(false); this.snack.open('Sync failed', 'Dismiss', { duration: 5000 }); },
+      error: () => {
+        this.syncing.set(false);
+        this.snack.open('Sync failed', 'Dismiss', { duration: 5000 });
+      },
     });
   }
 
@@ -436,18 +581,22 @@ export class Dashboard {
       const text = this.loading() ? 'Loading…' : 'No data';
       return { title: { text, left: 'center', top: 'center', textStyle: { color: '#5e6c82' } } };
     }
-    if (s.buckets.length === 0) return { title: { text: 'No data', left: 'center', top: 'center', textStyle: { color: '#5e6c82' } } };
+    if (s.buckets.length === 0)
+      return {
+        title: { text: 'No data', left: 'center', top: 'center', textStyle: { color: '#5e6c82' } },
+      };
 
     const isTime = s.groupBy === 'day' || s.groupBy === 'month';
     if (isTime) {
-      const keys = s.buckets.map(b => b.key);
+      const keys = s.buckets.map((b) => b.key);
       // Active hours per bucket, from the calendar data (exact day, or summed across the month).
       const cal = this.calendarDays();
-      const dayMins = new Map(cal.map(d => [d.date, d.activeMinutes]));
-      const hours = keys.map(k => {
-        const mins = s.groupBy === 'day'
-          ? (dayMins.get(k) ?? 0)
-          : cal.reduce((a, d) => a + (d.date.startsWith(k) ? d.activeMinutes : 0), 0);
+      const dayMins = new Map(cal.map((d) => [d.date, d.activeMinutes]));
+      const hours = keys.map((k) => {
+        const mins =
+          s.groupBy === 'day'
+            ? (dayMins.get(k) ?? 0)
+            : cal.reduce((a, d) => a + (d.date.startsWith(k) ? d.activeMinutes : 0), 0);
         return +(mins / 60).toFixed(1);
       });
 
@@ -458,13 +607,53 @@ export class Dashboard {
         xAxis: { type: 'category', data: keys, axisLabel: { rotate: keys.length > 14 ? 45 : 0 } },
         yAxis: [
           { type: 'value', name: 'USD', position: 'left', axisLabel: { formatter: '${value}' } },
-          { type: 'value', name: 'Tokens', position: 'right', axisLabel: { formatter: (v: number) => this.shortNum(v) } },
-          { type: 'value', name: 'Hours', position: 'right', offset: 52, splitLine: { show: false }, axisLabel: { formatter: '{value}h' } },
+          {
+            type: 'value',
+            name: 'Tokens',
+            position: 'right',
+            axisLabel: { formatter: (v: number) => this.shortNum(v) },
+          },
+          {
+            type: 'value',
+            name: 'Hours',
+            position: 'right',
+            offset: 52,
+            splitLine: { show: false },
+            axisLabel: { formatter: '{value}h' },
+          },
         ],
         series: [
-          { name: 'Cost (USD)', type: 'bar', data: s.buckets.map(b => +b.costUsd.toFixed(2)), itemStyle: { color: '#f472b6', borderRadius: [4, 4, 0, 0] } },
-          { name: 'Tokens', type: 'line', yAxisIndex: 1, smooth: true, symbol: 'none', data: s.buckets.map(b => b.totalTokens), itemStyle: { color: '#3fd8d0' }, lineStyle: { width: 2, color: '#3fd8d0', shadowColor: 'rgba(63,216,208,0.4)', shadowBlur: 10 } },
-          { name: 'Active hours', type: 'line', yAxisIndex: 2, smooth: true, symbol: 'none', data: hours, itemStyle: { color: '#f2b340' }, lineStyle: { width: 2, color: '#f2b340', type: 'dashed' } },
+          {
+            name: 'Cost (USD)',
+            type: 'bar',
+            data: s.buckets.map((b) => +b.costUsd.toFixed(2)),
+            itemStyle: { color: '#f472b6', borderRadius: [4, 4, 0, 0] },
+          },
+          {
+            name: 'Tokens',
+            type: 'line',
+            yAxisIndex: 1,
+            smooth: true,
+            symbol: 'none',
+            data: s.buckets.map((b) => b.totalTokens),
+            itemStyle: { color: '#3fd8d0' },
+            lineStyle: {
+              width: 2,
+              color: '#3fd8d0',
+              shadowColor: 'rgba(63,216,208,0.4)',
+              shadowBlur: 10,
+            },
+          },
+          {
+            name: 'Active hours',
+            type: 'line',
+            yAxisIndex: 2,
+            smooth: true,
+            symbol: 'none',
+            data: hours,
+            itemStyle: { color: '#f2b340' },
+            lineStyle: { width: 2, color: '#f2b340', type: 'dashed' },
+          },
         ],
       };
     }
@@ -474,15 +663,23 @@ export class Dashboard {
       tooltip: { trigger: 'axis', valueFormatter: (v) => '$' + Number(v).toLocaleString() },
       grid: { left: 150, right: 28, top: 12, bottom: 32 },
       xAxis: { type: 'value', axisLabel: { formatter: '${value}' } },
-      yAxis: { type: 'category', data: top.map(b => this.label(b.key)) },
-      series: [{ type: 'bar', data: top.map(b => +b.costUsd.toFixed(2)), itemStyle: { color: '#f472b6', borderRadius: [0, 4, 4, 0] } }],
+      yAxis: { type: 'category', data: top.map((b) => this.label(b.key)) },
+      series: [
+        {
+          type: 'bar',
+          data: top.map((b) => +b.costUsd.toFixed(2)),
+          itemStyle: { color: '#f472b6', borderRadius: [0, 4, 4, 0] },
+        },
+      ],
     };
   });
 
-  readonly hasPlaceholder = computed(() => this.modelStats().some(m => m.isPlaceholderPricing && m.costUsd > 0));
+  readonly hasPlaceholder = computed(() =>
+    this.modelStats().some((m) => m.isPlaceholderPricing && m.costUsd > 0),
+  );
 
   readonly modelChart = computed<EChartsOption>(() => {
-    const ms = this.modelStats().filter(m => m.costUsd > 0);
+    const ms = this.modelStats().filter((m) => m.costUsd > 0);
     // Mirror mainChart(): an empty filtered list during the first fetch should read as "Loading…",
     // and a resolved-but-empty result as "No data" — not a blank ring with an empty legend.
     if (ms.length === 0) {
@@ -490,13 +687,21 @@ export class Dashboard {
       return { title: { text, left: 'center', top: 'center', textStyle: { color: '#5e6c82' } } };
     }
     return {
-      tooltip: { trigger: 'item', formatter: (p: any) => `${p.name}: $${Number(p.value).toLocaleString()} (${p.percent}%)` },
+      tooltip: {
+        trigger: 'item',
+        formatter: (p: any) => `${p.name}: $${Number(p.value).toLocaleString()} (${p.percent}%)`,
+      },
       legend: { bottom: 0, type: 'scroll' },
-      series: [{
-        type: 'pie', radius: ['45%', '72%'], avoidLabelOverlap: true, label: { show: false },
-        itemStyle: { borderColor: '#111722', borderWidth: 2 },
-        data: ms.map(m => ({ name: m.model, value: +m.costUsd.toFixed(2) })),
-      }],
+      series: [
+        {
+          type: 'pie',
+          radius: ['45%', '72%'],
+          avoidLabelOverlap: true,
+          label: { show: false },
+          itemStyle: { borderColor: '#111722', borderWidth: 2 },
+          data: ms.map((m) => ({ name: m.model, value: +m.costUsd.toFixed(2) })),
+        },
+      ],
     };
   });
 

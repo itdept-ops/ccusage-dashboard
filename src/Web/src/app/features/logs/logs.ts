@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, inject, signal } from '@angular/core';
+import { Component, inject, signal, ChangeDetectionStrategy } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 
 import { MatCardModule } from '@angular/material/card';
@@ -18,10 +18,20 @@ import { RequestLogEntry } from '../../core/models';
 @Component({
   selector: 'app-logs',
   imports: [
-    CommonModule, FormsModule, MatCardModule, MatFormFieldModule, MatInputModule, MatSelectModule,
-    MatButtonModule, MatIconModule, MatProgressBarModule, MatTooltipModule, MatSnackBarModule,
+    CommonModule,
+    FormsModule,
+    MatCardModule,
+    MatFormFieldModule,
+    MatInputModule,
+    MatSelectModule,
+    MatButtonModule,
+    MatIconModule,
+    MatProgressBarModule,
+    MatTooltipModule,
+    MatSnackBarModule,
   ],
   templateUrl: './logs.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrl: './logs.scss',
 })
 export class Logs {
@@ -38,21 +48,36 @@ export class Logs {
 
   readonly methods = ['GET', 'POST', 'PUT', 'DELETE'];
   readonly statuses = [
-    { v: '', l: 'All statuses' }, { v: '2xx', l: '2xx success' }, { v: '3xx', l: '3xx redirect' },
-    { v: '4xx', l: '4xx client' }, { v: '5xx', l: '5xx server' },
+    { v: '', l: 'All statuses' },
+    { v: '2xx', l: '2xx success' },
+    { v: '3xx', l: '3xx redirect' },
+    { v: '4xx', l: '4xx client' },
+    { v: '5xx', l: '5xx server' },
   ];
 
-  constructor() { this.load(); }
+  constructor() {
+    this.load();
+  }
 
   load(): void {
     this.loading.set(true);
-    this.api.requestLogs({ method: this.method(), status: this.status(), q: this.q().trim(), take: 300 }).subscribe({
-      next: r => { this.logs.set(r); this.loading.set(false); },
-      error: () => { this.loading.set(false); this.snack.open('Failed to load logs', 'Dismiss', { duration: 4000 }); },
-    });
+    this.api
+      .requestLogs({ method: this.method(), status: this.status(), q: this.q().trim(), take: 300 })
+      .subscribe({
+        next: (r) => {
+          this.logs.set(r);
+          this.loading.set(false);
+        },
+        error: () => {
+          this.loading.set(false);
+          this.snack.open('Failed to load logs', 'Dismiss', { duration: 4000 });
+        },
+      });
   }
 
-  toggle(id: number): void { this.expandedId.set(this.expandedId() === id ? null : id); }
+  toggle(id: number): void {
+    this.expandedId.set(this.expandedId() === id ? null : id);
+  }
 
   statusClass(code: number): string {
     if (code >= 500) return 'st-5xx';
@@ -71,6 +96,10 @@ export class Logs {
   /** Pretty-print a JSON body for display; fall back to the raw string. */
   pretty(body: string | null): string {
     if (!body) return '';
-    try { return JSON.stringify(JSON.parse(body), null, 2); } catch { return body; }
+    try {
+      return JSON.stringify(JSON.parse(body), null, 2);
+    } catch {
+      return body;
+    }
   }
 }

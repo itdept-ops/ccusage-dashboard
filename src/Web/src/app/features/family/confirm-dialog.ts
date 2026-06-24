@@ -1,4 +1,4 @@
-import { Component, inject } from '@angular/core';
+import { Component, inject, ChangeDetectionStrategy } from '@angular/core';
 
 import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatButtonModule } from '@angular/material/button';
@@ -21,18 +21,39 @@ export interface ConfirmData {
     <mat-dialog-content class="confirm__body">{{ data.message }}</mat-dialog-content>
     <mat-dialog-actions align="end" class="confirm__actions">
       <button mat-stroked-button type="button" (click)="ref.close(false)">Keep it</button>
-      <button mat-flat-button type="button" [color]="data.destructive ? 'warn' : 'primary'"
-              cdkFocusInitial (click)="ref.close(true)">
+      <button
+        mat-flat-button
+        type="button"
+        [color]="data.destructive ? 'warn' : 'primary'"
+        cdkFocusInitial
+        (click)="ref.close(true)"
+      >
         {{ data.confirmLabel ?? 'Delete' }}
       </button>
     </mat-dialog-actions>
   `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: `
-    .confirm__title { font-family: var(--tech-font-ui); font-weight: 700; color: var(--tech-text); }
-    .confirm__body { min-width: min(360px, 80vw); color: var(--tech-text-secondary);
-      font-size: var(--tech-fs-body); line-height: 1.5; }
-    .confirm__actions { padding: var(--tech-space-3, 12px) var(--tech-space-4, 16px); gap: 8px;
-      button { border-radius: var(--tech-r-control); font-weight: 600; min-height: 42px; } }
+    .confirm__title {
+      font-family: var(--tech-font-ui);
+      font-weight: 700;
+      color: var(--tech-text);
+    }
+    .confirm__body {
+      min-width: min(360px, 80vw);
+      color: var(--tech-text-secondary);
+      font-size: var(--tech-fs-body);
+      line-height: 1.5;
+    }
+    .confirm__actions {
+      padding: var(--tech-space-3, 12px) var(--tech-space-4, 16px);
+      gap: 8px;
+      button {
+        border-radius: var(--tech-r-control);
+        font-weight: 600;
+        min-height: 42px;
+      }
+    }
   `,
 })
 export class FamilyConfirmDialog {

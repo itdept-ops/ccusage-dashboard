@@ -1,5 +1,12 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnDestroy, computed, inject, signal } from '@angular/core';
+import {
+  Component,
+  OnDestroy,
+  computed,
+  inject,
+  signal,
+  ChangeDetectionStrategy,
+} from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 
 import { MatButtonModule } from '@angular/material/button';
@@ -30,10 +37,15 @@ import { LocationMap, MapPin, MapTrail } from './location-map';
   selector: 'app-admin-locations',
   standalone: true,
   imports: [
-    CommonModule, MatButtonModule, MatIconModule, MatProgressBarModule,
-    MatSnackBarModule, LocationMap,
+    CommonModule,
+    MatButtonModule,
+    MatIconModule,
+    MatProgressBarModule,
+    MatSnackBarModule,
+    LocationMap,
   ],
   templateUrl: './admin-locations.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrl: './admin-locations.scss',
 })
 export class AdminLocations implements OnDestroy {
@@ -54,7 +66,7 @@ export class AdminLocations implements OnDestroy {
 
   readonly selected = computed<AdminUserLocation | null>(() => {
     const id = this.selectedId();
-    return id == null ? null : this.users().find(u => u.userId === id) ?? null;
+    return id == null ? null : (this.users().find((u) => u.userId === id) ?? null);
   });
 
   /** Machine IP-geo pins — empty until the backend surfaces machine coordinates (see class comment). */
@@ -69,12 +81,12 @@ export class AdminLocations implements OnDestroy {
     const machine = this.machinePins();
     if (sel) {
       const userPins = sel.recent
-        .filter(f => f != null)
+        .filter((f) => f != null)
         .map((f, i) => this.fixToPin(sel, f, i === 0));
       return [...userPins, ...machine];
     }
     const latest = this.users()
-      .map(u => u.latest ? this.fixToPin(u, u.latest, false) : null)
+      .map((u) => (u.latest ? this.fixToPin(u, u.latest, false) : null))
       .filter((p): p is MapPin => p != null);
     return [...latest, ...machine];
   });
@@ -83,7 +95,7 @@ export class AdminLocations implements OnDestroy {
   readonly trails = computed<MapTrail[]>(() => {
     const sel = this.selected();
     if (!sel) return [];
-    const pts = sel.recent.filter(f => f != null).map(f => [f.lat, f.lng] as [number, number]);
+    const pts = sel.recent.filter((f) => f != null).map((f) => [f.lat, f.lng] as [number, number]);
     return pts.length > 1 ? [{ points: pts }] : [];
   });
 
@@ -98,15 +110,21 @@ export class AdminLocations implements OnDestroy {
     this.loading.set(true);
     this.now.set(Date.now());
     this.api.adminLocations().subscribe({
-      next: rows => { this.users.set(rows); this.loading.set(false); },
-      error: () => { this.loading.set(false); this.snack.open('Could not load locations', 'Dismiss', { duration: 4000 }); },
+      next: (rows) => {
+        this.users.set(rows);
+        this.loading.set(false);
+      },
+      error: () => {
+        this.loading.set(false);
+        this.snack.open('Could not load locations', 'Dismiss', { duration: 4000 });
+      },
     });
   }
 
   /** Select a user (from the side list or a map pin). Clicking the selected one again clears the filter. */
   select(id: number | null | undefined): void {
     if (id == null || Number.isNaN(id)) return;
-    this.selectedId.update(cur => (cur === id ? null : id));
+    this.selectedId.update((cur) => (cur === id ? null : id));
   }
 
   /** Map pin-click handler: pin ids are "u:<userId>" (user) or "m:<name>" (machine). */
@@ -117,7 +135,9 @@ export class AdminLocations implements OnDestroy {
     this.select(+rest);
   }
 
-  clearSelection(): void { this.selectedId.set(null); }
+  clearSelection(): void {
+    this.selectedId.set(null);
+  }
 
   private fixToPin(u: AdminUserLocation, f: LocationFix, emphasis: boolean): MapPin {
     return {

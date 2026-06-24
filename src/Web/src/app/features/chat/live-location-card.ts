@@ -1,5 +1,12 @@
 import {
-  Component, OnDestroy, computed, effect, input, output, signal,
+  Component,
+  OnDestroy,
+  computed,
+  effect,
+  input,
+  output,
+  signal,
+  ChangeDetectionStrategy,
 } from '@angular/core';
 
 import { MatIconModule } from '@angular/material/icon';
@@ -23,6 +30,7 @@ import { LocationMap, MapPin } from '../location/location-map';
   standalone: true,
   imports: [MatIconModule, MatButtonModule, MatMenuModule, MatTooltipModule, LocationMap],
   templateUrl: './live-location-card.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrl: './live-location-card.scss',
 })
 export class LiveLocationCard implements OnDestroy {
@@ -63,25 +71,32 @@ export class LiveLocationCard implements OnDestroy {
   });
 
   /** Why the card ended (for the ended state's sub-line). */
-  readonly endedReason = computed(() => (this.share().stopped ? 'Sharing stopped' : 'Sharing ended'));
+  readonly endedReason = computed(() =>
+    this.share().stopped ? 'Sharing stopped' : 'Sharing ended',
+  );
 
   /** The single map pin for the sharer's current position (emphasised). */
   readonly pins = computed<MapPin[]>(() => {
     const s = this.share();
-    return [{
-      id: String(s.id),
-      lat: s.lat,
-      lng: s.lng,
-      title: s.sharerName,
-      subtitle: this.active() ? `Live · ${this.accuracyLabel(s)}` : this.endedReason(),
-      kind: 'user',
-      emphasis: true,
-    }];
+    return [
+      {
+        id: String(s.id),
+        lat: s.lat,
+        lng: s.lng,
+        title: s.sharerName,
+        subtitle: this.active() ? `Live · ${this.accuracyLabel(s)}` : this.endedReason(),
+        kind: 'user',
+        emphasis: true,
+      },
+    ];
   });
 
   constructor() {
     // Fire the heartbeat reactively too, so the countdown stays correct after a tab-visibility resume.
-    effect(() => { this.share(); this.now.set(Date.now()); });
+    effect(() => {
+      this.share();
+      this.now.set(Date.now());
+    });
   }
 
   ngOnDestroy(): void {

@@ -1,4 +1,14 @@
-import { Component, DestroyRef, ElementRef, NgZone, afterNextRender, inject, signal, viewChild } from '@angular/core';
+import {
+  Component,
+  DestroyRef,
+  ElementRef,
+  NgZone,
+  afterNextRender,
+  inject,
+  signal,
+  viewChild,
+  ChangeDetectionStrategy,
+} from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { HttpErrorResponse } from '@angular/common/http';
 import { MatIconModule } from '@angular/material/icon';
@@ -14,6 +24,7 @@ declare const google: any;
   selector: 'app-signin',
   imports: [MatIconModule, MarketingNav, MarketingFooter],
   templateUrl: './signin.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrl: './signin.scss',
 })
 export class SignIn {
@@ -56,7 +67,8 @@ export class SignIn {
 
       google.accounts.id.initialize({
         client_id: cfg.googleClientId,
-        callback: (resp: { credential: string }) => this.zone.run(() => this.handleCredential(resp.credential)),
+        callback: (resp: { credential: string }) =>
+          this.zone.run(() => this.handleCredential(resp.credential)),
         auto_select: false,
         cancel_on_tap_outside: false,
         // FedCM is required for One Tap in current Chrome; without it prompt() is a no-op.
@@ -104,9 +116,11 @@ export class SignIn {
       next: () => this.router.navigateByUrl(this.returnUrl()),
       error: (err: HttpErrorResponse) => {
         this.busy.set(false);
-        this.error.set(err.status === 403
-          ? (err.error?.message ?? 'This account is not authorized to access Usage IQ.')
-          : 'Sign-in failed. Please try again.');
+        this.error.set(
+          err.status === 403
+            ? (err.error?.message ?? 'This account is not authorized to access Usage IQ.')
+            : 'Sign-in failed. Please try again.',
+        );
       },
     });
   }

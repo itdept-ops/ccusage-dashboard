@@ -1,5 +1,13 @@
 import {
-  Component, ElementRef, OnDestroy, computed, inject, output, signal, viewChild,
+  Component,
+  ElementRef,
+  OnDestroy,
+  computed,
+  inject,
+  output,
+  signal,
+  viewChild,
+  ChangeDetectionStrategy,
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 
@@ -18,7 +26,9 @@ interface BarcodeDetectorCtor {
 }
 
 /** Scanner control surface from the lazily-loaded @zxing fallback (only the stop hook we use). */
-interface ScannerControls { stop(): void }
+interface ScannerControls {
+  stop(): void;
+}
 
 /**
  * Live UPC/EAN barcode scanner. Opens the camera via getUserMedia and decodes codes using the native
@@ -33,6 +43,7 @@ interface ScannerControls { stop(): void }
   selector: 'app-barcode-scanner',
   imports: [FormsModule, MatButtonModule, MatIconModule, MatFormFieldModule, MatInputModule],
   templateUrl: './barcode-scanner.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrl: './barcode-scanner.scss',
 })
 export class BarcodeScanner implements OnDestroy {
@@ -72,7 +83,9 @@ export class BarcodeScanner implements OnDestroy {
     this.done = false;
 
     if (!this.cameraSupported) {
-      this.error.set('Camera scanning needs HTTPS (or localhost) and a supported browser. Enter the UPC below instead.');
+      this.error.set(
+        'Camera scanning needs HTTPS (or localhost) and a supported browser. Enter the UPC below instead.',
+      );
       return;
     }
 
@@ -126,7 +139,10 @@ export class BarcodeScanner implements OnDestroy {
         if (videoEl.readyState >= 2) {
           const codes = await detector.detect(videoEl);
           const raw = codes[0]?.rawValue?.trim();
-          if (raw) { this.emit(raw); return; }
+          if (raw) {
+            this.emit(raw);
+            return;
+          }
         }
       } catch {
         /* transient decode errors are expected between frames */
@@ -151,7 +167,11 @@ export class BarcodeScanner implements OnDestroy {
       // zxingControls and couldn't stop the reader — so stop these controls now and leave the field null,
       // otherwise the camera stays on after the component is gone.
       if (this.done || !this.scanning()) {
-        try { controls.stop(); } catch { /* ignore */ }
+        try {
+          controls.stop();
+        } catch {
+          /* ignore */
+        }
       } else {
         this.zxingControls = controls;
       }
@@ -177,8 +197,18 @@ export class BarcodeScanner implements OnDestroy {
   stop(): void {
     this.scanning.set(false);
     this.starting.set(false);
-    if (this.rafId) { cancelAnimationFrame(this.rafId); this.rafId = 0; }
-    if (this.zxingControls) { try { this.zxingControls.stop(); } catch { /* ignore */ } this.zxingControls = null; }
+    if (this.rafId) {
+      cancelAnimationFrame(this.rafId);
+      this.rafId = 0;
+    }
+    if (this.zxingControls) {
+      try {
+        this.zxingControls.stop();
+      } catch {
+        /* ignore */
+      }
+      this.zxingControls = null;
+    }
     this.stopStream();
   }
 
@@ -186,7 +216,13 @@ export class BarcodeScanner implements OnDestroy {
     const videoEl = this.video()?.nativeElement;
     if (videoEl) videoEl.srcObject = null;
     if (this.stream) {
-      for (const t of this.stream.getTracks()) { try { t.stop(); } catch { /* ignore */ } }
+      for (const t of this.stream.getTracks()) {
+        try {
+          t.stop();
+        } catch {
+          /* ignore */
+        }
+      }
       this.stream = null;
     }
   }

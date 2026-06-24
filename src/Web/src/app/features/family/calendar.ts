@@ -1,4 +1,11 @@
-import { Component, OnDestroy, computed, inject, signal } from '@angular/core';
+import {
+  Component,
+  OnDestroy,
+  computed,
+  inject,
+  signal,
+  ChangeDetectionStrategy,
+} from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
@@ -16,8 +23,18 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { Api } from '../../core/api';
 import { AuthService } from '../../core/auth';
 import {
-  CalendarEvent, CalendarEventInput, CalendarRecurrence, CalendarStatus, CycleOverlayMember, FamilyMemberEvents,
-  FindTimeAiInterpreted, FindTimeConsideredMember, FindTimeSlot, HouseholdMember, PERM, ScheduleAiEvent,
+  CalendarEvent,
+  CalendarEventInput,
+  CalendarRecurrence,
+  CalendarStatus,
+  CycleOverlayMember,
+  FamilyMemberEvents,
+  FindTimeAiInterpreted,
+  FindTimeConsideredMember,
+  FindTimeSlot,
+  HouseholdMember,
+  PERM,
+  ScheduleAiEvent,
   ScheduleImageFile,
 } from '../../core/models';
 import { downscaleToJpeg, readFileAsBase64 } from '../tracker/ai-image';
@@ -75,9 +92,9 @@ interface ProposedEvent {
 /** One column of the week view: its date + the events that fall on it (all-day first, then by start). */
 interface DayColumn {
   date: Date;
-  iso: string;            // "YYYY-MM-DD" local
-  weekdayLabel: string;   // "Sun"
-  dayNum: number;         // 1..31
+  iso: string; // "YYYY-MM-DD" local
+  weekdayLabel: string; // "Sun"
+  dayNum: number; // 1..31
   isToday: boolean;
   events: DayEvent[];
   /** The predicted cycle phase covering this day (soft background layer), or undefined when none. */
@@ -87,8 +104,8 @@ interface DayColumn {
 /** One cell of the month grid (6×7): a day with its events, truncated with a "+N more" overflow. */
 interface MonthCell {
   date: Date;
-  iso: string;            // "YYYY-MM-DD" local
-  dayNum: number;         // 1..31
+  iso: string; // "YYYY-MM-DD" local
+  dayNum: number; // 1..31
   isToday: boolean;
   /** True for days inside the visible month; false for leading/trailing days from adjacent months. */
   inMonth: boolean;
@@ -117,10 +134,19 @@ type ViewMode = 'week' | 'agenda' | 'month';
 @Component({
   selector: 'app-family-calendar',
   imports: [
-    FormsModule, RouterLink, MatIconModule, MatButtonModule, MatButtonToggleModule, MatTooltipModule,
-    MatProgressSpinnerModule, MatFormFieldModule, MatInputModule, MatSnackBarModule,
+    FormsModule,
+    RouterLink,
+    MatIconModule,
+    MatButtonModule,
+    MatButtonToggleModule,
+    MatTooltipModule,
+    MatProgressSpinnerModule,
+    MatFormFieldModule,
+    MatInputModule,
+    MatSnackBarModule,
   ],
   templateUrl: './calendar.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrls: ['./family.scss', './calendar.scss'],
 })
 export class FamilyCalendar implements OnDestroy {
@@ -132,7 +158,10 @@ export class FamilyCalendar implements OnDestroy {
   /** AI gating: schedule-from-text is generative and needs family.ai (else the server 403s); the image/PDF
    *  "upload a schedule" additionally needs ai.vision. Hide what the caller can't use so we never surface a
    *  control that errors. (The family-member preset grants both; a partial grant gets the right subset.) */
-  readonly canScheduleAi = computed(() => { this.auth.permissions(); return this.auth.hasPermission(PERM.familyAi); });
+  readonly canScheduleAi = computed(() => {
+    this.auth.permissions();
+    return this.auth.hasPermission(PERM.familyAi);
+  });
   readonly canUploadSchedule = computed(() => {
     this.auth.permissions();
     return this.auth.hasPermission(PERM.familyAi) && this.auth.hasPermission(PERM.aiVision);
@@ -172,7 +201,14 @@ export class FamilyCalendar implements OnDestroy {
 
   /** A small, stable palette for per-member overlay colors (assigned by sorted-userId order). */
   private static readonly OVERLAY_PALETTE = [
-    '#f59e0b', '#a855f7', '#ec4899', '#10b981', '#3b82f6', '#ef4444', '#14b8a6', '#f97316',
+    '#f59e0b',
+    '#a855f7',
+    '#ec4899',
+    '#10b981',
+    '#3b82f6',
+    '#ef4444',
+    '#14b8a6',
+    '#f97316',
   ];
 
   /** userId → overlay color, stable across renders (derived from the sharing members, sorted by userId). */
@@ -194,7 +230,10 @@ export class FamilyCalendar implements OnDestroy {
   /** True when at least one opted-in member shares a PAINTABLE predicted phase (period/fertile) — gates the
    *  cycle toggle/legend so it never appears when nothing would actually paint. */
   readonly hasCyclePhases = computed<boolean>(() =>
-    this.cyclePhases().some(m => (m.phases ?? []).some(p => p.kind === 'period' || p.kind === 'fertile')));
+    this.cyclePhases().some((m) =>
+      (m.phases ?? []).some((p) => p.kind === 'period' || p.kind === 'fertile'),
+    ),
+  );
 
   /** The caller's calendar-share opt-in (mirrors status.shareHousehold); drives the share toggle state. */
   readonly shareHousehold = computed<boolean>(() => this.status()?.shareHousehold === true);
@@ -288,13 +327,19 @@ export class FamilyCalendar implements OnDestroy {
     }
     // Other members' shared (read-only) events, color-coded — only when the overlay is shown.
     if (this.showOverlay()) {
-      const colorOf = new Map(this.overlayMembers().map(m => [m.userId, m.color]));
+      const colorOf = new Map(this.overlayMembers().map((m) => [m.userId, m.color]));
       for (const member of this.familyEvents()) {
         const color = colorOf.get(member.userId);
         for (const item of member.events) {
           const ev = this.overlayToEvent(item, member.userId);
           for (const iso of this.spannedDays(ev)) {
-            push(iso, { ev, timeLabel: this.timeLabel(ev), overlay: true, memberName: member.name, color });
+            push(iso, {
+              ev,
+              timeLabel: this.timeLabel(ev),
+              overlay: true,
+              memberName: member.name,
+              color,
+            });
           }
         }
       }
@@ -320,7 +365,10 @@ export class FamilyCalendar implements OnDestroy {
         if (!kind) continue;
         for (const iso of this.spannedPhaseDays(span.start, span.end)) {
           let day = acc.get(iso);
-          if (!day) { day = { period: [], fertile: [] }; acc.set(iso, day); }
+          if (!day) {
+            day = { period: [], fertile: [] };
+            acc.set(iso, day);
+          }
           if (!day[kind].includes(member.name)) day[kind].push(member.name);
         }
       }
@@ -345,7 +393,8 @@ export class FamilyCalendar implements OnDestroy {
       const iso = this.toLocalDate(date);
       const evs = (byDay.get(iso) ?? []).slice().sort(this.compareDayEvents);
       cols.push({
-        date, iso,
+        date,
+        iso,
         weekdayLabel: date.toLocaleDateString(undefined, { weekday: 'short' }),
         dayNum: date.getDate(),
         isToday: iso === todayIso,
@@ -357,7 +406,7 @@ export class FamilyCalendar implements OnDestroy {
   });
 
   /** The week's events flattened + sorted for the agenda list, grouped by day. */
-  readonly agendaDays = computed<DayColumn[]>(() => this.days().filter(d => d.events.length > 0));
+  readonly agendaDays = computed<DayColumn[]>(() => this.days().filter((d) => d.events.length > 0));
 
   /** Max events shown in a month cell before the rest collapse into "+N more". */
   private static readonly MONTH_CELL_MAX = 3;
@@ -382,7 +431,8 @@ export class FamilyCalendar implements OnDestroy {
       const all = (byDay.get(iso) ?? []).slice().sort(this.compareDayEvents);
       const shown = all.slice(0, FamilyCalendar.MONTH_CELL_MAX);
       cells.push({
-        date, iso,
+        date,
+        iso,
         dayNum: date.getDate(),
         isToday: iso === todayIso,
         inMonth: date.getMonth() === month,
@@ -408,7 +458,8 @@ export class FamilyCalendar implements OnDestroy {
 
   /** A friendly "June 2026" label for the visible month. */
   readonly monthLabel = computed<string>(() =>
-    this.monthStart().toLocaleDateString(undefined, { month: 'long', year: 'numeric' }));
+    this.monthStart().toLocaleDateString(undefined, { month: 'long', year: 'numeric' }),
+  );
 
   /** A friendly "Jun 16 – 22, 2026" label for the visible week. */
   readonly rangeLabel = computed<string>(() => {
@@ -417,8 +468,12 @@ export class FamilyCalendar implements OnDestroy {
     const sameMonth = start.getMonth() === end.getMonth();
     const sameYear = start.getFullYear() === end.getFullYear();
     const fmtStart = start.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-    const fmtEnd = end.toLocaleDateString(undefined,
-      sameMonth ? { day: 'numeric', year: 'numeric' } : { month: 'short', day: 'numeric', year: 'numeric' });
+    const fmtEnd = end.toLocaleDateString(
+      undefined,
+      sameMonth
+        ? { day: 'numeric', year: 'numeric' }
+        : { month: 'short', day: 'numeric', year: 'numeric' },
+    );
     return sameYear ? `${fmtStart} – ${fmtEnd}` : `${fmtStart}, ${start.getFullYear()} – ${fmtEnd}`;
   });
 
@@ -447,7 +502,10 @@ export class FamilyCalendar implements OnDestroy {
   ngOnDestroy(): void {
     document.removeEventListener('visibilitychange', this.onVisibility);
     this.stopPolling();
-    if (this.tickTimer !== null) { clearInterval(this.tickTimer); this.tickTimer = null; }
+    if (this.tickTimer !== null) {
+      clearInterval(this.tickTimer);
+      this.tickTimer = null;
+    }
   }
 
   // ---- Auto-poll (every ~60s while connected AND the tab is visible) ----
@@ -464,7 +522,10 @@ export class FamilyCalendar implements OnDestroy {
   }
 
   private stopPolling(): void {
-    if (this.pollTimer !== null) { clearInterval(this.pollTimer); this.pollTimer = null; }
+    if (this.pollTimer !== null) {
+      clearInterval(this.pollTimer);
+      this.pollTimer = null;
+    }
   }
 
   /** Manual refresh: re-fetch the visible week now (with the toolbar spinner). */
@@ -509,7 +570,9 @@ export class FamilyCalendar implements OnDestroy {
     try {
       const cfg = await firstValueFrom(this.auth.config());
       if (!cfg.googleClientId) {
-        this.snack.open('Google sign-in is not configured on this server.', 'OK', { duration: 4000 });
+        this.snack.open('Google sign-in is not configured on this server.', 'OK', {
+          duration: 4000,
+        });
         return;
       }
       await this.waitForGis();
@@ -523,8 +586,11 @@ export class FamilyCalendar implements OnDestroy {
       // A user-cancelled popup is not an error worth shouting about.
       const msg = (e as Error)?.message;
       if (msg !== 'cancelled') {
-        this.snack.open(this.messageOf(e, "Couldn't connect your Google Calendar. Please try again."),
-          'OK', { duration: 4500 });
+        this.snack.open(
+          this.messageOf(e, "Couldn't connect your Google Calendar. Please try again."),
+          'OK',
+          { duration: 4500 },
+        );
       }
     } finally {
       this.connecting.set(false);
@@ -545,7 +611,9 @@ export class FamilyCalendar implements OnDestroy {
           else reject(new Error(resp?.error || 'no_code'));
         },
         error_callback: (err: { type?: string }) => {
-          reject(new Error(err?.type === 'popup_closed' ? 'cancelled' : (err?.type || 'oauth_failed')));
+          reject(
+            new Error(err?.type === 'popup_closed' ? 'cancelled' : err?.type || 'oauth_failed'),
+          );
         },
       });
       client.requestCode();
@@ -555,7 +623,8 @@ export class FamilyCalendar implements OnDestroy {
   async disconnect(): Promise<void> {
     const ok = await this.confirm({
       title: 'Disconnect Google Calendar?',
-      message: 'We\'ll forget your calendar connection. Your events stay in Google — this just stops showing them here.',
+      message:
+        "We'll forget your calendar connection. Your events stay in Google — this just stops showing them here.",
       confirmLabel: 'Disconnect',
       destructive: true,
     });
@@ -620,7 +689,9 @@ export class FamilyCalendar implements OnDestroy {
     this.eventsError.set(false);
     const { start, end } = this.visibleRange();
     try {
-      const list = await firstValueFrom(this.api.calendarEvents(start.toISOString(), end.toISOString()));
+      const list = await firstValueFrom(
+        this.api.calendarEvents(start.toISOString(), end.toISOString()),
+      );
       this.events.set(list);
       this.lastUpdated.set(Date.now());
       this.nowTick.set(Date.now());
@@ -643,7 +714,9 @@ export class FamilyCalendar implements OnDestroy {
   /** Best-effort fetch of the family overlay over a range; a failure just clears it (own events stand). */
   private async loadFamilyEvents(start: Date, end: Date): Promise<void> {
     try {
-      const members = await firstValueFrom(this.api.familyEvents(start.toISOString(), end.toISOString()));
+      const members = await firstValueFrom(
+        this.api.familyEvents(start.toISOString(), end.toISOString()),
+      );
       this.familyEvents.set(members ?? []);
     } catch {
       this.familyEvents.set([]);
@@ -656,7 +729,9 @@ export class FamilyCalendar implements OnDestroy {
    */
   private async loadCyclePhases(start: Date, end: Date): Promise<void> {
     try {
-      const members = await firstValueFrom(this.api.cycleOverlay(start.toISOString(), end.toISOString()));
+      const members = await firstValueFrom(
+        this.api.cycleOverlay(start.toISOString(), end.toISOString()),
+      );
       this.cyclePhases.set(members ?? []);
     } catch {
       this.cyclePhases.set([]);
@@ -664,12 +739,18 @@ export class FamilyCalendar implements OnDestroy {
   }
 
   prevWeek(): void {
-    if (this.view() === 'month') { this.shiftMonth(-1); return; }
+    if (this.view() === 'month') {
+      this.shiftMonth(-1);
+      return;
+    }
     this.shiftWeek(-7);
   }
 
   nextWeek(): void {
-    if (this.view() === 'month') { this.shiftMonth(1); return; }
+    if (this.view() === 'month') {
+      this.shiftMonth(1);
+      return;
+    }
     this.shiftWeek(7);
   }
 
@@ -700,7 +781,8 @@ export class FamilyCalendar implements OnDestroy {
     // Carry the visible period across the switch so navigating several months in month view then
     // switching to week doesn't snap back to a stale week (and vice-versa).
     if (v === 'month' && from !== 'month') this.monthStart.set(this.firstOfMonth(this.weekStart()));
-    else if (v !== 'month' && from === 'month') this.weekStart.set(this.sundayOf(this.monthStart()));
+    else if (v !== 'month' && from === 'month')
+      this.weekStart.set(this.sundayOf(this.monthStart()));
     if (this.connected()) void this.loadEvents();
   }
 
@@ -738,11 +820,18 @@ export class FamilyCalendar implements OnDestroy {
       const s = this.status();
       if (s) this.status.set({ ...s, shareHousehold: res.shareHousehold });
       this.snack.open(
-        res.shareHousehold ? 'Your calendar is now shared with your household.' : 'Calendar sharing turned off.',
-        undefined, { duration: 2200 });
+        res.shareHousehold
+          ? 'Your calendar is now shared with your household.'
+          : 'Calendar sharing turned off.',
+        undefined,
+        { duration: 2200 },
+      );
     } catch (e) {
-      this.snack.open(this.messageOf(e, "Couldn't update calendar sharing. Please try again."), 'OK',
-        { duration: 4000 });
+      this.snack.open(
+        this.messageOf(e, "Couldn't update calendar sharing. Please try again."),
+        'OK',
+        { duration: 4000 },
+      );
     } finally {
       this.sharingBusy.set(false);
     }
@@ -764,22 +853,30 @@ export class FamilyCalendar implements OnDestroy {
     this.proposals.set([]);
     try {
       const result = await firstValueFrom(this.api.scheduleAiEvents(text));
-      const proposed = (result.events ?? []).map(ai => this.toProposed(ai));
+      const proposed = (result.events ?? []).map((ai) => this.toProposed(ai));
       this.proposals.set(proposed);
       if (proposed.length === 0) {
         this.aiStatus.set(
-          result.notes?.trim() || "I couldn't find an event in that. Try \"dentist next Friday at 9am\".");
+          result.notes?.trim() ||
+            'I couldn\'t find an event in that. Try "dentist next Friday at 9am".',
+        );
       } else {
         const n = proposed.length;
         this.aiStatus.set(
           (result.notes?.trim() ? result.notes!.trim() + ' ' : '') +
-          `Review ${n === 1 ? 'the event' : `these ${n} events`} below, then add ${n === 1 ? 'it' : 'them'} to your calendar.`);
+            `Review ${n === 1 ? 'the event' : `these ${n} events`} below, then add ${n === 1 ? 'it' : 'them'} to your calendar.`,
+        );
       }
     } catch (e) {
       const status = (e as { status?: number })?.status;
-      this.aiStatus.set(status === 503
-        ? "AI scheduling isn't available right now. You can add the event yourself with the Event button."
-        : this.messageOf(e, "I couldn't reach the AI just now. Please try again, or add the event manually."));
+      this.aiStatus.set(
+        status === 503
+          ? "AI scheduling isn't available right now. You can add the event yourself with the Event button."
+          : this.messageOf(
+              e,
+              "I couldn't reach the AI just now. Please try again, or add the event manually.",
+            ),
+      );
     } finally {
       this.aiBusy.set(false);
     }
@@ -796,7 +893,9 @@ export class FamilyCalendar implements OnDestroy {
       await this.loadEvents();
     } catch (e) {
       this.setProposalSaving(p, false);
-      this.snack.open(this.messageOf(e, "Couldn't add that event. Please try again."), 'OK', { duration: 4000 });
+      this.snack.open(this.messageOf(e, "Couldn't add that event. Please try again."), 'OK', {
+        duration: 4000,
+      });
     }
   }
 
@@ -822,10 +921,11 @@ export class FamilyCalendar implements OnDestroy {
         }
       }
       // Keep only the ones that couldn't be added (cleared of any stale per-card saving flag).
-      this.proposals.set(failed.map(p => ({ ...p, saving: false })));
-      const msg = failed.length === 0
-        ? `Added ${added} ${added === 1 ? 'event' : 'events'} to your calendar.`
-        : `Added ${added} · ${failed.length} couldn't be added.`;
+      this.proposals.set(failed.map((p) => ({ ...p, saving: false })));
+      const msg =
+        failed.length === 0
+          ? `Added ${added} ${added === 1 ? 'event' : 'events'} to your calendar.`
+          : `Added ${added} · ${failed.length} couldn't be added.`;
       this.snack.open(msg, undefined, { duration: 3000 });
     } finally {
       this.addingAll.set(false);
@@ -853,14 +953,16 @@ export class FamilyCalendar implements OnDestroy {
         this.dismissProposal(p);
         await this.loadEvents();
       } catch (e) {
-        this.snack.open(this.messageOf(e, "Couldn't save that event. Please try again."), 'OK', { duration: 4000 });
+        this.snack.open(this.messageOf(e, "Couldn't save that event. Please try again."), 'OK', {
+          duration: 4000,
+        });
       }
     }
   }
 
   /** Discard a proposed event card without creating it. */
   dismissProposal(p: ProposedEvent): void {
-    this.proposals.set(this.proposals().filter(x => x !== p));
+    this.proposals.set(this.proposals().filter((x) => x !== p));
   }
 
   /** Clear the AI box + any pending proposals. */
@@ -919,8 +1021,13 @@ export class FamilyCalendar implements OnDestroy {
     if (this.uploadBusy()) return;
 
     // Keep only supported types; cap to the endpoint's max so a friendly note beats a server 400.
-    const supported = chosen.filter(f =>
-      f.type === 'image/jpeg' || f.type === 'image/png' || f.type === 'image/webp' || f.type === 'application/pdf');
+    const supported = chosen.filter(
+      (f) =>
+        f.type === 'image/jpeg' ||
+        f.type === 'image/png' ||
+        f.type === 'image/webp' ||
+        f.type === 'application/pdf',
+    );
     if (supported.length === 0) {
       this.aiStatus.set('Please choose schedule images (JPG, PNG, WebP) or a PDF.');
       return;
@@ -936,7 +1043,9 @@ export class FamilyCalendar implements OnDestroy {
       for (const file of files) {
         if (file.type === 'application/pdf') {
           if (file.size > FamilyCalendar.UPLOAD_MAX_PDF_BYTES) {
-            this.aiStatus.set(`“${file.name}” is too large — PDFs need to be under 10 MB. Try a smaller file.`);
+            this.aiStatus.set(
+              `“${file.name}” is too large — PDFs need to be under 10 MB. Try a smaller file.`,
+            );
             return;
           }
           const imageBase64 = await readFileAsBase64(file);
@@ -949,7 +1058,7 @@ export class FamilyCalendar implements OnDestroy {
       }
 
       const result = await firstValueFrom(this.api.scheduleFromImage(payload));
-      const proposed = (result.events ?? []).map(ai => this.toProposed(ai));
+      const proposed = (result.events ?? []).map((ai) => this.toProposed(ai));
       this.proposals.set(proposed);
 
       const tooManyNote = tooMany
@@ -958,25 +1067,37 @@ export class FamilyCalendar implements OnDestroy {
       if (proposed.length === 0) {
         this.aiStatus.set(
           tooManyNote +
-          (result.notes?.trim() || "I couldn't find any events in that. Try a clearer photo or a schedule PDF."));
+            (result.notes?.trim() ||
+              "I couldn't find any events in that. Try a clearer photo or a schedule PDF."),
+        );
       } else {
         const n = proposed.length;
         this.aiStatus.set(
           tooManyNote +
-          (result.notes?.trim() ? result.notes!.trim() + ' ' : '') +
-          `Review ${n === 1 ? 'the event' : `these ${n} events`} below, then add ${n === 1 ? 'it' : 'them'} to your calendar.`);
+            (result.notes?.trim() ? result.notes!.trim() + ' ' : '') +
+            `Review ${n === 1 ? 'the event' : `these ${n} events`} below, then add ${n === 1 ? 'it' : 'them'} to your calendar.`,
+        );
       }
     } catch (e) {
       const status = (e as { status?: number })?.status;
       if (status === 503) {
         this.aiStatus.set(
-          "AI scheduling isn't available right now. You can add the event yourself with the Event button.");
+          "AI scheduling isn't available right now. You can add the event yourself with the Event button.",
+        );
       } else if (status === 400) {
-        this.aiStatus.set(this.messageOf(e,
-          'That file didn’t work — attach up to 5 schedule images (under 5 MB each) or PDFs (under 10 MB).'));
+        this.aiStatus.set(
+          this.messageOf(
+            e,
+            'That file didn’t work — attach up to 5 schedule images (under 5 MB each) or PDFs (under 10 MB).',
+          ),
+        );
       } else {
-        this.aiStatus.set(this.messageOf(e,
-          "I couldn't read that schedule just now. Please try again, or add the event manually."));
+        this.aiStatus.set(
+          this.messageOf(
+            e,
+            "I couldn't read that schedule just now. Please try again, or add the event manually.",
+          ),
+        );
       }
     } finally {
       this.uploadBusy.set(false);
@@ -1004,29 +1125,37 @@ export class FamilyCalendar implements OnDestroy {
       const result = await firstValueFrom(this.api.findTimeAi(text));
       this.bestInterpreted.set(result.interpreted);
       const considered = result.consideredMembers ?? [];
-      const noneConnected = considered.length > 0 && considered.every(m => !m.connected);
+      const noneConnected = considered.length > 0 && considered.every((m) => !m.connected);
       this.bestNoneConnected.set(noneConnected);
-      this.bestNotConnected.set(considered.filter(m => !m.connected));
+      this.bestNotConnected.set(considered.filter((m) => !m.connected));
       this.bestSlots.set(result.slots ?? []);
 
       if (noneConnected) {
         this.bestStatus.set(
-          "No one's connected their calendar yet, so I can't check availability. Once someone connects, this lights up.");
+          "No one's connected their calendar yet, so I can't check availability. Once someone connects, this lights up.",
+        );
       } else if ((result.slots ?? []).length === 0) {
         this.bestStatus.set(
           (result.interpreted.note?.trim() ? result.interpreted.note!.trim() + ' ' : '') +
-          'No common openings in that window. Try a wider range, a shorter slot, or broader hours.');
+            'No common openings in that window. Try a wider range, a shorter slot, or broader hours.',
+        );
       } else {
         const n = result.slots.length;
         this.bestStatus.set(
           (result.interpreted.note?.trim() ? result.interpreted.note!.trim() + ' ' : '') +
-          `Pick ${n === 1 ? 'the slot' : 'a slot'} below to create the event prefilled.`);
+            `Pick ${n === 1 ? 'the slot' : 'a slot'} below to create the event prefilled.`,
+        );
       }
     } catch (e) {
       const status = (e as { status?: number })?.status;
-      this.bestStatus.set(status === 503
-        ? "AI or calendar isn't available right now. You can use Find a time to look manually."
-        : this.messageOf(e, "I couldn't reach the AI just now. Please try again, or use Find a time."));
+      this.bestStatus.set(
+        status === 503
+          ? "AI or calendar isn't available right now. You can use Find a time to look manually."
+          : this.messageOf(
+              e,
+              "I couldn't reach the AI just now. Please try again, or use Find a time.",
+            ),
+      );
     } finally {
       this.bestBusy.set(false);
     }
@@ -1051,7 +1180,11 @@ export class FamilyCalendar implements OnDestroy {
 
   /** "Thu, Jun 20" day label for a slot. */
   slotDay(slot: FindTimeSlot): string {
-    return new Date(slot.startUtc).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
+    return new Date(slot.startUtc).toLocaleDateString(undefined, {
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric',
+    });
   }
 
   /** "9:00 AM – 10:00 AM" local time range for a slot. */
@@ -1087,7 +1220,7 @@ export class FamilyCalendar implements OnDestroy {
   }
 
   private setProposalSaving(p: ProposedEvent, saving: boolean): void {
-    this.proposals.set(this.proposals().map(x => x === p ? { ...x, saving } : x));
+    this.proposals.set(this.proposals().map((x) => (x === p ? { ...x, saving } : x)));
   }
 
   /** Build a confirm-card view-model from a raw AI-proposed event. */
@@ -1117,23 +1250,34 @@ export class FamilyCalendar implements OnDestroy {
   private proposalWhenLabel(ai: ScheduleAiEvent): string {
     const start = new Date(ai.startUtc);
     if (Number.isNaN(start.getTime())) return '';
-    const day = start.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
+    const day = start.toLocaleDateString(undefined, {
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric',
+    });
     if (ai.allDay) return `${day} · All day`;
     const from = start.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
     const endDate = ai.endUtc ? new Date(ai.endUtc) : null;
-    const to = endDate && !Number.isNaN(endDate.getTime())
-      ? endDate.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' }) : null;
+    const to =
+      endDate && !Number.isNaN(endDate.getTime())
+        ? endDate.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })
+        : null;
     return to ? `${day} · ${from} – ${to}` : `${day} · ${from}`;
   }
 
   /** A short, friendly repeat label for a recurrence chip ('' for a one-off). */
   recurrenceLabel(r: CalendarRecurrence | undefined): string {
     switch (r) {
-      case 'daily': return 'Every day';
-      case 'weekly': return 'Every week';
-      case 'weekdays': return 'Weekdays';
-      case 'monthly': return 'Every month';
-      default: return '';
+      case 'daily':
+        return 'Every day';
+      case 'weekly':
+        return 'Every week';
+      case 'weekdays':
+        return 'Weekdays';
+      case 'monthly':
+        return 'Every month';
+      default:
+        return '';
     }
   }
 
@@ -1145,7 +1289,9 @@ export class FamilyCalendar implements OnDestroy {
         await firstValueFrom(this.api.createEvent(result.input));
         await this.loadEvents();
       } catch (e) {
-        this.snack.open(this.messageOf(e, "Couldn't save that event. Please try again."), 'OK', { duration: 4000 });
+        this.snack.open(this.messageOf(e, "Couldn't save that event. Please try again."), 'OK', {
+          duration: 4000,
+        });
       }
     }
   }
@@ -1155,8 +1301,13 @@ export class FamilyCalendar implements OnDestroy {
    * prefilled to that slot so they can name + create it. Degrades cleanly when no members/calendars connect.
    */
   async openFindTime(): Promise<void> {
-    const ref = this.dialog.open<FindTimeDialog, FindTimeData, FindTimeResultSlot>(
-      FindTimeDialog, { data: { members: this.members() }, width: '520px', maxWidth: '94vw', autoFocus: false, panelClass: 'family-dialog' });
+    const ref = this.dialog.open<FindTimeDialog, FindTimeData, FindTimeResultSlot>(FindTimeDialog, {
+      data: { members: this.members() },
+      width: '520px',
+      maxWidth: '94vw',
+      autoFocus: false,
+      panelClass: 'family-dialog',
+    });
     const slot = await firstValueFrom(ref.afterClosed());
     if (!slot) return;
     await this.createFromSlot(slot);
@@ -1165,14 +1316,18 @@ export class FamilyCalendar implements OnDestroy {
   /** Open the event editor seeded to a Find-a-time slot, then create it on save. */
   private async createFromSlot(slot: FindTimeResultSlot): Promise<void> {
     const result = await this.openEditor({
-      event: null, seedStartUtc: slot.startUtc, seedEndUtc: slot.endUtc,
+      event: null,
+      seedStartUtc: slot.startUtc,
+      seedEndUtc: slot.endUtc,
     });
     if (result?.kind === 'save') {
       try {
         await firstValueFrom(this.api.createEvent(result.input));
         await this.loadEvents();
       } catch (e) {
-        this.snack.open(this.messageOf(e, "Couldn't save that event. Please try again."), 'OK', { duration: 4000 });
+        this.snack.open(this.messageOf(e, "Couldn't save that event. Please try again."), 'OK', {
+          duration: 4000,
+        });
       }
     }
   }
@@ -1183,8 +1338,11 @@ export class FamilyCalendar implements OnDestroy {
    */
   openDayEvent(de: DayEvent): void {
     if (de.overlay) {
-      this.snack.open(`${de.ev.title} — ${de.memberName ?? 'a family member'}'s event (view only).`,
-        undefined, { duration: 2600 });
+      this.snack.open(
+        `${de.ev.title} — ${de.memberName ?? 'a family member'}'s event (view only).`,
+        undefined,
+        { duration: 2600 },
+      );
       return;
     }
     void this.edit(de.ev);
@@ -1202,7 +1360,9 @@ export class FamilyCalendar implements OnDestroy {
       await firstValueFrom(this.api.updateEvent(ev.id, result.input));
       await this.loadEvents();
     } catch (e) {
-      this.snack.open(this.messageOf(e, "Couldn't save that event. Please try again."), 'OK', { duration: 4000 });
+      this.snack.open(this.messageOf(e, "Couldn't save that event. Please try again."), 'OK', {
+        duration: 4000,
+      });
     }
   }
 
@@ -1223,13 +1383,18 @@ export class FamilyCalendar implements OnDestroy {
 
   private openEditor(data: EventEditorData): Promise<EventEditorResult | undefined> {
     const ref = this.dialog.open<EventEditorDialog, EventEditorData, EventEditorResult>(
-      EventEditorDialog, { data, width: '460px', maxWidth: '94vw', autoFocus: false, panelClass: 'family-dialog' });
+      EventEditorDialog,
+      { data, width: '460px', maxWidth: '94vw', autoFocus: false, panelClass: 'family-dialog' },
+    );
     return firstValueFrom(ref.afterClosed());
   }
 
   private confirm(data: ConfirmData): Promise<boolean | undefined> {
     const ref = this.dialog.open<FamilyConfirmDialog, ConfirmData, boolean>(FamilyConfirmDialog, {
-      data, width: '420px', maxWidth: '92vw', panelClass: 'family-dialog',
+      data,
+      width: '420px',
+      maxWidth: '92vw',
+      panelClass: 'family-dialog',
     });
     return firstValueFrom(ref.afterClosed());
   }
@@ -1251,8 +1416,10 @@ export class FamilyCalendar implements OnDestroy {
    * {@link spannedDays}/{@link timeLabel}. The id is synthetic + clearly non-editable; clicking it never opens
    * the editor (the template guards on `overlay`). No location/notes/links are ever carried for another member.
    */
-  private overlayToEvent(item: { title: string; startUtc: string | null; endUtc: string | null; allDay: boolean },
-                         userId: number): CalendarEvent {
+  private overlayToEvent(
+    item: { title: string; startUtc: string | null; endUtc: string | null; allDay: boolean },
+    userId: number,
+  ): CalendarEvent {
     return {
       id: `overlay:${userId}:${item.startUtc ?? ''}:${item.title}`,
       title: item.title,
@@ -1321,26 +1488,43 @@ export class FamilyCalendar implements OnDestroy {
   private timeLabel(ev: CalendarEvent): string {
     if (ev.allDay) return 'All day';
     if (!ev.startUtc) return '';
-    return new Date(ev.startUtc).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+    return new Date(ev.startUtc).toLocaleTimeString(undefined, {
+      hour: 'numeric',
+      minute: '2-digit',
+    });
   }
 
   /** A friendly "h:mm a – h:mm a" (or "All day") range for the agenda/edit hint. */
   rangeFor(ev: CalendarEvent): string {
     if (ev.allDay) return 'All day';
     if (!ev.startUtc) return '';
-    const start = new Date(ev.startUtc).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+    const start = new Date(ev.startUtc).toLocaleTimeString(undefined, {
+      hour: 'numeric',
+      minute: '2-digit',
+    });
     if (!ev.endUtc) return start;
-    const end = new Date(ev.endUtc).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+    const end = new Date(ev.endUtc).toLocaleTimeString(undefined, {
+      hour: 'numeric',
+      minute: '2-digit',
+    });
     return `${start} – ${end}`;
   }
 
   dayHeading(col: DayColumn): string {
-    return col.date.toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' });
+    return col.date.toLocaleDateString(undefined, {
+      weekday: 'long',
+      month: 'short',
+      day: 'numeric',
+    });
   }
 
   /** Friendly "Monday, Jun 22" label for a month cell (used in tooltips/labels). */
   monthCellHeading(cell: MonthCell): string {
-    return cell.date.toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' });
+    return cell.date.toLocaleDateString(undefined, {
+      weekday: 'long',
+      month: 'short',
+      day: 'numeric',
+    });
   }
 
   /** Jump from a month cell into that day's agenda so overflow ("+N more") events are reachable. */

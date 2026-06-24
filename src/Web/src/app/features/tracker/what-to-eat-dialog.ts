@@ -1,4 +1,4 @@
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal, ChangeDetectionStrategy } from '@angular/core';
 import { DecimalPipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { firstValueFrom } from 'rxjs';
@@ -13,7 +13,15 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatSnackBar } from '@angular/material/snack-bar';
 
 import { Api } from '../../core/api';
-import { AddFoodRequest, EatIngredient, EatOption, FamilyMealSlot, Meal, RecipeFromBreakdownRequest, WhatToEatResult } from '../../core/models';
+import {
+  AddFoodRequest,
+  EatIngredient,
+  EatOption,
+  FamilyMealSlot,
+  Meal,
+  RecipeFromBreakdownRequest,
+  WhatToEatResult,
+} from '../../core/models';
 
 /**
  * Opened from the tracker (or meals page) with the active date + a sensible default meal slot, plus the
@@ -62,10 +70,18 @@ type ActionKind = 'tracker' | 'plan' | 'grocery' | 'recipe';
 @Component({
   selector: 'app-what-to-eat-dialog',
   imports: [
-    DecimalPipe, FormsModule, MatDialogModule, MatFormFieldModule, MatInputModule,
-    MatButtonModule, MatIconModule, MatProgressSpinnerModule, MatTooltipModule,
+    DecimalPipe,
+    FormsModule,
+    MatDialogModule,
+    MatFormFieldModule,
+    MatInputModule,
+    MatButtonModule,
+    MatIconModule,
+    MatProgressSpinnerModule,
+    MatTooltipModule,
   ],
   templateUrl: './what-to-eat-dialog.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrl: './what-to-eat-dialog.scss',
 })
 export class WhatToEatDialog {
@@ -120,31 +136,39 @@ export class WhatToEatDialog {
     this.announce.set('Finding options that fit your remaining macros…');
     const refine = this.refineText().trim();
     try {
-      const res: WhatToEatResult = await firstValueFrom(this.api.whatToEat({
-        // The box is a single free-text refine; send it as `craving` (the server treats craving/constraints
-        // the same — both are Clean-capped free text fed to the model as DATA).
-        craving: refine || null,
-        meal: this.data.meal,
-      }));
+      const res: WhatToEatResult = await firstValueFrom(
+        this.api.whatToEat({
+          // The box is a single free-text refine; send it as `craving` (the server treats craving/constraints
+          // the same — both are Clean-capped free text fed to the model as DATA).
+          craving: refine || null,
+          meal: this.data.meal,
+        }),
+      );
       const options = res.options ?? [];
       this.options.set(options);
       this.fallback.set(res.aiUsed === false);
       if (options.length === 0) {
         this.phase.set('empty');
-        this.announce.set(res.aiUsed === false
-          ? "AI suggestions are off and I have nothing to suggest from yet. Add food manually, or try again later."
-          : "I couldn't find an option that fits right now. Try a refine, or add food manually.");
+        this.announce.set(
+          res.aiUsed === false
+            ? 'AI suggestions are off and I have nothing to suggest from yet. Add food manually, or try again later.'
+            : "I couldn't find an option that fits right now. Try a refine, or add food manually.",
+        );
       } else {
         this.phase.set('options');
         const n = options.length;
-        this.announce.set(res.aiUsed === false
-          ? `Showing ${n} idea${n === 1 ? '' : 's'} from your planned meals and groceries.`
-          : `Here ${n === 1 ? 'is 1 option' : `are ${n} options`} that fit your remaining macros.`);
+        this.announce.set(
+          res.aiUsed === false
+            ? `Showing ${n} idea${n === 1 ? '' : 's'} from your planned meals and groceries.`
+            : `Here ${n === 1 ? 'is 1 option' : `are ${n} options`} that fit your remaining macros.`,
+        );
       }
     } catch {
       this.options.set([]);
       this.phase.set('error');
-      this.announce.set("I couldn't reach the AI just now. Please try again, or add food manually.");
+      this.announce.set(
+        "I couldn't reach the AI just now. Please try again, or add food manually.",
+      );
     } finally {
       this.inFlight = false;
     }
@@ -182,15 +206,20 @@ export class WhatToEatDialog {
   /** Whether ANY action on a card is in flight (to disable its sibling actions). */
   cardBusy(index: number): boolean {
     const keys = this.busyKeys();
-    return keys.has(`${index}:tracker`) || keys.has(`${index}:plan`)
-      || keys.has(`${index}:grocery`) || keys.has(`${index}:recipe`);
+    return (
+      keys.has(`${index}:tracker`) ||
+      keys.has(`${index}:plan`) ||
+      keys.has(`${index}:grocery`) ||
+      keys.has(`${index}:recipe`)
+    );
   }
 
   private setBusy(index: number, kind: ActionKind, on: boolean): void {
-    this.busyKeys.update(set => {
+    this.busyKeys.update((set) => {
       const next = new Set(set);
       const key = `${index}:${kind}`;
-      if (on) next.add(key); else next.delete(key);
+      if (on) next.add(key);
+      else next.delete(key);
       return next;
     });
   }
@@ -213,7 +242,7 @@ export class WhatToEatDialog {
 
   /** The option's ingredients NOT yet on the household grocery list (drives the "Add needed" button/count). */
   missingCount(o: EatOption): number {
-    return (o.ingredients ?? []).filter(i => !i.onList && i.name?.trim()).length;
+    return (o.ingredients ?? []).filter((i) => !i.onList && i.name?.trim()).length;
   }
 
   /** Whether a single ingredient's "+ add" is in flight (so only that chip's control spins/disables). */
@@ -222,10 +251,11 @@ export class WhatToEatDialog {
   }
 
   private setIngredientBusy(cardIndex: number, ingIndex: number, on: boolean): void {
-    this.busyIngredients.update(set => {
+    this.busyIngredients.update((set) => {
       const next = new Set(set);
       const key = `${cardIndex}:${ingIndex}`;
-      if (on) next.add(key); else next.delete(key);
+      if (on) next.add(key);
+      else next.delete(key);
       return next;
     });
   }
@@ -236,15 +266,17 @@ export class WhatToEatDialog {
    * without a re-fetch. Replaces the option's ingredient array immutably so the signal re-renders.
    */
   private markOnList(cardIndex: number, ingIndex: number, addedQty: number): void {
-    this.options.update(opts => opts.map((o, oi) => {
-      if (oi !== cardIndex) return o;
-      const ingredients = o.ingredients.map((ing, ii) => {
-        if (ii !== ingIndex) return ing;
-        const prior = ing.onList ? (ing.listedQty ?? 1) : 0;
-        return { ...ing, onList: true, listedQty: prior + addedQty } as EatIngredient;
-      });
-      return { ...o, ingredients };
-    }));
+    this.options.update((opts) =>
+      opts.map((o, oi) => {
+        if (oi !== cardIndex) return o;
+        const ingredients = o.ingredients.map((ing, ii) => {
+          if (ii !== ingIndex) return ing;
+          const prior = ing.onList ? (ing.listedQty ?? 1) : 0;
+          return { ...ing, onList: true, listedQty: prior + addedQty } as EatIngredient;
+        });
+        return { ...o, ingredients };
+      }),
+    );
   }
 
   // ─────────────────────────────────────────── actions ─────────────────────────────────────────
@@ -286,15 +318,18 @@ export class WhatToEatDialog {
     this.setBusy(index, 'plan', true);
     // The plan's ingredients blob is the option's FULL ingredient list (name + optional quantity).
     const ingredients = (o.ingredients ?? [])
-      .map(i => (i.quantity?.trim() ? `${i.name.trim()} (${i.quantity.trim()})` : i.name.trim()))
-      .filter(Boolean).join('\n');
+      .map((i) => (i.quantity?.trim() ? `${i.name.trim()} (${i.quantity.trim()})` : i.name.trim()))
+      .filter(Boolean)
+      .join('\n');
     try {
-      await firstValueFrom(this.api.createFamilyMeal({
-        localDate: this.data.date,
-        slot: this.data.meal as FamilyMealSlot,
-        title: o.title,
-        ingredients: ingredients || undefined,
-      }));
+      await firstValueFrom(
+        this.api.createFamilyMeal({
+          localDate: this.data.date,
+          slot: this.data.meal as FamilyMealSlot,
+          title: o.title,
+          ingredients: ingredients || undefined,
+        }),
+      );
       this.snack.open(`Added “${o.title}” to your meal plan`, 'OK', { duration: 3000 });
     } catch {
       this.snack.open("Couldn't add to the meal plan — try again", 'Dismiss', { duration: 4000 });
@@ -321,12 +356,18 @@ export class WhatToEatDialog {
     }
     this.setBusy(index, 'grocery', true);
     try {
-      await firstValueFrom(this.api.recipeBreakdownToGrocery(neededIdx.map(({ i }) => i.name.trim())));
+      await firstValueFrom(
+        this.api.recipeBreakdownToGrocery(neededIdx.map(({ i }) => i.name.trim())),
+      );
       for (const { ii } of neededIdx) this.markOnList(index, ii, 1);
       const n = neededIdx.length;
-      this.snack.open(`Added ${n} item${n === 1 ? '' : 's'} to your grocery list`, 'OK', { duration: 3000 });
+      this.snack.open(`Added ${n} item${n === 1 ? '' : 's'} to your grocery list`, 'OK', {
+        duration: 3000,
+      });
     } catch {
-      this.snack.open("Couldn't add to the grocery list — try again", 'Dismiss', { duration: 4000 });
+      this.snack.open("Couldn't add to the grocery list — try again", 'Dismiss', {
+        duration: 4000,
+      });
     } finally {
       this.setBusy(index, 'grocery', false);
     }
@@ -339,7 +380,11 @@ export class WhatToEatDialog {
    * "On your list" (+1) client-side. Family-gated alongside the card actions (the caller already has family.use
    * when these render); a missing grocery.use surfaces a friendly snackbar.
    */
-  async addIngredientToGrocery(cardIndex: number, ingIndex: number, ing: EatIngredient): Promise<void> {
+  async addIngredientToGrocery(
+    cardIndex: number,
+    ingIndex: number,
+    ing: EatIngredient,
+  ): Promise<void> {
     const name = ing.name?.trim();
     if (!name || this.isIngredientBusy(cardIndex, ingIndex)) return;
     this.setIngredientBusy(cardIndex, ingIndex, true);
@@ -348,7 +393,9 @@ export class WhatToEatDialog {
       this.markOnList(cardIndex, ingIndex, 1);
       this.snack.open(`Added “${name}” to your grocery list`, 'OK', { duration: 2500 });
     } catch {
-      this.snack.open("Couldn't add that to the grocery list — try again", 'Dismiss', { duration: 4000 });
+      this.snack.open("Couldn't add that to the grocery list — try again", 'Dismiss', {
+        duration: 4000,
+      });
     } finally {
       this.setIngredientBusy(cardIndex, ingIndex, false);
     }
@@ -373,13 +420,13 @@ export class WhatToEatDialog {
         fat: Math.max(0, o.macros.fatG),
       },
       ingredients: (o.ingredients ?? [])
-        .map(i => ({ name: i.name?.trim() ?? '', quantity: i.quantity?.trim() ?? '' }))
-        .filter(i => i.name.length > 0),
+        .map((i) => ({ name: i.name?.trim() ?? '', quantity: i.quantity?.trim() ?? '' }))
+        .filter((i) => i.name.length > 0),
       steps: o.steps ?? [],
     };
     try {
       await firstValueFrom(this.api.saveRecipeFromBreakdown(req));
-      this.savedRecipes.update(set => new Set(set).add(index));
+      this.savedRecipes.update((set) => new Set(set).add(index));
       this.snack.open(`Saved “${o.title}” to My Recipes`, 'OK', { duration: 3000 });
     } catch {
       this.snack.open("Couldn't save the recipe — try again", 'Dismiss', { duration: 4000 });

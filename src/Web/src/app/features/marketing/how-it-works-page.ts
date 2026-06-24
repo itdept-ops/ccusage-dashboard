@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { Component, ChangeDetectionStrategy } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { MatIconModule } from '@angular/material/icon';
 import { MarketingNav } from './marketing-nav';
@@ -11,12 +11,16 @@ interface Stage {
   text: string;
   detail: string;
 }
-interface Faq { q: string; a: string; }
+interface Faq {
+  q: string;
+  a: string;
+}
 
 @Component({
   selector: 'app-how-it-works-page',
   imports: [RouterLink, MatIconModule, MarketingNav, MarketingFooter],
   templateUrl: './how-it-works-page.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrl: './marketing-page.scss',
 })
 export class HowItWorksPage {
@@ -26,42 +30,48 @@ export class HowItWorksPage {
       icon: 'terminal',
       title: 'A reporter watches your machine',
       text: 'A tiny background agent reads the JSONL logs Claude Code and Codex already write to disk.',
-      detail: 'It de-duplicates locally before sending — so a re-run never double-counts, and only genuinely new records leave your machine.',
+      detail:
+        'It de-duplicates locally before sending — so a re-run never double-counts, and only genuinely new records leave your machine.',
     },
     {
       n: '02',
       icon: 'cloud_upload',
       title: 'New usage posts to your server',
       text: 'The reporter authenticates with an ingest key and POSTs new records to /api/ingest over HTTPS.',
-      detail: 'Keys are revocable, scoped, and never committed. The last-synced indicator on the dashboard updates the moment a post lands.',
+      detail:
+        'Keys are revocable, scoped, and never committed. The last-synced indicator on the dashboard updates the moment a post lands.',
     },
     {
       n: '03',
       icon: 'database',
       title: 'Postgres stores the truth',
       text: 'Records are priced from your editable rate table and bucketed into your display timezone.',
-      detail: 'Every token tier is stored separately, so cost can be recomputed at any time without re-reading a single log file.',
+      detail:
+        'Every token tier is stored separately, so cost can be recomputed at any time without re-reading a single log file.',
     },
     {
       n: '04',
       icon: 'monitoring',
       title: 'You explore it all',
       text: 'Filter, chart, drill into sessions, export CSV, or share a read-only link.',
-      detail: 'The dashboard, calendar heatmap, and records table all respond to the same filters, so any spike is one click from its cause.',
+      detail:
+        'The dashboard, calendar heatmap, and records table all respond to the same filters, so any spike is one click from its cause.',
     },
     {
       n: '05',
       icon: 'forum',
       title: 'Your team talks in real time',
       text: 'The same server runs a SignalR hub that powers in-app channels and direct messages.',
-      detail: 'Messages, reactions, typing indicators, and unread counts push live over WebSockets — and notifications reach an in-app bell, toasts, and the browser. No third-party chat tool in the loop.',
+      detail:
+        'Messages, reactions, typing indicators, and unread counts push live over WebSockets — and notifications reach an in-app bell, toasts, and the browser. No third-party chat tool in the loop.',
     },
     {
       n: '06',
       icon: 'restaurant',
       title: 'The tracker pulls in nutrition & exercise',
       text: 'The food & fitness tracker calls out to nutrition and exercise data sources, server-side.',
-      detail: 'Foods come from USDA FoodData Central with a FatSecret fallback and barcode lookup; exercises and their calorie estimates come from the WorkoutX library. Your server makes those calls — your logs stay in your Postgres.',
+      detail:
+        'Foods come from USDA FoodData Central with a FatSecret fallback and barcode lookup; exercises and their calorie estimates come from the WorkoutX library. Your server makes those calls — your logs stay in your Postgres.',
     },
   ];
 

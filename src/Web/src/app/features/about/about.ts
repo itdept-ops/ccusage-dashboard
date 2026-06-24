@@ -7,17 +7,37 @@ import {
   afterNextRender,
   inject,
   signal,
+  ChangeDetectionStrategy,
 } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { MatIconModule } from '@angular/material/icon';
 import { MarketingNav } from '../marketing/marketing-nav';
 import { MarketingFooter } from '../marketing/marketing-footer';
 
-interface Pillar { icon: string; kicker: string; title: string; text: string; }
-interface Skill { name: string; tag: string; }
-interface SkillGroup { label: string; icon: string; skills: Skill[]; }
-interface Metric { value: string; suffix: string; label: string; }
-interface Cert { short: string; full: string; }
+interface Pillar {
+  icon: string;
+  kicker: string;
+  title: string;
+  text: string;
+}
+interface Skill {
+  name: string;
+  tag: string;
+}
+interface SkillGroup {
+  label: string;
+  icon: string;
+  skills: Skill[];
+}
+interface Metric {
+  value: string;
+  suffix: string;
+  label: string;
+}
+interface Cert {
+  short: string;
+  full: string;
+}
 
 /**
  * Public "About" page for Junior Fortunato.
@@ -31,6 +51,7 @@ interface Cert { short: string; full: string; }
   selector: 'app-about',
   imports: [RouterLink, MatIconModule, MarketingNav, MarketingFooter],
   templateUrl: './about.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrl: './about.scss',
 })
 export class About implements AfterViewInit, OnDestroy {
@@ -175,16 +196,14 @@ export class About implements AfterViewInit, OnDestroy {
   }
 
   ngAfterViewInit(): void {
-    const reduce = typeof matchMedia === 'function'
-      && matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const reduce =
+      typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-    const els = Array.from(
-      this.host.nativeElement.querySelectorAll<HTMLElement>('[data-reveal]'),
-    );
+    const els = Array.from(this.host.nativeElement.querySelectorAll<HTMLElement>('[data-reveal]'));
 
     // No observer support, or motion is reduced → reveal everything immediately.
     if (reduce || typeof IntersectionObserver === 'undefined') {
-      els.forEach(el => el.classList.add('is-in'));
+      els.forEach((el) => el.classList.add('is-in'));
       return;
     }
 
@@ -194,7 +213,7 @@ export class About implements AfterViewInit, OnDestroy {
 
     this.zone.runOutsideAngular(() => {
       this.observer = new IntersectionObserver(
-        entries => {
+        (entries) => {
           for (const e of entries) {
             if (e.isIntersecting) {
               e.target.classList.add('is-in');
@@ -204,10 +223,10 @@ export class About implements AfterViewInit, OnDestroy {
         },
         { threshold: 0.16, rootMargin: '0px 0px -8% 0px' },
       );
-      els.forEach(el => this.observer!.observe(el));
+      els.forEach((el) => this.observer!.observe(el));
       // Failsafe: if the observer never delivers (throttled/backgrounded tab), reveal everything so
       // no chapter can stay hidden. Idempotent with the per-element reveals above.
-      this.revealFailsafe = setTimeout(() => els.forEach(el => el.classList.add('is-in')), 2500);
+      this.revealFailsafe = setTimeout(() => els.forEach((el) => el.classList.add('is-in')), 2500);
     });
   }
 
@@ -221,11 +240,9 @@ export class About implements AfterViewInit, OnDestroy {
     if (this.counted) return;
     this.counted = true;
 
-    const reduce = typeof matchMedia === 'function'
-      && matchMedia('(prefers-reduced-motion: reduce)').matches;
-    const nodes = Array.from(
-      this.host.nativeElement.querySelectorAll<HTMLElement>('[data-count]'),
-    );
+    const reduce =
+      typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const nodes = Array.from(this.host.nativeElement.querySelectorAll<HTMLElement>('[data-count]'));
 
     for (const node of nodes) {
       const target = Number(node.dataset['count'] ?? '0');

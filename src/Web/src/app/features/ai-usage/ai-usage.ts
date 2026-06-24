@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal, ChangeDetectionStrategy } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 
 import { MatCardModule } from '@angular/material/card';
@@ -16,17 +16,30 @@ import { Api } from '../../core/api';
 import { AiUsageCount, AiUsageRow, AiUsageSummary } from '../../core/models';
 
 /** A {value,label} option for the user/feature filter selects, derived from the data itself. */
-interface FilterOption { value: string; label: string; }
+interface FilterOption {
+  value: string;
+  label: string;
+}
 
 const PAGE_SIZE = 100;
 
 @Component({
   selector: 'app-ai-usage',
   imports: [
-    CommonModule, FormsModule, MatCardModule, MatFormFieldModule, MatInputModule, MatSelectModule,
-    MatButtonModule, MatIconModule, MatProgressBarModule, MatTooltipModule, MatSnackBarModule,
+    CommonModule,
+    FormsModule,
+    MatCardModule,
+    MatFormFieldModule,
+    MatInputModule,
+    MatSelectModule,
+    MatButtonModule,
+    MatIconModule,
+    MatProgressBarModule,
+    MatTooltipModule,
+    MatSnackBarModule,
   ],
   templateUrl: './ai-usage.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrl: './ai-usage.scss',
 })
 export class AiUsage {
@@ -44,11 +57,11 @@ export class AiUsage {
   readonly page = signal(0);
 
   // ---- Filters ----
-  readonly user = signal('');        // AppUser id as string ('' = all)
-  readonly feature = signal('');     // feature label ('' = all)
-  readonly outcome = signal('');     // outcome ('' = all)
-  readonly from = signal('');        // yyyy-MM-dd ('' = none)
-  readonly to = signal('');          // yyyy-MM-dd ('' = none)
+  readonly user = signal(''); // AppUser id as string ('' = all)
+  readonly feature = signal(''); // feature label ('' = all)
+  readonly outcome = signal(''); // outcome ('' = all)
+  readonly from = signal(''); // yyyy-MM-dd ('' = none)
+  readonly to = signal(''); // yyyy-MM-dd ('' = none)
 
   /** Keyset cursor stack: the `before` id used to fetch each page (index 0 = newest, no cursor). */
   private cursors: (number | null)[] = [null];
@@ -66,12 +79,14 @@ export class AiUsage {
   /** Top users from the summary, as filter options (userId -> name). Background ticks have no id. */
   readonly userOptions = computed<FilterOption[]>(() =>
     (this.summary()?.topUsers ?? [])
-      .filter(u => u.userId != null)
-      .map(u => ({ value: String(u.userId), label: u.key })));
+      .filter((u) => u.userId != null)
+      .map((u) => ({ value: String(u.userId), label: u.key })),
+  );
 
   /** Top features from the summary, as filter options. */
   readonly featureOptions = computed<FilterOption[]>(() =>
-    (this.summary()?.topFeatures ?? []).map(f => ({ value: f.key, label: f.key })));
+    (this.summary()?.topFeatures ?? []).map((f) => ({ value: f.key, label: f.key })),
+  );
 
   readonly failures = computed(() => {
     const by = this.summary()?.byOutcome ?? {};
@@ -83,7 +98,9 @@ export class AiUsage {
   readonly topUser = computed<AiUsageCount | null>(() => this.summary()?.topUsers[0] ?? null);
   readonly topFeature = computed<AiUsageCount | null>(() => this.summary()?.topFeatures[0] ?? null);
 
-  constructor() { this.reload(); }
+  constructor() {
+    this.reload();
+  }
 
   /** Reset to the first page and load (used on any filter change or Refresh). */
   reload(): void {
@@ -96,34 +113,36 @@ export class AiUsage {
     this.loading.set(true);
     this.error.set(false);
     const before = this.cursors[this.page()];
-    this.api.getAiUsage({
-      before,
-      limit: PAGE_SIZE,
-      user: this.user() ? Number(this.user()) : null,
-      feature: this.feature(),
-      outcome: this.outcome(),
-      from: this.from() ? new Date(this.from() + 'T00:00:00').toISOString() : undefined,
-      to: this.to() ? new Date(this.to() + 'T23:59:59').toISOString() : undefined,
-    }).subscribe({
-      next: r => {
-        this.rows.set(r.rows);
-        this.summary.set(r.summary);
-        this.hasMore.set(r.rows.length === PAGE_SIZE);
-        this.loading.set(false);
-      },
-      error: () => {
-        this.loading.set(false);
-        this.error.set(true);
-        this.snack.open('Failed to load AI usage', 'Dismiss', { duration: 4000 });
-      },
-    });
+    this.api
+      .getAiUsage({
+        before,
+        limit: PAGE_SIZE,
+        user: this.user() ? Number(this.user()) : null,
+        feature: this.feature(),
+        outcome: this.outcome(),
+        from: this.from() ? new Date(this.from() + 'T00:00:00').toISOString() : undefined,
+        to: this.to() ? new Date(this.to() + 'T23:59:59').toISOString() : undefined,
+      })
+      .subscribe({
+        next: (r) => {
+          this.rows.set(r.rows);
+          this.summary.set(r.summary);
+          this.hasMore.set(r.rows.length === PAGE_SIZE);
+          this.loading.set(false);
+        },
+        error: () => {
+          this.loading.set(false);
+          this.error.set(true);
+          this.snack.open('Failed to load AI usage', 'Dismiss', { duration: 4000 });
+        },
+      });
   }
 
   nextPage(): void {
     if (!this.hasMore() || !this.rows().length) return;
     const lastId = this.rows()[this.rows().length - 1].id;
     const next = this.page() + 1;
-    this.cursors[next] = lastId;            // keyset cursor for the older page
+    this.cursors[next] = lastId; // keyset cursor for the older page
     this.page.set(next);
     this.load();
   }
@@ -135,13 +154,17 @@ export class AiUsage {
   }
 
   clearFilters(): void {
-    this.user.set(''); this.feature.set(''); this.outcome.set('');
-    this.from.set(''); this.to.set('');
+    this.user.set('');
+    this.feature.set('');
+    this.outcome.set('');
+    this.from.set('');
+    this.to.set('');
     this.reload();
   }
 
-  readonly hasFilters = computed(() =>
-    !!(this.user() || this.feature() || this.outcome() || this.from() || this.to()));
+  readonly hasFilters = computed(
+    () => !!(this.user() || this.feature() || this.outcome() || this.from() || this.to()),
+  );
 
   /** Color band for an outcome: ok=success, unavailable/rate-limited=warning, else danger. */
   outcomeClass(outcome: string): string {
@@ -151,7 +174,7 @@ export class AiUsage {
   }
 
   outcomeLabel(outcome: string): string {
-    return this.outcomes.find(o => o.v === outcome)?.l ?? outcome;
+    return this.outcomes.find((o) => o.v === outcome)?.l ?? outcome;
   }
 
   fmtNum(n: number | null | undefined): string {
@@ -165,8 +188,10 @@ export class AiUsage {
     if (n == null) return '—';
     const digits = n !== 0 && Math.abs(n) < 0.01 ? 4 : 2;
     return n.toLocaleString(undefined, {
-      style: 'currency', currency: 'USD',
-      minimumFractionDigits: digits, maximumFractionDigits: digits,
+      style: 'currency',
+      currency: 'USD',
+      minimumFractionDigits: digits,
+      maximumFractionDigits: digits,
     });
   }
 }

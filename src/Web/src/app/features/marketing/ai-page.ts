@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { Component, ChangeDetectionStrategy } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { MatIconModule } from '@angular/material/icon';
 import { MarketingNav } from './marketing-nav';
@@ -55,6 +55,7 @@ interface Pillar {
   selector: 'app-ai-page',
   imports: [RouterLink, MatIconModule, MarketingNav, MarketingFooter],
   templateUrl: './ai-page.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrls: ['./marketing-page.scss', './ai-page.scss'],
 })
 export class AiPage {
@@ -98,13 +99,20 @@ export class AiPage {
           title: 'Estimate macros from a description',
           icon: 'tune',
           multimodal: false,
-          where: 'Add Food dialog, manual entry — the “Estimate with AI” action prefills the per-serving calorie and macro fields.',
+          where:
+            'Add Food dialog, manual entry — the “Estimate with AI” action prefills the per-serving calorie and macro fields.',
           youSayVerb: 'You say',
           youSay: '“grilled chicken breast with rice” · 1 cup rice + 6 oz chicken',
           promptAsks:
             'estimate the nutrition for the food and quantity, treating the text strictly as data.',
           returnsType: 'EstimateMacrosResponse',
-          returnsFields: ['calories: int', 'proteinG: number', 'carbsG: number', 'fatG: number', 'note: string?'],
+          returnsFields: [
+            'calories: int',
+            'proteinG: number',
+            'carbsG: number',
+            'fatG: number',
+            'note: string?',
+          ],
           exampleReturn:
             '{ "calories": 520, "proteinG": 48.5, "carbsG": 45.0,\n  "fatG": 12.0, "note": "Assumes white rice, cooked" }',
         },
@@ -112,13 +120,16 @@ export class AiPage {
           title: 'Parse a multi-item meal',
           icon: 'list_alt',
           multimodal: false,
-          where: 'Add Food dialog, “Describe your meal” box — renders a reviewable, per-item list you commit as a batch.',
+          where:
+            'Add Food dialog, “Describe your meal” box — renders a reviewable, per-item list you commit as a batch.',
           youSayVerb: 'You say',
           youSay: '“Big Mac, large fries, and a medium Coke”',
-          promptAsks:
-            'break the meal into individual items and estimate each one.',
+          promptAsks: 'break the meal into individual items and estimate each one.',
           returnsType: 'ParseMealResponse',
-          returnsFields: ['items: MealItemDto[]', '— description, calories, proteinG, carbsG, fatG'],
+          returnsFields: [
+            'items: MealItemDto[]',
+            '— description, calories, proteinG, carbsG, fatG',
+          ],
           exampleReturn:
             '{ "items": [\n   { "description": "Big Mac", "calories": 563, "proteinG": 26 },\n   { "description": "Large fries", "calories": 480, "proteinG": 6 },\n   { "description": "Medium Coke", "calories": 200, "proteinG": 0 }\n] }',
         },
@@ -126,7 +137,8 @@ export class AiPage {
           title: 'Per-serving macros for a recipe',
           icon: 'menu_book',
           multimodal: false,
-          where: 'Add Food dialog, Recipe mode — paste an ingredient list plus a servings count to prefill one serving.',
+          where:
+            'Add Food dialog, Recipe mode — paste an ingredient list plus a servings count to prefill one serving.',
           youSayVerb: 'You say',
           youSay: '“2 cups flour, 3 eggs, 1 cup sugar, 1 stick butter” · serves 8',
           promptAsks:
@@ -140,11 +152,11 @@ export class AiPage {
           title: 'Quick meal feedback',
           icon: 'rate_review',
           multimodal: false,
-          where: 'Add Food dialog, manual entry — a quick “rate this meal” action returns a verdict and healthier swaps.',
+          where:
+            'Add Food dialog, manual entry — a quick “rate this meal” action returns a verdict and healthier swaps.',
           youSayVerb: 'You say',
           youSay: '“two slices of pepperoni pizza and a soda”',
-          promptAsks:
-            'give brief feedback on the meal as a nutrition coach.',
+          promptAsks: 'give brief feedback on the meal as a nutrition coach.',
           returnsType: 'MealFeedbackResponse',
           returnsFields: ['verdict: string', 'goodForGoal: bool', 'swaps: string[]'],
           exampleReturn:
@@ -154,20 +166,25 @@ export class AiPage {
     },
     {
       group: 'Food — from a photo',
-      blurb: 'Multimodal: point your camera at a plate or a nutrition label. The image is sent to Google Gemini and is never stored by Usage IQ.',
+      blurb:
+        'Multimodal: point your camera at a plate or a nutrition label. The image is sent to Google Gemini and is never stored by Usage IQ.',
       icon: 'photo_camera',
       assists: [
         {
           title: 'Photo of a meal → per-item macros',
           icon: 'restaurant_menu',
           multimodal: true,
-          where: 'Add Food dialog, “Snap a meal” — results populate an editable per-item list you confirm before committing.',
+          where:
+            'Add Food dialog, “Snap a meal” — results populate an editable per-item list you confirm before committing.',
           youSayVerb: 'You snap',
           youSay: 'A photo of your dinner plate — grilled chicken, rice, broccoli',
           promptAsks:
             'identify each distinct food in the photo and estimate it, treating the image as data only.',
           returnsType: 'ParseMealResponse',
-          returnsFields: ['items: MealItemDto[]', '— description, calories, proteinG, carbsG, fatG'],
+          returnsFields: [
+            'items: MealItemDto[]',
+            '— description, calories, proteinG, carbsG, fatG',
+          ],
           exampleReturn:
             '{ "items": [\n   { "description": "Grilled chicken breast",\n     "calories": 280, "proteinG": 52.0 },\n   { "description": "White rice", "calories": 205 },\n   { "description": "Steamed broccoli", "calories": 55 }\n] }',
         },
@@ -175,7 +192,8 @@ export class AiPage {
           title: 'Read a nutrition label → one food',
           icon: 'document_scanner',
           multimodal: true,
-          where: 'Add Food dialog, “Scan label” — prefills the manual food fields and the stated serving size.',
+          where:
+            'Add Food dialog, “Scan label” — prefills the manual food fields and the stated serving size.',
           youSayVerb: 'You snap',
           youSay: 'A photo of the Nutrition Facts panel on a cereal box',
           promptAsks:
@@ -189,14 +207,16 @@ export class AiPage {
     },
     {
       group: 'Exercise',
-      blurb: 'Log a workout by talking, not by filling a form — calories scale to your own body weight, read server-side.',
+      blurb:
+        'Log a workout by talking, not by filling a form — calories scale to your own body weight, read server-side.',
       icon: 'fitness_center',
       assists: [
         {
           title: 'Free-text exercise → calories burned',
           icon: 'local_fire_department',
           multimodal: false,
-          where: 'Add Exercise dialog, Manual tab — prefills an editable calories field with an “AI estimate” chip.',
+          where:
+            'Add Exercise dialog, Manual tab — prefills an editable calories field with an “AI estimate” chip.',
           youSayVerb: 'You say',
           youSay: '“rowing machine” · 20 min',
           promptAsks:
@@ -210,7 +230,8 @@ export class AiPage {
           title: 'Natural-language log → structured entry',
           icon: 'mic',
           multimodal: false,
-          where: 'Add Exercise dialog, AI tab (headline feature) — the parsed result prefills name, calories, and duration.',
+          where:
+            'Add Exercise dialog, AI tab (headline feature) — the parsed result prefills name, calories, and duration.',
           youSayVerb: 'You say',
           youSay: '“5 girl push-ups” · “3x10 squats” · “jogged 2 miles”',
           promptAsks:
@@ -224,11 +245,11 @@ export class AiPage {
           title: 'Suggest a workout routine',
           icon: 'sports_gymnastics',
           multimodal: false,
-          where: 'Add Exercise dialog, AI tab — pick a focus, minutes, and equipment (or a target burn) for a routine to log in one tap.',
+          where:
+            'Add Exercise dialog, AI tab — pick a focus, minutes, and equipment (or a target burn) for a routine to log in one tap.',
           youSayVerb: 'You say',
           youSay: 'Full body · 30 min · dumbbells',
-          promptAsks:
-            'design one workout for the focus, minutes and equipment, at most 8 items.',
+          promptAsks: 'design one workout for the focus, minutes and equipment, at most 8 items.',
           returnsType: 'SuggestWorkoutResponse',
           returnsFields: ['title: string', 'items: WorkoutItemDto[]', 'estCalories: int'],
           exampleReturn:
@@ -238,18 +259,20 @@ export class AiPage {
     },
     {
       group: 'Goals',
-      blurb: 'A one-tap daily target from your own profile, or a plan from a plain-English goal — with a safety check.',
+      blurb:
+        'A one-tap daily target from your own profile, or a plan from a plain-English goal — with a safety check.',
       icon: 'flag',
       assists: [
         {
           title: 'Profile stats → daily target',
           icon: 'auto_graph',
           multimodal: false,
-          where: 'Profile dialog — the “Suggest with AI” button reads your own saved profile and prefills the goal fields.',
+          where:
+            'Profile dialog — the “Suggest with AI” button reads your own saved profile and prefills the goal fields.',
           youSayVerb: 'You tap',
-          youSay: '“Suggest with AI” — the server reads your sex, age, height, weight, activity and goal direction',
-          promptAsks:
-            'suggest a sensible daily nutrition target from the profile stats alone.',
+          youSay:
+            '“Suggest with AI” — the server reads your sex, age, height, weight, activity and goal direction',
+          promptAsks: 'suggest a sensible daily nutrition target from the profile stats alone.',
           returnsType: 'SuggestGoalResponse',
           returnsFields: ['calorieTarget, proteinG, carbsG, fatG', 'rationale: string?'],
           exampleReturn:
@@ -259,13 +282,17 @@ export class AiPage {
           title: 'Sentence → structured plan',
           icon: 'edit_calendar',
           multimodal: false,
-          where: 'Profile dialog, “Describe your goal” field — prefills the goal fields and shows a timeline and realism check.',
+          where:
+            'Profile dialog, “Describe your goal” field — prefills the goal fields and shows a timeline and realism check.',
           youSayVerb: 'You say',
           youSay: '“lose 10 lbs in 3 months”',
           promptAsks:
             'turn the free-text goal into a concrete daily plan and flag whether the timeline is safe.',
           returnsType: 'NaturalGoalResponse',
-          returnsFields: ['calorieTarget, proteinG, carbsG, fatG', 'timeline: string?, realistic: bool, rationale'],
+          returnsFields: [
+            'calorieTarget, proteinG, carbsG, fatG',
+            'timeline: string?, realistic: bool, rationale',
+          ],
           exampleReturn:
             '{ "calorieTarget": 1700, "proteinG": 140,\n  "timeline": "~0.8 lb/week over 12 weeks",\n  "realistic": true,\n  "rationale": "A safe, sustainable rate." }',
         },
@@ -273,18 +300,19 @@ export class AiPage {
     },
     {
       group: 'Coaching',
-      blurb: 'Goal-aware ideas and encouragement built from your own day and week — server-cached, never auto-fired on load.',
+      blurb:
+        'Goal-aware ideas and encouragement built from your own day and week — server-cached, never auto-fired on load.',
       icon: 'psychology',
       assists: [
         {
           title: 'What should I eat?',
           icon: 'tips_and_updates',
           multimodal: false,
-          where: 'Tracker dashboard, calorie-ring card — on-demand food ideas to hit the calories and macros you have left.',
+          where:
+            'Tracker dashboard, calorie-ring card — on-demand food ideas to hit the calories and macros you have left.',
           youSayVerb: 'You tap',
           youSay: '“What should I eat?” with ~520 kcal and 40 g protein still left for the day',
-          promptAsks:
-            'suggest a few foods to hit the remaining targets, each with a short reason.',
+          promptAsks: 'suggest a few foods to hit the remaining targets, each with a short reason.',
           returnsType: 'SuggestFoodsResponse',
           returnsFields: ['suggestions: FoodSuggestionDto[]', '— food, why?, calories, proteinG'],
           exampleReturn:
@@ -294,11 +322,11 @@ export class AiPage {
           title: 'Daily coach',
           icon: 'self_improvement',
           multimodal: false,
-          where: 'Tracker dashboard, “Daily coach” panel — a read on your day so far, cached per day for ~6h.',
+          where:
+            'Tracker dashboard, “Daily coach” panel — a read on your day so far, cached per day for ~6h.',
           youSayVerb: 'You tap',
           youSay: '“Get daily coaching” after logging breakfast, a workout, and water',
-          promptAsks:
-            'give brief, supportive coaching — one insight plus up to 4 short tips.',
+          promptAsks: 'give brief, supportive coaching — one insight plus up to 4 short tips.',
           returnsType: 'DailyCoachResponse',
           returnsFields: ['insight: string', 'tips: string[]'],
           exampleReturn:
@@ -308,9 +336,11 @@ export class AiPage {
           title: 'Weekly review',
           icon: 'calendar_view_week',
           multimodal: false,
-          where: 'Tracker dashboard, “This week’s AI review” panel — a big-picture read of your last 7 days, cached per ISO week.',
+          where:
+            'Tracker dashboard, “This week’s AI review” panel — a big-picture read of your last 7 days, cached per ISO week.',
           youSayVerb: 'You tap',
-          youSay: '“Get weekly review” — the server reads your last 7 days of intake, burn, and protein',
+          youSay:
+            '“Get weekly review” — the server reads your last 7 days of intake, burn, and protein',
           promptAsks:
             'review the week and reply with a summary and one forward-looking suggestion.',
           returnsType: 'WeeklyReviewResponse',
@@ -322,18 +352,19 @@ export class AiPage {
     },
     {
       group: 'Weight & hydration',
-      blurb: 'A plain-language read of your weight trend, a personalized fluid goal, and drinks parsed from a sentence.',
+      blurb:
+        'A plain-language read of your weight trend, a personalized fluid goal, and drinks parsed from a sentence.',
       icon: 'monitor_weight',
       assists: [
         {
           title: 'Weight trend insight',
           icon: 'trending_down',
           multimodal: false,
-          where: 'Weight Trend card — the sparkle button reads your last 90 days of weigh-ins; raw numbers never leave the server.',
+          where:
+            'Weight Trend card — the sparkle button reads your last 90 days of weigh-ins; raw numbers never leave the server.',
           youSayVerb: 'You tap',
           youSay: '“Weight insight” on your weight chart (no typed input)',
-          promptAsks:
-            'give a brief insight on the body-weight stats and a short trend label.',
+          promptAsks: 'give a brief insight on the body-weight stats and a short trend label.',
           returnsType: 'WeightInsightResponse',
           returnsFields: ['insight: string', 'trend: string'],
           exampleReturn:
@@ -343,11 +374,11 @@ export class AiPage {
           title: 'Suggest a hydration goal',
           icon: 'water_drop',
           multimodal: false,
-          where: 'Add-a-drink dialog — the sparkle button reads your profile and offers a daily fluid target to accept in one tap.',
+          where:
+            'Add-a-drink dialog — the sparkle button reads your profile and offers a daily fluid target to accept in one tap.',
           youSayVerb: 'You tap',
           youSay: '“Suggest my hydration goal” — the server reads your sex, activity, and weight',
-          promptAsks:
-            'suggest a sensible daily fluid-intake target in millilitres.',
+          promptAsks: 'suggest a sensible daily fluid-intake target in millilitres.',
           returnsType: 'HydrationSuggestResponse',
           returnsFields: ['targetMl: int', 'rationale: string?'],
           exampleReturn:
@@ -357,7 +388,8 @@ export class AiPage {
           title: 'Parse drinks from text',
           icon: 'local_cafe',
           multimodal: false,
-          where: 'Add-a-drink dialog, “Describe what you drank” field — parsed drinks appear as an editable list to review.',
+          where:
+            'Add-a-drink dialog, “Describe what you drank” field — parsed drinks appear as an editable list to review.',
           youSayVerb: 'You say',
           youSay: '“2 coffees and a big water”',
           promptAsks:

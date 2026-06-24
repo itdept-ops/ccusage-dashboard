@@ -1,4 +1,4 @@
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { firstValueFrom } from 'rxjs';
@@ -17,8 +17,16 @@ import { Api } from '../../core/api';
 import { AuthService } from '../../core/auth';
 import { BillDto, BillItemDto, PaymentHandlesDto, PERM } from '../../core/models';
 import { captureImage, pickImage, confirmPhotoNotice } from '../tracker/ai-image';
-import { ReceiptReviewDialog, ReceiptReviewData, ReceiptReviewResult } from './receipt-review-dialog';
-import { AssignContactDialog, AssignContactData, AssignContactResult } from './assign-contact-dialog';
+import {
+  ReceiptReviewDialog,
+  ReceiptReviewData,
+  ReceiptReviewResult,
+} from './receipt-review-dialog';
+import {
+  AssignContactDialog,
+  AssignContactData,
+  AssignContactResult,
+} from './assign-contact-dialog';
 
 /** One pay-me link rendered from the owner's configured handles. */
 interface PayLink {
@@ -37,11 +45,20 @@ interface PayLink {
 @Component({
   selector: 'app-bills',
   imports: [
-    CommonModule, FormsModule, MatIconModule, MatButtonModule, MatProgressBarModule,
-    MatProgressSpinnerModule, MatTooltipModule, MatMenuModule, MatSlideToggleModule, MatDialogModule,
+    CommonModule,
+    FormsModule,
+    MatIconModule,
+    MatButtonModule,
+    MatProgressBarModule,
+    MatProgressSpinnerModule,
+    MatTooltipModule,
+    MatMenuModule,
+    MatSlideToggleModule,
+    MatDialogModule,
     MatSnackBarModule,
   ],
   templateUrl: './bills.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrl: './bills.scss',
 })
 export class Bills {
@@ -64,7 +81,7 @@ export class Bills {
 
   readonly selected = computed<BillDto | null>(() => {
     const id = this.selectedId();
-    return id == null ? null : this.bills().find(b => b.id === id) ?? null;
+    return id == null ? null : (this.bills().find((b) => b.id === id) ?? null);
   });
 
   /** The bill's full list price (items + tax + tip) for the header summary. */
@@ -98,7 +115,7 @@ export class Bills {
       this.bills.set(list);
       if (selectFirst && list.length && this.selectedId() == null) this.selectedId.set(list[0].id);
       // Keep the current selection valid (e.g. after a delete).
-      if (this.selectedId() != null && !list.some(b => b.id === this.selectedId())) {
+      if (this.selectedId() != null && !list.some((b) => b.id === this.selectedId())) {
         this.selectedId.set(list[0]?.id ?? null);
       }
     } catch {
@@ -110,7 +127,7 @@ export class Bills {
 
   /** Replace one bill in the list (after a write returns the fresh DTO) without a full reload. */
   private patchBill(b: BillDto): void {
-    this.bills.set(this.bills().map(x => (x.id === b.id ? b : x)));
+    this.bills.set(this.bills().map((x) => (x.id === b.id ? b : x)));
   }
 
   select(id: number): void {
@@ -151,12 +168,14 @@ export class Bills {
 
   private async update(b: BillDto, body: Parameters<Api['updateBill']>[1]): Promise<void> {
     try {
-      const updated = await firstValueFrom(this.api.updateBill(b.id, {
-        // Always resend tax/tip so a null clear is explicit (the API clamps null→null).
-        taxAmount: b.taxAmount ?? null,
-        tipAmount: b.tipAmount ?? null,
-        ...body,
-      }));
+      const updated = await firstValueFrom(
+        this.api.updateBill(b.id, {
+          // Always resend tax/tip so a null clear is explicit (the API clamps null→null).
+          taxAmount: b.taxAmount ?? null,
+          tipAmount: b.tipAmount ?? null,
+          ...body,
+        }),
+      );
       this.patchBill(updated);
     } catch {
       this.snack.open('Could not save.', 'OK', { duration: 4000 });
@@ -168,7 +187,7 @@ export class Bills {
     if (!confirm(`Delete "${b.title}" and all its items? This can't be undone.`)) return;
     try {
       await firstValueFrom(this.api.deleteBill(b.id));
-      this.bills.set(this.bills().filter(x => x.id !== b.id));
+      this.bills.set(this.bills().filter((x) => x.id !== b.id));
       if (this.selectedId() === b.id) this.selectedId.set(this.bills()[0]?.id ?? null);
     } catch {
       this.snack.open('Could not delete the bill.', 'OK', { duration: 4000 });
@@ -194,7 +213,12 @@ export class Bills {
     }
   }
 
-  async saveItem(b: BillDto, item: BillItemDto, name: string, amount: number | null): Promise<void> {
+  async saveItem(
+    b: BillDto,
+    item: BillItemDto,
+    name: string,
+    amount: number | null,
+  ): Promise<void> {
     const n = name.trim();
     const a = amount ?? 0;
     if ((n === item.name && a === item.amount) || !n || a <= 0) return;
@@ -218,18 +242,21 @@ export class Bills {
 
   async assign(b: BillDto, item: BillItemDto): Promise<void> {
     const res = await firstValueFrom(
-      this.dialog.open<AssignContactDialog, AssignContactData, AssignContactResult>(AssignContactDialog, {
-        width: '420px',
-        maxWidth: '94vw',
-        data: { itemName: item.name, currentUserId: item.assignedToUserId ?? null },
-      }).afterClosed(),
+      this.dialog
+        .open<AssignContactDialog, AssignContactData, AssignContactResult>(AssignContactDialog, {
+          width: '420px',
+          maxWidth: '94vw',
+          data: { itemName: item.name, currentUserId: item.assignedToUserId ?? null },
+        })
+        .afterClosed(),
     );
     if (!res) return; // cancelled
     try {
       await firstValueFrom(this.api.assignBillItem(b.id, item.id, res.userId));
       await this.refreshSelected();
     } catch (e: unknown) {
-      const msg = (e as { error?: { message?: string } })?.error?.message ?? 'Could not assign the item.';
+      const msg =
+        (e as { error?: { message?: string } })?.error?.message ?? 'Could not assign the item.';
       this.snack.open(msg, 'OK', { duration: 4000 });
     }
   }
@@ -264,7 +291,9 @@ export class Bills {
     try {
       img = fromCamera ? await captureImage() : await pickImage();
     } catch (e: unknown) {
-      this.snack.open((e as Error)?.message ?? 'Could not read that image.', 'OK', { duration: 4000 });
+      this.snack.open((e as Error)?.message ?? 'Could not read that image.', 'OK', {
+        duration: 4000,
+      });
       return;
     }
     if (!img) return; // user cancelled the picker
@@ -279,18 +308,22 @@ export class Bills {
         status === 503
           ? 'Receipt AI is unavailable right now — add the items manually.'
           : 'Could not read that receipt. Add the items manually.',
-        'OK', { duration: 5000 });
+        'OK',
+        { duration: 5000 },
+      );
       return;
     } finally {
       this.busy.set(false);
     }
 
     const result = await firstValueFrom(
-      this.dialog.open<ReceiptReviewDialog, ReceiptReviewData, ReceiptReviewResult>(ReceiptReviewDialog, {
-        width: '560px',
-        maxWidth: '94vw',
-        data: { breakdown },
-      }).afterClosed(),
+      this.dialog
+        .open<ReceiptReviewDialog, ReceiptReviewData, ReceiptReviewResult>(ReceiptReviewDialog, {
+          width: '560px',
+          maxWidth: '94vw',
+          data: { breakdown },
+        })
+        .afterClosed(),
     );
     if (!result) return; // owner cancelled the review
 
@@ -301,16 +334,23 @@ export class Bills {
         await firstValueFrom(this.api.addBillItem(b.id, { name: it.name, amount: it.amount }));
       }
       if (result.tax != null || result.tip != null) {
-        await firstValueFrom(this.api.updateBill(b.id, {
-          taxAmount: result.tax ?? b.taxAmount ?? null,
-          tipAmount: result.tip ?? b.tipAmount ?? null,
-        }));
+        await firstValueFrom(
+          this.api.updateBill(b.id, {
+            taxAmount: result.tax ?? b.taxAmount ?? null,
+            tipAmount: result.tip ?? b.tipAmount ?? null,
+          }),
+        );
       }
       await this.refreshSelected();
-      this.snack.open(`Added ${result.items.length} item${result.items.length === 1 ? '' : 's'} from the receipt.`,
-        'OK', { duration: 3000 });
+      this.snack.open(
+        `Added ${result.items.length} item${result.items.length === 1 ? '' : 's'} from the receipt.`,
+        'OK',
+        { duration: 3000 },
+      );
     } catch {
-      this.snack.open('Saved some lines but hit an error — check the bill.', 'OK', { duration: 4000 });
+      this.snack.open('Saved some lines but hit an error — check the bill.', 'OK', {
+        duration: 4000,
+      });
       this.refreshSelected();
     } finally {
       this.busy.set(false);

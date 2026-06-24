@@ -1,4 +1,4 @@
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal, ChangeDetectionStrategy } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 
 import { MatDialogModule, MatDialogRef } from '@angular/material/dialog';
@@ -29,10 +29,17 @@ const KINDS: { value: QuickAddKind; label: string; icon: string }[] = [
 @Component({
   selector: 'app-quick-add-dialog',
   imports: [
-    FormsModule, MatDialogModule, MatButtonModule, MatIconModule,
-    MatFormFieldModule, MatInputModule, MatButtonToggleModule, MatProgressSpinnerModule,
+    FormsModule,
+    MatDialogModule,
+    MatButtonModule,
+    MatIconModule,
+    MatFormFieldModule,
+    MatInputModule,
+    MatButtonToggleModule,
+    MatProgressSpinnerModule,
   ],
   templateUrl: './quick-add-dialog.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrl: './quick-add-dialog.scss',
 })
 export class QuickAddDialog {
@@ -57,7 +64,7 @@ export class QuickAddDialog {
     this.error.set(null);
     const listName = this.kind() === 'list' ? this.listName() : undefined;
     this.api.quickAdd(this.text().trim(), this.kind(), listName).subscribe({
-      next: result => this.ref.close(result),
+      next: (result) => this.ref.close(result),
       error: () => {
         this.saving.set(false);
         this.error.set("Couldn't save that just now — please try again.");

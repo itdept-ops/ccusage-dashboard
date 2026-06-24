@@ -1,4 +1,11 @@
-import { Component, DestroyRef, computed, inject, signal } from '@angular/core';
+import {
+  Component,
+  DestroyRef,
+  computed,
+  inject,
+  signal,
+  ChangeDetectionStrategy,
+} from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { catchError, firstValueFrom, of } from 'rxjs';
@@ -17,8 +24,16 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { Api } from '../../core/api';
 import { AuthService } from '../../core/auth';
 import {
-  FamilyMeal, FamilyMealDay, FamilyMealSlot, MealIdea, PERM, PlanWeekMeal, RecipeBreakdownResult,
-  RecipeFromBreakdownRequest, RecipeIngredient, TrackerProfileDto,
+  FamilyMeal,
+  FamilyMealDay,
+  FamilyMealSlot,
+  MealIdea,
+  PERM,
+  PlanWeekMeal,
+  RecipeBreakdownResult,
+  RecipeFromBreakdownRequest,
+  RecipeIngredient,
+  TrackerProfileDto,
 } from '../../core/models';
 import { FamilyConfirmDialog, ConfirmData } from './confirm-dialog';
 import { MealEditorDialog, MealEditorData, MealEditorResult } from './meal-editor-dialog';
@@ -88,10 +103,19 @@ const SLOT_META: Record<FamilyMealSlot, { label: string; icon: string }> = {
 @Component({
   selector: 'app-family-meals',
   imports: [
-    FormsModule, RouterLink, MatIconModule, MatButtonModule, MatButtonToggleModule, MatTooltipModule,
-    MatProgressSpinnerModule, MatFormFieldModule, MatInputModule, MatSnackBarModule,
+    FormsModule,
+    RouterLink,
+    MatIconModule,
+    MatButtonModule,
+    MatButtonToggleModule,
+    MatTooltipModule,
+    MatProgressSpinnerModule,
+    MatFormFieldModule,
+    MatInputModule,
+    MatSnackBarModule,
   ],
   templateUrl: './meals.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrls: ['./family.scss', './meals.scss'],
 })
 export class FamilyMeals {
@@ -113,17 +137,26 @@ export class FamilyMeals {
    * family.ai — the server 403s without it, so we hide the buttons too. Read auth.permissions() so this
    * recomputes when permissions load.
    */
-  readonly canFamilyAi = computed(() => { this.auth.permissions(); return this.auth.hasPermission(PERM.familyAi); });
+  readonly canFamilyAi = computed(() => {
+    this.auth.permissions();
+    return this.auth.hasPermission(PERM.familyAi);
+  });
 
   /**
    * "What should I eat?" is tracker-AI (macro/goal-aware), gated by tracker.ai — a SEPARATE permission from
    * the family-AI buttons. Show it here too since the meal planner is a natural home for it. Read
    * auth.permissions() so this recomputes when permissions load.
    */
-  readonly canTrackerAi = computed(() => { this.auth.permissions(); return this.auth.hasPermission(PERM.trackerAi); });
+  readonly canTrackerAi = computed(() => {
+    this.auth.permissions();
+    return this.auth.hasPermission(PERM.trackerAi);
+  });
 
   /** Whether the "Save as recipe" affordance (on a recipe breakdown) may render — gated on recipes.use. */
-  readonly canRecipes = computed(() => { this.auth.permissions(); return this.auth.hasPermission(PERM.recipesUse); });
+  readonly canRecipes = computed(() => {
+    this.auth.permissions();
+    return this.auth.hasPermission(PERM.recipesUse);
+  });
   /** True while a breakdown is being saved to "My Recipes" (locks that button). */
   readonly savingBreakdownRecipe = signal(false);
   /** True once the staged breakdown has been saved as a recipe this session (flips the button to saved). */
@@ -208,18 +241,22 @@ export class FamilyMeals {
     end.setDate(end.getDate() + 6);
     const sameMonth = start.getMonth() === end.getMonth();
     const startLbl = start.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-    const endLbl = end.toLocaleDateString(undefined,
-      sameMonth ? { day: 'numeric' } : { month: 'short', day: 'numeric' });
+    const endLbl = end.toLocaleDateString(
+      undefined,
+      sameMonth ? { day: 'numeric' } : { month: 'short', day: 'numeric' },
+    );
     return `${startLbl} – ${endLbl}`;
   });
 
   /** True when the viewed week contains today (so we can offer a "This week" reset). */
-  readonly isThisWeek = computed(() => this.toIso(this.weekStart()) === this.toIso(this.thisMonday()));
+  readonly isThisWeek = computed(
+    () => this.toIso(this.weekStart()) === this.toIso(this.thisMonday()),
+  );
 
   /** The 7 day cells with friendly labels + a today flag + a planned-macro rollup, from the loaded days. */
   readonly cells = computed<DayCell[]>(() => {
     const todayIso = this.toIso(new Date());
-    return this.days().map(d => {
+    return this.days().map((d) => {
       const date = new Date(`${this.dateOnly(d.localDate)}T00:00:00`);
       return {
         localDate: this.dateOnly(d.localDate),
@@ -237,19 +274,25 @@ export class FamilyMeals {
 
   /** The whole-week planned-macro total (sum of every day's per-serving rollup). */
   readonly weekRollup = computed<DayRollup>(() =>
-    this.cells().reduce<DayRollup>((acc, c) => ({
-      hasMacros: acc.hasMacros || c.rollup.hasMacros,
-      calories: acc.calories + c.rollup.calories,
-      proteinG: this.round1(acc.proteinG + c.rollup.proteinG),
-      carbG: this.round1(acc.carbG + c.rollup.carbG),
-      fatG: this.round1(acc.fatG + c.rollup.fatG),
-    }), { hasMacros: false, calories: 0, proteinG: 0, carbG: 0, fatG: 0 }));
+    this.cells().reduce<DayRollup>(
+      (acc, c) => ({
+        hasMacros: acc.hasMacros || c.rollup.hasMacros,
+        calories: acc.calories + c.rollup.calories,
+        proteinG: this.round1(acc.proteinG + c.rollup.proteinG),
+        carbG: this.round1(acc.carbG + c.rollup.carbG),
+        fatG: this.round1(acc.fatG + c.rollup.fatG),
+      }),
+      { hasMacros: false, calories: 0, proteinG: 0, carbG: 0, fatG: 0 },
+    ),
+  );
 
   /** The caller's daily calorie goal (only when they hold tracker.self AND a goal is set), else null. */
   readonly calorieGoal = computed(() =>
-    this.canTrack() ? (this.trackerProfile()?.dailyCalorieGoal ?? null) : null);
+    this.canTrack() ? (this.trackerProfile()?.dailyCalorieGoal ?? null) : null,
+  );
   readonly proteinGoal = computed(() =>
-    this.canTrack() ? (this.trackerProfile()?.proteinGoalG ?? null) : null);
+    this.canTrack() ? (this.trackerProfile()?.proteinGoalG ?? null) : null,
+  );
   /** True when we can show the goal comparison (tracker.self + at least a calorie goal set). */
   readonly showGoals = computed(() => this.canTrack() && this.calorieGoal() != null);
 
@@ -260,15 +303,23 @@ export class FamilyMeals {
     this.reload(true);
     // Load the caller's tracker goals once, for the goal-aware rollups (best-effort; silent on failure).
     if (this.canTrack()) {
-      this.api.trackerProfile()
-        .pipe(catchError(() => of<TrackerProfileDto | null>(null)), takeUntilDestroyed(this.destroyRef))
-        .subscribe(p => this.trackerProfile.set(p));
+      this.api
+        .trackerProfile()
+        .pipe(
+          catchError(() => of<TrackerProfileDto | null>(null)),
+          takeUntilDestroyed(this.destroyRef),
+        )
+        .subscribe((p) => this.trackerProfile.set(p));
     }
   }
 
   /** Sum a day's meals' PER-SERVING macros (one planned portion each); flags whether any had macros set. */
   private rollup(meals: FamilyMeal[]): DayRollup {
-    let calories = 0, proteinG = 0, carbG = 0, fatG = 0, hasMacros = false;
+    let calories = 0,
+      proteinG = 0,
+      carbG = 0,
+      fatG = 0,
+      hasMacros = false;
     for (const m of meals) {
       if (m.macroSource === 'none') continue;
       hasMacros = true;
@@ -277,7 +328,13 @@ export class FamilyMeals {
       carbG += m.perServing.carbG;
       fatG += m.perServing.fatG;
     }
-    return { hasMacros, calories: Math.round(calories), proteinG: this.round1(proteinG), carbG: this.round1(carbG), fatG: this.round1(fatG) };
+    return {
+      hasMacros,
+      calories: Math.round(calories),
+      proteinG: this.round1(proteinG),
+      carbG: this.round1(carbG),
+      fatG: this.round1(fatG),
+    };
   }
 
   private round1(n: number): number {
@@ -286,10 +343,19 @@ export class FamilyMeals {
 
   private reload(initial = false): void {
     if (initial) this.loading.set(true);
-    this.api.familyMeals(this.weekStartIso())
-      .pipe(catchError(() => { if (initial) this.error.set(true); return of<FamilyMealDay[]>([]); }),
-        takeUntilDestroyed(this.destroyRef))
-      .subscribe(days => { this.days.set(days); this.loading.set(false); });
+    this.api
+      .familyMeals(this.weekStartIso())
+      .pipe(
+        catchError(() => {
+          if (initial) this.error.set(true);
+          return of<FamilyMealDay[]>([]);
+        }),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe((days) => {
+        this.days.set(days);
+        this.loading.set(false);
+      });
   }
 
   /** Step the viewed week by ±1 and reload. */
@@ -326,10 +392,14 @@ export class FamilyMeals {
   /** The short macro-source tag shown on a card ("AI estimate" / "from food DB" / "manual" / "not set"). */
   macroTag(meal: FamilyMeal): string {
     switch (meal.macroSource) {
-      case 'ai': return 'AI estimate';
-      case 'database': return 'from food DB';
-      case 'manual': return 'manual';
-      default: return 'not set';
+      case 'ai':
+        return 'AI estimate';
+      case 'database':
+        return 'from food DB';
+      case 'manual':
+        return 'manual';
+      default:
+        return 'not set';
     }
   }
 
@@ -348,11 +418,18 @@ export class FamilyMeals {
     this.loggingMealId.set(meal.id);
     try {
       await firstValueFrom(this.api.addMealToTracker(meal.id, this.dateOnly(meal.localDate)));
-      const ref = this.snack.open('Logged 1 serving to your tracker.', 'Open tracker', { duration: 5000 });
-      ref.onAction().subscribe(() => { this.router.navigateByUrl('/tracker'); });
+      const ref = this.snack.open('Logged 1 serving to your tracker.', 'Open tracker', {
+        duration: 5000,
+      });
+      ref.onAction().subscribe(() => {
+        this.router.navigateByUrl('/tracker');
+      });
     } catch (e) {
       this.snack.open(
-        this.messageOf(e, "Couldn't add this meal to your tracker. Please try again."), 'OK', { duration: 4000 });
+        this.messageOf(e, "Couldn't add this meal to your tracker. Please try again."),
+        'OK',
+        { duration: 4000 },
+      );
     } finally {
       this.loggingMealId.set(null);
     }
@@ -362,38 +439,64 @@ export class FamilyMeals {
 
   /** Add a meal to a specific day (default slot = dinner). Macros (if entered manually) ride along. */
   async addMeal(cell: DayCell, slot: FamilyMealSlot = 'dinner'): Promise<void> {
-    const result = await this.openEditor(null, cell.localDate, `${cell.weekday}, ${cell.dateLabel}`, slot);
+    const result = await this.openEditor(
+      null,
+      cell.localDate,
+      `${cell.weekday}, ${cell.dateLabel}`,
+      slot,
+    );
     if (!result) return;
     try {
-      await firstValueFrom(this.api.createFamilyMeal({
-        localDate: cell.localDate, slot: result.slot, title: result.title, ingredients: result.ingredients,
-        ...this.macroPayload(result),
-      }));
+      await firstValueFrom(
+        this.api.createFamilyMeal({
+          localDate: cell.localDate,
+          slot: result.slot,
+          title: result.title,
+          ingredients: result.ingredients,
+          ...this.macroPayload(result),
+        }),
+      );
       this.reload();
     } catch (e) {
-      this.snack.open(this.messageOf(e, "Couldn't save that meal. Please try again."), 'OK', { duration: 4000 });
+      this.snack.open(this.messageOf(e, "Couldn't save that meal. Please try again."), 'OK', {
+        duration: 4000,
+      });
     }
   }
 
   /** Edit an existing meal on a day. PATCHes the plain fields + the macros (servings + totals + source). */
   async editMeal(cell: DayCell, meal: FamilyMeal): Promise<void> {
-    const result = await this.openEditor(meal, cell.localDate, `${cell.weekday}, ${cell.dateLabel}`);
+    const result = await this.openEditor(
+      meal,
+      cell.localDate,
+      `${cell.weekday}, ${cell.dateLabel}`,
+    );
     if (!result) return;
     try {
-      await firstValueFrom(this.api.patchFamilyMeal(meal.id, {
-        slot: result.slot, title: result.title, ingredients: result.ingredients,
-        ...this.macroPayload(result),
-      }));
+      await firstValueFrom(
+        this.api.patchFamilyMeal(meal.id, {
+          slot: result.slot,
+          title: result.title,
+          ingredients: result.ingredients,
+          ...this.macroPayload(result),
+        }),
+      );
       this.reload();
     } catch (e) {
-      this.snack.open(this.messageOf(e, "Couldn't save that meal. Please try again."), 'OK', { duration: 4000 });
+      this.snack.open(this.messageOf(e, "Couldn't save that meal. Please try again."), 'OK', {
+        duration: 4000,
+      });
     }
   }
 
   /** The macro fields of an editor result, as a create/patch payload fragment. */
   private macroPayload(r: MealEditorResult) {
     return {
-      servings: r.servings, calories: r.calories, proteinG: r.proteinG, carbG: r.carbG, fatG: r.fatG,
+      servings: r.servings,
+      calories: r.calories,
+      proteinG: r.proteinG,
+      carbG: r.carbG,
+      fatG: r.fatG,
       macroSource: r.macroSource,
     };
   }
@@ -414,16 +517,29 @@ export class FamilyMeals {
   }
 
   private openEditor(
-    meal: FamilyMeal | null, localDate: string, dayLabel: string, defaultSlot?: FamilyMealSlot,
+    meal: FamilyMeal | null,
+    localDate: string,
+    dayLabel: string,
+    defaultSlot?: FamilyMealSlot,
     prefill?: { title?: string; ingredients?: string },
   ): Promise<MealEditorResult | undefined> {
-    const ref = this.dialog.open<MealEditorDialog, MealEditorData, MealEditorResult>(MealEditorDialog, {
-      data: {
-        meal, localDate, dayLabel, defaultSlot,
-        prefillTitle: prefill?.title, prefillIngredients: prefill?.ingredients,
+    const ref = this.dialog.open<MealEditorDialog, MealEditorData, MealEditorResult>(
+      MealEditorDialog,
+      {
+        data: {
+          meal,
+          localDate,
+          dayLabel,
+          defaultSlot,
+          prefillTitle: prefill?.title,
+          prefillIngredients: prefill?.ingredients,
+        },
+        width: '460px',
+        maxWidth: '94vw',
+        autoFocus: false,
+        panelClass: 'family-dialog',
       },
-      width: '460px', maxWidth: '94vw', autoFocus: false, panelClass: 'family-dialog',
-    });
+    );
     return firstValueFrom(ref.afterClosed());
   }
 
@@ -431,7 +547,7 @@ export class FamilyMeals {
 
   /** Open/close the plan sheet. Closing while proposals are staged keeps them (they live below the sheet). */
   togglePlan(): void {
-    this.planOpen.update(o => !o);
+    this.planOpen.update((o) => !o);
   }
 
   setFill(fill: FillSlots): void {
@@ -450,28 +566,39 @@ export class FamilyMeals {
     this.planStatus.set('Thinking up some dinners…');
     this.proposals.set([]);
     try {
-      const result = await firstValueFrom(this.api.planWeekAi({
-        weekStart: this.weekStartIso(),
-        constraints: this.planConstraints().trim() || null,
-        fillSlots: this.planFill(),
-      }));
-      const proposed = (result.meals ?? []).map(m => this.toProposed(m));
+      const result = await firstValueFrom(
+        this.api.planWeekAi({
+          weekStart: this.weekStartIso(),
+          constraints: this.planConstraints().trim() || null,
+          fillSlots: this.planFill(),
+        }),
+      );
+      const proposed = (result.meals ?? []).map((m) => this.toProposed(m));
       this.proposals.set(proposed);
       if (proposed.length === 0) {
-        this.planStatus.set(result.notes?.trim()
-          || (this.planFill() === 'emptyDinners'
-            ? 'Every dinner this week is already planned — switch to “All dinners” to get fresh ideas.'
-            : "I couldn't come up with dinners just now. Please try again."));
+        this.planStatus.set(
+          result.notes?.trim() ||
+            (this.planFill() === 'emptyDinners'
+              ? 'Every dinner this week is already planned — switch to “All dinners” to get fresh ideas.'
+              : "I couldn't come up with dinners just now. Please try again."),
+        );
       } else {
         const n = proposed.length;
-        this.planStatus.set((result.notes?.trim() ? result.notes!.trim() + ' ' : '')
-          + `Review ${n === 1 ? 'this dinner' : `these ${n} dinners`} below, tweak anything, then add to your plan.`);
+        this.planStatus.set(
+          (result.notes?.trim() ? result.notes!.trim() + ' ' : '') +
+            `Review ${n === 1 ? 'this dinner' : `these ${n} dinners`} below, tweak anything, then add to your plan.`,
+        );
       }
     } catch (e) {
       const status = (e as { status?: number })?.status;
-      this.planStatus.set(status === 503
-        ? 'AI unavailable, add meals manually.'
-        : this.messageOf(e, "I couldn't reach the AI just now. Please try again, or add meals manually."));
+      this.planStatus.set(
+        status === 503
+          ? 'AI unavailable, add meals manually.'
+          : this.messageOf(
+              e,
+              "I couldn't reach the AI just now. Please try again, or add meals manually.",
+            ),
+      );
     } finally {
       this.planBusy.set(false);
     }
@@ -484,7 +611,7 @@ export class FamilyMeals {
 
   /** Drop one proposed dinner from the review list. */
   removeProposal(p: ProposedMeal): void {
-    this.proposals.set(this.proposals().filter(x => x.key !== p.key));
+    this.proposals.set(this.proposals().filter((x) => x.key !== p.key));
   }
 
   /** Discard the whole proposal list + status (e.g. after a regenerate the user no longer wants). */
@@ -508,11 +635,19 @@ export class FamilyMeals {
     const failed: ProposedMeal[] = [];
     for (const p of rows) {
       const title = p.title.trim();
-      if (!title) { failed.push(p); continue; }
+      if (!title) {
+        failed.push(p);
+        continue;
+      }
       try {
-        await firstValueFrom(this.api.createFamilyMeal({
-          localDate: p.localDate, slot: 'dinner', title, ingredients: p.ingredients.trim(),
-        }));
+        await firstValueFrom(
+          this.api.createFamilyMeal({
+            localDate: p.localDate,
+            slot: 'dinner',
+            title,
+            ingredients: p.ingredients.trim(),
+          }),
+        );
         added++;
       } catch {
         failed.push(p);
@@ -532,7 +667,8 @@ export class FamilyMeals {
       this.planStatus.set("Couldn't add those dinners just now. Please try again.");
     } else {
       this.planStatus.set(
-        `Added ${added}. ${failed.length} couldn't be added — review the remaining ${failed.length === 1 ? 'one' : 'rows'} and try again.`);
+        `Added ${added}. ${failed.length} couldn't be added — review the remaining ${failed.length === 1 ? 'one' : 'rows'} and try again.`,
+      );
     }
   }
 
@@ -540,7 +676,9 @@ export class FamilyMeals {
   private offerWeekToGrocery(added: number): void {
     const msg = `Added ${added} ${added === 1 ? 'dinner' : 'dinners'} to your plan.`;
     const ref = this.snack.open(msg, 'Add ingredients to grocery list', { duration: 7000 });
-    ref.onAction().subscribe(() => { void this.addWeekToGrocery(); });
+    ref.onAction().subscribe(() => {
+      void this.addWeekToGrocery();
+    });
   }
 
   /** Build an editable review row from a raw AI proposal (its day labelled in the viewer's local zone). */
@@ -550,17 +688,23 @@ export class FamilyMeals {
     const dayLabel = Number.isNaN(date.getTime())
       ? localDate
       : `${date.toLocaleDateString(undefined, { weekday: 'long' })}, ${date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}`;
-    return { key: ++this.proposalKey, localDate, dayLabel, title: m.title, ingredients: m.ingredients };
+    return {
+      key: ++this.proposalKey,
+      localDate,
+      dayLabel,
+      title: m.title,
+      ingredients: m.ingredients,
+    };
   }
 
   /** Edit a proposal's title inline (bound from the row input). */
   setProposalTitle(p: ProposedMeal, title: string): void {
-    this.proposals.set(this.proposals().map(x => x.key === p.key ? { ...x, title } : x));
+    this.proposals.set(this.proposals().map((x) => (x.key === p.key ? { ...x, title } : x)));
   }
 
   /** Edit a proposal's ingredients inline (bound from the row textarea). */
   setProposalIngredients(p: ProposedMeal, ingredients: string): void {
-    this.proposals.set(this.proposals().map(x => x.key === p.key ? { ...x, ingredients } : x));
+    this.proposals.set(this.proposals().map((x) => (x.key === p.key ? { ...x, ingredients } : x)));
   }
 
   // ---- ✨ What should I eat? (tracker-AI: macro/goal-aware options → add to tracker/plan/grocery) ----
@@ -575,21 +719,31 @@ export class FamilyMeals {
   openWhatToEat(): void {
     if (!this.canTrackerAi()) return;
     const data: WhatToEatData = {
-      date: this.toIso(new Date()), meal: 'dinner', remaining: null,
+      date: this.toIso(new Date()),
+      meal: 'dinner',
+      remaining: null,
       // This is the family meals page, so the caller has family.use — the plan/grocery actions are valid.
       canFamily: this.auth.hasPermission(PERM.familyUse),
       canRecipes: this.auth.hasPermission(PERM.recipesUse),
     };
-    this.dialog.open(WhatToEatDialog, {
-      data, width: '640px', maxWidth: '95vw', maxHeight: '92dvh', panelClass: 'tracker-dialog', autoFocus: false,
-    }).afterClosed().subscribe(() => this.reload());
+    this.dialog
+      .open(WhatToEatDialog, {
+        data,
+        width: '640px',
+        maxWidth: '95vw',
+        maxHeight: '92dvh',
+        panelClass: 'tracker-dialog',
+        autoFocus: false,
+      })
+      .afterClosed()
+      .subscribe(() => this.reload());
   }
 
   // ---- ✨ What can I make? (AI proposes dinners from on-hand ingredients → prefill the editor) ----
 
   /** Open/close the "What can I make?" sheet. Closing keeps staged ideas (they live below the sheet). */
   toggleMake(): void {
-    this.makeOpen.update(o => !o);
+    this.makeOpen.update((o) => !o);
   }
 
   /**
@@ -606,20 +760,30 @@ export class FamilyMeals {
     this.ideas.set([]);
     try {
       const result = await firstValueFrom(
-        this.api.whatCanIMakeAi(ingredients, this.makeConstraints().trim() || null));
+        this.api.whatCanIMakeAi(ingredients, this.makeConstraints().trim() || null),
+      );
       const ideas = result.ideas ?? [];
       this.ideas.set(ideas);
       if (ideas.length === 0) {
-        this.makeStatus.set("I couldn't think of a dinner from those just now. Try adding a couple more ingredients.");
+        this.makeStatus.set(
+          "I couldn't think of a dinner from those just now. Try adding a couple more ingredients.",
+        );
       } else {
         const n = ideas.length;
-        this.makeStatus.set(`Here ${n === 1 ? 'is 1 idea' : `are ${n} ideas`} — tap one to start a meal from it.`);
+        this.makeStatus.set(
+          `Here ${n === 1 ? 'is 1 idea' : `are ${n} ideas`} — tap one to start a meal from it.`,
+        );
       }
     } catch (e) {
       const status = (e as { status?: number })?.status;
-      this.makeStatus.set(status === 503
-        ? 'AI unavailable, add a meal manually.'
-        : this.messageOf(e, "I couldn't reach the AI just now. Please try again, or add a meal manually."));
+      this.makeStatus.set(
+        status === 503
+          ? 'AI unavailable, add a meal manually.'
+          : this.messageOf(
+              e,
+              "I couldn't reach the AI just now. Please try again, or add a meal manually.",
+            ),
+      );
     } finally {
       this.makeBusy.set(false);
     }
@@ -638,7 +802,7 @@ export class FamilyMeals {
 
   /** The whole missing-items line for an idea ("plus: soy sauce, scallions"), or '' when nothing's missing. */
   missingLine(idea: MealIdea): string {
-    const missing = (idea.missing ?? []).filter(s => s.trim().length > 0);
+    const missing = (idea.missing ?? []).filter((s) => s.trim().length > 0);
     return missing.length ? `Plus: ${missing.join(', ')}` : '';
   }
 
@@ -652,28 +816,45 @@ export class FamilyMeals {
     const cells = this.cells();
     if (cells.length === 0) return;
     const todayIso = this.toIso(new Date());
-    const target = cells.find(c => c.localDate === todayIso) ?? cells[0];
+    const target = cells.find((c) => c.localDate === todayIso) ?? cells[0];
 
     // Seed the ingredients with what it uses; append the small "missing" items as their own lines.
     const lines = [
-      ...idea.ingredients.split('\n').map(s => s.trim()).filter(Boolean),
-      ...(idea.missing ?? []).map(s => s.trim()).filter(Boolean),
+      ...idea.ingredients
+        .split('\n')
+        .map((s) => s.trim())
+        .filter(Boolean),
+      ...(idea.missing ?? []).map((s) => s.trim()).filter(Boolean),
     ];
     const prefill = { title: idea.title, ingredients: lines.join('\n') };
 
     const result = await this.openEditor(
-      null, target.localDate, `${target.weekday}, ${target.dateLabel}`, 'dinner', prefill);
+      null,
+      target.localDate,
+      `${target.weekday}, ${target.dateLabel}`,
+      'dinner',
+      prefill,
+    );
     if (!result) return;
     try {
-      await firstValueFrom(this.api.createFamilyMeal({
-        localDate: target.localDate, slot: result.slot, title: result.title, ingredients: result.ingredients,
-      }));
+      await firstValueFrom(
+        this.api.createFamilyMeal({
+          localDate: target.localDate,
+          slot: result.slot,
+          title: result.title,
+          ingredients: result.ingredients,
+        }),
+      );
       this.reload();
       this.makeOpen.set(false);
       this.clearIdeas();
-      this.snack.open(`Added “${result.title}” to ${target.weekday}.`, undefined, { duration: 2500 });
+      this.snack.open(`Added “${result.title}” to ${target.weekday}.`, undefined, {
+        duration: 2500,
+      });
     } catch (e) {
-      this.snack.open(this.messageOf(e, "Couldn't save that meal. Please try again."), 'OK', { duration: 4000 });
+      this.snack.open(this.messageOf(e, "Couldn't save that meal. Please try again."), 'OK', {
+        duration: 4000,
+      });
     }
   }
 
@@ -681,7 +862,7 @@ export class FamilyMeals {
 
   /** Open/close the "Recipe idea" sheet. Closing keeps any staged breakdown (it lives below the sheet). */
   toggleRecipe(): void {
-    this.recipeOpen.update(o => !o);
+    this.recipeOpen.update((o) => !o);
   }
 
   /**
@@ -698,12 +879,19 @@ export class FamilyMeals {
     try {
       const result = await firstValueFrom(this.api.recipeBreakdown(text));
       this.stageBreakdown(result);
-      this.recipeStatus.set('Review and tweak anything below, then add it to your grocery list or save it as a meal.');
+      this.recipeStatus.set(
+        'Review and tweak anything below, then add it to your grocery list or save it as a meal.',
+      );
     } catch (e) {
       const status = (e as { status?: number })?.status;
-      this.recipeStatus.set(status === 503
-        ? 'AI unavailable, add a meal manually.'
-        : this.messageOf(e, "I couldn't reach the AI just now. Please try again, or add a meal manually."));
+      this.recipeStatus.set(
+        status === 503
+          ? 'AI unavailable, add a meal manually.'
+          : this.messageOf(
+              e,
+              "I couldn't reach the AI just now. Please try again, or add a meal manually.",
+            ),
+      );
     } finally {
       this.recipeBusy.set(false);
     }
@@ -718,13 +906,13 @@ export class FamilyMeals {
   private stageBreakdown(r: RecipeBreakdownResult): void {
     this.breakdownTitle.set(r.title ?? '');
     this.breakdownServings.set(Math.max(1, Math.round(r.servings || 1)));
-    this.breakdownRows.set((r.ingredients ?? []).map(i => this.toRow(i)));
+    this.breakdownRows.set((r.ingredients ?? []).map((i) => this.toRow(i)));
     const m = r.macrosPerServing;
     this.breakdownCalories.set(Math.max(0, Math.round(m?.calories ?? 0)));
     this.breakdownProtein.set(this.round1(Math.max(0, m?.protein ?? 0)));
     this.breakdownCarb.set(this.round1(Math.max(0, m?.carb ?? 0)));
     this.breakdownFat.set(this.round1(Math.max(0, m?.fat ?? 0)));
-    this.breakdownSteps.set((r.steps ?? []).map(s => (s ?? '').trim()).filter(Boolean));
+    this.breakdownSteps.set((r.steps ?? []).map((s) => (s ?? '').trim()).filter(Boolean));
     this.savedBreakdownRecipe.set(false); // a fresh/regenerated breakdown hasn't been saved as a recipe yet
     this.hasBreakdown.set(true);
   }
@@ -743,23 +931,27 @@ export class FamilyMeals {
 
   /** Edit an ingredient row's name inline. */
   setRowName(row: RecipeRow, name: string): void {
-    this.breakdownRows.set(this.breakdownRows().map(x => x.key === row.key ? { ...x, name } : x));
+    this.breakdownRows.set(
+      this.breakdownRows().map((x) => (x.key === row.key ? { ...x, name } : x)),
+    );
   }
 
   /** Edit an ingredient row's quantity inline. */
   setRowQuantity(row: RecipeRow, quantity: string): void {
-    this.breakdownRows.set(this.breakdownRows().map(x => x.key === row.key ? { ...x, quantity } : x));
+    this.breakdownRows.set(
+      this.breakdownRows().map((x) => (x.key === row.key ? { ...x, quantity } : x)),
+    );
   }
 
   /** Drop one ingredient row from the review. */
   removeRow(row: RecipeRow): void {
-    this.breakdownRows.set(this.breakdownRows().filter(x => x.key !== row.key));
+    this.breakdownRows.set(this.breakdownRows().filter((x) => x.key !== row.key));
   }
 
   /** The grocery-bound ingredient names (quantity prefixed when present), blanks dropped. */
   private breakdownGroceryItems(): string[] {
     return this.breakdownRows()
-      .map(r => {
+      .map((r) => {
         const name = r.name.trim();
         if (!name) return '';
         const qty = r.quantity.trim();
@@ -784,9 +976,11 @@ export class FamilyMeals {
     try {
       const before = await this.groceryOpenCount();
       const list = await firstValueFrom(this.api.recipeBreakdownToGrocery(items));
-      this.reportAdded(list.items.filter(i => !i.done).length - before, list.name);
+      this.reportAdded(list.items.filter((i) => !i.done).length - before, list.name);
     } catch {
-      this.snack.open("Couldn't add those ingredients. Please try again.", 'OK', { duration: 4000 });
+      this.snack.open("Couldn't add those ingredients. Please try again.", 'OK', {
+        duration: 4000,
+      });
     } finally {
       this.addingBreakdownGrocery.set(false);
     }
@@ -800,31 +994,38 @@ export class FamilyMeals {
   async saveBreakdownAsMeal(): Promise<void> {
     const title = this.breakdownTitle().trim();
     if (this.savingBreakdown() || !title) {
-      if (!title) this.snack.open('Give the recipe a title before saving it.', 'OK', { duration: 4000 });
+      if (!title)
+        this.snack.open('Give the recipe a title before saving it.', 'OK', { duration: 4000 });
       return;
     }
     const cells = this.cells();
     if (cells.length === 0) return;
     const todayIso = this.toIso(new Date());
-    const target = cells.find(c => c.localDate === todayIso) ?? cells[0];
+    const target = cells.find((c) => c.localDate === todayIso) ?? cells[0];
 
     const servings = Math.max(1, Math.round(this.breakdownServings() || 1));
     this.savingBreakdown.set(true);
     try {
-      await firstValueFrom(this.api.createFamilyMeal({
-        localDate: target.localDate, slot: 'dinner', title,
-        ingredients: this.breakdownIngredientsText(),
-        servings,
-        calories: Math.round(this.breakdownCalories() * servings),
-        proteinG: this.round1(this.breakdownProtein() * servings),
-        carbG: this.round1(this.breakdownCarb() * servings),
-        fatG: this.round1(this.breakdownFat() * servings),
-        macroSource: 'ai',
-      }));
+      await firstValueFrom(
+        this.api.createFamilyMeal({
+          localDate: target.localDate,
+          slot: 'dinner',
+          title,
+          ingredients: this.breakdownIngredientsText(),
+          servings,
+          calories: Math.round(this.breakdownCalories() * servings),
+          proteinG: this.round1(this.breakdownProtein() * servings),
+          carbG: this.round1(this.breakdownCarb() * servings),
+          fatG: this.round1(this.breakdownFat() * servings),
+          macroSource: 'ai',
+        }),
+      );
       this.reload();
       this.snack.open(`Saved “${title}” to ${target.weekday}.`, 'View plan', { duration: 5000 });
     } catch (e) {
-      this.snack.open(this.messageOf(e, "Couldn't save that meal. Please try again."), 'OK', { duration: 4000 });
+      this.snack.open(this.messageOf(e, "Couldn't save that meal. Please try again."), 'OK', {
+        duration: 4000,
+      });
     } finally {
       this.savingBreakdown.set(false);
     }
@@ -839,7 +1040,10 @@ export class FamilyMeals {
   async saveBreakdownAsRecipe(): Promise<void> {
     const title = this.breakdownTitle().trim();
     if (this.savingBreakdownRecipe() || this.savedBreakdownRecipe()) return;
-    if (!title) { this.snack.open('Give the recipe a title before saving it.', 'OK', { duration: 4000 }); return; }
+    if (!title) {
+      this.snack.open('Give the recipe a title before saving it.', 'OK', { duration: 4000 });
+      return;
+    }
 
     const req: RecipeFromBreakdownRequest = {
       title,
@@ -851,8 +1055,8 @@ export class FamilyMeals {
         fat: this.round1(Math.max(0, this.breakdownFat())),
       },
       ingredients: this.breakdownRows()
-        .map(r => ({ name: r.name.trim(), quantity: r.quantity.trim() }))
-        .filter(i => i.name.length > 0),
+        .map((r) => ({ name: r.name.trim(), quantity: r.quantity.trim() }))
+        .filter((i) => i.name.length > 0),
       steps: this.breakdownSteps(),
     };
     this.savingBreakdownRecipe.set(true);
@@ -861,7 +1065,9 @@ export class FamilyMeals {
       this.savedBreakdownRecipe.set(true);
       this.snack.open(`Saved “${title}” to My Recipes.`, 'OK', { duration: 4000 });
     } catch (e) {
-      this.snack.open(this.messageOf(e, "Couldn't save that recipe. Please try again."), 'OK', { duration: 4000 });
+      this.snack.open(this.messageOf(e, "Couldn't save that recipe. Please try again."), 'OK', {
+        duration: 4000,
+      });
     } finally {
       this.savingBreakdownRecipe.set(false);
     }
@@ -871,7 +1077,7 @@ export class FamilyMeals {
 
   /** True when a meal carries at least one ingredient line (so the per-meal add button shows). */
   hasIngredients(meal: FamilyMeal): boolean {
-    return meal.ingredients.split('\n').some(s => s.trim().length > 0);
+    return meal.ingredients.split('\n').some((s) => s.trim().length > 0);
   }
 
   /** Pour the whole visible week's ingredients into the household's grocery list. */
@@ -880,10 +1086,14 @@ export class FamilyMeals {
     this.addingWeek.set(true);
     try {
       const before = await this.groceryOpenCount();
-      const list = await firstValueFrom(this.api.mealsToGrocery({ weekStart: this.weekStartIso() }));
-      this.reportAdded(list.items.filter(i => !i.done).length - before, list.name);
+      const list = await firstValueFrom(
+        this.api.mealsToGrocery({ weekStart: this.weekStartIso() }),
+      );
+      this.reportAdded(list.items.filter((i) => !i.done).length - before, list.name);
     } catch {
-      this.snack.open("Couldn't add this week's ingredients. Please try again.", 'OK', { duration: 4000 });
+      this.snack.open("Couldn't add this week's ingredients. Please try again.", 'OK', {
+        duration: 4000,
+      });
     } finally {
       this.addingWeek.set(false);
     }
@@ -894,9 +1104,11 @@ export class FamilyMeals {
     try {
       const before = await this.groceryOpenCount();
       const list = await firstValueFrom(this.api.mealsToGrocery({ mealIds: [meal.id] }));
-      this.reportAdded(list.items.filter(i => !i.done).length - before, list.name);
+      this.reportAdded(list.items.filter((i) => !i.done).length - before, list.name);
     } catch {
-      this.snack.open("Couldn't add those ingredients. Please try again.", 'OK', { duration: 4000 });
+      this.snack.open("Couldn't add those ingredients. Please try again.", 'OK', {
+        duration: 4000,
+      });
     }
   }
 
@@ -907,9 +1119,10 @@ export class FamilyMeals {
   private async groceryOpenCount(): Promise<number> {
     try {
       const lists = await firstValueFrom(this.api.familyLists());
-      const groceries = lists.find(l => l.kind === 'shopping' && /groceries/i.test(l.name))
-        ?? lists.find(l => l.kind === 'shopping');
-      return groceries ? groceries.items.filter(i => !i.done).length : 0;
+      const groceries =
+        lists.find((l) => l.kind === 'shopping' && /groceries/i.test(l.name)) ??
+        lists.find((l) => l.kind === 'shopping');
+      return groceries ? groceries.items.filter((i) => !i.done).length : 0;
     } catch {
       return 0;
     }
@@ -918,11 +1131,14 @@ export class FamilyMeals {
   /** A warm snackbar: how many items were added (and a quick link to the Lists page). */
   private reportAdded(added: number, listName: string): void {
     const n = Math.max(0, added);
-    const msg = n === 0
-      ? `Everything was already on “${listName}.”`
-      : `Added ${n} ${n === 1 ? 'ingredient' : 'ingredients'} to “${listName}.”`;
+    const msg =
+      n === 0
+        ? `Everything was already on “${listName}.”`
+        : `Added ${n} ${n === 1 ? 'ingredient' : 'ingredients'} to “${listName}.”`;
     const ref = this.snack.open(msg, 'View list', { duration: 5000 });
-    ref.onAction().subscribe(() => { this.router.navigateByUrl('/family/lists'); });
+    ref.onAction().subscribe(() => {
+      this.router.navigateByUrl('/family/lists');
+    });
   }
 
   // ---- Date helpers (the household's week starts Monday, like the backend) ----
@@ -949,7 +1165,10 @@ export class FamilyMeals {
 
   private confirm(data: ConfirmData): Promise<boolean | undefined> {
     const ref = this.dialog.open<FamilyConfirmDialog, ConfirmData, boolean>(FamilyConfirmDialog, {
-      data, width: '420px', maxWidth: '92vw', panelClass: 'family-dialog',
+      data,
+      width: '420px',
+      maxWidth: '92vw',
+      panelClass: 'family-dialog',
     });
     return firstValueFrom(ref.afterClosed());
   }

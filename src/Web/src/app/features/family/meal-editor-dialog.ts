@@ -1,4 +1,4 @@
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal, ChangeDetectionStrategy } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { firstValueFrom } from 'rxjs';
 
@@ -12,7 +12,11 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 
 import { Api } from '../../core/api';
 import {
-  FamilyMeal, FamilyMealMacroProposal, FamilyMealMacroSource, FamilyMealSlot, RecipeAiResult,
+  FamilyMeal,
+  FamilyMealMacroProposal,
+  FamilyMealMacroSource,
+  FamilyMealSlot,
+  RecipeAiResult,
 } from '../../core/models';
 import { confirmRecipeNotice } from './ai-recipe-notice';
 
@@ -78,10 +82,17 @@ function round1(n: number): number {
 @Component({
   selector: 'app-meal-editor-dialog',
   imports: [
-    FormsModule, MatDialogModule, MatButtonModule, MatIconModule,
-    MatFormFieldModule, MatInputModule, MatSelectModule, MatProgressSpinnerModule,
+    FormsModule,
+    MatDialogModule,
+    MatButtonModule,
+    MatIconModule,
+    MatFormFieldModule,
+    MatInputModule,
+    MatSelectModule,
+    MatProgressSpinnerModule,
   ],
   templateUrl: './meal-editor-dialog.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrl: './family.scss',
 })
 export class MealEditorDialog {
@@ -100,16 +111,35 @@ export class MealEditorDialog {
   readonly canSave = computed(() => this.title().trim().length > 0);
 
   /** A live count of the non-blank ingredient lines (so the cook sees what'll head to the grocery list). */
-  readonly ingredientCount = computed(() =>
-    this.ingredients().split('\n').map(s => s.trim()).filter(Boolean).length);
+  readonly ingredientCount = computed(
+    () =>
+      this.ingredients()
+        .split('\n')
+        .map((s) => s.trim())
+        .filter(Boolean).length,
+  );
 
   // ---- Macros (dish TOTALS + servings; per-serving is derived) ----
   /** Servings as a string for the input (blank-tolerant); coerced on read. */
   readonly servings = signal(String(this.data.meal?.servings ?? 1));
-  readonly calories = signal(this.data.meal && this.data.meal.macroSource !== 'none' ? String(this.data.meal.calories) : '');
-  readonly proteinG = signal(this.data.meal && this.data.meal.macroSource !== 'none' ? String(round1(this.data.meal.proteinG)) : '');
-  readonly carbG = signal(this.data.meal && this.data.meal.macroSource !== 'none' ? String(round1(this.data.meal.carbG)) : '');
-  readonly fatG = signal(this.data.meal && this.data.meal.macroSource !== 'none' ? String(round1(this.data.meal.fatG)) : '');
+  readonly calories = signal(
+    this.data.meal && this.data.meal.macroSource !== 'none' ? String(this.data.meal.calories) : '',
+  );
+  readonly proteinG = signal(
+    this.data.meal && this.data.meal.macroSource !== 'none'
+      ? String(round1(this.data.meal.proteinG))
+      : '',
+  );
+  readonly carbG = signal(
+    this.data.meal && this.data.meal.macroSource !== 'none'
+      ? String(round1(this.data.meal.carbG))
+      : '',
+  );
+  readonly fatG = signal(
+    this.data.meal && this.data.meal.macroSource !== 'none'
+      ? String(round1(this.data.meal.fatG))
+      : '',
+  );
   /** Where the current macro values came from; flips to "manual" on a hand-edit, or to ai/database on Use. */
   readonly macroSource = signal<FamilyMealMacroSource>(this.data.meal?.macroSource ?? 'none');
 
@@ -121,12 +151,16 @@ export class MealEditorDialog {
 
   /** True once any macro total has a value (so we show the per-serving line + a "set" state). */
   readonly hasMacros = computed(() =>
-    [this.calories(), this.proteinG(), this.carbG(), this.fatG()].some(v => v.trim().length > 0));
+    [this.calories(), this.proteinG(), this.carbG(), this.fatG()].some((v) => v.trim().length > 0),
+  );
 
   /** The DERIVED per-serving block from the current totals ÷ servings (calories whole, macros 1 dp). */
   readonly perServing = computed(() => {
     const s = this.servingsNum();
-    const num = (v: string) => { const n = Number(v); return Number.isFinite(n) && n > 0 ? n : 0; };
+    const num = (v: string) => {
+      const n = Number(v);
+      return Number.isFinite(n) && n > 0 ? n : 0;
+    };
     return {
       calories: Math.round(num(this.calories()) / s),
       proteinG: round1(num(this.proteinG()) / s),
@@ -138,10 +172,14 @@ export class MealEditorDialog {
   // ---- Macro source pretty label (mirrors the card tag) ----
   readonly macroSourceLabel = computed(() => {
     switch (this.macroSource()) {
-      case 'ai': return 'AI estimate';
-      case 'database': return 'from food database';
-      case 'manual': return 'manual';
-      default: return 'not set';
+      case 'ai':
+        return 'AI estimate';
+      case 'database':
+        return 'from food database';
+      case 'manual':
+        return 'manual';
+      default:
+        return 'not set';
     }
   });
 
@@ -151,7 +189,9 @@ export class MealEditorDialog {
   /** A friendly aria-live status line for the macro assists (an error, or a "here's what I found" hint). */
   readonly macroStatus = signal('');
   /** The pending proposal awaiting confirm (null = nothing staged). Its `source` tags the Use action. */
-  readonly proposal = signal<{ source: 'ai' | 'database'; data: FamilyMealMacroProposal } | null>(null);
+  readonly proposal = signal<{ source: 'ai' | 'database'; data: FamilyMealMacroProposal } | null>(
+    null,
+  );
 
   /**
    * Ask Gemini to estimate this meal's dish TOTAL macros + a suggested servings count from its title +
@@ -168,8 +208,10 @@ export class MealEditorDialog {
     try {
       const data = await firstValueFrom(this.api.estimateMealMacros(meal.id));
       this.proposal.set({ source: 'ai', data });
-      this.macroStatus.set(data.note?.trim()
-        || 'Here’s an AI estimate — review it, then tap “Use these” to fill the fields.');
+      this.macroStatus.set(
+        data.note?.trim() ||
+          'Here’s an AI estimate — review it, then tap “Use these” to fill the fields.',
+      );
     } catch (e) {
       this.proposal.set(null);
       this.macroStatus.set(this.assistError(e, 'AI'));
@@ -193,9 +235,11 @@ export class MealEditorDialog {
       const data = await firstValueFrom(this.api.refineMealMacros(meal.id));
       this.proposal.set({ source: 'database', data });
       const matched = data.matched?.length ?? 0;
-      this.macroStatus.set(matched > 0
-        ? `Matched ${matched} ${matched === 1 ? 'ingredient' : 'ingredients'} in the food database — review the totals, then tap “Use these.”`
-        : 'Couldn’t match any ingredients in the food database — try editing the ingredient lines, or enter macros manually.');
+      this.macroStatus.set(
+        matched > 0
+          ? `Matched ${matched} ${matched === 1 ? 'ingredient' : 'ingredients'} in the food database — review the totals, then tap “Use these.”`
+          : 'Couldn’t match any ingredients in the food database — try editing the ingredient lines, or enter macros manually.',
+      );
     } catch (e) {
       this.proposal.set(null);
       this.macroStatus.set(this.assistError(e, 'The food database'));
@@ -227,12 +271,18 @@ export class MealEditorDialog {
   /** A hand-edit of any macro field marks the source as "manual" (and clears any stale proposal preview). */
   onMacroEdited(): void {
     if (this.macroSource() !== 'manual') this.macroSource.set('manual');
-    if (this.proposal()) { this.proposal.set(null); this.macroStatus.set(''); }
+    if (this.proposal()) {
+      this.proposal.set(null);
+      this.macroStatus.set('');
+    }
   }
 
   /** Clear all macro fields back to "not set" (servings resets to 1). */
   clearMacros(): void {
-    this.calories.set(''); this.proteinG.set(''); this.carbG.set(''); this.fatG.set('');
+    this.calories.set('');
+    this.proteinG.set('');
+    this.carbG.set('');
+    this.fatG.set('');
     this.servings.set('1');
     this.macroSource.set('none');
     this.proposal.set(null);
@@ -249,7 +299,7 @@ export class MealEditorDialog {
   readonly recipeStatus = signal('');
 
   toggleRecipe(): void {
-    this.recipeOpen.update(o => !o);
+    this.recipeOpen.update((o) => !o);
     if (!this.recipeOpen()) this.recipeStatus.set('');
   }
 
@@ -276,9 +326,14 @@ export class MealEditorDialog {
       this.recipeStatus.set('');
     } catch (e) {
       const status = (e as { status?: number })?.status;
-      this.recipeStatus.set(status === 503
-        ? "AI isn't available right now — you can fill in the dish and ingredients yourself below."
-        : this.messageOf(e, "I couldn't read that recipe just now. Please try again, or type it in below."));
+      this.recipeStatus.set(
+        status === 503
+          ? "AI isn't available right now — you can fill in the dish and ingredients yourself below."
+          : this.messageOf(
+              e,
+              "I couldn't read that recipe just now. Please try again, or type it in below.",
+            ),
+      );
     } finally {
       this.recipeBusy.set(false);
     }
@@ -286,7 +341,10 @@ export class MealEditorDialog {
 
   save(): void {
     if (!this.canSave()) return;
-    const num = (v: string) => { const n = Number(v); return Number.isFinite(n) && n > 0 ? n : 0; };
+    const num = (v: string) => {
+      const n = Number(v);
+      return Number.isFinite(n) && n > 0 ? n : 0;
+    };
     this.ref.close({
       slot: this.slot(),
       title: this.title().trim(),
@@ -305,7 +363,10 @@ export class MealEditorDialog {
     const status = (e as { status?: number })?.status;
     return status === 503
       ? `${who} isn’t available right now — you can enter macros manually below.`
-      : this.messageOf(e, `${who} couldn’t estimate the macros just now. Please try again, or enter them manually.`);
+      : this.messageOf(
+          e,
+          `${who} couldn’t estimate the macros just now. Please try again, or enter them manually.`,
+        );
   }
 
   private messageOf(e: unknown, fallback: string): string {

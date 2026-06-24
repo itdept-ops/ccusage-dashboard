@@ -1,5 +1,12 @@
 import {
-  Component, DestroyRef, OnDestroy, computed, inject, input, signal,
+  Component,
+  DestroyRef,
+  OnDestroy,
+  computed,
+  inject,
+  input,
+  signal,
+  ChangeDetectionStrategy,
 } from '@angular/core';
 import { NgTemplateOutlet } from '@angular/common';
 import { RouterLink } from '@angular/router';
@@ -51,10 +58,19 @@ const PRESETS: Preset[] = [
 @Component({
   selector: 'app-family-timer',
   imports: [
-    NgTemplateOutlet, RouterLink, FormsModule, MatIconModule, MatButtonModule, MatTooltipModule,
-    MatProgressSpinnerModule, MatFormFieldModule, MatInputModule, MatSnackBarModule,
+    NgTemplateOutlet,
+    RouterLink,
+    FormsModule,
+    MatIconModule,
+    MatButtonModule,
+    MatTooltipModule,
+    MatProgressSpinnerModule,
+    MatFormFieldModule,
+    MatInputModule,
+    MatSnackBarModule,
   ],
   templateUrl: './timer.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrls: ['./family.scss', './timer.scss'],
 })
 export class FamilyTimerWidget implements OnDestroy {
@@ -98,8 +114,11 @@ export class FamilyTimerWidget implements OnDestroy {
   readonly active = computed<LiveTimer[]>(() => {
     const now = this.now();
     return this.timers()
-      .filter(t => !t.done)
-      .map(t => ({ timer: t, remaining: Math.max(0, Math.round((Date.parse(t.endsUtc) - now) / 1000)) }))
+      .filter((t) => !t.done)
+      .map((t) => ({
+        timer: t,
+        remaining: Math.max(0, Math.round((Date.parse(t.endsUtc) - now) / 1000)),
+      }))
       .sort((a, b) => a.remaining - b.remaining);
   });
 
@@ -127,9 +146,16 @@ export class FamilyTimerWidget implements OnDestroy {
 
   private reload(initial: boolean): void {
     if (initial) this.loading.set(true);
-    this.api.familyTimers()
-      .pipe(catchError(() => { if (initial) this.error.set(true); return of<FamilyTimer[]>([]); }), takeUntilDestroyed(this.destroyRef))
-      .subscribe(list => {
+    this.api
+      .familyTimers()
+      .pipe(
+        catchError(() => {
+          if (initial) this.error.set(true);
+          return of<FamilyTimer[]>([]);
+        }),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe((list) => {
         this.timers.set(list);
         this.loading.set(false);
         // Pre-seed alerted for timers that already finished before we loaded (don't chime on old ones).
@@ -191,9 +217,14 @@ export class FamilyTimerWidget implements OnDestroy {
       this.quickStatus.set('');
     } catch (e) {
       const status = (e as { status?: number })?.status;
-      this.quickStatus.set(status === 503
-        ? "AI isn't available right now — pick a preset or set custom minutes below."
-        : this.messageOf(e, "I couldn't read that just now. Please try again, or use a preset below."));
+      this.quickStatus.set(
+        status === 503
+          ? "AI isn't available right now — pick a preset or set custom minutes below."
+          : this.messageOf(
+              e,
+              "I couldn't read that just now. Please try again, or use a preset below.",
+            ),
+      );
     } finally {
       this.quickBusy.set(false);
     }
@@ -237,10 +268,12 @@ export class FamilyTimerWidget implements OnDestroy {
     if (this.starting()) return false;
     this.starting.set(true);
     try {
-      const created = await firstValueFrom(this.api.createFamilyTimer({ label, durationSeconds: seconds }));
+      const created = await firstValueFrom(
+        this.api.createFamilyTimer({ label, durationSeconds: seconds }),
+      );
       // Unlock the audio context on this user gesture so the later chime is allowed to play.
       this.primeAudio();
-      this.timers.update(list => [created, ...list.filter(t => t.id !== created.id)]);
+      this.timers.update((list) => [created, ...list.filter((t) => t.id !== created.id)]);
       this.now.set(Date.now());
       this.label.set('');
       this.customMinutes.set(null);
@@ -259,7 +292,7 @@ export class FamilyTimerWidget implements OnDestroy {
     this.busyId.set(t.id);
     try {
       await firstValueFrom(this.api.deleteFamilyTimer(t.id));
-      this.timers.update(list => list.filter(x => x.id !== t.id));
+      this.timers.update((list) => list.filter((x) => x.id !== t.id));
       this.alerted.delete(t.id);
     } catch {
       this.snack.open("Couldn't cancel that timer.", 'OK', { duration: 4000 });
@@ -288,9 +321,14 @@ export class FamilyTimerWidget implements OnDestroy {
 
   private primeAudio(): void {
     try {
-      this.audioCtx ??= new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
+      this.audioCtx ??= new (
+        window.AudioContext ||
+        (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext
+      )();
       if (this.audioCtx.state === 'suspended') this.audioCtx.resume().catch(() => {});
-    } catch { /* audio unavailable — the visual alert still fires */ }
+    } catch {
+      /* audio unavailable — the visual alert still fires */
+    }
   }
 
   private chime(): void {
@@ -312,6 +350,8 @@ export class FamilyTimerWidget implements OnDestroy {
       };
       beep(880, 0);
       beep(1175, 0.18);
-    } catch { /* ignore — the snackbar alert is the reliable path */ }
+    } catch {
+      /* ignore — the snackbar alert is the reliable path */
+    }
   }
 }

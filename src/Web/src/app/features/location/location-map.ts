@@ -1,5 +1,15 @@
 import {
-  AfterViewInit, Component, ElementRef, OnDestroy, computed, effect, input, output, signal, viewChild,
+  AfterViewInit,
+  Component,
+  ElementRef,
+  OnDestroy,
+  computed,
+  effect,
+  input,
+  output,
+  signal,
+  viewChild,
+  ChangeDetectionStrategy,
 } from '@angular/core';
 import type * as L from 'leaflet';
 
@@ -40,15 +50,34 @@ export interface MapTrail {
     @if (!ready()) {
       <div class="leaflet-loading">Loading map…</div>
     }`,
-  styles: [`
-    :host { position: relative; display: block; width: 100%; height: 100%; min-height: 320px; }
-    .leaflet-host { width: 100%; height: 100%; min-height: 320px; border-radius: var(--tech-r-control, 10px); }
-    .leaflet-loading {
-      position: absolute; inset: 0; display: grid; place-items: center;
-      font-family: var(--tech-font-mono); font-size: var(--tech-fs-label, 11px);
-      color: var(--tech-text-tertiary, #5e6c82); pointer-events: none;
-    }
-  `],
+  changeDetection: ChangeDetectionStrategy.Eager,
+  styles: [
+    `
+      :host {
+        position: relative;
+        display: block;
+        width: 100%;
+        height: 100%;
+        min-height: 320px;
+      }
+      .leaflet-host {
+        width: 100%;
+        height: 100%;
+        min-height: 320px;
+        border-radius: var(--tech-r-control, 10px);
+      }
+      .leaflet-loading {
+        position: absolute;
+        inset: 0;
+        display: grid;
+        place-items: center;
+        font-family: var(--tech-font-mono);
+        font-size: var(--tech-fs-label, 11px);
+        color: var(--tech-text-tertiary, #5e6c82);
+        pointer-events: none;
+      }
+    `,
+  ],
 })
 export class LocationMap implements AfterViewInit, OnDestroy {
   /** Pins to render. */
@@ -69,13 +98,18 @@ export class LocationMap implements AfterViewInit, OnDestroy {
 
   /** A stable key for the current pin set so we only refit the view when the markers actually change. */
   private readonly pinKey = computed(() =>
-    this.pins().map(p => `${p.id}:${p.lat.toFixed(4)},${p.lng.toFixed(4)}`).join('|'));
+    this.pins()
+      .map((p) => `${p.id}:${p.lat.toFixed(4)},${p.lng.toFixed(4)}`)
+      .join('|'),
+  );
   private lastFitKey = '';
 
   constructor() {
     // Reconcile layers whenever inputs change AND the map is ready.
     effect(() => {
-      this.pins(); this.trails(); this.ready();
+      this.pins();
+      this.trails();
+      this.ready();
       if (this.map) this.render();
     });
   }
@@ -118,21 +152,29 @@ export class LocationMap implements AfterViewInit, OnDestroy {
     this.trailLayer.clearLayers();
     for (const t of this.trails()) {
       if (t.points.length > 1) {
-        Lm.polyline(t.points, { color: '#5b8def', weight: 2, opacity: 0.45 }).addTo(this.trailLayer);
+        Lm.polyline(t.points, { color: '#5b8def', weight: 2, opacity: 0.45 }).addTo(
+          this.trailLayer,
+        );
       }
     }
 
     this.markerLayer.clearLayers();
     const pins = this.pins();
     for (const p of pins) {
-      const marker = p.kind === 'machine'
-        ? Lm.circleMarker([p.lat, p.lng], {
-            radius: p.emphasis ? 9 : 7, color: '#b9770e', fillColor: '#f0a020',
-            fillOpacity: 0.85, weight: 2,
-          })
-        : Lm.marker([p.lat, p.lng], { riseOnHover: true });
+      const marker =
+        p.kind === 'machine'
+          ? Lm.circleMarker([p.lat, p.lng], {
+              radius: p.emphasis ? 9 : 7,
+              color: '#b9770e',
+              fillColor: '#f0a020',
+              fillOpacity: 0.85,
+              weight: 2,
+            })
+          : Lm.marker([p.lat, p.lng], { riseOnHover: true });
       const safeTitle = this.escape(p.title);
-      const safeSub = p.subtitle ? `<br><span class="lp-sub">${this.escape(p.subtitle)}</span>` : '';
+      const safeSub = p.subtitle
+        ? `<br><span class="lp-sub">${this.escape(p.subtitle)}</span>`
+        : '';
       marker.bindPopup(`<strong>${safeTitle}</strong>${safeSub}`);
       marker.on('click', () => this.pinClick.emit(p.id));
       marker.addTo(this.markerLayer);
@@ -146,7 +188,7 @@ export class LocationMap implements AfterViewInit, OnDestroy {
       if (pins.length === 1) {
         this.map.setView([pins[0].lat, pins[0].lng], 12);
       } else {
-        const bounds = Lm.latLngBounds(pins.map(p => [p.lat, p.lng] as [number, number]));
+        const bounds = Lm.latLngBounds(pins.map((p) => [p.lat, p.lng] as [number, number]));
         this.map.fitBounds(bounds, { padding: [40, 40], maxZoom: 14 });
       }
     }
@@ -154,7 +196,9 @@ export class LocationMap implements AfterViewInit, OnDestroy {
 
   /** Minimal HTML-escape for popup text (titles/cities are server data, but belt-and-suspenders). */
   private escape(s: string): string {
-    return s.replace(/[&<>"']/g, c =>
-      ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c] ?? c));
+    return s.replace(
+      /[&<>"']/g,
+      (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c] ?? c,
+    );
   }
 }

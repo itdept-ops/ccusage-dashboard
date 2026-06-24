@@ -1,4 +1,4 @@
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal, ChangeDetectionStrategy } from '@angular/core';
 import { DecimalPipe, NgTemplateOutlet } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { firstValueFrom } from 'rxjs';
@@ -28,10 +28,17 @@ import { RecipeEditorDialog, RecipeEditorData } from './recipe-editor-dialog';
 @Component({
   selector: 'app-recipes',
   imports: [
-    DecimalPipe, NgTemplateOutlet, FormsModule, MatIconModule, MatButtonModule, MatSlideToggleModule,
-    MatProgressSpinnerModule, MatTooltipModule,
+    DecimalPipe,
+    NgTemplateOutlet,
+    FormsModule,
+    MatIconModule,
+    MatButtonModule,
+    MatSlideToggleModule,
+    MatProgressSpinnerModule,
+    MatTooltipModule,
   ],
   templateUrl: './recipes.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrl: './recipes.scss',
 })
 export class Recipes {
@@ -85,9 +92,10 @@ export class Recipes {
   }
 
   toggleExpanded(id: number): void {
-    this.expanded.update(set => {
+    this.expanded.update((set) => {
       const next = new Set(set);
-      if (next.has(id)) next.delete(id); else next.add(id);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
       return next;
     });
   }
@@ -97,9 +105,10 @@ export class Recipes {
   }
 
   private setBusy(id: number, on: boolean): void {
-    this.busyIds.update(set => {
+    this.busyIds.update((set) => {
       const next = new Set(set);
-      if (on) next.add(id); else next.delete(id);
+      if (on) next.add(id);
+      else next.delete(id);
       return next;
     });
   }
@@ -120,7 +129,7 @@ export class Recipes {
     });
     ref.afterClosed().subscribe((saved?: Recipe) => {
       if (saved) {
-        this.mine.update(rs => [saved, ...rs]);
+        this.mine.update((rs) => [saved, ...rs]);
         this.snack.open(`Saved “${saved.title}”`, 'OK', { duration: 2500 });
       }
     });
@@ -136,7 +145,7 @@ export class Recipes {
     });
     ref.afterClosed().subscribe((saved?: Recipe) => {
       if (saved) {
-        this.mine.update(rs => rs.map(x => (x.id === saved.id ? saved : x)));
+        this.mine.update((rs) => rs.map((x) => (x.id === saved.id ? saved : x)));
         this.snack.open('Recipe updated', 'OK', { duration: 2500 });
       }
     });
@@ -148,10 +157,14 @@ export class Recipes {
     this.setBusy(r.id, true);
     try {
       const res = await firstValueFrom(this.api.setRecipeShare(r.id, share));
-      this.mine.update(rs => rs.map(x => (x.id === r.id ? { ...x, shareWithContacts: res.shareWithContacts } : x)));
+      this.mine.update((rs) =>
+        rs.map((x) => (x.id === r.id ? { ...x, shareWithContacts: res.shareWithContacts } : x)),
+      );
       this.snack.open(
         res.shareWithContacts ? 'Shared with your contacts' : 'Sharing turned off',
-        'OK', { duration: 2500 });
+        'OK',
+        { duration: 2500 },
+      );
     } catch {
       this.snack.open("Couldn't update sharing — try again", 'Dismiss', { duration: 4000 });
     } finally {
@@ -166,7 +179,7 @@ export class Recipes {
     this.setBusy(r.id, true);
     try {
       await firstValueFrom(this.api.deleteRecipe(r.id));
-      this.mine.update(rs => rs.filter(x => x.id !== r.id));
+      this.mine.update((rs) => rs.filter((x) => x.id !== r.id));
       this.snack.open('Recipe deleted', 'OK', { duration: 2500 });
     } catch {
       this.snack.open("Couldn't delete the recipe — try again", 'Dismiss', { duration: 4000 });

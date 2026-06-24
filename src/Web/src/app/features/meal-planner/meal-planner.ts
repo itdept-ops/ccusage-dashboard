@@ -1,4 +1,11 @@
-import { Component, DestroyRef, computed, inject, signal } from '@angular/core';
+import {
+  Component,
+  DestroyRef,
+  computed,
+  inject,
+  signal,
+  ChangeDetectionStrategy,
+} from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { catchError, firstValueFrom, of } from 'rxjs';
@@ -13,11 +20,21 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 
 import { Api } from '../../core/api';
 import { AuthService } from '../../core/auth';
-import { FamilyMeal, FamilyMealDay, FamilyMealSlot, PERM, TrackerProfileDto } from '../../core/models';
+import {
+  FamilyMeal,
+  FamilyMealDay,
+  FamilyMealSlot,
+  PERM,
+  TrackerProfileDto,
+} from '../../core/models';
 import { FamilyConfirmDialog, ConfirmData } from '../family/confirm-dialog';
 import { MealEditorDialog, MealEditorData, MealEditorResult } from '../family/meal-editor-dialog';
 import { WhatToEatDialog, WhatToEatData } from '../tracker/what-to-eat-dialog';
-import { PlanMealsDialog, PlanMealsData, PlanMealsDialogResult } from '../tracker/plan-meals-dialog';
+import {
+  PlanMealsDialog,
+  PlanMealsData,
+  PlanMealsDialogResult,
+} from '../tracker/plan-meals-dialog';
 
 /** A day's planned-macro rollup (sum of each meal's per-serving macros), with optional goal comparisons. */
 interface DayRollup {
@@ -62,10 +79,15 @@ const SLOT_META: Record<FamilyMealSlot, { label: string; icon: string }> = {
 @Component({
   selector: 'app-meal-planner',
   imports: [
-    FormsModule, MatIconModule, MatButtonModule, MatTooltipModule,
-    MatProgressSpinnerModule, MatSnackBarModule,
+    FormsModule,
+    MatIconModule,
+    MatButtonModule,
+    MatTooltipModule,
+    MatProgressSpinnerModule,
+    MatSnackBarModule,
   ],
   templateUrl: './meal-planner.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrls: ['../family/family.scss', '../family/meals.scss', './meal-planner.scss'],
 })
 export class MealPlanner {
@@ -87,10 +109,16 @@ export class MealPlanner {
    * server floors gracefully, but we hide the buttons without it. Read auth.permissions() so this recomputes
    * when permissions load.
    */
-  readonly canTrackerAi = computed(() => { this.auth.permissions(); return this.auth.hasPermission(PERM.trackerAi); });
+  readonly canTrackerAi = computed(() => {
+    this.auth.permissions();
+    return this.auth.hasPermission(PERM.trackerAi);
+  });
 
   /** Whether the caller holds tracker.self (gates the per-meal "Add to my tracker" + goal comparisons). */
-  readonly canTrack = computed(() => { this.auth.permissions(); return this.auth.hasPermission(PERM.trackerSelf); });
+  readonly canTrack = computed(() => {
+    this.auth.permissions();
+    return this.auth.hasPermission(PERM.trackerSelf);
+  });
   /** The caller's own tracker profile/goals (loaded once when they hold tracker.self), or null. */
   readonly trackerProfile = signal<TrackerProfileDto | null>(null);
   /** The meal id currently being logged to the tracker (locks just that card's button), or null. */
@@ -109,18 +137,22 @@ export class MealPlanner {
     end.setDate(end.getDate() + 6);
     const sameMonth = start.getMonth() === end.getMonth();
     const startLbl = start.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-    const endLbl = end.toLocaleDateString(undefined,
-      sameMonth ? { day: 'numeric' } : { month: 'short', day: 'numeric' });
+    const endLbl = end.toLocaleDateString(
+      undefined,
+      sameMonth ? { day: 'numeric' } : { month: 'short', day: 'numeric' },
+    );
     return `${startLbl} – ${endLbl}`;
   });
 
   /** True when the viewed week contains today (so we can offer a "This week" reset). */
-  readonly isThisWeek = computed(() => this.toIso(this.weekStart()) === this.toIso(this.thisMonday()));
+  readonly isThisWeek = computed(
+    () => this.toIso(this.weekStart()) === this.toIso(this.thisMonday()),
+  );
 
   /** The 7 day cells with friendly labels + a today flag + a planned-macro rollup, from the loaded days. */
   readonly cells = computed<DayCell[]>(() => {
     const todayIso = this.toIso(new Date());
-    return this.days().map(d => {
+    return this.days().map((d) => {
       const date = new Date(`${this.dateOnly(d.localDate)}T00:00:00`);
       return {
         localDate: this.dateOnly(d.localDate),
@@ -138,33 +170,47 @@ export class MealPlanner {
 
   /** The whole-week planned-macro total (sum of every day's per-serving rollup). */
   readonly weekRollup = computed<DayRollup>(() =>
-    this.cells().reduce<DayRollup>((acc, c) => ({
-      hasMacros: acc.hasMacros || c.rollup.hasMacros,
-      calories: acc.calories + c.rollup.calories,
-      proteinG: this.round1(acc.proteinG + c.rollup.proteinG),
-      carbG: this.round1(acc.carbG + c.rollup.carbG),
-      fatG: this.round1(acc.fatG + c.rollup.fatG),
-    }), { hasMacros: false, calories: 0, proteinG: 0, carbG: 0, fatG: 0 }));
+    this.cells().reduce<DayRollup>(
+      (acc, c) => ({
+        hasMacros: acc.hasMacros || c.rollup.hasMacros,
+        calories: acc.calories + c.rollup.calories,
+        proteinG: this.round1(acc.proteinG + c.rollup.proteinG),
+        carbG: this.round1(acc.carbG + c.rollup.carbG),
+        fatG: this.round1(acc.fatG + c.rollup.fatG),
+      }),
+      { hasMacros: false, calories: 0, proteinG: 0, carbG: 0, fatG: 0 },
+    ),
+  );
 
   readonly calorieGoal = computed(() =>
-    this.canTrack() ? (this.trackerProfile()?.dailyCalorieGoal ?? null) : null);
+    this.canTrack() ? (this.trackerProfile()?.dailyCalorieGoal ?? null) : null,
+  );
   readonly proteinGoal = computed(() =>
-    this.canTrack() ? (this.trackerProfile()?.proteinGoalG ?? null) : null);
+    this.canTrack() ? (this.trackerProfile()?.proteinGoalG ?? null) : null,
+  );
   readonly showGoals = computed(() => this.canTrack() && this.calorieGoal() != null);
   readonly hasWeekMacros = computed(() => this.weekRollup().hasMacros);
 
   constructor() {
     this.reload(true);
     if (this.canTrack()) {
-      this.api.trackerProfile()
-        .pipe(catchError(() => of<TrackerProfileDto | null>(null)), takeUntilDestroyed(this.destroyRef))
-        .subscribe(p => this.trackerProfile.set(p));
+      this.api
+        .trackerProfile()
+        .pipe(
+          catchError(() => of<TrackerProfileDto | null>(null)),
+          takeUntilDestroyed(this.destroyRef),
+        )
+        .subscribe((p) => this.trackerProfile.set(p));
     }
   }
 
   /** Sum a day's meals' PER-SERVING macros (one planned portion each); flags whether any had macros set. */
   private rollup(meals: FamilyMeal[]): DayRollup {
-    let calories = 0, proteinG = 0, carbG = 0, fatG = 0, hasMacros = false;
+    let calories = 0,
+      proteinG = 0,
+      carbG = 0,
+      fatG = 0,
+      hasMacros = false;
     for (const m of meals) {
       if (m.macroSource === 'none') continue;
       hasMacros = true;
@@ -173,7 +219,13 @@ export class MealPlanner {
       carbG += m.perServing.carbG;
       fatG += m.perServing.fatG;
     }
-    return { hasMacros, calories: Math.round(calories), proteinG: this.round1(proteinG), carbG: this.round1(carbG), fatG: this.round1(fatG) };
+    return {
+      hasMacros,
+      calories: Math.round(calories),
+      proteinG: this.round1(proteinG),
+      carbG: this.round1(carbG),
+      fatG: this.round1(fatG),
+    };
   }
 
   private round1(n: number): number {
@@ -182,10 +234,19 @@ export class MealPlanner {
 
   private reload(initial = false): void {
     if (initial) this.loading.set(true);
-    this.api.familyMeals(this.weekStartIso())
-      .pipe(catchError(() => { if (initial) this.error.set(true); return of<FamilyMealDay[]>([]); }),
-        takeUntilDestroyed(this.destroyRef))
-      .subscribe(days => { this.days.set(days); this.loading.set(false); });
+    this.api
+      .familyMeals(this.weekStartIso())
+      .pipe(
+        catchError(() => {
+          if (initial) this.error.set(true);
+          return of<FamilyMealDay[]>([]);
+        }),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe((days) => {
+        this.days.set(days);
+        this.loading.set(false);
+      });
   }
 
   /** Step the viewed week by ±1 and reload. */
@@ -215,10 +276,14 @@ export class MealPlanner {
 
   macroTag(meal: FamilyMeal): string {
     switch (meal.macroSource) {
-      case 'ai': return 'AI estimate';
-      case 'database': return 'from food DB';
-      case 'manual': return 'manual';
-      default: return 'not set';
+      case 'ai':
+        return 'AI estimate';
+      case 'database':
+        return 'from food DB';
+      case 'manual':
+        return 'manual';
+      default:
+        return 'not set';
     }
   }
 
@@ -232,11 +297,18 @@ export class MealPlanner {
     this.loggingMealId.set(meal.id);
     try {
       await firstValueFrom(this.api.addMealToTracker(meal.id, this.dateOnly(meal.localDate)));
-      const ref = this.snack.open('Logged 1 serving to your tracker.', 'Open tracker', { duration: 5000 });
-      ref.onAction().subscribe(() => { this.router.navigateByUrl('/tracker'); });
+      const ref = this.snack.open('Logged 1 serving to your tracker.', 'Open tracker', {
+        duration: 5000,
+      });
+      ref.onAction().subscribe(() => {
+        this.router.navigateByUrl('/tracker');
+      });
     } catch (e) {
       this.snack.open(
-        this.messageOf(e, "Couldn't add this meal to your tracker. Please try again."), 'OK', { duration: 4000 });
+        this.messageOf(e, "Couldn't add this meal to your tracker. Please try again."),
+        'OK',
+        { duration: 4000 },
+      );
     } finally {
       this.loggingMealId.set(null);
     }
@@ -246,37 +318,63 @@ export class MealPlanner {
 
   /** Add a meal to a specific day (default slot = dinner). Macros (if entered manually) ride along. */
   async addMeal(cell: DayCell, slot: FamilyMealSlot = 'dinner'): Promise<void> {
-    const result = await this.openEditor(null, cell.localDate, `${cell.weekday}, ${cell.dateLabel}`, slot);
+    const result = await this.openEditor(
+      null,
+      cell.localDate,
+      `${cell.weekday}, ${cell.dateLabel}`,
+      slot,
+    );
     if (!result) return;
     try {
-      await firstValueFrom(this.api.createFamilyMeal({
-        localDate: cell.localDate, slot: result.slot, title: result.title, ingredients: result.ingredients,
-        ...this.macroPayload(result),
-      }));
+      await firstValueFrom(
+        this.api.createFamilyMeal({
+          localDate: cell.localDate,
+          slot: result.slot,
+          title: result.title,
+          ingredients: result.ingredients,
+          ...this.macroPayload(result),
+        }),
+      );
       this.reload();
     } catch (e) {
-      this.snack.open(this.messageOf(e, "Couldn't save that meal. Please try again."), 'OK', { duration: 4000 });
+      this.snack.open(this.messageOf(e, "Couldn't save that meal. Please try again."), 'OK', {
+        duration: 4000,
+      });
     }
   }
 
   /** Edit an existing meal on a day. PATCHes the plain fields + the macros. */
   async editMeal(cell: DayCell, meal: FamilyMeal): Promise<void> {
-    const result = await this.openEditor(meal, cell.localDate, `${cell.weekday}, ${cell.dateLabel}`);
+    const result = await this.openEditor(
+      meal,
+      cell.localDate,
+      `${cell.weekday}, ${cell.dateLabel}`,
+    );
     if (!result) return;
     try {
-      await firstValueFrom(this.api.patchFamilyMeal(meal.id, {
-        slot: result.slot, title: result.title, ingredients: result.ingredients,
-        ...this.macroPayload(result),
-      }));
+      await firstValueFrom(
+        this.api.patchFamilyMeal(meal.id, {
+          slot: result.slot,
+          title: result.title,
+          ingredients: result.ingredients,
+          ...this.macroPayload(result),
+        }),
+      );
       this.reload();
     } catch (e) {
-      this.snack.open(this.messageOf(e, "Couldn't save that meal. Please try again."), 'OK', { duration: 4000 });
+      this.snack.open(this.messageOf(e, "Couldn't save that meal. Please try again."), 'OK', {
+        duration: 4000,
+      });
     }
   }
 
   private macroPayload(r: MealEditorResult) {
     return {
-      servings: r.servings, calories: r.calories, proteinG: r.proteinG, carbG: r.carbG, fatG: r.fatG,
+      servings: r.servings,
+      calories: r.calories,
+      proteinG: r.proteinG,
+      carbG: r.carbG,
+      fatG: r.fatG,
       macroSource: r.macroSource,
     };
   }
@@ -297,12 +395,21 @@ export class MealPlanner {
   }
 
   private openEditor(
-    meal: FamilyMeal | null, localDate: string, dayLabel: string, defaultSlot?: FamilyMealSlot,
+    meal: FamilyMeal | null,
+    localDate: string,
+    dayLabel: string,
+    defaultSlot?: FamilyMealSlot,
   ): Promise<MealEditorResult | undefined> {
-    const ref = this.dialog.open<MealEditorDialog, MealEditorData, MealEditorResult>(MealEditorDialog, {
-      data: { meal, localDate, dayLabel, defaultSlot },
-      width: '460px', maxWidth: '94vw', autoFocus: false, panelClass: 'family-dialog',
-    });
+    const ref = this.dialog.open<MealEditorDialog, MealEditorData, MealEditorResult>(
+      MealEditorDialog,
+      {
+        data: { meal, localDate, dayLabel, defaultSlot },
+        width: '460px',
+        maxWidth: '94vw',
+        autoFocus: false,
+        panelClass: 'family-dialog',
+      },
+    );
     return firstValueFrom(ref.afterClosed());
   }
 
@@ -321,9 +428,19 @@ export class MealPlanner {
       weekStart: this.weekStartIso(),
       canPlan: this.auth.hasPermission(PERM.mealsUse),
     };
-    this.dialog.open<PlanMealsDialog, PlanMealsData, PlanMealsDialogResult>(PlanMealsDialog, {
-      data, width: '680px', maxWidth: '95vw', maxHeight: '92dvh', panelClass: 'tracker-dialog', autoFocus: false,
-    }).afterClosed().subscribe(result => { if (result === 'wrote') this.reload(); });
+    this.dialog
+      .open<PlanMealsDialog, PlanMealsData, PlanMealsDialogResult>(PlanMealsDialog, {
+        data,
+        width: '680px',
+        maxWidth: '95vw',
+        maxHeight: '92dvh',
+        panelClass: 'tracker-dialog',
+        autoFocus: false,
+      })
+      .afterClosed()
+      .subscribe((result) => {
+        if (result === 'wrote') this.reload();
+      });
   }
 
   // ---- ✨ What should I eat? (single-idea tracker-AI; unchanged) ----
@@ -332,20 +449,30 @@ export class MealPlanner {
   openWhatToEat(): void {
     if (!this.canTrackerAi()) return;
     const data: WhatToEatData = {
-      date: this.toIso(new Date()), meal: 'dinner', remaining: null,
+      date: this.toIso(new Date()),
+      meal: 'dinner',
+      remaining: null,
       // This is the Meal Planner tool; the caller has meals.use → the plan/grocery actions are valid.
       canFamily: this.auth.hasPermission(PERM.mealsUse) || this.auth.hasPermission(PERM.familyUse),
       canRecipes: this.auth.hasPermission(PERM.recipesUse),
     };
-    this.dialog.open(WhatToEatDialog, {
-      data, width: '640px', maxWidth: '95vw', maxHeight: '92dvh', panelClass: 'tracker-dialog', autoFocus: false,
-    }).afterClosed().subscribe(() => this.reload());
+    this.dialog
+      .open(WhatToEatDialog, {
+        data,
+        width: '640px',
+        maxWidth: '95vw',
+        maxHeight: '92dvh',
+        panelClass: 'tracker-dialog',
+        autoFocus: false,
+      })
+      .afterClosed()
+      .subscribe(() => this.reload());
   }
 
   // ---- Grocery-list tie-in ----
 
   hasIngredients(meal: FamilyMeal): boolean {
-    return meal.ingredients.split('\n').some(s => s.trim().length > 0);
+    return meal.ingredients.split('\n').some((s) => s.trim().length > 0);
   }
 
   /** Pour the whole visible week's ingredients into the household's grocery list. */
@@ -354,10 +481,14 @@ export class MealPlanner {
     this.addingWeek.set(true);
     try {
       const before = await this.groceryOpenCount();
-      const list = await firstValueFrom(this.api.mealsToGrocery({ weekStart: this.weekStartIso() }));
-      this.reportAdded(list.items.filter(i => !i.done).length - before, list.name);
+      const list = await firstValueFrom(
+        this.api.mealsToGrocery({ weekStart: this.weekStartIso() }),
+      );
+      this.reportAdded(list.items.filter((i) => !i.done).length - before, list.name);
     } catch {
-      this.snack.open("Couldn't add this week's ingredients. Please try again.", 'OK', { duration: 4000 });
+      this.snack.open("Couldn't add this week's ingredients. Please try again.", 'OK', {
+        duration: 4000,
+      });
     } finally {
       this.addingWeek.set(false);
     }
@@ -368,9 +499,11 @@ export class MealPlanner {
     try {
       const before = await this.groceryOpenCount();
       const list = await firstValueFrom(this.api.mealsToGrocery({ mealIds: [meal.id] }));
-      this.reportAdded(list.items.filter(i => !i.done).length - before, list.name);
+      this.reportAdded(list.items.filter((i) => !i.done).length - before, list.name);
     } catch {
-      this.snack.open("Couldn't add those ingredients. Please try again.", 'OK', { duration: 4000 });
+      this.snack.open("Couldn't add those ingredients. Please try again.", 'OK', {
+        duration: 4000,
+      });
     }
   }
 
@@ -378,9 +511,10 @@ export class MealPlanner {
   private async groceryOpenCount(): Promise<number> {
     try {
       const lists = await firstValueFrom(this.api.familyLists());
-      const groceries = lists.find(l => l.kind === 'shopping' && /groceries/i.test(l.name))
-        ?? lists.find(l => l.kind === 'shopping');
-      return groceries ? groceries.items.filter(i => !i.done).length : 0;
+      const groceries =
+        lists.find((l) => l.kind === 'shopping' && /groceries/i.test(l.name)) ??
+        lists.find((l) => l.kind === 'shopping');
+      return groceries ? groceries.items.filter((i) => !i.done).length : 0;
     } catch {
       return 0;
     }
@@ -388,11 +522,14 @@ export class MealPlanner {
 
   private reportAdded(added: number, listName: string): void {
     const n = Math.max(0, added);
-    const msg = n === 0
-      ? `Everything was already on “${listName}.”`
-      : `Added ${n} ${n === 1 ? 'ingredient' : 'ingredients'} to “${listName}.”`;
+    const msg =
+      n === 0
+        ? `Everything was already on “${listName}.”`
+        : `Added ${n} ${n === 1 ? 'ingredient' : 'ingredients'} to “${listName}.”`;
     const ref = this.snack.open(msg, 'View grocery list', { duration: 5000 });
-    ref.onAction().subscribe(() => { this.router.navigateByUrl('/grocery'); });
+    ref.onAction().subscribe(() => {
+      this.router.navigateByUrl('/grocery');
+    });
   }
 
   // ---- Date helpers (the household's week starts Monday, like the backend) ----
@@ -416,7 +553,10 @@ export class MealPlanner {
 
   private confirm(data: ConfirmData): Promise<boolean | undefined> {
     const ref = this.dialog.open<FamilyConfirmDialog, ConfirmData, boolean>(FamilyConfirmDialog, {
-      data, width: '420px', maxWidth: '92vw', panelClass: 'family-dialog',
+      data,
+      width: '420px',
+      maxWidth: '92vw',
+      panelClass: 'family-dialog',
     });
     return firstValueFrom(ref.afterClosed());
   }

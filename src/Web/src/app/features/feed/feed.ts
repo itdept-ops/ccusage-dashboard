@@ -1,4 +1,4 @@
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal, ChangeDetectionStrategy } from '@angular/core';
 import { RouterModule } from '@angular/router';
 import { catchError, of } from 'rxjs';
 
@@ -46,6 +46,7 @@ interface FeedDayGroup {
   selector: 'app-feed',
   imports: [RouterModule, MatButtonModule, MatIconModule, MatProgressSpinnerModule],
   templateUrl: './feed.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrl: './feed.scss',
 })
 export class Feed {
@@ -76,9 +77,15 @@ export class Feed {
     this.loading.set(true);
     this.error.set(false);
     this.moreError.set(false);
-    this.api.feed({ limit: Feed.PAGE })
-      .pipe(catchError(() => { this.error.set(true); return of(null); }))
-      .subscribe(page => {
+    this.api
+      .feed({ limit: Feed.PAGE })
+      .pipe(
+        catchError(() => {
+          this.error.set(true);
+          return of(null);
+        }),
+      )
+      .subscribe((page) => {
         if (page) {
           this.items.set(page.items);
           this.nextBefore.set(page.nextBefore);
@@ -93,11 +100,17 @@ export class Feed {
     if (before == null || this.loadingMore()) return;
     this.loadingMore.set(true);
     this.moreError.set(false);
-    this.api.feed({ before, limit: Feed.PAGE })
-      .pipe(catchError(() => { this.moreError.set(true); return of(null); }))
-      .subscribe(page => {
+    this.api
+      .feed({ before, limit: Feed.PAGE })
+      .pipe(
+        catchError(() => {
+          this.moreError.set(true);
+          return of(null);
+        }),
+      )
+      .subscribe((page) => {
         if (page) {
-          this.items.update(cur => [...cur, ...page.items]);
+          this.items.update((cur) => [...cur, ...page.items]);
           this.nextBefore.set(page.nextBefore);
         }
         this.loadingMore.set(false);
@@ -115,20 +128,23 @@ export class Feed {
     if (this.cheering.has(id)) return;
     this.cheering.add(id);
 
-    const before = this.items().find(i => i.id === id);
+    const before = this.items().find((i) => i.id === id);
     const wasReacted = before?.iReacted ?? false;
     const prevCount = before?.clapCount ?? 0;
 
     // Optimistic flip.
     this.patch(id, { iReacted: !wasReacted, clapCount: prevCount + (wasReacted ? -1 : 1) });
 
-    this.api.reactFeed(id)
-      .pipe(catchError(() => {
-        // Roll back to the pre-tap state on failure.
-        this.patch(id, { iReacted: wasReacted, clapCount: prevCount });
-        return of(null);
-      }))
-      .subscribe(res => {
+    this.api
+      .reactFeed(id)
+      .pipe(
+        catchError(() => {
+          // Roll back to the pre-tap state on failure.
+          this.patch(id, { iReacted: wasReacted, clapCount: prevCount });
+          return of(null);
+        }),
+      )
+      .subscribe((res) => {
         if (res) this.patch(id, { iReacted: res.iReacted, clapCount: res.clapCount });
         this.cheering.delete(id);
       });
@@ -139,7 +155,7 @@ export class Feed {
 
   /** Merge a partial update into the row with this id (the view/groups computeds re-derive from items). */
   private patch(id: number, change: Partial<FeedItem>): void {
-    this.items.update(cur => cur.map(i => (i.id === id ? { ...i, ...change } : i)));
+    this.items.update((cur) => cur.map((i) => (i.id === id ? { ...i, ...change } : i)));
   }
 
   /** Whether there's another page to load (drives the "load more" affordance). */
@@ -157,11 +173,16 @@ export class Feed {
   /** A Material icon glyph for the kind (falls back to a generic activity glyph). */
   private static iconOf(kind: string): string {
     switch (kind) {
-      case 'workout.logged': return 'fitness_center';
-      case 'challenge.dayComplete': return 'military_tech';
-      case 'challenge.started': return 'flag';
-      case 'hydration.goalHit': return 'local_drink';
-      default: return 'bolt';
+      case 'workout.logged':
+        return 'fitness_center';
+      case 'challenge.dayComplete':
+        return 'military_tech';
+      case 'challenge.started':
+        return 'flag';
+      case 'hydration.goalHit':
+        return 'local_drink';
+      default:
+        return 'bolt';
     }
   }
 
@@ -192,7 +213,7 @@ export class Feed {
 
   /** Items projected for the template (initials + verb + icon). */
   private readonly view = computed<FeedItemVm[]>(() =>
-    this.items().map(i => ({
+    this.items().map((i) => ({
       ...i,
       initials: Feed.initialsOf(i.actorName),
       verb: Feed.verbOf(i),
@@ -207,7 +228,9 @@ export class Feed {
     if (diffDays === 0) return 'Today';
     if (diffDays === 1) return 'Yesterday';
     return date.toLocaleDateString(undefined, {
-      weekday: 'short', month: 'short', day: 'numeric',
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric',
       year: date.getFullYear() === now.getFullYear() ? undefined : 'numeric',
     });
   }

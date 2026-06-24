@@ -1,4 +1,11 @@
-import { Component, computed, effect, inject, signal } from '@angular/core';
+import {
+  Component,
+  computed,
+  effect,
+  inject,
+  signal,
+  ChangeDetectionStrategy,
+} from '@angular/core';
 import { Router } from '@angular/router';
 
 import { MatButtonModule } from '@angular/material/button';
@@ -49,10 +56,9 @@ const TYPE_LABEL: Record<string, string> = {
  */
 @Component({
   selector: 'app-notification-bell',
-  imports: [
-    MatButtonModule, MatIconModule, MatMenuModule, MatTooltipModule,
-  ],
+  imports: [MatButtonModule, MatIconModule, MatMenuModule, MatTooltipModule],
   templateUrl: './notification-bell.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrl: './notification-bell.scss',
 })
 export class NotificationBell {
@@ -117,7 +123,9 @@ export class NotificationBell {
     if (!n.isRead) {
       this.chat
         .markNotificationsRead([n.id])
-        .catch(() => this.snack.open('Could not update notifications', 'Dismiss', { duration: 4000 }));
+        .catch(() =>
+          this.snack.open('Could not update notifications', 'Dismiss', { duration: 4000 }),
+        );
     }
     this.navigate(n.link);
   }
@@ -126,7 +134,9 @@ export class NotificationBell {
   markAllRead(): void {
     this.chat
       .markAllNotificationsRead()
-      .catch(() => this.snack.open('Could not update notifications', 'Dismiss', { duration: 4000 }));
+      .catch(() =>
+        this.snack.open('Could not update notifications', 'Dismiss', { duration: 4000 }),
+      );
   }
 
   /**

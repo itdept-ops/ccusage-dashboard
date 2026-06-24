@@ -1,4 +1,11 @@
-import { Component, OnDestroy, computed, inject, signal } from '@angular/core';
+import {
+  Component,
+  OnDestroy,
+  computed,
+  inject,
+  signal,
+  ChangeDetectionStrategy,
+} from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { firstValueFrom } from 'rxjs';
 
@@ -15,7 +22,12 @@ import { Api } from '../../core/api';
 import { AuthService } from '../../core/auth';
 import { AddFoodRequest, ImageRequest, ParsedFoodItemDto, Meal, PERM } from '../../core/models';
 import { captureImage, pickImage, confirmPhotoNotice } from './ai-image';
-import { VoiceRecording, confirmVoiceNotice, recordTranscript, speechSupported } from './voice-capture';
+import {
+  VoiceRecording,
+  confirmVoiceNotice,
+  recordTranscript,
+  speechSupported,
+} from './voice-capture';
 
 /** What the dialog opens with: the active day + which meal section the user tapped "Add food" on. */
 export interface AddFoodData {
@@ -86,10 +98,17 @@ const MEALS: { value: Meal; label: string }[] = [
 @Component({
   selector: 'app-add-food-dialog',
   imports: [
-    FormsModule, MatDialogModule, MatFormFieldModule, MatInputModule, MatButtonModule,
-    MatButtonToggleModule, MatIconModule, MatProgressSpinnerModule,
+    FormsModule,
+    MatDialogModule,
+    MatFormFieldModule,
+    MatInputModule,
+    MatButtonModule,
+    MatButtonToggleModule,
+    MatIconModule,
+    MatProgressSpinnerModule,
   ],
   templateUrl: './add-food-dialog.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrl: './add-food-dialog.scss',
 })
 export class AddFoodDialog implements OnDestroy {
@@ -110,13 +129,15 @@ export class AddFoodDialog implements OnDestroy {
   readonly meals = MEALS;
 
   /** Initial mode: Describe when text AI is held, else Photo when only vision is held, else Manual. */
-  readonly mode = signal<Mode>(this.canUseAi ? 'describe' : (this.canUseVision ? 'photo' : 'manual'));
+  readonly mode = signal<Mode>(this.canUseAi ? 'describe' : this.canUseVision ? 'photo' : 'manual');
   readonly meal = signal<Meal>(this.data.meal);
 
   // ---- Describe / Speak ----
   readonly describeText = signal('');
   readonly describeLoading = signal(false);
-  readonly canBuildMeal = computed(() => !this.describeLoading() && this.describeText().trim().length > 0);
+  readonly canBuildMeal = computed(
+    () => !this.describeLoading() && this.describeText().trim().length > 0,
+  );
 
   /** True while the on-device mic is listening (drives the Stop affordance + a "listening" hint). */
   readonly listening = signal(false);
@@ -145,8 +166,9 @@ export class AddFoodDialog implements OnDestroy {
   readonly inReview = computed(() => this.items().length > 0);
 
   /** How many rows are committable (a non-empty description) — drives the Add button + its disabled state. */
-  readonly committableCount = computed(() =>
-    this.items().filter(i => i.description.trim().length > 0).length);
+  readonly committableCount = computed(
+    () => this.items().filter((i) => i.description.trim().length > 0).length,
+  );
 
   constructor() {
     // Pre-seed the describe box from an AI food suggestion (editable; never auto-logs).
@@ -156,7 +178,9 @@ export class AddFoodDialog implements OnDestroy {
     } else if (seed) {
       // No text AI → seed a manual item's description instead so the prefill isn't lost.
       this.startManual();
-      this.items.update(list => list.map((it, i) => (i === 0 ? { ...it, description: seed } : it)));
+      this.items.update((list) =>
+        list.map((it, i) => (i === 0 ? { ...it, description: seed } : it)),
+      );
     }
   }
 
@@ -178,13 +202,13 @@ export class AddFoodDialog implements OnDestroy {
     if (this.listening() || !this.canSpeak) return;
     if (!(await confirmVoiceNotice())) return; // declined the privacy notice → abort, nothing captured.
     try {
-      const { recording, done } = recordTranscript(t => this.interim.set(t));
+      const { recording, done } = recordTranscript((t) => this.interim.set(t));
       this.activeRec = recording;
       this.listening.set(true);
       this.interim.set('');
       done.then(
-        res => this.onDictation(res?.text ?? null),
-        err => this.onDictationError(err),
+        (res) => this.onDictation(res?.text ?? null),
+        (err) => this.onDictationError(err),
       );
     } catch (e) {
       this.onDictationError(e);
@@ -194,7 +218,8 @@ export class AddFoodDialog implements OnDestroy {
   /** Stop listening and keep what was transcribed (the Done affordance). */
   stopListening(discard = false): void {
     if (!this.activeRec) return;
-    if (discard) this.activeRec.abort(); else this.activeRec.stop();
+    if (discard) this.activeRec.abort();
+    else this.activeRec.stop();
     this.activeRec = null;
     this.listening.set(false);
     if (discard) this.interim.set('');
@@ -267,9 +292,12 @@ export class AddFoodDialog implements OnDestroy {
     this.photoLoading.set(true);
     this.announce.set('Reading your meal photo with AI…');
     try {
-      const res = await firstValueFrom(this.api.parseMeal({
-        imageBase64: image.imageBase64, mimeType: image.mimeType,
-      }));
+      const res = await firstValueFrom(
+        this.api.parseMeal({
+          imageBase64: image.imageBase64,
+          mimeType: image.mimeType,
+        }),
+      );
       this.applyParse(res.items ?? [], 'photo');
     } catch {
       this.toManualFallback('AI photo unavailable — add it manually');
@@ -287,21 +315,26 @@ export class AddFoodDialog implements OnDestroy {
   private applyParse(parsed: ParsedFoodItemDto[], from: 'describe' | 'photo'): void {
     if (parsed.length === 0) {
       this.toManualFallback(
-        from === 'photo' ? 'No foods found in that photo — add it manually'
-                         : 'No items found — add it manually');
+        from === 'photo'
+          ? 'No foods found in that photo — add it manually'
+          : 'No items found — add it manually',
+      );
       return;
     }
-    this.items.set(parsed.map(i => ({
-      description: i.description,
-      quantity: i.quantity > 0 ? i.quantity : 1,
-      calories: Math.max(0, Math.round(safeNum(i.calories))),
-      proteinG: Math.max(0, safeNum(i.proteinG)),
-      carbG: Math.max(0, safeNum(i.carbG)),
-      fatG: Math.max(0, safeNum(i.fatG)),
-    })));
+    this.items.set(
+      parsed.map((i) => ({
+        description: i.description,
+        quantity: i.quantity > 0 ? i.quantity : 1,
+        calories: Math.max(0, Math.round(safeNum(i.calories))),
+        proteinG: Math.max(0, safeNum(i.proteinG)),
+        carbG: Math.max(0, safeNum(i.carbG)),
+        fatG: Math.max(0, safeNum(i.fatG)),
+      })),
+    );
     this.fromAi.set(from);
     this.announce.set(
-      `AI found ${parsed.length} ${parsed.length === 1 ? 'item' : 'items'}. Review and edit, then add to your day.`);
+      `AI found ${parsed.length} ${parsed.length === 1 ? 'item' : 'items'}. Review and edit, then add to your day.`,
+    );
   }
 
   /** Graceful fallback: seed a single empty manual row + steer the user there. */
@@ -320,7 +353,7 @@ export class AddFoodDialog implements OnDestroy {
 
   /** Add a fresh blank item to the review list (the "+ add item" affordance). */
   addItem(): void {
-    this.items.update(list => [...list, blankItem()]);
+    this.items.update((list) => [...list, blankItem()]);
   }
 
   /**
@@ -336,7 +369,7 @@ export class AddFoodDialog implements OnDestroy {
       const q = safeNum(clean.quantity as number | null);
       clean.quantity = Math.min(MAX_QUANTITY, Math.max(0, q));
     }
-    this.items.update(list => list.map((it, i) => (i === index ? { ...it, ...clean } : it)));
+    this.items.update((list) => list.map((it, i) => (i === index ? { ...it, ...clean } : it)));
   }
 
   /**
@@ -344,9 +377,12 @@ export class AddFoodDialog implements OnDestroy {
    * re-describe / re-shoot). In manual mode the form is one item, so a removal restarts a blank one.
    */
   removeItem(index: number): void {
-    this.items.update(list => list.filter((_, i) => i !== index));
+    this.items.update((list) => list.filter((_, i) => i !== index));
     if (this.items().length > 0) return;
-    if (this.mode() === 'manual') { this.startManual(); return; }
+    if (this.mode() === 'manual') {
+      this.startManual();
+      return;
+    }
     // AI review emptied → back to the input mode for that AI flow.
     this.fromAi.set(null);
     this.announce.set('');
@@ -357,7 +393,8 @@ export class AddFoodDialog implements OnDestroy {
     this.items.set([]);
     this.fromAi.set(null);
     this.announce.set('');
-    if (this.mode() === 'manual') this.setMode(this.canUseAi ? 'describe' : (this.canUseVision ? 'photo' : 'manual'));
+    if (this.mode() === 'manual')
+      this.setMode(this.canUseAi ? 'describe' : this.canUseVision ? 'photo' : 'manual');
   }
 
   /**
@@ -369,8 +406,8 @@ export class AddFoodDialog implements OnDestroy {
     if (this.saving()) return; // in-flight guard against a double-tap before the overlay tears down.
     const meal = this.meal();
     const reqs: AddFoodRequest[] = this.items()
-      .filter(i => i.description.trim().length > 0)
-      .map(i => {
+      .filter((i) => i.description.trim().length > 0)
+      .map((i) => {
         const q = i.quantity > 0 ? i.quantity : 1;
         return {
           date: this.data.date,

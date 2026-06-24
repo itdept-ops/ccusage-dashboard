@@ -1,4 +1,15 @@
-import { AfterViewInit, Component, computed, effect, ElementRef, HostListener, inject, signal, viewChild } from '@angular/core';
+import {
+  AfterViewInit,
+  Component,
+  computed,
+  effect,
+  ElementRef,
+  HostListener,
+  inject,
+  signal,
+  viewChild,
+  ChangeDetectionStrategy,
+} from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { RouterOutlet, RouterLink, RouterLinkActive, Router, NavigationEnd } from '@angular/router';
 import { timer, switchMap, catchError, of, filter } from 'rxjs';
@@ -51,11 +62,19 @@ interface HomeOption {
 @Component({
   selector: 'app-root',
   imports: [
-    RouterOutlet, RouterLink, RouterLinkActive,
-    MatToolbarModule, MatButtonModule, MatIconModule, MatTooltipModule, MatMenuModule,
-    NotificationBell, CommandPalette,
+    RouterOutlet,
+    RouterLink,
+    RouterLinkActive,
+    MatToolbarModule,
+    MatButtonModule,
+    MatIconModule,
+    MatTooltipModule,
+    MatMenuModule,
+    NotificationBell,
+    CommandPalette,
   ],
   templateUrl: './app.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrl: './app.scss',
 })
 export class App implements AfterViewInit {
@@ -89,7 +108,7 @@ export class App implements AfterViewInit {
    * Others' away is derived purely from how stale their server `lastSeenUtc` is (AWAY_MS) — no client hack.
    */
   private static readonly IDLE_MS = 5 * 60_000; // ~5 min of no interaction → self is away
-  private static readonly AWAY_MS = 60_000;     // another user not seen in >60s (their polls are ~20s) → away
+  private static readonly AWAY_MS = 60_000; // another user not seen in >60s (their polls are ~20s) → away
   private readonly lastActivity = signal(Date.now());
   /** Whether the caller is currently idle (no interaction for ~5 min). Drives their own roster "away" badge. */
   readonly selfAway = computed(() => this.now() - this.lastActivity() >= App.IDLE_MS);
@@ -102,7 +121,9 @@ export class App implements AfterViewInit {
 
   /** Mobile hamburger drawer open-state (only used below the nav breakpoint). */
   readonly mobileNavOpen = signal(false);
-  toggleMobileNav(): void { this.mobileNavOpen() ? this.closeMobileNav() : this.openMobileNav(); }
+  toggleMobileNav(): void {
+    this.mobileNavOpen() ? this.closeMobileNav() : this.openMobileNav();
+  }
 
   /**
    * Open the drawer and move focus into it (dialog-like contract): focus the first link so a
@@ -124,7 +145,9 @@ export class App implements AfterViewInit {
     const wasOpen = this.mobileNavOpen();
     this.mobileNavOpen.set(false);
     if (wasOpen) {
-      const burger = (this.host.nativeElement as HTMLElement).querySelector<HTMLElement>('.navburger');
+      const burger = (this.host.nativeElement as HTMLElement).querySelector<HTMLElement>(
+        '.navburger',
+      );
       burger?.focus();
     }
   }
@@ -134,10 +157,21 @@ export class App implements AfterViewInit {
    * how-it-works) render bare — they bring their own chrome, so the app toolbar is hidden.
    */
   readonly bareLayout = signal(App.isBare(this.router.url));
-  private static readonly barePrefixes = ['/widget', '/share', '/bill', '/login', '/features', '/how-it-works', '/technology', '/ai', '/signin', '/about'];
+  private static readonly barePrefixes = [
+    '/widget',
+    '/share',
+    '/bill',
+    '/login',
+    '/features',
+    '/how-it-works',
+    '/technology',
+    '/ai',
+    '/signin',
+    '/about',
+  ];
   private static isBare(url: string): boolean {
     const path = url.split('?')[0];
-    return App.barePrefixes.some(p => path === p || path.startsWith(p + '/'));
+    return App.barePrefixes.some((p) => path === p || path.startsWith(p + '/'));
   }
 
   /**
@@ -151,7 +185,7 @@ export class App implements AfterViewInit {
   private static readonly immersivePrefixes = ['/beta', '/tracker-beta'];
   private static isImmersive(url: string): boolean {
     const path = url.split('?')[0];
-    return App.immersivePrefixes.some(p => path === p || path.startsWith(p + '/'));
+    return App.immersivePrefixes.some((p) => path === p || path.startsWith(p + '/'));
   }
 
   /** The current route path (no query), kept fresh on each navigation — drives the group-active flags. */
@@ -165,18 +199,19 @@ export class App implements AfterViewInit {
    */
   private pathInGroup(routes: readonly string[]): boolean {
     const path = this.currentPath();
-    return routes.some(r => r === '/' ? path === '/' : (path === r || path.startsWith(r + '/')));
+    return routes.some((r) => (r === '/' ? path === '/' : path === r || path.startsWith(r + '/')));
   }
   readonly usageGroupActive = computed(() =>
-    this.pathInGroup(['/', '/calendar', '/pricing', '/reporter', '/fleet']));
+    this.pathInGroup(['/', '/calendar', '/pricing', '/reporter', '/fleet']),
+  );
   readonly fitnessGroupActive = computed(() =>
-    this.pathInGroup(['/tracker', '/challenge', '/trophies', '/feed']));
+    this.pathInGroup(['/tracker', '/challenge', '/trophies', '/feed']),
+  );
   readonly toolsGroupActive = computed(() =>
-    this.pathInGroup(['/ask', '/automations', '/bills', '/grocery', '/recipes', '/meal-planner']));
-  readonly socialGroupActive = computed(() =>
-    this.pathInGroup(['/chat', '/people']));
-  readonly betaGroupActive = computed(() =>
-    this.pathInGroup(['/beta', '/tracker-beta']));
+    this.pathInGroup(['/ask', '/automations', '/bills', '/grocery', '/recipes', '/meal-planner']),
+  );
+  readonly socialGroupActive = computed(() => this.pathInGroup(['/chat', '/people']));
+  readonly betaGroupActive = computed(() => this.pathInGroup(['/beta', '/tracker-beta']));
 
   /**
    * The Beta dropdown's page list (the SAME registry the Beta hub grid uses, so nav + hub never drift).
@@ -185,7 +220,8 @@ export class App implements AfterViewInit {
    */
   readonly betaExperiments = BETA_EXPERIMENTS;
   readonly adminGroupActive = computed(() =>
-    this.pathInGroup(['/users', '/admin/locations', '/activity', '/ai-usage', '/settings']));
+    this.pathInGroup(['/users', '/admin/locations', '/activity', '/ai-usage', '/settings']),
+  );
 
   /**
    * Page routes that require a single view permission (for live-revocation enforcement). Keyed by the
@@ -241,7 +277,9 @@ export class App implements AfterViewInit {
   readonly tooltip = computed(() => {
     const s = this.status();
     if (!s) return 'Connecting to API…';
-    const auto = s.autoSyncEnabled ? `Auto-sync every ${humanizeInterval(s.intervalSeconds)}` : 'Auto-sync off';
+    const auto = s.autoSyncEnabled
+      ? `Auto-sync every ${humanizeInterval(s.intervalSeconds)}`
+      : 'Auto-sync off';
     const last = s.lastSyncUtc
       ? `Last sync ${new Date(s.lastSyncUtc).toLocaleString()} · +${s.lastNewRecords.toLocaleString()} rows`
       : 'No sync yet';
@@ -255,7 +293,9 @@ export class App implements AfterViewInit {
     return ((parts[0]?.[0] ?? '') + (parts[1]?.[0] ?? '')).toUpperCase() || 'U';
   }
 
-  readonly initials = computed(() => App.initialsOf(this.auth.session()?.name, this.auth.session()?.email));
+  readonly initials = computed(() =>
+    App.initialsOf(this.auth.session()?.name, this.auth.session()?.email),
+  );
 
   /**
    * Online teammates projected for the indicator: each enriched with display initials and a "you"
@@ -265,13 +305,13 @@ export class App implements AfterViewInit {
   readonly onlineUsers = computed<OnlineUser[]>(() => {
     const now = this.now();
     const selfAway = this.selfAway();
-    return this.online().map(u => ({
+    return this.online().map((u) => ({
       ...u,
       initials: App.initialsOf(u.name),
       isYou: u.isSelf,
       // The caller's own away comes from local idle detection; everyone else's from a stale-lastSeen
       // threshold (the server stamps lastSeenUtc on every authenticated request).
-      away: u.isSelf ? selfAway : (now - new Date(u.lastSeenUtc).getTime() >= App.AWAY_MS),
+      away: u.isSelf ? selfAway : now - new Date(u.lastSeenUtc).getTime() >= App.AWAY_MS,
     }));
   });
 
@@ -302,8 +342,9 @@ export class App implements AfterViewInit {
    * Whether to show the global family Quick-Add affordance (FAB + keyboard shortcut). Gated on a signed-in
    * session holding family.use, and hidden on the bare/public chrome where the toolbar isn't shown.
    */
-  readonly showQuickAdd = computed(() =>
-    this.auth.isAuthenticated() && !this.bareLayout() && this.auth.hasPermission(PERM.familyUse),
+  readonly showQuickAdd = computed(
+    () =>
+      this.auth.isAuthenticated() && !this.bareLayout() && this.auth.hasPermission(PERM.familyUse),
   );
 
   /** Account-menu shortcuts, filtered to the pages the current session is allowed to view. */
@@ -315,7 +356,7 @@ export class App implements AfterViewInit {
   ];
   readonly quickLinks = computed<QuickLink[]>(() => {
     this.auth.permissions(); // re-run when permissions change
-    return App.quickLinkDefs.filter(l => !l.perm || this.auth.hasPermission(l.perm));
+    return App.quickLinkDefs.filter((l) => !l.perm || this.auth.hasPermission(l.perm));
   });
 
   /**
@@ -327,7 +368,11 @@ export class App implements AfterViewInit {
     { route: '/', label: 'Dashboard', perms: [PERM.dashboardView] },
     { route: '/calendar', label: 'Calendar', perms: [PERM.calendarView] },
     { route: '/pricing', label: 'Pricing', perms: [PERM.pricingView] },
-    { route: '/reporter', label: 'Reporter', perms: [PERM.reporterView, PERM.reporterManage, PERM.reporterSelf] },
+    {
+      route: '/reporter',
+      label: 'Reporter',
+      perms: [PERM.reporterView, PERM.reporterManage, PERM.reporterSelf],
+    },
     { route: '/fleet', label: 'Fleet', perms: [PERM.fleetView, PERM.reporterManage] },
     { route: '/tracker', label: 'Tracker', perms: [PERM.trackerSelf] },
     { route: '/ask', label: 'Ask my life', perms: [PERM.trackerAi] },
@@ -353,12 +398,15 @@ export class App implements AfterViewInit {
   /** Home-page picker options filtered to the pages the current session can actually land on. */
   readonly homeOptions = computed<HomeOption[]>(() => {
     this.auth.permissions(); // re-run when permissions change
-    return App.homeOptionDefs.filter(o => this.auth.hasAnyPermission(...o.perms));
+    return App.homeOptionDefs.filter((o) => this.auth.hasAnyPermission(...o.perms));
   });
 
   constructor() {
     this.router.events
-      .pipe(filter(e => e instanceof NavigationEnd), takeUntilDestroyed())
+      .pipe(
+        filter((e) => e instanceof NavigationEnd),
+        takeUntilDestroyed(),
+      )
       .subscribe(() => {
         this.bareLayout.set(App.isBare(this.router.url));
         this.immersiveLayout.set(App.isImmersive(this.router.url));
@@ -375,42 +423,65 @@ export class App implements AfterViewInit {
     // Poll sync status only when signed in; "now" keeps the relative label fresh.
     timer(0, 15000)
       .pipe(
-        switchMap(() => this.auth.isAuthenticated()
-          ? this.api.syncStatus().pipe(catchError(() => of(null)))
-          : of(null)),
+        switchMap(() =>
+          this.auth.isAuthenticated()
+            ? this.api.syncStatus().pipe(catchError(() => of(null)))
+            : of(null),
+        ),
         takeUntilDestroyed(),
       )
-      .subscribe(s => { this.now.set(Date.now()); if (s) this.status.set(s); });
+      .subscribe((s) => {
+        this.now.set(Date.now());
+        if (s) this.status.set(s);
+      });
 
     // Re-check identity + permissions; bounce to login if the account was disabled/removed.
     timer(800, 20000)
       .pipe(
         filter(() => this.auth.isAuthenticated()),
-        switchMap(() => this.auth.me().pipe(catchError(err => { this.onMeError(err); return of(null); }))),
+        switchMap(() =>
+          this.auth.me().pipe(
+            catchError((err) => {
+              this.onMeError(err);
+              return of(null);
+            }),
+          ),
+        ),
         takeUntilDestroyed(),
       )
-      .subscribe(me => { if (me) { this.auth.applyMe(me); this.enforceCurrentRoute(); } });
+      .subscribe((me) => {
+        if (me) {
+          this.auth.applyMe(me);
+          this.enforceCurrentRoute();
+        }
+      });
 
     // Poll who's online (~20s) while signed in; errors collapse to an empty list.
     timer(400, 20000)
       .pipe(
-        switchMap(() => this.auth.isAuthenticated()
-          ? this.api.presence().pipe(catchError(() => of<Presence[]>([])))
-          : of<Presence[]>([])),
+        switchMap(() =>
+          this.auth.isAuthenticated()
+            ? this.api.presence().pipe(catchError(() => of<Presence[]>([])))
+            : of<Presence[]>([]),
+        ),
         takeUntilDestroyed(),
       )
-      .subscribe(list => this.online.set(list));
+      .subscribe((list) => this.online.set(list));
 
     // Poll the total user count (~60s) only while signed in AND holding users.view — it's a nav-bar
     // nicety, so it's cheap (just a number) and any error keeps the prior value rather than flickering.
     timer(600, 60000)
       .pipe(
-        switchMap(() => this.auth.isAuthenticated() && this.auth.hasPermission(PERM.usersView)
-          ? this.api.userCount().pipe(catchError(() => of(null)))
-          : of(null)),
+        switchMap(() =>
+          this.auth.isAuthenticated() && this.auth.hasPermission(PERM.usersView)
+            ? this.api.userCount().pipe(catchError(() => of(null)))
+            : of(null),
+        ),
         takeUntilDestroyed(),
       )
-      .subscribe(res => { if (res) this.userCount.set(res.total); });
+      .subscribe((res) => {
+        if (res) this.userCount.set(res.total);
+      });
 
     // Own the realtime chat hub lifecycle at the app shell so live notifications work app-wide (not
     // just on /chat) and the connection is bound to the CURRENT user. Start when signed in AND the
@@ -487,8 +558,10 @@ export class App implements AfterViewInit {
   onPaletteKeydown(e: KeyboardEvent): void {
     if (!this.auth.isAuthenticated() || this.bareLayout() || this.mobileNavOpen()) return;
 
-    const cmdk = (e.metaKey || e.ctrlKey) && !e.altKey && !e.shiftKey && (e.key === 'k' || e.key === 'K');
-    const slash = e.key === '/' && !e.ctrlKey && !e.metaKey && !e.altKey && !App.isTypingTarget(e.target);
+    const cmdk =
+      (e.metaKey || e.ctrlKey) && !e.altKey && !e.shiftKey && (e.key === 'k' || e.key === 'K');
+    const slash =
+      e.key === '/' && !e.ctrlKey && !e.metaKey && !e.altKey && !App.isTypingTarget(e.target);
     if (!cmdk && !slash) return;
 
     e.preventDefault();
@@ -501,7 +574,7 @@ export class App implements AfterViewInit {
    */
   private enforceCurrentRoute(): void {
     const path = this.router.url.split('?')[0];
-    const subtree = App.routePermSubtrees.find(r => path === r || path.startsWith(r + '/'));
+    const subtree = App.routePermSubtrees.find((r) => path === r || path.startsWith(r + '/'));
     const required = App.routePerm[subtree ?? path];
     if (required && !this.auth.hasPermission(required)) {
       this.router.navigateByUrl(this.auth.homeRoute());
@@ -542,8 +615,13 @@ export class App implements AfterViewInit {
     if (!this.showQuickAdd() || this.quickAddOpen) return;
 
     const chord = (e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'A' || e.key === 'a');
-    const bareQ = e.key === 'q' && !e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey
-      && !App.isTypingTarget(e.target);
+    const bareQ =
+      e.key === 'q' &&
+      !e.ctrlKey &&
+      !e.metaKey &&
+      !e.altKey &&
+      !e.shiftKey &&
+      !App.isTypingTarget(e.target);
     if (!chord && !bareQ) return;
 
     e.preventDefault();
@@ -634,7 +712,7 @@ export class App implements AfterViewInit {
         restoreFocus: true,
       })
       .afterClosed()
-      .subscribe(result => {
+      .subscribe((result) => {
         this.quickAddOpen = false;
         if (result) this.snack.open(result.summary, 'OK', { duration: 4000 });
       });
@@ -649,11 +727,13 @@ export class App implements AfterViewInit {
   setHomeRoute(route: string | null): void {
     if ((this.auth.session()?.homeRoute ?? null) === route) return; // no-op: already the chosen home
     this.api.setHomeRoute(route).subscribe({
-      next: res => {
+      next: (res) => {
         this.auth.applyHomeRoute(res.homeRoute ?? null);
         this.snack.open(
           res.homeRoute ? 'Home page updated.' : 'Home page reset to default.',
-          'OK', { duration: 3000 });
+          'OK',
+          { duration: 3000 },
+        );
       },
       error: () => this.snack.open('Could not update your home page.', 'OK', { duration: 4000 }),
     });

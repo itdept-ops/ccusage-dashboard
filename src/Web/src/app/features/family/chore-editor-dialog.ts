@@ -1,4 +1,4 @@
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal, ChangeDetectionStrategy } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 
 import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
@@ -8,7 +8,12 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 
-import { FamilyChore, FamilyChoreRecurrence, FamilyChoreSource, HouseholdMember } from '../../core/models';
+import {
+  FamilyChore,
+  FamilyChoreRecurrence,
+  FamilyChoreSource,
+  HouseholdMember,
+} from '../../core/models';
 
 /** Sentinel for the "Anyone" (unassigned) option in the assignee select. */
 export const UNASSIGNED = 0;
@@ -54,9 +59,15 @@ const CREDIT_PRESETS = [0, 0.25, 0.5, 1, 2, 5];
 @Component({
   selector: 'app-chore-editor-dialog',
   imports: [
-    FormsModule, MatDialogModule, MatButtonModule, MatIconModule,
-    MatFormFieldModule, MatInputModule, MatSelectModule,
+    FormsModule,
+    MatDialogModule,
+    MatButtonModule,
+    MatIconModule,
+    MatFormFieldModule,
+    MatInputModule,
+    MatSelectModule,
   ],
+  changeDetection: ChangeDetectionStrategy.Eager,
   templateUrl: './chore-editor-dialog.html',
 })
 export class ChoreEditorDialog {

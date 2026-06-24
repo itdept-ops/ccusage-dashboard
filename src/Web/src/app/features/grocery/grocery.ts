@@ -1,4 +1,4 @@
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { firstValueFrom } from 'rxjs';
@@ -29,10 +29,17 @@ import { FamilyList, FamilyListItem } from '../../core/models';
 @Component({
   selector: 'app-grocery',
   imports: [
-    CommonModule, FormsModule, MatIconModule, MatButtonModule, MatCheckboxModule,
-    MatProgressSpinnerModule, MatTooltipModule, MatSnackBarModule,
+    CommonModule,
+    FormsModule,
+    MatIconModule,
+    MatButtonModule,
+    MatCheckboxModule,
+    MatProgressSpinnerModule,
+    MatTooltipModule,
+    MatSnackBarModule,
   ],
   templateUrl: './grocery.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrl: './grocery.scss',
 })
 export class Grocery {
@@ -58,11 +65,13 @@ export class Grocery {
 
   /** Open (unchecked) items, in their stored sort order — the part the user shops from + reorders. */
   readonly openItems = computed<FamilyListItem[]>(() =>
-    (this.list()?.items ?? []).filter(i => !i.done).sort((a, b) => a.sortOrder - b.sortOrder));
+    (this.list()?.items ?? []).filter((i) => !i.done).sort((a, b) => a.sortOrder - b.sortOrder),
+  );
 
   /** Checked-off items, sorted to the bottom (most-recently-done feel: keep stored order). */
   readonly doneItems = computed<FamilyListItem[]>(() =>
-    (this.list()?.items ?? []).filter(i => i.done).sort((a, b) => a.sortOrder - b.sortOrder));
+    (this.list()?.items ?? []).filter((i) => i.done).sort((a, b) => a.sortOrder - b.sortOrder),
+  );
 
   readonly openCount = computed(() => this.openItems().length);
   readonly doneCount = computed(() => this.doneItems().length);
@@ -95,9 +104,10 @@ export class Grocery {
   }
 
   private setItemBusy(id: number, on: boolean): void {
-    this.busyItems.update(set => {
+    this.busyItems.update((set) => {
       const next = new Set(set);
-      if (on) next.add(id); else next.delete(id);
+      if (on) next.add(id);
+      else next.delete(id);
       return next;
     });
   }
@@ -162,7 +172,9 @@ export class Grocery {
     try {
       // Remove the row, then re-add the base name with the decremented quantity (qty-aware add re-composes "xN").
       await firstValueFrom(this.api.groceryDeleteItem(item.id));
-      const list = await firstValueFrom(this.api.groceryAddQuantity(this.baseName(item.text), qty - 1));
+      const list = await firstValueFrom(
+        this.api.groceryAddQuantity(this.baseName(item.text), qty - 1),
+      );
       this.list.set(list);
     } catch {
       this.snack.open("Couldn't update the quantity — try again", 'Dismiss', { duration: 4000 });
@@ -204,11 +216,11 @@ export class Grocery {
   async move(item: FamilyListItem, dir: -1 | 1): Promise<void> {
     if (this.busy() || !this.canEdit()) return;
     const open = [...this.openItems()];
-    const idx = open.findIndex(i => i.id === item.id);
+    const idx = open.findIndex((i) => i.id === item.id);
     const target = idx + dir;
     if (idx < 0 || target < 0 || target >= open.length) return;
     [open[idx], open[target]] = [open[target], open[idx]];
-    const order = open.map(i => i.id);
+    const order = open.map((i) => i.id);
     this.busy.set(true);
     try {
       const list = await firstValueFrom(this.api.groceryReorder(order));
@@ -233,7 +245,9 @@ export class Grocery {
       const n = done.length;
       this.snack.open(`Cleared ${n} checked item${n === 1 ? '' : 's'}`, 'OK', { duration: 2500 });
     } catch {
-      this.snack.open("Couldn't clear the checked items — try again", 'Dismiss', { duration: 4000 });
+      this.snack.open("Couldn't clear the checked items — try again", 'Dismiss', {
+        duration: 4000,
+      });
       void this.load();
     } finally {
       this.busy.set(false);

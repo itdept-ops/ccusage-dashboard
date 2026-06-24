@@ -1,4 +1,4 @@
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal, ChangeDetectionStrategy } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 
 import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
@@ -43,9 +43,15 @@ const RECURRENCES: { value: FamilyRecurrence; label: string }[] = [
 @Component({
   selector: 'app-reminder-editor-dialog',
   imports: [
-    FormsModule, MatDialogModule, MatButtonModule, MatIconModule,
-    MatFormFieldModule, MatInputModule, MatSelectModule,
+    FormsModule,
+    MatDialogModule,
+    MatButtonModule,
+    MatIconModule,
+    MatFormFieldModule,
+    MatInputModule,
+    MatSelectModule,
   ],
+  changeDetection: ChangeDetectionStrategy.Eager,
   templateUrl: './reminder-editor-dialog.html',
 })
 export class ReminderEditorDialog {
@@ -65,9 +71,7 @@ export class ReminderEditorDialog {
 
   /** Seed the picker: edit → the reminder's UTC due in local time; create → next round half-hour, local. */
   private initialLocalWhen(): string {
-    const base = this.data.reminder
-      ? new Date(this.data.reminder.dueUtc)
-      : this.nextHalfHour();
+    const base = this.data.reminder ? new Date(this.data.reminder.dueUtc) : this.nextHalfHour();
     return this.toLocalInput(base);
   }
 

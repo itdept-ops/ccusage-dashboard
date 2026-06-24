@@ -1,5 +1,14 @@
 import {
-  AfterViewChecked, Component, ElementRef, OnDestroy, computed, effect, inject, signal, viewChild,
+  AfterViewChecked,
+  Component,
+  ElementRef,
+  OnDestroy,
+  computed,
+  effect,
+  inject,
+  signal,
+  viewChild,
+  ChangeDetectionStrategy,
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { TextFieldModule } from '@angular/cdk/text-field';
@@ -17,7 +26,17 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { Api } from '../../core/api';
 import { AuthService } from '../../core/auth';
 import { ChatRealtime } from '../../core/chat-realtime';
-import { ChatChannelDto, ChatComposeAction, ChatContactDto, ChatLocationShareDto, ChatMember, ChatMessageDto, PERM, Presence, ReactionGroupDto } from '../../core/models';
+import {
+  ChatChannelDto,
+  ChatComposeAction,
+  ChatContactDto,
+  ChatLocationShareDto,
+  ChatMember,
+  ChatMessageDto,
+  PERM,
+  Presence,
+  ReactionGroupDto,
+} from '../../core/models';
 import { timeAgo } from '../../shared/format';
 import { ChatCreateData, ChatCreateDialog, ChatPickPerson } from './chat-create-dialog';
 import { LiveLocationCard } from './live-location-card';
@@ -38,18 +57,53 @@ interface MentionCandidate extends ChatMember {
 }
 
 const PRESENCE_STALE_MS = 2 * 60 * 1000; // a presence row older than this is "offline"
-const TYPING_STOP_MS = 3500;             // stop broadcasting typing after this idle gap
+const TYPING_STOP_MS = 3500; // stop broadcasting typing after this idle gap
 
 /**
  * A curated set of common reaction emotes for the picker (no external emoji dependency). The first
  * row of eight are the quick favourites; the rest round out reactions for most everyday needs.
  */
 const REACTION_EMOJIS: readonly string[] = [
-  '👍', '❤️', '😂', '🎉', '😮', '😢', '🙏', '🔥',
-  '👏', '😀', '😅', '😉', '😍', '🤔', '🙄', '😎',
-  '😴', '😱', '🤯', '🥳', '😭', '😡', '👀', '💯',
-  '✅', '❌', '⚡', '🚀', '💡', '⭐', '✨', '💪',
-  '🤝', '👋', '🙌', '🤷', '👌', '🤞', '☕', '🐛',
+  '👍',
+  '❤️',
+  '😂',
+  '🎉',
+  '😮',
+  '😢',
+  '🙏',
+  '🔥',
+  '👏',
+  '😀',
+  '😅',
+  '😉',
+  '😍',
+  '🤔',
+  '🙄',
+  '😎',
+  '😴',
+  '😱',
+  '🤯',
+  '🥳',
+  '😭',
+  '😡',
+  '👀',
+  '💯',
+  '✅',
+  '❌',
+  '⚡',
+  '🚀',
+  '💡',
+  '⭐',
+  '✨',
+  '💪',
+  '🤝',
+  '👋',
+  '🙌',
+  '🤷',
+  '👌',
+  '🤞',
+  '☕',
+  '🐛',
 ];
 
 /**
@@ -61,10 +115,18 @@ const REACTION_EMOJIS: readonly string[] = [
 @Component({
   selector: 'app-chat',
   imports: [
-    FormsModule, TextFieldModule, MatIconModule, MatButtonModule, MatTooltipModule, MatMenuModule,
-    MatDialogModule, MatSnackBarModule, LiveLocationCard,
+    FormsModule,
+    TextFieldModule,
+    MatIconModule,
+    MatButtonModule,
+    MatTooltipModule,
+    MatMenuModule,
+    MatDialogModule,
+    MatSnackBarModule,
+    LiveLocationCard,
   ],
   templateUrl: './chat.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrl: './chat.scss',
 })
 export class Chat implements AfterViewChecked, OnDestroy {
@@ -84,7 +146,9 @@ export class Chat implements AfterViewChecked, OnDestroy {
   /** Admins (chat.contacts.manage) pick from the full directory so they're never boxed in by a circle. */
   readonly canManageContacts = computed(() => this.auth.hasPermission(PERM.chatContactsManage));
   /** Live-location share needs BOTH chat.send (write into the conversation) AND location.self (use my GPS). */
-  readonly canShareLocation = computed(() => this.canSend() && this.auth.hasPermission(PERM.locationSelf));
+  readonly canShareLocation = computed(
+    () => this.canSend() && this.auth.hasPermission(PERM.locationSelf),
+  );
 
   /** The signed-in user's own AppUser id, for "mine"/self-by-id checks (null until /me populates it). */
   private readonly myUserId = computed(() => this.auth.userId());
@@ -93,7 +157,7 @@ export class Chat implements AfterViewChecked, OnDestroy {
   readonly selectedId = signal<number | null>(null);
   readonly selectedChannel = computed<ChatChannelDto | null>(() => {
     const id = this.selectedId();
-    return id == null ? null : this.chat.channels().find(c => c.id === id) ?? null;
+    return id == null ? null : (this.chat.channels().find((c) => c.id === id) ?? null);
   });
 
   // ---- picker candidate source (the caller's curated contacts, or the full directory for admins) ----
@@ -119,8 +183,8 @@ export class Chat implements AfterViewChecked, OnDestroy {
   });
 
   // ---- sidebar lists (split channels vs DMs; order already activity-sorted by the service) ----
-  readonly channelList = computed(() => this.chat.channels().filter(c => c.kind === 'channel'));
-  readonly directList = computed(() => this.chat.channels().filter(c => c.kind === 'direct'));
+  readonly channelList = computed(() => this.chat.channels().filter((c) => c.kind === 'channel'));
+  readonly directList = computed(() => this.chat.channels().filter((c) => c.kind === 'direct'));
   readonly hasConversations = computed(() => this.chat.channels().length > 0);
 
   // ---- active-conversation messages, grouped by sender ----
@@ -132,9 +196,10 @@ export class Chat implements AfterViewChecked, OnDestroy {
     const out: MessageGroup[] = [];
     for (const m of msgs) {
       const prev = out[out.length - 1];
-      const sameRun = prev
-        && prev.senderUserId === m.senderUserId
-        && new Date(m.createdUtc).getTime() - new Date(prev.firstUtc).getTime() < 5 * 60 * 1000;
+      const sameRun =
+        prev &&
+        prev.senderUserId === m.senderUserId &&
+        new Date(m.createdUtc).getTime() - new Date(prev.firstUtc).getTime() < 5 * 60 * 1000;
       if (sameRun) {
         prev.messages.push(m);
       } else {
@@ -153,7 +218,7 @@ export class Chat implements AfterViewChecked, OnDestroy {
 
   readonly typingUsers = computed(() => {
     const id = this.selectedId();
-    return id == null ? [] : this.chat.typing()[id] ?? [];
+    return id == null ? [] : (this.chat.typing()[id] ?? []);
   });
   readonly typingLabel = computed(() => {
     const t = this.typingUsers();
@@ -244,8 +309,9 @@ export class Chat implements AfterViewChecked, OnDestroy {
     const id = this.selectedId();
     if (id == null) return [];
     const now = this.shareNow();
-    return this.chat.locationSharesFor(id)
-      .filter(s => !s.stopped && now < new Date(s.expiresUtc).getTime())
+    return this.chat
+      .locationSharesFor(id)
+      .filter((s) => !s.stopped && now < new Date(s.expiresUtc).getTime())
       .sort((a, b) => new Date(b.startUtc).getTime() - new Date(a.startUtc).getTime());
   });
 
@@ -255,8 +321,9 @@ export class Chat implements AfterViewChecked, OnDestroy {
     if (id == null) return [];
     const now = this.shareNow();
     const me = this.myUserId();
-    return this.chat.locationSharesFor(id)
-      .filter(s => {
+    return this.chat
+      .locationSharesFor(id)
+      .filter((s) => {
         const ended = s.stopped || now >= new Date(s.expiresUtc).getTime();
         if (!ended) return true;
         // Keep a just-ended card visible briefly so the user sees it wind down (mine, or one already on screen).
@@ -270,7 +337,7 @@ export class Chat implements AfterViewChecked, OnDestroy {
   readonly myActiveShare = computed<ChatLocationShareDto | null>(() => {
     const me = this.myUserId();
     if (me == null) return null;
-    return this.activeShares().find(s => s.sharerUserId === me) ?? null;
+    return this.activeShares().find((s) => s.sharerUserId === me) ?? null;
   });
 
   /** True for a share authored by the signed-in user (drives the per-card Extend/Stop controls). */
@@ -310,17 +377,22 @@ export class Chat implements AfterViewChecked, OnDestroy {
     // Poll presence (~20s) for the sidebar online dots; keep "now" fresh for staleness + timestamps.
     timer(0, 20000)
       .pipe(
-        switchMap(() => this.auth.isAuthenticated()
-          ? this.api.presence().pipe(catchError(() => of<Presence[]>([])))
-          : of<Presence[]>([])),
+        switchMap(() =>
+          this.auth.isAuthenticated()
+            ? this.api.presence().pipe(catchError(() => of<Presence[]>([])))
+            : of<Presence[]>([]),
+        ),
         takeUntilDestroyed(),
       )
-      .subscribe(list => { this.now.set(Date.now()); this.presence.set(list); });
+      .subscribe((list) => {
+        this.now.set(Date.now());
+        this.presence.set(list);
+      });
 
     // Honor notification deep links: /chat?c={channelId}&m={messageId}. The component is NOT
     // recreated when the user clicks a different notification while already on /chat, so we react to
     // the live queryParamMap stream (not just the initial snapshot) and re-resolve on every change.
-    this.route.queryParamMap.pipe(takeUntilDestroyed()).subscribe(params => {
+    this.route.queryParamMap.pipe(takeUntilDestroyed()).subscribe((params) => {
       const c = Number(params.get('c'));
       if (!c || Number.isNaN(c)) {
         // No (or invalid) ?c=: clear any pending deep-link so the auto-select-newest default applies.
@@ -346,14 +418,16 @@ export class Chat implements AfterViewChecked, OnDestroy {
     // When the active conversation gains messages and we're pinned to the bottom, mark it read.
     effect(() => {
       const id = this.selectedId();
-      const msgs = id == null ? [] : this.chat.messages()[id] ?? [];
+      const msgs = id == null ? [] : (this.chat.messages()[id] ?? []);
       if (id != null && msgs.length > 0 && this.isNearBottom()) {
         this.markReadLatest(id, msgs);
       }
     });
 
     // A 1s heartbeat so live-location cards count down + cross their expiry without input churn.
-    timer(0, 1000).pipe(takeUntilDestroyed()).subscribe(() => this.shareNow.set(Date.now()));
+    timer(0, 1000)
+      .pipe(takeUntilDestroyed())
+      .subscribe(() => this.shareNow.set(Date.now()));
 
     // Drive the sharer's periodic position push: while I hold an ACTIVE share in the open conversation,
     // (re)start a timer that re-reads the browser position + updates it; tear it down when the share ends
@@ -378,7 +452,7 @@ export class Chat implements AfterViewChecked, OnDestroy {
   dmOnline(ch: ChatChannelDto): boolean {
     const me = this.myUserId();
     if (me == null) return false; // can't tell the OTHER member apart from self until our own id is known
-    return ch.members.some(m => m.userId !== me && this.isOnline(m.userId));
+    return ch.members.some((m) => m.userId !== me && this.isOnline(m.userId));
   }
 
   unread(id: number): number {
@@ -404,9 +478,16 @@ export class Chat implements AfterViewChecked, OnDestroy {
     const have = this.chat.messages()[ch.id] ?? [];
     if (have.length === 0) {
       this.loadingHistory.set(true);
-      this.chat.loadHistory(ch.id)
-        .then(() => { this.pendingScrollBottom = true; })
-        .catch(() => this.snack.open('Could not load messages. Please try again.', 'Dismiss', { duration: 4000 }))
+      this.chat
+        .loadHistory(ch.id)
+        .then(() => {
+          this.pendingScrollBottom = true;
+        })
+        .catch(() =>
+          this.snack.open('Could not load messages. Please try again.', 'Dismiss', {
+            duration: 4000,
+          }),
+        )
         .finally(() => this.loadingHistory.set(false));
     }
     this.markReadLatest(ch.id, have);
@@ -427,7 +508,7 @@ export class Chat implements AfterViewChecked, OnDestroy {
    * to this user, so we skip gracefully and leave the current selection untouched.
    */
   private resolveDeepLink(channelId: number): void {
-    const existing = this.chat.channels().find(c => c.id === channelId);
+    const existing = this.chat.channels().find((c) => c.id === channelId);
     if (existing) {
       this.deepLinkChannel = null;
       this.select(existing);
@@ -437,12 +518,13 @@ export class Chat implements AfterViewChecked, OnDestroy {
     // so a rapid click on a second still-unloaded channel isn't dropped.
     if (this.resolvingDeepLink) return;
     this.resolvingDeepLink = true;
-    this.chat.refreshChannels()
-      .then(list => {
+    this.chat
+      .refreshChannels()
+      .then((list) => {
         // The user may have clicked a different notification while this was in flight; only act if this
         // channel is still the one being requested.
         if (this.deepLinkChannel !== channelId) return;
-        const found = list.find(c => c.id === channelId);
+        const found = list.find((c) => c.id === channelId);
         if (found) {
           this.deepLinkChannel = null;
           this.select(found);
@@ -476,13 +558,16 @@ export class Chat implements AfterViewChecked, OnDestroy {
       this.loadingHistory.set(true);
       // Anchor: remember distance-from-bottom so the viewport stays put after we prepend.
       this.preserveFromBottom = el.scrollHeight - el.scrollTop;
-      this.chat.loadHistory(id, oldest)
-        .then(count => {
-          if (count === 0) this.exhausted.update(s => new Set(s).add(id));
+      this.chat
+        .loadHistory(id, oldest)
+        .then((count) => {
+          if (count === 0) this.exhausted.update((s) => new Set(s).add(id));
         })
         .catch(() => {
           this.preserveFromBottom = null;
-          this.snack.open('Could not load older messages. Please try again.', 'Dismiss', { duration: 4000 });
+          this.snack.open('Could not load older messages. Please try again.', 'Dismiss', {
+            duration: 4000,
+          });
         })
         .finally(() => this.loadingHistory.set(false));
     }
@@ -511,7 +596,11 @@ export class Chat implements AfterViewChecked, OnDestroy {
       // We just prepended older history — restore the prior distance-from-bottom.
       el.scrollTop = el.scrollHeight - this.preserveFromBottom;
       this.preserveFromBottom = null;
-    } else if (count > this.lastRenderedCount && this.lastChannelId === id && this.isNearBottom(el)) {
+    } else if (
+      count > this.lastRenderedCount &&
+      this.lastChannelId === id &&
+      this.isNearBottom(el)
+    ) {
       // A new message arrived while we were already at the bottom — follow it.
       el.scrollTop = el.scrollHeight;
     }
@@ -520,7 +609,9 @@ export class Chat implements AfterViewChecked, OnDestroy {
 
     // Best-effort scroll to a deep-linked message (?m=) once its channel's messages have rendered.
     if (this.pendingScrollToMessage != null && id != null && count > 0) {
-      const target = el.querySelector<HTMLElement>(`[data-msg-id="${this.pendingScrollToMessage}"]`);
+      const target = el.querySelector<HTMLElement>(
+        `[data-msg-id="${this.pendingScrollToMessage}"]`,
+      );
       if (target) {
         target.scrollIntoView({ block: 'center' });
         this.pendingScrollToMessage = null;
@@ -555,14 +646,26 @@ export class Chat implements AfterViewChecked, OnDestroy {
   onComposerKeydown(event: KeyboardEvent): void {
     // Mention navigation takes precedence while the popup is open.
     if (this.mentionOpen()) {
-      if (event.key === 'ArrowDown') { event.preventDefault(); this.moveMention(1); return; }
-      if (event.key === 'ArrowUp') { event.preventDefault(); this.moveMention(-1); return; }
+      if (event.key === 'ArrowDown') {
+        event.preventDefault();
+        this.moveMention(1);
+        return;
+      }
+      if (event.key === 'ArrowUp') {
+        event.preventDefault();
+        this.moveMention(-1);
+        return;
+      }
       if (event.key === 'Enter' || event.key === 'Tab') {
         event.preventDefault();
         this.applyMention(this.mentionCandidates()[this.mentionIndex()]);
         return;
       }
-      if (event.key === 'Escape') { event.preventDefault(); this.closeMentions(); return; }
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        this.closeMentions();
+        return;
+      }
     }
     // Enter sends; Shift+Enter inserts a newline.
     if (event.key === 'Enter' && !event.shiftKey) {
@@ -597,7 +700,10 @@ export class Chat implements AfterViewChecked, OnDestroy {
   }
 
   private stopTypingNow(): void {
-    if (this.typingTimer) { clearTimeout(this.typingTimer); this.typingTimer = null; }
+    if (this.typingTimer) {
+      clearTimeout(this.typingTimer);
+      this.typingTimer = null;
+    }
     if (this.typingActive) {
       this.typingActive = false;
       const id = this.selectedId();
@@ -613,21 +719,30 @@ export class Chat implements AfterViewChecked, OnDestroy {
   private updateMentionState(): void {
     const el = this.composerEl()?.nativeElement;
     const ch = this.selectedChannel();
-    if (!el || !ch) { this.closeMentions(); return; }
+    if (!el || !ch) {
+      this.closeMentions();
+      return;
+    }
     const caret = el.selectionStart ?? this.draft().length;
     const upto = this.draft().slice(0, caret);
     // Find the last "@" that starts a token (preceded by whitespace or start-of-text).
     const match = /(?:^|\s)@([\w.\-]*)$/.exec(upto);
-    if (!match) { this.closeMentions(); return; }
+    if (!match) {
+      this.closeMentions();
+      return;
+    }
     this.mentionStart = caret - match[1].length - 1; // position of the "@"
     const token = match[1].toLowerCase();
     const me = this.myUserId();
     const candidates = ch.members
-      .filter(m => m.userId !== me)
-      .filter(m => !token || m.name.toLowerCase().includes(token))
+      .filter((m) => m.userId !== me)
+      .filter((m) => !token || m.name.toLowerCase().includes(token))
       .slice(0, 6)
-      .map(m => ({ ...m, initials: this.initialsOf(m.name) }));
-    if (candidates.length === 0) { this.closeMentions(); return; }
+      .map((m) => ({ ...m, initials: this.initialsOf(m.name) }));
+    if (candidates.length === 0) {
+      this.closeMentions();
+      return;
+    }
     this.mentionCandidates.set(candidates);
     this.mentionIndex.set(0);
     this.mentionOpen.set(true);
@@ -636,12 +751,15 @@ export class Chat implements AfterViewChecked, OnDestroy {
   moveMention(delta: number): void {
     const n = this.mentionCandidates().length;
     if (n === 0) return;
-    this.mentionIndex.update(i => (i + delta + n) % n);
+    this.mentionIndex.update((i) => (i + delta + n) % n);
   }
 
   applyMention(c: MentionCandidate | undefined): void {
     const el = this.composerEl()?.nativeElement;
-    if (!c || this.mentionStart < 0) { this.closeMentions(); return; }
+    if (!c || this.mentionStart < 0) {
+      this.closeMentions();
+      return;
+    }
     const caret = el?.selectionStart ?? this.draft().length;
     const before = this.draft().slice(0, this.mentionStart);
     const after = this.draft().slice(caret);
@@ -692,7 +810,10 @@ export class Chat implements AfterViewChecked, OnDestroy {
         const at = lower.indexOf(needle, from);
         if (at < 0) break;
         const prev = at === 0 ? '' : lower[at - 1];
-        if (at === 0 || /\s/.test(prev)) { ids.add(m.userId); break; }
+        if (at === 0 || /\s/.test(prev)) {
+          ids.add(m.userId);
+          break;
+        }
         from = at + 1;
       }
     }
@@ -720,14 +841,25 @@ export class Chat implements AfterViewChecked, OnDestroy {
   }
 
   onEditKeydown(event: KeyboardEvent, m: ChatMessageDto): void {
-    if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); this.saveEdit(m); }
-    else if (event.key === 'Escape') { event.preventDefault(); this.cancelEdit(); }
+    if (event.key === 'Enter' && !event.shiftKey) {
+      event.preventDefault();
+      this.saveEdit(m);
+    } else if (event.key === 'Escape') {
+      event.preventDefault();
+      this.cancelEdit();
+    }
   }
 
   saveEdit(m: ChatMessageDto): void {
     const body = this.editDraft().trim();
-    if (!body) { this.deleteMessage(m); return; }
-    if (body === (m.body ?? '')) { this.cancelEdit(); return; }
+    if (!body) {
+      this.deleteMessage(m);
+      return;
+    }
+    if (body === (m.body ?? '')) {
+      this.cancelEdit();
+      return;
+    }
     this.api.editChatMessage(m.id, body).subscribe({
       next: () => this.cancelEdit(),
       error: () => this.snack.open('Could not edit the message.', 'Dismiss', { duration: 4000 }),
@@ -765,13 +897,14 @@ export class Chat implements AfterViewChecked, OnDestroy {
     const byUserId = new Map<number, string>();
     if (ch) for (const m of ch.members) byUserId.set(m.userId, m.name);
     const me = this.myUserId();
-    const names = r.reactedByUserIds.map(uid => {
+    const names = r.reactedByUserIds.map((uid) => {
       if (me != null && uid === me) return 'You';
       return byUserId.get(uid) ?? 'Someone';
     });
-    const who = names.length <= 1
-      ? (names[0] ?? '')
-      : `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
+    const who =
+      names.length <= 1
+        ? (names[0] ?? '')
+        : `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
     return `${who} reacted with ${r.emoji}`;
   }
 
@@ -817,7 +950,7 @@ export class Chat implements AfterViewChecked, OnDestroy {
     this.catchUpError.set(null);
     this.catchUpLoading.set(true);
     this.api.chatCatchUp(id).subscribe({
-      next: res => {
+      next: (res) => {
         // Guard against a late response after the user switched channels.
         if (this.selectedId() !== id) return;
         this.catchUpSummary.set(res.summary?.trim() || 'Nothing new to catch up on.');
@@ -850,11 +983,12 @@ export class Chat implements AfterViewChecked, OnDestroy {
     this.repliesError.set(null);
     this.repliesLoading.set(true);
     this.api.chatSuggestReplies(id).subscribe({
-      next: res => {
+      next: (res) => {
         if (this.selectedId() !== id) return;
-        const list = (res.replies ?? []).map(r => r.trim()).filter(Boolean);
+        const list = (res.replies ?? []).map((r) => r.trim()).filter(Boolean);
         this.replySuggestions.set(list);
-        if (list.length === 0) this.repliesError.set('No suggestions right now — just type a reply.');
+        if (list.length === 0)
+          this.repliesError.set('No suggestions right now — just type a reply.');
         this.repliesLoading.set(false);
       },
       error: (e: unknown) => {
@@ -894,10 +1028,12 @@ export class Chat implements AfterViewChecked, OnDestroy {
   /** Toggle the "draft from a prompt" sub-input in the compose menu. */
   toggleComposePrompt(): void {
     this.composeError.set(null);
-    this.composePromptOpen.update(v => !v);
+    this.composePromptOpen.update((v) => !v);
     if (this.composePromptOpen()) {
       queueMicrotask(() => {
-        const el = this.host.nativeElement.querySelector<HTMLTextAreaElement>('.cx-compose__prompt-input');
+        const el = this.host.nativeElement.querySelector<HTMLTextAreaElement>(
+          '.cx-compose__prompt-input',
+        );
         el?.focus();
       });
     }
@@ -905,21 +1041,32 @@ export class Chat implements AfterViewChecked, OnDestroy {
 
   /** Enter submits the draft prompt; Shift+Enter inserts a newline; Escape closes the sub-input. */
   onComposePromptKeydown(event: KeyboardEvent): void {
-    if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); this.runDraftFromPrompt(); }
-    else if (event.key === 'Escape') { event.preventDefault(); this.composePromptOpen.set(false); }
+    if (event.key === 'Enter' && !event.shiftKey) {
+      event.preventDefault();
+      this.runDraftFromPrompt();
+    } else if (event.key === 'Escape') {
+      event.preventDefault();
+      this.composePromptOpen.set(false);
+    }
   }
 
   /** "Draft from a prompt": compose a fresh message from the prompt and place it in the composer. */
   runDraftFromPrompt(): void {
     const prompt = this.composePrompt().trim();
-    if (!prompt) { this.composeError.set('Type a prompt to draft from.'); return; }
+    if (!prompt) {
+      this.composeError.set('Type a prompt to draft from.');
+      return;
+    }
     this.compose('draft', { prompt });
   }
 
   /** Rewrite / shorten / friendlier / formal: reshape the CURRENT composer draft in place. */
   composeFromDraft(action: Exclude<ChatComposeAction, 'draft'>): void {
     const currentDraft = this.draft().trim();
-    if (!currentDraft) { this.composeError.set('Type a draft first, then I can refine it.'); return; }
+    if (!currentDraft) {
+      this.composeError.set('Type a draft first, then I can refine it.');
+      return;
+    }
     this.compose(action, { currentDraft });
   }
 
@@ -927,12 +1074,15 @@ export class Chat implements AfterViewChecked, OnDestroy {
    * Run a compose-assist action and fill the composer with the result. NEVER sends. On a 503 (Gemini
    * off) or 400 (nothing to work from) we surface a gentle inline notice and leave the draft untouched.
    */
-  private compose(action: ChatComposeAction, opts: { prompt?: string; currentDraft?: string }): void {
+  private compose(
+    action: ChatComposeAction,
+    opts: { prompt?: string; currentDraft?: string },
+  ): void {
     if (!this.canSend() || this.composeBusy()) return;
     this.composeError.set(null);
     this.composeBusy.set(true);
     this.api.chatCompose(action, opts).subscribe({
-      next: res => {
+      next: (res) => {
         const body = res.body?.trim();
         if (body) {
           this.draft.set(body);
@@ -969,8 +1119,9 @@ export class Chat implements AfterViewChecked, OnDestroy {
         : 'The compose assist is unavailable right now. You can write your message yourself.';
     }
     if (err?.status === 400) return err.error?.message ?? 'Type a message to work from.';
-    return err?.error?.detail ?? err?.error?.message
-      ?? "Couldn't do that just now — please try again.";
+    return (
+      err?.error?.detail ?? err?.error?.message ?? "Couldn't do that just now — please try again."
+    );
   }
 
   // =========================================================================
@@ -983,11 +1134,13 @@ export class Chat implements AfterViewChecked, OnDestroy {
     // Refresh the candidate source on open (cheap, and keeps an admin's directory / a user's circle
     // current after the backend changes it). Then open the picker — presence only colours the dots.
     const source$ = isAdmin ? this.api.chatDirectory() : this.api.myContacts();
-    source$.pipe(catchError(() => of<ChatContactDto[]>([]))).subscribe(list => {
+    source$.pipe(catchError(() => of<ChatContactDto[]>([]))).subscribe((list) => {
       this.contacts.set(list);
       const data: ChatCreateData = { people: this.pickablePeople(), mode, isAdmin };
-      this.dialog.open(ChatCreateDialog, { data, width: '480px', maxWidth: '95vw', autoFocus: false })
-        .afterClosed().subscribe((ch: ChatChannelDto | undefined) => {
+      this.dialog
+        .open(ChatCreateDialog, { data, width: '480px', maxWidth: '95vw', autoFocus: false })
+        .afterClosed()
+        .subscribe((ch: ChatChannelDto | undefined) => {
           if (ch) this.select(ch);
         });
     });
@@ -1002,8 +1155,8 @@ export class Chat implements AfterViewChecked, OnDestroy {
   private pickablePeople(): ChatPickPerson[] {
     const me = this.myUserId();
     return this.contacts()
-      .filter(c => c.userId !== me)
-      .map(c => ({
+      .filter((c) => c.userId !== me)
+      .map((c) => ({
         userId: c.userId,
         name: c.name,
         picture: c.picture,
@@ -1020,7 +1173,7 @@ export class Chat implements AfterViewChecked, OnDestroy {
   toggleShareSheet(): void {
     if (this.shareStarting()) return;
     this.shareError.set(null);
-    this.shareSheetOpen.update(v => !v);
+    this.shareSheetOpen.update((v) => !v);
   }
 
   /**
@@ -1031,7 +1184,10 @@ export class Chat implements AfterViewChecked, OnDestroy {
   async startShare(minutes: number): Promise<void> {
     const id = this.selectedId();
     if (id == null || !this.canShareLocation() || this.shareStarting()) return;
-    if (this.myActiveShare()) { this.shareSheetOpen.set(false); return; } // already sharing here
+    if (this.myActiveShare()) {
+      this.shareSheetOpen.set(false);
+      return;
+    } // already sharing here
     this.shareError.set(null);
     this.shareStarting.set(true);
     try {
@@ -1058,7 +1214,10 @@ export class Chat implements AfterViewChecked, OnDestroy {
   /** Extend a share I own by N minutes (e.g. +15 / +60). The card emits this; the hub pushes the new expiry. */
   async extendShare(share: ChatLocationShareDto, minutes: number): Promise<void> {
     const res = await this.chat.extendLocationShare(share.id, minutes);
-    if (!res) this.snack.open("Couldn't extend the share — it may have ended.", 'Dismiss', { duration: 4000 });
+    if (!res)
+      this.snack.open("Couldn't extend the share — it may have ended.", 'Dismiss', {
+        duration: 4000,
+      });
   }
 
   /** Stop a share I own. The card emits this; the hub broadcasts the ended state to viewers. */
@@ -1076,7 +1235,10 @@ export class Chat implements AfterViewChecked, OnDestroy {
   private startPositionPush(shareId: number): void {
     this.stopPositionPush();
     this.positionShareId = shareId;
-    this.positionTimer = setInterval(() => void this.pushPositionTick(shareId), Chat.POSITION_PUSH_MS);
+    this.positionTimer = setInterval(
+      () => void this.pushPositionTick(shareId),
+      Chat.POSITION_PUSH_MS,
+    );
   }
 
   private async pushPositionTick(shareId: number): Promise<void> {
@@ -1095,16 +1257,19 @@ export class Chat implements AfterViewChecked, OnDestroy {
   }
 
   private stopPositionPush(): void {
-    if (this.positionTimer) { clearInterval(this.positionTimer); this.positionTimer = null; }
+    if (this.positionTimer) {
+      clearInterval(this.positionTimer);
+      this.positionTimer = null;
+    }
     this.positionShareId = null;
   }
 
   /** One-shot browser position; resolves null on any error (blocked, timeout, unsupported). */
   private getBrowserPosition(): Promise<GeolocationPosition | null> {
     if (typeof navigator === 'undefined' || !navigator.geolocation) return Promise.resolve(null);
-    return new Promise(resolve => {
+    return new Promise((resolve) => {
       navigator.geolocation.getCurrentPosition(
-        pos => resolve(pos),
+        (pos) => resolve(pos),
         () => resolve(null),
         { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 },
       );
@@ -1161,9 +1326,10 @@ export class Chat implements AfterViewChecked, OnDestroy {
     this.selectedId.set(null);
     queueMicrotask(() => {
       const root = this.host.nativeElement;
-      const target = root.querySelector<HTMLElement>('.cx-add')
-        ?? root.querySelector<HTMLElement>('.cx-side__head .panel-header')
-        ?? root.querySelector<HTMLElement>('.cx-side__head');
+      const target =
+        root.querySelector<HTMLElement>('.cx-add') ??
+        root.querySelector<HTMLElement>('.cx-side__head .panel-header') ??
+        root.querySelector<HTMLElement>('.cx-side__head');
       target?.focus();
     });
   }

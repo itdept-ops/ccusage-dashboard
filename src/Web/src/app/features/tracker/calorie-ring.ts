@@ -1,4 +1,4 @@
-import { Component, computed, input } from '@angular/core';
+import { Component, computed, input, ChangeDetectionStrategy } from '@angular/core';
 
 /**
  * A lightweight SVG calorie ring. Shows progress of `caloriesIn` toward `goal` (when a goal is set),
@@ -11,15 +11,24 @@ import { Component, computed, input } from '@angular/core';
   template: `
     <svg viewBox="0 0 120 120" class="ring" role="img" [attr.aria-label]="ariaLabel()">
       <circle class="ring__track" cx="60" cy="60" [attr.r]="radius" fill="none" stroke-width="11" />
-      <circle class="ring__bar" cx="60" cy="60" [attr.r]="radius" fill="none" stroke-width="11"
-              stroke-linecap="round" transform="rotate(-90 60 60)"
-              [class.ring__bar--over]="over()"
-              [attr.stroke-dasharray]="circumference"
-              [attr.stroke-dashoffset]="dashOffset()" />
+      <circle
+        class="ring__bar"
+        cx="60"
+        cy="60"
+        [attr.r]="radius"
+        fill="none"
+        stroke-width="11"
+        stroke-linecap="round"
+        transform="rotate(-90 60 60)"
+        [class.ring__bar--over]="over()"
+        [attr.stroke-dasharray]="circumference"
+        [attr.stroke-dashoffset]="dashOffset()"
+      />
       <text x="60" y="55" class="ring__value" text-anchor="middle">{{ headline() }}</text>
       <text x="60" y="73" class="ring__label" text-anchor="middle">{{ caption() }}</text>
     </svg>
   `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrl: './calorie-ring.scss',
 })
 export class CalorieRing {
@@ -56,7 +65,7 @@ export class CalorieRing {
   readonly headline = computed(() => {
     const g = this.goal();
     if (g && g > 0) {
-      const remaining = Math.round(this.remaining() ?? (g - this.netCalories()));
+      const remaining = Math.round(this.remaining() ?? g - this.netCalories());
       // When over goal, show the overage as a positive number ("over" is conveyed by the caption/colour).
       return (this.over() ? Math.abs(remaining) : remaining).toLocaleString();
     }
@@ -65,7 +74,7 @@ export class CalorieRing {
 
   readonly caption = computed(() => {
     if (this.over()) return 'over goal';
-    return (this.goal() && this.goal()! > 0) ? 'remaining' : 'net kcal';
+    return this.goal() && this.goal()! > 0 ? 'remaining' : 'net kcal';
   });
 
   readonly ariaLabel = computed(() => {

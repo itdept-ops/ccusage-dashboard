@@ -1,4 +1,4 @@
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal, ChangeDetectionStrategy } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { catchError, firstValueFrom, of } from 'rxjs';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
@@ -18,7 +18,11 @@ import { FormsModule } from '@angular/forms';
 
 import { Api } from '../../core/api';
 import {
-  FamilyList, FamilyNote, FamilyShareTarget, Household, NoteActionItem,
+  FamilyList,
+  FamilyNote,
+  FamilyShareTarget,
+  Household,
+  NoteActionItem,
 } from '../../core/models';
 import { renderMarkdown } from './markdown';
 import { NoteEditorDialog, NoteEditorData, NoteEditorResult } from './note-editor-dialog';
@@ -68,10 +72,19 @@ interface NoteSummary {
 @Component({
   selector: 'app-family-notes',
   imports: [
-    RouterLink, FormsModule, MatIconModule, MatButtonModule, MatTooltipModule, MatProgressSpinnerModule,
-    MatMenuModule, MatSnackBarModule, MatFormFieldModule, MatInputModule,
+    RouterLink,
+    FormsModule,
+    MatIconModule,
+    MatButtonModule,
+    MatTooltipModule,
+    MatProgressSpinnerModule,
+    MatMenuModule,
+    MatSnackBarModule,
+    MatFormFieldModule,
+    MatInputModule,
   ],
   templateUrl: './notes.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrl: './family.scss',
 })
 export class FamilyNotes {
@@ -114,13 +127,23 @@ export class FamilyNotes {
 
   constructor() {
     this.reload(true);
-    this.api.getHousehold()
-      .pipe(catchError(() => of<Household | null>(null)), takeUntilDestroyed())
-      .subscribe(h => { if (h) this.memberIds.set(new Set(h.members.map(m => m.userId))); });
+    this.api
+      .getHousehold()
+      .pipe(
+        catchError(() => of<Household | null>(null)),
+        takeUntilDestroyed(),
+      )
+      .subscribe((h) => {
+        if (h) this.memberIds.set(new Set(h.members.map((m) => m.userId)));
+      });
     // Lists power the "Add to a list" picker on summary cards; failure is non-fatal (picker just stays empty).
-    this.api.familyLists()
-      .pipe(catchError(() => of<FamilyList[]>([])), takeUntilDestroyed())
-      .subscribe(list => this.lists.set(list));
+    this.api
+      .familyLists()
+      .pipe(
+        catchError(() => of<FamilyList[]>([])),
+        takeUntilDestroyed(),
+      )
+      .subscribe((list) => this.lists.set(list));
   }
 
   /**
@@ -134,9 +157,19 @@ export class FamilyNotes {
 
   private reload(initial = false): void {
     if (initial) this.loading.set(true);
-    this.api.familyNotes()
-      .pipe(catchError(() => { this.error.set(true); return of<FamilyNote[]>([]); }), takeUntilDestroyed())
-      .subscribe(list => { this.notes.set(list); this.loading.set(false); });
+    this.api
+      .familyNotes()
+      .pipe(
+        catchError(() => {
+          this.error.set(true);
+          return of<FamilyNote[]>([]);
+        }),
+        takeUntilDestroyed(),
+      )
+      .subscribe((list) => {
+        this.notes.set(list);
+        this.loading.set(false);
+      });
   }
 
   /** Render a note body to safe HTML (renderMarkdown escapes the source first). */
@@ -151,9 +184,9 @@ export class FamilyNotes {
 
   /** Replace one note in the board with its fresh copy (after edit/pin/share). */
   private upsert(note: FamilyNote): void {
-    this.notes.update(list => {
-      const next = list.some(n => n.id === note.id)
-        ? list.map(n => (n.id === note.id ? note : n))
+    this.notes.update((list) => {
+      const next = list.some((n) => n.id === note.id)
+        ? list.map((n) => (n.id === note.id ? note : n))
         : [...list, note];
       return this.sort(next);
     });
@@ -161,8 +194,9 @@ export class FamilyNotes {
 
   /** Pinned-first, then most-recently-updated (mirrors the server's order so it stays stable on local upserts). */
   private sort(list: FamilyNote[]): FamilyNote[] {
-    return [...list].sort((a, b) =>
-      (Number(b.pinned) - Number(a.pinned)) || (b.updatedUtc.localeCompare(a.updatedUtc)));
+    return [...list].sort(
+      (a, b) => Number(b.pinned) - Number(a.pinned) || b.updatedUtc.localeCompare(a.updatedUtc),
+    );
   }
 
   /** Open the editor to create a new note. */
@@ -191,9 +225,16 @@ export class FamilyNotes {
   }
 
   private openEditor(note: FamilyNote | null): Promise<NoteEditorResult | undefined> {
-    const ref = this.dialog.open<NoteEditorDialog, NoteEditorData, NoteEditorResult>(NoteEditorDialog, {
-      data: { note }, width: '720px', maxWidth: '94vw', autoFocus: false, panelClass: 'family-dialog',
-    });
+    const ref = this.dialog.open<NoteEditorDialog, NoteEditorData, NoteEditorResult>(
+      NoteEditorDialog,
+      {
+        data: { note },
+        width: '720px',
+        maxWidth: '94vw',
+        autoFocus: false,
+        panelClass: 'family-dialog',
+      },
+    );
     return firstValueFrom(ref.afterClosed());
   }
 
@@ -202,9 +243,13 @@ export class FamilyNotes {
     if (!note.canEdit || this.busyId() != null) return;
     this.busyId.set(note.id);
     try {
-      const updated = await firstValueFrom(this.api.updateFamilyNote(note.id, {
-        title: note.title, body: note.body, pinned: !note.pinned,
-      }));
+      const updated = await firstValueFrom(
+        this.api.updateFamilyNote(note.id, {
+          title: note.title,
+          body: note.body,
+          pinned: !note.pinned,
+        }),
+      );
       this.upsert(updated);
     } catch {
       this.snack.open("Couldn't update that note.", 'OK', { duration: 4000 });
@@ -217,7 +262,8 @@ export class FamilyNotes {
   async remove(note: FamilyNote): Promise<void> {
     const ok = await this.confirm({
       title: 'Delete this note?',
-      message: note.title ? `“${note.title}” will be removed for everyone it’s shared with.`
+      message: note.title
+        ? `“${note.title}” will be removed for everyone it’s shared with.`
         : 'This note will be removed for everyone it’s shared with.',
       destructive: true,
     });
@@ -225,7 +271,7 @@ export class FamilyNotes {
     this.busyId.set(note.id);
     try {
       await firstValueFrom(this.api.deleteFamilyNote(note.id));
-      this.notes.update(list => list.filter(n => n.id !== note.id));
+      this.notes.update((list) => list.filter((n) => n.id !== note.id));
     } catch (e) {
       this.snack.open(this.messageOf(e, "Couldn't delete that note."), 'OK', { duration: 4000 });
     } finally {
@@ -250,7 +296,11 @@ export class FamilyNotes {
       },
     };
     const ref = this.dialog.open<FamilyShareDialog, ShareDialogData, boolean>(FamilyShareDialog, {
-      data, width: '460px', maxWidth: '94vw', autoFocus: false, panelClass: 'family-dialog',
+      data,
+      width: '460px',
+      maxWidth: '94vw',
+      autoFocus: false,
+      panelClass: 'family-dialog',
     });
     await firstValueFrom(ref.afterClosed());
   }
@@ -272,18 +322,20 @@ export class FamilyNotes {
     try {
       const result = await firstValueFrom(this.api.askFamilyNotesAi(question));
       // Resolve the used note ids to titles in the loaded board (skip any the caller can't see locally).
-      const byId = new Map(this.notes().map(n => [n.id, n]));
+      const byId = new Map(this.notes().map((n) => [n.id, n]));
       const sources: AnswerSource[] = (result.usedNoteIds ?? [])
-        .map(id => byId.get(id))
+        .map((id) => byId.get(id))
         .filter((n): n is FamilyNote => !!n)
-        .map(n => ({ id: n.id, title: n.title?.trim() || 'Untitled note' }));
+        .map((n) => ({ id: n.id, title: n.title?.trim() || 'Untitled note' }));
       this.answer.set({ question, answer: result.answer, sources });
       this.askStatus.set('');
     } catch (e) {
       const status = (e as { status?: number })?.status;
-      this.askStatus.set(status === 503
-        ? "AI isn't available right now — you can still open your notes below."
-        : this.messageOf(e, "I couldn't reach the AI just now. Please try again."));
+      this.askStatus.set(
+        status === 503
+          ? "AI isn't available right now — you can still open your notes below."
+          : this.messageOf(e, "I couldn't reach the AI just now. Please try again."),
+      );
     } finally {
       this.asking.set(false);
     }
@@ -297,7 +349,7 @@ export class FamilyNotes {
 
   /** Open a note the answer drew on (scroll it into view + flash it via the editor when editable). */
   openSource(noteId: number): void {
-    const note = this.notes().find(n => n.id === noteId);
+    const note = this.notes().find((n) => n.id === noteId);
     if (!note) return;
     const el = document.getElementById(`note-${noteId}`);
     if (el) {
@@ -317,17 +369,17 @@ export class FamilyNotes {
   }
 
   /** Editable lists the user can add action items into (the "Add to a list" picker). */
-  readonly editableLists = computed(() => this.lists().filter(l => l.canEdit));
+  readonly editableLists = computed(() => this.lists().filter((l) => l.canEdit));
 
   private patchSummary(noteId: number, patch: Partial<NoteSummary>): void {
     const cur = this.summaries()[noteId];
     if (!cur) return;
-    this.summaries.update(s => ({ ...s, [noteId]: { ...cur, ...patch } }));
+    this.summaries.update((s) => ({ ...s, [noteId]: { ...cur, ...patch } }));
   }
 
   /** Close the summary card for a note. */
   closeSummary(noteId: number): void {
-    this.summaries.update(s => {
+    this.summaries.update((s) => {
       const next = { ...s };
       delete next[noteId];
       return next;
@@ -345,9 +397,11 @@ export class FamilyNotes {
     try {
       const result = await firstValueFrom(this.api.summarizeFamilyNoteAi(note.id));
       const actions: SummaryAction[] = (result.actionItems ?? []).map((a: NoteActionItem) => ({
-        text: a.text, duePhrase: a.duePhrase, keep: true,
+        text: a.text,
+        duePhrase: a.duePhrase,
+        keep: true,
       }));
-      this.summaries.update(s => ({
+      this.summaries.update((s) => ({
         ...s,
         [note.id]: { noteId: note.id, summary: result.summary, actions, acting: false, status: '' },
       }));
@@ -357,7 +411,9 @@ export class FamilyNotes {
         status === 503
           ? "AI summaries aren't available right now. Please try again later."
           : this.messageOf(e, "Couldn't summarize that note. Please try again."),
-        'OK', { duration: 4000 });
+        'OK',
+        { duration: 4000 },
+      );
     } finally {
       this.summarizingId.set(null);
     }
@@ -367,12 +423,14 @@ export class FamilyNotes {
   toggleAction(noteId: number, index: number): void {
     const s = this.summaries()[noteId];
     if (!s) return;
-    this.patchSummary(noteId, { actions: s.actions.map((a, i) => i === index ? { ...a, keep: !a.keep } : a) });
+    this.patchSummary(noteId, {
+      actions: s.actions.map((a, i) => (i === index ? { ...a, keep: !a.keep } : a)),
+    });
   }
 
   /** How many action items are currently checked. */
   keptActions(noteId: number): SummaryAction[] {
-    return (this.summaries()[noteId]?.actions ?? []).filter(a => a.keep);
+    return (this.summaries()[noteId]?.actions ?? []).filter((a) => a.keep);
   }
 
   /**
@@ -382,12 +440,16 @@ export class FamilyNotes {
   async addActionsToList(note: FamilyNote, list: FamilyList): Promise<void> {
     const s = this.summaries()[note.id];
     if (!s || s.acting) return;
-    const chosen = s.actions.filter(a => a.keep);
+    const chosen = s.actions.filter((a) => a.keep);
     if (chosen.length === 0) return;
-    this.patchSummary(note.id, { acting: true, status: `Adding ${chosen.length} to “${list.name}”…` });
+    this.patchSummary(note.id, {
+      acting: true,
+      status: `Adding ${chosen.length} to “${list.name}”…`,
+    });
 
     let updated: FamilyList | null = null;
-    let added = 0, failed = 0;
+    let added = 0,
+      failed = 0;
     for (const a of chosen) {
       try {
         updated = await firstValueFrom(this.api.addFamilyListItem(list.id, a.text));
@@ -398,15 +460,19 @@ export class FamilyNotes {
     }
     if (updated) {
       const fresh = updated;
-      this.lists.update(all => all.map(l => (l.id === fresh.id ? fresh : l)));
+      this.lists.update((all) => all.map((l) => (l.id === fresh.id ? fresh : l)));
     }
     this.patchSummary(note.id, {
       acting: false,
-      status: failed === 0
-        ? `Added ${added} to “${list.name}”.`
-        : `Added ${added} to “${list.name}”; ${failed} couldn't be added.`,
+      status:
+        failed === 0
+          ? `Added ${added} to “${list.name}”.`
+          : `Added ${added} to “${list.name}”; ${failed} couldn't be added.`,
     });
-    if (added > 0) this.snack.open(`Added ${added} item${added === 1 ? '' : 's'} to ${list.name}.`, undefined, { duration: 2500 });
+    if (added > 0)
+      this.snack.open(`Added ${added} item${added === 1 ? '' : 's'} to ${list.name}.`, undefined, {
+        duration: 2500,
+      });
   }
 
   /**
@@ -417,22 +483,33 @@ export class FamilyNotes {
   async makeReminders(note: FamilyNote): Promise<void> {
     const s = this.summaries()[note.id];
     if (!s || s.acting) return;
-    const chosen = s.actions.filter(a => a.keep);
+    const chosen = s.actions.filter((a) => a.keep);
     if (chosen.length === 0) return;
-    this.patchSummary(note.id, { acting: true, status: `Scheduling ${chosen.length} reminder${chosen.length === 1 ? '' : 's'}…` });
+    this.patchSummary(note.id, {
+      acting: true,
+      status: `Scheduling ${chosen.length} reminder${chosen.length === 1 ? '' : 's'}…`,
+    });
 
-    let created = 0, failed = 0;
+    let created = 0,
+      failed = 0;
     for (const a of chosen) {
       // Combine the action with its due phrase so the slice-1 parser resolves the time in the household zone.
       const phrase = a.duePhrase ? `${a.text} ${a.duePhrase}` : a.text;
       try {
         const parsed = await firstValueFrom(this.api.parseReminderAi(phrase));
         const proposals = parsed.reminders ?? [];
-        if (proposals.length === 0) { failed++; continue; }
+        if (proposals.length === 0) {
+          failed++;
+          continue;
+        }
         for (const p of proposals) {
-          await firstValueFrom(this.api.createFamilyReminder({
-            text: p.text, dueUtc: p.dueUtc, recurrence: p.recurrence,
-          }));
+          await firstValueFrom(
+            this.api.createFamilyReminder({
+              text: p.text,
+              dueUtc: p.dueUtc,
+              recurrence: p.recurrence,
+            }),
+          );
           created++;
         }
       } catch (e) {
@@ -440,7 +517,8 @@ export class FamilyNotes {
         if ((e as { status?: number })?.status === 503) {
           this.patchSummary(note.id, {
             acting: false,
-            status: "Reminders aren't available right now — try again later, or add them on the Reminders page.",
+            status:
+              "Reminders aren't available right now — try again later, or add them on the Reminders page.",
           });
           return;
         }
@@ -449,16 +527,23 @@ export class FamilyNotes {
     }
     this.patchSummary(note.id, {
       acting: false,
-      status: failed === 0
-        ? `Created ${created} reminder${created === 1 ? '' : 's'} — they'll arrive in your notifications.`
-        : `Created ${created}; ${failed} couldn't be scheduled.`,
+      status:
+        failed === 0
+          ? `Created ${created} reminder${created === 1 ? '' : 's'} — they'll arrive in your notifications.`
+          : `Created ${created}; ${failed} couldn't be scheduled.`,
     });
-    if (created > 0) this.snack.open(`Added ${created} reminder${created === 1 ? '' : 's'}.`, undefined, { duration: 2500 });
+    if (created > 0)
+      this.snack.open(`Added ${created} reminder${created === 1 ? '' : 's'}.`, undefined, {
+        duration: 2500,
+      });
   }
 
   private confirm(data: ConfirmData): Promise<boolean | undefined> {
     const ref = this.dialog.open<FamilyConfirmDialog, ConfirmData, boolean>(FamilyConfirmDialog, {
-      data, width: '420px', maxWidth: '92vw', panelClass: 'family-dialog',
+      data,
+      width: '420px',
+      maxWidth: '92vw',
+      panelClass: 'family-dialog',
     });
     return firstValueFrom(ref.afterClosed());
   }

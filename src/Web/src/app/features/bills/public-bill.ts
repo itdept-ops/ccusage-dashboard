@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal, ChangeDetectionStrategy } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
 
@@ -12,7 +12,11 @@ import { PaymentHandlesDto, PublicBillDto } from '../../core/models';
 import { Bills } from './bills';
 
 /** One pay-me link rendered from the owner's configured handles. */
-interface PayLink { label: string; icon: string; url: string; }
+interface PayLink {
+  label: string;
+  icon: string;
+  url: string;
+}
 
 /**
  * The ANONYMOUS public claim view at /bill/{token} (no auth guard, bare shell — mirrors the public
@@ -25,6 +29,7 @@ interface PayLink { label: string; icon: string; url: string; }
   selector: 'app-public-bill',
   imports: [CommonModule, FormsModule, MatProgressBarModule, MatButtonModule, MatIconModule],
   templateUrl: './public-bill.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrl: './public-bill.scss',
 })
 export class PublicBillView {
@@ -41,7 +46,9 @@ export class PublicBillView {
   /** The visitor's display name, remembered across claims in this session. */
   readonly myName = signal('');
 
-  readonly payLinks = computed<PayLink[]>(() => Bills.toPayLinks(this.data()?.payments as PaymentHandlesDto));
+  readonly payLinks = computed<PayLink[]>(() =>
+    Bills.toPayLinks(this.data()?.payments as PaymentHandlesDto),
+  );
 
   /** Full list price (items + tax + tip) for the header summary. */
   readonly billTotal = computed(() => {
@@ -55,7 +62,7 @@ export class PublicBillView {
   readonly myTotal = computed(() => {
     const name = this.myName().trim().toLowerCase();
     if (!name) return null;
-    return this.data()?.personTotals.find(p => p.name.toLowerCase() === name) ?? null;
+    return this.data()?.personTotals.find((p) => p.name.toLowerCase() === name) ?? null;
   });
 
   readonly settled = computed(() => this.data()?.status === 'settled');
@@ -66,8 +73,14 @@ export class PublicBillView {
 
   private load(): void {
     this.api.publicBill(this.token).subscribe({
-      next: d => { this.data.set(d); this.loading.set(false); },
-      error: () => { this.error.set(true); this.loading.set(false); },
+      next: (d) => {
+        this.data.set(d);
+        this.loading.set(false);
+      },
+      error: () => {
+        this.error.set(true);
+        this.loading.set(false);
+      },
     });
   }
 
@@ -77,7 +90,10 @@ export class PublicBillView {
     if (!name || this.claiming() != null) return;
     this.claiming.set(itemId);
     this.api.claimBillItem(this.token, itemId, name).subscribe({
-      next: d => { this.data.set(d); this.claiming.set(null); },
+      next: (d) => {
+        this.data.set(d);
+        this.claiming.set(null);
+      },
       error: () => {
         this.claiming.set(null);
         // A race (someone else just claimed it) or a settled bill — reload to show the truth.

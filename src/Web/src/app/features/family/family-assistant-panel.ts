@@ -1,4 +1,4 @@
-import { Component, computed, inject, input, signal } from '@angular/core';
+import { Component, computed, inject, input, signal, ChangeDetectionStrategy } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { firstValueFrom } from 'rxjs';
 
@@ -11,7 +11,11 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 
 import { Api } from '../../core/api';
 import {
-  CalendarEventInput, FamilyAssistantAction, FamilyAssistantResult, FamilyList, Household,
+  CalendarEventInput,
+  FamilyAssistantAction,
+  FamilyAssistantResult,
+  FamilyList,
+  Household,
 } from '../../core/models';
 import { EventEditorData, EventEditorDialog, EventEditorResult } from './event-editor-dialog';
 
@@ -51,10 +55,15 @@ interface Exchange {
 @Component({
   selector: 'app-family-assistant-panel',
   imports: [
-    FormsModule, MatIconModule, MatButtonModule, MatFormFieldModule, MatInputModule,
+    FormsModule,
+    MatIconModule,
+    MatButtonModule,
+    MatFormFieldModule,
+    MatInputModule,
     MatProgressSpinnerModule,
   ],
   templateUrl: './family-assistant-panel.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrls: ['./family.scss', './family-assistant-panel.scss'],
 })
 export class FamilyAssistantPanel {
@@ -90,10 +99,20 @@ export class FamilyAssistantPanel {
     this.error.set(null);
     try {
       const res: FamilyAssistantResult = await firstValueFrom(this.api.familyAssistant(question));
-      const cards: ActionCard[] = (res.actions ?? []).map(action => ({ action, status: 'idle', note: '' }));
-      this.history.update(h => [...h, {
-        id: this.nextId++, question, answer: res.answer ?? '', cards,
-      }]);
+      const cards: ActionCard[] = (res.actions ?? []).map((action) => ({
+        action,
+        status: 'idle',
+        note: '',
+      }));
+      this.history.update((h) => [
+        ...h,
+        {
+          id: this.nextId++,
+          question,
+          answer: res.answer ?? '',
+          cards,
+        },
+      ]);
       this.draft.set('');
     } catch (e) {
       this.error.set(this.messageOf(e));
@@ -123,7 +142,10 @@ export class FamilyAssistantPanel {
         this.patchCard(card, { status: 'idle', note: '' });
         return;
       }
-      this.patchCard(card, { status: 'error', note: this.messageOf(e, "Couldn't do that just now — please try again.") });
+      this.patchCard(card, {
+        status: 'error',
+        note: this.messageOf(e, "Couldn't do that just now — please try again."),
+      });
     }
   }
 
@@ -131,24 +153,40 @@ export class FamilyAssistantPanel {
 
   private async execute(action: FamilyAssistantAction): Promise<string> {
     switch (action.type) {
-      case 'list_add': return this.execListAdd(action.params.listName, action.params.items);
-      case 'reminder': return this.execReminder(action.params.text, action.params.whenLocal);
-      case 'timer': return this.execTimer(action.params.label, action.params.durationSeconds);
-      case 'calendar_event': return this.execCalendarEvent(action.params);
-      case 'chore': return this.execChore(action.params.title, action.params.points, action.params.recurrence, action.params.assigneeName);
-      case 'meal': return this.execMeal(action.params.title, action.params.ingredients, action.params.mealDateLocal);
+      case 'list_add':
+        return this.execListAdd(action.params.listName, action.params.items);
+      case 'reminder':
+        return this.execReminder(action.params.text, action.params.whenLocal);
+      case 'timer':
+        return this.execTimer(action.params.label, action.params.durationSeconds);
+      case 'calendar_event':
+        return this.execCalendarEvent(action.params);
+      case 'chore':
+        return this.execChore(
+          action.params.title,
+          action.params.points,
+          action.params.recurrence,
+          action.params.assigneeName,
+        );
+      case 'meal':
+        return this.execMeal(
+          action.params.title,
+          action.params.ingredients,
+          action.params.mealDateLocal,
+        );
     }
   }
 
   /** list_add: find the list by name (case-insensitive), creating a shopping list if missing, then add items. */
   private async execListAdd(listName: string, items: string[]): Promise<string> {
     const name = (listName || '').trim();
-    const toAdd = (items ?? []).map(i => i.trim()).filter(Boolean);
+    const toAdd = (items ?? []).map((i) => i.trim()).filter(Boolean);
     if (!name || toAdd.length === 0) throw new Error('Nothing to add.');
 
     const lists = await firstValueFrom(this.api.familyLists());
-    let list: FamilyList | undefined =
-      lists.find(l => l.name.trim().toLowerCase() === name.toLowerCase());
+    let list: FamilyList | undefined = lists.find(
+      (l) => l.name.trim().toLowerCase() === name.toLowerCase(),
+    );
     if (!list) {
       // No list by that name — create one. A "groceries/shopping" name nudges a shopping list; else a to-do.
       const kind = /shop|grocer|market|store/i.test(name) ? 'shopping' : 'todo';
@@ -165,15 +203,20 @@ export class FamilyAssistantPanel {
   private async execReminder(text: string, whenLocal: string): Promise<string> {
     const t = (text || '').trim();
     if (!t) throw new Error('No reminder text.');
-    const due = this.localToUtcIso(whenLocal) ?? new Date(Date.now() + 60 * 60 * 1000).toISOString();
-    await firstValueFrom(this.api.createFamilyReminder({ text: t, dueUtc: due, recurrence: 'none' }));
+    const due =
+      this.localToUtcIso(whenLocal) ?? new Date(Date.now() + 60 * 60 * 1000).toISOString();
+    await firstValueFrom(
+      this.api.createFamilyReminder({ text: t, dueUtc: due, recurrence: 'none' }),
+    );
     return 'Reminder set.';
   }
 
   /** timer: createFamilyTimer (durationSeconds already clamped server-side). */
   private async execTimer(label: string, durationSeconds: number): Promise<string> {
     const seconds = Math.max(5, Math.min(86400, Math.round(durationSeconds || 0)));
-    await firstValueFrom(this.api.createFamilyTimer({ label: (label || 'Timer').trim(), durationSeconds: seconds }));
+    await firstValueFrom(
+      this.api.createFamilyTimer({ label: (label || 'Timer').trim(), durationSeconds: seconds }),
+    );
     return 'Timer started.';
   }
 
@@ -182,7 +225,12 @@ export class FamilyAssistantPanel {
    * user's real Google Calendar, so we never create silently). On save we POST via the existing createEvent.
    */
   private async execCalendarEvent(p: {
-    title: string; startLocal: string; endLocal: string; allDay: boolean; location: string; notes: string;
+    title: string;
+    startLocal: string;
+    endLocal: string;
+    allDay: boolean;
+    location: string;
+    notes: string;
   }): Promise<string> {
     const data: EventEditorData = {
       event: null,
@@ -203,7 +251,9 @@ export class FamilyAssistantPanel {
     }
 
     const ref = this.dialog.open<EventEditorDialog, EventEditorData, EventEditorResult>(
-      EventEditorDialog, { data, width: '460px', maxWidth: '94vw', autoFocus: false, panelClass: 'family-dialog' });
+      EventEditorDialog,
+      { data, width: '460px', maxWidth: '94vw', autoFocus: false, panelClass: 'family-dialog' },
+    );
     const result = await firstValueFrom(ref.afterClosed());
     if (!result || result.kind !== 'save') {
       // The user dismissed the editor — leave the card actionable (idle) rather than "done".
@@ -216,28 +266,45 @@ export class FamilyAssistantPanel {
 
   /** chore: createFamilyChore. Resolve the assignee NAME to a household member; unknown/blank → unassigned. */
   private async execChore(
-    title: string, points: number, recurrence: 'none' | 'daily' | 'weekly', assigneeName: string): Promise<string> {
+    title: string,
+    points: number,
+    recurrence: 'none' | 'daily' | 'weekly',
+    assigneeName: string,
+  ): Promise<string> {
     const t = (title || '').trim();
     if (!t) throw new Error('No chore title.');
     const assignedToUserId = this.resolveMemberId(assigneeName);
-    await firstValueFrom(this.api.createFamilyChore({
-      title: t,
-      points: Math.max(0, Math.round(points || 0)),
-      recurrence: recurrence || 'none',
-      assignedToUserId,
-    }));
+    await firstValueFrom(
+      this.api.createFamilyChore({
+        title: t,
+        points: Math.max(0, Math.round(points || 0)),
+        recurrence: recurrence || 'none',
+        assignedToUserId,
+      }),
+    );
     const who = assignedToUserId != null ? this.memberName(assignedToUserId) : null;
     return who ? `Chore added for ${who}.` : 'Chore added.';
   }
 
   /** meal: createFamilyMeal. A bare local date (or today) + dinner slot (the assistant doesn't pick a slot). */
-  private async execMeal(title: string, ingredients: string, mealDateLocal: string): Promise<string> {
+  private async execMeal(
+    title: string,
+    ingredients: string,
+    mealDateLocal: string,
+  ): Promise<string> {
     const t = (title || '').trim();
     if (!t) throw new Error('No meal title.');
-    const localDate = (mealDateLocal && mealDateLocal.length >= 8 ? mealDateLocal.slice(0, 10) : '') || this.todayLocalDate();
-    await firstValueFrom(this.api.createFamilyMeal({
-      localDate, slot: 'dinner', title: t, ingredients: (ingredients || '').trim() || undefined,
-    }));
+    const localDate =
+      (mealDateLocal && mealDateLocal.length >= 8 ? mealDateLocal.slice(0, 10) : '') ||
+      this.todayLocalDate();
+    await firstValueFrom(
+      this.api.createFamilyMeal({
+        localDate,
+        slot: 'dinner',
+        title: t,
+        ingredients: (ingredients || '').trim() || undefined,
+      }),
+    );
     return 'Added to the meal plan.';
   }
 
@@ -248,15 +315,15 @@ export class FamilyAssistantPanel {
     const n = (name || '').trim().toLowerCase();
     if (!n) return null;
     const members = this.household()?.members ?? [];
-    const exact = members.find(m => m.name.trim().toLowerCase() === n);
+    const exact = members.find((m) => m.name.trim().toLowerCase() === n);
     if (exact) return exact.userId;
     // A first-name match ("Lily" against "Lily Fortunato") so the assistant's short name still lands.
-    const partial = members.find(m => m.name.trim().toLowerCase().split(/\s+/)[0] === n);
+    const partial = members.find((m) => m.name.trim().toLowerCase().split(/\s+/)[0] === n);
     return partial?.userId ?? null;
   }
 
   private memberName(userId: number): string | null {
-    return this.household()?.members.find(m => m.userId === userId)?.name ?? null;
+    return this.household()?.members.find((m) => m.userId === userId)?.name ?? null;
   }
 
   /** Convert an offset-less LOCAL ISO string ("2026-06-23T15:00:00" or "2026-06-23") to a UTC ISO instant, or null. */
@@ -278,24 +345,36 @@ export class FamilyAssistantPanel {
   /** A friendly icon for each action type (the confirm card glyph). */
   iconFor(type: FamilyAssistantAction['type']): string {
     switch (type) {
-      case 'list_add': return 'add_shopping_cart';
-      case 'reminder': return 'notifications_active';
-      case 'timer': return 'timer';
-      case 'calendar_event': return 'event';
-      case 'chore': return 'cleaning_services';
-      case 'meal': return 'restaurant';
+      case 'list_add':
+        return 'add_shopping_cart';
+      case 'reminder':
+        return 'notifications_active';
+      case 'timer':
+        return 'timer';
+      case 'calendar_event':
+        return 'event';
+      case 'chore':
+        return 'cleaning_services';
+      case 'meal':
+        return 'restaurant';
     }
   }
 
   /** The primary button label per action type (the verb the click performs). */
   buttonLabel(type: FamilyAssistantAction['type']): string {
     switch (type) {
-      case 'list_add': return 'Add to list';
-      case 'reminder': return 'Set reminder';
-      case 'timer': return 'Start timer';
-      case 'calendar_event': return 'Add to calendar';
-      case 'chore': return 'Add chore';
-      case 'meal': return 'Add meal';
+      case 'list_add':
+        return 'Add to list';
+      case 'reminder':
+        return 'Set reminder';
+      case 'timer':
+        return 'Start timer';
+      case 'calendar_event':
+        return 'Add to calendar';
+      case 'chore':
+        return 'Add chore';
+      case 'meal':
+        return 'Add meal';
     }
   }
 
@@ -306,15 +385,20 @@ export class FamilyAssistantPanel {
    */
   private patchCard(card: ActionCard, patch: Partial<ActionCard>): void {
     Object.assign(card, patch);
-    this.history.update(h => [...h]);
+    this.history.update((h) => [...h]);
   }
 
   /** Best-effort friendly message from an HttpErrorResponse (503 = assistant unavailable), else a fallback. */
-  private messageOf(e: unknown, fallback = "The assistant isn't available right now. You can do this manually."): string {
+  private messageOf(
+    e: unknown,
+    fallback = "The assistant isn't available right now. You can do this manually.",
+  ): string {
     if (e instanceof EventEditorDismissed) return '';
     const err = e as { status?: number; error?: { message?: string; detail?: string } };
-    if (err?.status === 503) return "The assistant isn't available right now. You can do this manually.";
-    if (err?.status === 400) return err.error?.message ?? 'Type a message for your family assistant.';
+    if (err?.status === 503)
+      return "The assistant isn't available right now. You can do this manually.";
+    if (err?.status === 400)
+      return err.error?.message ?? 'Type a message for your family assistant.';
     return err?.error?.detail ?? err?.error?.message ?? fallback;
   }
 }

@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal, ChangeDetectionStrategy } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 import type { EChartsOption } from 'echarts';
 
@@ -14,6 +14,7 @@ import { CompactPipe } from '../../shared/format';
   selector: 'app-public-share',
   imports: [CommonModule, MatProgressBarModule, ChartComponent, CompactPipe],
   templateUrl: './public-share.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrl: './public-share.scss',
 })
 export class PublicShareView {
@@ -27,8 +28,14 @@ export class PublicShareView {
   constructor() {
     const token = this.route.snapshot.paramMap.get('token') ?? '';
     this.api.publicShare(token).subscribe({
-      next: d => { this.data.set(d); this.loading.set(false); },
-      error: () => { this.error.set(true); this.loading.set(false); },
+      next: (d) => {
+        this.data.set(d);
+        this.loading.set(false);
+      },
+      error: () => {
+        this.error.set(true);
+        this.loading.set(false);
+      },
     });
   }
 
@@ -44,10 +51,13 @@ export class PublicShareView {
 
   readonly mainChart = computed<EChartsOption>(() => {
     const s = this.data()?.summary;
-    if (!s || !s.buckets.length) return { title: { text: 'No data', left: 'center', top: 'center', textStyle: { color: '#5e6c82' } } };
+    if (!s || !s.buckets.length)
+      return {
+        title: { text: 'No data', left: 'center', top: 'center', textStyle: { color: '#5e6c82' } },
+      };
 
     if (s.groupBy === 'day' || s.groupBy === 'month') {
-      const keys = s.buckets.map(b => b.key);
+      const keys = s.buckets.map((b) => b.key);
       return {
         tooltip: { trigger: 'axis' },
         legend: { data: ['Cost (USD)', 'Tokens'], top: 0 },
@@ -58,8 +68,22 @@ export class PublicShareView {
           { type: 'value', name: 'Tokens', axisLabel: { formatter: (v: number) => this.short(v) } },
         ],
         series: [
-          { name: 'Cost (USD)', type: 'bar', data: s.buckets.map(b => +b.costUsd.toFixed(2)), itemStyle: { color: '#f472b6', borderRadius: [4, 4, 0, 0] } },
-          { name: 'Tokens', type: 'line', yAxisIndex: 1, smooth: true, symbol: 'none', data: s.buckets.map(b => b.totalTokens), itemStyle: { color: '#3fd8d0' }, lineStyle: { width: 2, color: '#3fd8d0' } },
+          {
+            name: 'Cost (USD)',
+            type: 'bar',
+            data: s.buckets.map((b) => +b.costUsd.toFixed(2)),
+            itemStyle: { color: '#f472b6', borderRadius: [4, 4, 0, 0] },
+          },
+          {
+            name: 'Tokens',
+            type: 'line',
+            yAxisIndex: 1,
+            smooth: true,
+            symbol: 'none',
+            data: s.buckets.map((b) => b.totalTokens),
+            itemStyle: { color: '#3fd8d0' },
+            lineStyle: { width: 2, color: '#3fd8d0' },
+          },
         ],
       };
     }
@@ -69,21 +93,35 @@ export class PublicShareView {
       tooltip: { trigger: 'axis', valueFormatter: (v) => '$' + Number(v).toLocaleString() },
       grid: { left: 150, right: 28, top: 12, bottom: 32 },
       xAxis: { type: 'value', axisLabel: { formatter: '${value}' } },
-      yAxis: { type: 'category', data: top.map(b => this.label(b.key)) },
-      series: [{ type: 'bar', data: top.map(b => +b.costUsd.toFixed(2)), itemStyle: { color: '#f472b6', borderRadius: [0, 4, 4, 0] } }],
+      yAxis: { type: 'category', data: top.map((b) => this.label(b.key)) },
+      series: [
+        {
+          type: 'bar',
+          data: top.map((b) => +b.costUsd.toFixed(2)),
+          itemStyle: { color: '#f472b6', borderRadius: [0, 4, 4, 0] },
+        },
+      ],
     };
   });
 
   readonly modelChart = computed<EChartsOption>(() => {
-    const ms = (this.data()?.models.buckets ?? []).filter(b => b.costUsd > 0);
+    const ms = (this.data()?.models.buckets ?? []).filter((b) => b.costUsd > 0);
     return {
-      tooltip: { trigger: 'item', formatter: (p: any) => `${p.name}: $${Number(p.value).toLocaleString()} (${p.percent}%)` },
+      tooltip: {
+        trigger: 'item',
+        formatter: (p: any) => `${p.name}: $${Number(p.value).toLocaleString()} (${p.percent}%)`,
+      },
       legend: { bottom: 0, type: 'scroll' },
-      series: [{
-        type: 'pie', radius: ['45%', '72%'], avoidLabelOverlap: true, label: { show: false },
-        itemStyle: { borderColor: '#111722', borderWidth: 2 },
-        data: ms.map(b => ({ name: b.key, value: +b.costUsd.toFixed(2) })),
-      }],
+      series: [
+        {
+          type: 'pie',
+          radius: ['45%', '72%'],
+          avoidLabelOverlap: true,
+          label: { show: false },
+          itemStyle: { borderColor: '#111722', borderWidth: 2 },
+          data: ms.map((b) => ({ name: b.key, value: +b.costUsd.toFixed(2) })),
+        },
+      ],
     };
   });
 }

@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { Component, ChangeDetectionStrategy } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { MatIconModule } from '@angular/material/icon';
 import { MarketingNav } from './marketing-nav';
@@ -18,6 +18,7 @@ interface FeatureBlock {
   selector: 'app-features-page',
   imports: [RouterLink, MatIconModule, MarketingNav, MarketingFooter],
   templateUrl: './features-page.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrl: './marketing-page.scss',
 })
 export class FeaturesPage {
@@ -315,11 +316,7 @@ export class FeaturesPage {
       kicker: 'Body stats',
       title: 'The numbers behind the goal',
       text: 'BMI, BMR and TDEE, and a weight trend turn the daily log into progress you can actually see.',
-      points: [
-        'BMI from your current stats',
-        'BMR / TDEE energy budget',
-        'Weight trend over time',
-      ],
+      points: ['BMI from your current stats', 'BMR / TDEE energy budget', 'Weight trend over time'],
     },
     {
       group: 'Food & fitness tracker',

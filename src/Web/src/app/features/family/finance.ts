@@ -1,4 +1,11 @@
-import { Component, DestroyRef, computed, inject, signal } from '@angular/core';
+import {
+  Component,
+  DestroyRef,
+  computed,
+  inject,
+  signal,
+  ChangeDetectionStrategy,
+} from '@angular/core';
 import { RouterLink } from '@angular/router';
 import type { EChartsOption } from 'echarts';
 import { catchError, firstValueFrom, of } from 'rxjs';
@@ -12,24 +19,39 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 
 import { Api } from '../../core/api';
 import {
-  FinanceAccount, FinanceAccountKind, FinanceImportBatch, FinanceMoneyCoachResult, FinanceOwner, FinanceSummary,
-  FinanceSummaryAiResult, FinanceTransaction, FinanceTransactionsPage, FinanceTxnKind,
+  FinanceAccount,
+  FinanceAccountKind,
+  FinanceImportBatch,
+  FinanceMoneyCoachResult,
+  FinanceOwner,
+  FinanceSummary,
+  FinanceSummaryAiResult,
+  FinanceTransaction,
+  FinanceTransactionsPage,
+  FinanceTxnKind,
 } from '../../core/models';
 import { ChartComponent } from '../../shared/chart';
 
 /** Friendly labels for the owner tag (his/hers/joint/unassigned). */
 const OWNER_LABEL: Record<FinanceOwner, string> = {
-  his: 'His', hers: 'Hers', joint: 'Joint', unassigned: 'Unassigned',
+  his: 'His',
+  hers: 'Hers',
+  joint: 'Joint',
+  unassigned: 'Unassigned',
 };
 
 /** Friendly labels for the account kind. */
 const KIND_LABEL: Record<FinanceAccountKind, string> = {
-  bank: 'Bank', credit: 'Credit', other: 'Other',
+  bank: 'Bank',
+  credit: 'Credit',
+  other: 'Other',
 };
 
 /** Friendly labels for the transaction kind filter (expense/income/transfer). */
 const TXN_KIND_LABEL: Record<FinanceTxnKind, string> = {
-  expense: 'Expenses', income: 'Income', transfer: 'Transfers',
+  expense: 'Expenses',
+  income: 'Income',
+  transfer: 'Transfers',
 };
 
 /** Owner options offered in the account-tagging picker. */
@@ -38,7 +60,10 @@ const KIND_OPTIONS: FinanceAccountKind[] = ['bank', 'credit', 'other'];
 
 /** A donut/bar accent per owner so His/Hers/Joint read consistently across the page. */
 const OWNER_COLOR: Record<FinanceOwner, string> = {
-  his: '#3d8bff', hers: '#ff7eb6', joint: '#3dd68c', unassigned: '#5e6c82',
+  his: '#3d8bff',
+  hers: '#ff7eb6',
+  joint: '#3dd68c',
+  unassigned: '#5e6c82',
 };
 
 /**
@@ -56,10 +81,16 @@ const OWNER_COLOR: Record<FinanceOwner, string> = {
 @Component({
   selector: 'app-family-finance',
   imports: [
-    RouterLink, MatIconModule, MatButtonModule, MatTooltipModule, MatProgressSpinnerModule,
-    MatSnackBarModule, ChartComponent,
+    RouterLink,
+    MatIconModule,
+    MatButtonModule,
+    MatTooltipModule,
+    MatProgressSpinnerModule,
+    MatSnackBarModule,
+    ChartComponent,
   ],
   templateUrl: './finance.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrls: ['./family.scss', './finance.scss'],
 })
 export class FamilyFinance {
@@ -129,14 +160,18 @@ export class FamilyFinance {
   });
 
   /** Distinct categories present this month — drives the table's category filter. */
-  readonly categories = computed(() => (this.summary()?.byCategory ?? []).map(c => c.category));
+  readonly categories = computed(() => (this.summary()?.byCategory ?? []).map((c) => c.category));
 
   /** Total expense pages for the current filter. */
   readonly txnPages = computed(() => Math.max(1, Math.ceil(this.txnTotal() / this.pageSize)));
 
   /** Whether any transactions have been imported yet (drives the empty/first-run state). */
-  readonly hasData = computed(() =>
-    this.accounts().length > 0 || (this.summary()?.byCategory.length ?? 0) > 0 || this.imports().length > 0);
+  readonly hasData = computed(
+    () =>
+      this.accounts().length > 0 ||
+      (this.summary()?.byCategory.length ?? 0) > 0 ||
+      this.imports().length > 0,
+  );
 
   constructor() {
     this.reloadAll(true);
@@ -156,10 +191,16 @@ export class FamilyFinance {
   }
 
   private loadSummary(): void {
-    this.api.financeSummary(this.month())
-      .pipe(catchError(() => { if (this.loading()) this.error.set(true); return of<FinanceSummary | null>(null); }),
-        takeUntilDestroyed(this.destroyRef))
-      .subscribe(s => {
+    this.api
+      .financeSummary(this.month())
+      .pipe(
+        catchError(() => {
+          if (this.loading()) this.error.set(true);
+          return of<FinanceSummary | null>(null);
+        }),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe((s) => {
         if (s) {
           this.summary.set(s);
           // The server resolves the month (it may fall back to the latest with data) — follow it.
@@ -174,15 +215,23 @@ export class FamilyFinance {
   }
 
   private loadAccounts(): void {
-    this.api.financeAccounts()
-      .pipe(catchError(() => of<FinanceAccount[]>([])), takeUntilDestroyed(this.destroyRef))
-      .subscribe(a => this.accounts.set(a));
+    this.api
+      .financeAccounts()
+      .pipe(
+        catchError(() => of<FinanceAccount[]>([])),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe((a) => this.accounts.set(a));
   }
 
   private loadImports(): void {
-    this.api.financeImports()
-      .pipe(catchError(() => of<FinanceImportBatch[]>([])), takeUntilDestroyed(this.destroyRef))
-      .subscribe(i => this.imports.set(i));
+    this.api
+      .financeImports()
+      .pipe(
+        catchError(() => of<FinanceImportBatch[]>([])),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe((i) => this.imports.set(i));
   }
 
   /**
@@ -196,9 +245,13 @@ export class FamilyFinance {
     if (!force && month === this.aiSummaryMonth && this.aiSummary()) return;
     this.aiSummaryMonth = month;
     this.aiLoading.set(true);
-    this.api.financeSummaryAi(month)
-      .pipe(catchError(() => of<FinanceSummaryAiResult | null>(null)), takeUntilDestroyed(this.destroyRef))
-      .subscribe(s => {
+    this.api
+      .financeSummaryAi(month)
+      .pipe(
+        catchError(() => of<FinanceSummaryAiResult | null>(null)),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe((s) => {
         // Guard against an out-of-order response if the month changed mid-flight.
         if (this.month() === month) {
           this.aiSummary.set(s);
@@ -218,9 +271,13 @@ export class FamilyFinance {
     if (this.coachLoading()) return;
     if (!force && this.coach()) return;
     this.coachLoading.set(true);
-    this.api.financeMoneyCoachAi()
-      .pipe(catchError(() => of<FinanceMoneyCoachResult | null>(null)), takeUntilDestroyed(this.destroyRef))
-      .subscribe(c => {
+    this.api
+      .financeMoneyCoachAi()
+      .pipe(
+        catchError(() => of<FinanceMoneyCoachResult | null>(null)),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe((c) => {
         this.coach.set(c);
         this.coachLoading.set(false);
       });
@@ -228,13 +285,24 @@ export class FamilyFinance {
 
   private loadTxns(): void {
     this.txnLoading.set(true);
-    this.api.financeTransactions({
-      month: this.month(), accountId: this.fAccount(), category: this.fCategory(),
-      owner: this.fOwner(), kind: this.fKind(), page: this.txnPage(),
-    })
-      .pipe(catchError(() => of<FinanceTransactionsPage | null>(null)), takeUntilDestroyed(this.destroyRef))
-      .subscribe(p => {
-        if (p) { this.txns.set(p.items); this.txnTotal.set(p.total); }
+    this.api
+      .financeTransactions({
+        month: this.month(),
+        accountId: this.fAccount(),
+        category: this.fCategory(),
+        owner: this.fOwner(),
+        kind: this.fKind(),
+        page: this.txnPage(),
+      })
+      .pipe(
+        catchError(() => of<FinanceTransactionsPage | null>(null)),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe((p) => {
+        if (p) {
+          this.txns.set(p.items);
+          this.txnTotal.set(p.total);
+        }
         this.txnLoading.set(false);
       });
   }
@@ -281,7 +349,9 @@ export class FamilyFinance {
   private async readAndImport(file: File): Promise<void> {
     if (this.importing()) return;
     if (!/\.csv$/i.test(file.name)) {
-      this.snack.open('Please choose a .csv file exported from Rocket Money.', 'OK', { duration: 4000 });
+      this.snack.open('Please choose a .csv file exported from Rocket Money.', 'OK', {
+        duration: 4000,
+      });
       return;
     }
     this.importing.set(true);
@@ -289,11 +359,15 @@ export class FamilyFinance {
       const content = await file.text();
       const res = await firstValueFrom(this.api.importFinanceCsv(file.name, content));
       const dup = res.skipped === 1 ? 'duplicate' : 'duplicates';
-      this.snack.open(`Imported ${res.imported}, skipped ${res.skipped} ${dup}`, undefined, { duration: 4000 });
+      this.snack.open(`Imported ${res.imported}, skipped ${res.skipped} ${dup}`, undefined, {
+        duration: 4000,
+      });
       this.txnPage.set(1);
       this.reloadAll();
     } catch (e) {
-      this.snack.open(this.messageOf(e, "Couldn't import that file. Please try again."), 'OK', { duration: 5000 });
+      this.snack.open(this.messageOf(e, "Couldn't import that file. Please try again."), 'OK', {
+        duration: 5000,
+      });
     } finally {
       this.importing.set(false);
     }
@@ -318,12 +392,18 @@ export class FamilyFinance {
   }
 
   private async patchAccount(
-    account: FinanceAccount, patch: { owner?: FinanceOwner; kind?: FinanceAccountKind; name?: string },
+    account: FinanceAccount,
+    patch: { owner?: FinanceOwner; kind?: FinanceAccountKind; name?: string },
   ): Promise<void> {
     try {
       const updated = await firstValueFrom(this.api.updateFinanceAccount(account.id, patch));
-      this.accounts.update(list =>
-        list.map(a => (a.id === account.id ? { ...a, name: updated.name, owner: updated.owner, kind: updated.kind } : a)));
+      this.accounts.update((list) =>
+        list.map((a) =>
+          a.id === account.id
+            ? { ...a, name: updated.name, owner: updated.owner, kind: updated.kind }
+            : a,
+        ),
+      );
       // Owner/name changes re-flow into the his/hers split + the table — refresh those.
       this.loadSummary();
       this.loadTxns();
@@ -334,19 +414,43 @@ export class FamilyFinance {
 
   // ============================================================== transaction filters / paging
 
-  setAccountFilter(id: number | null): void { this.fAccount.set(id); this.txnPage.set(1); this.loadTxns(); }
-  setCategoryFilter(c: string | null): void { this.fCategory.set(c); this.txnPage.set(1); this.loadTxns(); }
-  setOwnerFilter(o: FinanceOwner | null): void { this.fOwner.set(o); this.txnPage.set(1); this.loadTxns(); }
-  setKindFilter(k: FinanceTxnKind | null): void { this.fKind.set(k); this.txnPage.set(1); this.loadTxns(); }
-
-  clearFilters(): void {
-    this.fAccount.set(null); this.fCategory.set(null); this.fOwner.set(null); this.fKind.set(null);
+  setAccountFilter(id: number | null): void {
+    this.fAccount.set(id);
+    this.txnPage.set(1);
+    this.loadTxns();
+  }
+  setCategoryFilter(c: string | null): void {
+    this.fCategory.set(c);
+    this.txnPage.set(1);
+    this.loadTxns();
+  }
+  setOwnerFilter(o: FinanceOwner | null): void {
+    this.fOwner.set(o);
+    this.txnPage.set(1);
+    this.loadTxns();
+  }
+  setKindFilter(k: FinanceTxnKind | null): void {
+    this.fKind.set(k);
     this.txnPage.set(1);
     this.loadTxns();
   }
 
-  readonly hasFilters = computed(() =>
-    this.fAccount() != null || this.fCategory() != null || this.fOwner() != null || this.fKind() != null);
+  clearFilters(): void {
+    this.fAccount.set(null);
+    this.fCategory.set(null);
+    this.fOwner.set(null);
+    this.fKind.set(null);
+    this.txnPage.set(1);
+    this.loadTxns();
+  }
+
+  readonly hasFilters = computed(
+    () =>
+      this.fAccount() != null ||
+      this.fCategory() != null ||
+      this.fOwner() != null ||
+      this.fKind() != null,
+  );
 
   stepPage(delta: number): void {
     const next = Math.min(this.txnPages(), Math.max(1, this.txnPage() + delta));
@@ -374,7 +478,7 @@ export class FamilyFinance {
           avoidLabelOverlap: true,
           itemStyle: { borderColor: 'rgba(8,12,20,0.9)', borderWidth: 2 },
           label: { show: false },
-          data: cats.map(c => ({ name: c.category, value: Number(c.amount.toFixed(2)) })),
+          data: cats.map((c) => ({ name: c.category, value: Number(c.amount.toFixed(2)) })),
         },
       ],
     };
@@ -385,20 +489,28 @@ export class FamilyFinance {
     const owners = this.summary()?.byOwner ?? [];
     const order: FinanceOwner[] = ['his', 'hers', 'joint', 'unassigned'];
     const rows = order
-      .map(o => owners.find(x => x.owner === o))
+      .map((o) => owners.find((x) => x.owner === o))
       .filter((x): x is NonNullable<typeof x> => !!x && x.amount > 0);
     return {
       grid: { left: 70, right: 24, top: 8, bottom: 8 },
-      tooltip: { trigger: 'axis', valueFormatter: (v) => (typeof v === 'number' ? this.money(v) : String(v)) },
+      tooltip: {
+        trigger: 'axis',
+        valueFormatter: (v) => (typeof v === 'number' ? this.money(v) : String(v)),
+      },
       xAxis: { type: 'value', axisLabel: { formatter: (v: number) => this.moneyShort(v) } },
-      yAxis: { type: 'category', data: rows.map(r => this.ownerLabel(r.owner)) },
+      yAxis: { type: 'category', data: rows.map((r) => this.ownerLabel(r.owner)) },
       series: [
         {
           type: 'bar',
-          data: rows.map(r => ({ value: Number(r.amount.toFixed(2)), itemStyle: { color: OWNER_COLOR[r.owner] } })),
+          data: rows.map((r) => ({
+            value: Number(r.amount.toFixed(2)),
+            itemStyle: { color: OWNER_COLOR[r.owner] },
+          })),
           barWidth: 22,
           label: {
-            show: true, position: 'right', color: '#9ba9bd',
+            show: true,
+            position: 'right',
+            color: '#9ba9bd',
             formatter: (p) => this.moneyShort(typeof p.value === 'number' ? p.value : 0),
           },
         },
@@ -409,30 +521,52 @@ export class FamilyFinance {
   /** The rolling 12-month spent vs income trend line. */
   readonly trendOption = computed<EChartsOption>(() => {
     const pts = this.summary()?.monthlyTrend ?? [];
-    const labels = pts.map(p => {
+    const labels = pts.map((p) => {
       const [y, m] = p.month.split('-').map(Number);
       return new Date(y, m - 1, 1).toLocaleDateString(undefined, { month: 'short' });
     });
     return {
       grid: { left: 56, right: 16, top: 28, bottom: 28 },
-      tooltip: { trigger: 'axis', valueFormatter: (v) => (typeof v === 'number' ? this.money(v) : String(v)) },
+      tooltip: {
+        trigger: 'axis',
+        valueFormatter: (v) => (typeof v === 'number' ? this.money(v) : String(v)),
+      },
       legend: { top: 0, right: 0, data: ['Spent', 'Income'] },
       xAxis: { type: 'category', boundaryGap: false, data: labels },
       yAxis: { type: 'value', axisLabel: { formatter: (v: number) => this.moneyShort(v) } },
       series: [
-        { name: 'Spent', type: 'line', smooth: true, showSymbol: false, lineStyle: { width: 2 },
-          areaStyle: { opacity: 0.1 }, data: pts.map(p => Number(p.spent.toFixed(2))) },
-        { name: 'Income', type: 'line', smooth: true, showSymbol: false, lineStyle: { width: 2 },
-          data: pts.map(p => Number(p.income.toFixed(2))) },
+        {
+          name: 'Spent',
+          type: 'line',
+          smooth: true,
+          showSymbol: false,
+          lineStyle: { width: 2 },
+          areaStyle: { opacity: 0.1 },
+          data: pts.map((p) => Number(p.spent.toFixed(2))),
+        },
+        {
+          name: 'Income',
+          type: 'line',
+          smooth: true,
+          showSymbol: false,
+          lineStyle: { width: 2 },
+          data: pts.map((p) => Number(p.income.toFixed(2))),
+        },
       ],
     };
   });
 
   // ============================================================== formatting helpers
 
-  ownerLabel(o: FinanceOwner): string { return OWNER_LABEL[o] ?? o; }
-  kindLabel(k: FinanceAccountKind): string { return KIND_LABEL[k] ?? k; }
-  txnKindLabel(k: FinanceTxnKind): string { return TXN_KIND_LABEL[k] ?? k; }
+  ownerLabel(o: FinanceOwner): string {
+    return OWNER_LABEL[o] ?? o;
+  }
+  kindLabel(k: FinanceAccountKind): string {
+    return KIND_LABEL[k] ?? k;
+  }
+  txnKindLabel(k: FinanceTxnKind): string {
+    return TXN_KIND_LABEL[k] ?? k;
+  }
 
   /** A signed currency string, e.g. "$1,234.56". */
   money(n: number): string {
@@ -457,8 +591,11 @@ export class FamilyFinance {
   importWhen(utc: string): string {
     const d = new Date(utc);
     if (Number.isNaN(d.getTime())) return '';
-    return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
-      + ' · ' + d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+    return (
+      d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) +
+      ' · ' +
+      d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })
+    );
   }
 
   initials(name: string): string {

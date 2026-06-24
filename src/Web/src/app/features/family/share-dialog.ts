@@ -1,4 +1,4 @@
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal, ChangeDetectionStrategy } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { catchError, of } from 'rxjs';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
@@ -43,10 +43,18 @@ export interface ShareDialogData {
 @Component({
   selector: 'app-family-share-dialog',
   imports: [
-    FormsModule, MatDialogModule, MatFormFieldModule, MatSelectModule, MatSlideToggleModule,
-    MatButtonModule, MatIconModule, MatTooltipModule, MatProgressSpinnerModule,
+    FormsModule,
+    MatDialogModule,
+    MatFormFieldModule,
+    MatSelectModule,
+    MatSlideToggleModule,
+    MatButtonModule,
+    MatIconModule,
+    MatTooltipModule,
+    MatProgressSpinnerModule,
   ],
   templateUrl: './share-dialog.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrl: './family.scss',
 })
 export class FamilyShareDialog {
@@ -72,14 +80,21 @@ export class FamilyShareDialog {
 
   /** Contacts not already shared with — the addable pool, name-sorted by the server. */
   readonly addable = computed<ChatContactDto[]>(() => {
-    const taken = new Set(this.shares().map(s => s.userId));
-    return this.contacts().filter(c => !taken.has(c.userId));
+    const taken = new Set(this.shares().map((s) => s.userId));
+    return this.contacts().filter((c) => !taken.has(c.userId));
   });
 
   constructor() {
-    this.api.myContacts()
-      .pipe(catchError(() => of<ChatContactDto[]>([])), takeUntilDestroyed())
-      .subscribe(list => { this.contacts.set(list); this.contactsLoading.set(false); });
+    this.api
+      .myContacts()
+      .pipe(
+        catchError(() => of<ChatContactDto[]>([])),
+        takeUntilDestroyed(),
+      )
+      .subscribe((list) => {
+        this.contacts.set(list);
+        this.contactsLoading.set(false);
+      });
   }
 
   initials(name: string): string {

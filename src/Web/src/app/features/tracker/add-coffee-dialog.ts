@@ -1,4 +1,4 @@
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal, ChangeDetectionStrategy } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 
 import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
@@ -25,44 +25,92 @@ export interface AddCoffeeResult {
  */
 @Component({
   selector: 'app-add-coffee-dialog',
-  imports: [
-    FormsModule, MatDialogModule, MatFormFieldModule, MatInputModule, MatButtonModule,
-  ],
+  imports: [FormsModule, MatDialogModule, MatFormFieldModule, MatInputModule, MatButtonModule],
   template: `
     <h2 mat-dialog-title class="cf-title">Add coffee</h2>
     <mat-dialog-content class="cf-body">
       <mat-form-field appearance="outline" class="cf-field">
         <mat-label>Cups</mat-label>
-        <input matInput type="number" min="1" max="20" step="1" inputmode="numeric" cdkFocusInitial
-               [ngModel]="cups()" (ngModelChange)="cups.set($event)" />
+        <input
+          matInput
+          type="number"
+          min="1"
+          max="20"
+          step="1"
+          inputmode="numeric"
+          cdkFocusInitial
+          [ngModel]="cups()"
+          (ngModelChange)="cups.set($event)"
+        />
         <mat-hint>Logged for {{ data.date }}.</mat-hint>
       </mat-form-field>
 
       <mat-form-field appearance="outline" class="cf-field">
         <mat-label>Drink (optional)</mat-label>
-        <input matInput type="text" maxlength="64" placeholder="Mug, Espresso, Cold Brew…"
-               [ngModel]="label()" (ngModelChange)="label.set($event)" />
+        <input
+          matInput
+          type="text"
+          maxlength="64"
+          placeholder="Mug, Espresso, Cold Brew…"
+          [ngModel]="label()"
+          (ngModelChange)="label.set($event)"
+        />
       </mat-form-field>
 
       <mat-form-field appearance="outline" class="cf-field">
         <mat-label>Caffeine (optional)</mat-label>
-        <input matInput type="number" min="0" max="2000" step="1" inputmode="numeric"
-               [ngModel]="caffeineMg()" (ngModelChange)="caffeineMg.set($event)" />
+        <input
+          matInput
+          type="number"
+          min="0"
+          max="2000"
+          step="1"
+          inputmode="numeric"
+          [ngModel]="caffeineMg()"
+          (ngModelChange)="caffeineMg.set($event)"
+        />
         <span matTextSuffix>mg</span>
       </mat-form-field>
     </mat-dialog-content>
     <mat-dialog-actions class="cf-actions" align="end">
       <button mat-stroked-button type="button" (click)="cancel()">Cancel</button>
-      <button mat-flat-button type="button" color="primary" [disabled]="!canSave()" (click)="save()">Add</button>
+      <button
+        mat-flat-button
+        type="button"
+        color="primary"
+        [disabled]="!canSave()"
+        (click)="save()"
+      >
+        Add
+      </button>
     </mat-dialog-actions>
   `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: `
-    .cf-title { font-family: var(--tech-font-ui); font-weight: 700; color: var(--tech-text); }
-    .cf-body { min-width: min(360px, 82vw); padding-top: 4px !important;
-      display: flex; flex-direction: column; gap: var(--tech-space-2); }
-    .cf-field { width: 100%; }
-    .cf-actions { padding: var(--tech-space-3) var(--tech-space-4); gap: 8px;
-      button { border-radius: var(--tech-r-control); font-weight: 600; min-height: 44px; } }
+    .cf-title {
+      font-family: var(--tech-font-ui);
+      font-weight: 700;
+      color: var(--tech-text);
+    }
+    .cf-body {
+      min-width: min(360px, 82vw);
+      padding-top: 4px !important;
+      display: flex;
+      flex-direction: column;
+      gap: var(--tech-space-2);
+    }
+    .cf-field {
+      width: 100%;
+    }
+    .cf-actions {
+      padding: var(--tech-space-3) var(--tech-space-4);
+      gap: 8px;
+      button {
+        border-radius: var(--tech-r-control);
+        font-weight: 600;
+        min-height: 44px;
+      }
+    }
   `,
 })
 export class AddCoffeeDialog {
@@ -95,12 +143,14 @@ export class AddCoffeeDialog {
     if (cups == null) return;
     const label = this.label().trim();
     this.ref.close({
-      requests: [{
-        date: this.data.date,
-        cups,
-        caffeineMg: this.caffeineOf(),
-        label: label || undefined,
-      }],
+      requests: [
+        {
+          date: this.data.date,
+          cups,
+          caffeineMg: this.caffeineOf(),
+          label: label || undefined,
+        },
+      ],
     });
   }
 

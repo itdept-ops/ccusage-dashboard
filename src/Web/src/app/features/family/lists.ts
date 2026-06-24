@@ -1,4 +1,4 @@
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal, ChangeDetectionStrategy } from '@angular/core';
 import { NgTemplateOutlet } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
@@ -14,12 +14,22 @@ import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatMenuModule } from '@angular/material/menu';
-import { MAT_DIALOG_DATA, MatDialog, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
+import {
+  MAT_DIALOG_DATA,
+  MatDialog,
+  MatDialogModule,
+  MatDialogRef,
+} from '@angular/material/dialog';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 
 import { Api } from '../../core/api';
 import {
-  FamilyList, FamilyListItem, FamilyListKind, FamilyShareTarget, Household, HouseholdMember,
+  FamilyList,
+  FamilyListItem,
+  FamilyListKind,
+  FamilyShareTarget,
+  Household,
+  HouseholdMember,
 } from '../../core/models';
 import { FamilyShareDialog, ShareDialogData } from './share-dialog';
 import { FamilyConfirmDialog, ConfirmData } from './confirm-dialog';
@@ -84,11 +94,22 @@ function emptySuggestPanel(): SuggestPanel {
 @Component({
   selector: 'app-family-lists',
   imports: [
-    NgTemplateOutlet, RouterLink, FormsModule, MatIconModule, MatButtonModule, MatTooltipModule,
-    MatProgressSpinnerModule, MatTabsModule, MatCheckboxModule, MatFormFieldModule, MatInputModule,
-    MatMenuModule, MatSnackBarModule,
+    NgTemplateOutlet,
+    RouterLink,
+    FormsModule,
+    MatIconModule,
+    MatButtonModule,
+    MatTooltipModule,
+    MatProgressSpinnerModule,
+    MatTabsModule,
+    MatCheckboxModule,
+    MatFormFieldModule,
+    MatInputModule,
+    MatMenuModule,
+    MatSnackBarModule,
   ],
   templateUrl: './lists.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrls: ['./family.scss', './lists.scss'],
 })
 export class FamilyLists {
@@ -114,22 +135,38 @@ export class FamilyLists {
   /** Per-list "✨ What am I missing?" panel state (keyed by list id). */
   readonly suggestPanels = signal<Record<number, SuggestPanel>>({});
 
-  readonly shoppingLists = computed(() => this.lists().filter(l => l.kind === 'shopping'));
-  readonly todoLists = computed(() => this.lists().filter(l => l.kind === 'todo'));
+  readonly shoppingLists = computed(() => this.lists().filter((l) => l.kind === 'shopping'));
+  readonly todoLists = computed(() => this.lists().filter((l) => l.kind === 'todo'));
 
   constructor() {
     this.reload(true);
     // Household members drive the to-do assignee picker (display identity only).
-    this.api.getHousehold()
-      .pipe(catchError(() => of<Household | null>(null)), takeUntilDestroyed())
-      .subscribe(h => { if (h) this.members.set(h.members); });
+    this.api
+      .getHousehold()
+      .pipe(
+        catchError(() => of<Household | null>(null)),
+        takeUntilDestroyed(),
+      )
+      .subscribe((h) => {
+        if (h) this.members.set(h.members);
+      });
   }
 
   private reload(initial = false): void {
     if (initial) this.loading.set(true);
-    this.api.familyLists()
-      .pipe(catchError(() => { this.error.set(true); return of<FamilyList[]>([]); }), takeUntilDestroyed())
-      .subscribe(list => { this.lists.set(list); this.loading.set(false); });
+    this.api
+      .familyLists()
+      .pipe(
+        catchError(() => {
+          this.error.set(true);
+          return of<FamilyList[]>([]);
+        }),
+        takeUntilDestroyed(),
+      )
+      .subscribe((list) => {
+        this.lists.set(list);
+        this.loading.set(false);
+      });
   }
 
   initials(name: string): string {
@@ -138,7 +175,7 @@ export class FamilyLists {
   }
 
   /** The caller's household member userIds (for the manage check below). */
-  private readonly memberIds = computed(() => new Set(this.members().map(m => m.userId)));
+  private readonly memberIds = computed(() => new Set(this.members().map((m) => m.userId)));
 
   /**
    * True when the caller may MANAGE this list (share / delete the whole list) — i.e. they're a household
@@ -151,27 +188,32 @@ export class FamilyLists {
 
   /** Assignee options for a to-do item (household members only). */
   readonly assignees = computed<Assignee[]>(() =>
-    this.members().map(m => ({ userId: m.userId, name: m.name, picture: m.picture })));
+    this.members().map((m) => ({ userId: m.userId, name: m.name, picture: m.picture })),
+  );
 
   private upsert(list: FamilyList): void {
-    this.lists.update(all => all.some(l => l.id === list.id)
-      ? all.map(l => (l.id === list.id ? list : l))
-      : [list, ...all]);
+    this.lists.update((all) =>
+      all.some((l) => l.id === list.id)
+        ? all.map((l) => (l.id === list.id ? list : l))
+        : [list, ...all],
+    );
   }
 
   draftFor(listId: number): string {
     return this.itemDrafts()[listId] ?? '';
   }
   setDraft(listId: number, value: string): void {
-    this.itemDrafts.update(d => ({ ...d, [listId]: value }));
+    this.itemDrafts.update((d) => ({ ...d, [listId]: value }));
   }
 
   // ---- Lists ----
 
   /** Create a new list of the given kind via a tiny prompt-style dialog. */
   async createList(kind: FamilyListKind): Promise<void> {
-    const name = await this.promptName(kind === 'shopping' ? 'New shopping list' : 'New to-do list',
-      kind === 'shopping' ? 'e.g. Groceries' : 'e.g. Weekend chores');
+    const name = await this.promptName(
+      kind === 'shopping' ? 'New shopping list' : 'New to-do list',
+      kind === 'shopping' ? 'e.g. Groceries' : 'e.g. Weekend chores',
+    );
     if (!name) return;
     try {
       const list = await firstValueFrom(this.api.createFamilyList(name, kind));
@@ -202,7 +244,7 @@ export class FamilyLists {
     if (!ok) return;
     try {
       await firstValueFrom(this.api.deleteFamilyList(list.id));
-      this.lists.update(all => all.filter(l => l.id !== list.id));
+      this.lists.update((all) => all.filter((l) => l.id !== list.id));
     } catch {
       this.snack.open("Couldn't delete that list.", 'OK', { duration: 4000 });
     }
@@ -230,7 +272,9 @@ export class FamilyLists {
   async toggleItem(list: FamilyList, item: FamilyListItem): Promise<void> {
     if (!list.canEdit) return;
     try {
-      const updated = await firstValueFrom(this.api.patchFamilyListItem(list.id, item.id, { done: !item.done }));
+      const updated = await firstValueFrom(
+        this.api.patchFamilyListItem(list.id, item.id, { done: !item.done }),
+      );
       this.upsert(updated);
     } catch {
       this.snack.open("Couldn't update that item.", 'OK', { duration: 4000 });
@@ -251,7 +295,9 @@ export class FamilyLists {
   async assign(list: FamilyList, item: FamilyListItem, userId: number): Promise<void> {
     if (!list.canEdit || item.assignedToUserId === userId) return;
     try {
-      const updated = await firstValueFrom(this.api.patchFamilyListItem(list.id, item.id, { assignedToUserId: userId }));
+      const updated = await firstValueFrom(
+        this.api.patchFamilyListItem(list.id, item.id, { assignedToUserId: userId }),
+      );
       this.upsert(updated);
     } catch (e) {
       this.snack.open(this.messageOf(e, "Couldn't assign that item."), 'OK', { duration: 4000 });
@@ -266,7 +312,7 @@ export class FamilyLists {
   }
 
   private setAiPanel(listId: number, patch: Partial<AiPanel>): void {
-    this.aiPanels.update(p => ({ ...p, [listId]: { ...this.aiPanel(listId), ...patch } }));
+    this.aiPanels.update((p) => ({ ...p, [listId]: { ...this.aiPanel(listId), ...patch } }));
   }
 
   /** Open / close the "✨ Add several" box for a list. Opening resets any prior proposals. */
@@ -297,28 +343,37 @@ export class FamilyLists {
     this.setAiPanel(list.id, { busy: true, status: 'Reading what you typed…', items: null });
     try {
       const result = await firstValueFrom(this.api.parseListItemsAi(text, list.kind));
-      const items: ProposedItem[] = (result.items ?? []).map(t => ({ text: t, keep: true }));
+      const items: ProposedItem[] = (result.items ?? []).map((t) => ({ text: t, keep: true }));
       if (items.length === 0) {
         this.setAiPanel(list.id, {
-          busy: false, items: null,
-          status: result.notes?.trim() ||
-            "I couldn't find any items in that. Try \"milk, eggs, bread\" or paste a recipe.",
+          busy: false,
+          items: null,
+          status:
+            result.notes?.trim() ||
+            'I couldn\'t find any items in that. Try "milk, eggs, bread" or paste a recipe.',
         });
         return;
       }
       const n = items.length;
       this.setAiPanel(list.id, {
-        busy: false, items,
-        status: (result.notes?.trim() ? result.notes!.trim() + ' ' : '') +
+        busy: false,
+        items,
+        status:
+          (result.notes?.trim() ? result.notes!.trim() + ' ' : '') +
           `Review ${n === 1 ? 'this item' : `these ${n} items`}, then add ${n === 1 ? 'it' : 'them'}.`,
       });
     } catch (e) {
       const status = (e as { status?: number })?.status;
       this.setAiPanel(list.id, {
-        busy: false, items: null,
-        status: status === 503
-          ? "AI isn't available right now — you can add items manually below."
-          : this.messageOf(e, "I couldn't reach the AI just now. Please try again, or add items manually."),
+        busy: false,
+        items: null,
+        status:
+          status === 503
+            ? "AI isn't available right now — you can add items manually below."
+            : this.messageOf(
+                e,
+                "I couldn't reach the AI just now. Please try again, or add items manually.",
+              ),
       });
     }
   }
@@ -327,7 +382,9 @@ export class FamilyLists {
   toggleProposed(listId: number, index: number): void {
     const items = this.aiPanel(listId).items;
     if (!items) return;
-    this.setAiPanel(listId, { items: items.map((it, i) => i === index ? { ...it, keep: !it.keep } : it) });
+    this.setAiPanel(listId, {
+      items: items.map((it, i) => (i === index ? { ...it, keep: !it.keep } : it)),
+    });
   }
 
   /** Remove a proposed item from the review list entirely. */
@@ -339,7 +396,7 @@ export class FamilyLists {
 
   /** How many proposed items are currently checked-to-add. */
   keepCount(listId: number): number {
-    return (this.aiPanel(listId).items ?? []).filter(i => i.keep).length;
+    return (this.aiPanel(listId).items ?? []).filter((i) => i.keep).length;
   }
 
   /**
@@ -350,9 +407,12 @@ export class FamilyLists {
   async addProposed(list: FamilyList): Promise<void> {
     const panel = this.aiPanel(list.id);
     if (!list.canEdit || panel.adding || !panel.items) return;
-    const chosen = panel.items.filter(i => i.keep);
+    const chosen = panel.items.filter((i) => i.keep);
     if (chosen.length === 0) return;
-    this.setAiPanel(list.id, { adding: true, status: `Adding ${chosen.length} item${chosen.length === 1 ? '' : 's'}…` });
+    this.setAiPanel(list.id, {
+      adding: true,
+      status: `Adding ${chosen.length} item${chosen.length === 1 ? '' : 's'}…`,
+    });
 
     let updated: FamilyList | null = null;
     let added = 0;
@@ -369,11 +429,14 @@ export class FamilyLists {
 
     if (failed.length === 0) {
       this.setAiPanel(list.id, { ...emptyAiPanel() });
-      this.snack.open(`Added ${added} item${added === 1 ? '' : 's'}.`, undefined, { duration: 2000 });
+      this.snack.open(`Added ${added} item${added === 1 ? '' : 's'}.`, undefined, {
+        duration: 2000,
+      });
     } else {
       // Keep just the ones that didn't make it so the user can retry them.
       this.setAiPanel(list.id, {
-        adding: false, items: failed,
+        adding: false,
+        items: failed,
         status: `Added ${added}. ${failed.length} couldn't be added — try again.`,
       });
     }
@@ -387,7 +450,10 @@ export class FamilyLists {
   }
 
   private setSuggestPanel(listId: number, patch: Partial<SuggestPanel>): void {
-    this.suggestPanels.update(p => ({ ...p, [listId]: { ...this.suggestPanel(listId), ...patch } }));
+    this.suggestPanels.update((p) => ({
+      ...p,
+      [listId]: { ...this.suggestPanel(listId), ...patch },
+    }));
   }
 
   /** Open / close the "✨ What am I missing?" box for a list. Opening resets any prior proposals. */
@@ -415,29 +481,40 @@ export class FamilyLists {
     const panel = this.suggestPanel(list.id);
     const goal = panel.goal.trim();
     if (!goal || !list.canEdit || panel.busy) return;
-    this.setSuggestPanel(list.id, { busy: true, status: 'Thinking about what else you might need…', items: null });
+    this.setSuggestPanel(list.id, {
+      busy: true,
+      status: 'Thinking about what else you might need…',
+      items: null,
+    });
     try {
       const result = await firstValueFrom(this.api.suggestListItemsAi(list.id, goal));
-      const items: ProposedItem[] = (result.items ?? []).map(t => ({ text: t, keep: true }));
+      const items: ProposedItem[] = (result.items ?? []).map((t) => ({ text: t, keep: true }));
       if (items.length === 0) {
         this.setSuggestPanel(list.id, {
-          busy: false, items: null,
+          busy: false,
+          items: null,
           status: "Looks like you've got it covered — I couldn't think of anything to add.",
         });
         return;
       }
       const n = items.length;
       this.setSuggestPanel(list.id, {
-        busy: false, items,
+        busy: false,
+        items,
         status: `Here ${n === 1 ? 'is 1 idea' : `are ${n} ideas`} — pick the ones to add.`,
       });
     } catch (e) {
       const status = (e as { status?: number })?.status;
       this.setSuggestPanel(list.id, {
-        busy: false, items: null,
-        status: status === 503
-          ? "AI isn't available right now — you can add items manually below."
-          : this.messageOf(e, "I couldn't reach the AI just now. Please try again, or add items manually."),
+        busy: false,
+        items: null,
+        status:
+          status === 503
+            ? "AI isn't available right now — you can add items manually below."
+            : this.messageOf(
+                e,
+                "I couldn't reach the AI just now. Please try again, or add items manually.",
+              ),
       });
     }
   }
@@ -446,7 +523,9 @@ export class FamilyLists {
   toggleSuggested(listId: number, index: number): void {
     const items = this.suggestPanel(listId).items;
     if (!items) return;
-    this.setSuggestPanel(listId, { items: items.map((it, i) => i === index ? { ...it, keep: !it.keep } : it) });
+    this.setSuggestPanel(listId, {
+      items: items.map((it, i) => (i === index ? { ...it, keep: !it.keep } : it)),
+    });
   }
 
   /** Remove a proposed suggestion from the review list entirely. */
@@ -458,7 +537,7 @@ export class FamilyLists {
 
   /** How many proposed suggestions are currently checked-to-add. */
   suggestKeepCount(listId: number): number {
-    return (this.suggestPanel(listId).items ?? []).filter(i => i.keep).length;
+    return (this.suggestPanel(listId).items ?? []).filter((i) => i.keep).length;
   }
 
   /**
@@ -468,9 +547,12 @@ export class FamilyLists {
   async addSuggested(list: FamilyList): Promise<void> {
     const panel = this.suggestPanel(list.id);
     if (!list.canEdit || panel.adding || !panel.items) return;
-    const chosen = panel.items.filter(i => i.keep);
+    const chosen = panel.items.filter((i) => i.keep);
     if (chosen.length === 0) return;
-    this.setSuggestPanel(list.id, { adding: true, status: `Adding ${chosen.length} item${chosen.length === 1 ? '' : 's'}…` });
+    this.setSuggestPanel(list.id, {
+      adding: true,
+      status: `Adding ${chosen.length} item${chosen.length === 1 ? '' : 's'}…`,
+    });
 
     let updated: FamilyList | null = null;
     let added = 0;
@@ -487,10 +569,13 @@ export class FamilyLists {
 
     if (failed.length === 0) {
       this.setSuggestPanel(list.id, { ...emptySuggestPanel() });
-      this.snack.open(`Added ${added} item${added === 1 ? '' : 's'}.`, undefined, { duration: 2000 });
+      this.snack.open(`Added ${added} item${added === 1 ? '' : 's'}.`, undefined, {
+        duration: 2000,
+      });
     } else {
       this.setSuggestPanel(list.id, {
-        adding: false, items: failed,
+        adding: false,
+        items: failed,
         status: `Added ${added}. ${failed.length} couldn't be added — try again.`,
       });
     }
@@ -514,7 +599,11 @@ export class FamilyLists {
       },
     };
     const ref = this.dialog.open<FamilyShareDialog, ShareDialogData, boolean>(FamilyShareDialog, {
-      data, width: '460px', maxWidth: '94vw', autoFocus: false, panelClass: 'family-dialog',
+      data,
+      width: '460px',
+      maxWidth: '94vw',
+      autoFocus: false,
+      panelClass: 'family-dialog',
     });
     await firstValueFrom(ref.afterClosed());
   }
@@ -522,7 +611,7 @@ export class FamilyLists {
   // ---- Helpers ----
 
   doneCount(list: FamilyList): number {
-    return list.items.filter(i => i.done).length;
+    return list.items.filter((i) => i.done).length;
   }
 
   visibleShares(shares: FamilyShareTarget[]): FamilyShareTarget[] {
@@ -532,16 +621,27 @@ export class FamilyLists {
     return Math.max(0, shares.length - 3);
   }
 
-  private promptName(title: string, placeholder: string, initial = ''): Promise<string | undefined> {
+  private promptName(
+    title: string,
+    placeholder: string,
+    initial = '',
+  ): Promise<string | undefined> {
     const ref = this.dialog.open<ListNamePrompt, ListNamePromptData, string>(ListNamePrompt, {
-      data: { title, placeholder, initial }, width: '420px', maxWidth: '92vw', autoFocus: false, panelClass: 'family-dialog',
+      data: { title, placeholder, initial },
+      width: '420px',
+      maxWidth: '92vw',
+      autoFocus: false,
+      panelClass: 'family-dialog',
     });
     return firstValueFrom(ref.afterClosed());
   }
 
   private confirm(data: ConfirmData): Promise<boolean | undefined> {
     const ref = this.dialog.open<FamilyConfirmDialog, ConfirmData, boolean>(FamilyConfirmDialog, {
-      data, width: '420px', maxWidth: '92vw', panelClass: 'family-dialog',
+      data,
+      width: '420px',
+      maxWidth: '92vw',
+      panelClass: 'family-dialog',
     });
     return firstValueFrom(ref.afterClosed());
   }
@@ -554,7 +654,11 @@ export class FamilyLists {
 
 // ---- Inline name prompt (create / rename a list) ----
 
-interface ListNamePromptData { title: string; placeholder: string; initial: string; }
+interface ListNamePromptData {
+  title: string;
+  placeholder: string;
+  initial: string;
+}
 
 @Component({
   selector: 'app-list-name-prompt',
@@ -564,21 +668,50 @@ interface ListNamePromptData { title: string; placeholder: string; initial: stri
     <mat-dialog-content class="confirm__body">
       <mat-form-field appearance="outline" style="width:100%">
         <mat-label>List name</mat-label>
-        <input matInput cdkFocusInitial maxlength="200" [placeholder]="data.placeholder"
-               [ngModel]="name()" (ngModelChange)="name.set($event)"
-               (keydown.enter)="save()" />
+        <input
+          matInput
+          cdkFocusInitial
+          maxlength="200"
+          [placeholder]="data.placeholder"
+          [ngModel]="name()"
+          (ngModelChange)="name.set($event)"
+          (keydown.enter)="save()"
+        />
       </mat-form-field>
     </mat-dialog-content>
     <mat-dialog-actions align="end" class="confirm__actions">
       <button mat-stroked-button type="button" (click)="ref.close()">Cancel</button>
-      <button mat-flat-button color="primary" type="button" [disabled]="!name().trim()" (click)="save()">Save</button>
+      <button
+        mat-flat-button
+        color="primary"
+        type="button"
+        [disabled]="!name().trim()"
+        (click)="save()"
+      >
+        Save
+      </button>
     </mat-dialog-actions>
   `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: `
-    .confirm__title { font-family: var(--tech-font-ui); font-weight: 700; color: var(--tech-text); }
-    .confirm__body { min-width: min(340px, 80vw); padding-top: 6px !important; }
-    .confirm__actions { padding: var(--tech-space-3, 12px) var(--tech-space-4, 16px); gap: 8px;
-      button { border-radius: var(--tech-r-control); font-weight: 600; min-height: 42px; } }
+    .confirm__title {
+      font-family: var(--tech-font-ui);
+      font-weight: 700;
+      color: var(--tech-text);
+    }
+    .confirm__body {
+      min-width: min(340px, 80vw);
+      padding-top: 6px !important;
+    }
+    .confirm__actions {
+      padding: var(--tech-space-3, 12px) var(--tech-space-4, 16px);
+      gap: 8px;
+      button {
+        border-radius: var(--tech-r-control);
+        font-weight: 600;
+        min-height: 42px;
+      }
+    }
   `,
 })
 export class ListNamePrompt {

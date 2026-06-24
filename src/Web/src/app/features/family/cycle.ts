@@ -1,4 +1,11 @@
-import { Component, OnDestroy, computed, inject, signal } from '@angular/core';
+import {
+  Component,
+  OnDestroy,
+  computed,
+  inject,
+  signal,
+  ChangeDetectionStrategy,
+} from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { firstValueFrom } from 'rxjs';
 
@@ -15,8 +22,15 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { Api } from '../../core/api';
 import { AuthService } from '../../core/auth';
 import {
-  CycleData, CycleDayLog, CycleDayLogPatch, CycleFlowLevel, CycleNote, CyclePeriod, CyclePrediction,
-  CycleSettings, PERM,
+  CycleData,
+  CycleDayLog,
+  CycleDayLogPatch,
+  CycleFlowLevel,
+  CycleNote,
+  CyclePeriod,
+  CyclePrediction,
+  CycleSettings,
+  PERM,
 } from '../../core/models';
 import { ConfirmData, FamilyConfirmDialog } from './confirm-dialog';
 
@@ -40,9 +54,16 @@ interface CycleCell {
 }
 
 /** A mood choice for the daily-log selector (value matches the server's small mood vocabulary). */
-interface MoodChoice { value: string; label: string; emoji: string; }
+interface MoodChoice {
+  value: string;
+  label: string;
+  emoji: string;
+}
 /** A flow-level choice (value matches CycleFlowLevel 0..4). */
-interface FlowChoice { value: CycleFlowLevel; label: string; }
+interface FlowChoice {
+  value: CycleFlowLevel;
+  label: string;
+}
 
 /**
  * Family Hub — the Cycle page (features/family/cycle, a child of /family gated by cycle.track). A warm,
@@ -61,10 +82,18 @@ interface FlowChoice { value: CycleFlowLevel; label: string; }
   selector: 'app-family-cycle',
   standalone: true,
   imports: [
-    FormsModule, MatIconModule, MatButtonModule, MatTooltipModule, MatProgressSpinnerModule,
-    MatSlideToggleModule, MatFormFieldModule, MatInputModule, MatSnackBarModule,
+    FormsModule,
+    MatIconModule,
+    MatButtonModule,
+    MatTooltipModule,
+    MatProgressSpinnerModule,
+    MatSlideToggleModule,
+    MatFormFieldModule,
+    MatInputModule,
+    MatSnackBarModule,
   ],
   templateUrl: './cycle.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrls: ['./family.scss', './cycle.scss'],
 })
 export class FamilyCycle implements OnDestroy {
@@ -116,7 +145,8 @@ export class FamilyCycle implements OnDestroy {
 
   /** A friendly "June 2026" label for the visible month. */
   readonly monthLabel = computed<string>(() =>
-    this.monthStart().toLocaleDateString(undefined, { month: 'long', year: 'numeric' }));
+    this.monthStart().toLocaleDateString(undefined, { month: 'long', year: 'numeric' }),
+  );
 
   /** Sun..Sat weekday header labels (browser locale). */
   readonly weekdayHeaders = computed<string[]>(() => {
@@ -139,11 +169,11 @@ export class FamilyCycle implements OnDestroy {
     const month = first.getMonth();
     const gridStart = this.sundayOf(first);
 
-    const logged = this.loggedDays();          // Set<iso> of logged period days
+    const logged = this.loggedDays(); // Set<iso> of logged period days
     const p = this.prediction();
-    const predPeriod = this.predictedPeriodDays(p);   // Set<iso>
-    const fertile = this.fertileDays(p);              // Set<iso>
-    const logs = this.dayLogsByDate();                // Map<iso, CycleDayLog> (owner-only)
+    const predPeriod = this.predictedPeriodDays(p); // Set<iso>
+    const fertile = this.fertileDays(p); // Set<iso>
+    const logs = this.dayLogsByDate(); // Map<iso, CycleDayLog> (owner-only)
 
     const out: CycleCell[] = [];
     for (let i = 0; i < 42; i++) {
@@ -188,12 +218,13 @@ export class FamilyCycle implements OnDestroy {
 
   /** The recent logged periods, newest first, with friendly labels for the history list. */
   readonly recentPeriods = computed(() =>
-    this.periods().map(pr => ({
+    this.periods().map((pr) => ({
       raw: pr,
       label: pr.endDate
         ? `${this.friendlyDate(pr.startDate)} – ${this.friendlyDate(pr.endDate)}`
         : `${this.friendlyDate(pr.startDate)} (start)`,
-    })));
+    })),
+  );
 
   // ============================================================== daily log (PRIVATE, owner-only)
 
@@ -209,7 +240,14 @@ export class FamilyCycle implements OnDestroy {
 
   /** The symptom vocabulary the server accepts (a multi-select of chips). */
   readonly symptomChoices: readonly string[] = [
-    'cramps', 'headache', 'bloating', 'fatigue', 'tender', 'acne', 'nausea', 'backache',
+    'cramps',
+    'headache',
+    'bloating',
+    'fatigue',
+    'tender',
+    'acne',
+    'nausea',
+    'backache',
   ];
 
   /** The flow-level choices (value matches CycleFlowLevel). */
@@ -246,7 +284,8 @@ export class FamilyCycle implements OnDestroy {
 
   /** A friendly label for the day being edited ("Today" when it is today, else "Sun, Jun 22"). */
   readonly logDateLabel = computed<string>(() =>
-    this.logDate() === this.today ? 'Today' : this.friendlyDate(this.logDate()));
+    this.logDate() === this.today ? 'Today' : this.friendlyDate(this.logDate()),
+  );
 
   /** The debounce timer handle for the autosaving PUT, and the saved-flag clear timer. */
   private saveTimer: ReturnType<typeof setTimeout> | null = null;
@@ -343,7 +382,9 @@ export class FamilyCycle implements OnDestroy {
       this.logEnd.set('');
       await this.reload();
     } catch (e) {
-      this.snack.open(this.messageOf(e, "Couldn't log that just now. Please try again."), 'OK', { duration: 4000 });
+      this.snack.open(this.messageOf(e, "Couldn't log that just now. Please try again."), 'OK', {
+        duration: 4000,
+      });
     } finally {
       this.logging.set(false);
     }
@@ -353,7 +394,8 @@ export class FamilyCycle implements OnDestroy {
   async deletePeriod(pr: CyclePeriod): Promise<void> {
     const ok = await this.confirm({
       title: 'Remove this entry?',
-      message: 'This deletes the logged period from your private cycle calendar. Your predictions will update.',
+      message:
+        'This deletes the logged period from your private cycle calendar. Your predictions will update.',
       destructive: true,
       confirmLabel: 'Remove',
     });
@@ -362,7 +404,9 @@ export class FamilyCycle implements OnDestroy {
       await firstValueFrom(this.api.deletePeriod(pr.id));
       await this.reload();
     } catch {
-      this.snack.open("Couldn't remove that entry just now. Please try again.", 'OK', { duration: 4000 });
+      this.snack.open("Couldn't remove that entry just now. Please try again.", 'OK', {
+        duration: 4000,
+      });
     }
   }
 
@@ -383,10 +427,15 @@ export class FamilyCycle implements OnDestroy {
         updated.overlayToFamily
           ? 'Your predicted phases will show on the family calendar.'
           : 'Sharing turned off — your predictions are private again.',
-        undefined, { duration: 2600 });
+        undefined,
+        { duration: 2600 },
+      );
     } catch (e) {
-      this.snack.open(this.messageOf(e, "Couldn't update sharing just now. Please try again."), 'OK',
-        { duration: 4000 });
+      this.snack.open(
+        this.messageOf(e, "Couldn't update sharing just now. Please try again."),
+        'OK',
+        { duration: 4000 },
+      );
     } finally {
       this.overlayBusy.set(false);
     }
@@ -402,10 +451,16 @@ export class FamilyCycle implements OnDestroy {
   }
 
   /** Step the edited day one day back/forward (clamped to the same sane window the server enforces). */
-  prevDay(): void { this.shiftLogDate(-1); }
-  nextDay(): void { this.shiftLogDate(1); }
+  prevDay(): void {
+    this.shiftLogDate(-1);
+  }
+  nextDay(): void {
+    this.shiftLogDate(1);
+  }
   /** Jump the daily-log editor back to today. */
-  logToday(): void { this.selectLogDate(this.today); }
+  logToday(): void {
+    this.selectLogDate(this.today);
+  }
 
   private shiftLogDate(delta: number): void {
     const d = this.parseIso(this.logDate());
@@ -434,7 +489,7 @@ export class FamilyCycle implements OnDestroy {
     this.editSymptoms.set(new Set(log?.symptoms ?? []));
     this.editFlow.set(log?.flowLevel ?? 0);
     this.editIntimacy.set(log?.intimacy ?? false);
-    this.editProtected.set(log?.intimacy ? log.protected ?? null : null);
+    this.editProtected.set(log?.intimacy ? (log.protected ?? null) : null);
     this.editEnergy.set(log?.energy ?? null);
     this.editNotes.set(log?.notes ?? '');
   }
@@ -443,31 +498,34 @@ export class FamilyCycle implements OnDestroy {
 
   /** Toggle a mood chip (re-tapping the selected mood clears it). */
   toggleMood(value: string): void {
-    this.editMood.update(m => (m === value ? null : value));
+    this.editMood.update((m) => (m === value ? null : value));
     this.scheduleSave();
   }
 
   /** Toggle a symptom chip in/out of the multi-select. */
   toggleSymptom(value: string): void {
-    this.editSymptoms.update(set => {
+    this.editSymptoms.update((set) => {
       const next = new Set(set);
-      if (next.has(value)) next.delete(value); else next.add(value);
+      if (next.has(value)) next.delete(value);
+      else next.add(value);
       return next;
     });
     this.scheduleSave();
   }
 
-  isSymptomOn(value: string): boolean { return this.editSymptoms().has(value); }
+  isSymptomOn(value: string): boolean {
+    return this.editSymptoms().has(value);
+  }
 
   /** Set the flow level (re-tapping the selected level returns to None). */
   selectFlow(value: CycleFlowLevel): void {
-    this.editFlow.update(f => (f === value ? 0 : value));
+    this.editFlow.update((f) => (f === value ? 0 : value));
     this.scheduleSave();
   }
 
   /** Toggle the discreet intimacy flag; turning it off also clears the protected sub-toggle. */
   toggleIntimacy(): void {
-    this.editIntimacy.update(v => !v);
+    this.editIntimacy.update((v) => !v);
     if (!this.editIntimacy()) this.editProtected.set(null);
     this.scheduleSave();
   }
@@ -475,13 +533,13 @@ export class FamilyCycle implements OnDestroy {
   /** Toggle the optional "protected" sub-flag (only meaningful while intimacy is on). */
   toggleProtected(): void {
     if (!this.editIntimacy()) return;
-    this.editProtected.update(v => (v === true ? false : true));
+    this.editProtected.update((v) => (v === true ? false : true));
     this.scheduleSave();
   }
 
   /** Set the 1..5 energy level (re-tapping the selected level clears it). */
   selectEnergy(value: number): void {
-    this.editEnergy.update(e => (e === value ? null : value));
+    this.editEnergy.update((e) => (e === value ? null : value));
     this.scheduleSave();
   }
 
@@ -499,7 +557,9 @@ export class FamilyCycle implements OnDestroy {
   private scheduleSave(): void {
     this.daySaved.set(false);
     if (this.saveTimer) clearTimeout(this.saveTimer);
-    this.saveTimer = setTimeout(() => { void this.saveDay(); }, 700);
+    this.saveTimer = setTimeout(() => {
+      void this.saveDay();
+    }, 700);
   }
 
   /** Flush a pending debounced save immediately (e.g. before switching days), if one is queued. */
@@ -511,7 +571,10 @@ export class FamilyCycle implements OnDestroy {
   }
 
   private async saveDay(): Promise<void> {
-    if (this.saveTimer) { clearTimeout(this.saveTimer); this.saveTimer = null; }
+    if (this.saveTimer) {
+      clearTimeout(this.saveTimer);
+      this.saveTimer = null;
+    }
     const date = this.logDate();
     const intimacy = this.editIntimacy();
     const patch: CycleDayLogPatch = {
@@ -528,7 +591,7 @@ export class FamilyCycle implements OnDestroy {
     try {
       const saved = await firstValueFrom(this.api.upsertCycleDayLog(patch));
       // Re-index just this day so the calendar dot + "logged" hint stay accurate without a full reload.
-      this.dayLogsByDate.update(prev => {
+      this.dayLogsByDate.update((prev) => {
         const next = new Map(prev);
         next.set(saved.date, saved);
         return next;
@@ -537,7 +600,9 @@ export class FamilyCycle implements OnDestroy {
       if (this.savedFlagTimer) clearTimeout(this.savedFlagTimer);
       this.savedFlagTimer = setTimeout(() => this.daySaved.set(false), 2200);
     } catch {
-      this.snack.open("Couldn't save your log just now. Please try again.", 'OK', { duration: 4000 });
+      this.snack.open("Couldn't save your log just now. Please try again.", 'OK', {
+        duration: 4000,
+      });
     } finally {
       this.daySaving.set(false);
     }
@@ -553,16 +618,20 @@ export class FamilyCycle implements OnDestroy {
     }
     const ok = await this.confirm({
       title: 'Clear this day?',
-      message: 'This removes everything you logged for this day (mood, symptoms, flow, energy and notes) from '
-        + 'your private cycle log. It only affects this one day.',
+      message:
+        'This removes everything you logged for this day (mood, symptoms, flow, energy and notes) from ' +
+        'your private cycle log. It only affects this one day.',
       destructive: true,
       confirmLabel: 'Clear day',
     });
     if (!ok) return;
-    if (this.saveTimer) { clearTimeout(this.saveTimer); this.saveTimer = null; }
+    if (this.saveTimer) {
+      clearTimeout(this.saveTimer);
+      this.saveTimer = null;
+    }
     try {
       await firstValueFrom(this.api.deleteCycleDayLog(date));
-      this.dayLogsByDate.update(prev => {
+      this.dayLogsByDate.update((prev) => {
         const next = new Map(prev);
         next.delete(date);
         return next;
@@ -570,7 +639,9 @@ export class FamilyCycle implements OnDestroy {
       this.loadDayIntoEditor(date);
       this.daySaved.set(false);
     } catch {
-      this.snack.open("Couldn't clear that day just now. Please try again.", 'OK', { duration: 4000 });
+      this.snack.open("Couldn't clear that day just now. Please try again.", 'OK', {
+        duration: 4000,
+      });
     }
   }
 
@@ -657,7 +728,9 @@ export class FamilyCycle implements OnDestroy {
   /** "Mon, Jun 22" friendly label from a plain ISO date. */
   friendlyDate(iso: string): string {
     const d = this.parseIso(iso);
-    return d ? d.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' }) : iso;
+    return d
+      ? d.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })
+      : iso;
   }
 
   /** "Jun 22" short label from a plain ISO date. */
@@ -670,7 +743,10 @@ export class FamilyCycle implements OnDestroy {
 
   private confirm(data: ConfirmData): Promise<boolean | undefined> {
     const ref = this.dialog.open<FamilyConfirmDialog, ConfirmData, boolean>(FamilyConfirmDialog, {
-      data, width: '420px', maxWidth: '92vw', panelClass: 'family-dialog',
+      data,
+      width: '420px',
+      maxWidth: '92vw',
+      panelClass: 'family-dialog',
     });
     return firstValueFrom(ref.afterClosed());
   }

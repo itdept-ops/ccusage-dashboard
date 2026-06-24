@@ -1,5 +1,12 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnDestroy, computed, inject, signal } from '@angular/core';
+import {
+  Component,
+  OnDestroy,
+  computed,
+  inject,
+  signal,
+  ChangeDetectionStrategy,
+} from '@angular/core';
 
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
@@ -27,10 +34,17 @@ import { LocationMap, MapPin, MapTrail } from './location-map';
   selector: 'app-my-locations',
   standalone: true,
   imports: [
-    CommonModule, MatButtonModule, MatIconModule, MatTooltipModule, MatProgressBarModule,
-    MatSlideToggleModule, MatSnackBarModule, LocationMap,
+    CommonModule,
+    MatButtonModule,
+    MatIconModule,
+    MatTooltipModule,
+    MatProgressBarModule,
+    MatSlideToggleModule,
+    MatSnackBarModule,
+    LocationMap,
   ],
   templateUrl: './my-locations.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrl: './my-locations.scss',
 })
 export class MyLocations implements OnDestroy {
@@ -61,11 +75,12 @@ export class MyLocations implements OnDestroy {
       subtitle: `${this.sourceLabel(f.source)} · ${timeAgo(f.capturedUtc, this.now())}`,
       kind: 'user' as const,
       emphasis: i === 0,
-    })));
+    })),
+  );
 
   /** A single trail connecting the history points newest→oldest. */
   readonly trails = computed<MapTrail[]>(() => {
-    const pts = this.history().map(f => [f.lat, f.lng] as [number, number]);
+    const pts = this.history().map((f) => [f.lat, f.lng] as [number, number]);
     return pts.length > 1 ? [{ points: pts }] : [];
   });
 
@@ -78,8 +93,14 @@ export class MyLocations implements OnDestroy {
     this.loading.set(true);
     this.now.set(Date.now());
     this.api.myLocations(200).subscribe({
-      next: rows => { this.history.set(rows); this.loading.set(false); },
-      error: () => { this.loading.set(false); this.snack.open('Could not load your locations', 'Dismiss', { duration: 4000 }); },
+      next: (rows) => {
+        this.history.set(rows);
+        this.loading.set(false);
+      },
+      error: () => {
+        this.loading.set(false);
+        this.snack.open('Could not load your locations', 'Dismiss', { duration: 4000 });
+      },
     });
   }
 
@@ -91,7 +112,9 @@ export class MyLocations implements OnDestroy {
     }
     const city = await this.capture.captureOnce('manual');
     if (this.capture.permissionDenied()) {
-      this.snack.open('Location permission was denied by your browser.', 'Dismiss', { duration: 5000 });
+      this.snack.open('Location permission was denied by your browser.', 'Dismiss', {
+        duration: 5000,
+      });
       return;
     }
     this.snack.open(city ? `Recorded — ${city}` : 'Location recorded.', 'OK', { duration: 3500 });
@@ -107,11 +130,22 @@ export class MyLocations implements OnDestroy {
     this.savingSettings.set(true);
     const saved = await this.capture.applySettings({ locationEnabled: enabled });
     this.savingSettings.set(false);
-    if (!saved) { this.snack.open('Could not update location setting', 'Dismiss', { duration: 4000 }); return; }
+    if (!saved) {
+      this.snack.open('Could not update location setting', 'Dismiss', { duration: 4000 });
+      return;
+    }
     if (enabled && this.capture.permissionDenied()) {
-      this.snack.open('Enabled, but your browser denied the location permission. Allow it and try “Share current location”.', 'OK', { duration: 6000 });
+      this.snack.open(
+        'Enabled, but your browser denied the location permission. Allow it and try “Share current location”.',
+        'OK',
+        { duration: 6000 },
+      );
     } else {
-      this.snack.open(enabled ? 'Location enabled.' : 'Location disabled (your history is kept).', 'OK', { duration: 3000 });
+      this.snack.open(
+        enabled ? 'Location enabled.' : 'Location disabled (your history is kept).',
+        'OK',
+        { duration: 3000 },
+      );
     }
     if (enabled) this.load();
   }
@@ -121,8 +155,15 @@ export class MyLocations implements OnDestroy {
     this.savingSettings.set(true);
     const saved = await this.capture.applySettings({ shareHousehold: share });
     this.savingSettings.set(false);
-    if (!saved) { this.snack.open('Could not update sharing setting', 'Dismiss', { duration: 4000 }); return; }
-    this.snack.open(share ? 'Sharing your city with household.' : 'Stopped sharing your city.', 'OK', { duration: 3000 });
+    if (!saved) {
+      this.snack.open('Could not update sharing setting', 'Dismiss', { duration: 4000 });
+      return;
+    }
+    this.snack.open(
+      share ? 'Sharing your city with household.' : 'Stopped sharing your city.',
+      'OK',
+      { duration: 3000 },
+    );
   }
 
   /** Destructive: permanently clear the caller's own history (confirm via the on-brand dialog first). */
@@ -135,12 +176,16 @@ export class MyLocations implements OnDestroy {
         confirmLabel: 'Delete history',
         destructive: true,
       },
-      width: '420px', maxWidth: '92vw',
+      width: '420px',
+      maxWidth: '92vw',
     });
     const ok = await firstValueFrom(ref.afterClosed());
     if (!ok) return;
     this.api.clearMyLocations().subscribe({
-      next: r => { this.history.set([]); this.snack.open(`Cleared ${r.deleted} location(s).`, 'OK', { duration: 3500 }); },
+      next: (r) => {
+        this.history.set([]);
+        this.snack.open(`Cleared ${r.deleted} location(s).`, 'OK', { duration: 3500 });
+      },
       error: () => this.snack.open('Could not clear history', 'Dismiss', { duration: 4000 }),
     });
   }
@@ -156,11 +201,16 @@ export class MyLocations implements OnDestroy {
 
   sourceLabel(source: string): string {
     switch (source) {
-      case 'login': return 'on sign-in';
-      case 'periodic': return 'auto';
-      case 'manual': return 'shared';
-      case 'agent': return 'agent';
-      default: return source;
+      case 'login':
+        return 'on sign-in';
+      case 'periodic':
+        return 'auto';
+      case 'manual':
+        return 'shared';
+      case 'agent':
+        return 'agent';
+      default:
+        return source;
     }
   }
 }

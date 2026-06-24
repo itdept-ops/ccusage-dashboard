@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal, ChangeDetectionStrategy } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 
 import { MatCardModule } from '@angular/material/card';
@@ -16,9 +16,21 @@ import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 
 import { Api } from '../../core/api';
 import { AuthService } from '../../core/auth';
-import { Fleet as FleetModel, FleetDimension, FleetMachine, FleetUser, PERM, UsageFilter } from '../../core/models';
+import {
+  Fleet as FleetModel,
+  FleetDimension,
+  FleetMachine,
+  FleetUser,
+  PERM,
+  UsageFilter,
+} from '../../core/models';
 import { CompactPipe, timeAgo } from '../../shared/format';
-import { FleetAction, FleetActionData, FleetActionDialog, FleetActionResult } from './fleet-action-dialog';
+import {
+  FleetAction,
+  FleetActionData,
+  FleetActionDialog,
+  FleetActionResult,
+} from './fleet-action-dialog';
 
 type Board = 'machines' | 'users';
 
@@ -30,12 +42,23 @@ type Board = 'machines' | 'users';
 @Component({
   selector: 'app-fleet',
   imports: [
-    CommonModule, FormsModule,
-    MatCardModule, MatButtonModule, MatButtonToggleModule, MatFormFieldModule, MatInputModule,
-    MatIconModule, MatMenuModule, MatTooltipModule, MatProgressBarModule, MatSnackBarModule, MatDialogModule,
+    CommonModule,
+    FormsModule,
+    MatCardModule,
+    MatButtonModule,
+    MatButtonToggleModule,
+    MatFormFieldModule,
+    MatInputModule,
+    MatIconModule,
+    MatMenuModule,
+    MatTooltipModule,
+    MatProgressBarModule,
+    MatSnackBarModule,
+    MatDialogModule,
     CompactPipe,
   ],
   templateUrl: './fleet.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrl: './fleet.scss',
 })
 export class Fleet {
@@ -48,11 +71,22 @@ export class Fleet {
   readonly canManage = computed(() => this.auth.hasPermission(PERM.reporterManage));
 
   // ---- filter state (date range only — fleet is a coarse roll-up) ----
-  readonly filter = signal<UsageFilter>({ from: null, to: null, projectIds: [], models: [], sources: [], machine: [], includeSidechain: true });
+  readonly filter = signal<UsageFilter>({
+    from: null,
+    to: null,
+    projectIds: [],
+    models: [],
+    sources: [],
+    machine: [],
+    includeSidechain: true,
+  });
   readonly activePreset = signal<string>('all');
   readonly presets = [
-    { key: '7d', label: '7d' }, { key: '30d', label: '30d' }, { key: '90d', label: '90d' },
-    { key: 'mtd', label: 'Month' }, { key: 'all', label: 'All' },
+    { key: '7d', label: '7d' },
+    { key: '30d', label: '30d' },
+    { key: '90d', label: '90d' },
+    { key: 'mtd', label: 'Month' },
+    { key: 'all', label: 'All' },
   ] as const;
 
   readonly fleet = signal<FleetModel | null>(null);
@@ -67,13 +101,17 @@ export class Fleet {
 
   /** Stable, non-email key for a user row (the userId when present, else keyed by the
    *  local/orphan bucket name so the local row and each "Unknown user" row stay distinct). */
-  userKey(u: FleetUser): string { return u.userId != null ? 'u' + u.userId : 'n:' + u.name; }
+  userKey(u: FleetUser): string {
+    return u.userId != null ? 'u' + u.userId : 'n:' + u.name;
+  }
 
   // Cost-desc ordering (the API may already sort, but we enforce it for a stable view).
   readonly machines = computed<FleetMachine[]>(() =>
-    [...(this.fleet()?.machines ?? [])].sort((a, b) => b.costUsd - a.costUsd));
+    [...(this.fleet()?.machines ?? [])].sort((a, b) => b.costUsd - a.costUsd),
+  );
   readonly users = computed<FleetUser[]>(() =>
-    [...(this.fleet()?.users ?? [])].sort((a, b) => b.costUsd - a.costUsd));
+    [...(this.fleet()?.users ?? [])].sort((a, b) => b.costUsd - a.costUsd),
+  );
 
   readonly totals = computed(() => {
     const m = this.machines();
@@ -100,25 +138,44 @@ export class Fleet {
   private reload(): void {
     this.loading.set(true);
     this.api.fleet(this.filter()).subscribe({
-      next: f => { this.fleet.set(f); this.loading.set(false); },
-      error: () => { this.loading.set(false); this.snack.open('Failed to load fleet — is the API running?', 'Dismiss', { duration: 5000 }); },
+      next: (f) => {
+        this.fleet.set(f);
+        this.loading.set(false);
+      },
+      error: () => {
+        this.loading.set(false);
+        this.snack.open('Failed to load fleet — is the API running?', 'Dismiss', {
+          duration: 5000,
+        });
+      },
     });
   }
 
   patch<K extends keyof UsageFilter>(key: K, value: UsageFilter[K]): void {
-    this.filter.update(f => ({ ...f, [key]: value }));
+    this.filter.update((f) => ({ ...f, [key]: value }));
   }
 
-  applyFilters(): void { this.reload(); }
+  applyFilters(): void {
+    this.reload();
+  }
 
   resetFilters(): void {
-    this.filter.set({ from: null, to: null, projectIds: [], models: [], sources: [], machine: [], includeSidechain: true });
+    this.filter.set({
+      from: null,
+      to: null,
+      projectIds: [],
+      models: [],
+      sources: [],
+      machine: [],
+      includeSidechain: true,
+    });
     this.activePreset.set('all');
     this.reload();
   }
 
   setDatePreset(kind: string): void {
-    const fmt = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    const fmt = (d: Date) =>
+      `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
     const today = new Date();
     let from: string | null = null;
     if (kind === 'mtd') {
@@ -131,7 +188,7 @@ export class Fleet {
     }
     const to = kind === 'all' ? null : fmt(today);
     this.activePreset.set(kind);
-    this.filter.update(f => ({ ...f, from, to }));
+    this.filter.update((f) => ({ ...f, from, to }));
     this.reload();
   }
 
@@ -152,11 +209,15 @@ export class Fleet {
     return Math.max(2, Math.round((cost / this.maxCost()) * 100));
   }
 
-  seen(iso: string | null): string { return timeAgo(iso); }
+  seen(iso: string | null): string {
+    return timeAgo(iso);
+  }
 
   /** "local" is the synthetic file-sync bucket — surface it as such rather than a real host/user.
    * For users this matches the resolved display name; for machines, the literal "local" row. */
-  isLocal(name: string): boolean { return name === 'local'; }
+  isLocal(name: string): boolean {
+    return name === 'local';
+  }
 
   /**
    * Normalize the raw reporter `agent` kind into a display label for the details badge.
@@ -192,12 +253,12 @@ export class Fleet {
 
   /** "Manufacturer Model" label (drops blanks); "" when neither is reported. */
   systemLabel(m: FleetMachine): string {
-    return [m.manufacturer, m.model].filter(p => !!p && p!.trim().length).join(' ');
+    return [m.manufacturer, m.model].filter((p) => !!p && p!.trim().length).join(' ');
   }
 
   /** A "City, Region, Country" label from the machine's resolved place (drops blanks); "" when none. */
   locationLabel(m: FleetMachine): string {
-    return [m.city, m.region, m.country].filter(p => !!p && p!.trim().length).join(', ');
+    return [m.city, m.region, m.country].filter((p) => !!p && p!.trim().length).join(', ');
   }
 
   /** True when the machine has finite coordinates to plot/link. */
@@ -234,25 +295,30 @@ export class Fleet {
   }
 
   /** The OTHER MACHINE buckets — combine/transfer targets for the machine reassign picker (raw names). */
-  private otherMachineTargets(selfName: string): { rawValue: string; label: string; userId?: number | null }[] {
+  private otherMachineTargets(
+    selfName: string,
+  ): { rawValue: string; label: string; userId?: number | null }[] {
     return this.machines()
-      .map(m => m.name)
-      .filter(name => name !== selfName)
-      .map(name => ({ rawValue: this.rawValue(name), label: this.friendly(name) }));
+      .map((m) => m.name)
+      .filter((name) => name !== selfName)
+      .map((name) => ({ rawValue: this.rawValue(name), label: this.friendly(name) }));
   }
 
   /** The OTHER USER buckets — combine/transfer targets for the user reassign picker (keyed by userId). */
-  private otherUserTargets(self: FleetUser): { rawValue: string; label: string; userId?: number | null }[] {
+  private otherUserTargets(
+    self: FleetUser,
+  ): { rawValue: string; label: string; userId?: number | null }[] {
     return this.users()
-      .filter(u => this.userKey(u) !== this.userKey(self))
-      .map(u => ({ rawValue: '', label: this.friendly(u.name), userId: u.userId ?? null }));
+      .filter((u) => this.userKey(u) !== this.userKey(self))
+      .map((u) => ({ rawValue: '', label: this.friendly(u.name), userId: u.userId ?? null }));
   }
 
   /** Open a MACHINE management dialog (raw machine names). */
   private openMachineAction(action: FleetAction, m: FleetMachine): void {
     if (!this.canManage()) return;
     const data: FleetActionData = {
-      action, dimension: 'machine',
+      action,
+      dimension: 'machine',
       rawValue: this.rawValue(m.name),
       label: this.friendly(m.name),
       records: m.records,
@@ -265,7 +331,8 @@ export class Fleet {
   private openUserAction(action: FleetAction, u: FleetUser): void {
     if (!this.canManage()) return;
     const data: FleetActionData = {
-      action, dimension: 'user',
+      action,
+      dimension: 'user',
       rawValue: '',
       userId: u.userId ?? null,
       label: this.friendly(u.name),
@@ -277,8 +344,17 @@ export class Fleet {
 
   /** Open the dialog with the prepared data; on success refresh the data and toast the count. */
   private runDialog(data: FleetActionData): void {
-    this.dialog.open(FleetActionDialog, { data, width: '520px', maxWidth: '94vw', maxHeight: '90dvh', panelClass: 'uiq-dialog', autoFocus: false })
-      .afterClosed().subscribe((res: FleetActionResult | undefined) => {
+    this.dialog
+      .open(FleetActionDialog, {
+        data,
+        width: '520px',
+        maxWidth: '94vw',
+        maxHeight: '90dvh',
+        panelClass: 'uiq-dialog',
+        autoFocus: false,
+      })
+      .afterClosed()
+      .subscribe((res: FleetActionResult | undefined) => {
         if (!res) return;
         this.toastResult(res, data.label);
         this.reload();
@@ -287,18 +363,29 @@ export class Fleet {
 
   private toastResult(res: FleetActionResult, label: string): void {
     const n = res.count;
-    const msg = res.action === 'reassign'
-      ? `Moved ${n.toLocaleString()} record${n === 1 ? '' : 's'} from "${label}".`
-      : res.action === 'delete'
-        ? `Deleted ${n.toLocaleString()} record${n === 1 ? '' : 's'} from "${label}".`
-        : `Revoked ${n.toLocaleString()} key${n === 1 ? '' : 's'} for "${label}".`;
+    const msg =
+      res.action === 'reassign'
+        ? `Moved ${n.toLocaleString()} record${n === 1 ? '' : 's'} from "${label}".`
+        : res.action === 'delete'
+          ? `Deleted ${n.toLocaleString()} record${n === 1 ? '' : 's'} from "${label}".`
+          : `Revoked ${n.toLocaleString()} key${n === 1 ? '' : 's'} for "${label}".`;
     this.snack.open(msg, 'OK', { duration: 4000 });
   }
 
   // Per-row entry points used by the row menu.
-  combineMachine(m: FleetMachine): void { this.openMachineAction('reassign', m); }
-  deleteMachine(m: FleetMachine): void { this.openMachineAction('delete', m); }
-  combineUser(u: FleetUser): void { this.openUserAction('reassign', u); }
-  deleteUser(u: FleetUser): void { this.openUserAction('delete', u); }
-  revokeUser(u: FleetUser): void { this.openUserAction('revoke', u); }
+  combineMachine(m: FleetMachine): void {
+    this.openMachineAction('reassign', m);
+  }
+  deleteMachine(m: FleetMachine): void {
+    this.openMachineAction('delete', m);
+  }
+  combineUser(u: FleetUser): void {
+    this.openUserAction('reassign', u);
+  }
+  deleteUser(u: FleetUser): void {
+    this.openUserAction('delete', u);
+  }
+  revokeUser(u: FleetUser): void {
+    this.openUserAction('revoke', u);
+  }
 }

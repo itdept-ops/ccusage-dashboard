@@ -1,4 +1,4 @@
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal, ChangeDetectionStrategy } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { HttpErrorResponse } from '@angular/common/http';
 
@@ -47,10 +47,17 @@ export interface ChatCreateData {
 @Component({
   selector: 'app-chat-create-dialog',
   imports: [
-    FormsModule, MatDialogModule, MatFormFieldModule, MatInputModule, MatButtonModule,
-    MatButtonToggleModule, MatCheckboxModule, MatIconModule,
+    FormsModule,
+    MatDialogModule,
+    MatFormFieldModule,
+    MatInputModule,
+    MatButtonModule,
+    MatButtonToggleModule,
+    MatCheckboxModule,
+    MatIconModule,
   ],
   templateUrl: './chat-create-dialog.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrl: './chat-create-dialog.scss',
 })
 export class ChatCreateDialog {
@@ -76,7 +83,7 @@ export class ChatCreateDialog {
     const q = this.query().trim().toLowerCase();
     const people = this.data.people;
     if (!q) return people;
-    return people.filter(p => p.name.toLowerCase().includes(q));
+    return people.filter((p) => p.name.toLowerCase().includes(q));
   });
 
   /** How many members are picked (drives the channel create button + chip count). */
@@ -86,9 +93,11 @@ export class ChatCreateDialog {
    * Empty-state copy when there are NO candidates at all. A non-admin with an empty circle is told to
    * ask an admin; an admin with an empty directory (no other enabled users) gets a sensible fallback.
    */
-  readonly emptyCopy = computed(() => this.data.isAdmin
-    ? 'No other teammates available yet.'
-    : 'No contacts yet — ask an admin to add some to your circle.');
+  readonly emptyCopy = computed(() =>
+    this.data.isAdmin
+      ? 'No other teammates available yet.'
+      : 'No contacts yet — ask an admin to add some to your circle.',
+  );
 
   isSelected(userId: number): boolean {
     return this.selected().has(userId);
@@ -131,18 +140,20 @@ export class ChatCreateDialog {
 
     if (this.mode() === 'direct') {
       const userId = [...this.selected()][0];
-      this.chat.openDirect(userId)
-        .then(ch => this.ref.close(ch))
+      this.chat
+        .openDirect(userId)
+        .then((ch) => this.ref.close(ch))
         .catch(fail);
       return;
     }
 
     const members = [...this.selected()];
-    this.chat.createChannel(this.name().trim(), members, {
-      topic: this.topic().trim() || undefined,
-      isPrivate: this.isPrivate(),
-    })
-      .then(ch => this.ref.close(ch))
+    this.chat
+      .createChannel(this.name().trim(), members, {
+        topic: this.topic().trim() || undefined,
+        isPrivate: this.isPrivate(),
+      })
+      .then((ch) => this.ref.close(ch))
       .catch(fail);
   }
 

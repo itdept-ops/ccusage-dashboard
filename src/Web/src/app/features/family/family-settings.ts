@@ -1,4 +1,4 @@
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal, ChangeDetectionStrategy } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { catchError, firstValueFrom, of } from 'rxjs';
@@ -79,10 +79,20 @@ const LEAD_MINUTES: { value: number; label: string }[] = [
 @Component({
   selector: 'app-family-settings',
   imports: [
-    RouterLink, FormsModule, MatIconModule, MatButtonModule, MatFormFieldModule, MatInputModule,
-    MatSelectModule, MatSlideToggleModule, MatTooltipModule, MatProgressSpinnerModule, MatSnackBarModule,
+    RouterLink,
+    FormsModule,
+    MatIconModule,
+    MatButtonModule,
+    MatFormFieldModule,
+    MatInputModule,
+    MatSelectModule,
+    MatSlideToggleModule,
+    MatTooltipModule,
+    MatProgressSpinnerModule,
+    MatSnackBarModule,
   ],
   templateUrl: './family-settings.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrl: './family.scss',
 })
 export class FamilySettingsPanel {
@@ -113,33 +123,47 @@ export class FamilySettingsPanel {
   /** If the loaded timezone isn't in the curated list, surface it so the select still shows the real value. */
   readonly tzOptions = computed<TzOption[]>(() => {
     const tz = this.timeZone();
-    if (tz && !TIMEZONES.some(o => o.id === tz)) return [{ id: tz, label: tz }, ...TIMEZONES];
+    if (tz && !TIMEZONES.some((o) => o.id === tz)) return [{ id: tz, label: tz }, ...TIMEZONES];
     return TIMEZONES;
   });
 
   /** If the saved lead time isn't one of the presets, surface it so the select still shows the real value. */
   readonly leadOptions = computed<{ value: number; label: string }[]>(() => {
     const lead = this.headsUpLead();
-    if (LEAD_MINUTES.some(o => o.value === lead)) return LEAD_MINUTES;
-    return [...LEAD_MINUTES, { value: lead, label: `${lead} minutes before` }].sort((a, b) => a.value - b.value);
+    if (LEAD_MINUTES.some((o) => o.value === lead)) return LEAD_MINUTES;
+    return [...LEAD_MINUTES, { value: lead, label: `${lead} minutes before` }].sort(
+      (a, b) => a.value - b.value,
+    );
   });
 
   /** True once any draft field differs from the saved settings (enables the Save button). */
   readonly dirty = computed(() => {
     const s = this.settings();
     if (!s) return false;
-    return this.briefingEnabled() !== s.briefingEnabled
-      || this.briefingHour() !== s.briefingHourLocal
-      || this.timeZone() !== s.timeZone
-      || this.weatherLocation().trim() !== (s.weatherLocation ?? '')
-      || this.headsUpEnabled() !== s.eventHeadsUpEnabled
-      || this.headsUpLead() !== s.eventHeadsUpLeadMinutes;
+    return (
+      this.briefingEnabled() !== s.briefingEnabled ||
+      this.briefingHour() !== s.briefingHourLocal ||
+      this.timeZone() !== s.timeZone ||
+      this.weatherLocation().trim() !== (s.weatherLocation ?? '') ||
+      this.headsUpEnabled() !== s.eventHeadsUpEnabled ||
+      this.headsUpLead() !== s.eventHeadsUpLeadMinutes
+    );
   });
 
   constructor() {
-    this.api.familySettings()
-      .pipe(catchError(() => { this.error.set(true); return of(null); }), takeUntilDestroyed())
-      .subscribe(s => { if (s) this.apply(s); this.loading.set(false); });
+    this.api
+      .familySettings()
+      .pipe(
+        catchError(() => {
+          this.error.set(true);
+          return of(null);
+        }),
+        takeUntilDestroyed(),
+      )
+      .subscribe((s) => {
+        if (s) this.apply(s);
+        this.loading.set(false);
+      });
   }
 
   private apply(s: FamilySettings): void {
@@ -160,18 +184,22 @@ export class FamilySettingsPanel {
     this.saving.set(true);
     try {
       const loc = this.weatherLocation().trim();
-      const saved = await firstValueFrom(this.api.updateFamilySettings({
-        briefingEnabled: this.briefingEnabled(),
-        briefingHourLocal: this.briefingHour(),
-        timeZone: this.timeZone(),
-        weatherLocation: loc.length ? loc : null,
-        eventHeadsUpEnabled: this.headsUpEnabled(),
-        eventHeadsUpLeadMinutes: this.headsUpLead(),
-      }));
+      const saved = await firstValueFrom(
+        this.api.updateFamilySettings({
+          briefingEnabled: this.briefingEnabled(),
+          briefingHourLocal: this.briefingHour(),
+          timeZone: this.timeZone(),
+          weatherLocation: loc.length ? loc : null,
+          eventHeadsUpEnabled: this.headsUpEnabled(),
+          eventHeadsUpLeadMinutes: this.headsUpLead(),
+        }),
+      );
       this.apply(saved);
       this.snack.open('Family settings saved.', 'OK', { duration: 3000 });
     } catch (e) {
-      this.snack.open(this.messageOf(e, "Couldn't save settings. Please try again."), 'OK', { duration: 4000 });
+      this.snack.open(this.messageOf(e, "Couldn't save settings. Please try again."), 'OK', {
+        duration: 4000,
+      });
     } finally {
       this.saving.set(false);
     }

@@ -1,4 +1,4 @@
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal, ChangeDetectionStrategy } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 
 import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
@@ -38,15 +38,29 @@ const QUALITY_LABELS = ['', 'Poor', 'Fair', 'OK', 'Good', 'Great'];
 @Component({
   selector: 'app-add-sleep-dialog',
   imports: [
-    FormsModule, MatDialogModule, MatFormFieldModule, MatInputModule, MatButtonModule, MatIconModule,
+    FormsModule,
+    MatDialogModule,
+    MatFormFieldModule,
+    MatInputModule,
+    MatButtonModule,
+    MatIconModule,
   ],
   template: `
     <h2 mat-dialog-title class="sl-title">{{ data.edit ? 'Edit sleep' : 'Log sleep' }}</h2>
     <mat-dialog-content class="sl-body">
       <mat-form-field appearance="outline" class="sl-field">
         <mat-label>Hours slept</mat-label>
-        <input matInput type="number" min="0" max="24" step="0.5" inputmode="decimal" cdkFocusInitial
-               [ngModel]="hours()" (ngModelChange)="hours.set($event)" />
+        <input
+          matInput
+          type="number"
+          min="0"
+          max="24"
+          step="0.5"
+          inputmode="decimal"
+          cdkFocusInitial
+          [ngModel]="hours()"
+          (ngModelChange)="hours.set($event)"
+        />
         <span matTextSuffix>h</span>
         <mat-hint>For the night you woke on {{ data.date }}.</mat-hint>
       </mat-form-field>
@@ -55,11 +69,15 @@ const QUALITY_LABELS = ['', 'Poor', 'Fair', 'OK', 'Good', 'Great'];
         <span class="sl-quality-label">Quality</span>
         <div class="sl-stars">
           @for (n of stars; track n) {
-            <button mat-icon-button type="button" class="sl-star"
-                    [class.sl-star--on]="n <= quality()"
-                    (click)="quality.set(n)"
-                    [attr.aria-pressed]="n <= quality()"
-                    [attr.aria-label]="n + ' of 5, ' + qualityLabels[n]">
+            <button
+              mat-icon-button
+              type="button"
+              class="sl-star"
+              [class.sl-star--on]="n <= quality()"
+              (click)="quality.set(n)"
+              [attr.aria-pressed]="n <= quality()"
+              [attr.aria-label]="n + ' of 5, ' + qualityLabels[n]"
+            >
               <mat-icon>{{ n <= quality() ? 'star' : 'star_border' }}</mat-icon>
             </button>
           }
@@ -74,41 +92,106 @@ const QUALITY_LABELS = ['', 'Poor', 'Fair', 'OK', 'Good', 'Great'];
         </mat-form-field>
         <mat-form-field appearance="outline" class="sl-time">
           <mat-label>Wake time (optional)</mat-label>
-          <input matInput type="time" [ngModel]="wakeTime()" (ngModelChange)="wakeTime.set($event)" />
+          <input
+            matInput
+            type="time"
+            [ngModel]="wakeTime()"
+            (ngModelChange)="wakeTime.set($event)"
+          />
         </mat-form-field>
       </div>
 
       <mat-form-field appearance="outline" class="sl-field">
         <mat-label>Note (optional)</mat-label>
-        <input matInput type="text" maxlength="200" placeholder="Restless, woke at 3am, slept great…"
-               [ngModel]="note()" (ngModelChange)="note.set($event)" />
+        <input
+          matInput
+          type="text"
+          maxlength="200"
+          placeholder="Restless, woke at 3am, slept great…"
+          [ngModel]="note()"
+          (ngModelChange)="note.set($event)"
+        />
       </mat-form-field>
     </mat-dialog-content>
     <mat-dialog-actions class="sl-actions" align="end">
       <button mat-stroked-button type="button" (click)="cancel()">Cancel</button>
-      <button mat-flat-button type="button" color="primary" [disabled]="!canSave()" (click)="save()">
+      <button
+        mat-flat-button
+        type="button"
+        color="primary"
+        [disabled]="!canSave()"
+        (click)="save()"
+      >
         {{ data.edit ? 'Save' : 'Log' }}
       </button>
     </mat-dialog-actions>
   `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: `
-    .sl-title { font-family: var(--tech-font-ui); font-weight: 700; color: var(--tech-text); }
-    .sl-body { min-width: min(380px, 84vw); padding-top: 4px !important;
-      display: flex; flex-direction: column; gap: var(--tech-space-2); }
-    .sl-field { width: 100%; }
-    .sl-actions { padding: var(--tech-space-3) var(--tech-space-4); gap: 8px;
-      button { border-radius: var(--tech-r-control); font-weight: 600; min-height: 44px; } }
+    .sl-title {
+      font-family: var(--tech-font-ui);
+      font-weight: 700;
+      color: var(--tech-text);
+    }
+    .sl-body {
+      min-width: min(380px, 84vw);
+      padding-top: 4px !important;
+      display: flex;
+      flex-direction: column;
+      gap: var(--tech-space-2);
+    }
+    .sl-field {
+      width: 100%;
+    }
+    .sl-actions {
+      padding: var(--tech-space-3) var(--tech-space-4);
+      gap: 8px;
+      button {
+        border-radius: var(--tech-r-control);
+        font-weight: 600;
+        min-height: 44px;
+      }
+    }
 
-    .sl-quality { display: flex; flex-direction: column; gap: 2px; }
-    .sl-quality-label { font-size: var(--tech-fs-label); color: var(--tech-text-secondary); }
-    .sl-stars { display: flex; align-items: center; gap: 2px; }
-    .sl-star { color: var(--tech-text-tertiary);
-      mat-icon { font-size: 24px; width: 24px; height: 24px; } }
-    .sl-star--on { color: var(--tech-accent); }
-    .sl-quality-word { margin-left: 8px; font-size: var(--tech-fs-label); color: var(--tech-text-secondary); }
+    .sl-quality {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .sl-quality-label {
+      font-size: var(--tech-fs-label);
+      color: var(--tech-text-secondary);
+    }
+    .sl-stars {
+      display: flex;
+      align-items: center;
+      gap: 2px;
+    }
+    .sl-star {
+      color: var(--tech-text-tertiary);
+      mat-icon {
+        font-size: 24px;
+        width: 24px;
+        height: 24px;
+      }
+    }
+    .sl-star--on {
+      color: var(--tech-accent);
+    }
+    .sl-quality-word {
+      margin-left: 8px;
+      font-size: var(--tech-fs-label);
+      color: var(--tech-text-secondary);
+    }
 
-    .sl-times { display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--tech-space-2); }
-    .sl-time { width: 100%; }
+    .sl-times {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: var(--tech-space-2);
+    }
+    .sl-time {
+      width: 100%;
+    }
   `,
 })
 export class AddSleepDialog {

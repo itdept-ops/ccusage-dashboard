@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, inject, signal } from '@angular/core';
+import { Component, inject, signal, ChangeDetectionStrategy } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 
 import { MatCardModule } from '@angular/material/card';
@@ -17,10 +17,18 @@ import { AuthService } from '../../core/auth';
 @Component({
   selector: 'app-pricing',
   imports: [
-    CommonModule, FormsModule, MatCardModule, MatFormFieldModule, MatInputModule,
-    MatButtonModule, MatIconModule, MatProgressBarModule, MatSnackBarModule,
+    CommonModule,
+    FormsModule,
+    MatCardModule,
+    MatFormFieldModule,
+    MatInputModule,
+    MatButtonModule,
+    MatIconModule,
+    MatProgressBarModule,
+    MatSnackBarModule,
   ],
   templateUrl: './pricing.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrl: './pricing.scss',
 })
 export class Pricing {
@@ -34,18 +42,30 @@ export class Pricing {
   readonly savingId = signal<number | null>(null);
   readonly recomputing = signal(false);
 
-  constructor() { this.load(); }
+  constructor() {
+    this.load();
+  }
 
   private load(): void {
     this.loading.set(true);
     this.api.pricing().subscribe({
-      next: r => { this.rows.set(r); this.loading.set(false); },
-      error: () => { this.loading.set(false); this.snack.open('Failed to load pricing', 'Dismiss', { duration: 4000 }); },
+      next: (r) => {
+        this.rows.set(r);
+        this.loading.set(false);
+      },
+      error: () => {
+        this.loading.set(false);
+        this.snack.open('Failed to load pricing', 'Dismiss', { duration: 4000 });
+      },
     });
   }
 
   private readonly rateFields: (keyof PricingRow)[] = [
-    'inputPerMTok', 'outputPerMTok', 'cacheWrite5mPerMTok', 'cacheWrite1hPerMTok', 'cacheReadPerMTok',
+    'inputPerMTok',
+    'outputPerMTok',
+    'cacheWrite5mPerMTok',
+    'cacheWrite1hPerMTok',
+    'cacheReadPerMTok',
   ];
 
   /** Coerce NaN/negative rates to 0 so a stray '-5' can't persist and corrupt cost recompute. */
@@ -60,16 +80,32 @@ export class Pricing {
     this.sanitizeRates(row);
     this.savingId.set(row.id);
     this.api.updatePricing(row.id, row).subscribe({
-      next: () => { this.savingId.set(null); this.snack.open(`Saved ${row.modelPattern}`, 'OK', { duration: 2500 }); },
-      error: () => { this.savingId.set(null); this.snack.open('Save failed', 'Dismiss', { duration: 4000 }); },
+      next: () => {
+        this.savingId.set(null);
+        this.snack.open(`Saved ${row.modelPattern}`, 'OK', { duration: 2500 });
+      },
+      error: () => {
+        this.savingId.set(null);
+        this.snack.open('Save failed', 'Dismiss', { duration: 4000 });
+      },
     });
   }
 
   recompute(): void {
     this.recomputing.set(true);
     this.api.recompute().subscribe({
-      next: r => { this.recomputing.set(false); this.snack.open(`Recomputed cost on ${r.rowsUpdated.toLocaleString()} rows (${r.modelsUpdated} models)`, 'OK', { duration: 5000 }); },
-      error: () => { this.recomputing.set(false); this.snack.open('Recompute failed', 'Dismiss', { duration: 4000 }); },
+      next: (r) => {
+        this.recomputing.set(false);
+        this.snack.open(
+          `Recomputed cost on ${r.rowsUpdated.toLocaleString()} rows (${r.modelsUpdated} models)`,
+          'OK',
+          { duration: 5000 },
+        );
+      },
+      error: () => {
+        this.recomputing.set(false);
+        this.snack.open('Recompute failed', 'Dismiss', { duration: 4000 });
+      },
     });
   }
 }

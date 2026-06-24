@@ -1,4 +1,4 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, inject, signal, ChangeDetectionStrategy } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 
 import { MatDialogModule, MatDialogRef } from '@angular/material/dialog';
@@ -15,21 +15,52 @@ import { MatButtonModule } from '@angular/material/button';
     <mat-dialog-content class="sv__body">
       <mat-form-field appearance="outline" class="sv__field">
         <mat-label>View name</mat-label>
-        <input matInput [ngModel]="name()" (ngModelChange)="name.set($event)"
-               (keydown.enter)="save()" placeholder="e.g. Last 30 days — Claude" cdkFocusInitial />
+        <input
+          matInput
+          [ngModel]="name()"
+          (ngModelChange)="name.set($event)"
+          (keydown.enter)="save()"
+          placeholder="e.g. Last 30 days — Claude"
+          cdkFocusInitial
+        />
       </mat-form-field>
     </mat-dialog-content>
     <mat-dialog-actions align="end" class="sv__actions">
       <button mat-stroked-button type="button" (click)="ref.close()">Cancel</button>
-      <button mat-flat-button type="button" color="primary" [disabled]="!name().trim()" (click)="save()">Save view</button>
+      <button
+        mat-flat-button
+        type="button"
+        color="primary"
+        [disabled]="!name().trim()"
+        (click)="save()"
+      >
+        Save view
+      </button>
     </mat-dialog-actions>
   `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: `
-    .sv__title { font-family: var(--tech-font-ui); font-weight: 700; color: var(--tech-text); }
-    .sv__body { min-width: min(360px, 80vw); color: var(--tech-text-secondary); }
-    .sv__field { width: 100%; }
-    .sv__actions { padding: var(--tech-space-3, 12px) var(--tech-space-4, 16px); gap: 8px;
-      button { border-radius: var(--tech-r-control); font-weight: 600; min-height: 42px; } }
+    .sv__title {
+      font-family: var(--tech-font-ui);
+      font-weight: 700;
+      color: var(--tech-text);
+    }
+    .sv__body {
+      min-width: min(360px, 80vw);
+      color: var(--tech-text-secondary);
+    }
+    .sv__field {
+      width: 100%;
+    }
+    .sv__actions {
+      padding: var(--tech-space-3, 12px) var(--tech-space-4, 16px);
+      gap: 8px;
+      button {
+        border-radius: var(--tech-r-control);
+        font-weight: 600;
+        min-height: 42px;
+      }
+    }
   `,
 })
 export class SaveViewDialog {

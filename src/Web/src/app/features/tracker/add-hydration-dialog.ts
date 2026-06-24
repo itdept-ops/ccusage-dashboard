@@ -1,4 +1,4 @@
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal, ChangeDetectionStrategy } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { firstValueFrom } from 'rxjs';
 
@@ -45,8 +45,13 @@ export type AddHydrationResult =
 @Component({
   selector: 'app-add-hydration-dialog',
   imports: [
-    FormsModule, MatDialogModule, MatFormFieldModule, MatInputModule, MatButtonModule,
-    MatIconModule, MatProgressSpinnerModule,
+    FormsModule,
+    MatDialogModule,
+    MatFormFieldModule,
+    MatInputModule,
+    MatButtonModule,
+    MatIconModule,
+    MatProgressSpinnerModule,
   ],
   template: `
     <h2 mat-dialog-title class="hy-title">Add a drink</h2>
@@ -55,20 +60,36 @@ export type AddHydrationResult =
         <!-- ✨ Describe what you drank: free text → a reviewable list of drinks (parse-hydration). -->
         <div class="hy-ai" role="group" aria-label="Describe what you drank with AI">
           <mat-form-field appearance="outline" class="hy-field">
-            <mat-label><mat-icon class="hy-ai-inline" aria-hidden="true">auto_awesome</mat-icon> Describe what you drank</mat-label>
-            <input matInput type="text" maxlength="200" placeholder="e.g. 2 coffees and a big water"
-                   [ngModel]="describeText()" (ngModelChange)="describeText.set($event)"
-                   (keyup.enter)="parseWithAi()" />
+            <mat-label
+              ><mat-icon class="hy-ai-inline" aria-hidden="true">auto_awesome</mat-icon> Describe
+              what you drank</mat-label
+            >
+            <input
+              matInput
+              type="text"
+              maxlength="200"
+              placeholder="e.g. 2 coffees and a big water"
+              [ngModel]="describeText()"
+              (ngModelChange)="describeText.set($event)"
+              (keyup.enter)="parseWithAi()"
+            />
             <mat-hint>AI lists the drinks below; review then add.</mat-hint>
           </mat-form-field>
-          <button mat-stroked-button type="button" class="hy-ai-btn"
-                  [disabled]="!canParse()" (click)="parseWithAi()"
-                  aria-label="Parse what you drank with AI into drinks to add">
+          <button
+            mat-stroked-button
+            type="button"
+            class="hy-ai-btn"
+            [disabled]="!canParse()"
+            (click)="parseWithAi()"
+            aria-label="Parse what you drank with AI into drinks to add"
+          >
             @if (parseLoading()) {
               <mat-progress-spinner mode="indeterminate" diameter="18" aria-hidden="true" />
               Reading…
             } @else {
-              <span class="hy-ai-btn-label"><mat-icon aria-hidden="true">auto_awesome</mat-icon> Parse drinks</span>
+              <span class="hy-ai-btn-label"
+                ><mat-icon aria-hidden="true">auto_awesome</mat-icon> Parse drinks</span
+              >
             }
           </button>
         </div>
@@ -80,20 +101,39 @@ export type AddHydrationResult =
               <div class="hy-parsed-row">
                 <span class="hy-parsed-label">{{ d.label }}</span>
                 <mat-form-field appearance="outline" class="hy-parsed-amt">
-                  <input matInput type="number" min="0" step="1" inputmode="decimal"
-                         [ngModel]="d.amountDisp" (ngModelChange)="setParsedAmount($index, $event)"
-                         [attr.aria-label]="'Amount for ' + d.label" />
+                  <input
+                    matInput
+                    type="number"
+                    min="0"
+                    step="1"
+                    inputmode="decimal"
+                    [ngModel]="d.amountDisp"
+                    (ngModelChange)="setParsedAmount($index, $event)"
+                    [attr.aria-label]="'Amount for ' + d.label"
+                  />
                   <span matTextSuffix>{{ imperial ? 'oz' : 'ml' }}</span>
                 </mat-form-field>
-                <button mat-icon-button type="button" (click)="removeParsed($index)"
-                        [attr.aria-label]="'Remove ' + d.label">
+                <button
+                  mat-icon-button
+                  type="button"
+                  (click)="removeParsed($index)"
+                  [attr.aria-label]="'Remove ' + d.label"
+                >
                   <mat-icon>close</mat-icon>
                 </button>
               </div>
             }
-            <button mat-flat-button color="primary" type="button" class="hy-parsed-add"
-                    [disabled]="!canAddParsed()" (click)="addParsed()">
-              <mat-icon aria-hidden="true">add</mat-icon> Add {{ parsedCount() }} drink{{ parsedCount() === 1 ? '' : 's' }}
+            <button
+              mat-flat-button
+              color="primary"
+              type="button"
+              class="hy-parsed-add"
+              [disabled]="!canAddParsed()"
+              (click)="addParsed()"
+            >
+              <mat-icon aria-hidden="true">add</mat-icon> Add {{ parsedCount() }} drink{{
+                parsedCount() === 1 ? '' : 's'
+              }}
             </button>
           </div>
         }
@@ -104,22 +144,38 @@ export type AddHydrationResult =
             <div class="hy-suggest-card" role="group" aria-label="AI hydration goal suggestion">
               <p class="hy-suggest-head">
                 <mat-icon aria-hidden="true">water_drop</mat-icon>
-                Suggested goal: <strong>{{ goalDisp(s.targetMl) }} {{ imperial ? 'oz' : 'ml' }}/day</strong>
+                Suggested goal:
+                <strong>{{ goalDisp(s.targetMl) }} {{ imperial ? 'oz' : 'ml' }}/day</strong>
               </p>
-              @if (s.rationale) { <p class="hy-suggest-why">{{ s.rationale }}</p> }
-              <button mat-stroked-button type="button" class="hy-suggest-set" (click)="acceptGoal(s.targetMl)">
+              @if (s.rationale) {
+                <p class="hy-suggest-why">{{ s.rationale }}</p>
+              }
+              <button
+                mat-stroked-button
+                type="button"
+                class="hy-suggest-set"
+                (click)="acceptGoal(s.targetMl)"
+              >
                 <mat-icon aria-hidden="true">check</mat-icon> Set as my goal
               </button>
             </div>
           } @else {
-            <button mat-stroked-button type="button" class="hy-ai-btn"
-                    [disabled]="goalLoading()" (click)="suggestGoalWithAi()"
-                    aria-label="Suggest my daily hydration goal with AI from my profile">
+            <button
+              mat-stroked-button
+              type="button"
+              class="hy-ai-btn"
+              [disabled]="goalLoading()"
+              (click)="suggestGoalWithAi()"
+              aria-label="Suggest my daily hydration goal with AI from my profile"
+            >
               @if (goalLoading()) {
                 <mat-progress-spinner mode="indeterminate" diameter="18" aria-hidden="true" />
                 Suggesting…
               } @else {
-                <span class="hy-ai-btn-label"><mat-icon aria-hidden="true">auto_awesome</mat-icon> Suggest my hydration goal</span>
+                <span class="hy-ai-btn-label"
+                  ><mat-icon aria-hidden="true">auto_awesome</mat-icon> Suggest my hydration
+                  goal</span
+                >
               }
             </button>
           }
@@ -132,67 +188,193 @@ export type AddHydrationResult =
 
       <mat-form-field appearance="outline" class="hy-field">
         <mat-label>Amount</mat-label>
-        <input matInput type="number" min="0" step="1" inputmode="decimal" cdkFocusInitial
-               [ngModel]="amountDisp()" (ngModelChange)="amountDisp.set($event)" />
+        <input
+          matInput
+          type="number"
+          min="0"
+          step="1"
+          inputmode="decimal"
+          cdkFocusInitial
+          [ngModel]="amountDisp()"
+          (ngModelChange)="amountDisp.set($event)"
+        />
         <span matTextSuffix>{{ imperial ? 'oz' : 'ml' }}</span>
         <mat-hint>Logged for {{ data.date }}.</mat-hint>
       </mat-form-field>
 
       <mat-form-field appearance="outline" class="hy-field">
         <mat-label>Drink (optional)</mat-label>
-        <input matInput type="text" maxlength="64" placeholder="Water, Coffee, Tea…"
-               [ngModel]="label()" (ngModelChange)="label.set($event)" />
+        <input
+          matInput
+          type="text"
+          maxlength="64"
+          placeholder="Water, Coffee, Tea…"
+          [ngModel]="label()"
+          (ngModelChange)="label.set($event)"
+        />
       </mat-form-field>
     </mat-dialog-content>
     <mat-dialog-actions class="hy-actions" align="end">
       <button mat-stroked-button type="button" (click)="cancel()">Cancel</button>
-      <button mat-flat-button type="button" color="primary" [disabled]="!canSave()" (click)="save()">Add</button>
+      <button
+        mat-flat-button
+        type="button"
+        color="primary"
+        [disabled]="!canSave()"
+        (click)="save()"
+      >
+        Add
+      </button>
     </mat-dialog-actions>
   `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: `
-    .hy-title { font-family: var(--tech-font-ui); font-weight: 700; color: var(--tech-text); }
-    .hy-body { min-width: min(360px, 82vw); padding-top: 4px !important;
-      display: flex; flex-direction: column; gap: var(--tech-space-2); }
-    .hy-field { width: 100%; }
-    .hy-actions { padding: var(--tech-space-3) var(--tech-space-4); gap: 8px;
-      button { border-radius: var(--tech-r-control); font-weight: 600; min-height: 44px; } }
+    .hy-title {
+      font-family: var(--tech-font-ui);
+      font-weight: 700;
+      color: var(--tech-text);
+    }
+    .hy-body {
+      min-width: min(360px, 82vw);
+      padding-top: 4px !important;
+      display: flex;
+      flex-direction: column;
+      gap: var(--tech-space-2);
+    }
+    .hy-field {
+      width: 100%;
+    }
+    .hy-actions {
+      padding: var(--tech-space-3) var(--tech-space-4);
+      gap: 8px;
+      button {
+        border-radius: var(--tech-r-control);
+        font-weight: 600;
+        min-height: 44px;
+      }
+    }
 
-    .hy-ai, .hy-ai-goal { display: flex; flex-direction: column; gap: var(--tech-space-2); }
-    .hy-ai-inline { font-size: 16px; width: 16px; height: 16px; vertical-align: -3px; color: var(--tech-accent); }
+    .hy-ai,
+    .hy-ai-goal {
+      display: flex;
+      flex-direction: column;
+      gap: var(--tech-space-2);
+    }
+    .hy-ai-inline {
+      font-size: 16px;
+      width: 16px;
+      height: 16px;
+      vertical-align: -3px;
+      color: var(--tech-accent);
+    }
     .hy-ai-btn {
-      min-height: 44px; border-radius: var(--tech-r-control); font-weight: 600; align-self: flex-start;
-      display: inline-flex; align-items: center; gap: 6px;
-      mat-icon { color: var(--tech-accent); font-size: 18px; width: 18px; height: 18px; }
-      mat-progress-spinner { display: inline-block; }
-      .hy-ai-btn-label { display: inline-flex; align-items: center; gap: 6px; }
+      min-height: 44px;
+      border-radius: var(--tech-r-control);
+      font-weight: 600;
+      align-self: flex-start;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      mat-icon {
+        color: var(--tech-accent);
+        font-size: 18px;
+        width: 18px;
+        height: 18px;
+      }
+      mat-progress-spinner {
+        display: inline-block;
+      }
+      .hy-ai-btn-label {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+      }
     }
 
     .hy-parsed {
-      display: flex; flex-direction: column; gap: var(--tech-space-1);
-      padding: var(--tech-space-3); border: 1px solid var(--tech-border);
-      border-radius: var(--tech-r-control); background: var(--tech-bg-sunken);
+      display: flex;
+      flex-direction: column;
+      gap: var(--tech-space-1);
+      padding: var(--tech-space-3);
+      border: 1px solid var(--tech-border);
+      border-radius: var(--tech-r-control);
+      background: var(--tech-bg-sunken);
     }
-    .hy-parsed-row { display: grid; grid-template-columns: 1fr 7.5em auto; align-items: center; gap: var(--tech-space-2);
-      mat-form-field { margin-bottom: -1.25em; } }
-    .hy-parsed-label { font-size: var(--tech-fs-body); color: var(--tech-text); }
-    .hy-parsed-add { align-self: flex-start; min-height: 44px; border-radius: var(--tech-r-control); font-weight: 600; }
+    .hy-parsed-row {
+      display: grid;
+      grid-template-columns: 1fr 7.5em auto;
+      align-items: center;
+      gap: var(--tech-space-2);
+      mat-form-field {
+        margin-bottom: -1.25em;
+      }
+    }
+    .hy-parsed-label {
+      font-size: var(--tech-fs-body);
+      color: var(--tech-text);
+    }
+    .hy-parsed-add {
+      align-self: flex-start;
+      min-height: 44px;
+      border-radius: var(--tech-r-control);
+      font-weight: 600;
+    }
 
     .hy-suggest-card {
-      display: flex; flex-direction: column; gap: 4px;
-      padding: var(--tech-space-3); border: 1px solid var(--tech-border);
-      border-radius: var(--tech-r-control); background: var(--tech-bg-sunken);
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      padding: var(--tech-space-3);
+      border: 1px solid var(--tech-border);
+      border-radius: var(--tech-r-control);
+      background: var(--tech-bg-sunken);
     }
-    .hy-suggest-head { display: flex; align-items: center; gap: 6px; margin: 0;
-      font-size: var(--tech-fs-body); color: var(--tech-text);
-      mat-icon { color: var(--tech-accent); font-size: 18px; width: 18px; height: 18px; } }
-    .hy-suggest-why { margin: 0; font-size: var(--tech-fs-label); color: var(--tech-text-secondary); }
-    .hy-suggest-set { align-self: flex-start; min-height: 44px; border-radius: var(--tech-r-control); font-weight: 600;
-      color: var(--tech-accent); mat-icon { font-size: 18px; width: 18px; height: 18px; } }
+    .hy-suggest-head {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin: 0;
+      font-size: var(--tech-fs-body);
+      color: var(--tech-text);
+      mat-icon {
+        color: var(--tech-accent);
+        font-size: 18px;
+        width: 18px;
+        height: 18px;
+      }
+    }
+    .hy-suggest-why {
+      margin: 0;
+      font-size: var(--tech-fs-label);
+      color: var(--tech-text-secondary);
+    }
+    .hy-suggest-set {
+      align-self: flex-start;
+      min-height: 44px;
+      border-radius: var(--tech-r-control);
+      font-weight: 600;
+      color: var(--tech-accent);
+      mat-icon {
+        font-size: 18px;
+        width: 18px;
+        height: 18px;
+      }
+    }
 
-    .hy-or { margin-top: var(--tech-space-1); color: var(--tech-text-secondary); }
+    .hy-or {
+      margin-top: var(--tech-space-1);
+      color: var(--tech-text-secondary);
+    }
     .hy-sr-status {
-      position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; border: 0;
-      overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap;
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      margin: -1px;
+      padding: 0;
+      border: 0;
+      overflow: hidden;
+      clip: rect(0 0 0 0);
+      white-space: nowrap;
     }
   `,
 })
@@ -237,7 +419,9 @@ export class AddHydrationDialog {
 
   readonly canParse = computed(() => this.describeText().trim().length > 0 && !this.parseLoading());
   /** How many parsed rows have a valid (1..5000 ml) amount. */
-  readonly parsedCount = computed(() => this.parsed().filter(r => this.mlOf(r.amountDisp) != null).length);
+  readonly parsedCount = computed(
+    () => this.parsed().filter((r) => this.mlOf(r.amountDisp) != null).length,
+  );
   readonly canAddParsed = computed(() => this.parsedCount() > 0);
 
   /** Parse the free-text drinks into editable rows. A 503/error leaves the manual fields fully usable. */
@@ -248,11 +432,13 @@ export class AddHydrationDialog {
     this.aiAnnounce.set('Reading what you drank with AI…');
     try {
       const res = await firstValueFrom(this.api.parseHydration({ text }));
-      const rows = res.items.map(i => ({ label: i.label, amountDisp: this.dispOf(i.ml) }));
+      const rows = res.items.map((i) => ({ label: i.label, amountDisp: this.dispOf(i.ml) }));
       this.parsed.set(rows);
-      this.aiAnnounce.set(rows.length
-        ? `AI found ${rows.length} drink${rows.length === 1 ? '' : 's'}. Review the amounts, then add.`
-        : 'AI did not find any drinks. Add one manually below.');
+      this.aiAnnounce.set(
+        rows.length
+          ? `AI found ${rows.length} drink${rows.length === 1 ? '' : 's'}. Review the amounts, then add.`
+          : 'AI did not find any drinks. Add one manually below.',
+      );
     } catch {
       this.parsed.set([]);
       this.aiAnnounce.set('AI could not read your drinks. Add one manually below.');
@@ -263,11 +449,13 @@ export class AddHydrationDialog {
   }
 
   setParsedAmount(index: number, value: number | null): void {
-    this.parsed.update(rows => rows.map((r, i) => (i === index ? { ...r, amountDisp: value } : r)));
+    this.parsed.update((rows) =>
+      rows.map((r, i) => (i === index ? { ...r, amountDisp: value } : r)),
+    );
   }
 
   removeParsed(index: number): void {
-    this.parsed.update(rows => rows.filter((_, i) => i !== index));
+    this.parsed.update((rows) => rows.filter((_, i) => i !== index));
   }
 
   /** Commit the (valid) parsed rows as hydration requests for the page to log + refresh. */
@@ -302,7 +490,9 @@ export class AddHydrationDialog {
       this.suggestion.set({ targetMl: res.targetMl, rationale: res.rationale ?? null });
       this.aiAnnounce.set(
         `AI suggests a daily goal of ${this.dispOf(res.targetMl)} ${this.imperial ? 'ounces' : 'millilitres'}.` +
-        (res.rationale ? ` ${res.rationale}` : '') + ' Set it as your goal, or close to keep your current goal.');
+          (res.rationale ? ` ${res.rationale}` : '') +
+          ' Set it as your goal, or close to keep your current goal.',
+      );
     } catch {
       this.suggestion.set(null);
       this.aiAnnounce.set('AI hydration suggestion unavailable.');
@@ -322,7 +512,10 @@ export class AddHydrationDialog {
     const ml = this.ml();
     if (ml == null) return;
     const label = this.label().trim();
-    this.ref.close({ kind: 'manual', requests: [{ date: this.data.date, amountMl: ml, label: label || undefined }] });
+    this.ref.close({
+      kind: 'manual',
+      requests: [{ date: this.data.date, amountMl: ml, label: label || undefined }],
+    });
   }
 
   cancel(): void {

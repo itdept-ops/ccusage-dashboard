@@ -1,4 +1,4 @@
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal, ChangeDetectionStrategy } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { catchError, of } from 'rxjs';
 
@@ -8,7 +8,12 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 
 import { Api } from '../../core/api';
-import { AutomationRule, AutomationRuleInput, RuleAction, RuleConditionOp } from '../../core/models';
+import {
+  AutomationRule,
+  AutomationRuleInput,
+  RuleAction,
+  RuleConditionOp,
+} from '../../core/models';
 
 /** A trigger option: the kind + a human label + whether it carries a numeric payload (enables a condition). */
 interface TriggerOpt {
@@ -30,9 +35,14 @@ interface TriggerOpt {
 @Component({
   selector: 'app-automations',
   imports: [
-    ReactiveFormsModule, MatButtonModule, MatIconModule, MatProgressSpinnerModule, MatSlideToggleModule,
+    ReactiveFormsModule,
+    MatButtonModule,
+    MatIconModule,
+    MatProgressSpinnerModule,
+    MatSlideToggleModule,
   ],
   templateUrl: './automations.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrl: './automations.scss',
 })
 export class Automations {
@@ -68,8 +78,11 @@ export class Automations {
   });
 
   /** The selected trigger's metadata (drives whether a numeric condition is offered). */
-  readonly selectedTrigger = computed(() =>
-    this.triggers.find(t => t.kind === this.form.controls.triggerKind.value) ?? this.triggers[0]);
+  readonly selectedTrigger = computed(
+    () =>
+      this.triggers.find((t) => t.kind === this.form.controls.triggerKind.value) ??
+      this.triggers[0],
+  );
 
   /** Whether the rule being edited already has a webhook stored (the URL is never returned). */
   readonly editingHasWebhook = signal(false);
@@ -90,9 +103,15 @@ export class Automations {
   load(): void {
     this.loading.set(true);
     this.error.set(false);
-    this.api.automations()
-      .pipe(catchError(() => { this.error.set(true); return of(null); }))
-      .subscribe(rs => {
+    this.api
+      .automations()
+      .pipe(
+        catchError(() => {
+          this.error.set(true);
+          return of(null);
+        }),
+      )
+      .subscribe((rs) => {
         if (rs) this.rules.set(rs);
         this.loading.set(false);
       });
@@ -107,8 +126,14 @@ export class Automations {
     this.clearWebhook.set(false);
     this.saveError.set(null);
     this.form.reset({
-      name: '', triggerKind: 'workout.logged', conditionOp: 0, conditionValue: null,
-      action: 0, messageTemplate: '', webhookUrl: '', enabled: true,
+      name: '',
+      triggerKind: 'workout.logged',
+      conditionOp: 0,
+      conditionValue: null,
+      action: 0,
+      messageTemplate: '',
+      webhookUrl: '',
+      enabled: true,
     });
     this.formOpen.set(true);
   }
@@ -143,13 +168,13 @@ export class Automations {
   save(): void {
     if (this.form.invalid || this.saving()) return;
     const v = this.form.getRawValue();
-    const trig = this.triggers.find(t => t.kind === v.triggerKind);
+    const trig = this.triggers.find((t) => t.kind === v.triggerKind);
     // A condition only makes sense for kinds with a numeric payload; force "always" otherwise.
     const op: RuleConditionOp = trig?.unit ? v.conditionOp : 0;
     // Webhook contract (null = leave · "" = clear · value = set). A typed value sets/replaces it; an explicit
     // Clear sends "" to remove a stored webhook; otherwise (blank, untouched) send null to leave it as-is.
     const typed = v.webhookUrl?.trim() ?? '';
-    const webhookUrl = typed.length > 0 ? typed : (this.clearWebhook() ? '' : null);
+    const webhookUrl = typed.length > 0 ? typed : this.clearWebhook() ? '' : null;
     const body: AutomationRuleInput = {
       name: v.name?.trim() || null,
       triggerKind: v.triggerKind,
@@ -166,8 +191,13 @@ export class Automations {
     const id = this.editingId();
     const req$ = id == null ? this.api.createAutomation(body) : this.api.updateAutomation(id, body);
     req$
-      .pipe(catchError(() => { this.saveError.set('Could not save this automation. Check the fields and try again.'); return of(null); }))
-      .subscribe(saved => {
+      .pipe(
+        catchError(() => {
+          this.saveError.set('Could not save this automation. Check the fields and try again.');
+          return of(null);
+        }),
+      )
+      .subscribe((saved) => {
         this.saving.set(false);
         if (saved) {
           this.formOpen.set(false);
@@ -179,18 +209,26 @@ export class Automations {
   /** Toggle a rule's enabled flag in place (a one-field update reusing the same upsert body). */
   toggleEnabled(r: AutomationRule): void {
     const body: AutomationRuleInput = {
-      name: r.name, triggerKind: r.triggerKind, conditionOp: r.conditionOp,
-      conditionValue: r.conditionValue, action: r.action, messageTemplate: r.messageTemplate,
+      name: r.name,
+      triggerKind: r.triggerKind,
+      conditionOp: r.conditionOp,
+      conditionValue: r.conditionValue,
+      action: r.action,
+      messageTemplate: r.messageTemplate,
       // webhookUrl omitted (=> null = leave as-is): a one-field toggle must never touch the stored webhook.
       enabled: !r.enabled,
     };
-    this.api.updateAutomation(r.id, body)
+    this.api
+      .updateAutomation(r.id, body)
       .pipe(catchError(() => of(null)))
-      .subscribe(saved => { if (saved) this.load(); });
+      .subscribe((saved) => {
+        if (saved) this.load();
+      });
   }
 
   remove(r: AutomationRule): void {
-    this.api.deleteAutomation(r.id)
+    this.api
+      .deleteAutomation(r.id)
       .pipe(catchError(() => of(null)))
       .subscribe(() => this.load());
   }
@@ -198,12 +236,12 @@ export class Automations {
   // ---- Display helpers ----
 
   triggerLabel(kind: string): string {
-    return this.triggers.find(t => t.kind === kind)?.label ?? kind;
+    return this.triggers.find((t) => t.kind === kind)?.label ?? kind;
   }
 
   /** A short, human description of a rule's condition (or "Always"). */
   conditionLabel(r: AutomationRule): string {
-    const trig = this.triggers.find(t => t.kind === r.triggerKind);
+    const trig = this.triggers.find((t) => t.kind === r.triggerKind);
     if (r.conditionOp === 0 || r.conditionValue == null || !trig?.unit) return 'Always';
     const op = r.conditionOp === 1 ? '≥' : r.conditionOp === 2 ? '≤' : '=';
     return `${op} ${r.conditionValue} ${trig.unit}`;
@@ -211,9 +249,12 @@ export class Automations {
 
   actionLabel(a: RuleAction): string {
     switch (a) {
-      case 1: return 'Discord';
-      case 2: return 'Notify + Discord';
-      default: return 'In-app notification';
+      case 1:
+        return 'Discord';
+      case 2:
+        return 'Notify + Discord';
+      default:
+        return 'In-app notification';
     }
   }
 

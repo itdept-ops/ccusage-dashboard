@@ -1,4 +1,4 @@
-import { Component, computed, input } from '@angular/core';
+import { Component, computed, input, ChangeDetectionStrategy } from '@angular/core';
 
 import { formatVolume, glasses } from './units';
 
@@ -14,15 +14,24 @@ import { formatVolume, glasses } from './units';
   template: `
     <svg viewBox="0 0 120 120" class="ring" role="img" [attr.aria-label]="ariaLabel()">
       <circle class="ring__track" cx="60" cy="60" [attr.r]="radius" fill="none" stroke-width="11" />
-      <circle class="ring__bar" cx="60" cy="60" [attr.r]="radius" fill="none" stroke-width="11"
-              stroke-linecap="round" transform="rotate(-90 60 60)"
-              [class.ring__bar--met]="met()"
-              [attr.stroke-dasharray]="circumference"
-              [attr.stroke-dashoffset]="dashOffset()" />
+      <circle
+        class="ring__bar"
+        cx="60"
+        cy="60"
+        [attr.r]="radius"
+        fill="none"
+        stroke-width="11"
+        stroke-linecap="round"
+        transform="rotate(-90 60 60)"
+        [class.ring__bar--met]="met()"
+        [attr.stroke-dasharray]="circumference"
+        [attr.stroke-dashoffset]="dashOffset()"
+      />
       <text x="60" y="55" class="ring__value" text-anchor="middle">{{ headline() }}</text>
       <text x="60" y="73" class="ring__label" text-anchor="middle">{{ caption() }}</text>
     </svg>
   `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrl: './hydration-ring.scss',
 })
 export class HydrationRing {

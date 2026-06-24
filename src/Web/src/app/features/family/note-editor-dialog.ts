@@ -1,4 +1,4 @@
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal, ChangeDetectionStrategy } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { firstValueFrom } from 'rxjs';
 
@@ -14,7 +14,12 @@ import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { MatMenuModule } from '@angular/material/menu';
 
 import { Api } from '../../core/api';
-import { FamilyNote, NoteDraftAiResult, NoteTransformAction, NoteTransformAiResult } from '../../core/models';
+import {
+  FamilyNote,
+  NoteDraftAiResult,
+  NoteTransformAction,
+  NoteTransformAiResult,
+} from '../../core/models';
 import { renderMarkdown } from './markdown';
 
 /** Open with an existing note to edit, or null/undefined to create a fresh one. */
@@ -57,8 +62,20 @@ const TRANSFORM_ACTIONS: { action: NoteTransformAction; label: string; icon: str
 
 /** A small set of target languages for "Translate" (the server accepts any free-text language name). */
 const TRANSLATE_LANGS = [
-  'Spanish', 'French', 'German', 'Italian', 'Portuguese', 'Chinese', 'Japanese', 'Korean',
-  'Hindi', 'Arabic', 'Russian', 'Vietnamese', 'Tagalog', 'English',
+  'Spanish',
+  'French',
+  'German',
+  'Italian',
+  'Portuguese',
+  'Chinese',
+  'Japanese',
+  'Korean',
+  'Hindi',
+  'Arabic',
+  'Russian',
+  'Vietnamese',
+  'Tagalog',
+  'English',
 ];
 
 /**
@@ -74,10 +91,18 @@ const TRANSLATE_LANGS = [
 @Component({
   selector: 'app-note-editor-dialog',
   imports: [
-    FormsModule, MatDialogModule, MatFormFieldModule, MatInputModule, MatButtonModule, MatIconModule,
-    MatSlideToggleModule, MatProgressSpinnerModule, MatMenuModule,
+    FormsModule,
+    MatDialogModule,
+    MatFormFieldModule,
+    MatInputModule,
+    MatButtonModule,
+    MatIconModule,
+    MatSlideToggleModule,
+    MatProgressSpinnerModule,
+    MatMenuModule,
   ],
   templateUrl: './note-editor-dialog.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrl: './family.scss',
 })
 export class NoteEditorDialog {
@@ -93,9 +118,12 @@ export class NoteEditorDialog {
 
   /** Live, sanitized markdown preview of the body. renderMarkdown escapes first, so this is safe HTML. */
   readonly preview = computed<SafeHtml>(() =>
-    this.sanitizer.bypassSecurityTrustHtml(renderMarkdown(this.body())));
+    this.sanitizer.bypassSecurityTrustHtml(renderMarkdown(this.body())),
+  );
 
-  readonly canSave = computed(() => this.title().trim().length > 0 || this.body().trim().length > 0);
+  readonly canSave = computed(
+    () => this.title().trim().length > 0 || this.body().trim().length > 0,
+  );
 
   // ---- ✨ Draft / rewrite with AI ----
   /** Whether the AI prompt box is open. */
@@ -112,7 +140,7 @@ export class NoteEditorDialog {
   readonly aiRewrites = computed(() => this.body().trim().length > 0);
 
   toggleAi(): void {
-    this.aiOpen.update(o => !o);
+    this.aiOpen.update((o) => !o);
     if (!this.aiOpen()) this.resetAiDraft();
   }
 
@@ -134,11 +162,13 @@ export class NoteEditorDialog {
     this.aiDraft.set(null);
     try {
       const rewriting = this.aiRewrites();
-      const result: NoteDraftAiResult = await firstValueFrom(this.api.draftFamilyNoteAi(
-        prompt,
-        rewriting ? this.title() : undefined,
-        rewriting ? this.body() : undefined,
-      ));
+      const result: NoteDraftAiResult = await firstValueFrom(
+        this.api.draftFamilyNoteAi(
+          prompt,
+          rewriting ? this.title() : undefined,
+          rewriting ? this.body() : undefined,
+        ),
+      );
       this.aiDraft.set({
         title: result.title,
         body: result.body,
@@ -148,9 +178,14 @@ export class NoteEditorDialog {
       this.aiStatus.set('Here’s a draft — review it, then Use it or Try again.');
     } catch (e) {
       const status = (e as { status?: number })?.status;
-      this.aiStatus.set(status === 503
-        ? "AI drafting isn't available right now — you can write the note yourself below."
-        : this.messageOf(e, "I couldn't reach the AI just now. Please try again, or write it yourself."));
+      this.aiStatus.set(
+        status === 503
+          ? "AI drafting isn't available right now — you can write the note yourself below."
+          : this.messageOf(
+              e,
+              "I couldn't reach the AI just now. Please try again, or write it yourself.",
+            ),
+      );
     } finally {
       this.aiBusy.set(false);
     }
@@ -196,23 +231,32 @@ export class NoteEditorDialog {
     if (!this.canTransform() || this.transformBusy()) return;
     this.transformBusy.set(action);
     this.transformPreview.set(null);
-    const label = action === 'translate'
-      ? `Translated to ${lang}`
-      : (TRANSFORM_ACTIONS.find(a => a.action === action)?.label ?? 'Transformed');
+    const label =
+      action === 'translate'
+        ? `Translated to ${lang}`
+        : (TRANSFORM_ACTIONS.find((a) => a.action === action)?.label ?? 'Transformed');
     this.transformStatus.set(action === 'translate' ? `Translating to ${lang}…` : `${label}…`);
     try {
-      const result: NoteTransformAiResult =
-        await firstValueFrom(this.api.transformFamilyNoteAi(this.body(), action, lang));
+      const result: NoteTransformAiResult = await firstValueFrom(
+        this.api.transformFamilyNoteAi(this.body(), action, lang),
+      );
       this.transformPreview.set({
-        action, label, body: result.body,
+        action,
+        label,
+        body: result.body,
         preview: this.sanitizer.bypassSecurityTrustHtml(renderMarkdown(result.body)),
       });
       this.transformStatus.set('Here’s the result — review it, then Use it or Try again.');
     } catch (e) {
       const status = (e as { status?: number })?.status;
-      this.transformStatus.set(status === 503
-        ? "AI isn't available right now — you can edit the note yourself below."
-        : this.messageOf(e, "I couldn't reach the AI just now. Please try again, or edit it yourself."));
+      this.transformStatus.set(
+        status === 503
+          ? "AI isn't available right now — you can edit the note yourself below."
+          : this.messageOf(
+              e,
+              "I couldn't reach the AI just now. Please try again, or edit it yourself.",
+            ),
+      );
     } finally {
       this.transformBusy.set(null);
     }

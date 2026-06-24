@@ -1,4 +1,4 @@
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal, ChangeDetectionStrategy } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 
@@ -12,7 +12,12 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { Api } from '../../core/api';
 import { AuthService } from '../../core/auth';
 import {
-  CalendarStatus, FamilyPoll, FamilyPollCreate, FamilyPollOption, FamilyPollVoter, PollSummaryAiResult,
+  CalendarStatus,
+  FamilyPoll,
+  FamilyPollCreate,
+  FamilyPollOption,
+  FamilyPollVoter,
+  PollSummaryAiResult,
 } from '../../core/models';
 import { FamilyConfirmDialog, ConfirmData } from './confirm-dialog';
 import { PollCreateDialog } from './poll-create-dialog';
@@ -28,9 +33,15 @@ import { PollCreateDialog } from './poll-create-dialog';
 @Component({
   selector: 'app-family-polls',
   imports: [
-    RouterLink, MatIconModule, MatButtonModule, MatTooltipModule, MatProgressSpinnerModule, MatSnackBarModule,
+    RouterLink,
+    MatIconModule,
+    MatButtonModule,
+    MatTooltipModule,
+    MatProgressSpinnerModule,
+    MatSnackBarModule,
   ],
   templateUrl: './polls.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrls: ['./family.scss', './polls.scss'],
 })
 export class FamilyPolls {
@@ -88,15 +99,21 @@ export class FamilyPolls {
   // ---- Create ----
 
   async create(): Promise<void> {
-    const ref = this.dialog.open<PollCreateDialog, undefined, FamilyPollCreate>(
-      PollCreateDialog, { width: '560px', maxWidth: '94vw', autoFocus: false, panelClass: 'family-dialog' });
+    const ref = this.dialog.open<PollCreateDialog, undefined, FamilyPollCreate>(PollCreateDialog, {
+      width: '560px',
+      maxWidth: '94vw',
+      autoFocus: false,
+      panelClass: 'family-dialog',
+    });
     const payload = await firstValueFrom(ref.afterClosed());
     if (!payload) return;
     try {
       const created = await firstValueFrom(this.api.createFamilyPoll(payload));
-      this.polls.update(list => [created, ...list]);
+      this.polls.update((list) => [created, ...list]);
     } catch (e) {
-      this.snack.open(this.messageOf(e, "Couldn't create that poll. Please try again."), 'OK', { duration: 4000 });
+      this.snack.open(this.messageOf(e, "Couldn't create that poll. Please try again."), 'OK', {
+        duration: 4000,
+      });
     }
   }
 
@@ -105,12 +122,15 @@ export class FamilyPolls {
   async toggleVote(poll: FamilyPoll, option: FamilyPollOption): Promise<void> {
     if (poll.closed) return;
     const current = new Set(poll.myVotes);
-    if (current.has(option.id)) current.delete(option.id); else current.add(option.id);
+    if (current.has(option.id)) current.delete(option.id);
+    else current.add(option.id);
     try {
       const updated = await firstValueFrom(this.api.voteFamilyPoll(poll.id, [...current]));
       this.replace(updated);
     } catch (e) {
-      this.snack.open(this.messageOf(e, "Couldn't save your vote. Please try again."), 'OK', { duration: 4000 });
+      this.snack.open(this.messageOf(e, "Couldn't save your vote. Please try again."), 'OK', {
+        duration: 4000,
+      });
     }
   }
 
@@ -119,7 +139,7 @@ export class FamilyPolls {
   async close(poll: FamilyPoll): Promise<void> {
     const ok = await this.confirm({
       title: 'Close this poll?',
-      message: 'We\'ll lock in the most-voted option as the winner. No more votes after that.',
+      message: "We'll lock in the most-voted option as the winner. No more votes after that.",
       confirmLabel: 'Close poll',
     });
     if (!ok) return;
@@ -128,7 +148,9 @@ export class FamilyPolls {
       const updated = await firstValueFrom(this.api.closeFamilyPoll(poll.id));
       this.replace(updated);
     } catch (e) {
-      this.snack.open(this.messageOf(e, "Couldn't close the poll. Please try again."), 'OK', { duration: 4000 });
+      this.snack.open(this.messageOf(e, "Couldn't close the poll. Please try again."), 'OK', {
+        duration: 4000,
+      });
     } finally {
       this.setBusy(poll.id, false);
     }
@@ -145,7 +167,8 @@ export class FamilyPolls {
       const msg = this.messageOf(e, "Couldn't add that to your calendar. Please try again.");
       this.snack.open(msg, 'OK', { duration: 4500 });
       // If the calendar isn't connected after all, reflect that so the button hides.
-      if ((e as { error?: { connected?: boolean } })?.error?.connected === false) this.calendarConnected.set(false);
+      if ((e as { error?: { connected?: boolean } })?.error?.connected === false)
+        this.calendarConnected.set(false);
     } finally {
       this.setBusy(poll.id, false);
     }
@@ -163,10 +186,13 @@ export class FamilyPolls {
     this.setSummarizing(poll.id, true);
     try {
       const result = await firstValueFrom(this.api.pollSummaryAi(poll.id));
-      this.summaries.update(map => new Map(map).set(poll.id, result));
+      this.summaries.update((map) => new Map(map).set(poll.id, result));
     } catch (e) {
-      this.snack.open(this.messageOf(e, "Couldn't summarize that poll just now. Please try again."),
-        'OK', { duration: 4000 });
+      this.snack.open(
+        this.messageOf(e, "Couldn't summarize that poll just now. Please try again."),
+        'OK',
+        { duration: 4000 },
+      );
     } finally {
       this.setSummarizing(poll.id, false);
     }
@@ -174,7 +200,7 @@ export class FamilyPolls {
 
   /** Dismiss a poll's summary card. */
   clearSummary(pollId: number): void {
-    this.summaries.update(map => {
+    this.summaries.update((map) => {
       if (!map.has(pollId)) return map;
       const next = new Map(map);
       next.delete(pollId);
@@ -192,7 +218,8 @@ export class FamilyPolls {
 
   private setSummarizing(pollId: number, on: boolean): void {
     const next = new Set(this.summarizing());
-    if (on) next.add(pollId); else next.delete(pollId);
+    if (on) next.add(pollId);
+    else next.delete(pollId);
     this.summarizing.set(next);
   }
 
@@ -207,7 +234,7 @@ export class FamilyPolls {
     if (!ok) return;
     try {
       await firstValueFrom(this.api.deleteFamilyPoll(poll.id));
-      this.polls.update(list => list.filter(p => p.id !== poll.id));
+      this.polls.update((list) => list.filter((p) => p.id !== poll.id));
       this.clearSummary(poll.id);
     } catch {
       this.snack.open("Couldn't delete that poll.", 'OK', { duration: 4000 });
@@ -230,15 +257,25 @@ export class FamilyPolls {
 
   /** Whether a closed TIME poll's winning slot can be booked by this caller. */
   canBook(poll: FamilyPoll, option: FamilyPollOption): boolean {
-    return poll.closed && poll.kind === 'time' && this.calendarConnected()
-      && this.isWinner(poll, option) && !!option.startUtc && !!option.endUtc;
+    return (
+      poll.closed &&
+      poll.kind === 'time' &&
+      this.calendarConnected() &&
+      this.isWinner(poll, option) &&
+      !!option.startUtc &&
+      !!option.endUtc
+    );
   }
 
   /** The label for a poll option: a local time range for TIME polls, the text label for TEXT polls. */
   optionLabel(poll: FamilyPoll, option: FamilyPollOption): string {
     if (poll.kind === 'text') return option.label ?? '';
     if (!option.startUtc) return option.label ?? '';
-    const date = new Date(option.startUtc).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
+    const date = new Date(option.startUtc).toLocaleDateString(undefined, {
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric',
+    });
     const opts: Intl.DateTimeFormatOptions = { hour: 'numeric', minute: '2-digit' };
     const start = new Date(option.startUtc).toLocaleTimeString(undefined, opts);
     const end = option.endUtc ? new Date(option.endUtc).toLocaleTimeString(undefined, opts) : '';
@@ -254,30 +291,37 @@ export class FamilyPolls {
   /** A short "you + 2 others" style summary used for the voter aria-label. */
   votersLabel(voters: FamilyPollVoter[]): string {
     if (!voters.length) return 'No votes yet';
-    return voters.map(v => v.name).join(', ');
+    return voters.map((v) => v.name).join(', ');
   }
 
   createdLabel(poll: FamilyPoll): string {
-    return new Date(poll.createdUtc).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+    return new Date(poll.createdUtc).toLocaleDateString(undefined, {
+      month: 'short',
+      day: 'numeric',
+    });
   }
 
   // ---- internals ----
 
   private replace(poll: FamilyPoll): void {
-    this.polls.update(list => list.map(p => p.id === poll.id ? poll : p));
+    this.polls.update((list) => list.map((p) => (p.id === poll.id ? poll : p)));
     // The tally changed (a vote or a close) — drop any stale summary so it isn't out of date.
     this.clearSummary(poll.id);
   }
 
   private setBusy(pollId: number, on: boolean): void {
     const next = new Set(this.busy());
-    if (on) next.add(pollId); else next.delete(pollId);
+    if (on) next.add(pollId);
+    else next.delete(pollId);
     this.busy.set(next);
   }
 
   private confirm(data: ConfirmData): Promise<boolean | undefined> {
     const ref = this.dialog.open<FamilyConfirmDialog, ConfirmData, boolean>(FamilyConfirmDialog, {
-      data, width: '420px', maxWidth: '92vw', panelClass: 'family-dialog',
+      data,
+      width: '420px',
+      maxWidth: '92vw',
+      panelClass: 'family-dialog',
     });
     return firstValueFrom(ref.afterClosed());
   }

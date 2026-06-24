@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal, ChangeDetectionStrategy } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 import { timer, switchMap, catchError, of } from 'rxjs';
@@ -20,18 +20,34 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { Api } from '../../core/api';
 import { AuthService } from '../../core/auth';
 import {
-  DiscordRoute, IngestionSource, NotificationSettings, NotificationUpdate,
-  Settings as SettingsModel, SyncResult, SyncStatus, PERM,
+  DiscordRoute,
+  IngestionSource,
+  NotificationSettings,
+  NotificationUpdate,
+  Settings as SettingsModel,
+  SyncResult,
+  SyncStatus,
+  PERM,
 } from '../../core/models';
 import { timeAgo, humanizeInterval } from '../../shared/format';
 
 @Component({
   selector: 'app-settings',
   imports: [
-    CommonModule, FormsModule, MatCardModule, MatFormFieldModule, MatInputModule, MatSelectModule,
-    MatButtonModule, MatIconModule, MatProgressBarModule, MatSnackBarModule, MatSlideToggleModule,
+    CommonModule,
+    FormsModule,
+    MatCardModule,
+    MatFormFieldModule,
+    MatInputModule,
+    MatSelectModule,
+    MatButtonModule,
+    MatIconModule,
+    MatProgressBarModule,
+    MatSnackBarModule,
+    MatSlideToggleModule,
   ],
   templateUrl: './settings.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrl: './settings.scss',
 })
 export class Settings {
@@ -58,7 +74,15 @@ export class Settings {
   readonly savingNotif = signal(false);
   readonly testingNotif = signal(false);
   readonly sendingSnapshot = signal(false);
-  readonly weekdays = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  readonly weekdays = [
+    'Sunday',
+    'Monday',
+    'Tuesday',
+    'Wednesday',
+    'Thursday',
+    'Friday',
+    'Saturday',
+  ];
 
   /** True when the caller may edit (vs. read-only view) the Discord system config + routing table. */
   readonly canManageNotif = computed(() => this.auth.hasPermission(PERM.notificationsManage));
@@ -71,20 +95,26 @@ export class Settings {
   readonly savingRouteKey = signal<string | null>(null);
 
   /** newRecordsBySource as [name, count] pairs for the template. */
-  readonly lastSyncBySource = computed(() => Object.entries(this.lastSync()?.newRecordsBySource ?? {}));
+  readonly lastSyncBySource = computed(() =>
+    Object.entries(this.lastSync()?.newRecordsBySource ?? {}),
+  );
 
   readonly lastSyncedLabel = computed(() => {
     const s = this.status();
     const n = this.now();
     if (!s) return '—';
     if (s.isRunning) return 'syncing now…';
-    return s.lastSyncUtc ? `${timeAgo(s.lastSyncUtc, n)} · +${s.lastNewRecords.toLocaleString()} rows` : 'never';
+    return s.lastSyncUtc
+      ? `${timeAgo(s.lastSyncUtc, n)} · +${s.lastNewRecords.toLocaleString()} rows`
+      : 'never';
   });
 
   readonly autoSyncLabel = computed(() => {
     const s = this.status();
     if (!s) return '';
-    return s.autoSyncEnabled ? `Auto-sync every ${humanizeInterval(s.intervalSeconds)}` : 'Auto-sync off';
+    return s.autoSyncEnabled
+      ? `Auto-sync every ${humanizeInterval(s.intervalSeconds)}`
+      : 'Auto-sync off';
   });
 
   readonly syncState = computed(() => {
@@ -96,9 +126,21 @@ export class Settings {
   });
 
   private readonly commonZones = [
-    'America/New_York', 'America/Chicago', 'America/Denver', 'America/Phoenix', 'America/Los_Angeles',
-    'America/Anchorage', 'Pacific/Honolulu', 'UTC', 'Europe/London', 'Europe/Berlin', 'Europe/Madrid',
-    'Asia/Kolkata', 'Asia/Singapore', 'Asia/Tokyo', 'Australia/Sydney',
+    'America/New_York',
+    'America/Chicago',
+    'America/Denver',
+    'America/Phoenix',
+    'America/Los_Angeles',
+    'America/Anchorage',
+    'Pacific/Honolulu',
+    'UTC',
+    'Europe/London',
+    'Europe/Berlin',
+    'Europe/Madrid',
+    'Asia/Kolkata',
+    'Asia/Singapore',
+    'Asia/Tokyo',
+    'Australia/Sydney',
   ];
 
   readonly zones = computed(() => {
@@ -114,22 +156,40 @@ export class Settings {
         switchMap(() => this.api.syncStatus().pipe(catchError(() => of(null)))),
         takeUntilDestroyed(),
       )
-      .subscribe(s => { this.now.set(Date.now()); if (s) this.status.set(s); });
+      .subscribe((s) => {
+        this.now.set(Date.now());
+        if (s) this.status.set(s);
+      });
   }
 
   load(): void {
     this.loading.set(true);
     this.loadError.set(false);
     this.api.settings().subscribe({
-      next: s => { this.model.set(s); this.loading.set(false); },
-      error: () => { this.loading.set(false); this.loadError.set(true); this.snack.open('Failed to load settings', 'Dismiss', { duration: 4000 }); },
+      next: (s) => {
+        this.model.set(s);
+        this.loading.set(false);
+      },
+      error: () => {
+        this.loading.set(false);
+        this.loadError.set(true);
+        this.snack.open('Failed to load settings', 'Dismiss', { duration: 4000 });
+      },
     });
     this.api.sources().subscribe({
-      next: s => this.sources.set(s),
+      next: (s) => this.sources.set(s),
       error: () => this.snack.open('Failed to load sources', 'Dismiss', { duration: 4000 }),
     });
-    if (this.auth.hasPermission(PERM.notificationsView) || this.auth.hasPermission(PERM.notificationsManage)) {
-      this.api.notifications().subscribe({ next: n => this.notif.set(n), error: () => { /* non-critical */ } });
+    if (
+      this.auth.hasPermission(PERM.notificationsView) ||
+      this.auth.hasPermission(PERM.notificationsManage)
+    ) {
+      this.api.notifications().subscribe({
+        next: (n) => this.notif.set(n),
+        error: () => {
+          /* non-critical */
+        },
+      });
       this.loadRoutes();
     }
   }
@@ -138,8 +198,14 @@ export class Settings {
     this.routesLoading.set(true);
     this.routesError.set(false);
     this.api.discordRoutes().subscribe({
-      next: r => { this.routes.set([...r].sort((a, b) => a.sortOrder - b.sortOrder)); this.routesLoading.set(false); },
-      error: () => { this.routesLoading.set(false); this.routesError.set(true); },
+      next: (r) => {
+        this.routes.set([...r].sort((a, b) => a.sortOrder - b.sortOrder));
+        this.routesLoading.set(false);
+      },
+      error: () => {
+        this.routesLoading.set(false);
+        this.routesError.set(true);
+      },
     });
   }
 
@@ -158,27 +224,33 @@ export class Settings {
   private saveRoute(route: DiscordRoute, body: { enabled: boolean; mention: string | null }): void {
     this.savingRouteKey.set(route.eventKey);
     this.api.updateDiscordRoute(route.eventKey, body).subscribe({
-      next: saved => {
-        this.routes.update(list => list.map(r => r.eventKey === saved.eventKey ? saved : r));
+      next: (saved) => {
+        this.routes.update((list) => list.map((r) => (r.eventKey === saved.eventKey ? saved : r)));
         this.savingRouteKey.set(null);
       },
       error: (e: HttpErrorResponse) => {
         this.savingRouteKey.set(null);
         this.loadRoutes(); // re-sync the row to the server's truth
-        this.snack.open(e.error?.message ?? 'Could not update route', 'Dismiss', { duration: 5000 });
+        this.snack.open(e.error?.message ?? 'Could not update route', 'Dismiss', {
+          duration: 5000,
+        });
       },
     });
   }
 
   patchNotif<K extends keyof NotificationSettings>(key: K, value: NotificationSettings[K]): void {
-    this.notif.update(n => n ? { ...n, [key]: value } : n);
+    this.notif.update((n) => (n ? { ...n, [key]: value } : n));
   }
 
   private notifBody(over: Partial<NotificationUpdate> = {}): NotificationUpdate {
     const n = this.notif()!;
     return {
-      enabled: n.enabled, digestHourLocal: n.digestHourLocal, weeklyDay: n.weeklyDay,
-      thresholdUsd: n.thresholdUsd, mentionOnAlert: n.mentionOnAlert, ...over,
+      enabled: n.enabled,
+      digestHourLocal: n.digestHourLocal,
+      weeklyDay: n.weeklyDay,
+      thresholdUsd: n.thresholdUsd,
+      mentionOnAlert: n.mentionOnAlert,
+      ...over,
     };
   }
 
@@ -187,8 +259,10 @@ export class Settings {
     this.savingNotif.set(true);
     const url = this.webhookInput().trim();
     this.api.saveNotifications(this.notifBody(url ? { discordWebhookUrl: url } : {})).subscribe({
-      next: n => {
-        this.notif.set(n); this.webhookInput.set(''); this.savingNotif.set(false);
+      next: (n) => {
+        this.notif.set(n);
+        this.webhookInput.set('');
+        this.savingNotif.set(false);
         this.snack.open('Notification settings saved', 'OK', { duration: 2500 });
       },
       error: (e: HttpErrorResponse) => {
@@ -202,15 +276,25 @@ export class Settings {
     if (!this.notif()) return;
     this.savingNotif.set(true);
     this.api.saveNotifications(this.notifBody({ discordWebhookUrl: '' })).subscribe({
-      next: n => { this.notif.set(n); this.savingNotif.set(false); this.snack.open('Webhook removed', 'OK', { duration: 2500 }); },
-      error: () => { this.savingNotif.set(false); this.snack.open('Could not remove webhook', 'Dismiss', { duration: 4000 }); },
+      next: (n) => {
+        this.notif.set(n);
+        this.savingNotif.set(false);
+        this.snack.open('Webhook removed', 'OK', { duration: 2500 });
+      },
+      error: () => {
+        this.savingNotif.set(false);
+        this.snack.open('Could not remove webhook', 'Dismiss', { duration: 4000 });
+      },
     });
   }
 
   testNotif(): void {
     this.testingNotif.set(true);
     this.api.testNotification().subscribe({
-      next: r => { this.testingNotif.set(false); this.snack.open(r.message, 'OK', { duration: 4000 }); },
+      next: (r) => {
+        this.testingNotif.set(false);
+        this.snack.open(r.message, 'OK', { duration: 4000 });
+      },
       error: (e: HttpErrorResponse) => {
         this.testingNotif.set(false);
         this.snack.open(e.error?.message ?? 'Test failed', 'Dismiss', { duration: 5000 });
@@ -221,10 +305,15 @@ export class Settings {
   sendSnapshot(): void {
     this.sendingSnapshot.set(true);
     this.api.sendUsageSnapshot().subscribe({
-      next: r => { this.sendingSnapshot.set(false); this.snack.open(r.message, 'OK', { duration: 4000 }); },
+      next: (r) => {
+        this.sendingSnapshot.set(false);
+        this.snack.open(r.message, 'OK', { duration: 4000 });
+      },
       error: (e: HttpErrorResponse) => {
         this.sendingSnapshot.set(false);
-        this.snack.open(e.error?.message ?? 'Could not send snapshot', 'Dismiss', { duration: 5000 });
+        this.snack.open(e.error?.message ?? 'Could not send snapshot', 'Dismiss', {
+          duration: 5000,
+        });
       },
     });
   }
@@ -232,8 +321,14 @@ export class Settings {
   saveSource(s: IngestionSource): void {
     this.savingSourceId.set(s.id);
     this.api.updateSource(s.id, s).subscribe({
-      next: () => { this.savingSourceId.set(null); this.snack.open(`Saved source "${s.name}"`, 'OK', { duration: 2500 }); },
-      error: () => { this.savingSourceId.set(null); this.snack.open('Save failed', 'Dismiss', { duration: 4000 }); },
+      next: () => {
+        this.savingSourceId.set(null);
+        this.snack.open(`Saved source "${s.name}"`, 'OK', { duration: 2500 });
+      },
+      error: () => {
+        this.savingSourceId.set(null);
+        this.snack.open('Save failed', 'Dismiss', { duration: 4000 });
+      },
     });
   }
 
@@ -242,23 +337,50 @@ export class Settings {
     if (!m) return;
     this.saving.set(true);
     this.api.saveSettings(m).subscribe({
-      next: () => { this.saving.set(false); this.snack.open('Settings saved (local dates re-bucketed if timezone changed)', 'OK', { duration: 5000 }); },
-      error: () => { this.saving.set(false); this.snack.open('Save failed (check the timezone is a valid IANA id)', 'Dismiss', { duration: 5000 }); },
+      next: () => {
+        this.saving.set(false);
+        this.snack.open('Settings saved (local dates re-bucketed if timezone changed)', 'OK', {
+          duration: 5000,
+        });
+      },
+      error: () => {
+        this.saving.set(false);
+        this.snack.open('Save failed (check the timezone is a valid IANA id)', 'Dismiss', {
+          duration: 5000,
+        });
+      },
     });
   }
 
   sync(): void {
     this.syncing.set(true);
     this.api.sync().subscribe({
-      next: r => {
+      next: (r) => {
         this.syncing.set(false);
         this.lastSync.set(r);
         this.now.set(Date.now());
-        this.api.sources().subscribe({ next: s => this.sources.set(s), error: () => { /* refreshed by next sync */ } });
-        this.api.syncStatus().subscribe({ next: st => this.status.set(st), error: () => { /* recovered by 15s poll */ } });
-        this.snack.open(r.error ? `Sync error: ${r.error}` : `Synced +${r.newRecords.toLocaleString()} rows`, 'OK', { duration: 5000 });
+        this.api.sources().subscribe({
+          next: (s) => this.sources.set(s),
+          error: () => {
+            /* refreshed by next sync */
+          },
+        });
+        this.api.syncStatus().subscribe({
+          next: (st) => this.status.set(st),
+          error: () => {
+            /* recovered by 15s poll */
+          },
+        });
+        this.snack.open(
+          r.error ? `Sync error: ${r.error}` : `Synced +${r.newRecords.toLocaleString()} rows`,
+          'OK',
+          { duration: 5000 },
+        );
       },
-      error: () => { this.syncing.set(false); this.snack.open('Sync failed', 'Dismiss', { duration: 4000 }); },
+      error: () => {
+        this.syncing.set(false);
+        this.snack.open('Sync failed', 'Dismiss', { duration: 4000 });
+      },
     });
   }
 }

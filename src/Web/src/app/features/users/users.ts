@@ -1,6 +1,13 @@
 import { CommonModule } from '@angular/common';
 import {
-  Component, ElementRef, computed, effect, inject, signal, viewChild,
+  Component,
+  ElementRef,
+  computed,
+  effect,
+  inject,
+  signal,
+  viewChild,
+  ChangeDetectionStrategy,
 } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
@@ -21,14 +28,24 @@ import { MatMenuModule } from '@angular/material/menu';
 import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import {
-  MatDialog, MatDialogModule, MatDialogRef, MAT_DIALOG_DATA,
+  MatDialog,
+  MatDialogModule,
+  MatDialogRef,
+  MAT_DIALOG_DATA,
 } from '@angular/material/dialog';
 
 import { Api } from '../../core/api';
 import { AuthService } from '../../core/auth';
 import {
-  AccessPolicy, AuditEntry, ChatContactDto, LoginEvent, ManagedUser, PermissionItem, PermissionPreset,
-  PERM, PERM_GROUP_ORDER,
+  AccessPolicy,
+  AuditEntry,
+  ChatContactDto,
+  LoginEvent,
+  ManagedUser,
+  PermissionItem,
+  PermissionPreset,
+  PERM,
+  PERM_GROUP_ORDER,
 } from '../../core/models';
 
 /**
@@ -39,33 +56,68 @@ import {
 @Component({
   selector: 'app-email-reveal-dialog',
   imports: [
-    FormsModule, MatDialogModule, MatFormFieldModule, MatInputModule, MatButtonModule, MatIconModule,
+    FormsModule,
+    MatDialogModule,
+    MatFormFieldModule,
+    MatInputModule,
+    MatButtonModule,
+    MatIconModule,
   ],
   template: `
     <h2 mat-dialog-title id="email-reveal-title">Show emails</h2>
     <mat-dialog-content>
-      <p class="erd-sub">Enter the reveal key to show real email addresses on this page. The key is held in
-        memory only for this session and is never saved.</p>
+      <p class="erd-sub">
+        Enter the reveal key to show real email addresses on this page. The key is held in memory
+        only for this session and is never saved.
+      </p>
       <form (ngSubmit)="submit()">
         <mat-form-field appearance="outline" class="erd-field" subscriptSizing="dynamic">
           <mat-label>Reveal key</mat-label>
-          <input matInput #keyInput type="password" name="revealKey" autocomplete="off"
-                 aria-label="Email reveal key" [(ngModel)]="key" cdkFocusInitial />
+          <input
+            matInput
+            #keyInput
+            type="password"
+            name="revealKey"
+            autocomplete="off"
+            aria-label="Email reveal key"
+            [(ngModel)]="key"
+            cdkFocusInitial
+          />
           <mat-icon matPrefix>lock</mat-icon>
         </mat-form-field>
       </form>
     </mat-dialog-content>
     <mat-dialog-actions align="end">
       <button mat-button type="button" (click)="cancel()">Cancel</button>
-      <button mat-flat-button color="primary" type="button" [disabled]="!key.trim()"
-              (click)="submit()">Show emails</button>
+      <button
+        mat-flat-button
+        color="primary"
+        type="button"
+        [disabled]="!key.trim()"
+        (click)="submit()"
+      >
+        Show emails
+      </button>
     </mat-dialog-actions>
   `,
-  styles: [`
-    .erd-sub { margin: 0 0 14px; max-width: 380px; font-size: 13px; line-height: 1.5; color: var(--tech-text-secondary); }
-    .erd-field { width: 100%; }
-    [mat-dialog-title] { font-family: var(--tech-font-ui); }
-  `],
+  changeDetection: ChangeDetectionStrategy.Eager,
+  styles: [
+    `
+      .erd-sub {
+        margin: 0 0 14px;
+        max-width: 380px;
+        font-size: 13px;
+        line-height: 1.5;
+        color: var(--tech-text-secondary);
+      }
+      .erd-field {
+        width: 100%;
+      }
+      [mat-dialog-title] {
+        font-family: var(--tech-font-ui);
+      }
+    `,
+  ],
 })
 export class EmailRevealDialog {
   private ref = inject(MatDialogRef<EmailRevealDialog, string | undefined>);
@@ -76,7 +128,9 @@ export class EmailRevealDialog {
     if (k) this.ref.close(k);
   }
 
-  cancel(): void { this.ref.close(undefined); }
+  cancel(): void {
+    this.ref.close(undefined);
+  }
 }
 
 /**
@@ -101,20 +155,46 @@ interface ConfirmData {
   template: `
     <h2 mat-dialog-title>{{ data.title }}</h2>
     <mat-dialog-content>
-      @for (l of data.lines; track $index) { <p class="ucd-line">{{ l }}</p> }
+      @for (l of data.lines; track $index) {
+        <p class="ucd-line">{{ l }}</p>
+      }
     </mat-dialog-content>
     <mat-dialog-actions align="end">
       <button mat-button type="button" (click)="ref.close(false)">Cancel</button>
-      <button mat-flat-button type="button" [class.ucd-danger]="data.danger" color="primary"
-              cdkFocusInitial (click)="ref.close(true)">{{ data.confirmLabel }}</button>
+      <button
+        mat-flat-button
+        type="button"
+        [class.ucd-danger]="data.danger"
+        color="primary"
+        cdkFocusInitial
+        (click)="ref.close(true)"
+      >
+        {{ data.confirmLabel }}
+      </button>
     </mat-dialog-actions>
   `,
-  styles: [`
-    [mat-dialog-title] { font-family: var(--tech-font-ui); }
-    .ucd-line { margin: 0 0 8px; width: 100%; font-size: 13px; line-height: 1.5; color: var(--tech-text-secondary); }
-    .ucd-line:last-child { margin-bottom: 0; }
-    .ucd-danger { --mdc-filled-button-container-color: var(--tech-error, #ff5c6c); --mdc-filled-button-label-text-color: #fff; }
-  `],
+  changeDetection: ChangeDetectionStrategy.Eager,
+  styles: [
+    `
+      [mat-dialog-title] {
+        font-family: var(--tech-font-ui);
+      }
+      .ucd-line {
+        margin: 0 0 8px;
+        width: 100%;
+        font-size: 13px;
+        line-height: 1.5;
+        color: var(--tech-text-secondary);
+      }
+      .ucd-line:last-child {
+        margin-bottom: 0;
+      }
+      .ucd-danger {
+        --mdc-filled-button-container-color: var(--tech-error, #ff5c6c);
+        --mdc-filled-button-label-text-color: #fff;
+      }
+    `,
+  ],
 })
 export class UsersConfirmDialog {
   readonly ref = inject(MatDialogRef<UsersConfirmDialog, boolean>);
@@ -154,19 +234,40 @@ interface PermGroup {
 type CapFilter = 'all' | 'ai' | 'enabled' | 'disabled' | 'perm';
 
 /** A landing-page option for the "Lands on" picker (route + label), shown only when the user can reach it. */
-interface HomeOption { route: string; label: string; }
+interface HomeOption {
+  route: string;
+  label: string;
+}
 
 /** The delta of a staged grant-set vs an applied role: keys added on top of, and removed from, the role. */
-interface RoleDelta { added: string[]; removed: string[]; }
+interface RoleDelta {
+  added: string[];
+  removed: string[];
+}
 
 @Component({
   selector: 'app-users',
   imports: [
-    CommonModule, RouterLink, FormsModule, MatCardModule, MatFormFieldModule, MatInputModule, MatButtonModule,
-    MatIconModule, MatCheckboxModule, MatSlideToggleModule, MatProgressBarModule, MatProgressSpinnerModule,
-    MatTooltipModule, MatMenuModule, MatSelectModule, MatSnackBarModule, MatDialogModule,
+    CommonModule,
+    RouterLink,
+    FormsModule,
+    MatCardModule,
+    MatFormFieldModule,
+    MatInputModule,
+    MatButtonModule,
+    MatIconModule,
+    MatCheckboxModule,
+    MatSlideToggleModule,
+    MatProgressBarModule,
+    MatProgressSpinnerModule,
+    MatTooltipModule,
+    MatMenuModule,
+    MatSelectModule,
+    MatSnackBarModule,
+    MatDialogModule,
   ],
   templateUrl: './users.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrl: './users.scss',
 })
 export class Users {
@@ -181,7 +282,11 @@ export class Users {
    * 80vw cap so a fixed `width` reflows to the viewport on phones; `maxHeight:90dvh` + the `app-dialog`
    * panelClass (whose global rule lets the CONTENT scroll) keep the action row reachable on tall lists.
    */
-  private static readonly DIALOG_OPTS = { maxWidth: '95vw', maxHeight: '90dvh', panelClass: 'app-dialog' } as const;
+  private static readonly DIALOG_OPTS = {
+    maxWidth: '95vw',
+    maxHeight: '90dvh',
+    panelClass: 'app-dialog',
+  } as const;
 
   /** The detail heading — selection moves focus here (accessibility). */
   private detailHeading = viewChild<ElementRef<HTMLElement>>('detailHeading');
@@ -312,22 +417,30 @@ export class Users {
       (byGroup.get(p.group) ?? byGroup.set(p.group, []).get(p.group)!).push(p);
     }
     const ordered: PermGroup[] = [];
-    const mk = (name: string, perms: PermissionItem[]): PermGroup =>
-      ({ name, perms, isAi: perms.some(p => p.isAi) });
+    const mk = (name: string, perms: PermissionItem[]): PermGroup => ({
+      name,
+      perms,
+      isAi: perms.some((p) => p.isAi),
+    });
     for (const name of PERM_GROUP_ORDER) {
       const perms = byGroup.get(name);
-      if (perms?.length) { ordered.push(mk(name, perms)); byGroup.delete(name); }
+      if (perms?.length) {
+        ordered.push(mk(name, perms));
+        byGroup.delete(name);
+      }
     }
     for (const [name, perms] of byGroup) if (perms.length) ordered.push(mk(name, perms));
     return ordered;
   });
 
   /** The non-AI (feature-access) groups — the accordion spine of the detail editor. */
-  readonly featureGroups = computed(() => this.groups().filter(g => !g.isAi));
+  readonly featureGroups = computed(() => this.groups().filter((g) => !g.isAi));
   /** The AI groups (normally exactly one) — rendered as a separated, tinted panel. */
-  readonly aiGroups = computed(() => this.groups().filter(g => g.isAi));
+  readonly aiGroups = computed(() => this.groups().filter((g) => g.isAi));
   /** Every AI permission key (for the AI summary, AI filter, AI badge). */
-  readonly aiKeys = computed(() => new Set(this.aiGroups().flatMap(g => g.perms.map(p => p.key))));
+  readonly aiKeys = computed(
+    () => new Set(this.aiGroups().flatMap((g) => g.perms.map((p) => p.key))),
+  );
 
   /** Quick label/description lookup for a permission key (for summaries + menus). */
   readonly permByKey = computed(() => {
@@ -342,17 +455,27 @@ export class Users {
    * token-spending capabilities granted deliberately per user. Hidden from the default-permissions picker.
    */
   private readonly nonDefaultable = new Set<string>([
-    PERM.usersManage, PERM.chatModerate, PERM.chatContactsManage, PERM.trackerViewAll,
-    PERM.familyUse, PERM.familyFinance,
-    PERM.locationSelf, PERM.locationShare,
-    PERM.trackerAi, PERM.familyAi, PERM.familyAiAssistant, PERM.financeAi, PERM.chatAi, PERM.aiVision,
+    PERM.usersManage,
+    PERM.chatModerate,
+    PERM.chatContactsManage,
+    PERM.trackerViewAll,
+    PERM.familyUse,
+    PERM.familyFinance,
+    PERM.locationSelf,
+    PERM.locationShare,
+    PERM.trackerAi,
+    PERM.familyAi,
+    PERM.familyAiAssistant,
+    PERM.financeAi,
+    PERM.chatAi,
+    PERM.aiVision,
   ]);
 
   /** Catalog groups for the default-permissions picker, filtered to server-defaultable keys. */
   readonly policyGroups = computed<PermGroup[]>(() =>
     this.groups()
-      .map(g => ({ ...g, perms: g.perms.filter(p => !this.nonDefaultable.has(p.key)) }))
-      .filter(g => g.perms.length),
+      .map((g) => ({ ...g, perms: g.perms.filter((p) => !this.nonDefaultable.has(p.key)) }))
+      .filter((g) => g.perms.length),
   );
 
   // ---- The selected user + its derived editor state ----
@@ -360,7 +483,7 @@ export class Users {
   /** The currently-selected user row (the canonical saved copy — the draft signals hold edits). */
   readonly selected = computed<ManagedUser | null>(() => {
     const id = this.selectedId();
-    return id == null ? null : this.users().find(u => u.id === id) ?? null;
+    return id == null ? null : (this.users().find((u) => u.id === id) ?? null);
   });
 
   /**
@@ -371,7 +494,7 @@ export class Users {
     const have = permKeys instanceof Set ? permKeys : new Set(permKeys);
     for (const p of this.presets()) {
       if (p.permissions.length !== have.size) continue;
-      if (p.permissions.every(k => have.has(k))) return p.key;
+      if (p.permissions.every((k) => have.has(k))) return p.key;
     }
     return '';
   }
@@ -384,12 +507,12 @@ export class Users {
    * role. Empty when no role is applied or the draft matches it exactly. Drives the "+x / −y" badge.
    */
   readonly roleDelta = computed<RoleDelta>(() => {
-    const role = this.presets().find(p => p.key === this.appliedRole());
+    const role = this.presets().find((p) => p.key === this.appliedRole());
     if (!role) return { added: [], removed: [] };
     const roleSet = new Set(role.permissions);
     const draft = this.draftPerms();
-    const added = [...draft].filter(k => !roleSet.has(k));
-    const removed = role.permissions.filter(k => !draft.has(k));
+    const added = [...draft].filter((k) => !roleSet.has(k));
+    const removed = role.permissions.filter((k) => !draft.has(k));
     return { added, removed };
   });
 
@@ -412,8 +535,8 @@ export class Users {
     const saved = new Set(u.permissions);
     const draft = this.draftPerms();
     return {
-      added: [...draft].filter(k => !saved.has(k)),
-      removed: u.permissions.filter(k => !draft.has(k)),
+      added: [...draft].filter((k) => !saved.has(k)),
+      removed: u.permissions.filter((k) => !draft.has(k)),
     };
   });
 
@@ -431,7 +554,7 @@ export class Users {
     if (!u) return false;
     const ai = this.aiKeys();
     const disabling = u.isEnabled && !this.draftEnabled();
-    return disabling || this.saveDiff().added.some(k => ai.has(k));
+    return disabling || this.saveDiff().added.some((k) => ai.has(k));
   });
 
   /** The "Lands on" home-page options for the SELECTED user — pages their SAVED grant set can reach. */
@@ -439,9 +562,9 @@ export class Users {
     const u = this.selected();
     if (!u) return [];
     const held = new Set(u.permissions);
-    return Users.homeOptionDefs.filter(o => {
+    return Users.homeOptionDefs.filter((o) => {
       const req = Users.homePerms[o.route];
-      return req && req.some(k => held.has(k));
+      return req && req.some((k) => held.has(k));
     });
   });
 
@@ -450,46 +573,56 @@ export class Users {
     const q = this.search().trim().toLowerCase();
     const cap = this.capFilter();
     const permKey = this.filterPerm();
-    const role = this.presets().find(p => p.key === this.filterRole());
+    const role = this.presets().find((p) => p.key === this.filterRole());
     const roleSet = role ? new Set(role.permissions) : null;
     const ai = this.aiKeys();
 
-    return this.users().filter(u => {
+    return this.users().filter((u) => {
       if (q) {
         const hay = `${u.name ?? ''} ${u.email ?? ''}`.toLowerCase();
         if (!hay.includes(q)) return false;
       }
       if (roleSet) {
         if (u.permissions.length !== roleSet.size) return false;
-        if (!u.permissions.every(k => roleSet.has(k))) return false;
+        if (!u.permissions.every((k) => roleSet.has(k))) return false;
       }
       switch (cap) {
-        case 'ai': if (!u.permissions.some(k => ai.has(k))) return false; break;
-        case 'enabled': if (!u.isEnabled) return false; break;
-        case 'disabled': if (u.isEnabled) return false; break;
-        case 'perm': if (permKey && !u.permissions.includes(permKey)) return false; break;
+        case 'ai':
+          if (!u.permissions.some((k) => ai.has(k))) return false;
+          break;
+        case 'enabled':
+          if (!u.isEnabled) return false;
+          break;
+        case 'disabled':
+          if (u.isEnabled) return false;
+          break;
+        case 'perm':
+          if (permKey && !u.permissions.includes(permKey)) return false;
+          break;
       }
       return true;
     });
   });
 
   /** True when any search/filter is narrowing the list. */
-  readonly isFiltering = computed(() =>
-    !!this.search().trim() || this.capFilter() !== 'all' || !!this.filterRole(),
+  readonly isFiltering = computed(
+    () => !!this.search().trim() || this.capFilter() !== 'all' || !!this.filterRole(),
   );
 
   // ---- Bulk selection helpers ----
-  isSelected(id: number): boolean { return this.selectedIds().has(id); }
+  isSelected(id: number): boolean {
+    return this.selectedIds().has(id);
+  }
   readonly bulkCount = computed(() => this.selectedIds().size);
   readonly allVisibleSelected = computed(() => {
     const vis = this.filteredUsers();
     if (!vis.length) return false;
     const sel = this.selectedIds();
-    return vis.every(u => sel.has(u.id));
+    return vis.every((u) => sel.has(u.id));
   });
   readonly someVisibleSelected = computed(() => {
     const sel = this.selectedIds();
-    const n = this.filteredUsers().filter(u => sel.has(u.id)).length;
+    const n = this.filteredUsers().filter((u) => sel.has(u.id)).length;
     return n > 0 && n < this.filteredUsers().length;
   });
 
@@ -513,7 +646,7 @@ export class Users {
       presets: this.api.permissionPresets(),
       users: this.api.users(this.revealKey ?? undefined),
     }).subscribe({
-      next: r => {
+      next: (r) => {
         this.perms.set(r.perms);
         this.presets.set(r.presets);
         this.users.set(r.users);
@@ -521,7 +654,10 @@ export class Users {
         this.reconcileSelection();
         this.loading.set(false);
       },
-      error: () => { this.loading.set(false); this.snack.open('Failed to load users', 'Dismiss', { duration: 4000 }); },
+      error: () => {
+        this.loading.set(false);
+        this.snack.open('Failed to load users', 'Dismiss', { duration: 4000 });
+      },
     });
     this.loadAudit();
     this.loadPolicy();
@@ -529,9 +665,9 @@ export class Users {
 
   /** Drop any bulk-selected ids that no longer exist (e.g. after a reload/delete). */
   private pruneSelection(): void {
-    const live = new Set(this.users().map(u => u.id));
-    this.selectedIds.update(s => {
-      const next = new Set([...s].filter(id => live.has(id)));
+    const live = new Set(this.users().map((u) => u.id));
+    this.selectedIds.update((s) => {
+      const next = new Set([...s].filter((id) => live.has(id)));
       return next.size === s.size ? s : next;
     });
   }
@@ -540,20 +676,34 @@ export class Users {
   private reconcileSelection(): void {
     const id = this.selectedId();
     if (id == null) return;
-    const u = this.users().find(x => x.id === id);
-    if (!u) { this.selectedId.set(null); this.mobileDetailOpen.set(false); return; }
+    const u = this.users().find((x) => x.id === id);
+    if (!u) {
+      this.selectedId.set(null);
+      this.mobileDetailOpen.set(false);
+      return;
+    }
     this.seedDraft(u);
   }
 
   private loadPolicy(): void {
     this.api.getAccessPolicy().subscribe({
-      next: p => { this.policy.set(p); this.policyPerms.set(new Set(p.defaultPermissions)); },
-      error: () => { /* non-critical — panel hides if policy unavailable */ },
+      next: (p) => {
+        this.policy.set(p);
+        this.policyPerms.set(new Set(p.defaultPermissions));
+      },
+      error: () => {
+        /* non-critical — panel hides if policy unavailable */
+      },
     });
   }
 
   private loadAudit(): void {
-    this.api.auditLog(this.revealKey ?? undefined).subscribe({ next: a => this.audit.set(a), error: () => { /* non-critical */ } });
+    this.api.auditLog(this.revealKey ?? undefined).subscribe({
+      next: (a) => this.audit.set(a),
+      error: () => {
+        /* non-critical */
+      },
+    });
   }
 
   // ---- Search + filter ----
@@ -566,7 +716,7 @@ export class Users {
 
   /** Toggle a capability axis chip; clicking the active one clears it. */
   toggleCap(cap: CapFilter): void {
-    this.capFilter.update(c => c === cap ? 'all' : cap);
+    this.capFilter.update((c) => (c === cap ? 'all' : cap));
     if (this.capFilter() !== 'perm') this.filterPerm.set('');
   }
 
@@ -575,16 +725,26 @@ export class Users {
     this.capFilter.set(key ? 'perm' : 'all');
   }
 
-  setFilterRole(key: string): void { this.filterRole.set(key); }
+  setFilterRole(key: string): void {
+    this.filterRole.set(key);
+  }
 
   // ---- Email-reveal toggle ----
   toggleEmails(): void {
-    if (this.emailsRevealed()) { this.hideEmails(); return; }
+    if (this.emailsRevealed()) {
+      this.hideEmails();
+      return;
+    }
     this.promptForKey();
   }
 
   private promptForKey(): void {
-    const ref = this.dialog.open(EmailRevealDialog, { ...Users.DIALOG_OPTS, width: '380px', autoFocus: 'dialog', restoreFocus: true });
+    const ref = this.dialog.open(EmailRevealDialog, {
+      ...Users.DIALOG_OPTS,
+      width: '380px',
+      autoFocus: 'dialog',
+      restoreFocus: true,
+    });
     ref.afterClosed().subscribe((key: string | undefined) => {
       if (!key) return;
       this.applyRevealKey(key);
@@ -618,8 +778,10 @@ export class Users {
   private didReveal(users: ManagedUser[], audit: AuditEntry[]): boolean {
     const mine = this.myEmail;
     const isOther = (e: string | null) => !!e && e.toLowerCase() !== mine;
-    return users.some(u => isOther(u.email))
-      || audit.some(a => isOther(a.actorEmail) || isOther(a.targetEmail));
+    return (
+      users.some((u) => isOther(u.email)) ||
+      audit.some((a) => isOther(a.actorEmail) || isOther(a.targetEmail))
+    );
   }
 
   private hideEmails(): void {
@@ -658,7 +820,8 @@ export class Users {
    */
   private confirmDiscard(onDiscard: () => void): void {
     const ref = this.dialog.open(UsersConfirmDialog, {
-      ...Users.DIALOG_OPTS, width: '420px',
+      ...Users.DIALOG_OPTS,
+      width: '420px',
       data: {
         title: 'Discard unsaved changes?',
         lines: ['You have unsaved changes to this user.', 'They will be lost if you continue.'],
@@ -666,7 +829,9 @@ export class Users {
         danger: true,
       } as ConfirmData,
     });
-    ref.afterClosed().subscribe(ok => { if (ok) onDiscard(); });
+    ref.afterClosed().subscribe((ok) => {
+      if (ok) onDiscard();
+    });
   }
 
   /** Seed the staged draft from a saved row + detect its current role. */
@@ -679,7 +844,10 @@ export class Users {
 
   /** Close the detail (mobile Back / deselect). Guards an unsaved edit with the themed confirm. */
   closeDetail(): void {
-    if (this.dirty()) { this.confirmDiscard(() => this.doCloseDetail()); return; }
+    if (this.dirty()) {
+      this.confirmDiscard(() => this.doCloseDetail());
+      return;
+    }
     this.doCloseDetail();
   }
 
@@ -695,7 +863,9 @@ export class Users {
   }
 
   // ---- Login history ----
-  loginHistory(id: number): LoginHistory | undefined { return this.logins().get(id); }
+  loginHistory(id: number): LoginHistory | undefined {
+    return this.logins().get(id);
+  }
 
   /**
    * A compact one-line device summary for a login row (screen · DPR · timezone · cores), built only from
@@ -706,10 +876,12 @@ export class Users {
     const parts: string[] = [];
     if (e.platform) parts.push(e.platform);
     if (e.screenWidth != null && e.screenHeight != null) {
-      const dpr = e.devicePixelRatio != null && e.devicePixelRatio !== 1 ? `@${e.devicePixelRatio}x` : '';
+      const dpr =
+        e.devicePixelRatio != null && e.devicePixelRatio !== 1 ? `@${e.devicePixelRatio}x` : '';
       parts.push(`${e.screenWidth}×${e.screenHeight}${dpr}`);
     }
-    if (e.hardwareConcurrency != null) parts.push(`${e.hardwareConcurrency} core${e.hardwareConcurrency === 1 ? '' : 's'}`);
+    if (e.hardwareConcurrency != null)
+      parts.push(`${e.hardwareConcurrency} core${e.hardwareConcurrency === 1 ? '' : 's'}`);
     if (e.deviceMemory != null) parts.push(`${e.deviceMemory} GB`);
     if (e.timeZone) parts.push(e.timeZone);
     return parts.join(' · ');
@@ -717,19 +889,29 @@ export class Users {
 
   /** True when a login event carries ANY captured web client info (drives showing the device line). */
   hasDeviceInfo(e: LoginEvent): boolean {
-    return !!(e.platform || e.screenWidth != null || e.hardwareConcurrency != null
-      || e.deviceMemory != null || e.timeZone || e.languages || e.touchPoints != null || e.colorDepth != null);
+    return !!(
+      e.platform ||
+      e.screenWidth != null ||
+      e.hardwareConcurrency != null ||
+      e.deviceMemory != null ||
+      e.timeZone ||
+      e.languages ||
+      e.touchPoints != null ||
+      e.colorDepth != null
+    );
   }
 
   private setLoginHistory(id: number, state: LoginHistory): void {
-    this.logins.update(m => new Map(m).set(id, state));
+    this.logins.update((m) => new Map(m).set(id, state));
   }
 
   private loadLogins(id: number): void {
     this.setLoginHistory(id, { loading: true, loaded: false, error: false, events: [] });
     this.api.userLogins(id).subscribe({
-      next: events => this.setLoginHistory(id, { loading: false, loaded: true, error: false, events }),
-      error: () => this.setLoginHistory(id, { loading: false, loaded: true, error: true, events: [] }),
+      next: (events) =>
+        this.setLoginHistory(id, { loading: false, loaded: true, error: false, events }),
+      error: () =>
+        this.setLoginHistory(id, { loading: false, loaded: true, error: true, events: [] }),
     });
   }
 
@@ -742,7 +924,7 @@ export class Users {
   accessSummary(permKeys: Set<string>): { name: string; labels: string[] }[] {
     const out: { name: string; labels: string[] }[] = [];
     for (const g of this.featureGroups()) {
-      const labels = g.perms.filter(p => permKeys.has(p.key)).map(p => p.label);
+      const labels = g.perms.filter((p) => permKeys.has(p.key)).map((p) => p.label);
       if (labels.length) out.push({ name: g.name, labels });
     }
     return out;
@@ -750,7 +932,10 @@ export class Users {
 
   /** The AI capabilities held (labels), for the distinct AI line in the summary. */
   aiSummary(permKeys: Set<string>): string[] {
-    return this.aiGroups().flatMap(g => g.perms).filter(p => permKeys.has(p.key)).map(p => p.label);
+    return this.aiGroups()
+      .flatMap((g) => g.perms)
+      .filter((p) => permKeys.has(p.key))
+      .map((p) => p.label);
   }
 
   /**
@@ -768,7 +953,10 @@ export class Users {
     const parts: string[] = [];
     if (has(PERM.usersManage)) parts.push('Administers users');
     else if (has(PERM.usersView)) parts.push('Views users');
-    if (has(PERM.familyUse)) parts.push(has(PERM.familyFinance) ? 'manages the family incl. finance' : 'manages the family');
+    if (has(PERM.familyUse))
+      parts.push(
+        has(PERM.familyFinance) ? 'manages the family incl. finance' : 'manages the family',
+      );
     if (has(PERM.trackerSelf)) parts.push('tracks fitness');
     if (has(PERM.chatRead)) parts.push('uses chat');
     if (has(PERM.dashboardView)) parts.push('sees usage');
@@ -776,7 +964,7 @@ export class Users {
 
     const ai = this.aiSummary(held);
     let sentence = parts.length
-      ? parts.join(', ').replace(/^./, c => c.toUpperCase())
+      ? parts.join(', ').replace(/^./, (c) => c.toUpperCase())
       : 'No access yet';
     if (ai.length) sentence += `; uses AI (${ai.length})`;
     else sentence += '; no AI';
@@ -794,25 +982,28 @@ export class Users {
   /** A short role/AI badge label for a list row ("Administrator", "Family member", "Custom"). */
   roleLabel(u: ManagedUser): string {
     const key = this.matchRole(u.permissions);
-    if (key) return this.presets().find(p => p.key === key)?.label ?? 'Custom';
+    if (key) return this.presets().find((p) => p.key === key)?.label ?? 'Custom';
     return u.permissions.length ? 'Custom' : 'No role';
   }
 
   // ---- Detail editor: grant toggles + role picker ----
 
-  draftHas(key: string): boolean { return this.draftPerms().has(key); }
+  draftHas(key: string): boolean {
+    return this.draftPerms().has(key);
+  }
 
   toggleDraftPerm(key: string, checked: boolean): void {
-    this.draftPerms.update(s => {
+    this.draftPerms.update((s) => {
       const next = new Set(s);
-      if (checked) next.add(key); else next.delete(key);
+      if (checked) next.add(key);
+      else next.delete(key);
       return next;
     });
   }
 
   /** Apply a role to the staged draft — SEEDS the grants (replaces the draft) + records the applied role. */
   applyRole(roleKey: string): void {
-    const role = this.presets().find(p => p.key === roleKey);
+    const role = this.presets().find((p) => p.key === roleKey);
     if (!role) return;
     this.draftPerms.set(new Set(role.permissions));
     this.appliedRole.set(roleKey);
@@ -821,22 +1012,25 @@ export class Users {
 
   /** "Reset to role" — restore the applied role's exact grant set (clears the delta). */
   resetToRole(): void {
-    const role = this.presets().find(p => p.key === this.appliedRole());
+    const role = this.presets().find((p) => p.key === this.appliedRole());
     if (role) this.draftPerms.set(new Set(role.permissions));
   }
 
   /** Count of a group's permissions currently on in the draft (for the accordion "N of M on" header). */
   groupOnCount(g: PermGroup): number {
     const draft = this.draftPerms();
-    return g.perms.filter(p => draft.has(p.key)).length;
+    return g.perms.filter((p) => draft.has(p.key)).length;
   }
 
-  isGroupCollapsed(name: string): boolean { return this.collapsedGroups().has(name); }
+  isGroupCollapsed(name: string): boolean {
+    return this.collapsedGroups().has(name);
+  }
 
   toggleGroup(name: string): void {
-    this.collapsedGroups.update(s => {
+    this.collapsedGroups.update((s) => {
       const next = new Set(s);
-      if (next.has(name)) next.delete(name); else next.add(name);
+      if (next.has(name)) next.delete(name);
+      else next.add(name);
       return next;
     });
   }
@@ -850,15 +1044,19 @@ export class Users {
     const value = route || null;
     this.homeSavingId.set(u.id);
     this.api.adminSetHomeRoute(u.id, value).subscribe({
-      next: updated => {
+      next: (updated) => {
         this.homeSavingId.set(null);
-        this.users.update(list => list.map(x => x.id === updated.id ? updated : x));
+        this.users.update((list) => list.map((x) => (x.id === updated.id ? updated : x)));
         this.loadAudit();
-        this.snack.open(`Set landing page for ${u.name || this.userLabel(u)}`, 'OK', { duration: 2500 });
+        this.snack.open(`Set landing page for ${u.name || this.userLabel(u)}`, 'OK', {
+          duration: 2500,
+        });
       },
       error: (err: HttpErrorResponse) => {
         this.homeSavingId.set(null);
-        this.snack.open(err.error?.message ?? 'Could not set landing page', 'Dismiss', { duration: 5000 });
+        this.snack.open(err.error?.message ?? 'Could not set landing page', 'Dismiss', {
+          duration: 5000,
+        });
       },
     });
   }
@@ -869,7 +1067,10 @@ export class Users {
   save(): void {
     const u = this.selected();
     if (!u || !this.dirty()) return;
-    if (this.saveNeedsConfirm()) { this.confirmAndSave(u); return; }
+    if (this.saveNeedsConfirm()) {
+      this.confirmAndSave(u);
+      return;
+    }
     this.commitSave(u, /*announceUndo*/ true);
   }
 
@@ -877,27 +1078,41 @@ export class Users {
   private confirmAndSave(u: ManagedUser): void {
     const diff = this.saveDiff();
     const ai = this.aiKeys();
-    const aiAdds = diff.added.filter(k => ai.has(k)).map(k => this.permByKey().get(k)?.label ?? k);
+    const aiAdds = diff.added
+      .filter((k) => ai.has(k))
+      .map((k) => this.permByKey().get(k)?.label ?? k);
     const disabling = u.isEnabled && !this.draftEnabled();
     const lines = [`User: ${u.name || this.userLabel(u)}.`];
     if (aiAdds.length) lines.push(`Grants token-spending AI: ${aiAdds.join(', ')}.`);
     if (disabling) lines.push('Disables the account — they can no longer sign in.');
     const ref = this.dialog.open(UsersConfirmDialog, {
-      ...Users.DIALOG_OPTS, width: '440px',
-      data: { title: 'Confirm sensitive changes', lines, confirmLabel: 'Save changes', danger: disabling } as ConfirmData,
+      ...Users.DIALOG_OPTS,
+      width: '440px',
+      data: {
+        title: 'Confirm sensitive changes',
+        lines,
+        confirmLabel: 'Save changes',
+        danger: disabling,
+      } as ConfirmData,
     });
-    ref.afterClosed().subscribe(ok => { if (ok) this.commitSave(u, /*announceUndo*/ false); });
+    ref.afterClosed().subscribe((ok) => {
+      if (ok) this.commitSave(u, /*announceUndo*/ false);
+    });
   }
 
   /** The actual PUT. On the routine path, offer an Undo snackbar that re-saves the prior grant set. */
   private commitSave(u: ManagedUser, announceUndo: boolean): void {
     const prior = { permissions: [...u.permissions], isEnabled: u.isEnabled };
-    const body = { name: u.name, isEnabled: this.draftEnabled(), permissions: [...this.draftPerms()] };
+    const body = {
+      name: u.name,
+      isEnabled: this.draftEnabled(),
+      permissions: [...this.draftPerms()],
+    };
     this.saving.set(true);
     this.api.updateUser(u.id, body).subscribe({
-      next: updated => {
+      next: (updated) => {
         this.saving.set(false);
-        this.users.update(list => list.map(x => x.id === updated.id ? updated : x));
+        this.users.update((list) => list.map((x) => (x.id === updated.id ? updated : x)));
         this.seedDraft(updated);
         this.loadAudit();
         if (announceUndo) {
@@ -917,17 +1132,19 @@ export class Users {
 
   /** Re-save a user's prior grant set (the Undo action of a routine save). */
   private undoSave(id: number, prior: { permissions: string[]; isEnabled: boolean }): void {
-    const u = this.users().find(x => x.id === id);
+    const u = this.users().find((x) => x.id === id);
     const name = u ? this.userLabel(u) : `user #${id}`;
-    this.api.updateUser(id, { name: u?.name, isEnabled: prior.isEnabled, permissions: prior.permissions }).subscribe({
-      next: updated => {
-        this.users.update(list => list.map(x => x.id === updated.id ? updated : x));
-        if (this.selectedId() === id) this.seedDraft(updated);
-        this.loadAudit();
-        this.snack.open(`Reverted ${name}`, 'OK', { duration: 2500 });
-      },
-      error: () => this.snack.open('Could not undo', 'Dismiss', { duration: 4000 }),
-    });
+    this.api
+      .updateUser(id, { name: u?.name, isEnabled: prior.isEnabled, permissions: prior.permissions })
+      .subscribe({
+        next: (updated) => {
+          this.users.update((list) => list.map((x) => (x.id === updated.id ? updated : x)));
+          if (this.selectedId() === id) this.seedDraft(updated);
+          this.loadAudit();
+          this.snack.open(`Reverted ${name}`, 'OK', { duration: 2500 });
+        },
+        error: () => this.snack.open('Could not undo', 'Dismiss', { duration: 4000 }),
+      });
   }
 
   /**
@@ -936,7 +1153,8 @@ export class Users {
    */
   forceLogout(u: ManagedUser): void {
     const ref = this.dialog.open(UsersConfirmDialog, {
-      ...Users.DIALOG_OPTS, width: '420px',
+      ...Users.DIALOG_OPTS,
+      width: '420px',
       data: {
         title: 'Sign out of all sessions?',
         lines: [
@@ -946,18 +1164,22 @@ export class Users {
         confirmLabel: 'Sign out',
       } as ConfirmData,
     });
-    ref.afterClosed().subscribe(ok => {
+    ref.afterClosed().subscribe((ok) => {
       if (!ok) return;
       this.loggingOutId.set(u.id);
       this.api.forceLogout(u.id).subscribe({
         next: () => {
           this.loggingOutId.set(null);
           this.loadAudit();
-          this.snack.open(`Signed ${u.name || this.userLabel(u)} out of their sessions.`, 'OK', { duration: 2500 });
+          this.snack.open(`Signed ${u.name || this.userLabel(u)} out of their sessions.`, 'OK', {
+            duration: 2500,
+          });
         },
         error: (err: HttpErrorResponse) => {
           this.loggingOutId.set(null);
-          this.snack.open(err.error?.message ?? 'Could not sign user out', 'Dismiss', { duration: 5000 });
+          this.snack.open(err.error?.message ?? 'Could not sign user out', 'Dismiss', {
+            duration: 5000,
+          });
         },
       });
     });
@@ -965,44 +1187,75 @@ export class Users {
 
   remove(u: ManagedUser): void {
     const ref = this.dialog.open(UsersConfirmDialog, {
-      ...Users.DIALOG_OPTS, width: '420px',
+      ...Users.DIALOG_OPTS,
+      width: '420px',
       data: {
         title: 'Remove user?',
-        lines: [`${u.name || this.userLabel(u)} will lose access immediately.`, 'This cannot be undone.'],
+        lines: [
+          `${u.name || this.userLabel(u)} will lose access immediately.`,
+          'This cannot be undone.',
+        ],
         confirmLabel: 'Remove user',
         danger: true,
       } as ConfirmData,
     });
-    ref.afterClosed().subscribe(ok => {
+    ref.afterClosed().subscribe((ok) => {
       if (!ok) return;
       this.api.deleteUser(u.id).subscribe({
         next: () => {
-          this.users.update(list => list.filter(x => x.id !== u.id));
-          this.selectedIds.update(s => { if (!s.has(u.id)) return s; const n = new Set(s); n.delete(u.id); return n; });
-          if (this.selectedId() === u.id) { this.selectedId.set(null); this.mobileDetailOpen.set(false); }
+          this.users.update((list) => list.filter((x) => x.id !== u.id));
+          this.selectedIds.update((s) => {
+            if (!s.has(u.id)) return s;
+            const n = new Set(s);
+            n.delete(u.id);
+            return n;
+          });
+          if (this.selectedId() === u.id) {
+            this.selectedId.set(null);
+            this.mobileDetailOpen.set(false);
+          }
           this.loadAudit();
           this.snack.open(`Removed ${this.userLabel(u)}`, 'OK', { duration: 2500 });
         },
-        error: (err: HttpErrorResponse) => this.snack.open(err.error?.message ?? 'Delete failed', 'Dismiss', { duration: 5000 }),
+        error: (err: HttpErrorResponse) =>
+          this.snack.open(err.error?.message ?? 'Delete failed', 'Dismiss', { duration: 5000 }),
       });
     });
   }
 
   // ---- Contacts (the circle) — admin editor in the detail (chat.contacts.manage) ----
-  contactsState(id: number): ContactsState | undefined { return this.contacts().get(id); }
+  contactsState(id: number): ContactsState | undefined {
+    return this.contacts().get(id);
+  }
 
   private setContactsState(id: number, patch: Partial<ContactsState>): void {
-    this.contacts.update(m => {
-      const prev = m.get(id) ?? { loading: false, loaded: false, error: false, contacts: [], query: '', busyUserId: null };
+    this.contacts.update((m) => {
+      const prev = m.get(id) ?? {
+        loading: false,
+        loaded: false,
+        error: false,
+        contacts: [],
+        query: '',
+        busyUserId: null,
+      };
       return new Map(m).set(id, { ...prev, ...patch });
     });
   }
 
   private loadContacts(u: ManagedUser): void {
-    this.setContactsState(u.id, { loading: true, loaded: false, error: false, contacts: [], query: '', busyUserId: null });
+    this.setContactsState(u.id, {
+      loading: true,
+      loaded: false,
+      error: false,
+      contacts: [],
+      query: '',
+      busyUserId: null,
+    });
     this.api.userContacts(u.id).subscribe({
-      next: contacts => this.setContactsState(u.id, { loading: false, loaded: true, error: false, contacts }),
-      error: () => this.setContactsState(u.id, { loading: false, loaded: true, error: true, contacts: [] }),
+      next: (contacts) =>
+        this.setContactsState(u.id, { loading: false, loaded: true, error: false, contacts }),
+      error: () =>
+        this.setContactsState(u.id, { loading: false, loaded: true, error: true, contacts: [] }),
     });
   }
 
@@ -1010,50 +1263,58 @@ export class Users {
     if (this.directoryLoaded) return;
     this.directoryLoaded = true;
     this.api.chatDirectory().subscribe({
-      next: dir => this.directory.set(dir),
-      error: () => { this.directoryLoaded = false; },
+      next: (dir) => this.directory.set(dir),
+      error: () => {
+        this.directoryLoaded = false;
+      },
     });
   }
 
-  setContactsQuery(id: number, q: string): void { this.setContactsState(id, { query: q }); }
+  setContactsQuery(id: number, q: string): void {
+    this.setContactsState(id, { query: q });
+  }
 
   addCandidates(u: ManagedUser): ChatContactDto[] {
     const state = this.contactsState(u.id);
-    const have = new Set((state?.contacts ?? []).map(c => c.userId));
+    const have = new Set((state?.contacts ?? []).map((c) => c.userId));
     const q = (state?.query ?? '').trim().toLowerCase();
     return this.directory()
-      .filter(c => c.userId !== u.id && !have.has(c.userId))
-      .filter(c => !q || c.name.toLowerCase().includes(q));
+      .filter((c) => c.userId !== u.id && !have.has(c.userId))
+      .filter((c) => !q || c.name.toLowerCase().includes(q));
   }
 
   addContact(u: ManagedUser, contactUserId: number): void {
-    const added = this.directory().find(c => c.userId === contactUserId);
+    const added = this.directory().find((c) => c.userId === contactUserId);
     this.setContactsState(u.id, { busyUserId: contactUserId });
     this.api.addUserContact(u.id, contactUserId).subscribe({
-      next: contacts => {
+      next: (contacts) => {
         this.setContactsState(u.id, { contacts, query: '', busyUserId: null });
         this.liveStatus.set(`Added ${added?.name || 'contact'} to circle.`);
         this.loadAudit();
       },
       error: (err: HttpErrorResponse) => {
         this.setContactsState(u.id, { busyUserId: null });
-        this.snack.open(err.error?.message ?? 'Could not add contact', 'Dismiss', { duration: 5000 });
+        this.snack.open(err.error?.message ?? 'Could not add contact', 'Dismiss', {
+          duration: 5000,
+        });
       },
     });
   }
 
   removeContact(u: ManagedUser, contactUserId: number): void {
-    const removed = this.contactsState(u.id)?.contacts.find(c => c.userId === contactUserId);
+    const removed = this.contactsState(u.id)?.contacts.find((c) => c.userId === contactUserId);
     this.setContactsState(u.id, { busyUserId: contactUserId });
     this.api.removeUserContact(u.id, contactUserId).subscribe({
-      next: contacts => {
+      next: (contacts) => {
         this.setContactsState(u.id, { contacts, busyUserId: null });
         this.liveStatus.set(`Removed ${removed?.name || 'contact'} from circle.`);
         this.loadAudit();
       },
       error: (err: HttpErrorResponse) => {
         this.setContactsState(u.id, { busyUserId: null });
-        this.snack.open(err.error?.message ?? 'Could not remove contact', 'Dismiss', { duration: 5000 });
+        this.snack.open(err.error?.message ?? 'Could not remove contact', 'Dismiss', {
+          duration: 5000,
+        });
       },
     });
   }
@@ -1067,46 +1328,56 @@ export class Users {
     return ((u.name || u.email || '?').charAt(0) || '?').toUpperCase();
   }
 
-  isMasked(u: ManagedUser): boolean { return u.email == null; }
+  isMasked(u: ManagedUser): boolean {
+    return u.email == null;
+  }
 
-  private userLabel(u: ManagedUser): string { return u.email || u.name || `user #${u.id}`; }
+  private userLabel(u: ManagedUser): string {
+    return u.email || u.name || `user #${u.id}`;
+  }
 
   // ---- Bulk selection + actions (CLIENT-SIDE via the existing per-user updateUser) ----
 
   toggleSelect(id: number, checked: boolean): void {
-    this.selectedIds.update(s => {
+    this.selectedIds.update((s) => {
       const next = new Set(s);
-      if (checked) next.add(id); else next.delete(id);
+      if (checked) next.add(id);
+      else next.delete(id);
       return next;
     });
   }
 
   toggleSelectAllVisible(checked: boolean): void {
-    const vis = this.filteredUsers().map(u => u.id);
-    this.selectedIds.update(s => {
+    const vis = this.filteredUsers().map((u) => u.id);
+    this.selectedIds.update((s) => {
       const next = new Set(s);
-      for (const id of vis) { if (checked) next.add(id); else next.delete(id); }
+      for (const id of vis) {
+        if (checked) next.add(id);
+        else next.delete(id);
+      }
       return next;
     });
   }
 
-  clearSelection(): void { this.selectedIds.set(new Set()); }
+  clearSelection(): void {
+    this.selectedIds.set(new Set());
+  }
 
   private selectedUsers(): ManagedUser[] {
     const sel = this.selectedIds();
-    return this.users().filter(u => sel.has(u.id));
+    return this.users().filter((u) => sel.has(u.id));
   }
 
   /** A short newline list of the affected users for the named confirm (capped, "+N more"). */
   private nameList(users: ManagedUser[], cap = 8): string {
-    const names = users.map(u => u.name || this.userLabel(u));
+    const names = users.map((u) => u.name || this.userLabel(u));
     if (names.length <= cap) return names.join(', ');
     return `${names.slice(0, cap).join(', ')} +${names.length - cap} more`;
   }
 
   /** Apply a role to every selected user (REPLACES + SAVES each). Named confirm. */
   bulkApplyRole(roleKey: string): void {
-    const role = this.presets().find(p => p.key === roleKey);
+    const role = this.presets().find((p) => p.key === roleKey);
     const targets = this.selectedUsers();
     if (!role || !targets.length) return;
     this.confirmBulk(
@@ -1114,45 +1385,101 @@ export class Users {
       [`Replaces each one's permissions with the role, then saves.`, this.nameList(targets)],
       `Apply role`,
       this.hasAnyAi(role.permissions),
-      () => this.runBulk(targets, u => ({ ...this.payload(u), permissions: [...role.permissions] }), `Applied "${role.label}" to`),
+      () =>
+        this.runBulk(
+          targets,
+          (u) => ({ ...this.payload(u), permissions: [...role.permissions] }),
+          `Applied "${role.label}" to`,
+        ),
     );
   }
 
   bulkGrant(key: string): void {
-    const targets = this.selectedUsers().filter(u => !u.permissions.includes(key));
+    const targets = this.selectedUsers().filter((u) => !u.permissions.includes(key));
     const label = this.permByKey().get(key)?.label ?? key;
-    if (!targets.length) { this.snack.open(`All selected users already have "${label}"`, 'OK', { duration: 2500 }); return; }
+    if (!targets.length) {
+      this.snack.open(`All selected users already have "${label}"`, 'OK', { duration: 2500 });
+      return;
+    }
     const ai = this.aiKeys().has(key);
-    const run = () => this.runBulk(targets, u => ({ ...this.payload(u), permissions: [...new Set([...u.permissions, key])] }), `Granted "${label}" to`);
+    const run = () =>
+      this.runBulk(
+        targets,
+        (u) => ({ ...this.payload(u), permissions: [...new Set([...u.permissions, key])] }),
+        `Granted "${label}" to`,
+      );
     if (ai) {
-      this.confirmBulk(`Grant token-spending "${label}" to ${targets.length} user(s)?`,
-        ['This is an AI capability that spends tokens.', this.nameList(targets)], `Grant ${label}`, true, run);
-    } else { run(); }
+      this.confirmBulk(
+        `Grant token-spending "${label}" to ${targets.length} user(s)?`,
+        ['This is an AI capability that spends tokens.', this.nameList(targets)],
+        `Grant ${label}`,
+        true,
+        run,
+      );
+    } else {
+      run();
+    }
   }
 
   bulkRevoke(key: string): void {
-    const targets = this.selectedUsers().filter(u => u.permissions.includes(key));
+    const targets = this.selectedUsers().filter((u) => u.permissions.includes(key));
     const label = this.permByKey().get(key)?.label ?? key;
-    if (!targets.length) { this.snack.open(`No selected user has "${label}"`, 'OK', { duration: 2500 }); return; }
-    this.runBulk(targets, u => ({ ...this.payload(u), permissions: u.permissions.filter(k => k !== key) }), `Revoked "${label}" from`);
+    if (!targets.length) {
+      this.snack.open(`No selected user has "${label}"`, 'OK', { duration: 2500 });
+      return;
+    }
+    this.runBulk(
+      targets,
+      (u) => ({ ...this.payload(u), permissions: u.permissions.filter((k) => k !== key) }),
+      `Revoked "${label}" from`,
+    );
   }
 
   bulkSetEnabled(enabled: boolean): void {
-    const targets = this.selectedUsers().filter(u => u.isEnabled !== enabled);
-    if (!targets.length) { this.snack.open(`Selected users are already ${enabled ? 'enabled' : 'disabled'}`, 'OK', { duration: 2500 }); return; }
-    const run = () => this.runBulk(targets, u => ({ ...this.payload(u), isEnabled: enabled }), `${enabled ? 'Enabled' : 'Disabled'}`);
+    const targets = this.selectedUsers().filter((u) => u.isEnabled !== enabled);
+    if (!targets.length) {
+      this.snack.open(`Selected users are already ${enabled ? 'enabled' : 'disabled'}`, 'OK', {
+        duration: 2500,
+      });
+      return;
+    }
+    const run = () =>
+      this.runBulk(
+        targets,
+        (u) => ({ ...this.payload(u), isEnabled: enabled }),
+        `${enabled ? 'Enabled' : 'Disabled'}`,
+      );
     if (!enabled) {
-      this.confirmBulk(`Disable ${targets.length} user(s)?`,
-        ['They can no longer sign in until re-enabled.', this.nameList(targets)], 'Disable', false, run, /*danger*/ true);
-    } else { run(); }
+      this.confirmBulk(
+        `Disable ${targets.length} user(s)?`,
+        ['They can no longer sign in until re-enabled.', this.nameList(targets)],
+        'Disable',
+        false,
+        run,
+        /*danger*/ true,
+      );
+    } else {
+      run();
+    }
   }
 
   /** Open a named-button confirm for a bulk action; runs `onConfirm` on accept. */
-  private confirmBulk(title: string, lines: string[], confirmLabel: string, _ai: boolean, onConfirm: () => void, danger = false): void {
+  private confirmBulk(
+    title: string,
+    lines: string[],
+    confirmLabel: string,
+    _ai: boolean,
+    onConfirm: () => void,
+    danger = false,
+  ): void {
     const ref = this.dialog.open(UsersConfirmDialog, {
-      ...Users.DIALOG_OPTS, width: '460px', data: { title, lines, confirmLabel, danger } as ConfirmData,
+      ...Users.DIALOG_OPTS,
+      width: '460px',
+      data: { title, lines, confirmLabel, danger } as ConfirmData,
     });
-    ref.afterClosed().subscribe(ok => { if (ok) onConfirm(); });
+    ref.afterClosed().subscribe((ok) => {
+      if (ok) onConfirm();
+    });
   }
 
   private payload(u: ManagedUser): { name?: string; isEnabled: boolean; permissions: string[] } {
@@ -1179,34 +1506,43 @@ export class Users {
         this.loadAudit();
         if (this.selectedId() != null) this.reconcileSelection();
         const ok = targets.length - failures;
-        const msg = failures ? `${verb} ${ok} user(s); ${failures} failed` : `${verb} ${ok} user(s)`;
+        const msg = failures
+          ? `${verb} ${ok} user(s); ${failures} failed`
+          : `${verb} ${ok} user(s)`;
         this.snack.open(msg, 'OK', { duration: 3500 });
         return;
       }
       const u = targets[i];
       this.api.updateUser(u.id, build(u)).subscribe({
-        next: updated => {
-          this.users.update(list => list.map(x => x.id === updated.id ? updated : x));
+        next: (updated) => {
+          this.users.update((list) => list.map((x) => (x.id === updated.id ? updated : x)));
           this.bulkDone.set(i + 1);
           step(i + 1);
         },
-        error: () => { failures++; this.bulkDone.set(i + 1); step(i + 1); },
+        error: () => {
+          failures++;
+          this.bulkDone.set(i + 1);
+          step(i + 1);
+        },
       });
     };
     step(0);
   }
 
   // ---- Add user ----
-  newHasPerm(key: string): boolean { return this.newPerms().has(key); }
+  newHasPerm(key: string): boolean {
+    return this.newPerms().has(key);
+  }
 
   toggleNewPerm(key: string, checked: boolean): void {
     const set = new Set(this.newPerms());
-    if (checked) set.add(key); else set.delete(key);
+    if (checked) set.add(key);
+    else set.delete(key);
     this.newPerms.set(set);
   }
 
   applyRoleToNew(roleKey: string): void {
-    const role = this.presets().find(p => p.key === roleKey);
+    const role = this.presets().find((p) => p.key === roleKey);
     if (!role) return;
     this.newPerms.set(new Set(role.permissions));
     this.addOpen.set(true);
@@ -1215,36 +1551,48 @@ export class Users {
 
   addUser(): void {
     const email = this.newEmail().trim().toLowerCase();
-    if (!email.includes('@')) { this.snack.open('Enter a valid email address', 'Dismiss', { duration: 3000 }); return; }
+    if (!email.includes('@')) {
+      this.snack.open('Enter a valid email address', 'Dismiss', { duration: 3000 });
+      return;
+    }
     this.adding.set(true);
-    this.api.createUser({ email, isEnabled: this.newEnabled(), permissions: [...this.newPerms()] }).subscribe({
-      next: u => {
-        this.adding.set(false);
-        this.users.update(list => [...list, u].sort((a, b) => (a.email ?? a.name).localeCompare(b.email ?? b.name)));
-        this.newEmail.set('');
-        this.newEnabled.set(true);
-        this.newPerms.set(new Set([PERM.dashboardView]));
-        this.addOpen.set(false);
-        this.loadAudit();
-        this.snack.open(`Added ${u.email}`, 'OK', { duration: 2500 });
-      },
-      error: (err: HttpErrorResponse) => {
-        this.adding.set(false);
-        this.snack.open(err.error?.message ?? 'Could not add user', 'Dismiss', { duration: 5000 });
-      },
-    });
+    this.api
+      .createUser({ email, isEnabled: this.newEnabled(), permissions: [...this.newPerms()] })
+      .subscribe({
+        next: (u) => {
+          this.adding.set(false);
+          this.users.update((list) =>
+            [...list, u].sort((a, b) => (a.email ?? a.name).localeCompare(b.email ?? b.name)),
+          );
+          this.newEmail.set('');
+          this.newEnabled.set(true);
+          this.newPerms.set(new Set([PERM.dashboardView]));
+          this.addOpen.set(false);
+          this.loadAudit();
+          this.snack.open(`Added ${u.email}`, 'OK', { duration: 2500 });
+        },
+        error: (err: HttpErrorResponse) => {
+          this.adding.set(false);
+          this.snack.open(err.error?.message ?? 'Could not add user', 'Dismiss', {
+            duration: 5000,
+          });
+        },
+      });
   }
 
   // ---- Access policy ----
   setOpenSignup(enabled: boolean): void {
-    this.policy.update(p => p ? { ...p, openSignupEnabled: enabled } : p);
+    this.policy.update((p) => (p ? { ...p, openSignupEnabled: enabled } : p));
   }
 
-  policyHasPerm(key: string): boolean { return this.policyPerms().has(key); }
+  policyHasPerm(key: string): boolean {
+    return this.policyPerms().has(key);
+  }
 
   togglePolicyPerm(key: string, checked: boolean): void {
     const set = new Set(this.policyPerms());
-    if (checked) set.add(key); else set.delete(key);
+    if (checked) set.add(key);
+    else set.delete(key);
     this.policyPerms.set(set);
   }
 
@@ -1252,9 +1600,12 @@ export class Users {
     const p = this.policy();
     if (!p) return;
     this.savingPolicy.set(true);
-    const body: AccessPolicy = { openSignupEnabled: p.openSignupEnabled, defaultPermissions: [...this.policyPerms()] };
+    const body: AccessPolicy = {
+      openSignupEnabled: p.openSignupEnabled,
+      defaultPermissions: [...this.policyPerms()],
+    };
     this.api.updateAccessPolicy(body).subscribe({
-      next: saved => {
+      next: (saved) => {
         this.savingPolicy.set(false);
         this.policy.set(saved);
         this.policyPerms.set(new Set(saved.defaultPermissions));
@@ -1263,7 +1614,9 @@ export class Users {
       },
       error: (err: HttpErrorResponse) => {
         this.savingPolicy.set(false);
-        this.snack.open(err.error?.message ?? 'Could not save access policy', 'Dismiss', { duration: 5000 });
+        this.snack.open(err.error?.message ?? 'Could not save access policy', 'Dismiss', {
+          duration: 5000,
+        });
       },
     });
   }

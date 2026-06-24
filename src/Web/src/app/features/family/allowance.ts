@@ -1,4 +1,11 @@
-import { Component, DestroyRef, computed, inject, signal } from '@angular/core';
+import {
+  Component,
+  DestroyRef,
+  computed,
+  inject,
+  signal,
+  ChangeDetectionStrategy,
+} from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { catchError, firstValueFrom, of } from 'rxjs';
@@ -15,7 +22,11 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 
 import { Api } from '../../core/api';
 import {
-  Allowance as AllowanceDto, AllowanceMoveRequest, AllowanceSpendCategory, ChildBalance, FamilyCreditEntry,
+  Allowance as AllowanceDto,
+  AllowanceMoveRequest,
+  AllowanceSpendCategory,
+  ChildBalance,
+  FamilyCreditEntry,
 } from '../../core/models';
 
 /** Which money-move sheet is open for which child (only one at a time), or none. */
@@ -45,10 +56,19 @@ const SPEND_CATEGORIES: { value: AllowanceSpendCategory; label: string }[] = [
 @Component({
   selector: 'app-family-allowance',
   imports: [
-    FormsModule, RouterLink, MatIconModule, MatButtonModule, MatTooltipModule, MatProgressSpinnerModule,
-    MatFormFieldModule, MatInputModule, MatSelectModule, MatSnackBarModule,
+    FormsModule,
+    RouterLink,
+    MatIconModule,
+    MatButtonModule,
+    MatTooltipModule,
+    MatProgressSpinnerModule,
+    MatFormFieldModule,
+    MatInputModule,
+    MatSelectModule,
+    MatSnackBarModule,
   ],
   templateUrl: './allowance.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrls: ['./family.scss', './chores.scss', './allowance.scss'],
 })
 export class FamilyAllowance {
@@ -85,10 +105,19 @@ export class FamilyAllowance {
 
   private reload(initial = false): void {
     if (initial) this.loading.set(true);
-    this.api.allowance()
-      .pipe(catchError(() => { if (initial) this.error.set(true); return of<AllowanceDto | null>(null); }),
-        takeUntilDestroyed(this.destroyRef))
-      .subscribe(a => { if (a) this.apply(a); this.loading.set(false); });
+    this.api
+      .allowance()
+      .pipe(
+        catchError(() => {
+          if (initial) this.error.set(true);
+          return of<AllowanceDto | null>(null);
+        }),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe((a) => {
+        if (a) this.apply(a);
+        this.loading.set(false);
+      });
   }
 
   private apply(a: AllowanceDto): void {
@@ -107,10 +136,14 @@ export class FamilyAllowance {
 
   ledgerIcon(kind: FamilyCreditEntry['kind']): string {
     switch (kind) {
-      case 'earn': return 'star';
-      case 'spend': return 'shopping_bag';
-      case 'payout': return 'payments';
-      default: return 'tune';
+      case 'earn':
+        return 'star';
+      case 'spend':
+        return 'shopping_bag';
+      case 'payout':
+        return 'payments';
+      default:
+        return 'tune';
     }
   }
 
@@ -161,7 +194,9 @@ export class FamilyAllowance {
 
     // Warn (don't block) on an overdraw — a parent may advance cash, so the server allows a negative balance.
     if ((kind === 'payout' || kind === 'spend') && amount > child.balance) {
-      this.snack.open(`Heads up: this puts ${child.name} below zero.`, undefined, { duration: 2600 });
+      this.snack.open(`Heads up: this puts ${child.name} below zero.`, undefined, {
+        duration: 2600,
+      });
     }
 
     this.saving.set(true);
@@ -169,10 +204,15 @@ export class FamilyAllowance {
       const a = await firstValueFrom(call);
       this.apply(a);
       this.openChildId.set(null);
-      const verb = kind === 'payout' ? 'Paid out' : kind === 'spend' ? 'Recorded spend' : 'Adjusted';
-      this.snack.open(`${verb} ${this.money(amount)} for ${child.name}.`, undefined, { duration: 2600 });
+      const verb =
+        kind === 'payout' ? 'Paid out' : kind === 'spend' ? 'Recorded spend' : 'Adjusted';
+      this.snack.open(`${verb} ${this.money(amount)} for ${child.name}.`, undefined, {
+        duration: 2600,
+      });
     } catch (e) {
-      this.snack.open(this.messageOf(e, "Couldn't record that just now. Please try again."), 'OK', { duration: 4000 });
+      this.snack.open(this.messageOf(e, "Couldn't record that just now. Please try again."), 'OK', {
+        duration: 4000,
+      });
     } finally {
       this.saving.set(false);
     }

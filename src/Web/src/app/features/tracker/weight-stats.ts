@@ -1,4 +1,4 @@
-import { Component, computed, input } from '@angular/core';
+import { Component, computed, input, ChangeDetectionStrategy } from '@angular/core';
 
 import { WeightSlot, WeightStatsDto } from '../../core/models';
 import { MatIconModule } from '@angular/material/icon';
@@ -50,6 +50,7 @@ const SLOT_LABELS: { slot: WeightSlot; label: string }[] = [
       </div>
     }
   `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: `
     .ws {
       display: flex;
@@ -66,15 +67,26 @@ const SLOT_LABELS: { slot: WeightSlot; label: string }[] = [
       grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
       gap: var(--tech-space-2) var(--tech-space-3);
     }
-    .ws-slot { display: flex; flex-direction: column; gap: 1px; }
+    .ws-slot {
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+    }
     .ws-slot__l {
       font-size: var(--tech-fs-micro);
       text-transform: uppercase;
       letter-spacing: 0.05em;
       color: var(--tech-text-tertiary);
     }
-    .ws-slot__v { font-size: var(--tech-fs-h2, var(--tech-fs-body)); font-weight: 700; color: var(--tech-text); }
-    .ws-slot__c { font-size: var(--tech-fs-micro); color: var(--tech-text-tertiary); }
+    .ws-slot__v {
+      font-size: var(--tech-fs-h2, var(--tech-fs-body));
+      font-weight: 700;
+      color: var(--tech-text);
+    }
+    .ws-slot__c {
+      font-size: var(--tech-fs-micro);
+      color: var(--tech-text-tertiary);
+    }
     .ws-delta {
       display: flex;
       align-items: center;
@@ -82,7 +94,12 @@ const SLOT_LABELS: { slot: WeightSlot; label: string }[] = [
       margin: 0;
       font-size: var(--tech-fs-label);
       color: var(--tech-text-secondary);
-      mat-icon { font-size: 18px; width: 18px; height: 18px; color: var(--tech-accent); }
+      mat-icon {
+        font-size: 18px;
+        width: 18px;
+        height: 18px;
+        color: var(--tech-accent);
+      }
     }
   `,
 })
@@ -97,7 +114,7 @@ export class WeightStats {
     const imp = this.imperial();
     const out: SlotRow[] = [];
     for (const { slot, label } of SLOT_LABELS) {
-      const row = s.bySlot.find(b => b.slot === slot);
+      const row = s.bySlot.find((b) => b.slot === slot);
       if (!row || row.count === 0) continue;
       out.push({ slot, label, avg: formatWeight(row.avgKg, imp) ?? '—', count: row.count });
     }
@@ -114,8 +131,13 @@ export class WeightStats {
     if (s == null || d == null) return null;
     const imp = this.imperial();
     const mag = formatWeight(Math.abs(d), imp) ?? '—';
-    if (Math.abs(d) < 0.05) return { text: 'Morning and evening weights are about the same on average.', icon: 'drag_handle' };
-    if (d > 0) return { text: `Evening reads ${mag} heavier than morning on average.`, icon: 'trending_up' };
+    if (Math.abs(d) < 0.05)
+      return {
+        text: 'Morning and evening weights are about the same on average.',
+        icon: 'drag_handle',
+      };
+    if (d > 0)
+      return { text: `Evening reads ${mag} heavier than morning on average.`, icon: 'trending_up' };
     return { text: `Evening reads ${mag} lighter than morning on average.`, icon: 'trending_down' };
   });
 }

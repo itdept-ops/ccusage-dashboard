@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { Component, ChangeDetectionStrategy } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { MatIconModule } from '@angular/material/icon';
 import { MarketingNav } from './marketing-nav';
@@ -24,6 +24,7 @@ interface ArchNode {
   selector: 'app-technology-page',
   imports: [RouterLink, MatIconModule, MarketingNav, MarketingFooter],
   templateUrl: './technology-page.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrls: ['./marketing-page.scss', './technology-page.scss'],
 })
 export class TechnologyPage {
@@ -81,12 +82,14 @@ export class TechnologyPage {
     {
       name: 'Google Identity Services',
       powers: 'Sign-in only.',
-      posture: 'The ID token is validated server-side, and the account is pinned to its Google subject id.',
+      posture:
+        'The ID token is validated server-side, and the account is pinned to its Google subject id.',
     },
     {
       name: 'Claude Code + OpenAI Codex',
       powers: 'Local JSONL usage logs from each tool.',
-      posture: 'Only token counts and metadata are read — never the content of your prompts or files.',
+      posture:
+        'Only token counts and metadata are read — never the content of your prompts or files.',
     },
     {
       name: 'USDA FoodData Central',

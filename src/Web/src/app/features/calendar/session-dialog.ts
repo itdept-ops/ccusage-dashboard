@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal, ChangeDetectionStrategy } from '@angular/core';
 import type { EChartsOption } from 'echarts';
 
 import { MAT_DIALOG_DATA, MatDialogModule } from '@angular/material/dialog';
@@ -14,8 +14,17 @@ import { CompactPipe } from '../../shared/format';
 
 @Component({
   selector: 'app-session-dialog',
-  imports: [CommonModule, MatDialogModule, MatButtonModule, MatProgressBarModule, MatSnackBarModule, ChartComponent, CompactPipe],
+  imports: [
+    CommonModule,
+    MatDialogModule,
+    MatButtonModule,
+    MatProgressBarModule,
+    MatSnackBarModule,
+    ChartComponent,
+    CompactPipe,
+  ],
   templateUrl: './session-dialog.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrl: './session-dialog.scss',
 })
 export class SessionDialog {
@@ -28,7 +37,10 @@ export class SessionDialog {
 
   constructor() {
     this.api.session(this.id).subscribe({
-      next: d => { this.data.set(d); this.loading.set(false); },
+      next: (d) => {
+        this.data.set(d);
+        this.loading.set(false);
+      },
       // On error, leave data() null + loading() false so the template's @else error
       // block renders; the snackbar adds an explicit notice.
       error: () => {
@@ -48,16 +60,26 @@ export class SessionDialog {
     const d = this.data();
     if (!d || !d.items.length) return {};
     let cum = 0;
-    const points = d.items.map(m => { cum += m.cost; return [m.timestampUtc, +cum.toFixed(4)] as [string, number]; });
+    const points = d.items.map((m) => {
+      cum += m.cost;
+      return [m.timestampUtc, +cum.toFixed(4)] as [string, number];
+    });
     return {
-      tooltip: { trigger: 'axis', valueFormatter: v => '$' + Number(v).toFixed(2) },
+      tooltip: { trigger: 'axis', valueFormatter: (v) => '$' + Number(v).toFixed(2) },
       grid: { left: 60, right: 20, top: 16, bottom: 36 },
       xAxis: { type: 'time' },
       yAxis: { type: 'value', name: 'Cumulative $', axisLabel: { formatter: '${value}' } },
-      series: [{
-        type: 'line', step: 'end', symbol: 'none', data: points,
-        areaStyle: { opacity: 0.14 }, itemStyle: { color: '#f472b6' }, lineStyle: { color: '#f472b6', width: 2 },
-      }],
+      series: [
+        {
+          type: 'line',
+          step: 'end',
+          symbol: 'none',
+          data: points,
+          areaStyle: { opacity: 0.14 },
+          itemStyle: { color: '#f472b6' },
+          lineStyle: { color: '#f472b6', width: 2 },
+        },
+      ],
     };
   });
 }

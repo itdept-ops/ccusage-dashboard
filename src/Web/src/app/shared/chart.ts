@@ -1,4 +1,13 @@
-import { Component, ElementRef, OnDestroy, afterNextRender, effect, input, viewChild } from '@angular/core';
+import {
+  Component,
+  ElementRef,
+  OnDestroy,
+  afterNextRender,
+  effect,
+  input,
+  viewChild,
+  ChangeDetectionStrategy,
+} from '@angular/core';
 import * as echarts from 'echarts';
 import type { EChartsOption } from 'echarts';
 
@@ -25,7 +34,11 @@ const AXON_CHART_BASE: EChartsOption = {
     backgroundColor: 'rgba(16,21,32,0.86)',
     borderColor: '#33425a',
     borderWidth: 1,
-    textStyle: { color: '#e6edf6', fontFamily: 'JetBrains Mono, ui-monospace, monospace', fontSize: 12 },
+    textStyle: {
+      color: '#e6edf6',
+      fontFamily: 'JetBrains Mono, ui-monospace, monospace',
+      fontSize: 12,
+    },
     extraCssText:
       'border-radius:8px; backdrop-filter:blur(14px); box-shadow:0 24px 60px -20px rgba(0,0,0,.8);',
     axisPointer: { type: 'line', lineStyle: { color: 'rgba(61,139,255,0.5)', type: 'dashed' } },
@@ -36,14 +49,18 @@ const AXON_CHART_BASE: EChartsOption = {
 const AXON_AXIS = {
   axisLine: { lineStyle: { color: '#26303f' } },
   axisTick: { show: false },
-  axisLabel: { color: '#5e6c82', fontFamily: 'JetBrains Mono, ui-monospace, monospace', fontSize: 11 },
+  axisLabel: {
+    color: '#5e6c82',
+    fontFamily: 'JetBrains Mono, ui-monospace, monospace',
+    fontSize: 11,
+  },
   splitLine: { lineStyle: { color: 'rgba(28,37,51,0.7)', type: 'dashed' } },
 } as const;
 
 /** Deep-merge AXON dark defaults under the caller's option (caller wins on conflicts). */
 function withAxonTheme(option: EChartsOption): EChartsOption {
   const themeAxis = (axis: unknown): unknown => {
-    if (Array.isArray(axis)) return axis.map(a => ({ ...AXON_AXIS, ...(a as object) }));
+    if (Array.isArray(axis)) return axis.map((a) => ({ ...AXON_AXIS, ...(a as object) }));
     if (axis && typeof axis === 'object') return { ...AXON_AXIS, ...(axis as object) };
     return axis;
   };
@@ -55,8 +72,10 @@ function withAxonTheme(option: EChartsOption): EChartsOption {
     tooltip: { ...AXON_CHART_BASE.tooltip, ...(option.tooltip as object) },
   };
   if (option.color) merged.color = option.color;
-  if ('xAxis' in option && option.xAxis) merged.xAxis = themeAxis(option.xAxis) as EChartsOption['xAxis'];
-  if ('yAxis' in option && option.yAxis) merged.yAxis = themeAxis(option.yAxis) as EChartsOption['yAxis'];
+  if ('xAxis' in option && option.xAxis)
+    merged.xAxis = themeAxis(option.xAxis) as EChartsOption['xAxis'];
+  if ('yAxis' in option && option.yAxis)
+    merged.yAxis = themeAxis(option.yAxis) as EChartsOption['yAxis'];
   return merged;
 }
 
@@ -65,7 +84,15 @@ function withAxonTheme(option: EChartsOption): EChartsOption {
   selector: 'app-chart',
   standalone: true,
   template: `<div #host class="chart-host"></div>`,
-  styles: `.chart-host { display: block; width: 100%; height: 100%; min-height: 300px; }`,
+  changeDetection: ChangeDetectionStrategy.Eager,
+  styles: `
+    .chart-host {
+      display: block;
+      width: 100%;
+      height: 100%;
+      min-height: 300px;
+    }
+  `,
 })
 export class ChartComponent implements OnDestroy {
   readonly option = input.required<EChartsOption>();

@@ -1,4 +1,13 @@
-import { Component, computed, effect, inject, signal, viewChild, ElementRef } from '@angular/core';
+import {
+  Component,
+  computed,
+  effect,
+  inject,
+  signal,
+  viewChild,
+  ElementRef,
+  ChangeDetectionStrategy,
+} from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { firstValueFrom } from 'rxjs';
 
@@ -48,9 +57,14 @@ const DOMAIN_LABEL: Record<string, string> = {
   selector: 'app-ask',
   standalone: true,
   imports: [
-    FormsModule, MatIconModule, MatButtonModule, MatProgressSpinnerModule, MatTooltipModule,
+    FormsModule,
+    MatIconModule,
+    MatButtonModule,
+    MatProgressSpinnerModule,
+    MatTooltipModule,
   ],
   templateUrl: './ask.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrl: './ask.scss',
 })
 export class Ask {
@@ -86,7 +100,9 @@ export class Ask {
     effect(() => {
       this.turns();
       this.loading();
-      queueMicrotask(() => this.scrollAnchor()?.nativeElement.scrollIntoView({ behavior: 'smooth', block: 'end' }));
+      queueMicrotask(() =>
+        this.scrollAnchor()?.nativeElement.scrollIntoView({ behavior: 'smooth', block: 'end' }),
+      );
     });
   }
 
@@ -110,12 +126,15 @@ export class Ask {
     this.announce.set('Asking…');
     try {
       const res: AskResponse = await firstValueFrom(this.api.askMyLife(q));
-      this.turns.update(t => [...t, {
-        question: q,
-        answer: res.answer,
-        aiUsed: res.aiUsed,
-        domains: res.domains ?? [],
-      }]);
+      this.turns.update((t) => [
+        ...t,
+        {
+          question: q,
+          answer: res.answer,
+          aiUsed: res.aiUsed,
+          domains: res.domains ?? [],
+        },
+      ]);
       this.question.set('');
       this.announce.set('Answer ready.');
     } catch {

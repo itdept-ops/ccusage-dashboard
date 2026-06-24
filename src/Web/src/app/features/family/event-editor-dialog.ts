@@ -1,4 +1,4 @@
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal, ChangeDetectionStrategy } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 
 import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
@@ -35,9 +35,7 @@ interface RecurrenceOption {
 }
 
 /** The editor result: either a save payload (local→UTC already applied) or a delete request. */
-export type EventEditorResult =
-  | { kind: 'save'; input: CalendarEventInput }
-  | { kind: 'delete' };
+export type EventEditorResult = { kind: 'save'; input: CalendarEventInput } | { kind: 'delete' };
 
 /**
  * Create / edit a calendar event on the caller's own Google Calendar. Times are entered in the user's LOCAL
@@ -49,10 +47,17 @@ export type EventEditorResult =
 @Component({
   selector: 'app-event-editor-dialog',
   imports: [
-    FormsModule, MatDialogModule, MatButtonModule, MatIconModule,
-    MatFormFieldModule, MatInputModule, MatSlideToggleModule, MatSelectModule,
+    FormsModule,
+    MatDialogModule,
+    MatButtonModule,
+    MatIconModule,
+    MatFormFieldModule,
+    MatInputModule,
+    MatSlideToggleModule,
+    MatSelectModule,
   ],
   templateUrl: './event-editor-dialog.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrls: ['./family.scss', './calendar.scss'],
 })
 export class EventEditorDialog {
@@ -85,9 +90,13 @@ export class EventEditorDialog {
    * location/notes, or an AI proposal that set a repeat — so nothing pre-filled is hidden.
    */
   readonly showAdvanced = signal(
-    this.location().trim().length > 0 || this.notes().trim().length > 0 || this.recurrence() !== 'none',
+    this.location().trim().length > 0 ||
+      this.notes().trim().length > 0 ||
+      this.recurrence() !== 'none',
   );
-  toggleAdvanced(): void { this.showAdvanced.update(v => !v); }
+  toggleAdvanced(): void {
+    this.showAdvanced.update((v) => !v);
+  }
 
   /** "YYYY-MM-DD" local — the day the event starts (and, for all-day, the start day). */
   readonly date = signal(this.initialDate());

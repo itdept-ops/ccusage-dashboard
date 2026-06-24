@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal, ChangeDetectionStrategy } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { HttpErrorResponse } from '@angular/common/http';
@@ -25,10 +25,18 @@ import { IngestKey, IngestKeyCreated, PERM } from '../../core/models';
 @Component({
   selector: 'app-reporter',
   imports: [
-    CommonModule, FormsModule, RouterLink, MatCardModule, MatButtonModule, MatIconModule,
-    MatFormFieldModule, MatInputModule, MatSnackBarModule,
+    CommonModule,
+    FormsModule,
+    RouterLink,
+    MatCardModule,
+    MatButtonModule,
+    MatIconModule,
+    MatFormFieldModule,
+    MatInputModule,
+    MatSnackBarModule,
   ],
   templateUrl: './reporter.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrl: './reporter.scss',
 })
 export class ReporterPage {
@@ -40,7 +48,9 @@ export class ReporterPage {
   /** Full-fleet management (can see/revoke every key and the owner column). */
   readonly canManage = computed(() => this.auth.hasPermission(PERM.reporterManage));
   /** May create/revoke own keys (true for both self-service and full-manage callers). */
-  readonly canCreate = computed(() => this.auth.hasAnyPermission(PERM.reporterManage, PERM.reporterSelf));
+  readonly canCreate = computed(() =>
+    this.auth.hasAnyPermission(PERM.reporterManage, PERM.reporterSelf),
+  );
   /** Self-service only (own keys) — drives the "get your own token" explainer. */
   readonly selfServiceOnly = computed(() => this.canCreate() && !this.canManage());
 
@@ -70,7 +80,8 @@ export class ReporterPage {
   /** Publish a single, self-contained tray exe (no .NET install needed on the target). */
   readonly agentPublishCommand = signal(
     'dotnet publish src/Agent -c Release -r win-x64 --self-contained ' +
-    '-p:PublishSingleFile=true -o publish/agent');
+      '-p:PublishSingleFile=true -o publish/agent',
+  );
 
   constructor() {
     this.loadIngestKeys();
@@ -84,7 +95,7 @@ export class ReporterPage {
 
   private loadIngestKeys(): void {
     this.api.ingestKeys().subscribe({
-      next: k => this.ingestKeys.set(k),
+      next: (k) => this.ingestKeys.set(k),
       error: () => this.snack.open('Could not load ingest keys', 'Dismiss', { duration: 4000 }),
     });
   }
@@ -93,7 +104,7 @@ export class ReporterPage {
     if (this.generatingKey()) return;
     this.generatingKey.set(true);
     this.api.createIngestKey(this.newKeyName().trim()).subscribe({
-      next: k => {
+      next: (k) => {
         this.generatingKey.set(false);
         this.freshKey.set(k);
         this.copied.set(false);
@@ -102,14 +113,16 @@ export class ReporterPage {
       },
       error: (e: HttpErrorResponse) => {
         this.generatingKey.set(false);
-        this.snack.open(e.error?.message ?? 'Could not generate key', 'Dismiss', { duration: 5000 });
+        this.snack.open(e.error?.message ?? 'Could not generate key', 'Dismiss', {
+          duration: 5000,
+        });
       },
     });
   }
 
   copyKey(): void {
     const k = this.freshKey();
-    if (k) this.copy(k.key, 'Key copied').then(ok => this.copied.set(ok));
+    if (k) this.copy(k.key, 'Key copied').then((ok) => this.copied.set(ok));
   }
 
   dismissFreshKey(): void {
@@ -119,7 +132,10 @@ export class ReporterPage {
 
   revokeKey(k: IngestKey): void {
     this.api.revokeIngestKey(k.id).subscribe({
-      next: () => { this.snack.open(`Revoked "${k.name}"`, 'OK', { duration: 2500 }); this.loadIngestKeys(); },
+      next: () => {
+        this.snack.open(`Revoked "${k.name}"`, 'OK', { duration: 2500 });
+        this.loadIngestKeys();
+      },
       error: () => this.snack.open('Revoke failed', 'Dismiss', { duration: 4000 }),
     });
   }
@@ -127,8 +143,14 @@ export class ReporterPage {
   /** Copy arbitrary text (command snippets) with a toast; returns whether it succeeded. */
   copy(text: string, label = 'Copied'): Promise<boolean> {
     return (navigator.clipboard?.writeText(text) ?? Promise.reject()).then(
-      () => { this.snack.open(label, 'OK', { duration: 2000 }); return true; },
-      () => { this.snack.open('Copy failed — select and copy manually', 'Dismiss', { duration: 4000 }); return false; },
+      () => {
+        this.snack.open(label, 'OK', { duration: 2000 });
+        return true;
+      },
+      () => {
+        this.snack.open('Copy failed — select and copy manually', 'Dismiss', { duration: 4000 });
+        return false;
+      },
     );
   }
 }

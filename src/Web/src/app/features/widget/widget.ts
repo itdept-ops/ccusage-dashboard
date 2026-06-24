@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal, ChangeDetectionStrategy } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { timer, switchMap, catchError, of } from 'rxjs';
@@ -17,6 +17,7 @@ import { timeAgo } from '../../shared/format';
   selector: 'app-widget',
   imports: [CommonModule],
   templateUrl: './widget.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrl: './widget.scss',
 })
 export class Widget {
@@ -33,8 +34,9 @@ export class Widget {
 
   readonly models = computed(() =>
     (this.summary()?.buckets ?? [])
-      .filter(b => b.totalTokens > 0 || b.costUsd > 0)
-      .sort((a, b) => b.costUsd - a.costUsd));
+      .filter((b) => b.totalTokens > 0 || b.costUsd > 0)
+      .sort((a, b) => b.costUsd - a.costUsd),
+  );
 
   readonly total = computed(() => this.summary()?.total ?? null);
 
@@ -45,7 +47,9 @@ export class Widget {
     return s ? s.charAt(0).toUpperCase() + s.slice(1) : '—';
   });
 
-  readonly companyColor = computed(() => this.source().toLowerCase().includes('codex') ? '#3dd68c' : '#3d8bff');
+  readonly companyColor = computed(() =>
+    this.source().toLowerCase().includes('codex') ? '#3dd68c' : '#3d8bff',
+  );
 
   readonly syncLabel = computed(() => {
     const ls = this.lastSync();
@@ -53,15 +57,18 @@ export class Widget {
   });
 
   constructor() {
-    this.route.paramMap.pipe(takeUntilDestroyed()).subscribe(p => {
+    this.route.paramMap.pipe(takeUntilDestroyed()).subscribe((p) => {
       this.source.set(p.get('source') ?? '');
       this.reload();
     });
 
     // Refresh on each sync: poll the (log-excluded) status endpoint and reload when it changes.
     timer(0, 15000)
-      .pipe(switchMap(() => this.api.syncStatus().pipe(catchError(() => of(null)))), takeUntilDestroyed())
-      .subscribe(s => {
+      .pipe(
+        switchMap(() => this.api.syncStatus().pipe(catchError(() => of(null)))),
+        takeUntilDestroyed(),
+      )
+      .subscribe((s) => {
         this.now.set(Date.now());
         if (s && s.lastSyncUtc !== this.lastSeen) {
           this.lastSeen = s.lastSyncUtc;
@@ -75,10 +82,28 @@ export class Widget {
     const src = this.source();
     if (!src) return;
     this.api
-      .summary({ from: null, to: null, projectIds: [], models: [], sources: [src], machine: [], includeSidechain: true }, 'model')
+      .summary(
+        {
+          from: null,
+          to: null,
+          projectIds: [],
+          models: [],
+          sources: [src],
+          machine: [],
+          includeSidechain: true,
+        },
+        'model',
+      )
       .subscribe({
-        next: r => { this.summary.set(r); this.error.set(false); this.loading.set(false); },
-        error: () => { this.error.set(true); this.loading.set(false); },
+        next: (r) => {
+          this.summary.set(r);
+          this.error.set(false);
+          this.loading.set(false);
+        },
+        error: () => {
+          this.error.set(true);
+          this.loading.set(false);
+        },
       });
   }
 
@@ -99,7 +124,7 @@ export class Widget {
 
   prettyModel(model: string): string {
     if (model.startsWith('<')) return model.replace(/[<>]/g, '');
-    const noDate = model.replace(/-\d{8}$/, '');           // strip date suffix
+    const noDate = model.replace(/-\d{8}$/, ''); // strip date suffix
     const p = noDate.split('-');
     const cap = (s: string) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s);
     if (p[0] === 'claude') {

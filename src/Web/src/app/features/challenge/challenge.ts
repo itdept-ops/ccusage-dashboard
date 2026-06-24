@@ -1,4 +1,12 @@
-import { Component, DestroyRef, computed, effect, inject, signal } from '@angular/core';
+import {
+  Component,
+  DestroyRef,
+  computed,
+  effect,
+  inject,
+  signal,
+  ChangeDetectionStrategy,
+} from '@angular/core';
 import { FormsModule } from '@angular/forms';
 
 import { MatIconModule } from '@angular/material/icon';
@@ -20,8 +28,16 @@ import { ChallengeStore } from '../../core/challenge-store';
 import { AuthService } from '../../core/auth';
 import { Api } from '../../core/api';
 import {
-  CreateHardTaskRequest, HardDayDto, HardDayTaskDto, HardLeaderboardRowDto, HardSharedPersonDto, HardTaskDto,
-  NudgeKind, PERM, UpdateHardTaskRequest, UpsertHardDayRequest,
+  CreateHardTaskRequest,
+  HardDayDto,
+  HardDayTaskDto,
+  HardLeaderboardRowDto,
+  HardSharedPersonDto,
+  HardTaskDto,
+  NudgeKind,
+  PERM,
+  UpdateHardTaskRequest,
+  UpsertHardDayRequest,
 } from '../../core/models';
 import { catchError, of } from 'rxjs';
 
@@ -48,7 +64,14 @@ interface NewTaskDraft {
 }
 
 function emptyDraft(): NewTaskDraft {
-  return { label: '', measurable: false, targetValue: 10, unit: '', pointValue: 10, partialCredit: false };
+  return {
+    label: '',
+    measurable: false,
+    targetValue: 10,
+    unit: '',
+    pointValue: 10,
+    partialCredit: false,
+  };
 }
 
 /**
@@ -69,11 +92,24 @@ function emptyDraft(): NewTaskDraft {
   selector: 'app-challenge',
   standalone: true,
   imports: [
-    FormsModule, RouterLink, MatIconModule, MatButtonModule, MatMenuModule, MatTooltipModule,
-    MatProgressBarModule, MatProgressSpinnerModule, MatCheckboxModule, MatSlideToggleModule,
-    MatFormFieldModule, MatInputModule, MatButtonToggleModule, MatExpansionModule, MatSnackBarModule,
+    FormsModule,
+    RouterLink,
+    MatIconModule,
+    MatButtonModule,
+    MatMenuModule,
+    MatTooltipModule,
+    MatProgressBarModule,
+    MatProgressSpinnerModule,
+    MatCheckboxModule,
+    MatSlideToggleModule,
+    MatFormFieldModule,
+    MatInputModule,
+    MatButtonToggleModule,
+    MatExpansionModule,
+    MatSnackBarModule,
   ],
   templateUrl: './challenge.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrl: './challenge.scss',
 })
 export class Challenge {
@@ -138,7 +174,7 @@ export class Challenge {
   /** The future cheat days already declared (within the loaded window), oldest-first, for the chip list. */
   readonly cheatDays = computed<HardDayDto[]>(() => {
     const today = this.todayIso();
-    return this.store.days().filter(d => d.isCheatDay && d.date > today);
+    return this.store.days().filter((d) => d.isCheatDay && d.date > today);
   });
 
   constructor() {
@@ -165,7 +201,8 @@ export class Challenge {
       const c = this.store.challenge();
       if (!c) return;
       this.statusMsg.set(
-        `Day ${c.currentDay} of ${this.totalDays}, current streak ${c.currentStreak}, ${this.fmt(c.totalPoints)} points`);
+        `Day ${c.currentDay} of ${this.totalDays}, current streak ${c.currentStreak}, ${this.fmt(c.totalPoints)} points`,
+      );
     });
 
     // Read-only auto-refresh: a gentle 30s re-fetch ONLY while viewing someone else's challenge.
@@ -221,15 +258,24 @@ export class Challenge {
 
   // ---- day navigation (in-grid; no reload — the whole grid is loaded) ----
 
-  prevDay(): void { this.store.shiftDate(-1); }
-  nextDay(): void { this.store.shiftDate(1); }
-  goToday(): void { this.store.goToday(); }
-  onDateInput(value: string): void { if (value) this.store.setDate(value); }
+  prevDay(): void {
+    this.store.shiftDate(-1);
+  }
+  nextDay(): void {
+    this.store.shiftDate(1);
+  }
+  goToday(): void {
+    this.store.goToday();
+  }
+  onDateInput(value: string): void {
+    if (value) this.store.setDate(value);
+  }
 
   /** A friendly heading for the selected date (Today / Yesterday / weekday). */
   readonly dateHeading = computed(() => {
     const d = new Date(this.store.date() + 'T00:00:00');
-    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
     const diff = Math.round((d.getTime() - today.getTime()) / 86_400_000);
     if (diff === 0) return 'Today';
     if (diff === -1) return 'Yesterday';
@@ -285,19 +331,22 @@ export class Challenge {
     if (!w || w.watchWorkoutCredit < 1) return '';
     const cals = w.activeCalories != null ? ` (${this.fmt(w.activeCalories)} active cal)` : '';
     const watch = `1 from watch${cals}`;
-    return w.loggedWorkouts > 0
-      ? `${this.fmt(w.loggedWorkouts)} logged · ${watch}`
-      : watch;
+    return w.loggedWorkouts > 0 ? `${this.fmt(w.loggedWorkouts)} logged · ${watch}` : watch;
   }
 
   /** A short scoring hint for an auto task (how it derives from the tracker). */
   autoHint(t: HardDayTaskDto): string {
     switch (t.autoSource) {
-      case 'Diet': return 'within your tracker goals';
-      case 'Water': return 'from your hydration log';
-      case 'Workout': return 'logged workouts that hit the minutes target';
-      case 'NoAlcohol': return 'from the no-alcohol attestation';
-      default: return '';
+      case 'Diet':
+        return 'within your tracker goals';
+      case 'Water':
+        return 'from your hydration log';
+      case 'Workout':
+        return 'logged workouts that hit the minutes target';
+      case 'NoAlcohol':
+        return 'from the no-alcohol attestation';
+      default:
+        return '';
     }
   }
 
@@ -305,7 +354,7 @@ export class Challenge {
 
   /** Update the in-progress draft for a manual measurable task (committed on blur). */
   setManualDraft(taskId: number, value: number | null): void {
-    this.manualDrafts.update(d => ({ ...d, [taskId]: value }));
+    this.manualDrafts.update((d) => ({ ...d, [taskId]: value }));
   }
 
   /** Commit a manual measurable task's value (reading pages / custom) for the selected day. */
@@ -351,7 +400,9 @@ export class Challenge {
       await this.store.upsertDay({ date: this.store.date(), ...patch });
       void this.store.loadLeaderboard();
     } catch (e) {
-      this.snack.open(this.messageOf(e, 'Could not save — please try again.'), 'OK', { duration: 4000 });
+      this.snack.open(this.messageOf(e, 'Could not save — please try again.'), 'OK', {
+        duration: 4000,
+      });
     }
   }
 
@@ -359,11 +410,13 @@ export class Challenge {
 
   /** The diet task in the loaded set, if enabled (the day-view diet override only matters when it exists). */
   readonly dietTaskEnabled = computed(() =>
-    this.store.tasks().some(t => t.autoSource === 'Diet' && t.enabled));
+    this.store.tasks().some((t) => t.autoSource === 'Diet' && t.enabled),
+  );
 
   /** The no-alcohol task in the loaded set, if enabled. */
   readonly noAlcoholEnabled = computed(() =>
-    this.store.tasks().some(t => t.autoSource === 'NoAlcohol' && t.enabled));
+    this.store.tasks().some((t) => t.autoSource === 'NoAlcohol' && t.enabled),
+  );
 
   /** Toggle a task on/off (owner). */
   async toggleTaskEnabled(t: HardTaskDto, enabled: boolean): Promise<void> {
@@ -392,9 +445,10 @@ export class Challenge {
    * 1..100000; a blank/invalid value resets to the default (null → server default 300).
    */
   async saveTaskActiveCal(t: HardTaskDto, value: number | null): Promise<void> {
-    const next = value == null || isNaN(value) || value <= 0
-      ? null
-      : Math.min(100000, Math.max(1, Math.round(value)));
+    const next =
+      value == null || isNaN(value) || value <= 0
+        ? null
+        : Math.min(100000, Math.max(1, Math.round(value)));
     if (next === t.activeCalPerWorkout) return;
     await this.patchTask(t.id, { activeCalPerWorkout: next });
   }
@@ -442,7 +496,7 @@ export class Challenge {
 
   /** Patch a field on the new-task draft. */
   patchDraft(patch: Partial<NewTaskDraft>): void {
-    this.newTask.update(d => ({ ...d, ...patch }));
+    this.newTask.update((d) => ({ ...d, ...patch }));
   }
 
   /** Add the custom manual task from the draft (owner). */
@@ -458,7 +512,7 @@ export class Challenge {
       label,
       pointValue: Math.max(0, Math.round(d.pointValue || 0)),
       targetValue: d.measurable ? Math.max(0.01, d.targetValue ?? 1) : null,
-      unit: d.measurable ? (d.unit.trim() || null) : null,
+      unit: d.measurable ? d.unit.trim() || null : null,
       partialCredit: d.measurable ? d.partialCredit : false,
     };
     this.addingTask.set(true);
@@ -484,7 +538,9 @@ export class Challenge {
       return;
     }
     if (this.cheatDays().length >= MAX_CHEAT_DAYS) {
-      this.snack.open(`You can declare at most ${MAX_CHEAT_DAYS} cheat days.`, 'OK', { duration: 3500 });
+      this.snack.open(`You can declare at most ${MAX_CHEAT_DAYS} cheat days.`, 'OK', {
+        duration: 3500,
+      });
       return;
     }
     try {
@@ -502,13 +558,16 @@ export class Challenge {
       await this.store.setCheatDays({ remove: [d.date] });
       this.snack.open('Cheat day cleared.', 'OK', { duration: 2000 });
     } catch (e) {
-      this.snack.open(this.messageOf(e, 'Could not clear that cheat day.'), 'OK', { duration: 4000 });
+      this.snack.open(this.messageOf(e, 'Could not clear that cheat day.'), 'OK', {
+        duration: 4000,
+      });
     }
   }
 
   /** The earliest a cheat day may be (tomorrow), for the date input's min. */
   readonly minCheatDate = computed(() => {
-    const d = new Date(); d.setDate(d.getDate() + 1);
+    const d = new Date();
+    d.setDate(d.getDate() + 1);
     return this.toLocalDate(d);
   });
 
@@ -526,8 +585,12 @@ export class Challenge {
   get viewingUser(): HardSharedPersonDto | null {
     const userId = this.store.viewUser();
     if (userId == null) return null;
-    return this.store.shared().find(s => s.userId === userId)
-      ?? { userId, name: this.store.challenge()?.userName ?? 'Unknown user' };
+    return (
+      this.store.shared().find((s) => s.userId === userId) ?? {
+        userId,
+        name: this.store.challenge()?.userName ?? 'Unknown user',
+      }
+    );
   }
 
   viewSelf(): void {
@@ -574,13 +637,21 @@ export class Challenge {
   nudge(row: HardLeaderboardRowDto, kind: NudgeKind): void {
     if (!this.canNudgeRow(row) || !this.canNudge() || this.nudging() != null) return;
     this.nudging.set(row.userId);
-    this.api.nudge(row.userId, kind).pipe(catchError(() => of(null))).subscribe(res => {
-      this.nudging.set(null);
-      if (!res) { this.snack.open('Could not send your nudge. Try again.', 'OK', { duration: 4000 }); return; }
-      this.snack.open(
-        res.delivered ? `Nudged ${row.name}!` : `${row.name} was already nudged recently.`,
-        'OK', { duration: 3000 });
-    });
+    this.api
+      .nudge(row.userId, kind)
+      .pipe(catchError(() => of(null)))
+      .subscribe((res) => {
+        this.nudging.set(null);
+        if (!res) {
+          this.snack.open('Could not send your nudge. Try again.', 'OK', { duration: 4000 });
+          return;
+        }
+        this.snack.open(
+          res.delivered ? `Nudged ${row.name}!` : `${row.name} was already nudged recently.`,
+          'OK',
+          { duration: 3000 },
+        );
+      });
   }
 
   /** Two-letter initials for an avatar fallback (name only; no email — email-privacy). */
@@ -593,7 +664,8 @@ export class Challenge {
   friendlyDate(iso: string): string {
     const d = new Date(iso + 'T00:00:00');
     return isNaN(d.getTime())
-      ? iso : d.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
+      ? iso
+      : d.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
   }
 
   // ---- misc ----

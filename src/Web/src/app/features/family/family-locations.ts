@@ -1,5 +1,12 @@
 import { CommonModule } from '@angular/common';
-import { Component, computed, inject, OnDestroy, signal } from '@angular/core';
+import {
+  Component,
+  computed,
+  inject,
+  OnDestroy,
+  signal,
+  ChangeDetectionStrategy,
+} from '@angular/core';
 import { RouterLink } from '@angular/router';
 
 import { MatButtonModule } from '@angular/material/button';
@@ -28,10 +35,17 @@ import { LocationMap, MapPin } from '../location/location-map';
   selector: 'app-family-locations',
   standalone: true,
   imports: [
-    CommonModule, RouterLink, MatButtonModule, MatIconModule, MatTooltipModule, MatProgressBarModule,
-    MatSnackBarModule, LocationMap,
+    CommonModule,
+    RouterLink,
+    MatButtonModule,
+    MatIconModule,
+    MatTooltipModule,
+    MatProgressBarModule,
+    MatSnackBarModule,
+    LocationMap,
   ],
   templateUrl: './family-locations.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrls: ['./family.scss', './family-locations.scss'],
 })
 export class FamilyLocations implements OnDestroy {
@@ -54,7 +68,14 @@ export class FamilyLocations implements OnDestroy {
 
   /** A small palette so each member reads apart in the list (deterministic by userId). */
   private static readonly PALETTE = [
-    '#3fd8d0', '#8b7cff', '#f0a020', '#ef5d8f', '#5b8def', '#5bbf6a', '#d98b3f', '#b06be0',
+    '#3fd8d0',
+    '#8b7cff',
+    '#f0a020',
+    '#ef5d8f',
+    '#5b8def',
+    '#5bbf6a',
+    '#d98b3f',
+    '#b06be0',
   ];
 
   /** The currently-focused member id (clicking a list row or a pin highlights it). null = show all. */
@@ -63,7 +84,7 @@ export class FamilyLocations implements OnDestroy {
   /** One map pin per member; the caller (and any selected member) is emphasised. */
   readonly pins = computed<MapPin[]>(() => {
     const sel = this.selectedId();
-    return this.members().map(m => ({
+    return this.members().map((m) => ({
       id: `u:${m.userId}`,
       lat: m.lat,
       lng: m.lng,
@@ -80,7 +101,10 @@ export class FamilyLocations implements OnDestroy {
   }
 
   ngOnDestroy(): void {
-    if (this.clockTimer) { clearInterval(this.clockTimer); this.clockTimer = null; }
+    if (this.clockTimer) {
+      clearInterval(this.clockTimer);
+      this.clockTimer = null;
+    }
   }
 
   private load(): void {
@@ -88,7 +112,10 @@ export class FamilyLocations implements OnDestroy {
     this.error.set(false);
     this.now.set(Date.now());
     this.api.familyLocations().subscribe({
-      next: rows => { this.members.set(rows); this.loading.set(false); },
+      next: (rows) => {
+        this.members.set(rows);
+        this.loading.set(false);
+      },
       error: () => {
         this.loading.set(false);
         this.error.set(true);
@@ -98,11 +125,13 @@ export class FamilyLocations implements OnDestroy {
   }
 
   /** Re-fetch (and refresh the "as of" clock). */
-  refresh(): void { this.load(); }
+  refresh(): void {
+    this.load();
+  }
 
   /** Focus a member from the side list or a pin click; clicking the focused one again clears it. */
   select(userId: number): void {
-    this.selectedId.update(cur => (cur === userId ? null : userId));
+    this.selectedId.update((cur) => (cur === userId ? null : userId));
   }
 
   /** Map pin-click handler: pin ids are "u:<userId>". */
@@ -112,8 +141,9 @@ export class FamilyLocations implements OnDestroy {
 
   /** A stable accent colour for a member's list swatch. */
   colorFor(m: FamilyMemberLocation): string {
-    const i = ((m.userId % FamilyLocations.PALETTE.length) + FamilyLocations.PALETTE.length)
-      % FamilyLocations.PALETTE.length;
+    const i =
+      ((m.userId % FamilyLocations.PALETTE.length) + FamilyLocations.PALETTE.length) %
+      FamilyLocations.PALETTE.length;
     return FamilyLocations.PALETTE[i];
   }
 

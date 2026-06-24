@@ -1,4 +1,4 @@
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal, ChangeDetectionStrategy } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { DatePipe } from '@angular/common';
@@ -17,11 +17,17 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 
 import { Api } from '../../core/api';
 import {
-  FamilyRecurrence, FamilyReminder, Household, HouseholdMember, ReminderAiProposal,
+  FamilyRecurrence,
+  FamilyReminder,
+  Household,
+  HouseholdMember,
+  ReminderAiProposal,
 } from '../../core/models';
 import { FamilyConfirmDialog, ConfirmData } from './confirm-dialog';
 import {
-  ReminderEditorDialog, ReminderEditorData, ReminderEditorResult,
+  ReminderEditorDialog,
+  ReminderEditorData,
+  ReminderEditorResult,
 } from './reminder-editor-dialog';
 
 /** Friendly labels for the recurrence chip. */
@@ -62,10 +68,20 @@ const SNOOZE_OPTIONS = [
 @Component({
   selector: 'app-family-reminders',
   imports: [
-    FormsModule, RouterLink, DatePipe, MatIconModule, MatButtonModule, MatTooltipModule,
-    MatProgressSpinnerModule, MatMenuModule, MatFormFieldModule, MatInputModule, MatSnackBarModule,
+    FormsModule,
+    RouterLink,
+    DatePipe,
+    MatIconModule,
+    MatButtonModule,
+    MatTooltipModule,
+    MatProgressSpinnerModule,
+    MatMenuModule,
+    MatFormFieldModule,
+    MatInputModule,
+    MatSnackBarModule,
   ],
   templateUrl: './reminders.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrls: ['./family.scss', './reminders.scss'],
 })
 export class FamilyReminders {
@@ -91,29 +107,50 @@ export class FamilyReminders {
   readonly proposals = signal<ProposedReminder[]>([]);
 
   /** The caller's own userId (default target for a new reminder). */
-  private readonly selfUserId = computed(() => this.members().find(m => m.isSelf)?.userId ?? 0);
+  private readonly selfUserId = computed(() => this.members().find((m) => m.isSelf)?.userId ?? 0);
 
   /** Active reminders, next-due first. */
   readonly upcoming = computed(() =>
-    this.reminders().filter(r => r.active).sort((a, b) => a.dueUtc.localeCompare(b.dueUtc)));
+    this.reminders()
+      .filter((r) => r.active)
+      .sort((a, b) => a.dueUtc.localeCompare(b.dueUtc)),
+  );
 
   /** Fired one-time reminders that haven't been deleted yet (kept visible so they can be re-scheduled). */
   readonly past = computed(() =>
-    this.reminders().filter(r => !r.active).sort((a, b) => b.dueUtc.localeCompare(a.dueUtc)));
+    this.reminders()
+      .filter((r) => !r.active)
+      .sort((a, b) => b.dueUtc.localeCompare(a.dueUtc)),
+  );
 
   constructor() {
     this.reload(true);
-    this.api.getHousehold()
-      .pipe(catchError(() => of<Household | null>(null)), takeUntilDestroyed())
-      .subscribe(h => { if (h) this.members.set(h.members); });
+    this.api
+      .getHousehold()
+      .pipe(
+        catchError(() => of<Household | null>(null)),
+        takeUntilDestroyed(),
+      )
+      .subscribe((h) => {
+        if (h) this.members.set(h.members);
+      });
   }
 
   private reload(initial = false): void {
     if (initial) this.loading.set(true);
-    this.api.familyReminders()
-      .pipe(catchError(() => { if (initial) this.error.set(true); return of<FamilyReminder[]>([]); }),
-        takeUntilDestroyed())
-      .subscribe(list => { this.reminders.set(list); this.loading.set(false); });
+    this.api
+      .familyReminders()
+      .pipe(
+        catchError(() => {
+          if (initial) this.error.set(true);
+          return of<FamilyReminder[]>([]);
+        }),
+        takeUntilDestroyed(),
+      )
+      .subscribe((list) => {
+        this.reminders.set(list);
+        this.loading.set(false);
+      });
   }
 
   recurrenceLabel(r: FamilyRecurrence): string {
@@ -135,22 +172,30 @@ export class FamilyReminders {
     this.proposals.set([]);
     try {
       const result = await firstValueFrom(this.api.parseReminderAi(text));
-      const proposed = (result.reminders ?? []).map(ai => this.toProposed(ai));
+      const proposed = (result.reminders ?? []).map((ai) => this.toProposed(ai));
       this.proposals.set(proposed);
       if (proposed.length === 0) {
         this.aiStatus.set(
-          result.notes?.trim() || "I couldn't find a reminder in that. Try \"call mom tomorrow at 6pm\".");
+          result.notes?.trim() ||
+            'I couldn\'t find a reminder in that. Try "call mom tomorrow at 6pm".',
+        );
       } else {
         const n = proposed.length;
         this.aiStatus.set(
           (result.notes?.trim() ? result.notes!.trim() + ' ' : '') +
-          `Review ${n === 1 ? 'the reminder' : `these ${n} reminders`} below, then add ${n === 1 ? 'it' : 'them'}.`);
+            `Review ${n === 1 ? 'the reminder' : `these ${n} reminders`} below, then add ${n === 1 ? 'it' : 'them'}.`,
+        );
       }
     } catch (e) {
       const status = (e as { status?: number })?.status;
-      this.aiStatus.set(status === 503
-        ? 'AI reminders aren\'t available right now — you can add the reminder manually with New reminder.'
-        : this.messageOf(e, "I couldn't reach the AI just now. Please try again, or add the reminder manually."));
+      this.aiStatus.set(
+        status === 503
+          ? "AI reminders aren't available right now — you can add the reminder manually with New reminder."
+          : this.messageOf(
+              e,
+              "I couldn't reach the AI just now. Please try again, or add the reminder manually.",
+            ),
+      );
     } finally {
       this.aiBusy.set(false);
     }
@@ -161,23 +206,36 @@ export class FamilyReminders {
     if (p.saving) return;
     this.setProposalSaving(p, true);
     try {
-      const created = await firstValueFrom(this.api.createFamilyReminder({
-        text: p.ai.text, dueUtc: p.ai.dueUtc, recurrence: p.ai.recurrence,
-      }));
+      const created = await firstValueFrom(
+        this.api.createFamilyReminder({
+          text: p.ai.text,
+          dueUtc: p.ai.dueUtc,
+          recurrence: p.ai.recurrence,
+        }),
+      );
       this.upsert(created);
       this.dismissProposal(p);
       this.snack.open('Reminder added.', undefined, { duration: 2000 });
     } catch (e) {
       this.setProposalSaving(p, false);
-      this.snack.open(this.messageOf(e, "Couldn't add that reminder. Please try again."), 'OK', { duration: 4000 });
+      this.snack.open(this.messageOf(e, "Couldn't add that reminder. Please try again."), 'OK', {
+        duration: 4000,
+      });
     }
   }
 
   /** Open the normal reminder editor prefilled from a proposal so the user can tweak it before creating. */
   async editProposal(p: ProposedReminder): Promise<void> {
     const seed: FamilyReminder = {
-      id: 0, text: p.ai.text, dueUtc: p.ai.dueUtc, recurrence: p.ai.recurrence, active: true,
-      targetUserId: this.selfUserId(), targetName: '', createdByUserId: this.selfUserId(), createdByName: '',
+      id: 0,
+      text: p.ai.text,
+      dueUtc: p.ai.dueUtc,
+      recurrence: p.ai.recurrence,
+      active: true,
+      targetUserId: this.selfUserId(),
+      targetName: '',
+      createdByUserId: this.selfUserId(),
+      createdByName: '',
     };
     const result = await this.openEditor(seed);
     if (!result) return;
@@ -186,13 +244,15 @@ export class FamilyReminders {
       this.upsert(created);
       this.dismissProposal(p);
     } catch (e) {
-      this.snack.open(this.messageOf(e, "Couldn't save that reminder. Please try again."), 'OK', { duration: 4000 });
+      this.snack.open(this.messageOf(e, "Couldn't save that reminder. Please try again."), 'OK', {
+        duration: 4000,
+      });
     }
   }
 
   /** Discard a proposed reminder card without creating it. */
   dismissProposal(p: ProposedReminder): void {
-    this.proposals.set(this.proposals().filter(x => x !== p));
+    this.proposals.set(this.proposals().filter((x) => x !== p));
   }
 
   /** Clear the AI box + any pending proposals. */
@@ -203,7 +263,7 @@ export class FamilyReminders {
   }
 
   private setProposalSaving(p: ProposedReminder, saving: boolean): void {
-    this.proposals.set(this.proposals().map(x => x === p ? { ...x, saving } : x));
+    this.proposals.set(this.proposals().map((x) => (x === p ? { ...x, saving } : x)));
   }
 
   /** Build a confirm-card view-model from a raw AI-proposed reminder. */
@@ -220,7 +280,11 @@ export class FamilyReminders {
   private proposalWhenLabel(dueUtc: string): string {
     const d = new Date(dueUtc);
     if (Number.isNaN(d.getTime())) return '';
-    const day = d.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
+    const day = d.toLocaleDateString(undefined, {
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric',
+    });
     const time = d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
     return `${day} · ${time}`;
   }
@@ -236,10 +300,11 @@ export class FamilyReminders {
   }
 
   private upsert(reminder: FamilyReminder): void {
-    this.reminders.update(list =>
-      list.some(r => r.id === reminder.id)
-        ? list.map(r => (r.id === reminder.id ? reminder : r))
-        : [...list, reminder]);
+    this.reminders.update((list) =>
+      list.some((r) => r.id === reminder.id)
+        ? list.map((r) => (r.id === reminder.id ? reminder : r))
+        : [...list, reminder],
+    );
   }
 
   /** Open the editor to create a new reminder. */
@@ -250,7 +315,9 @@ export class FamilyReminders {
       const created = await firstValueFrom(this.api.createFamilyReminder(result));
       this.upsert(created);
     } catch (e) {
-      this.snack.open(this.messageOf(e, "Couldn't save that reminder. Please try again."), 'OK', { duration: 4000 });
+      this.snack.open(this.messageOf(e, "Couldn't save that reminder. Please try again."), 'OK', {
+        duration: 4000,
+      });
     }
   }
 
@@ -262,16 +329,23 @@ export class FamilyReminders {
       const updated = await firstValueFrom(this.api.updateFamilyReminder(reminder.id, result));
       this.upsert(updated);
     } catch (e) {
-      this.snack.open(this.messageOf(e, "Couldn't save that reminder. Please try again."), 'OK', { duration: 4000 });
+      this.snack.open(this.messageOf(e, "Couldn't save that reminder. Please try again."), 'OK', {
+        duration: 4000,
+      });
     }
   }
 
   private openEditor(reminder: FamilyReminder | null): Promise<ReminderEditorResult | undefined> {
     const ref = this.dialog.open<ReminderEditorDialog, ReminderEditorData, ReminderEditorResult>(
-      ReminderEditorDialog, {
+      ReminderEditorDialog,
+      {
         data: { reminder, members: this.members(), selfUserId: this.selfUserId() },
-        width: '460px', maxWidth: '94vw', autoFocus: false, panelClass: 'family-dialog',
-      });
+        width: '460px',
+        maxWidth: '94vw',
+        autoFocus: false,
+        panelClass: 'family-dialog',
+      },
+    );
     return firstValueFrom(ref.afterClosed());
   }
 
@@ -301,7 +375,7 @@ export class FamilyReminders {
     this.busyId.set(reminder.id);
     try {
       await firstValueFrom(this.api.deleteFamilyReminder(reminder.id));
-      this.reminders.update(list => list.filter(r => r.id !== reminder.id));
+      this.reminders.update((list) => list.filter((r) => r.id !== reminder.id));
     } catch {
       this.snack.open("Couldn't delete that reminder.", 'OK', { duration: 4000 });
     } finally {
@@ -311,7 +385,10 @@ export class FamilyReminders {
 
   private confirm(data: ConfirmData): Promise<boolean | undefined> {
     const ref = this.dialog.open<FamilyConfirmDialog, ConfirmData, boolean>(FamilyConfirmDialog, {
-      data, width: '420px', maxWidth: '92vw', panelClass: 'family-dialog',
+      data,
+      width: '420px',
+      maxWidth: '92vw',
+      panelClass: 'family-dialog',
     });
     return firstValueFrom(ref.afterClosed());
   }

@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal, ChangeDetectionStrategy } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { catchError, of } from 'rxjs';
 
@@ -36,8 +36,15 @@ const ICON: Record<string, string> = {
 @Component({
   selector: 'app-trophies',
   standalone: true,
-  imports: [CommonModule, MatIconModule, MatProgressSpinnerModule, MatProgressBarModule, MatTooltipModule],
+  imports: [
+    CommonModule,
+    MatIconModule,
+    MatProgressSpinnerModule,
+    MatProgressBarModule,
+    MatTooltipModule,
+  ],
   templateUrl: './trophies.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrl: './trophies.scss',
 })
 export class Trophies {
@@ -54,20 +61,29 @@ export class Trophies {
     const order: string[] = [];
     const byGroup = new Map<string, TrophyBadgeDto[]>();
     for (const b of d.badges) {
-      if (!byGroup.has(b.group)) { byGroup.set(b.group, []); order.push(b.group); }
+      if (!byGroup.has(b.group)) {
+        byGroup.set(b.group, []);
+        order.push(b.group);
+      }
       byGroup.get(b.group)!.push(b);
     }
-    return order.map(name => ({ name, badges: byGroup.get(name)! }));
+    return order.map((name) => ({ name, badges: byGroup.get(name)! }));
   });
 
   constructor() {
-    this.api.trophies().pipe(
-      catchError(() => { this.error.set('Could not load your trophies.'); return of(null); }),
-      takeUntilDestroyed(),
-    ).subscribe(resp => {
-      if (resp) this.data.set(resp);
-      this.loading.set(false);
-    });
+    this.api
+      .trophies()
+      .pipe(
+        catchError(() => {
+          this.error.set('Could not load your trophies.');
+          return of(null);
+        }),
+        takeUntilDestroyed(),
+      )
+      .subscribe((resp) => {
+        if (resp) this.data.set(resp);
+        this.loading.set(false);
+      });
   }
 
   icon(badge: TrophyBadgeDto): string {

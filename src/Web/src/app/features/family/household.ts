@@ -1,4 +1,4 @@
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal, ChangeDetectionStrategy } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { catchError, firstValueFrom, of } from 'rxjs';
@@ -27,10 +27,19 @@ import { Household, HouseholdCandidate, HouseholdMember } from '../../core/model
 @Component({
   selector: 'app-household-settings',
   imports: [
-    RouterLink, FormsModule, MatIconModule, MatButtonModule, MatFormFieldModule, MatInputModule,
-    MatSelectModule, MatTooltipModule, MatProgressSpinnerModule, MatSnackBarModule,
+    RouterLink,
+    FormsModule,
+    MatIconModule,
+    MatButtonModule,
+    MatFormFieldModule,
+    MatInputModule,
+    MatSelectModule,
+    MatTooltipModule,
+    MatProgressSpinnerModule,
+    MatSnackBarModule,
   ],
   templateUrl: './household.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrl: './family.scss',
 })
 export class HouseholdSettings {
@@ -58,7 +67,7 @@ export class HouseholdSettings {
   readonly members = computed<HouseholdMember[]>(() => this.household()?.members ?? []);
 
   /** The caller's own member row (whatever role), or undefined until loaded. */
-  private readonly self = computed(() => this.members().find(m => m.isSelf));
+  private readonly self = computed(() => this.members().find((m) => m.isSelf));
 
   /** True when the caller is the household owner — gates every mutating control (mirrors the server). */
   readonly isOwner = computed(() => this.self()?.role === 'owner');
@@ -70,9 +79,19 @@ export class HouseholdSettings {
   });
 
   constructor() {
-    this.api.getHousehold()
-      .pipe(catchError(() => { this.error.set(true); return of(null); }), takeUntilDestroyed())
-      .subscribe(h => { if (h) this.apply(h); this.loading.set(false); });
+    this.api
+      .getHousehold()
+      .pipe(
+        catchError(() => {
+          this.error.set(true);
+          return of(null);
+        }),
+        takeUntilDestroyed(),
+      )
+      .subscribe((h) => {
+        if (h) this.apply(h);
+        this.loading.set(false);
+      });
   }
 
   private apply(h: Household): void {
@@ -110,9 +129,13 @@ export class HouseholdSettings {
   loadCandidates(): void {
     if (this.candidatesLoading() || this.candidates().length > 0) return;
     this.candidatesLoading.set(true);
-    this.api.householdCandidates()
+    this.api
+      .householdCandidates()
       .pipe(catchError(() => of<HouseholdCandidate[]>([])))
-      .subscribe(list => { this.candidates.set(list); this.candidatesLoading.set(false); });
+      .subscribe((list) => {
+        this.candidates.set(list);
+        this.candidatesLoading.set(false);
+      });
   }
 
   /** Add the picked person to the household (owner only). */
@@ -124,7 +147,7 @@ export class HouseholdSettings {
       const h = await firstValueFrom(this.api.addMember(userId));
       this.apply(h);
       // Drop the just-added person from the picker so it can't be re-added, and reset the selection.
-      this.candidates.update(list => list.filter(c => c.userId !== userId));
+      this.candidates.update((list) => list.filter((c) => c.userId !== userId));
       this.pickedUserId.set(null);
       this.snack.open('Welcome to the family!', 'OK', { duration: 3000 });
     } catch (e) {

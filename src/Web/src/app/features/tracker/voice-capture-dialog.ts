@@ -1,4 +1,11 @@
-import { Component, OnDestroy, computed, inject, signal } from '@angular/core';
+import {
+  Component,
+  OnDestroy,
+  computed,
+  inject,
+  signal,
+  ChangeDetectionStrategy,
+} from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { firstValueFrom } from 'rxjs';
 
@@ -15,8 +22,14 @@ import { Api } from '../../core/api';
 import { AuthService } from '../../core/auth';
 import { PERM, VoiceIntentDto } from '../../core/models';
 import {
-  AudioClipResult, TranscriptResult, VoiceRecording, confirmVoiceNotice,
-  mediaRecorderSupported, recordAudioClip, recordTranscript, speechSupported,
+  AudioClipResult,
+  TranscriptResult,
+  VoiceRecording,
+  confirmVoiceNotice,
+  mediaRecorderSupported,
+  recordAudioClip,
+  recordTranscript,
+  speechSupported,
 } from './voice-capture';
 
 /** Opens with the active date (echoed to the parser as "today"; NOT trusted server-side). */
@@ -28,7 +41,16 @@ export interface VoiceCaptureData {
 export type VoiceCaptureResult = { logged: number } | undefined;
 
 /** The dialog lifecycle phases. */
-type Phase = 'idle' | 'recording' | 'parsing' | 'confirm' | 'logging' | 'none' | 'unavailable' | 'denied' | 'done';
+type Phase =
+  | 'idle'
+  | 'recording'
+  | 'parsing'
+  | 'confirm'
+  | 'logging'
+  | 'none'
+  | 'unavailable'
+  | 'denied'
+  | 'done';
 
 /** A per-intent row: the parsed intent, an editable label, and whether it's selected to log. */
 interface IntentRow {
@@ -66,26 +88,37 @@ const DOMAIN_ICON: Record<string, string> = {
 @Component({
   selector: 'app-voice-capture-dialog',
   imports: [
-    FormsModule, MatDialogModule, MatFormFieldModule, MatInputModule, MatButtonModule, MatIconModule,
-    MatProgressSpinnerModule, MatCheckboxModule,
+    FormsModule,
+    MatDialogModule,
+    MatFormFieldModule,
+    MatInputModule,
+    MatButtonModule,
+    MatIconModule,
+    MatProgressSpinnerModule,
+    MatCheckboxModule,
   ],
   template: `
-    <h2 mat-dialog-title class="vc-title">
-      <mat-icon aria-hidden="true">mic</mat-icon> Voice log
-    </h2>
+    <h2 mat-dialog-title class="vc-title"><mat-icon aria-hidden="true">mic</mat-icon> Voice log</h2>
 
     <!-- sr-only live region: announces the recording/parsing state for screen readers. -->
     <p class="vc-sr" aria-live="assertive">{{ announce() }}</p>
 
     <mat-dialog-content class="vc-body">
       @switch (phase()) {
-
         @case ('idle') {
-          <p class="vc-lead">Tell me what to log — “a coffee and 20 minutes of cycling”, “240 ml of water”,
-            “I weighed 178 today”. You’ll review everything before anything is logged.</p>
+          <p class="vc-lead">
+            Tell me what to log — “a coffee and 20 minutes of cycling”, “240 ml of water”, “I
+            weighed 178 today”. You’ll review everything before anything is logged.
+          </p>
           @if (canSpeak()) {
-            <button mat-flat-button color="primary" type="button" class="vc-mic" (click)="start()"
-                    aria-label="Start recording your voice note">
+            <button
+              mat-flat-button
+              color="primary"
+              type="button"
+              class="vc-mic"
+              (click)="start()"
+              aria-label="Start recording your voice note"
+            >
               <mat-icon aria-hidden="true">mic</mat-icon> Start talking
             </button>
           } @else {
@@ -101,13 +134,25 @@ const DOMAIN_ICON: Record<string, string> = {
             <span class="vc-rec-dot" aria-hidden="true"></span>
             <span class="vc-rec-label">Listening… speak now</span>
           </div>
-          @if (interim()) { <p class="vc-interim">“{{ interim() }}”</p> }
+          @if (interim()) {
+            <p class="vc-interim">“{{ interim() }}”</p>
+          }
           <div class="vc-rec-actions">
-            <button mat-flat-button color="primary" type="button" (click)="stop()"
-                    aria-label="Stop recording and process your note">
+            <button
+              mat-flat-button
+              color="primary"
+              type="button"
+              (click)="stop()"
+              aria-label="Stop recording and process your note"
+            >
               <mat-icon aria-hidden="true">stop</mat-icon> Done
             </button>
-            <button mat-stroked-button type="button" (click)="cancelRecording()" aria-label="Cancel recording">
+            <button
+              mat-stroked-button
+              type="button"
+              (click)="cancelRecording()"
+              aria-label="Cancel recording"
+            >
               Cancel
             </button>
           </div>
@@ -128,19 +173,30 @@ const DOMAIN_ICON: Record<string, string> = {
           <ul class="vc-list">
             @for (row of rows(); track $index) {
               <li class="vc-item" [class.vc-item--off]="!row.selected">
-                <mat-checkbox class="vc-check" [ngModel]="row.selected"
-                              (ngModelChange)="toggle($index, $event)"
-                              [attr.aria-label]="'Log: ' + row.intent.summary">
+                <mat-checkbox
+                  class="vc-check"
+                  [ngModel]="row.selected"
+                  (ngModelChange)="toggle($index, $event)"
+                  [attr.aria-label]="'Log: ' + row.intent.summary"
+                >
                   <span class="vc-item-main">
-                    <mat-icon class="vc-item-icon" aria-hidden="true">{{ icon(row.intent.domain) }}</mat-icon>
+                    <mat-icon class="vc-item-icon" aria-hidden="true">{{
+                      icon(row.intent.domain)
+                    }}</mat-icon>
                     <span class="vc-item-summary">{{ row.intent.summary }}</span>
                   </span>
                 </mat-checkbox>
                 @if (row.labelKey) {
                   <mat-form-field appearance="outline" class="vc-item-field">
                     <mat-label>{{ fieldLabel(row.intent.domain) }}</mat-label>
-                    <input matInput type="text" maxlength="200" [ngModel]="row.label"
-                           (ngModelChange)="setLabel($index, $event)" [disabled]="!row.selected" />
+                    <input
+                      matInput
+                      type="text"
+                      maxlength="200"
+                      [ngModel]="row.label"
+                      (ngModelChange)="setLabel($index, $event)"
+                      [disabled]="!row.selected"
+                    />
                   </mat-form-field>
                 }
               </li>
@@ -155,7 +211,9 @@ const DOMAIN_ICON: Record<string, string> = {
           <div class="vc-empty" role="status">
             <mat-icon aria-hidden="true">hearing</mat-icon>
             <p>I didn’t catch anything I could log.</p>
-            @if (transcript()) { <p class="vc-transcript">“{{ transcript() }}”</p> }
+            @if (transcript()) {
+              <p class="vc-transcript">“{{ transcript() }}”</p>
+            }
             <p class="vc-note">Try again with something like “a banana and a coffee”.</p>
           </div>
           <button mat-flat-button color="primary" type="button" (click)="reset()">
@@ -195,65 +253,212 @@ const DOMAIN_ICON: Record<string, string> = {
     <mat-dialog-actions class="vc-actions" align="end">
       @if (phase() === 'confirm') {
         <button mat-stroked-button type="button" (click)="close()">Cancel</button>
-        <button mat-flat-button color="primary" type="button" [disabled]="selectedCount() === 0" (click)="logSelected()">
+        <button
+          mat-flat-button
+          color="primary"
+          type="button"
+          [disabled]="selectedCount() === 0"
+          (click)="logSelected()"
+        >
           Log {{ selectedCount() }} {{ selectedCount() === 1 ? 'item' : 'items' }}
         </button>
-      } @else if (phase() === 'done' || phase() === 'none' || phase() === 'unavailable' || phase() === 'denied') {
+      } @else if (
+        phase() === 'done' ||
+        phase() === 'none' ||
+        phase() === 'unavailable' ||
+        phase() === 'denied'
+      ) {
         <button mat-flat-button color="primary" type="button" (click)="close()">Close</button>
       } @else {
         <button mat-stroked-button type="button" (click)="close()">Close</button>
       }
     </mat-dialog-actions>
   `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: `
-    .vc-title { display: flex; align-items: center; gap: 8px; font-family: var(--tech-font-ui);
-      font-weight: 700; color: var(--tech-text);
-      mat-icon { color: var(--tech-accent, var(--tech-text)); } }
-    .vc-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
-    .vc-body { min-width: min(420px, 86vw); display: flex; flex-direction: column;
-      gap: var(--tech-space-3); padding-top: 4px !important; }
-    .vc-lead { margin: 0; color: var(--tech-text); font-size: 0.95rem; }
-    .vc-note { margin: 0; color: var(--tech-text-dim, var(--tech-text)); font-size: 0.85rem; }
-    .vc-mic, .vc-type-toggle, .vc-redo { min-height: 44px; border-radius: var(--tech-r-control); font-weight: 600; }
-    .vc-mic { align-self: stretch; }
-    .vc-type-toggle { align-self: flex-start; }
-
-    .vc-rec { display: flex; align-items: center; gap: 10px; }
-    .vc-rec-dot { width: 14px; height: 14px; border-radius: 50%; background: var(--tech-danger, #e5484d);
-      box-shadow: 0 0 0 0 rgba(229, 72, 77, 0.5); animation: vc-pulse 1.4s ease-out infinite; }
-    @keyframes vc-pulse {
-      0% { box-shadow: 0 0 0 0 rgba(229, 72, 77, 0.5); }
-      70% { box-shadow: 0 0 0 12px rgba(229, 72, 77, 0); }
-      100% { box-shadow: 0 0 0 0 rgba(229, 72, 77, 0); }
+    .vc-title {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-family: var(--tech-font-ui);
+      font-weight: 700;
+      color: var(--tech-text);
+      mat-icon {
+        color: var(--tech-accent, var(--tech-text));
+      }
     }
-    @media (prefers-reduced-motion: reduce) { .vc-rec-dot { animation: none; } }
-    .vc-rec-label { font-weight: 600; color: var(--tech-text); }
-    .vc-interim { margin: 0; font-style: italic; color: var(--tech-text-dim, var(--tech-text)); }
-    .vc-rec-actions { display: flex; gap: 8px; button { min-height: 44px; border-radius: var(--tech-r-control); font-weight: 600; } }
+    .vc-sr {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      clip: rect(0 0 0 0);
+      white-space: nowrap;
+    }
+    .vc-body {
+      min-width: min(420px, 86vw);
+      display: flex;
+      flex-direction: column;
+      gap: var(--tech-space-3);
+      padding-top: 4px !important;
+    }
+    .vc-lead {
+      margin: 0;
+      color: var(--tech-text);
+      font-size: 0.95rem;
+    }
+    .vc-note {
+      margin: 0;
+      color: var(--tech-text-dim, var(--tech-text));
+      font-size: 0.85rem;
+    }
+    .vc-mic,
+    .vc-type-toggle,
+    .vc-redo {
+      min-height: 44px;
+      border-radius: var(--tech-r-control);
+      font-weight: 600;
+    }
+    .vc-mic {
+      align-self: stretch;
+    }
+    .vc-type-toggle {
+      align-self: flex-start;
+    }
 
-    .vc-loading { display: flex; align-items: center; gap: 12px; padding: var(--tech-space-2) 0; color: var(--tech-text); }
+    .vc-rec {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .vc-rec-dot {
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: var(--tech-danger, #e5484d);
+      box-shadow: 0 0 0 0 rgba(229, 72, 77, 0.5);
+      animation: vc-pulse 1.4s ease-out infinite;
+    }
+    @keyframes vc-pulse {
+      0% {
+        box-shadow: 0 0 0 0 rgba(229, 72, 77, 0.5);
+      }
+      70% {
+        box-shadow: 0 0 0 12px rgba(229, 72, 77, 0);
+      }
+      100% {
+        box-shadow: 0 0 0 0 rgba(229, 72, 77, 0);
+      }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .vc-rec-dot {
+        animation: none;
+      }
+    }
+    .vc-rec-label {
+      font-weight: 600;
+      color: var(--tech-text);
+    }
+    .vc-interim {
+      margin: 0;
+      font-style: italic;
+      color: var(--tech-text-dim, var(--tech-text));
+    }
+    .vc-rec-actions {
+      display: flex;
+      gap: 8px;
+      button {
+        min-height: 44px;
+        border-radius: var(--tech-r-control);
+        font-weight: 600;
+      }
+    }
 
-    .vc-transcript { margin: 0; padding: var(--tech-space-2) var(--tech-space-3);
-      background: var(--tech-surface-2, rgba(127,127,127,0.08)); border-radius: var(--tech-r-control);
-      color: var(--tech-text); font-size: 0.9rem; }
+    .vc-loading {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: var(--tech-space-2) 0;
+      color: var(--tech-text);
+    }
 
-    .vc-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--tech-space-2); }
-    .vc-item { display: flex; flex-direction: column; gap: 6px; padding: var(--tech-space-2);
-      border: 1px solid var(--tech-border, rgba(127,127,127,0.2)); border-radius: var(--tech-r-control); }
-    .vc-item--off { opacity: 0.55; }
-    .vc-item-main { display: inline-flex; align-items: center; gap: 8px; }
-    .vc-item-icon { color: var(--tech-accent, var(--tech-text)); }
-    .vc-item-summary { font-weight: 600; color: var(--tech-text); }
-    .vc-item-field { width: 100%; }
-    .vc-check { min-height: 44px; display: flex; align-items: center; }
+    .vc-transcript {
+      margin: 0;
+      padding: var(--tech-space-2) var(--tech-space-3);
+      background: var(--tech-surface-2, rgba(127, 127, 127, 0.08));
+      border-radius: var(--tech-r-control);
+      color: var(--tech-text);
+      font-size: 0.9rem;
+    }
 
-    .vc-empty { display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center;
-      padding: var(--tech-space-2) 0; color: var(--tech-text);
-      mat-icon { font-size: 36px; width: 36px; height: 36px; color: var(--tech-text-dim, var(--tech-text)); }
-      p { margin: 0; } }
+    .vc-list {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      gap: var(--tech-space-2);
+    }
+    .vc-item {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      padding: var(--tech-space-2);
+      border: 1px solid var(--tech-border, rgba(127, 127, 127, 0.2));
+      border-radius: var(--tech-r-control);
+    }
+    .vc-item--off {
+      opacity: 0.55;
+    }
+    .vc-item-main {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .vc-item-icon {
+      color: var(--tech-accent, var(--tech-text));
+    }
+    .vc-item-summary {
+      font-weight: 600;
+      color: var(--tech-text);
+    }
+    .vc-item-field {
+      width: 100%;
+    }
+    .vc-check {
+      min-height: 44px;
+      display: flex;
+      align-items: center;
+    }
 
-    .vc-actions { padding: var(--tech-space-3) var(--tech-space-4); gap: 8px;
-      button { border-radius: var(--tech-r-control); font-weight: 600; min-height: 44px; } }
+    .vc-empty {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      text-align: center;
+      padding: var(--tech-space-2) 0;
+      color: var(--tech-text);
+      mat-icon {
+        font-size: 36px;
+        width: 36px;
+        height: 36px;
+        color: var(--tech-text-dim, var(--tech-text));
+      }
+      p {
+        margin: 0;
+      }
+    }
+
+    .vc-actions {
+      padding: var(--tech-space-3) var(--tech-space-4);
+      gap: 8px;
+      button {
+        border-radius: var(--tech-r-control);
+        font-weight: 600;
+        min-height: 44px;
+      }
+    }
   `,
 })
 export class VoiceCaptureDialog implements OnDestroy {
@@ -272,16 +477,20 @@ export class VoiceCaptureDialog implements OnDestroy {
   readonly transcript = signal('');
   readonly rows = signal<IntentRow[]>([]);
   readonly unavailableMsg = signal('Voice is unavailable right now — type instead.');
-  readonly deniedMsg = signal('Microphone access was blocked. Allow the mic in your browser, or type instead.');
+  readonly deniedMsg = signal(
+    'Microphone access was blocked. Allow the mic in your browser, or type instead.',
+  );
 
   /** Active recording handle, so Done/Cancel can drive it. */
   private active: VoiceRecording | null = null;
   private loggedSoFar = 0;
 
   /** Whether this browser can capture voice at all (on-device STT, or the audio fallback when vision-gated). */
-  readonly canSpeak = computed(() => speechSupported() || (this.canUseVision && mediaRecorderSupported()));
+  readonly canSpeak = computed(
+    () => speechSupported() || (this.canUseVision && mediaRecorderSupported()),
+  );
 
-  readonly selectedCount = computed(() => this.rows().filter(r => r.selected).length);
+  readonly selectedCount = computed(() => this.rows().filter((r) => r.selected).length);
 
   // ─────────────────────────────────────────── capture ─────────────────────────────────────────
 
@@ -348,15 +557,24 @@ export class VoiceCaptureDialog implements OnDestroy {
   }
 
   private onTranscript(res: TranscriptResult | null): void {
-    if (res === null) { this.phase.set('idle'); return; } // user-aborted
+    if (res === null) {
+      this.phase.set('idle');
+      return;
+    } // user-aborted
     const text = (res.text ?? '').trim();
-    if (!text) { this.toNone(); return; }
+    if (!text) {
+      this.toNone();
+      return;
+    }
     this.transcript.set(text);
     void this.parse({ transcript: text });
   }
 
   private onAudio(clip: AudioClipResult | null): void {
-    if (clip === null) { this.phase.set('idle'); return; } // user-aborted
+    if (clip === null) {
+      this.phase.set('idle');
+      return;
+    } // user-aborted
     void this.parse({ audioBase64: clip.audioBase64, mimeType: clip.mimeType });
   }
 
@@ -375,19 +593,29 @@ export class VoiceCaptureDialog implements OnDestroy {
   // ─────────────────────────────────────────── parse ───────────────────────────────────────────
 
   /** Send the transcript/clip to the PARSE-ONLY endpoint (always 200) and route on the result. */
-  private async parse(payload: { transcript?: string } | { audioBase64: string; mimeType: string }): Promise<void> {
+  private async parse(
+    payload: { transcript?: string } | { audioBase64: string; mimeType: string },
+  ): Promise<void> {
     this.phase.set('parsing');
     this.announce.set('Understanding your note.');
     try {
       const res = await firstValueFrom(this.api.voiceParse({ ...payload, date: this.data.date }));
       // Floor: AI off/unconfigured/error → friendly "type instead" (never an error toast).
-      if (!res.aiUsed) { this.toUnavailable(res.message || 'Voice is unavailable right now — type instead.'); return; }
+      if (!res.aiUsed) {
+        this.toUnavailable(res.message || 'Voice is unavailable right now — type instead.');
+        return;
+      }
       if (res.transcript) this.transcript.set(res.transcript);
       const intents = res.intents ?? [];
-      if (intents.length === 0) { this.toNone(); return; }
-      this.rows.set(intents.map(intent => this.toRow(intent)));
+      if (intents.length === 0) {
+        this.toNone();
+        return;
+      }
+      this.rows.set(intents.map((intent) => this.toRow(intent)));
       this.phase.set('confirm');
-      this.announce.set(`Heard ${intents.length} ${intents.length === 1 ? 'thing' : 'things'} to log. Review and confirm.`);
+      this.announce.set(
+        `Heard ${intents.length} ${intents.length === 1 ? 'thing' : 'things'} to log. Review and confirm.`,
+      );
     } catch {
       // The endpoint floors to 200, so a real throw here is a transport error — treat as unavailable.
       this.toUnavailable('Voice is unavailable right now — type instead.');
@@ -399,22 +627,31 @@ export class VoiceCaptureDialog implements OnDestroy {
     const p = intent.payload ?? {};
     let labelKey = '';
     for (const k of ['description', 'name', 'label', 'text']) {
-      if (typeof p[k] === 'string') { labelKey = k; break; }
+      if (typeof p[k] === 'string') {
+        labelKey = k;
+        break;
+      }
     }
     const label = labelKey ? String(p[labelKey] ?? '') : '';
     return { intent, label, labelKey, selected: true };
   }
 
   toggle(index: number, selected: boolean): void {
-    this.rows.update(rows => rows.map((r, i) => (i === index ? { ...r, selected } : r)));
+    this.rows.update((rows) => rows.map((r, i) => (i === index ? { ...r, selected } : r)));
   }
 
   /** Edit the row's display field, writing it back into the (still server-clamped) payload. */
   setLabel(index: number, value: string): void {
-    this.rows.update(rows => rows.map((r, i) => {
-      if (i !== index || !r.labelKey) return r;
-      return { ...r, label: value, intent: { ...r.intent, payload: { ...r.intent.payload, [r.labelKey]: value } } };
-    }));
+    this.rows.update((rows) =>
+      rows.map((r, i) => {
+        if (i !== index || !r.labelKey) return r;
+        return {
+          ...r,
+          label: value,
+          intent: { ...r.intent, payload: { ...r.intent.payload, [r.labelKey]: value } },
+        };
+      }),
+    );
   }
 
   // ─────────────────────────────────────────── log ─────────────────────────────────────────────
@@ -427,7 +664,7 @@ export class VoiceCaptureDialog implements OnDestroy {
    */
   async logSelected(): Promise<void> {
     if (this.phase() === 'logging') return;
-    const selected = this.rows().filter(r => r.selected);
+    const selected = this.rows().filter((r) => r.selected);
     if (selected.length === 0) return;
 
     this.phase.set('logging');
@@ -436,7 +673,10 @@ export class VoiceCaptureDialog implements OnDestroy {
     let failed = 0;
     for (const row of selected) {
       // Drop an emptied display field (e.g. the user cleared the description) — skip rather than write blank.
-      if (row.labelKey && !row.label.trim()) { failed++; continue; }
+      if (row.labelKey && !row.label.trim()) {
+        failed++;
+        continue;
+      }
       try {
         await firstValueFrom(this.api.postVoiceIntent(row.intent.endpoint, row.intent.payload));
         ok++;
@@ -447,14 +687,17 @@ export class VoiceCaptureDialog implements OnDestroy {
     this.loggedSoFar = ok;
 
     if (ok > 0) {
-      const msg = failed > 0
-        ? `Logged ${ok} ${ok === 1 ? 'item' : 'items'} — ${failed} couldn’t be logged`
-        : `Logged ${ok} ${ok === 1 ? 'item' : 'items'}`;
+      const msg =
+        failed > 0
+          ? `Logged ${ok} ${ok === 1 ? 'item' : 'items'} — ${failed} couldn’t be logged`
+          : `Logged ${ok} ${ok === 1 ? 'item' : 'items'}`;
       this.snack.open(msg, 'OK', { duration: 4000 });
       this.phase.set('done');
       this.ref.close({ logged: ok });
     } else {
-      this.snack.open('Nothing could be logged — try again or log manually', 'OK', { duration: 5000 });
+      this.snack.open('Nothing could be logged — try again or log manually', 'OK', {
+        duration: 5000,
+      });
       this.phase.set('confirm');
     }
   }
@@ -487,11 +730,16 @@ export class VoiceCaptureDialog implements OnDestroy {
 
   fieldLabel(domain: string): string {
     switch (domain) {
-      case 'food': return 'What you ate';
-      case 'exercise': return 'Exercise';
-      case 'supplement': return 'Supplement';
-      case 'family': return 'Note';
-      default: return 'Label';
+      case 'food':
+        return 'What you ate';
+      case 'exercise':
+        return 'Exercise';
+      case 'supplement':
+        return 'Supplement';
+      case 'family':
+        return 'Note';
+      default:
+        return 'Label';
     }
   }
 

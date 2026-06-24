@@ -1,5 +1,13 @@
 import {
-  Component, ElementRef, HostListener, computed, effect, inject, signal, viewChild,
+  Component,
+  ElementRef,
+  HostListener,
+  computed,
+  effect,
+  inject,
+  signal,
+  viewChild,
+  ChangeDetectionStrategy,
 } from '@angular/core';
 import { Router } from '@angular/router';
 import { MatIconModule } from '@angular/material/icon';
@@ -37,6 +45,7 @@ const GROUP_ORDER: readonly CommandDef['group'][] = ['Actions', 'Go to', 'Accoun
   selector: 'app-command-palette',
   imports: [MatIconModule],
   templateUrl: './command-palette.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrl: './command-palette.scss',
 })
 export class CommandPalette {
@@ -62,12 +71,12 @@ export class CommandPalette {
   /** Commands the current session may actually run (same any-of perm check the guards use). Reactive to /me. */
   private readonly allowed = computed<CommandDef[]>(() => {
     this.auth.permissions(); // re-run when permissions change live
-    return COMMAND_DEFS.filter(c => {
+    return COMMAND_DEFS.filter((c) => {
       if (!c.perm) return this.auth.isAuthenticated();
       const keys = Array.isArray(c.perm) ? c.perm : [c.perm];
       // requireAll = the route stacks multiple guards (AND); otherwise any-of (the guard passes on any one).
       return c.requireAll
-        ? keys.every(k => this.auth.hasPermission(k))
+        ? keys.every((k) => this.auth.hasPermission(k))
         : this.auth.hasAnyPermission(...keys);
     });
   });
@@ -77,8 +86,8 @@ export class CommandPalette {
     const q = this.query().trim();
     const recent = this.recents();
     const scored: ScoredCommand[] = this.allowed()
-      .map(c => ({ ...c, score: scoreCommand(q, c.label, c.keywords) }))
-      .filter(c => c.score > 0);
+      .map((c) => ({ ...c, score: scoreCommand(q, c.label, c.keywords) }))
+      .filter((c) => c.score > 0);
 
     // Within a group: by score desc; on a tie, recents first, then label. Empty query keeps catalog order
     // but still floats recents to the top of their group so the palette opens to "what you do often".
@@ -89,21 +98,24 @@ export class CommandPalette {
     const out: CommandGroup[] = [];
     for (const name of GROUP_ORDER) {
       const items = scored
-        .filter(c => c.group === name)
-        .sort((a, b) => (b.score - a.score) || (rank(a) - rank(b)) || a.label.localeCompare(b.label));
+        .filter((c) => c.group === name)
+        .sort((a, b) => b.score - a.score || rank(a) - rank(b) || a.label.localeCompare(b.label));
       if (items.length) out.push({ name, items });
     }
     return out;
   });
 
   /** The same rows as {@link groups} but flattened — the keyboard cursor indexes into this. */
-  readonly flat = computed<ScoredCommand[]>(() => this.groups().flatMap(g => g.items));
+  readonly flat = computed<ScoredCommand[]>(() => this.groups().flatMap((g) => g.items));
 
   /** The flat index of the first row of each group, so the template can map a row to its global index. */
   readonly groupOffsets = computed<number[]>(() => {
     const offs: number[] = [];
     let acc = 0;
-    for (const g of this.groups()) { offs.push(acc); acc += g.items.length; }
+    for (const g of this.groups()) {
+      offs.push(acc);
+      acc += g.items.length;
+    }
     return offs;
   });
 
@@ -159,8 +171,14 @@ export class CommandPalette {
   }
 
   private dispatch(cmd: CommandDef): void {
-    if (cmd.action === 'logout') { this.logoutHandler(); return; }
-    if (cmd.action === 'quickAdd') { this.quickAddHandler(); return; }
+    if (cmd.action === 'logout') {
+      this.logoutHandler();
+      return;
+    }
+    if (cmd.action === 'quickAdd') {
+      this.quickAddHandler();
+      return;
+    }
     if (cmd.route) void this.router.navigateByUrl(cmd.route);
   }
 
@@ -171,8 +189,12 @@ export class CommandPalette {
    */
   private quickAddHandler: () => void = () => {};
   private logoutHandler: () => void = () => {};
-  setQuickAddHandler(fn: () => void): void { this.quickAddHandler = fn; }
-  setLogoutHandler(fn: () => void): void { this.logoutHandler = fn; }
+  setQuickAddHandler(fn: () => void): void {
+    this.quickAddHandler = fn;
+  }
+  setLogoutHandler(fn: () => void): void {
+    this.logoutHandler = fn;
+  }
 
   // ---- keyboard ----
 
@@ -213,19 +235,26 @@ export class CommandPalette {
     const next = (this.activeIndex() + delta + n) % n;
     this.activeIndex.set(next);
     requestAnimationFrame(() => {
-      const el = (this.host.nativeElement as HTMLElement)
-        .querySelector<HTMLElement>(`.cmdp__row[data-index="${next}"]`);
+      const el = (this.host.nativeElement as HTMLElement).querySelector<HTMLElement>(
+        `.cmdp__row[data-index="${next}"]`,
+      );
       el?.scrollIntoView({ block: 'nearest' });
     });
   }
 
   /** Scrim click closes; clicks inside the panel are swallowed by the panel's own stopPropagation. */
-  onScrimClick(): void { this.close(); }
+  onScrimClick(): void {
+    this.close();
+  }
 
   private remember(id: string): void {
-    const next = [id, ...this.recents().filter(r => r !== id)].slice(0, RECENTS_MAX);
+    const next = [id, ...this.recents().filter((r) => r !== id)].slice(0, RECENTS_MAX);
     this.recents.set(next);
-    try { localStorage.setItem(RECENTS_KEY, JSON.stringify(next)); } catch { /* ignore */ }
+    try {
+      localStorage.setItem(RECENTS_KEY, JSON.stringify(next));
+    } catch {
+      /* ignore */
+    }
   }
 
   private restoreRecents(): string[] {

@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal, ChangeDetectionStrategy } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
@@ -42,11 +42,18 @@ interface PersonVm extends PersonDto {
 @Component({
   selector: 'app-people',
   imports: [
-    CommonModule, FormsModule,
-    MatButtonModule, MatButtonToggleModule, MatIconModule, MatTooltipModule, MatMenuModule,
-    MatProgressSpinnerModule, MatSnackBarModule,
+    CommonModule,
+    FormsModule,
+    MatButtonModule,
+    MatButtonToggleModule,
+    MatIconModule,
+    MatTooltipModule,
+    MatMenuModule,
+    MatProgressSpinnerModule,
+    MatSnackBarModule,
   ],
   templateUrl: './people.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrl: './people.scss',
 })
 export class People {
@@ -68,7 +75,9 @@ export class People {
   readonly opening = signal<number | null>(null);
 
   readonly filter = signal<PeopleFilter>('all');
-  setFilter(f: PeopleFilter): void { this.filter.set(f); }
+  setFilter(f: PeopleFilter): void {
+    this.filter.set(f);
+  }
 
   readonly timeAgo = timeAgo;
 
@@ -94,27 +103,45 @@ export class People {
 
     // Refresh presence-bearing data + the clock on a light cadence (~25s) so dots/status stay live without
     // a manual reload, matching the app shell's presence poll rhythm. Errors keep the prior list.
-    timer(25_000, 25_000).pipe(takeUntilDestroyed()).subscribe(() => {
-      this.now.set(Date.now());
-      this.refresh();
-    });
+    timer(25_000, 25_000)
+      .pipe(takeUntilDestroyed())
+      .subscribe(() => {
+        this.now.set(Date.now());
+        this.refresh();
+      });
 
     // A faster clock-only tick (~15s) keeps "active …" + away fresh between data polls (cheap).
-    timer(15_000, 15_000).pipe(takeUntilDestroyed()).subscribe(() => this.now.set(Date.now()));
+    timer(15_000, 15_000)
+      .pipe(takeUntilDestroyed())
+      .subscribe(() => this.now.set(Date.now()));
   }
 
   /** Initial load (shows the spinner). */
   private load(): void {
     this.loading.set(true);
     this.error.set(false);
-    this.api.people().pipe(catchError(() => { this.error.set(true); return of<PersonDto[]>([]); }))
-      .subscribe(list => { this.people.set(list); this.loading.set(false); });
+    this.api
+      .people()
+      .pipe(
+        catchError(() => {
+          this.error.set(true);
+          return of<PersonDto[]>([]);
+        }),
+      )
+      .subscribe((list) => {
+        this.people.set(list);
+        this.loading.set(false);
+      });
   }
 
   /** Silent background refresh (no spinner flicker); keeps the prior list on error. */
   private refresh(): void {
-    this.api.people().pipe(catchError(() => of<PersonDto[]>(null as unknown as PersonDto[])))
-      .subscribe(list => { if (list) this.people.set(list); });
+    this.api
+      .people()
+      .pipe(catchError(() => of<PersonDto[]>(null as unknown as PersonDto[])))
+      .subscribe((list) => {
+        if (list) this.people.set(list);
+      });
   }
 
   /** Two-letter initials for the avatar fallback (name only — no email is ever on the wire). */
@@ -128,12 +155,12 @@ export class People {
     const now = this.now();
     const f = this.filter();
     return this.people()
-      .filter(p => f === 'all' || (f === 'contacts' ? p.isContact : p.isHousehold))
-      .map(p => ({
+      .filter((p) => f === 'all' || (f === 'contacts' ? p.isContact : p.isHousehold))
+      .map((p) => ({
         ...p,
         initials: People.initialsOf(p.name),
-        away: p.online && !!p.lastSeenUtc
-          && (now - new Date(p.lastSeenUtc).getTime() >= People.AWAY_MS),
+        away:
+          p.online && !!p.lastSeenUtc && now - new Date(p.lastSeenUtc).getTime() >= People.AWAY_MS,
       }));
   });
 
@@ -142,8 +169,8 @@ export class People {
     const all = this.people();
     return {
       all: all.length,
-      contacts: all.filter(p => p.isContact).length,
-      family: all.filter(p => p.isHousehold).length,
+      contacts: all.filter((p) => p.isContact).length,
+      family: all.filter((p) => p.isHousehold).length,
     };
   });
 
@@ -170,11 +197,15 @@ export class People {
   message(p: PersonDto): void {
     if (!p.canDm || !this.canMessage() || this.opening() != null) return;
     this.opening.set(p.userId);
-    this.api.openDirect(p.userId).pipe(catchError(() => of(null))).subscribe(ch => {
-      this.opening.set(null);
-      if (ch) this.router.navigate(['/chat'], { queryParams: { c: ch.id } });
-      else this.snack.open('Could not open the conversation. Try again.', 'OK', { duration: 4000 });
-    });
+    this.api
+      .openDirect(p.userId)
+      .pipe(catchError(() => of(null)))
+      .subscribe((ch) => {
+        this.opening.set(null);
+        if (ch) this.router.navigate(['/chat'], { queryParams: { c: ch.id } });
+        else
+          this.snack.open('Could not open the conversation. Try again.', 'OK', { duration: 4000 });
+      });
   }
 
   /** Whether the UI may offer a Nudge for this person: a non-self circle member (contact or household).
@@ -191,13 +222,21 @@ export class People {
   nudge(p: PersonDto, kind: NudgeKind): void {
     if (!this.canNudgePerson(p) || !this.canNudge() || this.nudging() != null) return;
     this.nudging.set(p.userId);
-    this.api.nudge(p.userId, kind).pipe(catchError(() => of(null))).subscribe(res => {
-      this.nudging.set(null);
-      if (!res) { this.snack.open('Could not send your nudge. Try again.', 'OK', { duration: 4000 }); return; }
-      this.snack.open(
-        res.delivered ? `Nudge sent to ${p.name}.` : `${p.name} was already nudged recently.`,
-        'OK', { duration: 3000 });
-    });
+    this.api
+      .nudge(p.userId, kind)
+      .pipe(catchError(() => of(null)))
+      .subscribe((res) => {
+        this.nudging.set(null);
+        if (!res) {
+          this.snack.open('Could not send your nudge. Try again.', 'OK', { duration: 4000 });
+          return;
+        }
+        this.snack.open(
+          res.delivered ? `Nudge sent to ${p.name}.` : `${p.name} was already nudged recently.`,
+          'OK',
+          { duration: 3000 },
+        );
+      });
   }
 
   /** View a shared-household member on the family map (→ /family/locations). Only offered when sharesLocation. */

@@ -1,4 +1,4 @@
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal, ChangeDetectionStrategy } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { firstValueFrom } from 'rxjs';
 
@@ -15,9 +15,24 @@ import { MatSnackBar } from '@angular/material/snack-bar';
 
 import { Api } from '../../core/api';
 import { AuthService } from '../../core/auth';
-import { ActivityLevel, PERM, Sex, TrackerGoal, TrackerProfileDto, UnitSystem } from '../../core/models';
 import {
-  StatsInputs, ageFrom, cmToFtIn, computeStats, ftInToCm, kgToLb, lbToKg, mlToOz, ozToMl,
+  ActivityLevel,
+  PERM,
+  Sex,
+  TrackerGoal,
+  TrackerProfileDto,
+  UnitSystem,
+} from '../../core/models';
+import {
+  StatsInputs,
+  ageFrom,
+  cmToFtIn,
+  computeStats,
+  ftInToCm,
+  kgToLb,
+  lbToKg,
+  mlToOz,
+  ozToMl,
 } from './units';
 
 /** Opens with the current profile (or sensible defaults for a first-time user). */
@@ -56,10 +71,19 @@ const ACTIVITY_LEVELS: { value: ActivityLevel; label: string }[] = [
 @Component({
   selector: 'app-tracker-profile-dialog',
   imports: [
-    FormsModule, MatDialogModule, MatFormFieldModule, MatInputModule, MatSelectModule,
-    MatButtonModule, MatButtonToggleModule, MatCheckboxModule, MatIconModule, MatProgressSpinnerModule,
+    FormsModule,
+    MatDialogModule,
+    MatFormFieldModule,
+    MatInputModule,
+    MatSelectModule,
+    MatButtonModule,
+    MatButtonToggleModule,
+    MatCheckboxModule,
+    MatIconModule,
+    MatProgressSpinnerModule,
   ],
   templateUrl: './profile-dialog.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrl: './profile-dialog.scss',
 })
 export class ProfileDialog {
@@ -112,7 +136,9 @@ export class ProfileDialog {
   readonly weightDisp = signal<number | null>(this.toDisp(this.data.profile.weightKg));
   readonly goalWeightDisp = signal<number | null>(this.toDisp(this.data.profile.goalWeightKg));
   // Hydration goal as a DISPLAY value (oz or ml). Optional — null uses the server's 2000 ml default.
-  readonly hydrationGoalDisp = signal<number | null>(this.toVolDisp(this.data.profile.hydrationGoalMl));
+  readonly hydrationGoalDisp = signal<number | null>(
+    this.toVolDisp(this.data.profile.hydrationGoalMl),
+  );
 
   constructor() {
     // Seed the imperial height fields from the stored cm.
@@ -125,9 +151,7 @@ export class ProfileDialog {
 
   private toDisp(kg: number | null | undefined): number | null {
     if (kg == null) return null;
-    return this.unitSystem() === 'Imperial'
-      ? Math.round(kgToLb(kg) * 10) / 10
-      : kg;
+    return this.unitSystem() === 'Imperial' ? Math.round(kgToLb(kg) * 10) / 10 : kg;
   }
 
   /** A metric volume (ml) as a whole DISPLAY value in the current units (oz for Imperial, ml for Metric). */
@@ -161,20 +185,28 @@ export class ProfileDialog {
     if (cm != null) {
       if (toImperial) {
         const { ft, in: inches } = cmToFtIn(cm);
-        this.heightFt.set(ft); this.heightIn.set(inches);
+        this.heightFt.set(ft);
+        this.heightIn.set(inches);
       } else {
         this.heightCm.set(Math.round(cm));
       }
     }
-    this.weightDisp.set(toImperial ? (wKg != null ? Math.round(kgToLb(wKg) * 10) / 10 : null) : wKg);
-    this.goalWeightDisp.set(toImperial ? (gKg != null ? Math.round(kgToLb(gKg) * 10) / 10 : null) : gKg);
-    this.hydrationGoalDisp.set(hydMl != null ? (toImperial ? Math.round(mlToOz(hydMl)) : Math.round(hydMl)) : null);
+    this.weightDisp.set(
+      toImperial ? (wKg != null ? Math.round(kgToLb(wKg) * 10) / 10 : null) : wKg,
+    );
+    this.goalWeightDisp.set(
+      toImperial ? (gKg != null ? Math.round(kgToLb(gKg) * 10) / 10 : null) : gKg,
+    );
+    this.hydrationGoalDisp.set(
+      hydMl != null ? (toImperial ? Math.round(mlToOz(hydMl)) : Math.round(hydMl)) : null,
+    );
   }
 
   /** The current height in cm from whichever unit fields are active. */
   private currentHeightCm(): number | null {
     if (this.imperial()) {
-      const ft = this.heightFt(), inches = this.heightIn();
+      const ft = this.heightFt(),
+        inches = this.heightIn();
       if ((ft == null || ft <= 0) && (inches == null || inches <= 0)) return null;
       return ftInToCm(ft ?? 0, inches ?? 0);
     }
@@ -239,11 +271,15 @@ export class ProfileDialog {
       this.aiRationale.set(res.rationale ?? null);
       this.aiAnnounce.set(
         `AI suggested ${res.calorieTarget} calories per day: ${res.proteinG} grams protein, ` +
-        `${res.carbsG} grams carbs, ${res.fatG} grams fat.` + (res.rationale ? ` ${res.rationale}` : ''));
+          `${res.carbsG} grams carbs, ${res.fatG} grams fat.` +
+          (res.rationale ? ` ${res.rationale}` : ''),
+      );
     } catch {
       this.aiRationale.set(null);
       this.aiAnnounce.set('AI suggestion unavailable. Set your goal manually.');
-      this.snack.open('AI suggestion unavailable — set your goal manually', 'OK', { duration: 4000 });
+      this.snack.open('AI suggestion unavailable — set your goal manually', 'OK', {
+        duration: 4000,
+      });
     } finally {
       this.aiLoading.set(false);
     }
@@ -261,7 +297,9 @@ export class ProfileDialog {
   /** The model's one-line rationale for the parsed plan, shown as helper text. */
   readonly goalRationale = signal<string | null>(null);
 
-  readonly canDescribeGoal = computed(() => this.goalText().trim().length > 0 && !this.goalLoading());
+  readonly canDescribeGoal = computed(
+    () => this.goalText().trim().length > 0 && !this.goalLoading(),
+  );
 
   /**
    * Turn the free-text goal into a structured plan (POST /api/ai/natural-goal) and PREFILL the editable
@@ -284,12 +322,16 @@ export class ProfileDialog {
       this.goalTimeline.set(res.timeline ?? null);
       this.goalRealistic.set(res.realistic);
       this.goalRationale.set(res.rationale ?? null);
-      const verdict = res.realistic ? 'This timeline looks realistic.' : 'This timeline may be aggressive.';
+      const verdict = res.realistic
+        ? 'This timeline looks realistic.'
+        : 'This timeline may be aggressive.';
       this.aiAnnounce.set(
         `AI set a goal of ${res.calorieTarget} calories per day: ${res.proteinG} grams protein, ` +
-        `${res.carbsG} grams carbs, ${res.fatG} grams fat.` +
-        (res.timeline ? ` Timeline: ${res.timeline}.` : '') + ` ${verdict}` +
-        (res.rationale ? ` ${res.rationale}` : ''));
+          `${res.carbsG} grams carbs, ${res.fatG} grams fat.` +
+          (res.timeline ? ` Timeline: ${res.timeline}.` : '') +
+          ` ${verdict}` +
+          (res.rationale ? ` ${res.rationale}` : ''),
+      );
     } catch {
       this.goalTimeline.set(null);
       this.goalRealistic.set(null);

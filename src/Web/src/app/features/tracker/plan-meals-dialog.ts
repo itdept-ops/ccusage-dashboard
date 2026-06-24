@@ -1,4 +1,4 @@
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal, ChangeDetectionStrategy } from '@angular/core';
 import { DecimalPipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { firstValueFrom } from 'rxjs';
@@ -15,7 +15,12 @@ import { MatSnackBar } from '@angular/material/snack-bar';
 
 import { Api } from '../../core/api';
 import {
-  EatIngredient, FamilyMealSlot, PlanMealDay, PlanMealSlot, PlanMealToWrite, PlanMealsResult,
+  EatIngredient,
+  FamilyMealSlot,
+  PlanMealDay,
+  PlanMealSlot,
+  PlanMealToWrite,
+  PlanMealsResult,
 } from '../../core/models';
 
 /**
@@ -62,10 +67,19 @@ const SLOT_META: readonly { slot: FamilyMealSlot; label: string; icon: string }[
 @Component({
   selector: 'app-plan-meals-dialog',
   imports: [
-    DecimalPipe, FormsModule, MatDialogModule, MatFormFieldModule, MatInputModule, MatButtonModule,
-    MatButtonToggleModule, MatIconModule, MatProgressSpinnerModule, MatTooltipModule,
+    DecimalPipe,
+    FormsModule,
+    MatDialogModule,
+    MatFormFieldModule,
+    MatInputModule,
+    MatButtonModule,
+    MatButtonToggleModule,
+    MatIconModule,
+    MatProgressSpinnerModule,
+    MatTooltipModule,
   ],
   templateUrl: './plan-meals-dialog.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrl: './plan-meals-dialog.scss',
 })
 export class PlanMealsDialog {
@@ -79,7 +93,9 @@ export class PlanMealsDialog {
   // ---- form ----
   readonly scope = signal<Scope>('today');
   /** Which slots to fill (defaults to the three main meals; snack off). */
-  private readonly slots = signal<Set<FamilyMealSlot>>(new Set<FamilyMealSlot>(['breakfast', 'lunch', 'dinner']));
+  private readonly slots = signal<Set<FamilyMealSlot>>(
+    new Set<FamilyMealSlot>(['breakfast', 'lunch', 'dinner']),
+  );
   readonly constraints = signal('');
 
   // ---- result ----
@@ -111,9 +127,10 @@ export class PlanMealsDialog {
   }
 
   toggleSlot(slot: FamilyMealSlot): void {
-    this.slots.update(set => {
+    this.slots.update((set) => {
       const next = new Set(set);
-      if (next.has(slot)) next.delete(slot); else next.add(slot);
+      if (next.has(slot)) next.delete(slot);
+      else next.add(slot);
       return next;
     });
   }
@@ -135,31 +152,39 @@ export class PlanMealsDialog {
     this.phase.set('loading');
     this.announce.set('Building a plan that fits your remaining macros…');
     try {
-      const res: PlanMealsResult = await firstValueFrom(this.api.planMeals({
-        days: this.scope() === 'week' ? 7 : 1,
-        slots: SLOT_META.map(m => m.slot).filter(s => this.slots().has(s)),
-        constraints: this.constraints().trim() || null,
-        weekStart: this.data.weekStart,
-      }));
-      const days = (res.days ?? []).filter(d => d.slots?.length);
+      const res: PlanMealsResult = await firstValueFrom(
+        this.api.planMeals({
+          days: this.scope() === 'week' ? 7 : 1,
+          slots: SLOT_META.map((m) => m.slot).filter((s) => this.slots().has(s)),
+          constraints: this.constraints().trim() || null,
+          weekStart: this.data.weekStart,
+        }),
+      );
+      const days = (res.days ?? []).filter((d) => d.slots?.length);
       this.days.set(days);
       this.fallback.set(res.aiUsed === false);
       if (days.length === 0) {
         this.phase.set('empty');
-        this.announce.set(res.aiUsed === false
-          ? 'AI suggestions are off and there was nothing to plan from yet.'
-          : "I couldn't put a plan together just now. Try a refine, or add meals manually.");
+        this.announce.set(
+          res.aiUsed === false
+            ? 'AI suggestions are off and there was nothing to plan from yet.'
+            : "I couldn't put a plan together just now. Try a refine, or add meals manually.",
+        );
       } else {
         this.phase.set('plan');
         const n = this.totalMeals();
-        this.announce.set(res.aiUsed === false
-          ? `Showing a ${days.length === 1 ? 'day' : days.length + '-day'} plan from your recent foods, recipes and groceries.`
-          : `Here's a ${days.length === 1 ? 'day' : days.length + '-day'} plan — ${n} meal${n === 1 ? '' : 's'} that fit your remaining macros.`);
+        this.announce.set(
+          res.aiUsed === false
+            ? `Showing a ${days.length === 1 ? 'day' : days.length + '-day'} plan from your recent foods, recipes and groceries.`
+            : `Here's a ${days.length === 1 ? 'day' : days.length + '-day'} plan — ${n} meal${n === 1 ? '' : 's'} that fit your remaining macros.`,
+        );
       }
     } catch {
       this.days.set([]);
       this.phase.set('error');
-      this.announce.set("I couldn't reach the planner just now. Please try again, or add meals manually.");
+      this.announce.set(
+        "I couldn't reach the planner just now. Please try again, or add meals manually.",
+      );
     } finally {
       this.inFlight = false;
     }
@@ -180,21 +205,23 @@ export class PlanMealsDialog {
   dayLabel(localDate: string): string {
     const date = new Date(`${localDate}T00:00:00`);
     if (Number.isNaN(date.getTime())) return localDate;
-    return `${date.toLocaleDateString(undefined, { weekday: 'long' })}, `
-      + date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+    return (
+      `${date.toLocaleDateString(undefined, { weekday: 'long' })}, ` +
+      date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+    );
   }
 
   slotLabel(slot: FamilyMealSlot): string {
-    return SLOT_META.find(m => m.slot === slot)?.label ?? slot;
+    return SLOT_META.find((m) => m.slot === slot)?.label ?? slot;
   }
 
   slotIcon(slot: FamilyMealSlot): string {
-    return SLOT_META.find(m => m.slot === slot)?.icon ?? 'restaurant';
+    return SLOT_META.find((m) => m.slot === slot)?.icon ?? 'restaurant';
   }
 
   /** The slot's ingredients NOT yet on the household grocery list (drives the per-slot "Add needed" count). */
   missingCount(s: PlanMealSlot): number {
-    return (s.ingredients ?? []).filter(i => !i.onList && i.name?.trim()).length;
+    return (s.ingredients ?? []).filter((i) => !i.onList && i.name?.trim()).length;
   }
 
   isBusy(key: string): boolean {
@@ -202,9 +229,10 @@ export class PlanMealsDialog {
   }
 
   private setBusy(key: string, on: boolean): void {
-    this.busyKeys.update(set => {
+    this.busyKeys.update((set) => {
       const next = new Set(set);
-      if (on) next.add(key); else next.delete(key);
+      if (on) next.add(key);
+      else next.delete(key);
       return next;
     });
   }
@@ -213,27 +241,35 @@ export class PlanMealsDialog {
    * Locally mark a slot's ingredient as now on the grocery list (each grocery write returns the WHOLE list,
    * not this DTO), bumping its listedQty so the badge flips without a re-fetch.
    */
-  private markOnList(dayIndex: number, slotIndex: number, ingIndex: number, addedQty: number): void {
-    this.days.update(days => days.map((d, di) => {
-      if (di !== dayIndex) return d;
-      const slots = d.slots.map((s, si) => {
-        if (si !== slotIndex) return s;
-        const ingredients = s.ingredients.map((ing, ii) => {
-          if (ii !== ingIndex) return ing;
-          const prior = ing.onList ? (ing.listedQty ?? 1) : 0;
-          return { ...ing, onList: true, listedQty: prior + addedQty } as EatIngredient;
+  private markOnList(
+    dayIndex: number,
+    slotIndex: number,
+    ingIndex: number,
+    addedQty: number,
+  ): void {
+    this.days.update((days) =>
+      days.map((d, di) => {
+        if (di !== dayIndex) return d;
+        const slots = d.slots.map((s, si) => {
+          if (si !== slotIndex) return s;
+          const ingredients = s.ingredients.map((ing, ii) => {
+            if (ii !== ingIndex) return ing;
+            const prior = ing.onList ? (ing.listedQty ?? 1) : 0;
+            return { ...ing, onList: true, listedQty: prior + addedQty } as EatIngredient;
+          });
+          return { ...s, ingredients };
         });
-        return { ...s, ingredients };
-      });
-      return { ...d, slots };
-    }));
+        return { ...d, slots };
+      }),
+    );
   }
 
   /** A plan slot → the write payload for /api/ai/plan-meals/to-plan (macros ride along, source "ai"). */
   private toWrite(localDate: string, s: PlanMealSlot): PlanMealToWrite {
     const ingredients = (s.ingredients ?? [])
-      .map(i => (i.quantity?.trim() ? `${i.name.trim()} (${i.quantity.trim()})` : i.name.trim()))
-      .filter(Boolean).join('\n');
+      .map((i) => (i.quantity?.trim() ? `${i.name.trim()} (${i.quantity.trim()})` : i.name.trim()))
+      .filter(Boolean)
+      .join('\n');
     return {
       localDate,
       slot: s.slot,
@@ -251,7 +287,12 @@ export class PlanMealsDialog {
   // ─────────────────────────────────────────── add to plan ─────────────────────────────────────
 
   /** Write a single proposed slot into the household Meal Planner (meals.use-gated). */
-  async addSlotToPlan(dayIndex: number, slotIndex: number, localDate: string, s: PlanMealSlot): Promise<void> {
+  async addSlotToPlan(
+    dayIndex: number,
+    slotIndex: number,
+    localDate: string,
+    s: PlanMealSlot,
+  ): Promise<void> {
     const key = `plan:${dayIndex}:${slotIndex}`;
     if (!this.canPlan() || this.isBusy(key)) return;
     this.setBusy(key, true);
@@ -273,11 +314,16 @@ export class PlanMealsDialog {
     this.setBusy(key, true);
     try {
       const res = await firstValueFrom(
-        this.api.planMealsToPlan(day.slots.map(s => this.toWrite(day.localDate, s))));
+        this.api.planMealsToPlan(day.slots.map((s) => this.toWrite(day.localDate, s))),
+      );
       if (res.added > 0) this.wrote = true;
-      this.snack.open(`Added ${res.added} meal${res.added === 1 ? '' : 's'} to your plan`, 'OK', { duration: 3000 });
+      this.snack.open(`Added ${res.added} meal${res.added === 1 ? '' : 's'} to your plan`, 'OK', {
+        duration: 3000,
+      });
     } catch {
-      this.snack.open("Couldn't add that day to the plan — try again", 'Dismiss', { duration: 4000 });
+      this.snack.open("Couldn't add that day to the plan — try again", 'Dismiss', {
+        duration: 4000,
+      });
     } finally {
       this.setBusy(key, false);
     }
@@ -295,8 +341,13 @@ export class PlanMealsDialog {
       if (res.added > 0) this.wrote = true;
       const n = res.added;
       const r = this.snack.open(
-        `Added ${n} meal${n === 1 ? '' : 's'} to your plan`, 'Add ingredients to grocery', { duration: 6000 });
-      r.onAction().subscribe(() => { void this.addAllToGrocery(); });
+        `Added ${n} meal${n === 1 ? '' : 's'} to your plan`,
+        'Add ingredients to grocery',
+        { duration: 6000 },
+      );
+      r.onAction().subscribe(() => {
+        void this.addAllToGrocery();
+      });
     } catch {
       this.snack.open("Couldn't add the plan — try again", 'Dismiss', { duration: 4000 });
     } finally {
@@ -308,7 +359,11 @@ export class PlanMealsDialog {
 
   /** Quantity-aware add of a single ingredient onto the household Groceries list (bumps "xN" if present). */
   async addIngredientToGrocery(
-    dayIndex: number, slotIndex: number, ingIndex: number, ing: EatIngredient): Promise<void> {
+    dayIndex: number,
+    slotIndex: number,
+    ingIndex: number,
+    ing: EatIngredient,
+  ): Promise<void> {
     const name = ing.name?.trim();
     const key = `ing:${dayIndex}:${slotIndex}:${ingIndex}`;
     if (!name || this.isBusy(key)) return;
@@ -318,14 +373,20 @@ export class PlanMealsDialog {
       this.markOnList(dayIndex, slotIndex, ingIndex, 1);
       this.snack.open(`Added “${name}” to your grocery list`, 'OK', { duration: 2500 });
     } catch {
-      this.snack.open("Couldn't add that to the grocery list — try again", 'Dismiss', { duration: 4000 });
+      this.snack.open("Couldn't add that to the grocery list — try again", 'Dismiss', {
+        duration: 4000,
+      });
     } finally {
       this.setBusy(key, false);
     }
   }
 
   /** Add a slot's NEEDED items (those not already on the list) to the household Groceries list. */
-  async addSlotNeededToGrocery(dayIndex: number, slotIndex: number, s: PlanMealSlot): Promise<void> {
+  async addSlotNeededToGrocery(
+    dayIndex: number,
+    slotIndex: number,
+    s: PlanMealSlot,
+  ): Promise<void> {
     const key = `grocery:${dayIndex}:${slotIndex}`;
     if (this.isBusy(key)) return;
     const needed = (s.ingredients ?? [])
@@ -340,9 +401,13 @@ export class PlanMealsDialog {
       await firstValueFrom(this.api.recipeBreakdownToGrocery(needed.map(({ i }) => i.name.trim())));
       for (const { ii } of needed) this.markOnList(dayIndex, slotIndex, ii, 1);
       const n = needed.length;
-      this.snack.open(`Added ${n} item${n === 1 ? '' : 's'} to your grocery list`, 'OK', { duration: 3000 });
+      this.snack.open(`Added ${n} item${n === 1 ? '' : 's'} to your grocery list`, 'OK', {
+        duration: 3000,
+      });
     } catch {
-      this.snack.open("Couldn't add to the grocery list — try again", 'Dismiss', { duration: 4000 });
+      this.snack.open("Couldn't add to the grocery list — try again", 'Dismiss', {
+        duration: 4000,
+      });
     } finally {
       this.setBusy(key, false);
     }
@@ -353,12 +418,16 @@ export class PlanMealsDialog {
     const key = 'groceryAll';
     if (this.isBusy(key)) return;
     const names: string[] = [];
-    this.days().forEach((d, di) => d.slots.forEach((s, si) => {
-      (s.ingredients ?? []).forEach((ing, ii) => {
-        if (!ing.onList && ing.name?.trim()) names.push(ing.name.trim());
-        void di; void si; void ii;
-      });
-    }));
+    this.days().forEach((d, di) =>
+      d.slots.forEach((s, si) => {
+        (s.ingredients ?? []).forEach((ing, ii) => {
+          if (!ing.onList && ing.name?.trim()) names.push(ing.name.trim());
+          void di;
+          void si;
+          void ii;
+        });
+      }),
+    );
     if (names.length === 0) {
       this.snack.open('Nothing needed — it’s all on your list', 'OK', { duration: 2500 });
       return;
@@ -367,19 +436,27 @@ export class PlanMealsDialog {
     try {
       await firstValueFrom(this.api.recipeBreakdownToGrocery(names));
       // Reflect locally: flip every not-on-list ingredient to on-list.
-      this.days.update(days => days.map(d => ({
-        ...d,
-        slots: d.slots.map(s => ({
-          ...s,
-          ingredients: s.ingredients.map(ing => ing.name?.trim() && !ing.onList
-            ? { ...ing, onList: true, listedQty: (ing.listedQty ?? 0) + 1 } as EatIngredient
-            : ing),
+      this.days.update((days) =>
+        days.map((d) => ({
+          ...d,
+          slots: d.slots.map((s) => ({
+            ...s,
+            ingredients: s.ingredients.map((ing) =>
+              ing.name?.trim() && !ing.onList
+                ? ({ ...ing, onList: true, listedQty: (ing.listedQty ?? 0) + 1 } as EatIngredient)
+                : ing,
+            ),
+          })),
         })),
-      })));
+      );
       const n = names.length;
-      this.snack.open(`Added ${n} ingredient${n === 1 ? '' : 's'} to your grocery list`, 'OK', { duration: 3000 });
+      this.snack.open(`Added ${n} ingredient${n === 1 ? '' : 's'} to your grocery list`, 'OK', {
+        duration: 3000,
+      });
     } catch {
-      this.snack.open("Couldn't add to the grocery list — try again", 'Dismiss', { duration: 4000 });
+      this.snack.open("Couldn't add to the grocery list — try again", 'Dismiss', {
+        duration: 4000,
+      });
     } finally {
       this.setBusy(key, false);
     }
@@ -387,7 +464,10 @@ export class PlanMealsDialog {
 
   /** Whether the whole plan still has any needed (not-on-list) ingredient — gates the whole-plan grocery button. */
   readonly hasAnyNeeded = computed(() =>
-    this.days().some(d => d.slots.some(s => s.ingredients.some(i => !i.onList && i.name?.trim()))));
+    this.days().some((d) =>
+      d.slots.some((s) => s.ingredients.some((i) => !i.onList && i.name?.trim())),
+    ),
+  );
 
   // ─────────────────────────────────────────── close ───────────────────────────────────────────
 

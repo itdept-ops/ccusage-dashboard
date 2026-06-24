@@ -8,8 +8,13 @@
     <div class="tracker__head-actions">
       <!-- Shared-view selector: view your own tracker or a contact's (read-only). -->
       @if (store.shared().length > 0) {
-        <button mat-stroked-button type="button" class="tracker__viewbtn" [matMenuTriggerFor]="viewMenu"
-                aria-label="Whose tracker to view">
+        <button
+          mat-stroked-button
+          type="button"
+          class="tracker__viewbtn"
+          [matMenuTriggerFor]="viewMenu"
+          aria-label="Whose tracker to view"
+        >
           <mat-icon>visibility</mat-icon>
           {{ viewingUser ? viewingUser.name : 'My tracker' }}
           <mat-icon class="tracker__caret">expand_more</mat-icon>
@@ -27,24 +32,38 @@
       }
 
       @if (aiEnabled()) {
-        <button mat-stroked-button type="button" class="tracker__voicebtn"
-                (click)="openVoiceCapture()"
-                aria-label="Log by voice — speak a note and confirm what to log"
-                matTooltip="Log by voice — speak a note and confirm what to log">
+        <button
+          mat-stroked-button
+          type="button"
+          class="tracker__voicebtn"
+          (click)="openVoiceCapture()"
+          aria-label="Log by voice — speak a note and confirm what to log"
+          matTooltip="Log by voice — speak a note and confirm what to log"
+        >
           <mat-icon aria-hidden="true">mic</mat-icon> Voice log
         </button>
 
-        <button mat-stroked-button type="button" class="tracker__buildbtn"
-                [disabled]="buildingDay()" (click)="openDayBuilder()"
-                aria-label="Build my whole day with AI from a description">
+        <button
+          mat-stroked-button
+          type="button"
+          class="tracker__buildbtn"
+          [disabled]="buildingDay()"
+          (click)="openDayBuilder()"
+          aria-label="Build my whole day with AI from a description"
+        >
           <mat-icon aria-hidden="true">auto_awesome</mat-icon> Build with AI
         </button>
       }
 
       @if (!store.readOnly()) {
-        <button mat-stroked-button type="button" class="tracker__movebtn" (click)="openMoveDay()"
-                aria-label="Move this day's entries to another date"
-                matTooltip="Move this day's entries to another date">
+        <button
+          mat-stroked-button
+          type="button"
+          class="tracker__movebtn"
+          (click)="openMoveDay()"
+          aria-label="Move this day's entries to another date"
+          matTooltip="Move this day's entries to another date"
+        >
           <mat-icon>event_repeat</mat-icon> Move day…
         </button>
 
@@ -59,18 +78,29 @@
   @if (viewingUser; as vu) {
     <div class="tracker__readonly" role="status">
       <span class="tracker__readonly-avatar">{{ initials(vu) }}</span>
-      <span>Viewing <strong>{{ vu.name }}</strong>’s tracker — read-only.</span>
+      <span
+        >Viewing <strong>{{ vu.name }}</strong
+        >’s tracker — read-only.</span
+      >
       @if (refreshing()) {
         <span class="tracker__refreshnote" aria-hidden="true">
           <mat-icon class="tracker__refreshspin">autorenew</mat-icon> Updating…
         </span>
       }
-      <button mat-icon-button type="button" class="tracker__refreshbtn" (click)="refreshReadOnly()"
-              [disabled]="refreshing()" aria-label="Refresh this tracker"
-              matTooltip="Refresh this tracker">
+      <button
+        mat-icon-button
+        type="button"
+        class="tracker__refreshbtn"
+        (click)="refreshReadOnly()"
+        [disabled]="refreshing()"
+        aria-label="Refresh this tracker"
+        matTooltip="Refresh this tracker"
+      >
         <mat-icon>refresh</mat-icon>
       </button>
-      <button mat-button type="button" class="tracker__exitview" (click)="viewSelf()">Back to mine</button>
+      <button mat-button type="button" class="tracker__exitview" (click)="viewSelf()">
+        Back to mine
+      </button>
     </div>
   }
 
@@ -82,14 +112,21 @@
       </button>
       <div class="tracker__datelabel">
         <span class="tracker__dateheading" id="tracker-dateheading">{{ dateHeading() }}</span>
-        <input class="tracker__dateinput mono-num" type="date" [value]="store.date()"
-               (change)="onDateInput($any($event.target).value)" aria-label="Pick a date"
-               aria-describedby="tracker-dateheading" />
+        <input
+          class="tracker__dateinput mono-num"
+          type="date"
+          [value]="store.date()"
+          (change)="onDateInput($any($event.target).value)"
+          aria-label="Pick a date"
+          aria-describedby="tracker-dateheading"
+        />
       </div>
       <button mat-icon-button type="button" (click)="nextDay()" aria-label="Next day">
         <mat-icon>chevron_right</mat-icon>
       </button>
-      <button mat-stroked-button type="button" class="tracker__today" (click)="today()">Today</button>
+      <button mat-stroked-button type="button" class="tracker__today" (click)="today()">
+        Today
+      </button>
     </div>
   }
 
@@ -108,945 +145,1354 @@
     <!-- BLOCKING baseline onboarding (own tracker only): replaces the dashboard until the baseline is
          complete (current weight, height, DOB, explicit sex). Non-dismissable — no skip/cancel. -->
     @if (needsBaseline()) {
-      <app-tracker-onboarding [profile]="day.profile" [saving]="savingBaseline()"
-                              (completed)="onBaselineComplete($event)" />
+      <app-tracker-onboarding
+        [profile]="day.profile"
+        [saving]="savingBaseline()"
+        (completed)="onBaselineComplete($event)"
+      />
     } @else {
-    <!-- First-time setup prompt (own tracker, no goal/data). -->
-    @if (needsSetup()) {
-      <div class="tracker__setup">
-        <mat-icon class="tracker__setup-icon" aria-hidden="true">rocket_launch</mat-icon>
-        <div class="tracker__setup-copy">
-          <h2>Let’s set up your tracker</h2>
-          <p>Pick a goal and (optionally) a daily calorie target so we can show your progress. Then start logging meals and exercise.</p>
-        </div>
-        <button mat-flat-button color="primary" type="button" (click)="openProfile()">
-          <mat-icon>flag</mat-icon> Set your goals
-        </button>
-      </div>
-    }
-
-    <!-- AI Day Builder hero (gated by trackerAi + own tracker). Dismissable for the day. -->
-    @if (showDayBuilderHint()) {
-      <div class="tracker__daybuilder" role="group" aria-label="Build my day with AI">
-        <mat-icon class="tracker__daybuilder-glyph" aria-hidden="true">auto_awesome</mat-icon>
-        <div class="tracker__daybuilder-copy">
-          <h2 class="tracker__daybuilder-title">Build my day with AI</h2>
-          <p class="tracker__daybuilder-sub">
-            Had a full day? Describe it in one go — meals, workouts, drinks, weight, steps — and AI drafts a
-            complete day for you to review and log. Add meal photos for sharper macros.
-          </p>
-        </div>
-        <div class="tracker__daybuilder-actions">
-          <button mat-flat-button color="primary" type="button" [disabled]="buildingDay()" (click)="openDayBuilder()">
-            <mat-icon aria-hidden="true">auto_awesome</mat-icon> Build my day
-          </button>
-          <button mat-icon-button type="button" class="tracker__daybuilder-dismiss"
-                  (click)="dismissDayBuilderHint()" aria-label="Dismiss this for today">
-            <mat-icon>close</mat-icon>
+      <!-- First-time setup prompt (own tracker, no goal/data). -->
+      @if (needsSetup()) {
+        <div class="tracker__setup">
+          <mat-icon class="tracker__setup-icon" aria-hidden="true">rocket_launch</mat-icon>
+          <div class="tracker__setup-copy">
+            <h2>Let’s set up your tracker</h2>
+            <p>
+              Pick a goal and (optionally) a daily calorie target so we can show your progress. Then
+              start logging meals and exercise.
+            </p>
+          </div>
+          <button mat-flat-button color="primary" type="button" (click)="openProfile()">
+            <mat-icon>flag</mat-icon> Set your goals
           </button>
         </div>
-      </div>
-    }
+      }
 
-    <!-- ✨ "This week" recap — read-only, encouraging narration of the caller's OWN last 7 days (gated by
+      <!-- AI Day Builder hero (gated by trackerAi + own tracker). Dismissable for the day. -->
+      @if (showDayBuilderHint()) {
+        <div class="tracker__daybuilder" role="group" aria-label="Build my day with AI">
+          <mat-icon class="tracker__daybuilder-glyph" aria-hidden="true">auto_awesome</mat-icon>
+          <div class="tracker__daybuilder-copy">
+            <h2 class="tracker__daybuilder-title">Build my day with AI</h2>
+            <p class="tracker__daybuilder-sub">
+              Had a full day? Describe it in one go — meals, workouts, drinks, weight, steps — and
+              AI drafts a complete day for you to review and log. Add meal photos for sharper
+              macros.
+            </p>
+          </div>
+          <div class="tracker__daybuilder-actions">
+            <button
+              mat-flat-button
+              color="primary"
+              type="button"
+              [disabled]="buildingDay()"
+              (click)="openDayBuilder()"
+            >
+              <mat-icon aria-hidden="true">auto_awesome</mat-icon> Build my day
+            </button>
+            <button
+              mat-icon-button
+              type="button"
+              class="tracker__daybuilder-dismiss"
+              (click)="dismissDayBuilderHint()"
+              aria-label="Dismiss this for today"
+            >
+              <mat-icon>close</mat-icon>
+            </button>
+          </div>
+        </div>
+      }
+
+      <!-- ✨ "This week" recap — read-only, encouraging narration of the caller's OWN last 7 days (gated by
          tracker.self alone, so it shows for every tracker user). It NEVER mutates anything. The endpoint
          always returns a deterministic plain floor with fellBackToPlain=true when AI is unavailable, in which
          case we drop the AI flourish (calmer surface + a steadier icon), mirroring the finance "explain this
          month" / morning-briefing card UX. Hidden in read-only views of someone else. -->
-    @if (!store.readOnly()) {
-      <div class="tracker__recap" aria-live="polite" aria-busy="{{ recapLoading() }}">
-        @if (recap(); as r) {
-          @if (r.narrative) {
-            <article class="recap-card" [class.recap-card--plain]="r.fellBackToPlain"
-                     aria-label="Your week in review">
-              <mat-icon class="recap-card__spark" aria-hidden="true">
-                {{ r.fellBackToPlain ? 'insights' : 'auto_awesome' }}
-              </mat-icon>
-              <div class="recap-card__body">
-                <p class="recap-card__eyebrow">This week</p>
-                <p class="recap-card__text">{{ r.narrative }}</p>
-                @if (r.insights.length) {
-                  <ul class="recap-card__insights">
-                    @for (insight of r.insights; track $index) {
-                      <li>{{ insight }}</li>
-                    }
-                  </ul>
-                }
-              </div>
-            </article>
-          }
-        } @else if (recapLoading()) {
-          <div class="tracker__recap-loading">
-            <mat-progress-spinner mode="indeterminate" diameter="20" aria-hidden="true" />
-            <span>Looking back on your week…</span>
-          </div>
-        }
-      </div>
-    }
-
-    <!-- Headline summary: calorie ring + breakdown + macro bars. -->
-    <div class="tracker__summary">
-      <div class="tracker__ringcard">
-        <app-calorie-ring
-          [caloriesIn]="day.caloriesIn" [caloriesOut]="day.caloriesOut"
-          [netCalories]="day.netCalories" [goal]="day.calorieGoal" [remaining]="day.remaining" />
-        <div class="tracker__cals">
-          <div class="tracker__cal">
-            <span class="tracker__cal-v mono-num">{{ day.caloriesIn | number }}</span>
-            <span class="tracker__cal-l">in</span>
-          </div>
-          <span class="tracker__cal-op">−</span>
-          <div class="tracker__cal">
-            <span class="tracker__cal-v mono-num">{{ day.caloriesOut | number }}</span>
-            <span class="tracker__cal-l">out</span>
-          </div>
-          <span class="tracker__cal-op">=</span>
-          <div class="tracker__cal">
-            <span class="tracker__cal-v tracker__cal-v--net mono-num">{{ day.netCalories | number }}</span>
-            <span class="tracker__cal-l">net</span>
-          </div>
-        </div>
-
-        <!-- AI: suggest foods for the remaining calories/macros (gated by trackerAi; own tracker only). -->
-        @if (aiEnabled()) {
-          <div class="tracker__ai-suggest">
-            <button mat-stroked-button type="button" class="tracker__ai-btn"
-                    (click)="openWhatToEat()"
-                    aria-label="Open What should I eat — meal options that fit my remaining calories and macros, using AI">
-              <span class="tracker__ai-btn-label">
-                <mat-icon aria-hidden="true">auto_awesome</mat-icon> What should I eat?
-              </span>
-            </button>
-          </div>
-        }
-      </div>
-
-      <div class="tracker__macros">
-        @for (m of [
-          { key: 'protein', label: 'Protein', val: day.proteinG, target: day.profile.proteinGoalG, cls: 'p' },
-          { key: 'carb', label: 'Carbs', val: day.carbG, target: day.profile.carbGoalG, cls: 'c' },
-          { key: 'fat', label: 'Fat', val: day.fatG, target: day.profile.fatGoalG, cls: 'f' }
-        ]; track m.key) {
-          <div class="tracker__macro">
-            <div class="tracker__macro-head">
-              <span class="tracker__macro-label">{{ m.label }}</span>
-              <span class="tracker__macro-val mono-num">
-                {{ m.val | number:'1.0-0' }} g@if (m.target) { <span class="tracker__macro-target"> / {{ m.target }} g</span> }
-              </span>
-            </div>
-            @if (m.target) {
-              <div class="tracker__macro-track"
-                   role="progressbar" aria-valuemin="0" [attr.aria-valuenow]="m.val" [attr.aria-valuemax]="m.target"
-                   [attr.aria-label]="m.label + ' grams'">
-                <div class="tracker__macro-fill" [class]="'tracker__macro-fill--' + m.cls"
-                     [style.width.%]="macroPct(m.val, m.target)"></div>
-              </div>
-            } @else {
-              <div class="tracker__macro-track" [attr.aria-label]="m.label + ' grams'">
-                <div class="tracker__macro-fill" [class]="'tracker__macro-fill--' + m.cls"
-                     [style.width.%]="macroPct(m.val, undefined)"></div>
-              </div>
-            }
-          </div>
-        }
-      </div>
-    </div>
-
-    <!-- ── AI insights (gated by trackerAi; own tracker only). Lazy + unobtrusive: nothing is fetched
-         until the user asks, so the rate-limited key isn't spammed. Never blocks the dashboard. ── -->
-    @if (aiEnabled()) {
-      <div class="tracker__ai-row">
-        <!-- Daily coach card. Needs data + on-demand fetch (cached server-side per day). -->
-        <section class="tracker__ai-panel" aria-label="Daily AI coach">
-          <div class="tracker__meal-head">
-            <h2 class="tracker__meal-title">
-              <mat-icon aria-hidden="true">auto_awesome</mat-icon> Daily coach
-              <span class="tracker__ai-spark">✨</span>
-            </h2>
-            @if (hasDataForAi()) {
-              <button mat-stroked-button type="button" class="tracker__ai-refresh"
-                      [disabled]="coachLoading()" (click)="loadCoach()"
-                      [attr.aria-label]="coach() ? 'Refresh daily coaching' : 'Get daily coaching'">
-                @if (coachLoading()) {
-                  <mat-progress-spinner mode="indeterminate" diameter="18" aria-hidden="true" />
-                } @else {
-                  <mat-icon>{{ coach() ? 'refresh' : 'tips_and_updates' }}</mat-icon>
-                }
-                {{ coach() ? 'Refresh' : 'Get coaching' }}
-              </button>
-            }
-          </div>
-
-          <span class="tracker__sr-status" role="status" aria-live="polite">{{ coachAnnounce() }}</span>
-
-          @if (!hasDataForAi()) {
-            <p class="tracker__ai-empty">Log a meal, drink, or workout and your coach will have something to say.</p>
-          } @else if (coachUnavailable()) {
-            <p class="tracker__ai-unavailable" role="status">
-              <mat-icon aria-hidden="true">cloud_off</mat-icon>
-              Coaching is unavailable right now — your day is logged and unaffected.
-            </p>
-          } @else if (coach(); as c) {
-            <p class="tracker__ai-insight">{{ c.insight }}</p>
-            @if (c.tips.length > 0) {
-              <ul class="tracker__ai-tips">
-                @for (t of c.tips; track t) {
-                  <li><mat-icon aria-hidden="true">check_circle</mat-icon> {{ t }}</li>
-                }
-              </ul>
-            }
-          } @else if (!coachLoading()) {
-            <p class="tracker__ai-prompt">Get a quick read on your day so far, plus a couple of tips.</p>
-          }
-        </section>
-
-        <!-- Weekly review panel. -->
-        <section class="tracker__ai-panel" aria-label="This week's AI review">
-          <div class="tracker__meal-head">
-            <h2 class="tracker__meal-title">
-              <mat-icon aria-hidden="true">insights</mat-icon> This week
-              <span class="tracker__ai-spark">✨</span>
-            </h2>
-            <button mat-stroked-button type="button" class="tracker__ai-refresh"
-                    [disabled]="weeklyLoading()" (click)="loadWeekly()"
-                    [attr.aria-label]="weekly() ? 'Refresh weekly review' : 'Get weekly review'">
-              @if (weeklyLoading()) {
-                <mat-progress-spinner mode="indeterminate" diameter="18" aria-hidden="true" />
-              } @else {
-                <mat-icon>{{ weekly() ? 'refresh' : 'calendar_view_week' }}</mat-icon>
-              }
-              {{ weekly() ? 'Refresh' : 'Review week' }}
-            </button>
-          </div>
-
-          <span class="tracker__sr-status" role="status" aria-live="polite">{{ weeklyAnnounce() }}</span>
-
-          @if (weeklyUnavailable()) {
-            <p class="tracker__ai-unavailable" role="status">
-              <mat-icon aria-hidden="true">cloud_off</mat-icon>
-              The weekly review is unavailable right now — nothing else is affected.
-            </p>
-          } @else if (weekly(); as w) {
-            <p class="tracker__ai-insight">{{ w.summary }}</p>
-            <p class="tracker__ai-suggest-line">
-              <mat-icon aria-hidden="true">arrow_forward</mat-icon> {{ w.suggestion }}
-            </p>
-          } @else if (!weeklyLoading()) {
-            <p class="tracker__ai-prompt">A short look back at your last 7 days, with one thing to try next.</p>
-          }
-        </section>
-
-        <!-- Day summary: a read-only AI recap of the LOGGED day (distinct from the editable Day Builder). -->
-        <section class="tracker__ai-panel tracker__ai-panel--summary" aria-label="AI day summary">
-          <div class="tracker__meal-head">
-            <h2 class="tracker__meal-title">
-              <mat-icon aria-hidden="true">nights_stay</mat-icon> Day summary
-              <span class="tracker__ai-spark">✨</span>
-            </h2>
-            <button mat-stroked-button type="button" class="tracker__ai-refresh"
-                    [disabled]="daySummaryLoading()" (click)="loadDaySummary()"
-                    [attr.aria-label]="daySummary() ? 'Refresh the day summary' : 'Summarize my day'">
-              @if (daySummaryLoading()) {
-                <mat-progress-spinner mode="indeterminate" diameter="18" aria-hidden="true" />
-              } @else {
-                <mat-icon>{{ daySummary() ? 'refresh' : 'auto_awesome' }}</mat-icon>
-              }
-              {{ daySummary() ? 'Refresh' : 'Summarize my day' }}
-            </button>
-          </div>
-
-          <span class="tracker__sr-status" role="status" aria-live="polite">{{ daySummaryAnnounce() }}</span>
-
-          @if (daySummaryUnavailable()) {
-            <p class="tracker__ai-unavailable" role="status">
-              <mat-icon aria-hidden="true">cloud_off</mat-icon>
-              The day summary is unavailable right now — your day is logged and unaffected.
-            </p>
-          } @else if (daySummary(); as s) {
-            @if (s.highlights.length === 0 && !s.tomorrow && s.headline.startsWith('Nothing logged')) {
-              <p class="tracker__ai-empty">{{ s.headline }} Log a meal, drink, or workout first.</p>
-            } @else {
-              <p class="tracker__ai-insight">{{ s.headline }}</p>
-              @if (s.highlights.length > 0) {
-                <ul class="tracker__ai-tips">
-                  @for (h of s.highlights; track h) {
-                    <li><mat-icon aria-hidden="true">check_circle</mat-icon> {{ h }}</li>
+      @if (!store.readOnly()) {
+        <div class="tracker__recap" aria-live="polite" aria-busy="{{ recapLoading() }}">
+          @if (recap(); as r) {
+            @if (r.narrative) {
+              <article
+                class="recap-card"
+                [class.recap-card--plain]="r.fellBackToPlain"
+                aria-label="Your week in review"
+              >
+                <mat-icon class="recap-card__spark" aria-hidden="true">
+                  {{ r.fellBackToPlain ? 'insights' : 'auto_awesome' }}
+                </mat-icon>
+                <div class="recap-card__body">
+                  <p class="recap-card__eyebrow">This week</p>
+                  <p class="recap-card__text">{{ r.narrative }}</p>
+                  @if (r.insights.length) {
+                    <ul class="recap-card__insights">
+                      @for (insight of r.insights; track $index) {
+                        <li>{{ insight }}</li>
+                      }
+                    </ul>
                   }
-                </ul>
-              }
-              @if (s.tomorrow) {
-                <p class="tracker__ai-suggest-line">
-                  <mat-icon aria-hidden="true">arrow_forward</mat-icon> {{ s.tomorrow }}
-                </p>
-              }
+                </div>
+              </article>
             }
-          } @else if (!daySummaryLoading()) {
-            <p class="tracker__ai-prompt">A warm recap of everything you logged today, plus one nudge for tomorrow.</p>
-          }
-        </section>
-      </div>
-    }
-
-    <!-- ── Hydration card: progress ring vs goal + quick-add + today's drinks ── -->
-    <section class="tracker__hydration" aria-label="Hydration">
-      <div class="tracker__meal-head">
-        <h2 class="tracker__meal-title">
-          <mat-icon aria-hidden="true">water_drop</mat-icon> Hydration
-        </h2>
-        <span class="tracker__meal-cal mono-num">
-          {{ volumeLabel(day.hydrationMl) }} / {{ volumeLabel(day.hydrationGoalMl) }}
-        </span>
-      </div>
-
-      <div class="tracker__hydration-body">
-        <div class="tracker__hydring">
-          <app-hydration-ring [hydrationMl]="day.hydrationMl" [goalMl]="day.hydrationGoalMl"
-                              [imperial]="imperial()" />
-        </div>
-
-        <div class="tracker__hydration-main">
-          <!-- Quick-add buttons (own tracker only). -->
-          @if (!store.readOnly()) {
-            <div class="tracker__hydquick" role="group" aria-label="Quick add water">
-              <button mat-stroked-button type="button" class="tracker__hydbtn"
-                      (click)="quickHydration(250)" [attr.aria-label]="'Add a glass, ' + volumeLabel(250)">
-                <mat-icon>local_drink</mat-icon> Glass
-                <span class="tracker__hydbtn-amt">+{{ volumeLabel(250) }}</span>
-              </button>
-              <button mat-stroked-button type="button" class="tracker__hydbtn"
-                      (click)="quickHydration(500)" [attr.aria-label]="'Add a bottle, ' + volumeLabel(500)">
-                <mat-icon>local_drink</mat-icon> Bottle
-                <span class="tracker__hydbtn-amt">+{{ volumeLabel(500) }}</span>
-              </button>
-              <button mat-stroked-button type="button" class="tracker__hydbtn"
-                      (click)="quickHydration(750)" [attr.aria-label]="'Add a large drink, ' + volumeLabel(750)">
-                <mat-icon>sports_bar</mat-icon> Large
-                <span class="tracker__hydbtn-amt">+{{ volumeLabel(750) }}</span>
-              </button>
-              <button mat-stroked-button type="button" class="tracker__hydbtn"
-                      (click)="quickHydration(355, 'Polar Seltzer')" [attr.aria-label]="'Add a 12 oz Polar Seltzer, ' + volumeLabel(355)">
-                <mat-icon>bubble_chart</mat-icon> Seltzer
-                <span class="tracker__hydbtn-amt">+{{ volumeLabel(355) }}</span>
-              </button>
-              <button mat-stroked-button type="button" class="tracker__hydbtn tracker__hydbtn--custom"
-                      (click)="openAddHydration()" aria-label="Add a custom drink">
-                <mat-icon>add</mat-icon> Custom
-              </button>
+          } @else if (recapLoading()) {
+            <div class="tracker__recap-loading">
+              <mat-progress-spinner mode="indeterminate" diameter="20" aria-hidden="true" />
+              <span>Looking back on your week…</span>
             </div>
           }
-
-          <!-- Today's drinks. -->
-          <ul class="tracker__entries tracker__hydentries">
-            @for (h of day.hydration; track h.id) {
-              <li class="tracker__entry">
-                <div class="tracker__entry-id">
-                  <span class="tracker__entry-name">{{ h.label || 'Water' }}</span>
-                  <span class="tracker__entry-meta">{{ entryTime(h.createdUtc) }}</span>
-                </div>
-                <span class="tracker__entry-cal mono-num">{{ volumeLabel(h.amountMl) }}</span>
-                @if (!store.readOnly()) {
-                  <button mat-icon-button type="button" class="tracker__entry-del"
-                          (click)="removeHydration(h)" [attr.aria-label]="'Remove ' + (h.label || 'drink')">
-                    <mat-icon>close</mat-icon>
-                  </button>
-                }
-              </li>
-            } @empty {
-              <li class="tracker__entry tracker__entry--empty">No water logged yet.</li>
-            }
-          </ul>
         </div>
-      </div>
-    </section>
+      }
 
-    <!-- ── Coffee card: progress ring vs daily cap + quick-add + today's drinks ── -->
-    <section class="tracker__coffee" aria-label="Coffee">
-      <div class="tracker__meal-head">
-        <h2 class="tracker__meal-title">
-          <mat-icon aria-hidden="true">local_cafe</mat-icon> Coffee
-        </h2>
-        <span class="tracker__meal-cal mono-num">
-          {{ day.coffeeCups }} / {{ day.coffeeGoalCups }} cups
-        </span>
-      </div>
-
-      <div class="tracker__coffee-body">
-        <div class="tracker__cofring">
-          <app-coffee-ring [cups]="day.coffeeCups" [goalCups]="day.coffeeGoalCups"
-                           [caffeineMg]="day.caffeineMg" />
-        </div>
-
-        <div class="tracker__coffee-main">
-          <!-- Quick-add buttons (own tracker only). -->
-          @if (!store.readOnly()) {
-            <div class="tracker__cofquick" role="group" aria-label="Quick add coffee">
-              <button mat-stroked-button type="button" class="tracker__cofbtn"
-                      (click)="quickCoffee(1, 'Mug', 95)" aria-label="Add a mug, 1 cup, about 95 mg caffeine">
-                <mat-icon>local_cafe</mat-icon> Mug
-                <span class="tracker__cofbtn-amt">~95 mg</span>
-              </button>
-              <button mat-stroked-button type="button" class="tracker__cofbtn"
-                      (click)="quickCoffee(1, 'Espresso', 63)" aria-label="Add an espresso, 1 cup, about 63 mg caffeine">
-                <mat-icon>coffee</mat-icon> Espresso
-                <span class="tracker__cofbtn-amt">~63 mg</span>
-              </button>
-              <button mat-stroked-button type="button" class="tracker__cofbtn"
-                      (click)="quickCoffee(1, 'Cold Brew', 155)" aria-label="Add a cold brew, 1 cup, about 155 mg caffeine">
-                <mat-icon>coffee_maker</mat-icon> Cold Brew
-                <span class="tracker__cofbtn-amt">~155 mg</span>
-              </button>
-              <button mat-stroked-button type="button" class="tracker__cofbtn tracker__cofbtn--custom"
-                      (click)="openAddCoffee()" aria-label="Add a custom coffee">
-                <mat-icon>add</mat-icon> Custom
-              </button>
+      <!-- Headline summary: calorie ring + breakdown + macro bars. -->
+      <div class="tracker__summary">
+        <div class="tracker__ringcard">
+          <app-calorie-ring
+            [caloriesIn]="day.caloriesIn"
+            [caloriesOut]="day.caloriesOut"
+            [netCalories]="day.netCalories"
+            [goal]="day.calorieGoal"
+            [remaining]="day.remaining"
+          />
+          <div class="tracker__cals">
+            <div class="tracker__cal">
+              <span class="tracker__cal-v mono-num">{{ day.caloriesIn | number }}</span>
+              <span class="tracker__cal-l">in</span>
             </div>
-          }
-
-          <!-- Today's coffees. -->
-          <ul class="tracker__entries tracker__cofentries">
-            @for (c of day.coffee; track c.id) {
-              <li class="tracker__entry">
-                <div class="tracker__entry-id">
-                  <span class="tracker__entry-name">{{ c.label || 'Coffee' }}</span>
-                  <span class="tracker__entry-meta">
-                    {{ entryTime(c.createdUtc) }}@if (c.caffeineMg) { · {{ c.caffeineMg }} mg }
-                  </span>
-                </div>
-                <span class="tracker__entry-cal mono-num">{{ c.cups }} cup{{ c.cups === 1 ? '' : 's' }}</span>
-                @if (!store.readOnly()) {
-                  <button mat-icon-button type="button" class="tracker__entry-del"
-                          (click)="removeCoffee(c)" [attr.aria-label]="'Remove ' + (c.label || 'coffee')">
-                    <mat-icon>close</mat-icon>
-                  </button>
-                }
-              </li>
-            } @empty {
-              <li class="tracker__entry tracker__entry--empty">No coffee logged yet.</li>
-            }
-          </ul>
-        </div>
-      </div>
-    </section>
-
-    <!-- ── Supplements card: quick-add tiles + today's supplements + macro subtotal (counts toward the day) ── -->
-    <section class="tracker__supps" aria-label="Supplements">
-      <div class="tracker__meal-head">
-        <h2 class="tracker__meal-title">
-          <mat-icon aria-hidden="true">medication</mat-icon> Supplements
-        </h2>
-        <span class="tracker__meal-cal mono-num">
-          {{ day.supplements.length }} · {{ day.supplementCalories | number }} kcal
-          @if (day.supplementProteinG) { · {{ day.supplementProteinG | number:'1.0-0' }}P }
-        </span>
-      </div>
-
-      <div class="tracker__supps-body">
-        <!-- Quick-add tiles (own tracker only). Only protein powders carry real macros; the rest are 0s. -->
-        @if (!store.readOnly()) {
-          <div class="tracker__suppquick" role="group" aria-label="Quick add a supplement">
-            <button mat-stroked-button type="button" class="tracker__suppbtn"
-                    (click)="quickSupplement('Whey protein', 'protein', '1 scoop', { calories: 120, protein: 24, carb: 3, fat: 2 })"
-                    aria-label="Add whey protein, 1 scoop, about 120 calories and 24 grams protein">
-              <mat-icon>fitness_center</mat-icon> Whey
-              <span class="tracker__suppbtn-amt">24P</span>
-            </button>
-            <button mat-stroked-button type="button" class="tracker__suppbtn"
-                    (click)="quickSupplement('Creatine', 'supplement', '5 g')"
-                    aria-label="Add creatine, 5 grams, no macros">
-              <mat-icon>science</mat-icon> Creatine
-            </button>
-            <button mat-stroked-button type="button" class="tracker__suppbtn"
-                    (click)="quickSupplement('Multivitamin', 'vitamin', '1 tablet')"
-                    aria-label="Add a multivitamin, 1 tablet, no macros">
-              <mat-icon>medication_liquid</mat-icon> Multivitamin
-            </button>
-            <button mat-stroked-button type="button" class="tracker__suppbtn"
-                    (click)="quickSupplement('Fish oil', 'supplement', '1 softgel')"
-                    aria-label="Add fish oil, 1 softgel, no macros">
-              <mat-icon>water_drop</mat-icon> Fish oil
-            </button>
-            <button mat-stroked-button type="button" class="tracker__suppbtn"
-                    (click)="quickSupplement('Pre-workout', 'preworkout', '1 scoop')"
-                    aria-label="Add pre-workout, 1 scoop, no macros">
-              <mat-icon>bolt</mat-icon> Pre-workout
-            </button>
-            <button mat-stroked-button type="button" class="tracker__suppbtn tracker__suppbtn--custom"
-                    (click)="openAddSupplement()" aria-label="Add a custom supplement">
-              <mat-icon>add</mat-icon> Custom
-            </button>
+            <span class="tracker__cal-op">−</span>
+            <div class="tracker__cal">
+              <span class="tracker__cal-v mono-num">{{ day.caloriesOut | number }}</span>
+              <span class="tracker__cal-l">out</span>
+            </div>
+            <span class="tracker__cal-op">=</span>
+            <div class="tracker__cal">
+              <span class="tracker__cal-v tracker__cal-v--net mono-num">{{
+                day.netCalories | number
+              }}</span>
+              <span class="tracker__cal-l">net</span>
+            </div>
           </div>
-        }
 
-        <!-- Today's supplements: name · dose · kind · macros, removable. -->
-        <ul class="tracker__entries tracker__suppentries">
-          @for (s of day.supplements; track s.id) {
-            <li class="tracker__entry">
-              <div class="tracker__entry-id">
-                <span class="tracker__entry-name">{{ s.name }}</span>
-                <span class="tracker__entry-meta">
-                  {{ supplementKindLabel(s.kind) }}@if (s.dose) { · {{ s.dose }} }
-                  @if (s.proteinG || s.carbG || s.fatG) {
-                    · <span class="mono-num">{{ s.proteinG | number:'1.0-0' }}P {{ s.carbG | number:'1.0-0' }}C {{ s.fatG | number:'1.0-0' }}F</span>
+          <!-- AI: suggest foods for the remaining calories/macros (gated by trackerAi; own tracker only). -->
+          @if (aiEnabled()) {
+            <div class="tracker__ai-suggest">
+              <button
+                mat-stroked-button
+                type="button"
+                class="tracker__ai-btn"
+                (click)="openWhatToEat()"
+                aria-label="Open What should I eat — meal options that fit my remaining calories and macros, using AI"
+              >
+                <span class="tracker__ai-btn-label">
+                  <mat-icon aria-hidden="true">auto_awesome</mat-icon> What should I eat?
+                </span>
+              </button>
+            </div>
+          }
+        </div>
+
+        <div class="tracker__macros">
+          @for (
+            m of [
+              {
+                key: 'protein',
+                label: 'Protein',
+                val: day.proteinG,
+                target: day.profile.proteinGoalG,
+                cls: 'p',
+              },
+              {
+                key: 'carb',
+                label: 'Carbs',
+                val: day.carbG,
+                target: day.profile.carbGoalG,
+                cls: 'c',
+              },
+              { key: 'fat', label: 'Fat', val: day.fatG, target: day.profile.fatGoalG, cls: 'f' },
+            ];
+            track m.key
+          ) {
+            <div class="tracker__macro">
+              <div class="tracker__macro-head">
+                <span class="tracker__macro-label">{{ m.label }}</span>
+                <span class="tracker__macro-val mono-num">
+                  {{ m.val | number: '1.0-0' }} g
+                  @if (m.target) {
+                    <span class="tracker__macro-target"> / {{ m.target }} g</span>
                   }
                 </span>
               </div>
-              <span class="tracker__entry-cal mono-num">{{ s.calories | number }} kcal</span>
+              @if (m.target) {
+                <div
+                  class="tracker__macro-track"
+                  role="progressbar"
+                  aria-valuemin="0"
+                  [attr.aria-valuenow]="m.val"
+                  [attr.aria-valuemax]="m.target"
+                  [attr.aria-label]="m.label + ' grams'"
+                >
+                  <div
+                    class="tracker__macro-fill"
+                    [class]="'tracker__macro-fill--' + m.cls"
+                    [style.width.%]="macroPct(m.val, m.target)"
+                  ></div>
+                </div>
+              } @else {
+                <div class="tracker__macro-track" [attr.aria-label]="m.label + ' grams'">
+                  <div
+                    class="tracker__macro-fill"
+                    [class]="'tracker__macro-fill--' + m.cls"
+                    [style.width.%]="macroPct(m.val, undefined)"
+                  ></div>
+                </div>
+              }
+            </div>
+          }
+        </div>
+      </div>
+
+      <!-- ── AI insights (gated by trackerAi; own tracker only). Lazy + unobtrusive: nothing is fetched
+         until the user asks, so the rate-limited key isn't spammed. Never blocks the dashboard. ── -->
+      @if (aiEnabled()) {
+        <div class="tracker__ai-row">
+          <!-- Daily coach card. Needs data + on-demand fetch (cached server-side per day). -->
+          <section class="tracker__ai-panel" aria-label="Daily AI coach">
+            <div class="tracker__meal-head">
+              <h2 class="tracker__meal-title">
+                <mat-icon aria-hidden="true">auto_awesome</mat-icon> Daily coach
+                <span class="tracker__ai-spark">✨</span>
+              </h2>
+              @if (hasDataForAi()) {
+                <button
+                  mat-stroked-button
+                  type="button"
+                  class="tracker__ai-refresh"
+                  [disabled]="coachLoading()"
+                  (click)="loadCoach()"
+                  [attr.aria-label]="coach() ? 'Refresh daily coaching' : 'Get daily coaching'"
+                >
+                  @if (coachLoading()) {
+                    <mat-progress-spinner mode="indeterminate" diameter="18" aria-hidden="true" />
+                  } @else {
+                    <mat-icon>{{ coach() ? 'refresh' : 'tips_and_updates' }}</mat-icon>
+                  }
+                  {{ coach() ? 'Refresh' : 'Get coaching' }}
+                </button>
+              }
+            </div>
+
+            <span class="tracker__sr-status" role="status" aria-live="polite">{{
+              coachAnnounce()
+            }}</span>
+
+            @if (!hasDataForAi()) {
+              <p class="tracker__ai-empty">
+                Log a meal, drink, or workout and your coach will have something to say.
+              </p>
+            } @else if (coachUnavailable()) {
+              <p class="tracker__ai-unavailable" role="status">
+                <mat-icon aria-hidden="true">cloud_off</mat-icon>
+                Coaching is unavailable right now — your day is logged and unaffected.
+              </p>
+            } @else if (coach(); as c) {
+              <p class="tracker__ai-insight">{{ c.insight }}</p>
+              @if (c.tips.length > 0) {
+                <ul class="tracker__ai-tips">
+                  @for (t of c.tips; track t) {
+                    <li><mat-icon aria-hidden="true">check_circle</mat-icon> {{ t }}</li>
+                  }
+                </ul>
+              }
+            } @else if (!coachLoading()) {
+              <p class="tracker__ai-prompt">
+                Get a quick read on your day so far, plus a couple of tips.
+              </p>
+            }
+          </section>
+
+          <!-- Weekly review panel. -->
+          <section class="tracker__ai-panel" aria-label="This week's AI review">
+            <div class="tracker__meal-head">
+              <h2 class="tracker__meal-title">
+                <mat-icon aria-hidden="true">insights</mat-icon> This week
+                <span class="tracker__ai-spark">✨</span>
+              </h2>
+              <button
+                mat-stroked-button
+                type="button"
+                class="tracker__ai-refresh"
+                [disabled]="weeklyLoading()"
+                (click)="loadWeekly()"
+                [attr.aria-label]="weekly() ? 'Refresh weekly review' : 'Get weekly review'"
+              >
+                @if (weeklyLoading()) {
+                  <mat-progress-spinner mode="indeterminate" diameter="18" aria-hidden="true" />
+                } @else {
+                  <mat-icon>{{ weekly() ? 'refresh' : 'calendar_view_week' }}</mat-icon>
+                }
+                {{ weekly() ? 'Refresh' : 'Review week' }}
+              </button>
+            </div>
+
+            <span class="tracker__sr-status" role="status" aria-live="polite">{{
+              weeklyAnnounce()
+            }}</span>
+
+            @if (weeklyUnavailable()) {
+              <p class="tracker__ai-unavailable" role="status">
+                <mat-icon aria-hidden="true">cloud_off</mat-icon>
+                The weekly review is unavailable right now — nothing else is affected.
+              </p>
+            } @else if (weekly(); as w) {
+              <p class="tracker__ai-insight">{{ w.summary }}</p>
+              <p class="tracker__ai-suggest-line">
+                <mat-icon aria-hidden="true">arrow_forward</mat-icon> {{ w.suggestion }}
+              </p>
+            } @else if (!weeklyLoading()) {
+              <p class="tracker__ai-prompt">
+                A short look back at your last 7 days, with one thing to try next.
+              </p>
+            }
+          </section>
+
+          <!-- Day summary: a read-only AI recap of the LOGGED day (distinct from the editable Day Builder). -->
+          <section class="tracker__ai-panel tracker__ai-panel--summary" aria-label="AI day summary">
+            <div class="tracker__meal-head">
+              <h2 class="tracker__meal-title">
+                <mat-icon aria-hidden="true">nights_stay</mat-icon> Day summary
+                <span class="tracker__ai-spark">✨</span>
+              </h2>
+              <button
+                mat-stroked-button
+                type="button"
+                class="tracker__ai-refresh"
+                [disabled]="daySummaryLoading()"
+                (click)="loadDaySummary()"
+                [attr.aria-label]="daySummary() ? 'Refresh the day summary' : 'Summarize my day'"
+              >
+                @if (daySummaryLoading()) {
+                  <mat-progress-spinner mode="indeterminate" diameter="18" aria-hidden="true" />
+                } @else {
+                  <mat-icon>{{ daySummary() ? 'refresh' : 'auto_awesome' }}</mat-icon>
+                }
+                {{ daySummary() ? 'Refresh' : 'Summarize my day' }}
+              </button>
+            </div>
+
+            <span class="tracker__sr-status" role="status" aria-live="polite">{{
+              daySummaryAnnounce()
+            }}</span>
+
+            @if (daySummaryUnavailable()) {
+              <p class="tracker__ai-unavailable" role="status">
+                <mat-icon aria-hidden="true">cloud_off</mat-icon>
+                The day summary is unavailable right now — your day is logged and unaffected.
+              </p>
+            } @else if (daySummary(); as s) {
+              @if (
+                s.highlights.length === 0 && !s.tomorrow && s.headline.startsWith('Nothing logged')
+              ) {
+                <p class="tracker__ai-empty">
+                  {{ s.headline }} Log a meal, drink, or workout first.
+                </p>
+              } @else {
+                <p class="tracker__ai-insight">{{ s.headline }}</p>
+                @if (s.highlights.length > 0) {
+                  <ul class="tracker__ai-tips">
+                    @for (h of s.highlights; track h) {
+                      <li><mat-icon aria-hidden="true">check_circle</mat-icon> {{ h }}</li>
+                    }
+                  </ul>
+                }
+                @if (s.tomorrow) {
+                  <p class="tracker__ai-suggest-line">
+                    <mat-icon aria-hidden="true">arrow_forward</mat-icon> {{ s.tomorrow }}
+                  </p>
+                }
+              }
+            } @else if (!daySummaryLoading()) {
+              <p class="tracker__ai-prompt">
+                A warm recap of everything you logged today, plus one nudge for tomorrow.
+              </p>
+            }
+          </section>
+        </div>
+      }
+
+      <!-- ── Hydration card: progress ring vs goal + quick-add + today's drinks ── -->
+      <section class="tracker__hydration" aria-label="Hydration">
+        <div class="tracker__meal-head">
+          <h2 class="tracker__meal-title">
+            <mat-icon aria-hidden="true">water_drop</mat-icon> Hydration
+          </h2>
+          <span class="tracker__meal-cal mono-num">
+            {{ volumeLabel(day.hydrationMl) }} / {{ volumeLabel(day.hydrationGoalMl) }}
+          </span>
+        </div>
+
+        <div class="tracker__hydration-body">
+          <div class="tracker__hydring">
+            <app-hydration-ring
+              [hydrationMl]="day.hydrationMl"
+              [goalMl]="day.hydrationGoalMl"
+              [imperial]="imperial()"
+            />
+          </div>
+
+          <div class="tracker__hydration-main">
+            <!-- Quick-add buttons (own tracker only). -->
+            @if (!store.readOnly()) {
+              <div class="tracker__hydquick" role="group" aria-label="Quick add water">
+                <button
+                  mat-stroked-button
+                  type="button"
+                  class="tracker__hydbtn"
+                  (click)="quickHydration(250)"
+                  [attr.aria-label]="'Add a glass, ' + volumeLabel(250)"
+                >
+                  <mat-icon>local_drink</mat-icon> Glass
+                  <span class="tracker__hydbtn-amt">+{{ volumeLabel(250) }}</span>
+                </button>
+                <button
+                  mat-stroked-button
+                  type="button"
+                  class="tracker__hydbtn"
+                  (click)="quickHydration(500)"
+                  [attr.aria-label]="'Add a bottle, ' + volumeLabel(500)"
+                >
+                  <mat-icon>local_drink</mat-icon> Bottle
+                  <span class="tracker__hydbtn-amt">+{{ volumeLabel(500) }}</span>
+                </button>
+                <button
+                  mat-stroked-button
+                  type="button"
+                  class="tracker__hydbtn"
+                  (click)="quickHydration(750)"
+                  [attr.aria-label]="'Add a large drink, ' + volumeLabel(750)"
+                >
+                  <mat-icon>sports_bar</mat-icon> Large
+                  <span class="tracker__hydbtn-amt">+{{ volumeLabel(750) }}</span>
+                </button>
+                <button
+                  mat-stroked-button
+                  type="button"
+                  class="tracker__hydbtn"
+                  (click)="quickHydration(355, 'Polar Seltzer')"
+                  [attr.aria-label]="'Add a 12 oz Polar Seltzer, ' + volumeLabel(355)"
+                >
+                  <mat-icon>bubble_chart</mat-icon> Seltzer
+                  <span class="tracker__hydbtn-amt">+{{ volumeLabel(355) }}</span>
+                </button>
+                <button
+                  mat-stroked-button
+                  type="button"
+                  class="tracker__hydbtn tracker__hydbtn--custom"
+                  (click)="openAddHydration()"
+                  aria-label="Add a custom drink"
+                >
+                  <mat-icon>add</mat-icon> Custom
+                </button>
+              </div>
+            }
+
+            <!-- Today's drinks. -->
+            <ul class="tracker__entries tracker__hydentries">
+              @for (h of day.hydration; track h.id) {
+                <li class="tracker__entry">
+                  <div class="tracker__entry-id">
+                    <span class="tracker__entry-name">{{ h.label || 'Water' }}</span>
+                    <span class="tracker__entry-meta">{{ entryTime(h.createdUtc) }}</span>
+                  </div>
+                  <span class="tracker__entry-cal mono-num">{{ volumeLabel(h.amountMl) }}</span>
+                  @if (!store.readOnly()) {
+                    <button
+                      mat-icon-button
+                      type="button"
+                      class="tracker__entry-del"
+                      (click)="removeHydration(h)"
+                      [attr.aria-label]="'Remove ' + (h.label || 'drink')"
+                    >
+                      <mat-icon>close</mat-icon>
+                    </button>
+                  }
+                </li>
+              } @empty {
+                <li class="tracker__entry tracker__entry--empty">No water logged yet.</li>
+              }
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── Coffee card: progress ring vs daily cap + quick-add + today's drinks ── -->
+      <section class="tracker__coffee" aria-label="Coffee">
+        <div class="tracker__meal-head">
+          <h2 class="tracker__meal-title">
+            <mat-icon aria-hidden="true">local_cafe</mat-icon> Coffee
+          </h2>
+          <span class="tracker__meal-cal mono-num">
+            {{ day.coffeeCups }} / {{ day.coffeeGoalCups }} cups
+          </span>
+        </div>
+
+        <div class="tracker__coffee-body">
+          <div class="tracker__cofring">
+            <app-coffee-ring
+              [cups]="day.coffeeCups"
+              [goalCups]="day.coffeeGoalCups"
+              [caffeineMg]="day.caffeineMg"
+            />
+          </div>
+
+          <div class="tracker__coffee-main">
+            <!-- Quick-add buttons (own tracker only). -->
+            @if (!store.readOnly()) {
+              <div class="tracker__cofquick" role="group" aria-label="Quick add coffee">
+                <button
+                  mat-stroked-button
+                  type="button"
+                  class="tracker__cofbtn"
+                  (click)="quickCoffee(1, 'Mug', 95)"
+                  aria-label="Add a mug, 1 cup, about 95 mg caffeine"
+                >
+                  <mat-icon>local_cafe</mat-icon> Mug
+                  <span class="tracker__cofbtn-amt">~95 mg</span>
+                </button>
+                <button
+                  mat-stroked-button
+                  type="button"
+                  class="tracker__cofbtn"
+                  (click)="quickCoffee(1, 'Espresso', 63)"
+                  aria-label="Add an espresso, 1 cup, about 63 mg caffeine"
+                >
+                  <mat-icon>coffee</mat-icon> Espresso
+                  <span class="tracker__cofbtn-amt">~63 mg</span>
+                </button>
+                <button
+                  mat-stroked-button
+                  type="button"
+                  class="tracker__cofbtn"
+                  (click)="quickCoffee(1, 'Cold Brew', 155)"
+                  aria-label="Add a cold brew, 1 cup, about 155 mg caffeine"
+                >
+                  <mat-icon>coffee_maker</mat-icon> Cold Brew
+                  <span class="tracker__cofbtn-amt">~155 mg</span>
+                </button>
+                <button
+                  mat-stroked-button
+                  type="button"
+                  class="tracker__cofbtn tracker__cofbtn--custom"
+                  (click)="openAddCoffee()"
+                  aria-label="Add a custom coffee"
+                >
+                  <mat-icon>add</mat-icon> Custom
+                </button>
+              </div>
+            }
+
+            <!-- Today's coffees. -->
+            <ul class="tracker__entries tracker__cofentries">
+              @for (c of day.coffee; track c.id) {
+                <li class="tracker__entry">
+                  <div class="tracker__entry-id">
+                    <span class="tracker__entry-name">{{ c.label || 'Coffee' }}</span>
+                    <span class="tracker__entry-meta">
+                      {{ entryTime(c.createdUtc) }}
+                      @if (c.caffeineMg) {
+                        · {{ c.caffeineMg }} mg
+                      }
+                    </span>
+                  </div>
+                  <span class="tracker__entry-cal mono-num"
+                    >{{ c.cups }} cup{{ c.cups === 1 ? '' : 's' }}</span
+                  >
+                  @if (!store.readOnly()) {
+                    <button
+                      mat-icon-button
+                      type="button"
+                      class="tracker__entry-del"
+                      (click)="removeCoffee(c)"
+                      [attr.aria-label]="'Remove ' + (c.label || 'coffee')"
+                    >
+                      <mat-icon>close</mat-icon>
+                    </button>
+                  }
+                </li>
+              } @empty {
+                <li class="tracker__entry tracker__entry--empty">No coffee logged yet.</li>
+              }
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── Supplements card: quick-add tiles + today's supplements + macro subtotal (counts toward the day) ── -->
+      <section class="tracker__supps" aria-label="Supplements">
+        <div class="tracker__meal-head">
+          <h2 class="tracker__meal-title">
+            <mat-icon aria-hidden="true">medication</mat-icon> Supplements
+          </h2>
+          <span class="tracker__meal-cal mono-num">
+            {{ day.supplements.length }} · {{ day.supplementCalories | number }} kcal
+            @if (day.supplementProteinG) {
+              · {{ day.supplementProteinG | number: '1.0-0' }}P
+            }
+          </span>
+        </div>
+
+        <div class="tracker__supps-body">
+          <!-- Quick-add tiles (own tracker only). Only protein powders carry real macros; the rest are 0s. -->
+          @if (!store.readOnly()) {
+            <div class="tracker__suppquick" role="group" aria-label="Quick add a supplement">
+              <button
+                mat-stroked-button
+                type="button"
+                class="tracker__suppbtn"
+                (click)="
+                  quickSupplement('Whey protein', 'protein', '1 scoop', {
+                    calories: 120,
+                    protein: 24,
+                    carb: 3,
+                    fat: 2,
+                  })
+                "
+                aria-label="Add whey protein, 1 scoop, about 120 calories and 24 grams protein"
+              >
+                <mat-icon>fitness_center</mat-icon> Whey
+                <span class="tracker__suppbtn-amt">24P</span>
+              </button>
+              <button
+                mat-stroked-button
+                type="button"
+                class="tracker__suppbtn"
+                (click)="quickSupplement('Creatine', 'supplement', '5 g')"
+                aria-label="Add creatine, 5 grams, no macros"
+              >
+                <mat-icon>science</mat-icon> Creatine
+              </button>
+              <button
+                mat-stroked-button
+                type="button"
+                class="tracker__suppbtn"
+                (click)="quickSupplement('Multivitamin', 'vitamin', '1 tablet')"
+                aria-label="Add a multivitamin, 1 tablet, no macros"
+              >
+                <mat-icon>medication_liquid</mat-icon> Multivitamin
+              </button>
+              <button
+                mat-stroked-button
+                type="button"
+                class="tracker__suppbtn"
+                (click)="quickSupplement('Fish oil', 'supplement', '1 softgel')"
+                aria-label="Add fish oil, 1 softgel, no macros"
+              >
+                <mat-icon>water_drop</mat-icon> Fish oil
+              </button>
+              <button
+                mat-stroked-button
+                type="button"
+                class="tracker__suppbtn"
+                (click)="quickSupplement('Pre-workout', 'preworkout', '1 scoop')"
+                aria-label="Add pre-workout, 1 scoop, no macros"
+              >
+                <mat-icon>bolt</mat-icon> Pre-workout
+              </button>
+              <button
+                mat-stroked-button
+                type="button"
+                class="tracker__suppbtn tracker__suppbtn--custom"
+                (click)="openAddSupplement()"
+                aria-label="Add a custom supplement"
+              >
+                <mat-icon>add</mat-icon> Custom
+              </button>
+            </div>
+          }
+
+          <!-- Today's supplements: name · dose · kind · macros, removable. -->
+          <ul class="tracker__entries tracker__suppentries">
+            @for (s of day.supplements; track s.id) {
+              <li class="tracker__entry">
+                <div class="tracker__entry-id">
+                  <span class="tracker__entry-name">{{ s.name }}</span>
+                  <span class="tracker__entry-meta">
+                    {{ supplementKindLabel(s.kind) }}
+                    @if (s.dose) {
+                      · {{ s.dose }}
+                    }
+                    @if (s.proteinG || s.carbG || s.fatG) {
+                      ·
+                      <span class="mono-num"
+                        >{{ s.proteinG | number: '1.0-0' }}P {{ s.carbG | number: '1.0-0' }}C
+                        {{ s.fatG | number: '1.0-0' }}F</span
+                      >
+                    }
+                  </span>
+                </div>
+                <span class="tracker__entry-cal mono-num">{{ s.calories | number }} kcal</span>
+                @if (!store.readOnly()) {
+                  <button
+                    mat-icon-button
+                    type="button"
+                    class="tracker__entry-del"
+                    (click)="removeSupplement(s)"
+                    [attr.aria-label]="'Remove ' + s.name"
+                  >
+                    <mat-icon>close</mat-icon>
+                  </button>
+                }
+              </li>
+            } @empty {
+              <li class="tracker__entry tracker__entry--empty">No supplements logged yet.</li>
+            }
+          </ul>
+
+          @if (
+            day.supplementCalories ||
+            day.supplementProteinG ||
+            day.supplementCarbG ||
+            day.supplementFatG
+          ) {
+            <p class="tracker__supps-note">
+              <mat-icon aria-hidden="true">info</mat-icon>
+              Included in today's total:
+              <strong class="mono-num">{{ day.supplementCalories | number }} kcal</strong> ·
+              {{ day.supplementProteinG | number: '1.0-0' }}P ·
+              {{ day.supplementCarbG | number: '1.0-0' }}C ·
+              {{ day.supplementFatG | number: '1.0-0' }}F
+            </p>
+          }
+        </div>
+      </section>
+
+      <!-- ── Sleep card: today's logged sleep (hours + quality dots) + 7-day average + log/edit/delete.
+         OWNER-ONLY: the backend returns an empty list for any viewer, so the whole card is hidden in a
+         read-only (someone else's) view. ── -->
+      @if (!store.readOnly()) {
+        <section class="tracker__sleep" aria-label="Sleep and recovery">
+          <div class="tracker__meal-head">
+            <h2 class="tracker__meal-title">
+              <mat-icon aria-hidden="true">bedtime</mat-icon> Sleep
+            </h2>
+            <span class="tracker__meal-cal mono-num">
+              {{ day.sleepHours | number: '1.0-1' }} h
+              @if (day.sleepAvgHours7d != null) {
+                · 7-day avg {{ day.sleepAvgHours7d | number: '1.0-1' }} h
+              }
+            </span>
+          </div>
+
+          <div class="tracker__sleep-body">
+            <button
+              mat-stroked-button
+              type="button"
+              class="tracker__sleepbtn tracker__sleepbtn--custom"
+              (click)="openAddSleep()"
+              aria-label="Log a night of sleep"
+            >
+              <mat-icon>add</mat-icon> Log sleep
+            </button>
+
+            <!-- Today's sleep entries: hours · quality stars · times/note, edit + remove. -->
+            <ul class="tracker__entries tracker__sleepentries">
+              @for (s of day.sleep; track s.id) {
+                <li class="tracker__entry">
+                  <div class="tracker__entry-id">
+                    <span class="tracker__entry-name">
+                      <span
+                        class="tracker__sleepstars"
+                        [attr.aria-label]="
+                          sleepQualityLabel(s.quality) + ' quality, ' + s.quality + ' of 5'
+                        "
+                      >
+                        @for (n of [1, 2, 3, 4, 5]; track n) {
+                          <mat-icon
+                            aria-hidden="true"
+                            class="tracker__sleepstar"
+                            [class.tracker__sleepstar--on]="n <= s.quality"
+                          >
+                            {{ n <= s.quality ? 'star' : 'star_border' }}
+                          </mat-icon>
+                        }
+                      </span>
+                    </span>
+                    <span class="tracker__entry-meta">
+                      {{ sleepQualityLabel(s.quality) }}
+                      @if (s.bedTime && s.wakeTime) {
+                        · {{ s.bedTime }}–{{ s.wakeTime }}
+                      } @else if (s.wakeTime) {
+                        · woke {{ s.wakeTime }}
+                      }
+                      @if (s.note) {
+                        · {{ s.note }}
+                      }
+                    </span>
+                  </div>
+                  <span class="tracker__entry-cal mono-num">{{ s.hours | number: '1.0-1' }} h</span>
+                  <button
+                    mat-icon-button
+                    type="button"
+                    class="tracker__entry-del"
+                    (click)="openAddSleep(s)"
+                    aria-label="Edit this sleep entry"
+                  >
+                    <mat-icon>edit</mat-icon>
+                  </button>
+                  <button
+                    mat-icon-button
+                    type="button"
+                    class="tracker__entry-del"
+                    (click)="removeSleep(s)"
+                    aria-label="Remove this sleep entry"
+                  >
+                    <mat-icon>close</mat-icon>
+                  </button>
+                </li>
+              } @empty {
+                <li class="tracker__entry tracker__entry--empty">No sleep logged yet.</li>
+              }
+            </ul>
+
+            @if (day.sleepAvgQuality7d != null) {
+              <p class="tracker__sleep-note">
+                <mat-icon aria-hidden="true">insights</mat-icon>
+                7-day average quality:
+                <strong class="mono-num">{{ day.sleepAvgQuality7d | number: '1.0-1' }}</strong> / 5
+              </p>
+            }
+          </div>
+        </section>
+      }
+
+      <!-- ── Activity card: steps ring vs step goal + distance + active calories add/override toggle ── -->
+      <section class="tracker__activity" aria-label="Watch activity">
+        <div class="tracker__meal-head">
+          <h2 class="tracker__meal-title">
+            <mat-icon aria-hidden="true" class="tracker__activity-icon">watch</mat-icon> Activity
+          </h2>
+          @if (!store.readOnly()) {
+            <button
+              mat-stroked-button
+              type="button"
+              class="tracker__logwt"
+              (click)="openActivity()"
+            >
+              <mat-icon>{{ activity() ? 'edit' : 'add' }}</mat-icon>
+              {{ activity() ? 'Edit watch stats' : 'Add watch stats' }}
+            </button>
+          }
+        </div>
+
+        <div class="tracker__activity-body">
+          <div class="tracker__actring">
+            <app-activity-ring [steps]="activity()?.steps ?? 0" [goal]="stepGoal()" />
+          </div>
+
+          <div class="tracker__activity-main">
+            <div class="tracker__actmetrics">
+              <div class="tracker__actcell">
+                <span class="tracker__stat-l">Steps</span>
+                <span class="tracker__stat-v mono-num">
+                  {{ activity()?.steps != null ? (activity()!.steps! | number) : '—' }}
+                </span>
+                <span class="tracker__stat-x">goal {{ stepGoal() | number }}</span>
+              </div>
+              <div class="tracker__actcell">
+                <span class="tracker__stat-l">Distance</span>
+                <span class="tracker__stat-v mono-num">{{
+                  distanceLabel($safeNavigationMigration(activity()?.distanceMeters))
+                }}</span>
+              </div>
+              <div class="tracker__actcell">
+                <span class="tracker__stat-l">Active calories</span>
+                <span class="tracker__stat-v mono-num">
+                  {{
+                    activity()?.activeCalories != null
+                      ? (activity()!.activeCalories! | number)
+                      : '—'
+                  }}
+                </span>
+                @if (activity()?.activeCalories != null) {
+                  <span class="tracker__stat-x">kcal</span>
+                }
+              </div>
+            </div>
+
+            <!-- Add vs override segmented control (persists on change; updates the calorie ring's burn). -->
+            <div class="tracker__actmode">
+              <span class="tracker__stat-l" id="tracker-actmode-l">Active calories count</span>
+              @if (store.readOnly()) {
+                <span class="tracker__actmode-ro">
+                  {{ calorieMode() === 'override' ? 'Replaces workouts' : 'Added to workouts' }}
+                </span>
+              } @else {
+                <div class="tracker__actmode-seg" role="group" aria-labelledby="tracker-actmode-l">
+                  <button
+                    type="button"
+                    class="tracker__seg"
+                    [class.is-active]="calorieMode() === 'add'"
+                    [attr.aria-pressed]="calorieMode() === 'add'"
+                    (click)="setCalorieMode('add')"
+                  >
+                    Add to workouts
+                  </button>
+                  <button
+                    type="button"
+                    class="tracker__seg"
+                    [class.is-active]="calorieMode() === 'override'"
+                    [attr.aria-pressed]="calorieMode() === 'override'"
+                    (click)="setCalorieMode('override')"
+                  >
+                    Replace workouts
+                  </button>
+                </div>
+              }
+              @if (burnHint(); as hint) {
+                <p class="tracker__burnhint">{{ hint }}</p>
+              }
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── Your stats + weight trend (own tracker only; hidden when viewing someone else) ── -->
+      @if (!store.readOnly()) {
+        <div class="tracker__fitness">
+          <!-- Stats panel -->
+          <section class="tracker__stats" aria-label="Your stats">
+            <div class="tracker__meal-head">
+              <h2 class="tracker__meal-title">
+                <mat-icon aria-hidden="true">monitor_heart</mat-icon> Your stats
+              </h2>
+              <button
+                mat-stroked-button
+                type="button"
+                class="tracker__logwt"
+                (click)="openLogWeight()"
+              >
+                <mat-icon>monitor_weight</mat-icon> Log weight
+              </button>
+            </div>
+
+            <div class="tracker__statgrid">
+              <div class="tracker__statcell">
+                <span class="tracker__stat-l">Age</span>
+                <span class="tracker__stat-v mono-num">{{
+                  stats()?.age != null ? stats()!.age : '—'
+                }}</span>
+              </div>
+              <div class="tracker__statcell">
+                <span class="tracker__stat-l">Current</span>
+                <span class="tracker__stat-v mono-num">{{
+                  weightLabel($safeNavigationMigration(store.profile()?.weightKg))
+                }}</span>
+              </div>
+              <div class="tracker__statcell">
+                <span class="tracker__stat-l">Goal</span>
+                <span class="tracker__stat-v mono-num">{{
+                  weightLabel($safeNavigationMigration(store.profile()?.goalWeightKg))
+                }}</span>
+              </div>
+              <div class="tracker__statcell">
+                <span class="tracker__stat-l">BMI</span>
+                @if (stats()?.bmi != null) {
+                  <span class="tracker__stat-v mono-num">{{ stats()!.bmi }}</span>
+                  <span class="tracker__bmichip" [class]="bmiClass()">{{
+                    stats()!.bmiCategory
+                  }}</span>
+                } @else {
+                  <span class="tracker__stat-v">—</span>
+                }
+              </div>
+              <div class="tracker__statcell">
+                <span class="tracker__stat-l">BMR</span>
+                <span class="tracker__stat-v mono-num">{{
+                  stats()?.bmr != null ? (stats()!.bmr | number) : '—'
+                }}</span>
+                @if (stats()?.bmr != null) {
+                  <span class="tracker__stat-x">kcal</span>
+                }
+              </div>
+              <div class="tracker__statcell">
+                <span class="tracker__stat-l">TDEE</span>
+                <span class="tracker__stat-v mono-num">{{
+                  stats()?.tdee != null ? (stats()!.tdee | number) : '—'
+                }}</span>
+                @if (stats()?.tdee != null) {
+                  <span class="tracker__stat-x">kcal</span>
+                }
+              </div>
+            </div>
+
+            <!-- Goal-weight progress. -->
+            @if (goalProgressPct() != null) {
+              <div class="tracker__goalprog">
+                <div class="tracker__goalprog-head">
+                  <span class="tracker__stat-l">Toward goal weight</span>
+                  @if (goalDelta(); as gd) {
+                    <span class="tracker__goaldelta">{{ gd.text }}</span>
+                  }
+                </div>
+                <div
+                  class="tracker__macro-track"
+                  role="progressbar"
+                  aria-valuemin="0"
+                  aria-valuemax="100"
+                  [attr.aria-valuenow]="goalProgressPct()"
+                  aria-label="Progress toward goal weight"
+                >
+                  <div
+                    class="tracker__macro-fill tracker__macro-fill--p"
+                    [style.width.%]="goalProgressPct()"
+                  ></div>
+                </div>
+              </div>
+            }
+          </section>
+
+          <!-- Weight trend -->
+          <section class="tracker__trend" aria-label="Weight trend">
+            <div class="tracker__meal-head">
+              <h2 class="tracker__meal-title">
+                <mat-icon aria-hidden="true">show_chart</mat-icon> Weight trend
+              </h2>
+              <span class="tracker__meal-cal">last 90 days</span>
+            </div>
+            <div class="tracker__trend-body">
+              <app-weight-trend
+                [points]="weightHistory()"
+                [goalWeightKg]="$safeNavigationMigration(store.profile()?.goalWeightKg)"
+                [imperial]="imperial()"
+              />
+              <!-- Per-slot averages (Morning/Afternoon/Evening) + morning→evening delta. -->
+              <app-weight-stats [stats]="weightStats()" [imperial]="imperial()" />
+            </div>
+          </section>
+        </div>
+      }
+
+      <!-- ── Quick add: curated common items + your recent foods, one-tap instant log (own tracker only).
+         Mirrors the hydration/coffee quick-add — taps log a FoodEntry to a time-of-day meal slot with an
+         Undo snackbar. Recent foods come from the existing GET /tracker/foods/saved?recent=true. ── -->
+      @if (!store.readOnly()) {
+        <section class="tracker__quickfood" aria-label="Quick add food">
+          <div class="tracker__meal-head">
+            <h2 class="tracker__meal-title">
+              <mat-icon aria-hidden="true">bolt</mat-icon> Quick add
+            </h2>
+            <span class="tracker__meal-cal">one-tap log</span>
+          </div>
+
+          <div class="tracker__quickfood-body">
+            <div class="tracker__qfquick" role="group" aria-label="Quick add a common food">
+              @for (t of quickFoodTiles; track t.description) {
+                <button
+                  mat-stroked-button
+                  type="button"
+                  class="tracker__qfbtn"
+                  (click)="quickAddFood(t)"
+                  [attr.aria-label]="
+                    'Add ' +
+                    t.description +
+                    ', ' +
+                    t.servingDesc +
+                    ', about ' +
+                    t.calories +
+                    ' calories'
+                  "
+                >
+                  <mat-icon>{{ t.icon }}</mat-icon> {{ t.description }}
+                  <span class="tracker__qfbtn-amt mono-num">{{ t.calories }} kcal</span>
+                </button>
+              }
+            </div>
+
+            <!-- The caller's recent/saved foods (deduped against the curated set), if any. -->
+            @if (recentFoodTiles().length > 0) {
+              <p class="tracker__qfrecent-l">Recent</p>
+              <div class="tracker__qfquick" role="group" aria-label="Quick add a recent food">
+                @for (f of recentFoodTiles(); track f.description) {
+                  <button
+                    mat-stroked-button
+                    type="button"
+                    class="tracker__qfbtn tracker__qfbtn--recent"
+                    (click)="quickAddRecent(f)"
+                    [attr.aria-label]="
+                      'Add ' +
+                      f.description +
+                      (f.brand ? ', ' + f.brand : '') +
+                      ', about ' +
+                      f.calories +
+                      ' calories'
+                    "
+                  >
+                    <mat-icon>history</mat-icon> {{ f.description }}
+                    <span class="tracker__qfbtn-amt mono-num">{{ f.calories | number }} kcal</span>
+                  </button>
+                }
+              </div>
+            }
+          </div>
+        </section>
+      }
+
+      <!-- Meal sections. -->
+      @for (s of mealSections; track s.meal) {
+        <section class="tracker__meal" [attr.aria-label]="s.label">
+          <div class="tracker__meal-head">
+            <h2 class="tracker__meal-title">
+              <mat-icon aria-hidden="true">{{ s.icon }}</mat-icon> {{ s.label }}
+            </h2>
+            <span class="tracker__meal-cal mono-num">{{ caloriesFor(s.meal) | number }} kcal</span>
+          </div>
+
+          <ul class="tracker__entries">
+            @for (f of foodsFor(s.meal); track f.id) {
+              @if (!store.readOnly() && isEditing(f)) {
+                <!-- Inline editor: quantity for a priced/saved food (macros recompute), or the raw
+                   description + calories/macros for a manual entry, plus the meal slot. -->
+                <li class="tracker__entry tracker__entry--editing">
+                  <form
+                    class="tracker__edit"
+                    (ngSubmit)="saveEditFood(f)"
+                    [attr.aria-label]="'Edit ' + f.description"
+                  >
+                    @if (editIsPriced()) {
+                      <div class="tracker__edit-row">
+                        <span class="tracker__edit-name">{{ f.description }}</span>
+                      </div>
+                      <div class="tracker__edit-row">
+                        <label class="tracker__edit-field tracker__edit-field--qty">
+                          <span class="tracker__edit-lbl">Quantity</span>
+                          <input
+                            class="tracker__edit-input mono-num"
+                            type="number"
+                            min="0.1"
+                            step="0.1"
+                            inputmode="decimal"
+                            [ngModel]="editQuantity()"
+                            name="editQty"
+                            (ngModelChange)="editQuantity.set($any($event))"
+                          />
+                        </label>
+                        <label class="tracker__edit-field">
+                          <span class="tracker__edit-lbl">Meal</span>
+                          <select
+                            class="tracker__edit-input"
+                            [ngModel]="editMeal()"
+                            name="editMeal"
+                            (ngModelChange)="editMeal.set($any($event))"
+                          >
+                            @for (m of editMeals; track m.value) {
+                              <option [value]="m.value">{{ m.label }}</option>
+                            }
+                          </select>
+                        </label>
+                      </div>
+                      @if (editPreview(); as p) {
+                        <p class="tracker__edit-preview mono-num">
+                          {{ p.calories | number }} kcal · {{ p.proteinG }}P {{ p.carbG }}C
+                          {{ p.fatG }}F
+                        </p>
+                      }
+                    } @else {
+                      <div class="tracker__edit-row">
+                        <label class="tracker__edit-field tracker__edit-field--grow">
+                          <span class="tracker__edit-lbl">Food</span>
+                          <input
+                            class="tracker__edit-input"
+                            type="text"
+                            maxlength="256"
+                            [ngModel]="editDesc()"
+                            name="editDesc"
+                            (ngModelChange)="editDesc.set($any($event))"
+                          />
+                        </label>
+                        <label class="tracker__edit-field">
+                          <span class="tracker__edit-lbl">Meal</span>
+                          <select
+                            class="tracker__edit-input"
+                            [ngModel]="editMeal()"
+                            name="editMeal"
+                            (ngModelChange)="editMeal.set($any($event))"
+                          >
+                            @for (m of editMeals; track m.value) {
+                              <option [value]="m.value">{{ m.label }}</option>
+                            }
+                          </select>
+                        </label>
+                      </div>
+                      <div class="tracker__edit-row tracker__edit-macros">
+                        <label class="tracker__edit-field">
+                          <span class="tracker__edit-lbl">Calories</span>
+                          <input
+                            class="tracker__edit-input mono-num"
+                            type="number"
+                            min="0"
+                            step="1"
+                            inputmode="numeric"
+                            [ngModel]="editCalories()"
+                            name="editCal"
+                            (ngModelChange)="editCalories.set($any($event))"
+                          />
+                        </label>
+                        <label class="tracker__edit-field">
+                          <span class="tracker__edit-lbl">Protein</span>
+                          <input
+                            class="tracker__edit-input mono-num"
+                            type="number"
+                            min="0"
+                            step="0.1"
+                            inputmode="decimal"
+                            [ngModel]="editProtein()"
+                            name="editP"
+                            (ngModelChange)="editProtein.set($any($event))"
+                          />
+                        </label>
+                        <label class="tracker__edit-field">
+                          <span class="tracker__edit-lbl">Carbs</span>
+                          <input
+                            class="tracker__edit-input mono-num"
+                            type="number"
+                            min="0"
+                            step="0.1"
+                            inputmode="decimal"
+                            [ngModel]="editCarb()"
+                            name="editC"
+                            (ngModelChange)="editCarb.set($any($event))"
+                          />
+                        </label>
+                        <label class="tracker__edit-field">
+                          <span class="tracker__edit-lbl">Fat</span>
+                          <input
+                            class="tracker__edit-input mono-num"
+                            type="number"
+                            min="0"
+                            step="0.1"
+                            inputmode="decimal"
+                            [ngModel]="editFat()"
+                            name="editF"
+                            (ngModelChange)="editFat.set($any($event))"
+                          />
+                        </label>
+                      </div>
+                    }
+                    <div class="tracker__edit-actions">
+                      <button
+                        mat-button
+                        type="button"
+                        class="tracker__edit-cancel"
+                        (click)="cancelEditFood()"
+                        [disabled]="savingEdit()"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        mat-flat-button
+                        type="submit"
+                        class="tracker__edit-save"
+                        [disabled]="!canSaveEdit()"
+                      >
+                        Save
+                      </button>
+                    </div>
+                  </form>
+                </li>
+              } @else {
+                <li class="tracker__entry" [class.tracker__entry--editable]="!store.readOnly()">
+                  <div class="tracker__entry-id">
+                    <span class="tracker__entry-name">{{ f.description }}</span>
+                    <span class="tracker__entry-meta">
+                      @if (f.brand) {
+                        {{ f.brand }} ·
+                      }
+                      @if (f.servingDesc) {
+                        {{ f.servingDesc }} ·
+                      }
+                      <span class="mono-num">{{ f.proteinG }}P {{ f.carbG }}C {{ f.fatG }}F</span>
+                    </span>
+                  </div>
+                  <span class="tracker__entry-cal mono-num">{{ f.calories | number }}</span>
+                  @if (!store.readOnly()) {
+                    <button
+                      mat-icon-button
+                      type="button"
+                      class="tracker__entry-edit"
+                      (click)="startEditFood(f)"
+                      [attr.aria-label]="'Edit ' + f.description"
+                    >
+                      <mat-icon>edit</mat-icon>
+                    </button>
+                    <button
+                      mat-icon-button
+                      type="button"
+                      class="tracker__entry-del"
+                      (click)="removeFood(f)"
+                      [attr.aria-label]="'Remove ' + f.description"
+                    >
+                      <mat-icon>close</mat-icon>
+                    </button>
+                  }
+                </li>
+              }
+            } @empty {
+              <li class="tracker__entry tracker__entry--empty">Nothing logged yet.</li>
+            }
+          </ul>
+
+          @if (!store.readOnly()) {
+            <button mat-button type="button" class="tracker__add" (click)="openAddFood(s.meal)">
+              <mat-icon>add</mat-icon> Add food
+            </button>
+          }
+        </section>
+      }
+
+      <!-- Exercise section. -->
+      <section class="tracker__meal tracker__exercise" aria-label="Exercise">
+        <div class="tracker__meal-head">
+          <h2 class="tracker__meal-title">
+            <mat-icon aria-hidden="true">fitness_center</mat-icon> Exercise
+          </h2>
+          <span class="tracker__meal-cal mono-num">{{ day.exerciseCalories | number }} kcal</span>
+        </div>
+
+        <ul class="tracker__entries">
+          @for (e of day.exercises; track e.id) {
+            <li class="tracker__entry">
+              <div class="tracker__entry-id">
+                <span class="tracker__entry-name">{{ e.name }}</span>
+                @if (e.durationMin) {
+                  <span class="tracker__entry-meta"
+                    ><span class="mono-num">{{ e.durationMin }}</span> min</span
+                  >
+                }
+              </div>
+              <span class="tracker__entry-cal tracker__entry-cal--burn mono-num"
+                >−{{ e.caloriesBurned | number }}</span
+              >
               @if (!store.readOnly()) {
-                <button mat-icon-button type="button" class="tracker__entry-del"
-                        (click)="removeSupplement(s)" [attr.aria-label]="'Remove ' + s.name">
+                <button
+                  mat-icon-button
+                  type="button"
+                  class="tracker__entry-del"
+                  (click)="removeExercise(e)"
+                  [attr.aria-label]="'Remove ' + e.name"
+                >
                   <mat-icon>close</mat-icon>
                 </button>
               }
             </li>
           } @empty {
-            <li class="tracker__entry tracker__entry--empty">No supplements logged yet.</li>
-          }
-        </ul>
-
-        @if (day.supplementCalories || day.supplementProteinG || day.supplementCarbG || day.supplementFatG) {
-          <p class="tracker__supps-note">
-            <mat-icon aria-hidden="true">info</mat-icon>
-            Included in today's total: <strong class="mono-num">{{ day.supplementCalories | number }} kcal</strong>
-            · {{ day.supplementProteinG | number:'1.0-0' }}P
-            · {{ day.supplementCarbG | number:'1.0-0' }}C
-            · {{ day.supplementFatG | number:'1.0-0' }}F
-          </p>
-        }
-      </div>
-    </section>
-
-    <!-- ── Sleep card: today's logged sleep (hours + quality dots) + 7-day average + log/edit/delete.
-         OWNER-ONLY: the backend returns an empty list for any viewer, so the whole card is hidden in a
-         read-only (someone else's) view. ── -->
-    @if (!store.readOnly()) {
-      <section class="tracker__sleep" aria-label="Sleep and recovery">
-        <div class="tracker__meal-head">
-          <h2 class="tracker__meal-title">
-            <mat-icon aria-hidden="true">bedtime</mat-icon> Sleep
-          </h2>
-          <span class="tracker__meal-cal mono-num">
-            {{ day.sleepHours | number:'1.0-1' }} h
-            @if (day.sleepAvgHours7d != null) {
-              · 7-day avg {{ day.sleepAvgHours7d | number:'1.0-1' }} h
-            }
-          </span>
-        </div>
-
-        <div class="tracker__sleep-body">
-          <button mat-stroked-button type="button" class="tracker__sleepbtn tracker__sleepbtn--custom"
-                  (click)="openAddSleep()" aria-label="Log a night of sleep">
-            <mat-icon>add</mat-icon> Log sleep
-          </button>
-
-          <!-- Today's sleep entries: hours · quality stars · times/note, edit + remove. -->
-          <ul class="tracker__entries tracker__sleepentries">
-            @for (s of day.sleep; track s.id) {
-              <li class="tracker__entry">
-                <div class="tracker__entry-id">
-                  <span class="tracker__entry-name">
-                    <span class="tracker__sleepstars" [attr.aria-label]="sleepQualityLabel(s.quality) + ' quality, ' + s.quality + ' of 5'">
-                      @for (n of [1,2,3,4,5]; track n) {
-                        <mat-icon aria-hidden="true" class="tracker__sleepstar"
-                                  [class.tracker__sleepstar--on]="n <= s.quality">
-                          {{ n <= s.quality ? 'star' : 'star_border' }}
-                        </mat-icon>
-                      }
-                    </span>
-                  </span>
-                  <span class="tracker__entry-meta">
-                    {{ sleepQualityLabel(s.quality) }}
-                    @if (s.bedTime && s.wakeTime) { · {{ s.bedTime }}–{{ s.wakeTime }} }
-                    @else if (s.wakeTime) { · woke {{ s.wakeTime }} }
-                    @if (s.note) { · {{ s.note }} }
-                  </span>
-                </div>
-                <span class="tracker__entry-cal mono-num">{{ s.hours | number:'1.0-1' }} h</span>
-                <button mat-icon-button type="button" class="tracker__entry-del"
-                        (click)="openAddSleep(s)" aria-label="Edit this sleep entry">
-                  <mat-icon>edit</mat-icon>
-                </button>
-                <button mat-icon-button type="button" class="tracker__entry-del"
-                        (click)="removeSleep(s)" aria-label="Remove this sleep entry">
-                  <mat-icon>close</mat-icon>
-                </button>
-              </li>
-            } @empty {
-              <li class="tracker__entry tracker__entry--empty">No sleep logged yet.</li>
-            }
-          </ul>
-
-          @if (day.sleepAvgQuality7d != null) {
-            <p class="tracker__sleep-note">
-              <mat-icon aria-hidden="true">insights</mat-icon>
-              7-day average quality: <strong class="mono-num">{{ day.sleepAvgQuality7d | number:'1.0-1' }}</strong> / 5
-            </p>
-          }
-        </div>
-      </section>
-    }
-
-    <!-- ── Activity card: steps ring vs step goal + distance + active calories add/override toggle ── -->
-    <section class="tracker__activity" aria-label="Watch activity">
-      <div class="tracker__meal-head">
-        <h2 class="tracker__meal-title">
-          <mat-icon aria-hidden="true" class="tracker__activity-icon">watch</mat-icon> Activity
-        </h2>
-        @if (!store.readOnly()) {
-          <button mat-stroked-button type="button" class="tracker__logwt" (click)="openActivity()">
-            <mat-icon>{{ activity() ? 'edit' : 'add' }}</mat-icon>
-            {{ activity() ? 'Edit watch stats' : 'Add watch stats' }}
-          </button>
-        }
-      </div>
-
-      <div class="tracker__activity-body">
-        <div class="tracker__actring">
-          <app-activity-ring [steps]="activity()?.steps ?? 0" [goal]="stepGoal()" />
-        </div>
-
-        <div class="tracker__activity-main">
-          <div class="tracker__actmetrics">
-            <div class="tracker__actcell">
-              <span class="tracker__stat-l">Steps</span>
-              <span class="tracker__stat-v mono-num">
-                {{ activity()?.steps != null ? (activity()!.steps! | number) : '—' }}
-              </span>
-              <span class="tracker__stat-x">goal {{ stepGoal() | number }}</span>
-            </div>
-            <div class="tracker__actcell">
-              <span class="tracker__stat-l">Distance</span>
-              <span class="tracker__stat-v mono-num">{{ distanceLabel(activity()?.distanceMeters) }}</span>
-            </div>
-            <div class="tracker__actcell">
-              <span class="tracker__stat-l">Active calories</span>
-              <span class="tracker__stat-v mono-num">
-                {{ activity()?.activeCalories != null ? (activity()!.activeCalories! | number) : '—' }}
-              </span>
-              @if (activity()?.activeCalories != null) { <span class="tracker__stat-x">kcal</span> }
-            </div>
-          </div>
-
-          <!-- Add vs override segmented control (persists on change; updates the calorie ring's burn). -->
-          <div class="tracker__actmode">
-            <span class="tracker__stat-l" id="tracker-actmode-l">Active calories count</span>
-            @if (store.readOnly()) {
-              <span class="tracker__actmode-ro">
-                {{ calorieMode() === 'override' ? 'Replaces workouts' : 'Added to workouts' }}
-              </span>
-            } @else {
-              <div class="tracker__actmode-seg" role="group" aria-labelledby="tracker-actmode-l">
-                <button type="button" class="tracker__seg" [class.is-active]="calorieMode() === 'add'"
-                        [attr.aria-pressed]="calorieMode() === 'add'" (click)="setCalorieMode('add')">
-                  Add to workouts
-                </button>
-                <button type="button" class="tracker__seg" [class.is-active]="calorieMode() === 'override'"
-                        [attr.aria-pressed]="calorieMode() === 'override'" (click)="setCalorieMode('override')">
-                  Replace workouts
-                </button>
-              </div>
-            }
-            @if (burnHint(); as hint) {
-              <p class="tracker__burnhint">{{ hint }}</p>
-            }
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- ── Your stats + weight trend (own tracker only; hidden when viewing someone else) ── -->
-    @if (!store.readOnly()) {
-      <div class="tracker__fitness">
-        <!-- Stats panel -->
-        <section class="tracker__stats" aria-label="Your stats">
-          <div class="tracker__meal-head">
-            <h2 class="tracker__meal-title">
-              <mat-icon aria-hidden="true">monitor_heart</mat-icon> Your stats
-            </h2>
-            <button mat-stroked-button type="button" class="tracker__logwt" (click)="openLogWeight()">
-              <mat-icon>monitor_weight</mat-icon> Log weight
-            </button>
-          </div>
-
-          <div class="tracker__statgrid">
-            <div class="tracker__statcell">
-              <span class="tracker__stat-l">Age</span>
-              <span class="tracker__stat-v mono-num">{{ stats()?.age != null ? stats()!.age : '—' }}</span>
-            </div>
-            <div class="tracker__statcell">
-              <span class="tracker__stat-l">Current</span>
-              <span class="tracker__stat-v mono-num">{{ weightLabel(store.profile()?.weightKg) }}</span>
-            </div>
-            <div class="tracker__statcell">
-              <span class="tracker__stat-l">Goal</span>
-              <span class="tracker__stat-v mono-num">{{ weightLabel(store.profile()?.goalWeightKg) }}</span>
-            </div>
-            <div class="tracker__statcell">
-              <span class="tracker__stat-l">BMI</span>
-              @if (stats()?.bmi != null) {
-                <span class="tracker__stat-v mono-num">{{ stats()!.bmi }}</span>
-                <span class="tracker__bmichip" [class]="bmiClass()">{{ stats()!.bmiCategory }}</span>
-              } @else {
-                <span class="tracker__stat-v">—</span>
-              }
-            </div>
-            <div class="tracker__statcell">
-              <span class="tracker__stat-l">BMR</span>
-              <span class="tracker__stat-v mono-num">{{ stats()?.bmr != null ? (stats()!.bmr | number) : '—' }}</span>
-              @if (stats()?.bmr != null) { <span class="tracker__stat-x">kcal</span> }
-            </div>
-            <div class="tracker__statcell">
-              <span class="tracker__stat-l">TDEE</span>
-              <span class="tracker__stat-v mono-num">{{ stats()?.tdee != null ? (stats()!.tdee | number) : '—' }}</span>
-              @if (stats()?.tdee != null) { <span class="tracker__stat-x">kcal</span> }
-            </div>
-          </div>
-
-          <!-- Goal-weight progress. -->
-          @if (goalProgressPct() != null) {
-            <div class="tracker__goalprog">
-              <div class="tracker__goalprog-head">
-                <span class="tracker__stat-l">Toward goal weight</span>
-                @if (goalDelta(); as gd) { <span class="tracker__goaldelta">{{ gd.text }}</span> }
-              </div>
-              <div class="tracker__macro-track" role="progressbar"
-                   aria-valuemin="0" aria-valuemax="100" [attr.aria-valuenow]="goalProgressPct()"
-                   aria-label="Progress toward goal weight">
-                <div class="tracker__macro-fill tracker__macro-fill--p" [style.width.%]="goalProgressPct()"></div>
-              </div>
-            </div>
-          }
-        </section>
-
-        <!-- Weight trend -->
-        <section class="tracker__trend" aria-label="Weight trend">
-          <div class="tracker__meal-head">
-            <h2 class="tracker__meal-title">
-              <mat-icon aria-hidden="true">show_chart</mat-icon> Weight trend
-            </h2>
-            <span class="tracker__meal-cal">last 90 days</span>
-          </div>
-          <div class="tracker__trend-body">
-            <app-weight-trend [points]="weightHistory()" [goalWeightKg]="store.profile()?.goalWeightKg"
-                              [imperial]="imperial()" />
-            <!-- Per-slot averages (Morning/Afternoon/Evening) + morning→evening delta. -->
-            <app-weight-stats [stats]="weightStats()" [imperial]="imperial()" />
-          </div>
-        </section>
-      </div>
-    }
-
-    <!-- ── Quick add: curated common items + your recent foods, one-tap instant log (own tracker only).
-         Mirrors the hydration/coffee quick-add — taps log a FoodEntry to a time-of-day meal slot with an
-         Undo snackbar. Recent foods come from the existing GET /tracker/foods/saved?recent=true. ── -->
-    @if (!store.readOnly()) {
-      <section class="tracker__quickfood" aria-label="Quick add food">
-        <div class="tracker__meal-head">
-          <h2 class="tracker__meal-title">
-            <mat-icon aria-hidden="true">bolt</mat-icon> Quick add
-          </h2>
-          <span class="tracker__meal-cal">one-tap log</span>
-        </div>
-
-        <div class="tracker__quickfood-body">
-          <div class="tracker__qfquick" role="group" aria-label="Quick add a common food">
-            @for (t of quickFoodTiles; track t.description) {
-              <button mat-stroked-button type="button" class="tracker__qfbtn" (click)="quickAddFood(t)"
-                      [attr.aria-label]="'Add ' + t.description + ', ' + t.servingDesc + ', about ' + t.calories + ' calories'">
-                <mat-icon>{{ t.icon }}</mat-icon> {{ t.description }}
-                <span class="tracker__qfbtn-amt mono-num">{{ t.calories }} kcal</span>
-              </button>
-            }
-          </div>
-
-          <!-- The caller's recent/saved foods (deduped against the curated set), if any. -->
-          @if (recentFoodTiles().length > 0) {
-            <p class="tracker__qfrecent-l">Recent</p>
-            <div class="tracker__qfquick" role="group" aria-label="Quick add a recent food">
-              @for (f of recentFoodTiles(); track f.description) {
-                <button mat-stroked-button type="button" class="tracker__qfbtn tracker__qfbtn--recent"
-                        (click)="quickAddRecent(f)"
-                        [attr.aria-label]="'Add ' + f.description + (f.brand ? ', ' + f.brand : '') + ', about ' + f.calories + ' calories'">
-                  <mat-icon>history</mat-icon> {{ f.description }}
-                  <span class="tracker__qfbtn-amt mono-num">{{ f.calories | number }} kcal</span>
-                </button>
-              }
-            </div>
-          }
-        </div>
-      </section>
-    }
-
-    <!-- Meal sections. -->
-    @for (s of mealSections; track s.meal) {
-      <section class="tracker__meal" [attr.aria-label]="s.label">
-        <div class="tracker__meal-head">
-          <h2 class="tracker__meal-title">
-            <mat-icon aria-hidden="true">{{ s.icon }}</mat-icon> {{ s.label }}
-          </h2>
-          <span class="tracker__meal-cal mono-num">{{ caloriesFor(s.meal) | number }} kcal</span>
-        </div>
-
-        <ul class="tracker__entries">
-          @for (f of foodsFor(s.meal); track f.id) {
-            @if (!store.readOnly() && isEditing(f)) {
-              <!-- Inline editor: quantity for a priced/saved food (macros recompute), or the raw
-                   description + calories/macros for a manual entry, plus the meal slot. -->
-              <li class="tracker__entry tracker__entry--editing">
-                <form class="tracker__edit" (ngSubmit)="saveEditFood(f)"
-                      [attr.aria-label]="'Edit ' + f.description">
-                  @if (editIsPriced()) {
-                    <div class="tracker__edit-row">
-                      <span class="tracker__edit-name">{{ f.description }}</span>
-                    </div>
-                    <div class="tracker__edit-row">
-                      <label class="tracker__edit-field tracker__edit-field--qty">
-                        <span class="tracker__edit-lbl">Quantity</span>
-                        <input class="tracker__edit-input mono-num" type="number" min="0.1" step="0.1"
-                               inputmode="decimal" [ngModel]="editQuantity()" name="editQty"
-                               (ngModelChange)="editQuantity.set($any($event))" />
-                      </label>
-                      <label class="tracker__edit-field">
-                        <span class="tracker__edit-lbl">Meal</span>
-                        <select class="tracker__edit-input" [ngModel]="editMeal()" name="editMeal"
-                                (ngModelChange)="editMeal.set($any($event))">
-                          @for (m of editMeals; track m.value) {
-                            <option [value]="m.value">{{ m.label }}</option>
-                          }
-                        </select>
-                      </label>
-                    </div>
-                    @if (editPreview(); as p) {
-                      <p class="tracker__edit-preview mono-num">
-                        {{ p.calories | number }} kcal · {{ p.proteinG }}P {{ p.carbG }}C {{ p.fatG }}F
-                      </p>
-                    }
-                  } @else {
-                    <div class="tracker__edit-row">
-                      <label class="tracker__edit-field tracker__edit-field--grow">
-                        <span class="tracker__edit-lbl">Food</span>
-                        <input class="tracker__edit-input" type="text" maxlength="256"
-                               [ngModel]="editDesc()" name="editDesc"
-                               (ngModelChange)="editDesc.set($any($event))" />
-                      </label>
-                      <label class="tracker__edit-field">
-                        <span class="tracker__edit-lbl">Meal</span>
-                        <select class="tracker__edit-input" [ngModel]="editMeal()" name="editMeal"
-                                (ngModelChange)="editMeal.set($any($event))">
-                          @for (m of editMeals; track m.value) {
-                            <option [value]="m.value">{{ m.label }}</option>
-                          }
-                        </select>
-                      </label>
-                    </div>
-                    <div class="tracker__edit-row tracker__edit-macros">
-                      <label class="tracker__edit-field">
-                        <span class="tracker__edit-lbl">Calories</span>
-                        <input class="tracker__edit-input mono-num" type="number" min="0" step="1"
-                               inputmode="numeric" [ngModel]="editCalories()" name="editCal"
-                               (ngModelChange)="editCalories.set($any($event))" />
-                      </label>
-                      <label class="tracker__edit-field">
-                        <span class="tracker__edit-lbl">Protein</span>
-                        <input class="tracker__edit-input mono-num" type="number" min="0" step="0.1"
-                               inputmode="decimal" [ngModel]="editProtein()" name="editP"
-                               (ngModelChange)="editProtein.set($any($event))" />
-                      </label>
-                      <label class="tracker__edit-field">
-                        <span class="tracker__edit-lbl">Carbs</span>
-                        <input class="tracker__edit-input mono-num" type="number" min="0" step="0.1"
-                               inputmode="decimal" [ngModel]="editCarb()" name="editC"
-                               (ngModelChange)="editCarb.set($any($event))" />
-                      </label>
-                      <label class="tracker__edit-field">
-                        <span class="tracker__edit-lbl">Fat</span>
-                        <input class="tracker__edit-input mono-num" type="number" min="0" step="0.1"
-                               inputmode="decimal" [ngModel]="editFat()" name="editF"
-                               (ngModelChange)="editFat.set($any($event))" />
-                      </label>
-                    </div>
-                  }
-                  <div class="tracker__edit-actions">
-                    <button mat-button type="button" class="tracker__edit-cancel"
-                            (click)="cancelEditFood()" [disabled]="savingEdit()">Cancel</button>
-                    <button mat-flat-button type="submit" class="tracker__edit-save"
-                            [disabled]="!canSaveEdit()">Save</button>
-                  </div>
-                </form>
-              </li>
-            } @else {
-              <li class="tracker__entry"
-                  [class.tracker__entry--editable]="!store.readOnly()">
-                <div class="tracker__entry-id">
-                  <span class="tracker__entry-name">{{ f.description }}</span>
-                  <span class="tracker__entry-meta">
-                    @if (f.brand) { {{ f.brand }} · }
-                    @if (f.servingDesc) { {{ f.servingDesc }} · }
-                    <span class="mono-num">{{ f.proteinG }}P {{ f.carbG }}C {{ f.fatG }}F</span>
-                  </span>
-                </div>
-                <span class="tracker__entry-cal mono-num">{{ f.calories | number }}</span>
-                @if (!store.readOnly()) {
-                  <button mat-icon-button type="button" class="tracker__entry-edit"
-                          (click)="startEditFood(f)" [attr.aria-label]="'Edit ' + f.description">
-                    <mat-icon>edit</mat-icon>
-                  </button>
-                  <button mat-icon-button type="button" class="tracker__entry-del"
-                          (click)="removeFood(f)" [attr.aria-label]="'Remove ' + f.description">
-                    <mat-icon>close</mat-icon>
-                  </button>
-                }
-              </li>
-            }
-          } @empty {
-            <li class="tracker__entry tracker__entry--empty">Nothing logged yet.</li>
+            <li class="tracker__entry tracker__entry--empty">No exercise logged yet.</li>
           }
         </ul>
 
         @if (!store.readOnly()) {
-          <button mat-button type="button" class="tracker__add" (click)="openAddFood(s.meal)">
-            <mat-icon>add</mat-icon> Add food
+          <button mat-button type="button" class="tracker__add" (click)="openAddExercise()">
+            <mat-icon>add</mat-icon> Add exercise
           </button>
         }
       </section>
     }
-
-    <!-- Exercise section. -->
-    <section class="tracker__meal tracker__exercise" aria-label="Exercise">
-      <div class="tracker__meal-head">
-        <h2 class="tracker__meal-title">
-          <mat-icon aria-hidden="true">fitness_center</mat-icon> Exercise
-        </h2>
-        <span class="tracker__meal-cal mono-num">{{ day.exerciseCalories | number }} kcal</span>
-      </div>
-
-      <ul class="tracker__entries">
-        @for (e of day.exercises; track e.id) {
-          <li class="tracker__entry">
-            <div class="tracker__entry-id">
-              <span class="tracker__entry-name">{{ e.name }}</span>
-              @if (e.durationMin) {
-                <span class="tracker__entry-meta"><span class="mono-num">{{ e.durationMin }}</span> min</span>
-              }
-            </div>
-            <span class="tracker__entry-cal tracker__entry-cal--burn mono-num">−{{ e.caloriesBurned | number }}</span>
-            @if (!store.readOnly()) {
-              <button mat-icon-button type="button" class="tracker__entry-del"
-                      (click)="removeExercise(e)" [attr.aria-label]="'Remove ' + e.name">
-                <mat-icon>close</mat-icon>
-              </button>
-            }
-          </li>
-        } @empty {
-          <li class="tracker__entry tracker__entry--empty">No exercise logged yet.</li>
-        }
-      </ul>
-
-      @if (!store.readOnly()) {
-        <button mat-button type="button" class="tracker__add" (click)="openAddExercise()">
-          <mat-icon>add</mat-icon> Add exercise
-        </button>
-      }
-    </section>
-    } <!-- /@else (baseline complete) -->
+    <!-- /@else (baseline complete) -->
   }
 </section>

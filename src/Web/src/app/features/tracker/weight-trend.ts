@@ -1,4 +1,4 @@
-import { Component, computed, inject, input, signal } from '@angular/core';
+import { Component, computed, inject, input, signal, ChangeDetectionStrategy } from '@angular/core';
 import type { EChartsOption } from 'echarts';
 import { firstValueFrom } from 'rxjs';
 
@@ -32,18 +32,27 @@ import { kgToLb, weightUnit } from './units';
         <div class="wt-ai">
           @if (insight(); as ins) {
             <div class="wt-ai-card" role="group" aria-label="AI weight insight">
-              <p class="wt-ai-trend"><mat-icon aria-hidden="true">{{ trendIcon() }}</mat-icon> {{ ins.trend }}</p>
+              <p class="wt-ai-trend">
+                <mat-icon aria-hidden="true">{{ trendIcon() }}</mat-icon> {{ ins.trend }}
+              </p>
               <p class="wt-ai-text">{{ ins.insight }}</p>
             </div>
           } @else {
-            <button mat-stroked-button type="button" class="wt-ai-btn"
-                    [disabled]="insightLoading()" (click)="loadInsight()"
-                    aria-label="Get an AI insight on your weight trend">
+            <button
+              mat-stroked-button
+              type="button"
+              class="wt-ai-btn"
+              [disabled]="insightLoading()"
+              (click)="loadInsight()"
+              aria-label="Get an AI insight on your weight trend"
+            >
               @if (insightLoading()) {
                 <mat-progress-spinner mode="indeterminate" diameter="18" aria-hidden="true" />
                 Reading your trend…
               } @else {
-                <span class="wt-ai-btn-label"><mat-icon aria-hidden="true">auto_awesome</mat-icon> Weight insight</span>
+                <span class="wt-ai-btn-label"
+                  ><mat-icon aria-hidden="true">auto_awesome</mat-icon> Weight insight</span
+                >
               }
             </button>
           }
@@ -57,38 +66,107 @@ import { kgToLb, weightUnit } from './units';
       </div>
     }
   `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: `
-    .wt-chart-host { display: block; width: 100%; height: 240px; min-height: 240px; overflow: hidden; }
-    .wt-chart { display: block; width: 100%; height: 100%; min-height: 240px; }
+    .wt-chart-host {
+      display: block;
+      width: 100%;
+      height: 240px;
+      min-height: 240px;
+      overflow: hidden;
+    }
+    .wt-chart {
+      display: block;
+      width: 100%;
+      height: 100%;
+      min-height: 240px;
+    }
     /* The shared chart's inner host floors at 300px; override it so the canvas fits the 240px we allot. */
-    .wt-chart ::ng-deep .chart-host { min-height: 0 !important; }
-    .wt-empty { display: flex; flex-direction: column; align-items: center; justify-content: center;
-      gap: 2px; min-height: 180px; color: var(--tech-text-tertiary); }
-    .wt-empty p { margin: 0; font-size: var(--tech-fs-body); }
-    .wt-empty-sub { font-size: var(--tech-fs-label) !important; }
+    .wt-chart ::ng-deep .chart-host {
+      min-height: 0 !important;
+    }
+    .wt-empty {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 2px;
+      min-height: 180px;
+      color: var(--tech-text-tertiary);
+    }
+    .wt-empty p {
+      margin: 0;
+      font-size: var(--tech-fs-body);
+    }
+    .wt-empty-sub {
+      font-size: var(--tech-fs-label) !important;
+    }
 
-    .wt-ai { position: relative; margin-top: var(--tech-space-2); }
+    .wt-ai {
+      position: relative;
+      margin-top: var(--tech-space-2);
+    }
     .wt-ai-btn {
-      min-height: 44px; border-radius: var(--tech-r-control); font-weight: 600;
-      display: inline-flex; align-items: center; gap: 6px;
-      mat-icon { color: var(--tech-accent); font-size: 18px; width: 18px; height: 18px; }
-      mat-progress-spinner { display: inline-block; }
-      .wt-ai-btn-label { display: inline-flex; align-items: center; gap: 6px; }
+      min-height: 44px;
+      border-radius: var(--tech-r-control);
+      font-weight: 600;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      mat-icon {
+        color: var(--tech-accent);
+        font-size: 18px;
+        width: 18px;
+        height: 18px;
+      }
+      mat-progress-spinner {
+        display: inline-block;
+      }
+      .wt-ai-btn-label {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+      }
     }
     .wt-ai-card {
-      display: flex; flex-direction: column; gap: 2px;
-      padding: var(--tech-space-3); border: 1px solid var(--tech-border);
-      border-radius: var(--tech-r-control); background: var(--tech-bg-sunken);
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      padding: var(--tech-space-3);
+      border: 1px solid var(--tech-border);
+      border-radius: var(--tech-r-control);
+      background: var(--tech-bg-sunken);
     }
     .wt-ai-trend {
-      display: flex; align-items: center; gap: 6px; margin: 0;
-      font-weight: 700; font-size: var(--tech-fs-body); color: var(--tech-text);
-      mat-icon { color: var(--tech-accent); font-size: 18px; width: 18px; height: 18px; }
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin: 0;
+      font-weight: 700;
+      font-size: var(--tech-fs-body);
+      color: var(--tech-text);
+      mat-icon {
+        color: var(--tech-accent);
+        font-size: 18px;
+        width: 18px;
+        height: 18px;
+      }
     }
-    .wt-ai-text { margin: 0; font-size: var(--tech-fs-label); color: var(--tech-text-secondary); }
+    .wt-ai-text {
+      margin: 0;
+      font-size: var(--tech-fs-label);
+      color: var(--tech-text-secondary);
+    }
     .wt-sr-status {
-      position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; border: 0;
-      overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap;
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      margin: -1px;
+      padding: 0;
+      border: 0;
+      overflow: hidden;
+      clip: rect(0 0 0 0);
+      white-space: nowrap;
     }
   `,
 })
@@ -117,7 +195,8 @@ export class WeightTrend {
   readonly trendIcon = computed(() => {
     const t = (this.insight()?.trend ?? '').toLowerCase();
     if (t.includes('up') || t.includes('gain') || t.includes('ris')) return 'trending_up';
-    if (t.includes('down') || t.includes('loss') || t.includes('los') || t.includes('fall')) return 'trending_down';
+    if (t.includes('down') || t.includes('loss') || t.includes('los') || t.includes('fall'))
+      return 'trending_down';
     return 'trending_flat';
   });
 
@@ -193,8 +272,8 @@ export class WeightTrend {
   readonly option = computed<EChartsOption>(() => {
     const pts = this.points();
     const unit = this.unit();
-    const dates = pts.map(p => p.date);
-    const values = pts.map(p => this.toDisp(p.weightKg));
+    const dates = pts.map((p) => p.date);
+    const values = pts.map((p) => this.toDisp(p.weightKg));
     const goal = this.goalWeightKg();
     const goalDisp = goal != null && goal > 0 ? this.toDisp(goal) : null;
 
@@ -239,7 +318,11 @@ export class WeightTrend {
                   silent: true,
                   symbol: 'none',
                   lineStyle: { color: '#3dd68c', type: 'dashed', width: 1.5 },
-                  label: { formatter: `Goal ${goalDisp} ${unit}`, color: '#3dd68c', position: 'insideEndTop' },
+                  label: {
+                    formatter: `Goal ${goalDisp} ${unit}`,
+                    color: '#3dd68c',
+                    position: 'insideEndTop',
+                  },
                   data: [{ yAxis: goalDisp }],
                 },
               }

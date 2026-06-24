@@ -1,4 +1,4 @@
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal, ChangeDetectionStrategy } from '@angular/core';
 import { LowerCasePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 
@@ -43,7 +43,12 @@ function currentSlot(now = new Date()): WeightSlot {
 @Component({
   selector: 'app-log-weight-dialog',
   imports: [
-    FormsModule, LowerCasePipe, MatDialogModule, MatFormFieldModule, MatInputModule, MatButtonModule,
+    FormsModule,
+    LowerCasePipe,
+    MatDialogModule,
+    MatFormFieldModule,
+    MatInputModule,
+    MatButtonModule,
     MatButtonToggleModule,
   ],
   template: `
@@ -51,38 +56,93 @@ function currentSlot(now = new Date()): WeightSlot {
     <mat-dialog-content class="lw-body">
       <div class="lw-slot">
         <span class="micro-label" id="lw-slot-label">Time of day</span>
-        <mat-button-toggle-group class="lw-slot-toggle" [value]="slot()" (change)="slot.set($event.value)"
-                                 aria-labelledby="lw-slot-label" hideSingleSelectionIndicator>
+        <mat-button-toggle-group
+          class="lw-slot-toggle"
+          [value]="slot()"
+          (change)="slot.set($event.value)"
+          aria-labelledby="lw-slot-label"
+          hideSingleSelectionIndicator
+        >
           @for (s of slots; track s.value) {
-            <mat-button-toggle [value]="s.value" [attr.aria-label]="s.label + ' weigh-in'">{{ s.label }}</mat-button-toggle>
+            <mat-button-toggle [value]="s.value" [attr.aria-label]="s.label + ' weigh-in'">{{
+              s.label
+            }}</mat-button-toggle>
           }
         </mat-button-toggle-group>
       </div>
 
       <mat-form-field appearance="outline" class="lw-field">
         <mat-label>Weight</mat-label>
-        <input matInput type="number" min="0" step="0.1" inputmode="decimal" cdkFocusInitial
-               [ngModel]="weightDisp()" (ngModelChange)="weightDisp.set($event)" />
+        <input
+          matInput
+          type="number"
+          min="0"
+          step="0.1"
+          inputmode="decimal"
+          cdkFocusInitial
+          [ngModel]="weightDisp()"
+          (ngModelChange)="weightDisp.set($event)"
+        />
         <span matTextSuffix>{{ imperial ? 'lb' : 'kg' }}</span>
-        <mat-hint>Recorded for {{ data.date }} ({{ slot() | lowercase }}). One entry per slot.</mat-hint>
+        <mat-hint
+          >Recorded for {{ data.date }} ({{ slot() | lowercase }}). One entry per slot.</mat-hint
+        >
       </mat-form-field>
     </mat-dialog-content>
     <mat-dialog-actions class="lw-actions" align="end">
       <button mat-stroked-button type="button" (click)="cancel()">Cancel</button>
-      <button mat-flat-button type="button" color="primary" [disabled]="!canSave()" (click)="save()">Save</button>
+      <button
+        mat-flat-button
+        type="button"
+        color="primary"
+        [disabled]="!canSave()"
+        (click)="save()"
+      >
+        Save
+      </button>
     </mat-dialog-actions>
   `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: `
-    .lw-title { font-family: var(--tech-font-ui); font-weight: 700; color: var(--tech-text); }
-    .lw-body { display: flex; flex-direction: column; gap: var(--tech-space-3);
-      min-width: min(320px, 80vw); padding-top: 4px !important; }
-    .lw-field { width: 100%; }
-    .lw-slot { display: flex; flex-direction: column; gap: var(--tech-space-2); }
-    .lw-slot-toggle { align-self: stretch; border-radius: var(--tech-r-control);
-      ::ng-deep .mat-button-toggle { flex: 1 1 0; }
-      ::ng-deep .mat-button-toggle-label-content { line-height: 44px; } }
-    .lw-actions { padding: var(--tech-space-3) var(--tech-space-4); gap: 8px;
-      button { border-radius: var(--tech-r-control); font-weight: 600; min-height: 44px; } }
+    .lw-title {
+      font-family: var(--tech-font-ui);
+      font-weight: 700;
+      color: var(--tech-text);
+    }
+    .lw-body {
+      display: flex;
+      flex-direction: column;
+      gap: var(--tech-space-3);
+      min-width: min(320px, 80vw);
+      padding-top: 4px !important;
+    }
+    .lw-field {
+      width: 100%;
+    }
+    .lw-slot {
+      display: flex;
+      flex-direction: column;
+      gap: var(--tech-space-2);
+    }
+    .lw-slot-toggle {
+      align-self: stretch;
+      border-radius: var(--tech-r-control);
+      ::ng-deep .mat-button-toggle {
+        flex: 1 1 0;
+      }
+      ::ng-deep .mat-button-toggle-label-content {
+        line-height: 44px;
+      }
+    }
+    .lw-actions {
+      padding: var(--tech-space-3) var(--tech-space-4);
+      gap: 8px;
+      button {
+        border-radius: var(--tech-r-control);
+        font-weight: 600;
+        min-height: 44px;
+      }
+    }
   `,
 })
 export class LogWeightDialog {
@@ -97,7 +157,9 @@ export class LogWeightDialog {
 
   readonly weightDisp = signal<number | null>(
     this.data.currentKg != null
-      ? (this.imperial ? Math.round(kgToLb(this.data.currentKg) * 10) / 10 : Math.round(this.data.currentKg * 10) / 10)
+      ? this.imperial
+        ? Math.round(kgToLb(this.data.currentKg) * 10) / 10
+        : Math.round(this.data.currentKg * 10) / 10
       : null,
   );
 

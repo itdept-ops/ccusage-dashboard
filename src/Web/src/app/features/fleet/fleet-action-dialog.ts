@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal, ChangeDetectionStrategy } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { HttpErrorResponse } from '@angular/common/http';
 
@@ -51,10 +51,17 @@ export interface FleetActionResult {
 @Component({
   selector: 'app-fleet-action-dialog',
   imports: [
-    CommonModule, FormsModule, MatDialogModule, MatFormFieldModule, MatInputModule, MatSelectModule,
-    MatButtonModule, MatIconModule,
+    CommonModule,
+    FormsModule,
+    MatDialogModule,
+    MatFormFieldModule,
+    MatInputModule,
+    MatSelectModule,
+    MatButtonModule,
+    MatIconModule,
   ],
   templateUrl: './fleet-action-dialog.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrl: './fleet-action-dialog.scss',
 })
 export class FleetActionDialog {
@@ -74,7 +81,7 @@ export class FleetActionDialog {
   /** Free-text new/another name (MACHINE dimension only — users can't be typed since there's no email). */
   readonly targetNew = signal<string>('');
 
-  readonly kindNoun = computed(() => this.data.dimension === 'machine' ? 'machine' : 'user');
+  readonly kindNoun = computed(() => (this.data.dimension === 'machine' ? 'machine' : 'user'));
 
   /** The chosen existing target entry, or undefined when none. */
   private chosenExisting() {
@@ -83,7 +90,9 @@ export class FleetActionDialog {
 
   /** The resolved RAW machine target for a machine reassign. */
   private resolvedMachineTarget(): string {
-    return this.targetMode() === 'existing' ? (this.chosenExisting()?.rawValue ?? '') : this.targetNew().trim();
+    return this.targetMode() === 'existing'
+      ? (this.chosenExisting()?.rawValue ?? '')
+      : this.targetNew().trim();
   }
 
   /** The resolved target user id for a user reassign (null = local). Existing pick only; users can't be typed. */
@@ -133,20 +142,40 @@ export class FleetActionDialog {
       // User dimension: source + target are user IDs (the server resolves id -> owner email). Machine
       // dimension: raw names, with a "" target meaning re-label to local.
       const body = isUser
-        ? { dimension: 'user' as const, userIds: this.userIds(), toUserId: this.resolvedUserTargetId() }
-        : { dimension: 'machine' as const, from: [this.data.rawValue], to: this.resolvedMachineTarget() };
-      this.api.reassignFleet(body)
-        .subscribe({ next: r => this.ref.close({ action: 'reassign', count: r.affected }), error: fail });
+        ? {
+            dimension: 'user' as const,
+            userIds: this.userIds(),
+            toUserId: this.resolvedUserTargetId(),
+          }
+        : {
+            dimension: 'machine' as const,
+            from: [this.data.rawValue],
+            to: this.resolvedMachineTarget(),
+          };
+      this.api
+        .reassignFleet(body)
+        .subscribe({
+          next: (r) => this.ref.close({ action: 'reassign', count: r.affected }),
+          error: fail,
+        });
     } else if (this.data.action === 'delete') {
       const body = isUser
         ? { dimension: 'user' as const, userIds: this.userIds() }
         : { dimension: 'machine' as const, names: [this.data.rawValue] };
-      this.api.deleteFleet(body)
-        .subscribe({ next: r => this.ref.close({ action: 'delete', count: r.deleted }), error: fail });
+      this.api
+        .deleteFleet(body)
+        .subscribe({
+          next: (r) => this.ref.close({ action: 'delete', count: r.deleted }),
+          error: fail,
+        });
     } else {
       // Revoke is user-only; send the row's user id (server resolves it to the owner email).
-      this.api.revokeFleetKeys({ userId: this.data.userId ?? 0 })
-        .subscribe({ next: r => this.ref.close({ action: 'revoke', count: r.revoked }), error: fail });
+      this.api
+        .revokeFleetKeys({ userId: this.data.userId ?? 0 })
+        .subscribe({
+          next: (r) => this.ref.close({ action: 'revoke', count: r.revoked }),
+          error: fail,
+        });
     }
   }
 }

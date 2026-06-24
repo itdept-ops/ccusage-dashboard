@@ -1,7 +1,26 @@
-import { Component, ElementRef, Injector, afterNextRender, computed, effect, inject, signal, viewChild } from '@angular/core';
+import {
+  Component,
+  ElementRef,
+  Injector,
+  afterNextRender,
+  computed,
+  effect,
+  inject,
+  signal,
+  viewChild,
+  ChangeDetectionStrategy,
+} from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { HttpErrorResponse } from '@angular/common/http';
-import { Subject, catchError, debounceTime, distinctUntilChanged, firstValueFrom, of, switchMap } from 'rxjs';
+import {
+  Subject,
+  catchError,
+  debounceTime,
+  distinctUntilChanged,
+  firstValueFrom,
+  of,
+  switchMap,
+} from 'rxjs';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 
 import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
@@ -19,20 +38,73 @@ import { MatSnackBar } from '@angular/material/snack-bar';
 import { Api } from '../../core/api';
 import { AuthService } from '../../core/auth';
 import {
-  AddExerciseRequest, CustomExerciseDto, ExerciseLibraryDto, PERM, ParseExerciseResponse,
-  SuggestWorkoutResponse, WorkoutXExerciseDto,
+  AddExerciseRequest,
+  CustomExerciseDto,
+  ExerciseLibraryDto,
+  PERM,
+  ParseExerciseResponse,
+  SuggestWorkoutResponse,
+  WorkoutXExerciseDto,
 } from '../../core/models';
 
 /** Curated WorkoutX filter values — the provider has no option-list endpoint, so these mirror the catalog. */
-const WX_BODY_PARTS = ['Back', 'Cardio', 'Chest', 'Lower Arms', 'Lower Legs', 'Neck', 'Shoulders', 'Upper Arms', 'Upper Legs', 'Waist'];
-const WX_EQUIPMENT = ['Body Weight', 'Barbell', 'Dumbbell', 'Cable', 'Leverage Machine', 'Kettlebell', 'Resistance Band', 'Smith Machine'];
-const WX_TARGETS = ['Abs', 'Biceps', 'Triceps', 'Pectorals', 'Quads', 'Glutes', 'Hamstrings', 'Lats', 'Delts', 'Calves'];
+const WX_BODY_PARTS = [
+  'Back',
+  'Cardio',
+  'Chest',
+  'Lower Arms',
+  'Lower Legs',
+  'Neck',
+  'Shoulders',
+  'Upper Arms',
+  'Upper Legs',
+  'Waist',
+];
+const WX_EQUIPMENT = [
+  'Body Weight',
+  'Barbell',
+  'Dumbbell',
+  'Cable',
+  'Leverage Machine',
+  'Kettlebell',
+  'Resistance Band',
+  'Smith Machine',
+];
+const WX_TARGETS = [
+  'Abs',
+  'Biceps',
+  'Triceps',
+  'Pectorals',
+  'Quads',
+  'Glutes',
+  'Hamstrings',
+  'Lats',
+  'Delts',
+  'Calves',
+];
 
 /** Focus-area presets for the AI workout suggester (free-text is also allowed via the input). */
-const AI_FOCUS_OPTIONS = ['Full body', 'Upper body', 'Lower body', 'Core', 'Cardio', 'Push', 'Pull', 'Legs', 'Mobility'];
+const AI_FOCUS_OPTIONS = [
+  'Full body',
+  'Upper body',
+  'Lower body',
+  'Core',
+  'Cardio',
+  'Push',
+  'Pull',
+  'Legs',
+  'Mobility',
+];
 
 /** Equipment presets for the AI workout suggester ('' = "No equipment / bodyweight"). */
-const AI_EQUIPMENT_OPTIONS = ['Dumbbells', 'Barbell', 'Kettlebell', 'Resistance bands', 'Pull-up bar', 'Full gym'];
+const AI_EQUIPMENT_OPTIONS = [
+  'Dumbbells',
+  'Barbell',
+  'Kettlebell',
+  'Resistance bands',
+  'Pull-up bar',
+  'Full gym',
+];
 
 /** Burn-target presets (kcal) for the "What burns ~N cal?" planner. */
 const AI_BURN_TARGETS = [100, 200, 300, 500];
@@ -56,11 +128,20 @@ export interface AddExerciseData {
 @Component({
   selector: 'app-add-exercise-dialog',
   imports: [
-    FormsModule, MatDialogModule, MatFormFieldModule, MatInputModule, MatButtonModule,
-    MatButtonToggleModule, MatCheckboxModule, MatIconModule, MatSelectModule, MatProgressBarModule,
+    FormsModule,
+    MatDialogModule,
+    MatFormFieldModule,
+    MatInputModule,
+    MatButtonModule,
+    MatButtonToggleModule,
+    MatCheckboxModule,
+    MatIconModule,
+    MatSelectModule,
+    MatProgressBarModule,
     MatProgressSpinnerModule,
   ],
   templateUrl: './add-exercise-dialog.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrl: './add-exercise-dialog.scss',
 })
 export class AddExerciseDialog {
@@ -116,7 +197,8 @@ export class AddExerciseDialog {
   readonly wxGifError = signal(false);
   /** Detected once: when the user prefers reduced motion we don't auto-load the animated GIF. */
   readonly wxReducedMotion = signal(
-    typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+    typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches,
+  );
   /** Set true when a reduced-motion user explicitly asks to play the demo; reset on selection change. */
   readonly wxGifRequested = signal(false);
 
@@ -133,7 +215,8 @@ export class AddExerciseDialog {
 
   /** The calorie figure that will be logged for a WorkoutX pick (override beats the live estimate). */
   readonly wxEffectiveCals = computed<number>(() =>
-    this.wxOverride() ? (this.wxManualCals() ?? 0) : this.wxEstimate());
+    this.wxOverride() ? (this.wxManualCals() ?? 0) : this.wxEstimate(),
+  );
 
   // ---- fully manual ----
   readonly mName = signal('');
@@ -164,8 +247,9 @@ export class AddExerciseDialog {
    * Show the subtle "saved to My exercises" hint while typing a fresh manual entry — i.e. a non-empty
    * name that wasn't re-picked from the saved library (those bump instead of creating a new row).
    */
-  readonly mWillSave = computed(() =>
-    this.pickedSavedId() === null && this.mName().trim().length > 0);
+  readonly mWillSave = computed(
+    () => this.pickedSavedId() === null && this.mName().trim().length > 0,
+  );
 
   // ---- AI calorie estimate for a manual exercise (Gemini-backed; optional, degrades gracefully) ----
   /** True while estimate-exercise is in flight. */
@@ -178,8 +262,9 @@ export class AddExerciseDialog {
   readonly aiAnnounce = signal('');
 
   /** Can we ask the AI? A name + a positive duration are required to estimate burn. */
-  readonly canEstimateAi = computed(() =>
-    !this.aiLoading() && this.mName().trim().length > 0 && (this.mDuration() ?? 0) > 0);
+  readonly canEstimateAi = computed(
+    () => !this.aiLoading() && this.mName().trim().length > 0 && (this.mDuration() ?? 0) > 0,
+  );
 
   /**
    * Ask Gemini to estimate calories burned for the typed exercise name over the typed duration, then
@@ -191,15 +276,18 @@ export class AddExerciseDialog {
     this.aiLoading.set(true);
     this.aiAnnounce.set('Estimating calories with AI…');
     try {
-      const res = await firstValueFrom(this.api.estimateExercise({
-        name: this.mName().trim(),
-        durationMin: this.mDuration() ?? 0,
-      }));
+      const res = await firstValueFrom(
+        this.api.estimateExercise({
+          name: this.mName().trim(),
+          durationMin: this.mDuration() ?? 0,
+        }),
+      );
       this.mCalories.set(res.caloriesBurned); // editable — never silently committed
       this.aiNote.set(res.note ?? null);
       this.aiEstimated.set(true);
       this.aiAnnounce.set(
-        `AI estimate: ${res.caloriesBurned} calories burned.` + (res.note ? ` ${res.note}` : ''));
+        `AI estimate: ${res.caloriesBurned} calories burned.` + (res.note ? ` ${res.note}` : ''),
+      );
     } catch {
       this.aiEstimated.set(false);
       this.aiAnnounce.set('AI estimate unavailable. Enter the calories manually.');
@@ -240,8 +328,9 @@ export class AddExerciseDialog {
   readonly nlAnnounce = signal('');
 
   readonly canParseNl = computed(() => !this.nlLoading() && this.nlText().trim().length > 0);
-  readonly canLogNl = computed(() =>
-    !this.saving() && this.nlName().trim().length > 0 && (this.nlCalories() ?? 0) > 0);
+  readonly canLogNl = computed(
+    () => !this.saving() && this.nlName().trim().length > 0 && (this.nlCalories() ?? 0) > 0,
+  );
 
   // -- 2) Workout suggestion: focus + minutes + equipment → a routine the user can log. --
   readonly swFocus = signal('Full body');
@@ -254,8 +343,9 @@ export class AddExerciseDialog {
   readonly swCalories = signal<number | null>(null);
   readonly swAnnounce = signal('');
 
-  readonly canSuggestWorkout = computed(() =>
-    !this.swLoading() && this.swFocus().trim().length > 0 && (this.swMinutes() ?? 0) > 0);
+  readonly canSuggestWorkout = computed(
+    () => !this.swLoading() && this.swFocus().trim().length > 0 && (this.swMinutes() ?? 0) > 0,
+  );
 
   // -- 3) Burn-target planner: "What burns ~N cal?" → options scaled to the user (reuses suggest-workout). --
   readonly btTarget = signal<number | null>(300);
@@ -267,7 +357,9 @@ export class AddExerciseDialog {
   readonly canPlanBurn = computed(() => !this.btLoading() && (this.btTarget() ?? 0) > 0);
 
   /** A single polite live region renders the most recent AI-tab announcement. */
-  readonly aiTabAnnounce = computed(() => this.nlAnnounce() || this.swAnnounce() || this.btAnnounce());
+  readonly aiTabAnnounce = computed(
+    () => this.nlAnnounce() || this.swAnnounce() || this.btAnnounce(),
+  );
 
   /**
    * Headline feature — parse a free-text log ("3x10 squats", "jogged 2 miles") into a structured
@@ -291,7 +383,9 @@ export class AddExerciseDialog {
       this.nlAnnounce.set(`Parsed ${res.name}: ${bits.join(', ')}. Review and edit, then log it.`);
     } catch {
       this.nlAnnounce.set('AI is unavailable. Switch to the Manual tab to enter it yourself.');
-      this.snack.open('AI unavailable — add it manually on the Manual tab', 'OK', { duration: 4000 });
+      this.snack.open('AI unavailable — add it manually on the Manual tab', 'OK', {
+        duration: 4000,
+      });
     } finally {
       this.nlLoading.set(false);
     }
@@ -324,17 +418,20 @@ export class AddExerciseDialog {
     this.swResult.set(null);
     this.swAnnounce.set('Building a workout with AI…');
     try {
-      const res = await firstValueFrom(this.api.suggestWorkout({
-        focus: this.swFocus().trim(),
-        minutes: this.swMinutes() ?? 0,
-        equipment: this.swEquipment().trim() || undefined,
-      }));
+      const res = await firstValueFrom(
+        this.api.suggestWorkout({
+          focus: this.swFocus().trim(),
+          minutes: this.swMinutes() ?? 0,
+          equipment: this.swEquipment().trim() || undefined,
+        }),
+      );
       this.swResult.set(res);
       this.swName.set(res.title);
       this.swCalories.set(res.estCalories);
       this.swAnnounce.set(
         `Suggested ${res.title} with ${res.items.length} exercises, about ${res.estCalories} calories. ` +
-        `Review and log it.`);
+          `Review and log it.`,
+      );
     } catch {
       this.swAnnounce.set('AI is unavailable. Try the Library or Manual tabs.');
       this.snack.open('AI unavailable — use the Library or Manual tabs', 'OK', { duration: 4000 });
@@ -368,14 +465,17 @@ export class AddExerciseDialog {
     try {
       // The suggester takes focus + minutes; encode the calorie target in the focus text and give it a
       // generous time budget so the model scales the routine to the target burn (clamped server-side).
-      const res = await firstValueFrom(this.api.suggestWorkout({
-        focus: `a workout that burns about ${target} calories`,
-        minutes: 60,
-        equipment: this.btEquipment().trim() || undefined,
-      }));
+      const res = await firstValueFrom(
+        this.api.suggestWorkout({
+          focus: `a workout that burns about ${target} calories`,
+          minutes: 60,
+          equipment: this.btEquipment().trim() || undefined,
+        }),
+      );
       this.btResult.set(res);
       this.btAnnounce.set(
-        `Suggested ${res.title} burning about ${res.estCalories} calories. Review and log it.`);
+        `Suggested ${res.title} burning about ${res.estCalories} calories. Review and log it.`,
+      );
     } catch {
       this.btAnnounce.set('AI is unavailable. Try the Library or Manual tabs.');
       this.snack.open('AI unavailable — use the Library or Manual tabs', 'OK', { duration: 4000 });
@@ -396,19 +496,23 @@ export class AddExerciseDialog {
   }
 
   /** Whether we can let the server estimate (profile weight + a chosen library item + a duration). */
-  readonly canEstimate = computed(() =>
-    this.data.hasWeight && !!this.selected() && (this.durationMin() ?? 0) > 0);
+  readonly canEstimate = computed(
+    () => this.data.hasWeight && !!this.selected() && (this.durationMin() ?? 0) > 0,
+  );
 
   readonly filtered = computed<ExerciseLibraryDto[]>(() => {
     const q = this.query().trim().toLowerCase();
     const list = this.library();
     if (!q) return list;
-    return list.filter(e => e.name.toLowerCase().includes(q) || e.category.toLowerCase().includes(q));
+    return list.filter(
+      (e) => e.name.toLowerCase().includes(q) || e.category.toLowerCase().includes(q),
+    );
   });
 
   readonly canSave = computed(() => {
     if (this.saving()) return false;
-    if (this.mode() === 'manual') return this.mName().trim().length > 0 && (this.mCalories() ?? 0) > 0;
+    if (this.mode() === 'manual')
+      return this.mName().trim().length > 0 && (this.mCalories() ?? 0) > 0;
     if (this.mode() === 'workoutx') return !!this.wxSelected() && this.wxEffectiveCals() > 0;
     if (!this.selected()) return false;
     if (this.canEstimate() && !this.overrideCals()) return true; // server estimates
@@ -417,26 +521,29 @@ export class AddExerciseDialog {
 
   /** The calorie figure that will be logged when we're NOT deferring to the server estimate. */
   readonly effectiveCals = computed<number | null>(() =>
-    this.overrideCals() || !this.data.hasWeight ? this.manualCalsForLib() : null);
+    this.overrideCals() || !this.data.hasWeight ? this.manualCalsForLib() : null,
+  );
 
   constructor() {
     void this.loadLibrary();
 
     // Debounced "My exercises" filter — re-fetches the caller's saved library on each keystroke.
-    this.savedQueryStream.pipe(
-      debounceTime(250),
-      distinctUntilChanged(),
-      switchMap(q => {
-        this.savedLoading.set(true);
-        return this.api.savedExercises(q.trim() || undefined).pipe(
-          catchError(() => of<CustomExerciseDto[]>([])),
-        );
-      }),
-      takeUntilDestroyed(),
-    ).subscribe(list => {
-      this.savedLoading.set(false);
-      this.saved.set(list);
-    });
+    this.savedQueryStream
+      .pipe(
+        debounceTime(250),
+        distinctUntilChanged(),
+        switchMap((q) => {
+          this.savedLoading.set(true);
+          return this.api
+            .savedExercises(q.trim() || undefined)
+            .pipe(catchError(() => of<CustomExerciseDto[]>([])));
+        }),
+        takeUntilDestroyed(),
+      )
+      .subscribe((list) => {
+        this.savedLoading.set(false);
+        this.saved.set(list);
+      });
 
     effect(() => this.savedQueryStream.next(this.savedQuery()));
 
@@ -501,7 +608,12 @@ export class AddExerciseDialog {
     this.mode.set(m);
     this.error.set(null);
     // First time into the WorkoutX tab with nothing loaded yet → fetch the opening page.
-    if (m === 'workoutx' && this.wxResults().length === 0 && !this.wxLoading() && !this.wxUnavailable()) {
+    if (
+      m === 'workoutx' &&
+      this.wxResults().length === 0 &&
+      !this.wxLoading() &&
+      !this.wxUnavailable()
+    ) {
       void this.searchWorkoutx();
     }
     // Lazy-load the saved "My exercises" library the first time the Manual tab is opened.
@@ -529,7 +641,7 @@ export class AddExerciseDialog {
   deleteSaved(ex: CustomExerciseDto, event: Event): void {
     event.stopPropagation();
     const prev = this.saved();
-    this.saved.update(list => list.filter(e => e.id !== ex.id));
+    this.saved.update((list) => list.filter((e) => e.id !== ex.id));
     if (this.pickedSavedId() === ex.id) this.pickedSavedId.set(null);
     this.api.deleteSavedExercise(ex.id).subscribe({ error: () => this.saved.set(prev) });
   }
@@ -552,14 +664,16 @@ export class AddExerciseDialog {
     this.wxLoading.set(true);
     this.wxError.set(null);
     try {
-      const res = await firstValueFrom(this.api.workoutxExercises({
-        q: this.wxQuery().trim() || undefined,
-        bodyPart: this.wxBodyPart() || undefined,
-        target: this.wxTarget() || undefined,
-        equipment: this.wxEquipment() || undefined,
-        limit: AddExerciseDialog.WX_PAGE,
-        offset: this.wxOffset(),
-      }));
+      const res = await firstValueFrom(
+        this.api.workoutxExercises({
+          q: this.wxQuery().trim() || undefined,
+          bodyPart: this.wxBodyPart() || undefined,
+          target: this.wxTarget() || undefined,
+          equipment: this.wxEquipment() || undefined,
+          limit: AddExerciseDialog.WX_PAGE,
+          offset: this.wxOffset(),
+        }),
+      );
       this.wxResults.set(append ? [...this.wxResults(), ...res.data] : res.data);
       this.wxTotal.set(res.total);
     } catch (e) {
@@ -568,7 +682,10 @@ export class AddExerciseDialog {
       } else {
         this.wxError.set('WorkoutX search failed. Try again.');
       }
-      if (!append) { this.wxResults.set([]); this.wxTotal.set(0); }
+      if (!append) {
+        this.wxResults.set([]);
+        this.wxTotal.set(0);
+      }
     } finally {
       this.wxLoading.set(false);
     }
@@ -581,7 +698,8 @@ export class AddExerciseDialog {
    * identically. We bail when the value is unchanged to avoid a redundant search.
    */
   setWxFilter(kind: 'bodyPart' | 'target' | 'equipment', value: string | null | undefined): void {
-    const sig = kind === 'bodyPart' ? this.wxBodyPart : kind === 'target' ? this.wxTarget : this.wxEquipment;
+    const sig =
+      kind === 'bodyPart' ? this.wxBodyPart : kind === 'target' ? this.wxTarget : this.wxEquipment;
     const next = value ?? '';
     if (sig() === next) return; // already in sync with the listbox → avoid a redundant search
     sig.set(next);

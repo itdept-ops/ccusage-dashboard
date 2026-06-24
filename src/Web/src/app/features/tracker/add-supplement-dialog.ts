@@ -1,4 +1,4 @@
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal, ChangeDetectionStrategy } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { firstValueFrom } from 'rxjs';
 
@@ -27,7 +27,10 @@ export interface AddSupplementResult {
   request: AddSupplementRequest;
 }
 
-interface KindOption { value: SupplementKind; label: string }
+interface KindOption {
+  value: SupplementKind;
+  label: string;
+}
 
 /** The Kind picker options (Medication included, per the spec). */
 const KINDS: KindOption[] = [
@@ -49,42 +52,70 @@ const KINDS: KindOption[] = [
 @Component({
   selector: 'app-add-supplement-dialog',
   imports: [
-    FormsModule, MatDialogModule, MatFormFieldModule, MatInputModule, MatSelectModule,
-    MatButtonModule, MatIconModule, MatProgressSpinnerModule,
+    FormsModule,
+    MatDialogModule,
+    MatFormFieldModule,
+    MatInputModule,
+    MatSelectModule,
+    MatButtonModule,
+    MatIconModule,
+    MatProgressSpinnerModule,
   ],
   template: `
     <h2 mat-dialog-title class="sp-title">Add supplement</h2>
     <mat-dialog-content class="sp-body">
       <mat-form-field appearance="outline" class="sp-field">
         <mat-label>Name</mat-label>
-        <input matInput type="text" maxlength="120" cdkFocusInitial
-               placeholder="Whey protein, Creatine, Vitamin D…"
-               [ngModel]="name()" (ngModelChange)="onNameChange($event)" />
+        <input
+          matInput
+          type="text"
+          maxlength="120"
+          cdkFocusInitial
+          placeholder="Whey protein, Creatine, Vitamin D…"
+          [ngModel]="name()"
+          (ngModelChange)="onNameChange($event)"
+        />
         <mat-hint>Logged for {{ data.date }}.</mat-hint>
       </mat-form-field>
 
       <mat-form-field appearance="outline" class="sp-field">
         <mat-label>Dose (optional)</mat-label>
-        <input matInput type="text" maxlength="60" placeholder="1 scoop, 5 g, 1 tablet…"
-               [ngModel]="dose()" (ngModelChange)="dose.set($event)" />
+        <input
+          matInput
+          type="text"
+          maxlength="60"
+          placeholder="1 scoop, 5 g, 1 tablet…"
+          [ngModel]="dose()"
+          (ngModelChange)="dose.set($event)"
+        />
       </mat-form-field>
 
       @if (showAi) {
         <!-- ✨ Estimate with AI: supplement-macros → prefilled editable kind + macros. -->
-        <button mat-stroked-button type="button" class="sp-ai-btn"
-                [disabled]="!canEstimate()" (click)="estimateWithAi()"
-                aria-label="Estimate this supplement's macros with AI">
+        <button
+          mat-stroked-button
+          type="button"
+          class="sp-ai-btn"
+          [disabled]="!canEstimate()"
+          (click)="estimateWithAi()"
+          aria-label="Estimate this supplement's macros with AI"
+        >
           @if (aiLoading()) {
             <mat-progress-spinner mode="indeterminate" diameter="18" aria-hidden="true" />
             Estimating…
           } @else {
-            <span class="sp-ai-btn-label"><mat-icon aria-hidden="true">auto_awesome</mat-icon> Estimate with AI</span>
+            <span class="sp-ai-btn-label"
+              ><mat-icon aria-hidden="true">auto_awesome</mat-icon> Estimate with AI</span
+            >
           }
         </button>
         @if (aiEstimated()) {
           <p class="sp-ai-chip" role="status">
             <mat-icon aria-hidden="true">auto_awesome</mat-icon>
-            AI estimate — adjust anything below.@if (aiNote(); as n) { <span class="sp-ai-note">{{ n }}</span> }
+            AI estimate — adjust anything below.
+            @if (aiNote(); as n) {
+              <span class="sp-ai-note">{{ n }}</span>
+            }
           </p>
         }
         <span class="sp-sr-status" role="status" aria-live="polite">{{ aiAnnounce() }}</span>
@@ -100,70 +131,174 @@ const KINDS: KindOption[] = [
       </mat-form-field>
 
       <p class="micro-label sp-macro-hint">
-        Macros count toward your day total. Most supplements are 0 — protein powders carry real values.
+        Macros count toward your day total. Most supplements are 0 — protein powders carry real
+        values.
       </p>
 
       <div class="sp-macros" role="group" aria-label="Supplement macros">
         <mat-form-field appearance="outline" class="sp-macro">
           <mat-label>Calories</mat-label>
-          <input matInput type="number" min="0" max="5000" step="1" inputmode="numeric"
-                 [ngModel]="calories()" (ngModelChange)="calories.set($event)" />
+          <input
+            matInput
+            type="number"
+            min="0"
+            max="5000"
+            step="1"
+            inputmode="numeric"
+            [ngModel]="calories()"
+            (ngModelChange)="calories.set($event)"
+          />
           <span matTextSuffix>kcal</span>
         </mat-form-field>
         <mat-form-field appearance="outline" class="sp-macro">
           <mat-label>Protein</mat-label>
-          <input matInput type="number" min="0" max="500" step="1" inputmode="decimal"
-                 [ngModel]="protein()" (ngModelChange)="protein.set($event)" />
+          <input
+            matInput
+            type="number"
+            min="0"
+            max="500"
+            step="1"
+            inputmode="decimal"
+            [ngModel]="protein()"
+            (ngModelChange)="protein.set($event)"
+          />
           <span matTextSuffix>g</span>
         </mat-form-field>
         <mat-form-field appearance="outline" class="sp-macro">
           <mat-label>Carbs</mat-label>
-          <input matInput type="number" min="0" max="500" step="1" inputmode="decimal"
-                 [ngModel]="carb()" (ngModelChange)="carb.set($event)" />
+          <input
+            matInput
+            type="number"
+            min="0"
+            max="500"
+            step="1"
+            inputmode="decimal"
+            [ngModel]="carb()"
+            (ngModelChange)="carb.set($event)"
+          />
           <span matTextSuffix>g</span>
         </mat-form-field>
         <mat-form-field appearance="outline" class="sp-macro">
           <mat-label>Fat</mat-label>
-          <input matInput type="number" min="0" max="500" step="1" inputmode="decimal"
-                 [ngModel]="fat()" (ngModelChange)="fat.set($event)" />
+          <input
+            matInput
+            type="number"
+            min="0"
+            max="500"
+            step="1"
+            inputmode="decimal"
+            [ngModel]="fat()"
+            (ngModelChange)="fat.set($event)"
+          />
           <span matTextSuffix>g</span>
         </mat-form-field>
       </div>
     </mat-dialog-content>
     <mat-dialog-actions class="sp-actions" align="end">
       <button mat-stroked-button type="button" (click)="cancel()">Cancel</button>
-      <button mat-flat-button type="button" color="primary" [disabled]="!canSave()" (click)="save()">Add</button>
+      <button
+        mat-flat-button
+        type="button"
+        color="primary"
+        [disabled]="!canSave()"
+        (click)="save()"
+      >
+        Add
+      </button>
     </mat-dialog-actions>
   `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: `
-    .sp-title { font-family: var(--tech-font-ui); font-weight: 700; color: var(--tech-text); }
-    .sp-body { min-width: min(380px, 84vw); padding-top: 4px !important;
-      display: flex; flex-direction: column; gap: var(--tech-space-2); }
-    .sp-field { width: 100%; }
-    .sp-actions { padding: var(--tech-space-3) var(--tech-space-4); gap: 8px;
-      button { border-radius: var(--tech-r-control); font-weight: 600; min-height: 44px; } }
+    .sp-title {
+      font-family: var(--tech-font-ui);
+      font-weight: 700;
+      color: var(--tech-text);
+    }
+    .sp-body {
+      min-width: min(380px, 84vw);
+      padding-top: 4px !important;
+      display: flex;
+      flex-direction: column;
+      gap: var(--tech-space-2);
+    }
+    .sp-field {
+      width: 100%;
+    }
+    .sp-actions {
+      padding: var(--tech-space-3) var(--tech-space-4);
+      gap: 8px;
+      button {
+        border-radius: var(--tech-r-control);
+        font-weight: 600;
+        min-height: 44px;
+      }
+    }
 
     .sp-ai-btn {
-      align-self: flex-start; min-height: 44px; border-radius: var(--tech-r-control); font-weight: 600;
-      display: inline-flex; align-items: center; gap: 6px;
-      mat-icon { color: var(--tech-accent); font-size: 18px; width: 18px; height: 18px; }
-      mat-progress-spinner { display: inline-block; }
-      .sp-ai-btn-label { display: inline-flex; align-items: center; gap: 6px; }
+      align-self: flex-start;
+      min-height: 44px;
+      border-radius: var(--tech-r-control);
+      font-weight: 600;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      mat-icon {
+        color: var(--tech-accent);
+        font-size: 18px;
+        width: 18px;
+        height: 18px;
+      }
+      mat-progress-spinner {
+        display: inline-block;
+      }
+      .sp-ai-btn-label {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+      }
     }
     .sp-ai-chip {
-      display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin: 0;
-      font-size: var(--tech-fs-label); color: var(--tech-text-secondary);
-      mat-icon { color: var(--tech-accent); font-size: 16px; width: 16px; height: 16px; }
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin: 0;
+      font-size: var(--tech-fs-label);
+      color: var(--tech-text-secondary);
+      mat-icon {
+        color: var(--tech-accent);
+        font-size: 16px;
+        width: 16px;
+        height: 16px;
+      }
     }
-    .sp-ai-note { color: var(--tech-text-tertiary); }
-    .sp-macro-hint { margin: 0; color: var(--tech-text-secondary); }
+    .sp-ai-note {
+      color: var(--tech-text-tertiary);
+    }
+    .sp-macro-hint {
+      margin: 0;
+      color: var(--tech-text-secondary);
+    }
 
-    .sp-macros { display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--tech-space-2); }
-    .sp-macro { width: 100%; }
+    .sp-macros {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: var(--tech-space-2);
+    }
+    .sp-macro {
+      width: 100%;
+    }
 
     .sp-sr-status {
-      position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; border: 0;
-      overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap;
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      margin: -1px;
+      padding: 0;
+      border: 0;
+      overflow: hidden;
+      clip: rect(0 0 0 0);
+      white-space: nowrap;
     }
   `,
 })
@@ -216,10 +351,12 @@ export class AddSupplementDialog {
     this.aiAnnounce.set('Estimating supplement macros with AI…');
     try {
       const dose = this.dose().trim();
-      const res = await firstValueFrom(this.api.estimateSupplement({
-        name: this.name().trim(),
-        dose: dose || undefined,
-      }));
+      const res = await firstValueFrom(
+        this.api.estimateSupplement({
+          name: this.name().trim(),
+          dose: dose || undefined,
+        }),
+      );
       this.kind.set(res.kind);
       this.calories.set(res.calories);
       this.protein.set(res.proteinG);
@@ -229,7 +366,9 @@ export class AddSupplementDialog {
       this.aiEstimated.set(true);
       this.aiAnnounce.set(
         `AI estimate: ${res.calories} calories, ${res.proteinG} grams protein, ` +
-        `${res.carbsG} grams carbs, ${res.fatG} grams fat.` + (res.note ? ` ${res.note}` : ''));
+          `${res.carbsG} grams carbs, ${res.fatG} grams fat.` +
+          (res.note ? ` ${res.note}` : ''),
+      );
     } catch {
       this.aiEstimated.set(false);
       this.aiNote.set(null);

@@ -1,4 +1,4 @@
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal, ChangeDetectionStrategy } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { firstValueFrom } from 'rxjs';
 
@@ -11,7 +11,12 @@ import { MatButtonToggleModule } from '@angular/material/button-toggle';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 
 import { Api } from '../../core/api';
-import { FamilyPollCreate, FamilyPollKind, FamilyPollOptionInput, PollOptionProposal } from '../../core/models';
+import {
+  FamilyPollCreate,
+  FamilyPollKind,
+  FamilyPollOptionInput,
+  PollOptionProposal,
+} from '../../core/models';
 
 /** One draft TIME slot: local "YYYY-MM-DD" date + "HH:mm" start/end. */
 interface TimeDraft {
@@ -35,10 +40,17 @@ interface TextDraft {
 @Component({
   selector: 'app-poll-create-dialog',
   imports: [
-    FormsModule, MatDialogModule, MatButtonModule, MatIconModule, MatFormFieldModule,
-    MatInputModule, MatButtonToggleModule, MatProgressSpinnerModule,
+    FormsModule,
+    MatDialogModule,
+    MatButtonModule,
+    MatIconModule,
+    MatFormFieldModule,
+    MatInputModule,
+    MatButtonToggleModule,
+    MatProgressSpinnerModule,
   ],
   templateUrl: './poll-create-dialog.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrls: ['./family.scss', './polls.scss'],
 })
 export class PollCreateDialog {
@@ -62,8 +74,8 @@ export class PollCreateDialog {
 
   /** How many valid options the current kind has (a poll needs at least two). */
   readonly validCount = computed(() => {
-    if (this.kind() === 'time') return this.timeDrafts().filter(t => this.timeOk(t)).length;
-    return this.textDrafts().filter(t => t.label.trim().length > 0).length;
+    if (this.kind() === 'time') return this.timeDrafts().filter((t) => this.timeOk(t)).length;
+    return this.textDrafts().filter((t) => t.label.trim().length > 0).length;
   });
 
   readonly canSave = computed(() => this.title().trim().length > 0 && this.validCount() >= 2);
@@ -77,22 +89,26 @@ export class PollCreateDialog {
 
   addTime(): void {
     if (this.timeDrafts().length >= 30) return;
-    this.timeDrafts.update(list => [...list, this.newTime()]);
+    this.timeDrafts.update((list) => [...list, this.newTime()]);
   }
 
   removeTime(id: number): void {
-    this.timeDrafts.update(list => list.length > 1 ? list.filter(t => t.id !== id) : list);
+    this.timeDrafts.update((list) => (list.length > 1 ? list.filter((t) => t.id !== id) : list));
   }
 
   setTime(id: number, field: 'date' | 'start' | 'end', value: string): void {
-    this.timeDrafts.update(list => list.map(t => t.id === id ? { ...t, [field]: value } : t));
+    this.timeDrafts.update((list) => list.map((t) => (t.id === id ? { ...t, [field]: value } : t)));
   }
 
   private timeOk(t: TimeDraft): boolean {
     if (!t.date || !t.start || !t.end) return false;
     const start = new Date(`${t.date}T${t.start}`);
     const end = new Date(`${t.date}T${t.end}`);
-    return !Number.isNaN(start.getTime()) && !Number.isNaN(end.getTime()) && end.getTime() > start.getTime();
+    return (
+      !Number.isNaN(start.getTime()) &&
+      !Number.isNaN(end.getTime()) &&
+      end.getTime() > start.getTime()
+    );
   }
 
   // ---- TEXT drafts ----
@@ -103,15 +119,15 @@ export class PollCreateDialog {
 
   addText(): void {
     if (this.textDrafts().length >= 30) return;
-    this.textDrafts.update(list => [...list, this.newText()]);
+    this.textDrafts.update((list) => [...list, this.newText()]);
   }
 
   removeText(id: number): void {
-    this.textDrafts.update(list => list.length > 1 ? list.filter(t => t.id !== id) : list);
+    this.textDrafts.update((list) => (list.length > 1 ? list.filter((t) => t.id !== id) : list));
   }
 
   setText(id: number, value: string): void {
-    this.textDrafts.update(list => list.map(t => t.id === id ? { ...t, label: value } : t));
+    this.textDrafts.update((list) => list.map((t) => (t.id === id ? { ...t, label: value } : t)));
   }
 
   // ---- Save ----
@@ -122,15 +138,15 @@ export class PollCreateDialog {
     let options: FamilyPollOptionInput[];
     if (kind === 'time') {
       options = this.timeDrafts()
-        .filter(t => this.timeOk(t))
-        .map(t => ({
+        .filter((t) => this.timeOk(t))
+        .map((t) => ({
           startUtc: new Date(`${t.date}T${t.start}`).toISOString(),
           endUtc: new Date(`${t.date}T${t.end}`).toISOString(),
         }));
     } else {
       options = this.textDrafts()
-        .filter(t => t.label.trim().length > 0)
-        .map(t => ({ label: t.label.trim() }));
+        .filter((t) => t.label.trim().length > 0)
+        .map((t) => ({ label: t.label.trim() }));
     }
     const payload: FamilyPollCreate = { title: this.title().trim(), kind, options };
     this.ref.close(payload);
@@ -154,7 +170,9 @@ export class PollCreateDialog {
       const result = await firstValueFrom(this.api.pollOptionsAi(prompt, this.kind()));
       const proposals = result.options ?? [];
       if (proposals.length === 0) {
-        this.aiStatus.set("I couldn't come up with options for that. Try rephrasing, or add them by hand.");
+        this.aiStatus.set(
+          "I couldn't come up with options for that. Try rephrasing, or add them by hand.",
+        );
         return;
       }
       // The response kind wins — align the dialog so the filled rows render in the right shape.
@@ -165,15 +183,20 @@ export class PollCreateDialog {
       // If the title is still blank, seed it from the prompt so Create is one step closer.
       if (this.title().trim().length === 0) this.title.set(prompt.slice(0, 200));
 
-      const n = result.kind === 'time'
-        ? this.timeDrafts().length
-        : this.textDrafts().length;
-      this.aiStatus.set(`Filled ${n} ${n === 1 ? 'option' : 'options'} below — tweak anything, then Create poll.`);
+      const n = result.kind === 'time' ? this.timeDrafts().length : this.textDrafts().length;
+      this.aiStatus.set(
+        `Filled ${n} ${n === 1 ? 'option' : 'options'} below — tweak anything, then Create poll.`,
+      );
     } catch (e) {
       const status = (e as { status?: number })?.status;
-      this.aiStatus.set(status === 503
-        ? "AI suggestions aren't available right now. You can add the options manually."
-        : this.messageOf(e, "I couldn't reach the AI just now. Please try again, or add options manually."));
+      this.aiStatus.set(
+        status === 503
+          ? "AI suggestions aren't available right now. You can add the options manually."
+          : this.messageOf(
+              e,
+              "I couldn't reach the AI just now. Please try again, or add options manually.",
+            ),
+      );
     } finally {
       this.aiBusy.set(false);
     }
@@ -182,9 +205,9 @@ export class PollCreateDialog {
   /** Replace the TIME draft rows from AI time proposals (local date + HH:mm), keeping at least two rows. */
   private fillTimeDrafts(proposals: PollOptionProposal[]): void {
     const drafts = proposals
-      .filter(p => p.startUtc)
+      .filter((p) => p.startUtc)
       .slice(0, 30)
-      .map(p => this.timeDraftFromUtc(p.startUtc!, p.endUtc));
+      .map((p) => this.timeDraftFromUtc(p.startUtc!, p.endUtc));
     while (drafts.length < 2) drafts.push(this.newTime());
     this.timeDrafts.set(drafts);
   }
@@ -192,10 +215,10 @@ export class PollCreateDialog {
   /** Replace the TEXT draft rows from AI label proposals, keeping at least two rows. */
   private fillTextDrafts(proposals: PollOptionProposal[]): void {
     const drafts = proposals
-      .map(p => (p.label ?? '').trim())
-      .filter(label => label.length > 0)
+      .map((p) => (p.label ?? '').trim())
+      .filter((label) => label.length > 0)
       .slice(0, 30)
-      .map(label => ({ id: ++this.seq, label: label.slice(0, 200) }));
+      .map((label) => ({ id: ++this.seq, label: label.slice(0, 200) }));
     while (drafts.length < 2) drafts.push(this.newText());
     this.textDrafts.set(drafts);
   }
@@ -205,10 +228,17 @@ export class PollCreateDialog {
     const start = new Date(startUtc);
     const end = endUtc ? new Date(endUtc) : new Date(start.getTime() + 60 * 60 * 1000);
     const valid = !Number.isNaN(start.getTime());
-    const e = !Number.isNaN(end.getTime()) && end.getTime() > start.getTime()
-      ? end : new Date(start.getTime() + 60 * 60 * 1000);
+    const e =
+      !Number.isNaN(end.getTime()) && end.getTime() > start.getTime()
+        ? end
+        : new Date(start.getTime() + 60 * 60 * 1000);
     return valid
-      ? { id: ++this.seq, date: this.localDate(start), start: this.localTime(start), end: this.localTime(e) }
+      ? {
+          id: ++this.seq,
+          date: this.localDate(start),
+          start: this.localTime(start),
+          end: this.localTime(e),
+        }
       : this.newTime();
   }
 

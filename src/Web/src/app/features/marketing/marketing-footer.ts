@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { Component, ChangeDetectionStrategy } from '@angular/core';
 import { RouterLink } from '@angular/router';
 
 /** Shared public footer for the marketing pages. */
@@ -6,6 +6,7 @@ import { RouterLink } from '@angular/router';
   selector: 'app-marketing-footer',
   imports: [RouterLink],
   templateUrl: './marketing-footer.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrl: './marketing-footer.scss',
 })
 export class MarketingFooter {

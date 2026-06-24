@@ -1,4 +1,12 @@
-import { Component, DestroyRef, OnDestroy, computed, inject, signal } from '@angular/core';
+import {
+  Component,
+  DestroyRef,
+  OnDestroy,
+  computed,
+  inject,
+  signal,
+  ChangeDetectionStrategy,
+} from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { catchError, of } from 'rxjs';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
@@ -11,7 +19,12 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { Api } from '../../core/api';
 import { AuthService } from '../../core/auth';
 import {
-  FamilyBriefing, FamilyToday, FamilyTodayEvent, Household, HouseholdMember, PERM,
+  FamilyBriefing,
+  FamilyToday,
+  FamilyTodayEvent,
+  Household,
+  HouseholdMember,
+  PERM,
 } from '../../core/models';
 import { FamilyTimerWidget } from './timer';
 import { FamilyAssistantPanel } from './family-assistant-panel';
@@ -34,19 +47,101 @@ interface FeatureTile {
  * additionally gated on family.finance.
  */
 const TILES: FeatureTile[] = [
-  { key: 'notes', label: 'Notes', icon: 'sticky_note_2', blurb: 'Shared notes for the whole family', route: '/family/notes' },
-  { key: 'lists', label: 'Lists', icon: 'checklist', blurb: 'To-dos and wish lists (groceries live in the Grocery tool)', route: '/family/lists' },
-  { key: 'reminders', label: 'Reminders', icon: 'notifications_active', blurb: 'Nudges so nothing slips', route: '/family/reminders' },
-  { key: 'timer', label: 'Timer', icon: 'timer', blurb: 'Shared timers and countdowns', route: '/family/timer' },
-  { key: 'meals', label: 'Meal Planner', icon: 'restaurant', blurb: 'Plan the week around the table', route: '/family/meals' },
-  { key: 'chores', label: 'Chores', icon: 'cleaning_services', blurb: 'Share the load, fairly', route: '/family/chores' },
-  { key: 'allowance', label: 'Allowance', icon: 'savings', blurb: "Track each child's earned credits", route: '/family/allowance', perm: PERM.allowanceManage },
-  { key: 'finance', label: 'Finance', icon: 'account_balance_wallet', blurb: 'Budgets, bills, and balances', route: '/family/finance', perm: PERM.familyFinance },
-  { key: 'calendar', label: 'Calendar', icon: 'calendar_month', blurb: 'The family calendar in one place', route: '/family/calendar' },
-  { key: 'polls', label: 'Polls', icon: 'how_to_vote', blurb: 'Pick a time or settle a plan together', route: '/family/polls' },
-  { key: 'locations', label: "Where's everyone", icon: 'person_pin_circle', blurb: 'See where the family is on a map', route: '/family/locations' },
-  { key: 'cycle', label: 'Cycle', icon: 'spa', blurb: 'Your private cycle calendar', route: '/family/cycle', perm: PERM.cycleTrack },
-  { key: 'identity', label: 'Identity Map', icon: 'donut_large', blurb: 'See where your time really goes', route: '/family/identity', perm: PERM.identityMap },
+  {
+    key: 'notes',
+    label: 'Notes',
+    icon: 'sticky_note_2',
+    blurb: 'Shared notes for the whole family',
+    route: '/family/notes',
+  },
+  {
+    key: 'lists',
+    label: 'Lists',
+    icon: 'checklist',
+    blurb: 'To-dos and wish lists (groceries live in the Grocery tool)',
+    route: '/family/lists',
+  },
+  {
+    key: 'reminders',
+    label: 'Reminders',
+    icon: 'notifications_active',
+    blurb: 'Nudges so nothing slips',
+    route: '/family/reminders',
+  },
+  {
+    key: 'timer',
+    label: 'Timer',
+    icon: 'timer',
+    blurb: 'Shared timers and countdowns',
+    route: '/family/timer',
+  },
+  {
+    key: 'meals',
+    label: 'Meal Planner',
+    icon: 'restaurant',
+    blurb: 'Plan the week around the table',
+    route: '/family/meals',
+  },
+  {
+    key: 'chores',
+    label: 'Chores',
+    icon: 'cleaning_services',
+    blurb: 'Share the load, fairly',
+    route: '/family/chores',
+  },
+  {
+    key: 'allowance',
+    label: 'Allowance',
+    icon: 'savings',
+    blurb: "Track each child's earned credits",
+    route: '/family/allowance',
+    perm: PERM.allowanceManage,
+  },
+  {
+    key: 'finance',
+    label: 'Finance',
+    icon: 'account_balance_wallet',
+    blurb: 'Budgets, bills, and balances',
+    route: '/family/finance',
+    perm: PERM.familyFinance,
+  },
+  {
+    key: 'calendar',
+    label: 'Calendar',
+    icon: 'calendar_month',
+    blurb: 'The family calendar in one place',
+    route: '/family/calendar',
+  },
+  {
+    key: 'polls',
+    label: 'Polls',
+    icon: 'how_to_vote',
+    blurb: 'Pick a time or settle a plan together',
+    route: '/family/polls',
+  },
+  {
+    key: 'locations',
+    label: "Where's everyone",
+    icon: 'person_pin_circle',
+    blurb: 'See where the family is on a map',
+    route: '/family/locations',
+  },
+  {
+    key: 'cycle',
+    label: 'Cycle',
+    icon: 'spa',
+    blurb: 'Your private cycle calendar',
+    route: '/family/cycle',
+    perm: PERM.cycleTrack,
+  },
+  {
+    key: 'identity',
+    label: 'Identity Map',
+    icon: 'donut_large',
+    blurb: 'See where your time really goes',
+    route: '/family/identity',
+    perm: PERM.identityMap,
+  },
 ];
 
 /**
@@ -60,10 +155,16 @@ const TILES: FeatureTile[] = [
 @Component({
   selector: 'app-family-home',
   imports: [
-    RouterLink, MatIconModule, MatButtonModule, MatTooltipModule, MatProgressSpinnerModule,
-    FamilyTimerWidget, FamilyAssistantPanel,
+    RouterLink,
+    MatIconModule,
+    MatButtonModule,
+    MatTooltipModule,
+    MatProgressSpinnerModule,
+    FamilyTimerWidget,
+    FamilyAssistantPanel,
   ],
   templateUrl: './family-home.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrl: './family.scss',
 })
 export class FamilyHome implements OnDestroy {
@@ -91,7 +192,9 @@ export class FamilyHome implements OnDestroy {
    */
   readonly isChild = computed<boolean>(() => {
     this.auth.permissions(); // re-run on permission changes
-    return this.auth.hasPermission(PERM.choreClaim) && !this.auth.hasPermission(PERM.allowanceManage);
+    return (
+      this.auth.hasPermission(PERM.choreClaim) && !this.auth.hasPermission(PERM.allowanceManage)
+    );
   });
 
   /**
@@ -100,8 +203,8 @@ export class FamilyHome implements OnDestroy {
    */
   readonly tiles = computed<FeatureTile[]>(() => {
     this.auth.permissions(); // re-run on permission changes
-    const visible = TILES.filter(t => !t.perm || this.auth.hasPermission(t.perm));
-    return this.isChild() ? visible.filter(t => t.key === 'chores') : visible;
+    const visible = TILES.filter((t) => !t.perm || this.auth.hasPermission(t.perm));
+    return this.isChild() ? visible.filter((t) => t.key === 'chores') : visible;
   });
 
   /** The household's members in server order (owner first), or empty until loaded. */
@@ -116,11 +219,11 @@ export class FamilyHome implements OnDestroy {
     if (!evs.length) return null;
     const now = Date.now();
     const upcoming = evs
-      .filter(e => !e.allDay && e.startUtc && Date.parse(e.startUtc) >= now)
+      .filter((e) => !e.allDay && e.startUtc && Date.parse(e.startUtc) >= now)
       .sort((a, b) => (a.startUtc ?? '').localeCompare(b.startUtc ?? ''));
     if (upcoming.length) return upcoming[0];
     // No more timed events ahead — surface an all-day event (or the last item) so the card still feels live.
-    return evs.find(e => e.allDay) ?? null;
+    return evs.find((e) => e.allDay) ?? null;
   });
 
   /** The local date, parsed from the snapshot's ISO date for a friendly "Thursday, June 20" rendering. */
@@ -140,14 +243,30 @@ export class FamilyHome implements OnDestroy {
   };
 
   constructor() {
-    this.api.getHousehold()
-      .pipe(catchError(() => { this.error.set(true); return of(null); }), takeUntilDestroyed())
-      .subscribe(h => { if (h) this.household.set(h); this.loading.set(false); });
+    this.api
+      .getHousehold()
+      .pipe(
+        catchError(() => {
+          this.error.set(true);
+          return of(null);
+        }),
+        takeUntilDestroyed(),
+      )
+      .subscribe((h) => {
+        if (h) this.household.set(h);
+        this.loading.set(false);
+      });
 
     // The Today snapshot is best-effort: a failure leaves the dashboard cards empty but the home still works.
-    this.api.familyToday()
-      .pipe(catchError(() => of<FamilyToday | null>(null)), takeUntilDestroyed())
-      .subscribe(t => { if (t) this.today.set(t); });
+    this.api
+      .familyToday()
+      .pipe(
+        catchError(() => of<FamilyToday | null>(null)),
+        takeUntilDestroyed(),
+      )
+      .subscribe((t) => {
+        if (t) this.today.set(t);
+      });
 
     this.loadBriefing();
     document.addEventListener('visibilitychange', this.onVisibility);
@@ -164,9 +283,13 @@ export class FamilyHome implements OnDestroy {
    */
   private loadBriefing(): void {
     this.briefingDay = this.localDay();
-    this.api.familyBriefing()
-      .pipe(catchError(() => of<FamilyBriefing | null>(null)), takeUntilDestroyed(this.destroyRef))
-      .subscribe(b => this.briefing.set(b));
+    this.api
+      .familyBriefing()
+      .pipe(
+        catchError(() => of<FamilyBriefing | null>(null)),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe((b) => this.briefing.set(b));
   }
 
   /** Today's local "YYYY-MM-DD" (browser zone) used to detect a day rollover for the briefing refresh. */
@@ -178,7 +301,7 @@ export class FamilyHome implements OnDestroy {
 
   /** Reveal / hide the structured Today cards below the narrative (the additive "show plain list" toggle). */
   togglePlainList(): void {
-    this.showPlainList.update(v => !v);
+    this.showPlainList.update((v) => !v);
   }
 
   /** Two-letter initials for the avatar fallback (from the display name; never an email). */

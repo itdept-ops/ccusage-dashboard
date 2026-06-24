@@ -1,5 +1,14 @@
 import {
-  AfterViewInit, Component, ElementRef, OnInit, computed, input, output, signal, viewChild,
+  AfterViewInit,
+  Component,
+  ElementRef,
+  OnInit,
+  computed,
+  input,
+  output,
+  signal,
+  viewChild,
+  ChangeDetectionStrategy,
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 
@@ -11,9 +20,7 @@ import { MatButtonToggleModule } from '@angular/material/button-toggle';
 import { MatIconModule } from '@angular/material/icon';
 
 import { ActivityLevel, Sex, TrackerGoal, TrackerProfileDto, UnitSystem } from '../../core/models';
-import {
-  StatsInputs, ageFrom, cmToFtIn, computeStats, ftInToCm, kgToLb, lbToKg,
-} from './units';
+import { StatsInputs, ageFrom, cmToFtIn, computeStats, ftInToCm, kgToLb, lbToKg } from './units';
 
 /** Emitted when the user completes the baseline. Metric profile + the entered current weight (kg). */
 export interface OnboardingResult {
@@ -54,10 +61,16 @@ const ACTIVITY_LEVELS: { value: ActivityLevel; label: string }[] = [
 @Component({
   selector: 'app-tracker-onboarding',
   imports: [
-    FormsModule, MatFormFieldModule, MatInputModule, MatSelectModule,
-    MatButtonModule, MatButtonToggleModule, MatIconModule,
+    FormsModule,
+    MatFormFieldModule,
+    MatInputModule,
+    MatSelectModule,
+    MatButtonModule,
+    MatButtonToggleModule,
+    MatIconModule,
   ],
   templateUrl: './onboarding-card.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrl: './onboarding-card.scss',
 })
 export class OnboardingCard implements OnInit, AfterViewInit {
@@ -158,19 +171,25 @@ export class OnboardingCard implements OnInit, AfterViewInit {
     if (cm != null) {
       if (toImperial) {
         const { ft, in: inches } = cmToFtIn(cm);
-        this.heightFt.set(ft); this.heightIn.set(inches);
+        this.heightFt.set(ft);
+        this.heightIn.set(inches);
       } else {
         this.heightCm.set(Math.round(cm));
       }
     }
-    this.weightDisp.set(toImperial ? (wKg != null ? Math.round(kgToLb(wKg) * 10) / 10 : null) : wKg);
-    this.goalWeightDisp.set(toImperial ? (gKg != null ? Math.round(kgToLb(gKg) * 10) / 10 : null) : gKg);
+    this.weightDisp.set(
+      toImperial ? (wKg != null ? Math.round(kgToLb(wKg) * 10) / 10 : null) : wKg,
+    );
+    this.goalWeightDisp.set(
+      toImperial ? (gKg != null ? Math.round(kgToLb(gKg) * 10) / 10 : null) : gKg,
+    );
   }
 
   /** The current height in cm from whichever unit fields are active. */
   private currentHeightCm(): number | null {
     if (this.imperial()) {
-      const ft = this.heightFt(), inches = this.heightIn();
+      const ft = this.heightFt(),
+        inches = this.heightIn();
       if ((ft == null || ft <= 0) && (inches == null || inches <= 0)) return null;
       return ftInToCm(ft ?? 0, inches ?? 0);
     }
@@ -208,11 +227,12 @@ export class OnboardingCard implements OnInit, AfterViewInit {
   }
 
   /** The blocking baseline is complete: current weight, height, DOB, and an explicit sex. */
-  readonly canSave = computed(() =>
-    this.currentWeightKg(this.weightDisp()) != null
-    && this.currentHeightCm() != null
-    && !!this.dateOfBirth()
-    && this.sex() != null,
+  readonly canSave = computed(
+    () =>
+      this.currentWeightKg(this.weightDisp()) != null &&
+      this.currentHeightCm() != null &&
+      !!this.dateOfBirth() &&
+      this.sex() != null,
   );
 
   private num(v: number | null): number | undefined {

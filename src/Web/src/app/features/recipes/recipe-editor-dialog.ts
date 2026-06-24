@@ -1,4 +1,4 @@
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal, ChangeDetectionStrategy } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { firstValueFrom } from 'rxjs';
 
@@ -37,10 +37,18 @@ interface IngredientRow {
 @Component({
   selector: 'app-recipe-editor-dialog',
   imports: [
-    FormsModule, MatDialogModule, MatFormFieldModule, MatInputModule, MatButtonModule,
-    MatIconModule, MatSlideToggleModule, MatProgressSpinnerModule, MatTooltipModule,
+    FormsModule,
+    MatDialogModule,
+    MatFormFieldModule,
+    MatInputModule,
+    MatButtonModule,
+    MatIconModule,
+    MatSlideToggleModule,
+    MatProgressSpinnerModule,
+    MatTooltipModule,
   ],
   templateUrl: './recipe-editor-dialog.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrl: './recipe-editor-dialog.scss',
 })
 export class RecipeEditorDialog {
@@ -62,7 +70,11 @@ export class RecipeEditorDialog {
 
   private keySeq = 0;
   readonly rows = signal<IngredientRow[]>(
-    (this.data.recipe?.ingredients ?? []).map(i => ({ key: this.keySeq++, name: i.name, quantity: i.quantity })),
+    (this.data.recipe?.ingredients ?? []).map((i) => ({
+      key: this.keySeq++,
+      name: i.name,
+      quantity: i.quantity,
+    })),
   );
 
   /** Steps as a single textarea (one step per line) — simplest editable form; re-split on save. */
@@ -75,30 +87,30 @@ export class RecipeEditorDialog {
   // ---- ingredient rows ----
 
   addRow(): void {
-    this.rows.update(rs => [...rs, { key: this.keySeq++, name: '', quantity: '' }]);
+    this.rows.update((rs) => [...rs, { key: this.keySeq++, name: '', quantity: '' }]);
   }
 
   setRowName(key: number, name: string): void {
-    this.rows.update(rs => rs.map(r => (r.key === key ? { ...r, name } : r)));
+    this.rows.update((rs) => rs.map((r) => (r.key === key ? { ...r, name } : r)));
   }
 
   setRowQty(key: number, quantity: string): void {
-    this.rows.update(rs => rs.map(r => (r.key === key ? { ...r, quantity } : r)));
+    this.rows.update((rs) => rs.map((r) => (r.key === key ? { ...r, quantity } : r)));
   }
 
   removeRow(key: number): void {
-    this.rows.update(rs => rs.filter(r => r.key !== key));
+    this.rows.update((rs) => rs.filter((r) => r.key !== key));
   }
 
   // ---- save ----
 
   private buildRequest(): RecipeUpsertRequest {
     const ingredients = this.rows()
-      .map(r => ({ name: r.name.trim(), quantity: r.quantity.trim() }))
-      .filter(i => i.name.length > 0);
+      .map((r) => ({ name: r.name.trim(), quantity: r.quantity.trim() }))
+      .filter((i) => i.name.length > 0);
     const steps = this.stepsText()
       .split('\n')
-      .map(s => s.trim())
+      .map((s) => s.trim())
       .filter(Boolean);
     return {
       title: this.title().trim(),
@@ -116,7 +128,8 @@ export class RecipeEditorDialog {
 
   async save(): Promise<void> {
     if (!this.canSave()) {
-      if (!this.title().trim()) this.snack.open('Give the recipe a title first.', 'OK', { duration: 4000 });
+      if (!this.title().trim())
+        this.snack.open('Give the recipe a title first.', 'OK', { duration: 4000 });
       return;
     }
     this.saving.set(true);
