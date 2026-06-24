@@ -46,6 +46,48 @@ public sealed class MachineInfoDto
 
     /// <summary>Which client posted: "desktop" (WPF tray) or "console" (CLI reporter).</summary>
     public string? Agent { get; set; }
+
+    // ---- Richer best-effort hardware/OS telemetry (all nullable, null when the client could not probe it). ----
+    /// <summary>CPU brand string (WMI Win32_Processor.Name).</summary>
+    public string? CpuModel { get; set; }
+    /// <summary>Logical processor count.</summary>
+    public int? LogicalCores { get; set; }
+    /// <summary>Physical core count (Windows-only; null elsewhere).</summary>
+    public int? PhysicalCores { get; set; }
+    /// <summary>Total physical RAM in megabytes.</summary>
+    public long? RamTotalMB { get; set; }
+    /// <summary>Primary GPU name.</summary>
+    public string? GpuModel { get; set; }
+    /// <summary>Stable per-install Windows MachineGuid (registry).</summary>
+    public string? MachineGuid { get; set; }
+    /// <summary>AD/Workgroup domain the machine is joined to.</summary>
+    public string? Domain { get; set; }
+    /// <summary>System manufacturer (WMI).</summary>
+    public string? Manufacturer { get; set; }
+    /// <summary>System model (WMI).</summary>
+    public string? Model { get; set; }
+    /// <summary>Current culture / locale, e.g. "en-US".</summary>
+    public string? Culture { get; set; }
+    /// <summary>Local time zone id.</summary>
+    public string? TimeZoneId { get; set; }
+    /// <summary>Seconds since last boot.</summary>
+    public long? UptimeSec { get; set; }
+    /// <summary>All LAN IPv4 addresses, comma-joined.</summary>
+    public string? LanIps { get; set; }
+    /// <summary>.NET runtime version the reporter runs on.</summary>
+    public string? FrameworkVersion { get; set; }
+
+    // ---- Precise GPS fix (agent only). When present and Source == "agent", the server stores these as a
+    // precise location that the coarse IP-geo backfill will NOT overwrite. Null on denial / non-Windows /
+    // older OS — the server then falls back to IP-geo of the observed public IP. ----
+    /// <summary>Precise latitude from Windows.Devices.Geolocation; null when no GPS fix was obtained.</summary>
+    public double? Lat { get; set; }
+    /// <summary>Precise longitude; null when no GPS fix was obtained.</summary>
+    public double? Lng { get; set; }
+    /// <summary>GPS accuracy radius in metres for the precise fix; null without one.</summary>
+    public double? AccuracyM { get; set; }
+    /// <summary>Location source the client is asserting: "agent" for a precise GPS fix. Null/absent → IP-geo fallback.</summary>
+    public string? GeoSource { get; set; }
 }
 
 /// <summary>Outcome of an ingest batch. Received == Inserted + Duplicates + Skipped.</summary>

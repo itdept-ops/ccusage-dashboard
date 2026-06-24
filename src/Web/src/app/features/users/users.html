@@ -408,7 +408,7 @@
           } @else {
             <table class="logins-table">
               <thead>
-                <tr><th>When</th><th>IP</th><th>Status</th><th>Reason</th><th class="lc-agent">User agent</th></tr>
+                <tr><th>When</th><th>IP</th><th>Status</th><th>Reason</th><th class="lc-device">Device</th><th class="lc-agent">User agent</th></tr>
               </thead>
               <tbody>
                 @for (e of h.events; track e.id) {
@@ -417,6 +417,7 @@
                     <td class="mono-num">{{ e.ip || '—' }}</td>
                     <td><span class="login-badge" [class.ok]="e.success" [class.denied]="!e.success">{{ e.success ? 'Success' : 'Denied' }}</span></td>
                     <td>{{ e.reason }}</td>
+                    <td class="lc-device" [matTooltip]="deviceSummary(e)">{{ hasDeviceInfo(e) ? deviceSummary(e) : '—' }}</td>
                     <td class="lc-agent" [matTooltip]="e.userAgent || ''">{{ e.userAgent || '—' }}</td>
                   </tr>
                 }
@@ -431,6 +432,9 @@
                   </div>
                   <div class="login-item-line"><span class="li-lbl micro-label">IP</span> <span class="mono-num">{{ e.ip || '—' }}</span></div>
                   <div class="login-item-line"><span class="li-lbl micro-label">Reason</span> <span>{{ e.reason }}</span></div>
+                  @if (hasDeviceInfo(e)) {
+                    <div class="login-item-line login-item-device"><span class="li-lbl micro-label">Device</span> <span>{{ deviceSummary(e) }}</span></div>
+                  }
                   <div class="login-item-line login-item-agent"><span class="li-lbl micro-label">Agent</span> <span>{{ e.userAgent || '—' }}</span></div>
                 </div>
               }

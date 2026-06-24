@@ -55,6 +55,8 @@ public sealed class MachineGeoBackfillService(
         var staleBefore = now - StaleAfter;
         var candidates = await db.MachineInfos
             .Where(m => m.PublicIp != null && m.PublicIp != ""
+                        // Never downgrade a precise agent GPS fix to a coarse IP estimate.
+                        && m.GeoSource != "agent"
                         && (m.GeoUpdatedUtc == null || m.GeoUpdatedUtc < staleBefore))
             .OrderBy(m => m.GeoUpdatedUtc) // nulls first, then oldest
             .Take(BatchSize)
@@ -73,6 +75,8 @@ public sealed class MachineGeoBackfillService(
                 m.Country = geo.Country;
                 m.Lat = geo.Lat;
                 m.Lng = geo.Lng;
+                m.AccuracyM = null;      // a coarse IP estimate has no GPS accuracy radius
+                m.GeoSource = "ip-api";  // distinguish from a precise "agent" fix in the Fleet UI
             }
             m.GeoUpdatedUtc = now;
             updated++;

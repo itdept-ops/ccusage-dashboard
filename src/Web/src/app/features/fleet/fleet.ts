@@ -171,6 +171,53 @@ export class Fleet {
     return agent!.charAt(0).toUpperCase() + agent!.slice(1);
   }
 
+  /** Human RAM size from megabytes (e.g. 16384 → "16 GB"); null/0 → "". */
+  ramLabel(mb: number | null): string {
+    if (mb == null || mb <= 0) return '';
+    const gb = mb / 1024;
+    // Whole GB when it divides cleanly, else one decimal (e.g. 7.7 GB).
+    return Number.isInteger(gb) ? `${gb} GB` : `${gb.toFixed(1)} GB`;
+  }
+
+  /** Human uptime from seconds (e.g. "3d 4h", "5h 12m", "8m"); null/0 → "". */
+  uptimeLabel(sec: number | null): string {
+    if (sec == null || sec <= 0) return '';
+    const d = Math.floor(sec / 86400);
+    const h = Math.floor((sec % 86400) / 3600);
+    const m = Math.floor((sec % 3600) / 60);
+    if (d > 0) return `${d}d ${h}h`;
+    if (h > 0) return `${h}h ${m}m`;
+    return `${m}m`;
+  }
+
+  /** "Manufacturer Model" label (drops blanks); "" when neither is reported. */
+  systemLabel(m: FleetMachine): string {
+    return [m.manufacturer, m.model].filter(p => !!p && p!.trim().length).join(' ');
+  }
+
+  /** A "City, Region, Country" label from the machine's resolved place (drops blanks); "" when none. */
+  locationLabel(m: FleetMachine): string {
+    return [m.city, m.region, m.country].filter(p => !!p && p!.trim().length).join(', ');
+  }
+
+  /** True when the machine has finite coordinates to plot/link. */
+  hasCoords(m: FleetMachine): boolean {
+    return m.lat != null && m.lng != null && Number.isFinite(m.lat) && Number.isFinite(m.lng);
+  }
+
+  /** An OpenStreetMap link for the machine's coordinates (precise agent fix or coarse IP-geo). */
+  mapUrl(m: FleetMachine): string {
+    return `https://www.openstreetmap.org/?mlat=${m.lat}&mlon=${m.lng}#map=14/${m.lat}/${m.lng}`;
+  }
+
+  /** Display label for the geo source badge: "GPS" for a precise agent fix, "IP" for coarse, else "". */
+  geoSourceLabel(source: string | null): string {
+    const s = (source ?? '').trim().toLowerCase();
+    if (s === 'agent') return 'GPS';
+    if (s === 'ip-api') return 'IP';
+    return '';
+  }
+
   // ---- management (reporter.manage) ----
 
   /**

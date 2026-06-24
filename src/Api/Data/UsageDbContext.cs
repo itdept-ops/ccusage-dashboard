@@ -227,6 +227,9 @@ public class UsageDbContext(DbContextOptions<UsageDbContext> options) : DbContex
             e.Property(x => x.Reason).HasMaxLength(64);
             e.Property(x => x.Name).HasMaxLength(256);
             e.Property(x => x.UserAgent).HasMaxLength(256);
+            e.Property(x => x.Platform).HasMaxLength(64);
+            e.Property(x => x.Languages).HasMaxLength(128);
+            e.Property(x => x.TimeZone).HasMaxLength(64);
             // The per-user history filters by Email and reads newest-first; a composite index with
             // (Email asc, WhenUtc desc) serves that exact query directly, and its Email prefix also
             // covers plain lookups by email, so a separate single-column Email index is redundant.
@@ -361,10 +364,22 @@ public class UsageDbContext(DbContextOptions<UsageDbContext> options) : DbContex
             e.Property(x => x.ReporterVersion).HasMaxLength(64);
             e.Property(x => x.FirstSeenUtc).HasColumnType("timestamp with time zone");
             e.Property(x => x.LastSeenUtc).HasColumnType("timestamp with time zone");
-            // IP-geo of PublicIp (coarse): city/region/country + lat/lng, resolved best-effort & cached.
+            // Richer best-effort hardware/OS telemetry (all client-reported, nullable).
+            e.Property(x => x.CpuModel).HasMaxLength(200);
+            e.Property(x => x.GpuModel).HasMaxLength(200);
+            e.Property(x => x.MachineGuid).HasMaxLength(64);
+            e.Property(x => x.Domain).HasMaxLength(200);
+            e.Property(x => x.Manufacturer).HasMaxLength(200);
+            e.Property(x => x.Model).HasMaxLength(200);
+            e.Property(x => x.Culture).HasMaxLength(32);
+            e.Property(x => x.TimeZoneId).HasMaxLength(120);
+            e.Property(x => x.LanIps).HasMaxLength(512);
+            e.Property(x => x.FrameworkVersion).HasMaxLength(64);
+            // Location (IP-geo or precise agent GPS): city/region/country + lat/lng + source, best-effort.
             e.Property(x => x.City).HasMaxLength(120);
             e.Property(x => x.Region).HasMaxLength(120);
             e.Property(x => x.Country).HasMaxLength(120);
+            e.Property(x => x.GeoSource).HasMaxLength(16);
             e.Property(x => x.GeoUpdatedUtc).HasColumnType("timestamp with time zone");
             // One metadata row per machine name; the upsert keys on this unique index.
             e.HasIndex(x => x.Name).IsUnique();

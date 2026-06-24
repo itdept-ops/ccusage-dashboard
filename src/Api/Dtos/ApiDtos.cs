@@ -282,12 +282,32 @@ public sealed class FleetMachineDto
     /// <summary>When metadata was last reported (distinct from <see cref="LastSeenUtc"/>, the last usage row).</summary>
     public DateTime? MetadataLastSeenUtc { get; set; }
 
-    // Coarse IP-geolocation of PublicIp (a desktop's "fleet location"; resolved off-path, may be null).
+    // Richer best-effort hardware/OS telemetry (all client-reported; null when the client couldn't probe it).
+    public string? CpuModel { get; set; }
+    public int? LogicalCores { get; set; }
+    public int? PhysicalCores { get; set; }
+    public long? RamTotalMB { get; set; }
+    public string? GpuModel { get; set; }
+    public string? MachineGuid { get; set; }
+    public string? Domain { get; set; }
+    public string? Manufacturer { get; set; }
+    public string? Model { get; set; }
+    public string? Culture { get; set; }
+    public string? TimeZoneId { get; set; }
+    public long? UptimeSec { get; set; }
+    public string? LanIps { get; set; }
+    public string? FrameworkVersion { get; set; }
+
+    // Machine location. City/Region/Country + Lat/Lng are either a precise agent GPS fix or a coarse IP-geo
+    // estimate; GeoSource distinguishes them ("agent" | "ip-api" | null), AccuracyM is set only for an
+    // agent fix. Resolved off the ingest hot path for IP-geo; sent directly by the agent for a GPS fix.
     public string? City { get; set; }
     public string? Region { get; set; }
     public string? Country { get; set; }
     public double? Lat { get; set; }
     public double? Lng { get; set; }
+    public double? AccuracyM { get; set; }
+    public string? GeoSource { get; set; }
 }
 
 /// <summary>One reporting user in the fleet view: spend/volume plus the machines they reported from.
@@ -726,6 +746,39 @@ public sealed class LoginEventDto
     public string Reason { get; set; } = "";
     public string? Name { get; set; }
     public string? UserAgent { get; set; }
+
+    // ---- Best-effort web client info (null when the SPA didn't / couldn't report it). ----
+    public string? Platform { get; set; }
+    public int? ScreenWidth { get; set; }
+    public int? ScreenHeight { get; set; }
+    public double? DevicePixelRatio { get; set; }
+    public string? Languages { get; set; }
+    public string? TimeZone { get; set; }
+    public int? HardwareConcurrency { get; set; }
+    public double? DeviceMemory { get; set; }
+    public int? TouchPoints { get; set; }
+    public int? ColorDepth { get; set; }
+}
+
+/// <summary>
+/// Best-effort web client characteristics gathered client-side and POSTed to <c>/api/client-info</c> right
+/// after a successful sign-in. The server stamps them onto the caller's most-recent successful
+/// <see cref="LoginEventDto"/>. Every field is optional and is sanitized/clamped server-side; this carries
+/// NO precise location and no PII beyond device/agent characteristics. An absent field leaves the stored
+/// value unchanged.
+/// </summary>
+public sealed class ClientInfoRequest
+{
+    public string? Platform { get; set; }
+    public int? ScreenWidth { get; set; }
+    public int? ScreenHeight { get; set; }
+    public double? DevicePixelRatio { get; set; }
+    public string? Languages { get; set; }
+    public string? TimeZone { get; set; }
+    public int? HardwareConcurrency { get; set; }
+    public double? DeviceMemory { get; set; }
+    public int? TouchPoints { get; set; }
+    public int? ColorDepth { get; set; }
 }
 
 public sealed class RequestLogDto

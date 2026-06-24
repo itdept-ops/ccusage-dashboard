@@ -21,6 +21,16 @@
     <ProjectReference Include="..\Ingestion\Ccusage.Ingestion.csproj" />
   </ItemGroup>
 
+  <!--
+    System.Management gives the WMI hardware probes (CPU/RAM/GPU/manufacturer/model/domain) in
+    MachineInfo.Collect. It is a Windows-only API; all callers are guarded by OperatingSystem.IsWindows(),
+    and the package itself no-ops at runtime off Windows. Referenced unconditionally so the assembly still
+    compiles cross-platform (net9.0); Microsoft.Win32.Registry ships in the shared framework.
+  -->
+  <ItemGroup>
+    <PackageReference Include="System.Management" Version="9.0.*" />
+  </ItemGroup>
+
   <!-- Reuse the Usage IQ brand icon as a shared asset for the console + future desktop/tray app. -->
   <ItemGroup>
     <None Include="Assets\usage-iq.ico" CopyToOutputDirectory="PreserveNewest" Condition="Exists('Assets\usage-iq.ico')" />

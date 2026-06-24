@@ -8,7 +8,13 @@
   -->
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
-    <TargetFramework>net9.0-windows</TargetFramework>
+    <!--
+      Targets the Windows 10 19041 SDK (not just net9.0-windows) so the WinRT Windows.Devices.Geolocation
+      API (Geolocator) is available for the precise, consented GPS fix the agent attaches to machineInfo.
+      Falls back to coarse IP-geo when access is denied / no fix is obtained (see GpsLocator).
+    -->
+    <TargetFramework>net9.0-windows10.0.19041.0</TargetFramework>
+    <SupportedOSPlatformVersion>10.0.17763.0</SupportedOSPlatformVersion>
     <UseWPF>true</UseWPF>
     <UseWindowsForms>true</UseWindowsForms>
     <ImplicitUsings>enable</ImplicitUsings>

@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using Ccusage.Api.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -12,9 +13,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Ccusage.Api.Migrations
 {
     [DbContext(typeof(UsageDbContext))]
-    partial class UsageDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260624024839_MachineTelemetryAndGps")]
+    partial class MachineTelemetryAndGps
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -2676,22 +2679,10 @@ namespace Ccusage.Api.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
 
-                    b.Property<int?>("ColorDepth")
-                        .HasColumnType("integer");
-
-                    b.Property<double?>("DeviceMemory")
-                        .HasColumnType("double precision");
-
-                    b.Property<double?>("DevicePixelRatio")
-                        .HasColumnType("double precision");
-
                     b.Property<string>("Email")
                         .IsRequired()
                         .HasMaxLength(256)
                         .HasColumnType("character varying(256)");
-
-                    b.Property<int?>("HardwareConcurrency")
-                        .HasColumnType("integer");
 
                     b.Property<string>("Ip")
                         .IsRequired()
@@ -2700,38 +2691,17 @@ namespace Ccusage.Api.Migrations
                         .HasColumnType("character varying(64)")
                         .HasDefaultValue("");
 
-                    b.Property<string>("Languages")
-                        .HasMaxLength(128)
-                        .HasColumnType("character varying(128)");
-
                     b.Property<string>("Name")
                         .HasMaxLength(256)
                         .HasColumnType("character varying(256)");
-
-                    b.Property<string>("Platform")
-                        .HasMaxLength(64)
-                        .HasColumnType("character varying(64)");
 
                     b.Property<string>("Reason")
                         .IsRequired()
                         .HasMaxLength(64)
                         .HasColumnType("character varying(64)");
 
-                    b.Property<int?>("ScreenHeight")
-                        .HasColumnType("integer");
-
-                    b.Property<int?>("ScreenWidth")
-                        .HasColumnType("integer");
-
                     b.Property<bool>("Success")
                         .HasColumnType("boolean");
-
-                    b.Property<string>("TimeZone")
-                        .HasMaxLength(64)
-                        .HasColumnType("character varying(64)");
-
-                    b.Property<int?>("TouchPoints")
-                        .HasColumnType("integer");
 
                     b.Property<string>("UserAgent")
                         .HasMaxLength(256)

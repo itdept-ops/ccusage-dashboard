@@ -148,6 +148,11 @@ public sealed class AgentController : IDisposable
 
     private ReporterEngine BuildEngine(ReporterOptions opt)
     {
+        // Inject the desktop agent's precise-GPS provider (Windows.Devices.Geolocation, consented +
+        // graceful-null) so machineInfo carries an exact "agent" location when permitted. ReporterCore
+        // stays portable; on denial/failure the provider returns null and the server uses coarse IP-geo.
+        ReporterEngine.GpsProvider = GpsLocator.TryGetFix;
+
         var engine = new ReporterEngine(opt);
         engine.Progress += OnEngineEvent;
         return engine;

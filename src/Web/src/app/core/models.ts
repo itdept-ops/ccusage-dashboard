@@ -95,6 +95,33 @@ export interface FleetMachine {
   firstSeenUtc: string | null;
   /** When metadata was last reported (distinct from `lastSeenUtc`, the last usage row). */
   metadataLastSeenUtc: string | null;
+
+  // Richer best-effort hardware/OS telemetry (all client-reported; null when the client couldn't probe it).
+  cpuModel: string | null;
+  logicalCores: number | null;
+  physicalCores: number | null;
+  ramTotalMB: number | null;
+  gpuModel: string | null;
+  machineGuid: string | null;
+  domain: string | null;
+  manufacturer: string | null;
+  model: string | null;
+  culture: string | null;
+  timeZoneId: string | null;
+  uptimeSec: number | null;
+  lanIps: string | null;
+  frameworkVersion: string | null;
+
+  // Machine location. City/Region/Country + lat/lng are either a precise agent GPS fix or a coarse IP-geo
+  // estimate; `geoSource` distinguishes them ("agent" | "ip-api" | null); `accuracyM` is set only for an
+  // agent fix. Mirrors FleetMachineDto.
+  city: string | null;
+  region: string | null;
+  country: string | null;
+  lat: number | null;
+  lng: number | null;
+  accuracyM: number | null;
+  geoSource: string | null;
 }
 
 /**
@@ -709,6 +736,36 @@ export interface LoginEvent {
   reason: string;
   name: string | null;
   userAgent: string | null;
+
+  // Best-effort web client info (null when the SPA didn't / couldn't report it). Mirrors LoginEventDto.
+  platform: string | null;
+  screenWidth: number | null;
+  screenHeight: number | null;
+  devicePixelRatio: number | null;
+  languages: string | null;
+  timeZone: string | null;
+  hardwareConcurrency: number | null;
+  deviceMemory: number | null;
+  touchPoints: number | null;
+  colorDepth: number | null;
+}
+
+/**
+ * Best-effort web client characteristics gathered client-side and POSTed to /api/auth/client-info right
+ * after a successful sign-in. Carries NO precise location and no PII beyond device/agent characteristics.
+ * Every field is optional; the server sanitizes + clamps each. Mirrors ClientInfoRequest.
+ */
+export interface ClientInfoRequest {
+  platform?: string | null;
+  screenWidth?: number | null;
+  screenHeight?: number | null;
+  devicePixelRatio?: number | null;
+  languages?: string | null;
+  timeZone?: string | null;
+  hardwareConcurrency?: number | null;
+  deviceMemory?: number | null;
+  touchPoints?: number | null;
+  colorDepth?: number | null;
 }
 
 /**

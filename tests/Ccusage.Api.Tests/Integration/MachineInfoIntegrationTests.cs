@@ -85,6 +85,37 @@ public class MachineInfoIntegrationTests(WebAppFactory factory)
         publicIp = "203.0.113.250",
     };
 
+    /// <summary>A machineInfo carrying the full richer-telemetry payload (and optional precise GPS).</summary>
+    private static object RichMachineInfo(
+        string agent = "desktop", double? lat = null, double? lng = null,
+        double? accuracyM = null, string? geoSource = null) => new
+    {
+        localIp = "192.168.1.20",
+        os = "Microsoft Windows 11",
+        arch = "X64",
+        osUser = "alice",
+        cpuCount = 16,
+        agent,
+        cpuModel = "AMD Ryzen 9 5900X 12-Core Processor",
+        logicalCores = 24,
+        physicalCores = 12,
+        ramTotalMB = 65536L,
+        gpuModel = "NVIDIA GeForce RTX 3080",
+        machineGuid = "11111111-2222-3333-4444-555555555555",
+        domain = "WORKGROUP",
+        manufacturer = "Dell Inc.",
+        model = "XPS 15 9520",
+        culture = "en-US",
+        timeZoneId = "Pacific Standard Time",
+        uptimeSec = 123456L,
+        lanIps = "192.168.1.20,10.0.0.5",
+        frameworkVersion = ".NET 9.0.0",
+        lat,
+        lng,
+        accuracyM,
+        geoSource,
+    };
+
     [Fact]
     public async Task Ingest_with_machineInfo_upserts_a_machine_row_with_persisted_fields_and_server_public_ip()
     {
@@ -254,5 +285,120 @@ public class MachineInfoIntegrationTests(WebAppFactory factory)
         var db = scope.ServiceProvider.GetRequiredService<UsageDbContext>();
         // "unknown" is the sanitized blank-machine label for usage rows; no metadata row is created for it.
         (await db.MachineInfos.AnyAsync(m => m.Name == "unknown")).Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task Ingest_persists_richer_telemetry_and_surfaces_it_on_the_fleet_row()
+    {
+        var (_, ownerClient) = await ProvisionUser("reporter.self", "fleet.view");
+        var key = await CreateKeyAs(ownerClient, "mi-rich");
+        var machine = "mi-rich-" + Guid.NewGuid().ToString("N")[..8];
+
+        (await WithKey(key).PostAsJsonAsync("/api/ingest", new
+        {
+            source = "claude",
+            machine,
+            reporter = "reporter/3.0.0",
+            machineInfo = RichMachineInfo("desktop"),
+            rows = new[] { Row(Guid.NewGuid().ToString("N")) },
+        })).EnsureSuccessStatusCode();
+
+        // Persisted on the entity...
+        using (var scope = factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<UsageDbContext>();
+            var mi = await db.MachineInfos.AsNoTracking().SingleAsync(m => m.Name == machine);
+            mi.CpuModel.Should().Be("AMD Ryzen 9 5900X 12-Core Processor");
+            mi.LogicalCores.Should().Be(24);
+            mi.PhysicalCores.Should().Be(12);
+            mi.RamTotalMB.Should().Be(65536);
+            mi.GpuModel.Should().Be("NVIDIA GeForce RTX 3080");
+            mi.MachineGuid.Should().Be("11111111-2222-3333-4444-555555555555");
+            mi.Domain.Should().Be("WORKGROUP");
+            mi.Manufacturer.Should().Be("Dell Inc.");
+            mi.Model.Should().Be("XPS 15 9520");
+            mi.Culture.Should().Be("en-US");
+            mi.TimeZoneId.Should().Be("Pacific Standard Time");
+            mi.UptimeSec.Should().Be(123456);
+            mi.LanIps.Should().Be("192.168.1.20,10.0.0.5");
+            mi.FrameworkVersion.Should().Be(".NET 9.0.0");
+        }
+
+        // ...and surfaced on the fleet machine row.
+        var fleet = await (await ownerClient.GetAsync("/api/fleet")).Content.ReadFromJsonAsync<JsonElement>();
+        var m = fleet.GetProperty("machines").EnumerateArray()
+            .First(x => x.GetProperty("name").GetString() == machine);
+        m.GetProperty("cpuModel").GetString().Should().Be("AMD Ryzen 9 5900X 12-Core Processor");
+        m.GetProperty("physicalCores").GetInt32().Should().Be(12);
+        m.GetProperty("ramTotalMB").GetInt64().Should().Be(65536);
+        m.GetProperty("gpuModel").GetString().Should().Be("NVIDIA GeForce RTX 3080");
+        m.GetProperty("manufacturer").GetString().Should().Be("Dell Inc.");
+        m.GetProperty("lanIps").GetString().Should().Be("192.168.1.20,10.0.0.5");
+        m.GetProperty("frameworkVersion").GetString().Should().Be(".NET 9.0.0");
+    }
+
+    [Fact]
+    public async Task Precise_agent_gps_fix_is_stored_as_an_agent_source_location()
+    {
+        var (_, ownerClient) = await ProvisionUser("reporter.self", "fleet.view");
+        var key = await CreateKeyAs(ownerClient, "mi-gps");
+        var machine = "mi-gps-" + Guid.NewGuid().ToString("N")[..8];
+
+        (await WithKey(key).PostAsJsonAsync("/api/ingest", new
+        {
+            source = "claude",
+            machine,
+            machineInfo = RichMachineInfo("desktop", lat: 47.6062, lng: -122.3321, accuracyM: 12.5, geoSource: "agent"),
+            rows = new[] { Row(Guid.NewGuid().ToString("N")) },
+        })).EnsureSuccessStatusCode();
+
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<UsageDbContext>();
+        var mi = await db.MachineInfos.AsNoTracking().SingleAsync(m => m.Name == machine);
+        mi.GeoSource.Should().Be("agent");
+        mi.Lat.Should().BeApproximately(47.6062, 0.0001);
+        mi.Lng.Should().BeApproximately(-122.3321, 0.0001);
+        mi.AccuracyM.Should().BeApproximately(12.5, 0.01);
+        mi.GeoUpdatedUtc.Should().NotBeNull(); // stamped, so the IP-geo backfill won't re-resolve it
+    }
+
+    [Fact]
+    public async Task Geo_backfill_never_overwrites_a_precise_agent_fix()
+    {
+        var (_, ownerClient) = await ProvisionUser("reporter.self");
+        var key = await CreateKeyAs(ownerClient, "mi-gps-protect");
+        var machine = "mi-gps-protect-" + Guid.NewGuid().ToString("N")[..8];
+
+        (await WithKey(key).PostAsJsonAsync("/api/ingest", new
+        {
+            source = "claude",
+            machine,
+            machineInfo = RichMachineInfo("desktop", lat: 47.6062, lng: -122.3321, accuracyM: 8, geoSource: "agent"),
+            rows = new[] { Row(Guid.NewGuid().ToString("N")) },
+        })).EnsureSuccessStatusCode();
+
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<UsageDbContext>();
+
+        // Force a routable public IP onto the row and clear the geo timestamp so the backfill WOULD pick it
+        // up were it not for the agent-source guard.
+        await db.MachineInfos.Where(m => m.Name == machine).ExecuteUpdateAsync(s => s
+            .SetProperty(m => m.PublicIp, "8.8.8.8")
+            .SetProperty(m => m.GeoUpdatedUtc, (DateTime?)null));
+
+        var ipGeo = scope.ServiceProvider.GetRequiredService<Ccusage.Api.Services.IpGeoService>();
+        var backfill = new Ccusage.Api.Services.MachineGeoBackfillService(
+            scope.ServiceProvider.GetRequiredService<IServiceScopeFactory>(),
+            Microsoft.Extensions.Logging.Abstractions.NullLogger<Ccusage.Api.Services.MachineGeoBackfillService>.Instance);
+
+        // Run a deterministic pass. The agent-source row must be EXCLUDED from the candidate set entirely.
+        await backfill.RunOnceAsync(db, ipGeo, DateTime.UtcNow);
+
+        var mi = await db.MachineInfos.AsNoTracking().SingleAsync(m => m.Name == machine);
+        mi.GeoSource.Should().Be("agent");                    // unchanged
+        mi.Lat.Should().BeApproximately(47.6062, 0.0001);     // precise coords preserved
+        mi.Lng.Should().BeApproximately(-122.3321, 0.0001);
+        mi.AccuracyM.Should().BeApproximately(8, 0.01);
+        mi.GeoUpdatedUtc.Should().BeNull();                   // never touched (excluded from the candidate set)
     }
 }

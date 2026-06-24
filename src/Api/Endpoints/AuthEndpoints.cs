@@ -143,5 +143,59 @@ public static class AuthEndpoints
 
             return Results.Ok(new { homeRoute = route });
         }).RequireAuthorization();
+
+        // Self-service: stamp best-effort web client info (device/agent characteristics — NO precise
+        // location, no PII) onto the caller's MOST-RECENT successful login event. Authentication only; the
+        // caller can only ever touch their OWN login rows (matched by their JWT email). BEST-EFFORT: any
+        // failure is swallowed (a 200 is still returned) so this can never break the post-login flow. Each
+        // field is optional + sanitized/clamped; an absent field leaves the stored value unchanged.
+        auth.MapPost("/client-info", async (ClientInfoRequest req, CurrentUserAccessor accessor, UsageDbContext db, CancellationToken ct) =>
+        {
+            try
+            {
+                var caller = await accessor.GetUserAsync(ct);
+                if (caller is null || !caller.IsEnabled)
+                    return Results.Ok(new { ok = false });
+
+                // The login this client-info belongs to: the caller's newest SUCCESSFUL event (the one the
+                // current session was issued for). Bounded to the last few minutes so a late/duplicate POST
+                // never back-fills an unrelated historical row.
+                var cutoff = DateTime.UtcNow.AddMinutes(-10);
+                var ev = await db.LoginEvents
+                    .Where(e => e.Email == caller.Email && e.Success && e.WhenUtc >= cutoff)
+                    .OrderByDescending(e => e.WhenUtc).ThenByDescending(e => e.Id)
+                    .FirstOrDefaultAsync(ct);
+                if (ev is null) return Results.Ok(new { ok = false });
+
+                if (req.Platform is not null) ev.Platform = Trunc(req.Platform, 64);
+                if (req.ScreenWidth is int sw) ev.ScreenWidth = Math.Clamp(sw, 0, 100_000);
+                if (req.ScreenHeight is int sh) ev.ScreenHeight = Math.Clamp(sh, 0, 100_000);
+                if (req.DevicePixelRatio is double dpr && double.IsFinite(dpr))
+                    ev.DevicePixelRatio = Math.Clamp(dpr, 0, 100);
+                if (req.Languages is not null) ev.Languages = Trunc(req.Languages, 128);
+                if (req.TimeZone is not null) ev.TimeZone = Trunc(req.TimeZone, 64);
+                if (req.HardwareConcurrency is int hc) ev.HardwareConcurrency = Math.Clamp(hc, 0, 4096);
+                if (req.DeviceMemory is double dm && double.IsFinite(dm))
+                    ev.DeviceMemory = Math.Clamp(dm, 0, 4096);
+                if (req.TouchPoints is int tp) ev.TouchPoints = Math.Clamp(tp, 0, 256);
+                if (req.ColorDepth is int cd) ev.ColorDepth = Math.Clamp(cd, 0, 256);
+
+                await db.SaveChangesAsync(ct);
+                return Results.Ok(new { ok = true });
+            }
+            catch
+            {
+                // Client info is a best-effort nicety — never let it surface an error to the SPA.
+                return Results.Ok(new { ok = false });
+            }
+        }).RequireAuthorization();
+    }
+
+    /// <summary>Trim + collapse a client string to a max length; returns null for blank input.</summary>
+    private static string? Trunc(string? s, int max)
+    {
+        var t = (s ?? "").Trim();
+        if (t.Length == 0) return null;
+        return t.Length > max ? t[..max] : t;
     }
 }

@@ -28,6 +28,9 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Api\Ccusage.Api.csproj" />
+    <!-- The reporter's MachineInfo record is one half of the ingest machineInfo wire contract; reference it
+         so the round-trip test can pin reporter-record ↔ server-DTO field-name parity. -->
+    <ProjectReference Include="..\..\src\ReporterCore\Ccusage.Reporter.Core.csproj" />
   </ItemGroup>
 
 </Project>

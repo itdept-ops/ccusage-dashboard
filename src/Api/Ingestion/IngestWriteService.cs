@@ -251,13 +251,20 @@ public sealed class IngestWriteService(UsageDbContext db, ILogger<IngestWriteSer
         if (string.IsNullOrWhiteSpace(machine)) return;
         var name = SanitizeMachine(machine);
 
+        // A precise agent GPS fix (Source == "agent" with finite lat/lng) is stored as the machine's location
+        // and protected from the coarse IP-geo backfill. Anything else leaves the location to the backfill.
+        var hasAgentGps = string.Equals(info?.GeoSource, "agent", StringComparison.OrdinalIgnoreCase)
+            && info?.Lat is double glat && info?.Lng is double glng
+            && !double.IsNaN(glat) && !double.IsNaN(glng)
+            && glat is >= -90 and <= 90 && glng is >= -180 and <= 180;
+
         var now = DateTime.UtcNow;
         try
         {
             var existing = await db.MachineInfos.FirstOrDefaultAsync(m => m.Name == name, ct);
             if (existing is null)
             {
-                db.MachineInfos.Add(new MachineInfo
+                var row = new MachineInfo
                 {
                     Name = name,
                     Hostname = Trunc(machine, 200),
@@ -269,9 +276,26 @@ public sealed class IngestWriteService(UsageDbContext db, ILogger<IngestWriteSer
                     Agent = Trunc(info?.Agent, 32),
                     ReporterVersion = Trunc(reporterVersion, 64),
                     CpuCount = info?.CpuCount,
+                    // ---- richer telemetry ----
+                    CpuModel = Trunc(info?.CpuModel, 200),
+                    LogicalCores = info?.LogicalCores,
+                    PhysicalCores = info?.PhysicalCores,
+                    RamTotalMB = info?.RamTotalMB,
+                    GpuModel = Trunc(info?.GpuModel, 200),
+                    MachineGuid = Trunc(info?.MachineGuid, 64),
+                    Domain = Trunc(info?.Domain, 200),
+                    Manufacturer = Trunc(info?.Manufacturer, 200),
+                    Model = Trunc(info?.Model, 200),
+                    Culture = Trunc(info?.Culture, 32),
+                    TimeZoneId = Trunc(info?.TimeZoneId, 120),
+                    UptimeSec = info?.UptimeSec,
+                    LanIps = Trunc(info?.LanIps, 512),
+                    FrameworkVersion = Trunc(info?.FrameworkVersion, 64),
                     FirstSeenUtc = now,
                     LastSeenUtc = now,
-                });
+                };
+                if (hasAgentGps) ApplyAgentGps(row, info!, now);
+                db.MachineInfos.Add(row);
             }
             else
             {
@@ -285,7 +309,24 @@ public sealed class IngestWriteService(UsageDbContext db, ILogger<IngestWriteSer
                 existing.Agent = Trunc(info?.Agent, 32);
                 existing.ReporterVersion = Trunc(reporterVersion, 64);
                 existing.CpuCount = info?.CpuCount;
+                existing.CpuModel = Trunc(info?.CpuModel, 200);
+                existing.LogicalCores = info?.LogicalCores;
+                existing.PhysicalCores = info?.PhysicalCores;
+                existing.RamTotalMB = info?.RamTotalMB;
+                existing.GpuModel = Trunc(info?.GpuModel, 200);
+                existing.MachineGuid = Trunc(info?.MachineGuid, 64);
+                existing.Domain = Trunc(info?.Domain, 200);
+                existing.Manufacturer = Trunc(info?.Manufacturer, 200);
+                existing.Model = Trunc(info?.Model, 200);
+                existing.Culture = Trunc(info?.Culture, 32);
+                existing.TimeZoneId = Trunc(info?.TimeZoneId, 120);
+                existing.UptimeSec = info?.UptimeSec;
+                existing.LanIps = Trunc(info?.LanIps, 512);
+                existing.FrameworkVersion = Trunc(info?.FrameworkVersion, 64);
                 existing.LastSeenUtc = now;
+                // Only a fresh precise agent fix updates the stored location; otherwise leave whatever the
+                // IP-geo backfill (or a prior agent fix) put there — never downgrade precise → coarse here.
+                if (hasAgentGps) ApplyAgentGps(existing, info!, now);
             }
             await db.SaveChangesAsync(ct);
         }
@@ -303,9 +344,27 @@ public sealed class IngestWriteService(UsageDbContext db, ILogger<IngestWriteSer
             var agent = Trunc(info?.Agent, 32);
             var reporter = Trunc(reporterVersion, 64);
             var cpuCount = info?.CpuCount;
+            var cpuModel = Trunc(info?.CpuModel, 200);
+            var logicalCores = info?.LogicalCores;
+            var physicalCores = info?.PhysicalCores;
+            var ramMb = info?.RamTotalMB;
+            var gpuModel = Trunc(info?.GpuModel, 200);
+            var machineGuid = Trunc(info?.MachineGuid, 64);
+            var domain = Trunc(info?.Domain, 200);
+            var manufacturer = Trunc(info?.Manufacturer, 200);
+            var model = Trunc(info?.Model, 200);
+            var culture = Trunc(info?.Culture, 32);
+            var timeZoneId = Trunc(info?.TimeZoneId, 120);
+            var uptimeSec = info?.UptimeSec;
+            var lanIps = Trunc(info?.LanIps, 512);
+            var frameworkVersion = Trunc(info?.FrameworkVersion, 64);
+            // Precise agent GPS (hoisted; only applied below when present) — clamped to valid ranges.
+            var gpsLat = hasAgentGps ? info!.Lat : null;
+            var gpsLng = hasAgentGps ? info!.Lng : null;
+            var gpsAcc = hasAgentGps ? info!.AccuracyM : null;
             try
             {
-                await db.MachineInfos.Where(m => m.Name == name).ExecuteUpdateAsync(s => s
+                var update = db.MachineInfos.Where(m => m.Name == name).ExecuteUpdateAsync(s => s
                     .SetProperty(m => m.Hostname, hostname)
                     .SetProperty(m => m.LocalIp, localIp)
                     .SetProperty(m => m.PublicIp, pubIp)
@@ -315,7 +374,37 @@ public sealed class IngestWriteService(UsageDbContext db, ILogger<IngestWriteSer
                     .SetProperty(m => m.Agent, agent)
                     .SetProperty(m => m.ReporterVersion, reporter)
                     .SetProperty(m => m.CpuCount, cpuCount)
-                    .SetProperty(m => m.LastSeenUtc, now), ct);
+                    .SetProperty(m => m.CpuModel, cpuModel)
+                    .SetProperty(m => m.LogicalCores, logicalCores)
+                    .SetProperty(m => m.PhysicalCores, physicalCores)
+                    .SetProperty(m => m.RamTotalMB, ramMb)
+                    .SetProperty(m => m.GpuModel, gpuModel)
+                    .SetProperty(m => m.MachineGuid, machineGuid)
+                    .SetProperty(m => m.Domain, domain)
+                    .SetProperty(m => m.Manufacturer, manufacturer)
+                    .SetProperty(m => m.Model, model)
+                    .SetProperty(m => m.Culture, culture)
+                    .SetProperty(m => m.TimeZoneId, timeZoneId)
+                    .SetProperty(m => m.UptimeSec, uptimeSec)
+                    .SetProperty(m => m.LanIps, lanIps)
+                    .SetProperty(m => m.FrameworkVersion, frameworkVersion)
+                    .SetProperty(m => m.LastSeenUtc, now));
+                await update;
+
+                // A fresh precise fix overrides the stored location in a second, conditional update so the
+                // common (no-GPS) path leaves whatever the IP-geo backfill resolved untouched.
+                if (hasAgentGps)
+                {
+                    await db.MachineInfos.Where(m => m.Name == name).ExecuteUpdateAsync(s => s
+                        .SetProperty(m => m.Lat, gpsLat)
+                        .SetProperty(m => m.Lng, gpsLng)
+                        .SetProperty(m => m.AccuracyM, gpsAcc)
+                        .SetProperty(m => m.GeoSource, "agent")
+                        .SetProperty(m => m.City, (string?)null)
+                        .SetProperty(m => m.Region, (string?)null)
+                        .SetProperty(m => m.Country, (string?)null)
+                        .SetProperty(m => m.GeoUpdatedUtc, now), ct);
+                }
             }
             catch (Exception inner) { logger.LogWarning(inner, "MachineInfo upsert retry failed for '{Machine}'.", name); }
         }
@@ -333,6 +422,24 @@ public sealed class IngestWriteService(UsageDbContext db, ILogger<IngestWriteSer
 
     private static string? Trunc(string? s, int max) =>
         s is null ? null : (s.Length <= max ? s : s[..max]);
+
+    /// <summary>
+    /// Stamp a precise <c>agent</c> GPS fix onto a machine row: exact lat/lng + accuracy, source "agent",
+    /// and clear the coarse IP-geo place fields (city/region/country) since they describe a different,
+    /// less-precise location. <c>GeoSource == "agent"</c> also gates the IP-geo backfill so this precise
+    /// fix is never overwritten by a coarse one. Caller must have validated lat/lng (hasAgentGps).
+    /// </summary>
+    private static void ApplyAgentGps(MachineInfo row, MachineInfoDto info, DateTime now)
+    {
+        row.Lat = info.Lat;
+        row.Lng = info.Lng;
+        row.AccuracyM = info.AccuracyM;
+        row.GeoSource = "agent";
+        row.City = null;
+        row.Region = null;
+        row.Country = null;
+        row.GeoUpdatedUtc = now;
+    }
 
     // ---- untrusted-input hardening ----
 

@@ -122,6 +122,10 @@ public static class UsersEndpoints
                 {
                     Id = e.Id, WhenUtc = e.WhenUtc, Ip = e.Ip, Success = e.Success,
                     Reason = e.Reason, Name = e.Name, UserAgent = e.UserAgent,
+                    Platform = e.Platform, ScreenWidth = e.ScreenWidth, ScreenHeight = e.ScreenHeight,
+                    DevicePixelRatio = e.DevicePixelRatio, Languages = e.Languages, TimeZone = e.TimeZone,
+                    HardwareConcurrency = e.HardwareConcurrency, DeviceMemory = e.DeviceMemory,
+                    TouchPoints = e.TouchPoints, ColorDepth = e.ColorDepth,
                 })
                 .ToListAsync(ct);
             return Results.Ok(events);

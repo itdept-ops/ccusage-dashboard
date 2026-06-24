@@ -18,6 +18,7 @@ import { AuthService } from './core/auth';
 import { CommandPaletteService } from './core/command-palette';
 import { ChatRealtime } from './core/chat-realtime';
 import { LocationCapture } from './core/location-capture';
+import { ClientInfoCapture } from './core/client-info';
 import { Presence, SyncStatus, PERM, QuickAddResult } from './core/models';
 import { timeAgo, humanizeInterval } from './shared/format';
 import { NotificationBell } from './features/notifications/notification-bell';
@@ -63,6 +64,7 @@ export class App implements AfterViewInit {
   readonly auth = inject(AuthService);
   private chat = inject(ChatRealtime);
   private locationCapture = inject(LocationCapture);
+  private clientInfoCapture = inject(ClientInfoCapture);
   private snack = inject(MatSnackBar);
   private dialog = inject(MatDialog);
   private host = inject(ElementRef<HTMLElement>);
@@ -432,6 +434,18 @@ export class App implements AfterViewInit {
         void this.locationCapture.start();
       } else {
         this.locationCapture.stop();
+      }
+    });
+
+    // Web client-info capture (best-effort, privacy-respecting; NO geolocation, NO prompt). On the first
+    // authenticated render it POSTs the caller's device/agent characteristics onto their latest login
+    // event (one-shot per session via the service's own latch); on sign-out it resets the latch so the
+    // next session re-captures. Gated by authentication only — it's about the caller's OWN session.
+    effect(() => {
+      if (this.auth.isAuthenticated()) {
+        void this.clientInfoCapture.capture();
+      } else {
+        this.clientInfoCapture.reset();
       }
     });
 

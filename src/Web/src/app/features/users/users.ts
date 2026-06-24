@@ -697,6 +697,30 @@ export class Users {
   // ---- Login history ----
   loginHistory(id: number): LoginHistory | undefined { return this.logins().get(id); }
 
+  /**
+   * A compact one-line device summary for a login row (screen · DPR · timezone · cores), built only from
+   * the fields that are present. Returns "" when the event carries no web client info (older sessions, or
+   * a sign-in the SPA never reported for) — the template then shows a dash.
+   */
+  deviceSummary(e: LoginEvent): string {
+    const parts: string[] = [];
+    if (e.platform) parts.push(e.platform);
+    if (e.screenWidth != null && e.screenHeight != null) {
+      const dpr = e.devicePixelRatio != null && e.devicePixelRatio !== 1 ? `@${e.devicePixelRatio}x` : '';
+      parts.push(`${e.screenWidth}×${e.screenHeight}${dpr}`);
+    }
+    if (e.hardwareConcurrency != null) parts.push(`${e.hardwareConcurrency} core${e.hardwareConcurrency === 1 ? '' : 's'}`);
+    if (e.deviceMemory != null) parts.push(`${e.deviceMemory} GB`);
+    if (e.timeZone) parts.push(e.timeZone);
+    return parts.join(' · ');
+  }
+
+  /** True when a login event carries ANY captured web client info (drives showing the device line). */
+  hasDeviceInfo(e: LoginEvent): boolean {
+    return !!(e.platform || e.screenWidth != null || e.hardwareConcurrency != null
+      || e.deviceMemory != null || e.timeZone || e.languages || e.touchPoints != null || e.colorDepth != null);
+  }
+
   private setLoginHistory(id: number, state: LoginHistory): void {
     this.logins.update(m => new Map(m).set(id, state));
   }

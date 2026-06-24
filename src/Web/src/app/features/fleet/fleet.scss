@@ -417,6 +417,36 @@ mat-progress-bar {
     }
     .meta-sub { color: var(--tech-text-tertiary); }
     .muted { color: var(--tech-text-tertiary); font-style: italic; }
+
+    /* Wide items (CPU/GPU/System/LAN/Location) span the full grid row so long values breathe. */
+    &.meta-wide { grid-column: 1 / -1; }
+  }
+
+  /* Geo source badge: green for a precise agent GPS fix, neutral for coarse IP-geo. */
+  .geo-badge {
+    margin-left: 6px;
+    padding: 0 6px;
+    border-radius: var(--tech-r-pill);
+    border: 1px solid var(--tech-border-subtle);
+    background: var(--tech-panel-raised);
+    font-size: var(--tech-fs-micro);
+    letter-spacing: 0.04em;
+    color: var(--tech-text-tertiary);
+
+    &.is-gps {
+      border-color: color-mix(in srgb, var(--tech-success, #2ecc71) 45%, transparent);
+      background: color-mix(in srgb, var(--tech-success, #2ecc71) 12%, transparent);
+      color: var(--tech-success, #2ecc71);
+    }
+  }
+
+  .geo-link {
+    display: inline-flex; align-items: center; gap: 3px;
+    margin-left: 6px;
+    color: var(--tech-accent-cyan);
+    text-decoration: none;
+    &:hover { text-decoration: underline; }
+    mat-icon { font-size: 12px; width: 12px; height: 12px; }
   }
 
   /* Agent kind badge: blue for Desktop tray, cyan for Console CLI. */

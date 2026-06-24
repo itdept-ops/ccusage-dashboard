@@ -25,6 +25,15 @@ public sealed class ReporterEngine : IDisposable, IObservable<ReporterEvent>
     private static readonly object MachineInfoGate = new();
     private static readonly Dictionary<string, MachineInfo> MachineInfoCache = new(StringComparer.Ordinal);
 
+    /// <summary>
+    /// Optional precise-GPS provider, set by the host (the WPF Agent) before the first pass. When set and it
+    /// returns a fix, the gathered <see cref="MachineInfo"/> carries precise <c>agent</c> coordinates; when
+    /// null/unset/throwing the reporter sends no coordinates and the server falls back to coarse IP-geo.
+    /// ReporterCore stays portable (net9.0): the Windows.Devices.Geolocation call lives in the Agent and is
+    /// injected here, so this core never depends on the Windows GPS API.
+    /// </summary>
+    public static Func<(double Lat, double Lng, double? AccuracyM)?>? GpsProvider { get; set; }
+
     /// <summary>Raised for every progress event. Multiple handlers may attach (console AND GUI).</summary>
     public event Action<ReporterEvent>? Progress;
 
@@ -49,6 +58,16 @@ public sealed class ReporterEngine : IDisposable, IObservable<ReporterEvent>
             if (!MachineInfoCache.TryGetValue(kind, out var info))
             {
                 info = MachineInfo.Collect(kind);
+
+                // Best-effort precise GPS from the host-supplied provider (the WPF Agent's Geolocator). Any
+                // failure / denial / unset provider leaves the coordinates null → server uses IP-geo.
+                try
+                {
+                    if (GpsProvider?.Invoke() is { } fix)
+                        info = info.WithGps(fix.Lat, fix.Lng, fix.AccuracyM);
+                }
+                catch { /* GPS is optional — never let it break metadata gathering */ }
+
                 MachineInfoCache[kind] = info;
             }
             return info;

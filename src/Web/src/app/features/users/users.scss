@@ -473,6 +473,7 @@ mat-progress-bar {
     text-transform: uppercase; color: var(--tech-text-tertiary); border-bottom-color: var(--tech-border);
   }
   tbody tr:last-child td { border-bottom: none; }
+  .lc-device,
   .lc-agent { color: var(--tech-text-tertiary); font-size: var(--tech-fs-micro, 11px); }
 }
 .logins-cards { display: none; }
@@ -705,6 +706,7 @@ mat-slide-toggle {
     .li-lbl { flex: 0 0 52px; color: var(--tech-text-tertiary); }
     span:last-child { min-width: 0; word-break: break-word; }
   }
+  .login-item-device,
   .login-item-agent { font-size: var(--tech-fs-micro, 11px); color: var(--tech-text-tertiary); }
 
   /* Accordions + AI panel: single column on phones. */

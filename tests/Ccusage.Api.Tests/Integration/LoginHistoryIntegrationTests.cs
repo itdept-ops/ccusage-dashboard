@@ -134,6 +134,57 @@ public class LoginHistoryIntegrationTests(WebAppFactory factory)
     }
 
     [Fact]
+    public async Task Client_info_stamps_the_latest_successful_login_and_surfaces_on_the_endpoint()
+    {
+        var email = $"hist-clientinfo-{Guid.NewGuid():N}@test.local";
+        var id = await CreateUser(email);
+
+        // Sign in (writes the success event), then POST client-info as that user.
+        (await GoogleLogin($"{email}|sub-{Guid.NewGuid():N}")).StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var post = await Client(email).PostAsJsonAsync("/api/auth/client-info", new
+        {
+            platform = "Win32",
+            screenWidth = 2560,
+            screenHeight = 1440,
+            devicePixelRatio = 1.5,
+            languages = "en-US,en",
+            timeZone = "America/Los_Angeles",
+            hardwareConcurrency = 16,
+            deviceMemory = 8.0,
+            touchPoints = 0,
+            colorDepth = 24,
+        });
+        post.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        // The stored event now carries the client info.
+        var ev = (await EventsFor(email)).First(e => e.Success);
+        ev.Platform.Should().Be("Win32");
+        ev.ScreenWidth.Should().Be(2560);
+        ev.ScreenHeight.Should().Be(1440);
+        ev.DevicePixelRatio.Should().Be(1.5);
+        ev.Languages.Should().Be("en-US,en");
+        ev.TimeZone.Should().Be("America/Los_Angeles");
+        ev.HardwareConcurrency.Should().Be(16);
+        ev.DeviceMemory.Should().Be(8.0);
+        ev.ColorDepth.Should().Be(24);
+
+        // And it surfaces on the admin login-history endpoint.
+        var res = await Client(WebAppFactory.AdminEmail).GetAsync($"/api/users/{id}/logins");
+        res.StatusCode.Should().Be(HttpStatusCode.OK);
+        var arr = await res.Content.ReadFromJsonAsync<JsonElement>();
+        var row = arr.EnumerateArray().First(e => e.GetProperty("success").GetBoolean());
+        row.GetProperty("platform").GetString().Should().Be("Win32");
+        row.GetProperty("screenWidth").GetInt32().Should().Be(2560);
+        row.GetProperty("timeZone").GetString().Should().Be("America/Los_Angeles");
+    }
+
+    [Fact]
+    public async Task Client_info_requires_authentication()
+        => (await Client().PostAsJsonAsync("/api/auth/client-info", new { platform = "Win32" }))
+            .StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+
+    [Fact]
     public async Task A_logging_failure_does_not_fail_the_sign_in()
     {
         var email = $"hist-bestfx-{Guid.NewGuid():N}@test.local";

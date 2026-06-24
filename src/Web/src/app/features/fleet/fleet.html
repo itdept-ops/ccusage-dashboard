@@ -179,6 +179,92 @@
                     <dd [title]="(m.lastSeenUtc | date: 'medium') || ''">{{ seen(m.lastSeenUtc) }}</dd>
                   } @else { <dd class="muted">never</dd> }
                 </div>
+
+                <!-- Richer best-effort telemetry (agent/console clients; null on older reporters). -->
+                @if (m.cpuModel) {
+                  <div class="meta-item meta-wide">
+                    <dt><mat-icon aria-hidden="true">developer_board</mat-icon> CPU</dt>
+                    <dd>{{ m.cpuModel }}@if (m.physicalCores || m.logicalCores) {
+                      <span class="meta-sub">·
+                        @if (m.physicalCores) { {{ m.physicalCores }}C }@if (m.logicalCores) { / {{ m.logicalCores }}T }
+                      </span>
+                    }</dd>
+                  </div>
+                }
+                @if (ramLabel(m.ramTotalMB)) {
+                  <div class="meta-item">
+                    <dt><mat-icon aria-hidden="true">sd_card</mat-icon> RAM</dt>
+                    <dd class="mono-num">{{ ramLabel(m.ramTotalMB) }}</dd>
+                  </div>
+                }
+                @if (m.gpuModel) {
+                  <div class="meta-item meta-wide">
+                    <dt><mat-icon aria-hidden="true">videogame_asset</mat-icon> GPU</dt>
+                    <dd>{{ m.gpuModel }}</dd>
+                  </div>
+                }
+                @if (systemLabel(m)) {
+                  <div class="meta-item meta-wide">
+                    <dt><mat-icon aria-hidden="true">precision_manufacturing</mat-icon> System</dt>
+                    <dd>{{ systemLabel(m) }}</dd>
+                  </div>
+                }
+                @if (m.domain) {
+                  <div class="meta-item">
+                    <dt><mat-icon aria-hidden="true">workspaces</mat-icon> Domain</dt>
+                    <dd>{{ m.domain }}</dd>
+                  </div>
+                }
+                @if (m.culture) {
+                  <div class="meta-item">
+                    <dt><mat-icon aria-hidden="true">translate</mat-icon> Locale</dt>
+                    <dd class="mono-num">{{ m.culture }}</dd>
+                  </div>
+                }
+                @if (m.timeZoneId) {
+                  <div class="meta-item">
+                    <dt><mat-icon aria-hidden="true">schedule</mat-icon> Time zone</dt>
+                    <dd>{{ m.timeZoneId }}</dd>
+                  </div>
+                }
+                @if (uptimeLabel(m.uptimeSec)) {
+                  <div class="meta-item">
+                    <dt><mat-icon aria-hidden="true">timelapse</mat-icon> Uptime</dt>
+                    <dd class="mono-num">{{ uptimeLabel(m.uptimeSec) }}</dd>
+                  </div>
+                }
+                @if (m.frameworkVersion) {
+                  <div class="meta-item">
+                    <dt><mat-icon aria-hidden="true">code</mat-icon> .NET</dt>
+                    <dd class="mono-num">{{ m.frameworkVersion }}</dd>
+                  </div>
+                }
+                @if (m.lanIps) {
+                  <div class="meta-item meta-wide">
+                    <dt><mat-icon aria-hidden="true">router</mat-icon> LAN IPs</dt>
+                    <dd class="mono-num">{{ m.lanIps }}</dd>
+                  </div>
+                }
+                @if (locationLabel(m) || hasCoords(m)) {
+                  <div class="meta-item meta-wide">
+                    <dt><mat-icon aria-hidden="true">place</mat-icon> Location
+                      @if (geoSourceLabel(m.geoSource)) {
+                        <span class="geo-badge" [class.is-gps]="geoSourceLabel(m.geoSource) === 'GPS'">{{ geoSourceLabel(m.geoSource) }}</span>
+                      }
+                    </dt>
+                    <dd>
+                      @if (locationLabel(m)) { <span>{{ locationLabel(m) }}</span> }
+                      @if (hasCoords(m)) {
+                        <a class="geo-link mono-num" [href]="mapUrl(m)" target="_blank" rel="noopener noreferrer"
+                           [title]="'Open map · ' + (m.accuracyM != null ? '±' + (m.accuracyM | number: '1.0-0') + ' m' : 'coarse')">
+                          {{ m.lat | number: '1.4-4' }}, {{ m.lng | number: '1.4-4' }}
+                          <mat-icon aria-hidden="true">open_in_new</mat-icon>
+                        </a>
+                        @if (m.accuracyM != null) { <span class="meta-sub">· ±{{ m.accuracyM | number: '1.0-0' }} m</span> }
+                      }
+                    </dd>
+                  </div>
+                }
               </dl>
             </div>
 
