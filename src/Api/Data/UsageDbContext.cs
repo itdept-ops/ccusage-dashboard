@@ -34,6 +34,7 @@ public class UsageDbContext(DbContextOptions<UsageDbContext> options) : DbContex
     public DbSet<ChatLocationShare> ChatLocationShares => Set<ChatLocationShare>();
     public DbSet<Notification> Notifications => Set<Notification>();
     public DbSet<NotificationPreference> NotificationPreferences => Set<NotificationPreference>();
+    public DbSet<PushSubscription> PushSubscriptions => Set<PushSubscription>();
     public DbSet<NudgeEvent> NudgeEvents => Set<NudgeEvent>();
     public DbSet<TrackerProfile> TrackerProfiles => Set<TrackerProfile>();
     public DbSet<FoodEntry> FoodEntries => Set<FoodEntry>();
@@ -561,6 +562,23 @@ public class UsageDbContext(DbContextOptions<UsageDbContext> options) : DbContex
             e.Property(x => x.DiscordWebhookHint).HasMaxLength(120);
             e.Property(x => x.UpdatedUtc).HasColumnType("timestamp with time zone");
             e.HasIndex(x => x.UserEmail).IsUnique();
+        });
+
+        b.Entity<PushSubscription>(e =>
+        {
+            e.Property(x => x.OwnerEmail).HasMaxLength(256);
+            // The push-service endpoint URL can be long (FCM/Mozilla tokens); generous cap, and it is the
+            // upsert key so it is UNIQUE — re-subscribing the same device lands on the same row.
+            e.Property(x => x.Endpoint).HasMaxLength(1024);
+            e.Property(x => x.P256dh).HasMaxLength(256);
+            e.Property(x => x.Auth).HasMaxLength(256);
+            e.Property(x => x.UserAgent).HasMaxLength(512);
+            e.Property(x => x.CreatedUtc).HasColumnType("timestamp with time zone");
+            e.Property(x => x.LastUsedUtc).HasColumnType("timestamp with time zone");
+            // The fan-out reads all of a recipient's subscriptions by owner.
+            e.HasIndex(x => x.OwnerEmail);
+            // One row per device endpoint; re-subscribe upserts rather than duplicating.
+            e.HasIndex(x => x.Endpoint).IsUnique();
         });
 
         b.Entity<TrackerProfile>(e =>

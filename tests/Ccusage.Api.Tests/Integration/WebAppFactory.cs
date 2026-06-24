@@ -56,11 +56,19 @@ public sealed class WebAppFactory : WebApplicationFactory<Program>, IAsyncLifeti
 
     private readonly PostgreSqlContainer _pg = new PostgreSqlBuilder("postgres:16-alpine").Build();
 
+    /// <summary>A real VAPID keypair (generated once) so the web-push sender's CONFIGURED path is exercised
+    /// in tests. The PUBLIC key is what <c>GET /api/push/vapid-public</c> must return; the PRIVATE key must
+    /// NEVER appear in any response (asserted by the no-leak test).</summary>
+    public const string VapidPublicKey =
+        "BAxXEmsELvHg0rhL-Rm2NoaWeJNeOpH-0Ey0WsCwd1fgl4kH2umF8wGZFTWmNXyrA8HcDprmetaEV2uIj0UDBSI";
+    public const string VapidPrivateKey = "HvnIri1jKNEQZXKAu5IXJgQOAlm70XRMLwj4gXDdMtA";
+
     private static readonly string[] OwnedVars =
     {
         "SkipLocalSettings", "ConnectionStrings__Default", "Jwt__Key", "Jwt__Issuer",
         "Jwt__Audience", "Jwt__ExpiryMinutes", "Google__ClientId", "Auth__AdminEmails__0",
         "AutoSync__Enabled", "RateLimiting__AuthPermitLimit",
+        "WebPush__PublicKey", "WebPush__PrivateKey", "WebPush__Subject",
     };
 
     public async Task InitializeAsync()
@@ -82,6 +90,11 @@ public sealed class WebAppFactory : WebApplicationFactory<Program>, IAsyncLifeti
         // serialized collection fall into one rate-limit partition. Raise the per-IP login cap well above
         // the suite's cumulative login count so auth tests don't flake on a shared-partition 429.
         Environment.SetEnvironmentVariable("RateLimiting__AuthPermitLimit", "100000");
+        // Configure web-push with a real VAPID keypair so the sender's CONFIGURED path is testable. The
+        // "webpush" HttpClient is rerouted (below) to an in-memory handler, so no real push service is hit.
+        Environment.SetEnvironmentVariable("WebPush__PublicKey", VapidPublicKey);
+        Environment.SetEnvironmentVariable("WebPush__PrivateKey", VapidPrivateKey);
+        Environment.SetEnvironmentVariable("WebPush__Subject", "mailto:test@usageiq.online");
     }
 
     async Task IAsyncLifetime.DisposeAsync()
@@ -115,6 +128,29 @@ public sealed class WebAppFactory : WebApplicationFactory<Program>, IAsyncLifeti
 
     public DiscordCapture Discord { get; } = new();
 
+    /// <summary>
+    /// Captures every Web Push POST (the "webpush" named client is rerouted here) so tests can assert a push
+    /// was sent + inspect the request, WITHOUT hitting a real push service. The status returned per request is
+    /// programmable (<see cref="NextStatus"/>) so a test can simulate a "gone" (404/410) subscription to drive
+    /// the pruning path. Thread-safe.
+    /// </summary>
+    public sealed class WebPushCapture
+    {
+        private readonly object _gate = new();
+        private readonly List<string> _endpoints = new();
+        private HttpStatusCode _next = HttpStatusCode.Created; // push services answer 201 on accept.
+
+        /// <summary>The status the NEXT (and subsequent) push POSTs return; set 410/404 to simulate "gone".</summary>
+        public HttpStatusCode NextStatus { get { lock (_gate) return _next; } set { lock (_gate) _next = value; } }
+        public void Record(string endpoint) { lock (_gate) _endpoints.Add(endpoint); }
+        /// <summary>The endpoint URL each push POST was sent to (so a test can assert WHICH subscription was hit).</summary>
+        public IReadOnlyList<string> Endpoints { get { lock (_gate) return _endpoints.ToArray(); } }
+        public int Count { get { lock (_gate) return _endpoints.Count; } }
+        public void Reset() { lock (_gate) { _endpoints.Clear(); _next = HttpStatusCode.Created; } }
+    }
+
+    public WebPushCapture WebPush { get; } = new();
+
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         // Swap Google's real token validation for a fake the tests can drive (see FakeGoogleTokenValidator).
@@ -130,6 +166,13 @@ public sealed class WebAppFactory : WebApplicationFactory<Program>, IAsyncLifeti
             services.AddHttpClient("discord")
                 .ConfigurePrimaryHttpMessageHandler(sp =>
                     new CapturingDiscordHandler(sp.GetRequiredService<DiscordCapture>()));
+
+            // Reroute the "webpush" HttpClient to an in-memory capturing handler (no network). The handler
+            // answers WebPushCapture.NextStatus (201 by default; set 410 to drive the gone-pruning path).
+            services.AddSingleton(WebPush);
+            services.AddHttpClient(WebPushSender.HttpClientName)
+                .ConfigurePrimaryHttpMessageHandler(sp =>
+                    new CapturingWebPushHandler(sp.GetRequiredService<WebPushCapture>()));
 
             // The Family Hub reminder/timer tick runs on a 30s background loop in production. In tests we
             // drive it deterministically (FamilyRemindersTimerTests invoke TickAsync directly with a fixed
@@ -155,6 +198,18 @@ public sealed class WebAppFactory : WebApplicationFactory<Program>, IAsyncLifeti
             if (request.Content is not null)
                 capture.Record(await request.Content.ReadAsStringAsync(ct), request.RequestUri?.ToString() ?? "");
             return new HttpResponseMessage(HttpStatusCode.NoContent) { RequestMessage = request };
+        }
+    }
+
+    /// <summary>Records the endpoint of every Web Push POST and returns the capture's programmed status, so the
+    /// VAPID-signed send path runs for real (proving no crash) but no network call is made. A 404/410 drives
+    /// the sender's gone-subscription pruning.</summary>
+    private sealed class CapturingWebPushHandler(WebPushCapture capture) : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
+        {
+            capture.Record(request.RequestUri?.ToString() ?? "");
+            return Task.FromResult(new HttpResponseMessage(capture.NextStatus) { RequestMessage = request });
         }
     }
 

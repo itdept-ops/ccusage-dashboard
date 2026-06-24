@@ -26,8 +26,8 @@
           </label>
           <label class="row">
             <span class="row__text"><span class="row__name">Browser notifications</span>
-              <span class="row__hint">Desktop alerts when this tab is in the background</span></span>
-            <mat-slide-toggle [ngModel]="p.surfaceBrowser" (ngModelChange)="setPref('surfaceBrowser', $event)"
+              <span class="row__hint">Push alerts even when the app is closed (works after you install it)</span></span>
+            <mat-slide-toggle [ngModel]="p.surfaceBrowser" (ngModelChange)="setBrowserSurface($event)"
                               aria-label="Browser notifications" />
           </label>
         </div>
@@ -283,6 +283,42 @@
       } @else {
         <p class="card__empty">Couldn't load your sync settings.</p>
       }
+    </article>
+  }
+
+  <!-- ============================ (G) OFFLINE / INSTALLABLE APP ============================ -->
+  @if (swSupported) {
+    <article class="card">
+      <div class="card__head">
+        <span class="card__icon"><mat-icon aria-hidden="true">install_mobile</mat-icon></span>
+        <div class="card__id">
+          <h2 class="card__title">Offline &amp; installable app</h2>
+          <p class="card__sub">Install Usage IQ and keep it instantly available.</p>
+        </div>
+      </div>
+
+      <div class="group">
+        <p class="card__explainer">
+          Usage IQ is a Progressive Web App: install it to your home screen or desktop and it launches
+          like a native app. The shell loads instantly and works even with a flaky connection. Your data
+          is never cached — live data always comes fresh from the network — so this only affects how fast
+          the app itself loads, never what it shows. Background notifications also rely on this being on.
+        </p>
+
+        <label class="row">
+          <span class="row__text"><span class="row__name">Offline mode</span>
+            <span class="row__hint">Cache the app shell for instant, install-ready loads</span></span>
+          <mat-slide-toggle [ngModel]="offlineEnabled()" (ngModelChange)="setOfflineEnabled($event)"
+                            aria-label="Offline mode" />
+        </label>
+
+        @if (!offlineEnabled()) {
+          <p class="card__hint card__hint--warn">
+            Offline mode is off — the app runs online-only and can't be installed or send background
+            notifications. Turn it back on, then reload, to restore those features.
+          </p>
+        }
+      </div>
     </article>
   }
 

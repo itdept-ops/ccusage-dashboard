@@ -31,6 +31,7 @@ import {
   ProfilePrefs,
   FeedPage, ReactResult,
   AutomationRule, AutomationRuleInput,
+  VapidPublicKey, PushSubscribeRequest,
 } from './models';
 
 @Injectable({ providedIn: 'root' })
@@ -2424,5 +2425,32 @@ export class Api {
    */
   familyAssistant(message: string): Observable<FamilyAssistantResult> {
     return this.http.post<FamilyAssistantResult>(`${this.base}/family/assistant`, { message });
+  }
+
+  // ---- Web Push (PWA background notifications) ----
+
+  /**
+   * Fetch the public VAPID key the browser subscribes with (anonymous endpoint). The server returns 404
+   * when web-push is unconfigured (no keypair set) — callers treat that as "push unavailable" and skip
+   * subscribing, leaving the SignalR/in-app surfaces untouched.
+   */
+  vapidPublicKey(): Observable<VapidPublicKey> {
+    return this.http.get<VapidPublicKey>(`${this.base}/push/vapid-public`);
+  }
+
+  /**
+   * Register (upsert) this device's browser PushSubscription. Owner is taken from the JWT server-side,
+   * never the body; re-subscribing re-keys the device to the caller. Requires chat.read (the auth
+   * interceptor attaches the bearer token).
+   */
+  pushSubscribe(sub: PushSubscribeRequest): Observable<void> {
+    return this.http.post<void>(`${this.base}/push/subscribe`, sub);
+  }
+
+  /** Caller-scoped removal of a device subscription by endpoint; idempotent (200 even on no-match). */
+  pushUnsubscribe(endpoint: string): Observable<void> {
+    return this.http.delete<void>(`${this.base}/push/subscribe`, {
+      params: new HttpParams().set('endpoint', endpoint),
+    });
   }
 }

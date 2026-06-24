@@ -1,0 +1,44 @@
+{
+  "name": "Usage IQ",
+  "short_name": "Usage IQ",
+  "description": "Usage IQ — your AI usage, life-tracker and household hub, installable and offline-aware.",
+  "start_url": "/?source=pwa",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0b0f14",
+  "theme_color": "#0b0f14",
+  "icons": [
+    {
+      "src": "favicon.svg",
+      "type": "image/svg+xml",
+      "sizes": "any",
+      "purpose": "any"
+    },
+    {
+      "src": "favicon.svg",
+      "type": "image/svg+xml",
+      "sizes": "any",
+      "purpose": "maskable"
+    },
+    {
+      "src": "favicon.ico",
+      "type": "image/x-icon",
+      "sizes": "48x48 32x32 16x16"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Tracker",
+      "short_name": "Tracker",
+      "description": "Log food, workouts and activity",
+      "url": "/tracker?source=pwa"
+    },
+    {
+      "name": "Chat",
+      "short_name": "Chat",
+      "description": "Open your conversations",
+      "url": "/chat?source=pwa"
+    }
+  ]
+}

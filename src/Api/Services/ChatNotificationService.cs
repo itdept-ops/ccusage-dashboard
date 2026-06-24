@@ -17,8 +17,28 @@ namespace Ccusage.Api.Services;
 /// Scoped: it depends on the (scoped) <see cref="UsageDbContext"/>. The singleton hub resolves it via a
 /// per-invocation scope (see <see cref="Hubs.ChatHub"/>).
 /// </summary>
-public sealed class ChatNotificationService(UsageDbContext db, IHubContext<ChatHub> hub, DiscordForwarder discord)
+public sealed class ChatNotificationService(
+    UsageDbContext db, IHubContext<ChatHub> hub, DiscordForwarder discord, WebPushForwarder webPush)
 {
+    /// <summary>
+    /// The push title for a notification type — the human label of the category (matches the in-app/Discord
+    /// framing). The BODY is always the notification's own text, and the LINK is its deep-link; no secret,
+    /// no email is ever put on a push.
+    /// </summary>
+    private static string PushTitle(NotificationType type) => type switch
+    {
+        NotificationType.DirectMessage => "New message",
+        NotificationType.Mention => "You were mentioned",
+        NotificationType.ChannelMessage => "New message",
+        NotificationType.Cheer => "New cheer",
+        NotificationType.SystemNudge => "New nudge",
+        NotificationType.FamilyReminder => "Reminder",
+        NotificationType.FamilyTimer => "Timer finished",
+        NotificationType.FamilyBriefing => "Daily briefing",
+        NotificationType.FamilyHeadsUp => "Heads up",
+        _ => "Usage IQ",
+    };
+
     /// <summary>Group name a connection joins for every channel it belongs to.</summary>
     public static string GroupFor(int channelId) => $"channel:{channelId}";
 
@@ -137,6 +157,8 @@ public sealed class ChatNotificationService(UsageDbContext db, IHubContext<ChatH
             // Fire-and-forget: mirror this notification to the recipient's personal Discord webhook if they
             // opted in. Enqueue only — never block/slow/fail the fan-out; the worker gates on their prefs.
             discord.Enqueue(new DiscordForwardItem(email, NotificationTypeName(n.Type), actor?.Name, n.Text, n.Link, Category: n.Type));
+            // Fire-and-forget: background web-push to the recipient's registered devices (no-op without keys).
+            webPush.Enqueue(new WebPushItem(email, PushTitle(n.Type), n.Text, n.Link));
         }
     }
 
@@ -216,6 +238,8 @@ public sealed class ChatNotificationService(UsageDbContext db, IHubContext<ChatH
             // Fire-and-forget Discord mirror for opted-in recipients (no actor on a system event).
             if (!suppressDiscordMirror)
                 discord.Enqueue(new DiscordForwardItem(email, NotificationTypeName(n.Type), null, n.Text, n.Link, Category: n.Type));
+            // Fire-and-forget background web-push (no-op without keys). System events are gated above.
+            webPush.Enqueue(new WebPushItem(email, PushTitle(n.Type), n.Text, n.Link));
         }
     }
 
@@ -270,6 +294,8 @@ public sealed class ChatNotificationService(UsageDbContext db, IHubContext<ChatH
                 .SendAsync("InboxUnreadChanged", inboxUnreadByEmail.GetValueOrDefault(email, 0), ct);
             // Fire-and-forget Discord mirror for opted-in recipients (no actor on a family alert).
             discord.Enqueue(new DiscordForwardItem(email, NotificationTypeName(n.Type), null, n.Text, n.Link, Category: n.Type));
+            // Fire-and-forget background web-push (no-op without keys).
+            webPush.Enqueue(new WebPushItem(email, PushTitle(n.Type), n.Text, n.Link));
         }
         return created.Count;
     }
@@ -312,6 +338,7 @@ public sealed class ChatNotificationService(UsageDbContext db, IHubContext<ChatH
         await hub.Clients.User(actorEmail).SendAsync("ReceiveNotification", ToDto(n, reactor), ct);
         await hub.Clients.User(actorEmail).SendAsync("InboxUnreadChanged", inbox, ct);
         discord.Enqueue(new DiscordForwardItem(actorEmail, NotificationTypeName(n.Type), reactorName, n.Text, n.Link, Category: n.Type));
+        webPush.Enqueue(new WebPushItem(actorEmail, PushTitle(n.Type), n.Text, n.Link));
     }
 
     /// <summary>
@@ -371,6 +398,7 @@ public sealed class ChatNotificationService(UsageDbContext db, IHubContext<ChatH
         await hub.Clients.User(targetEmail).SendAsync("ReceiveNotification", ToDto(n, sender), ct);
         await hub.Clients.User(targetEmail).SendAsync("InboxUnreadChanged", inbox, ct);
         discord.Enqueue(new DiscordForwardItem(targetEmail, NotificationTypeName(n.Type), senderName, n.Text, n.Link, Category: n.Type));
+        webPush.Enqueue(new WebPushItem(targetEmail, PushTitle(n.Type), n.Text, n.Link));
         return true;
     }
 

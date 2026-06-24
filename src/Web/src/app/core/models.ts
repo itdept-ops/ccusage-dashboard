@@ -4977,3 +4977,19 @@ export interface UsageFilter {
 }
 
 export type GroupBy = 'day' | 'month' | 'project' | 'model' | 'session' | 'source';
+
+// ---- Web Push (PWA background notifications) ----------------------------------------------------
+
+/** Public VAPID key for the browser to subscribe with. 404 from the API means web-push is unconfigured. */
+export interface VapidPublicKey {
+  publicKey: string;
+}
+
+/** Body for POST /api/push/subscribe — the browser's PushSubscription, owner taken from the JWT. */
+export interface PushSubscribeRequest {
+  endpoint: string;
+  keys: {
+    p256dh: string;
+    auth: string;
+  };
+}

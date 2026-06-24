@@ -49,6 +49,19 @@
 .card__title { margin: 0; font-family: var(--tech-font-ui); font-size: 16px; font-weight: 600; color: var(--tech-text); }
 .card__sub { margin: 2px 0 0; font-size: 13px; color: var(--tech-text-secondary); }
 .card__empty { color: var(--tech-text-secondary); font-size: 13px; padding: var(--tech-space-2) 0; }
+.card__explainer {
+  margin: 0 0 var(--tech-space-2);
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--tech-text-secondary);
+}
+.card__hint {
+  margin: var(--tech-space-2) 0 0;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--tech-text-secondary);
+}
+.card__hint--warn { color: var(--tech-warn, var(--tech-text-secondary)); }
 
 // ---- Toggle groups ----
 .group {

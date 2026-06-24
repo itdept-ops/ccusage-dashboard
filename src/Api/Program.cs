@@ -180,6 +180,20 @@ builder.Services.AddHttpClient(GoogleCalendarService.HttpClientName, c =>
 });
 builder.Services.AddScoped<GoogleCalendarService>();
 
+// Web Push (background / "offline" notifications): the always-on surface that fires even with no open tab,
+// alongside the SignalR live path + per-user Discord mirror. The VAPID keypair lives in config — PublicKey is
+// intentionally public (handed to the browser to subscribe), PrivateKey is a SECRET (appsettings.Local.json
+// locally / WebPush__PrivateKey env var in prod, sourced from SSM) and is NEVER logged or returned. When the
+// keypair is UNSET the whole surface is a no-op (sender does nothing; /api/push/vapid-public returns 404).
+// The named "webpush" client carries the push POSTs (rerouteable in tests). The forwarder is a SINGLETON
+// queue that ALSO runs as the hosted draining service (mirrors DiscordForwarder); the fan-out enqueues
+// fire-and-forget so a push never blocks/slows/fails notification creation.
+builder.Services.Configure<WebPushOptions>(builder.Configuration.GetSection(WebPushOptions.SectionName));
+builder.Services.AddHttpClient(WebPushSender.HttpClientName, c => c.Timeout = TimeSpan.FromSeconds(15));
+builder.Services.AddScoped<WebPushSender>();
+builder.Services.AddSingleton<WebPushForwarder>();
+builder.Services.AddHostedService(sp => sp.GetRequiredService<WebPushForwarder>());
+
 // Real-time chat + in-app notifications. The hub addresses individual users by their email claim
 // (EmailUserIdProvider) so per-user pushes work across all of a user's connections; the fan-out
 // service is the shared broadcast/notify path used by both the REST endpoints and the hub.
@@ -509,6 +523,7 @@ app.MapContactsEndpoints();
 app.MapPeopleEndpoints();
 app.MapNudgeEndpoints();
 app.MapInboxEndpoints();
+app.MapPushEndpoints();
 app.MapTrackerEndpoints();
 app.MapRecipeEndpoints();
 app.MapGroceryEndpoints();

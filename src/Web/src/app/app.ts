@@ -30,6 +30,7 @@ import { CommandPaletteService } from './core/command-palette';
 import { ChatRealtime } from './core/chat-realtime';
 import { LocationCapture } from './core/location-capture';
 import { ClientInfoCapture } from './core/client-info';
+import { SwUpdateService } from './core/sw-update';
 import { Presence, SyncStatus, PERM, QuickAddResult } from './core/models';
 import { timeAgo, humanizeInterval } from './shared/format';
 import { NotificationBell } from './features/notifications/notification-bell';
@@ -84,6 +85,7 @@ export class App implements AfterViewInit {
   private chat = inject(ChatRealtime);
   private locationCapture = inject(LocationCapture);
   private clientInfoCapture = inject(ClientInfoCapture);
+  private swUpdate = inject(SwUpdateService);
   private snack = inject(MatSnackBar);
   private dialog = inject(MatDialog);
   private host = inject(ElementRef<HTMLElement>);
@@ -402,6 +404,10 @@ export class App implements AfterViewInit {
   });
 
   constructor() {
+    // Wire the service-worker update prompt (prod-only; no-ops when the SW is disabled). Snackbar on a
+    // new deployed version — "New version available — Reload" — reloads only if the user clicks.
+    this.swUpdate.init();
+
     this.router.events
       .pipe(
         filter((e) => e instanceof NavigationEnd),

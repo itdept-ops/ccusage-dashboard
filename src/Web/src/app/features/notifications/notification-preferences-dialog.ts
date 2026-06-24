@@ -12,6 +12,7 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 
 import { Api } from '../../core/api';
 import { ChatRealtime } from '../../core/chat-realtime';
+import { PushNotifications } from '../../core/push-notifications';
 import { ALL_DISCORD_CATEGORIES, MyDiscord, NotificationPreferenceDto } from '../../core/models';
 
 /** Whether the browser exposes the Notification API at all (false in unsupported/older contexts). */
@@ -49,6 +50,7 @@ function browserNotificationsSupported(): boolean {
 export class NotificationPreferencesDialog {
   private chat = inject(ChatRealtime);
   private api = inject(Api);
+  private push = inject(PushNotifications);
   private snack = inject(MatSnackBar);
   private ref = inject(MatDialogRef<NotificationPreferencesDialog, NotificationPreferenceDto>);
 
@@ -293,6 +295,14 @@ export class NotificationPreferencesDialog {
         // Some browsers reject the promise instead of resolving 'denied'; reflect current state.
         this.permission.set(Notification.permission);
       }
+    }
+    // Bridge the OS surface to ALWAYS-ON web push: subscribe this device when the user enables browser
+    // notifications AND has granted permission; unsubscribe on toggle-off. Best-effort + non-blocking —
+    // the push helper no-ops when the SW/web-push is unavailable, so this never breaks the saved pref.
+    if (value && Notification.permission === 'granted') {
+      void this.push.subscribe();
+    } else if (!value) {
+      void this.push.unsubscribe();
     }
   }
 

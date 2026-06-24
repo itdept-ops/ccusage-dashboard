@@ -13,6 +13,8 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 
 import { Api } from '../../core/api';
 import { AuthService } from '../../core/auth';
+import { PushNotifications } from '../../core/push-notifications';
+import { SwUpdateService, OFFLINE_DISABLED_KEY } from '../../core/sw-update';
 import {
   ALL_DISCORD_CATEGORIES, DISCORD_CATEGORY_META, DisplayNameMode, LocationSettings, MyDiscord,
   MyDiscordCategories, NotificationPreferenceDto, PERM, ProfilePrefs, Settings,
@@ -54,6 +56,8 @@ interface LinkOut {
 export class Preferences {
   private api = inject(Api);
   private snack = inject(MatSnackBar);
+  private push = inject(PushNotifications);
+  private sw = inject(SwUpdateService);
   readonly auth = inject(AuthService);
 
   // ---- Permission gates (each section/card hides when the caller can't use it) --------------------
@@ -170,6 +174,27 @@ export class Preferences {
       next: saved => this.prefs.set(saved),
       error: () => { this.prefs.set(prev); this.fail('notification preference'); },
     });
+  }
+
+  /**
+   * Dedicated handler for the "Browser notifications" surface. Runs inside the toggle's click gesture, so
+   * turning it ON can request OS permission inline; then it bridges to ALWAYS-ON web push (subscribe this
+   * device on enable+granted, unsubscribe on disable). Saving the pref itself reuses the optimistic path.
+   */
+  async setBrowserSurface(value: boolean): Promise<void> {
+    this.setPref('surfaceBrowser', value);
+    if (value && typeof Notification !== 'undefined' && Notification.permission === 'default') {
+      try {
+        await Notification.requestPermission();
+      } catch {
+        /* some browsers reject instead of resolving 'denied' — harmless */
+      }
+    }
+    if (value && typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+      void this.push.subscribe();
+    } else if (!value) {
+      void this.push.unsubscribe();
+    }
   }
 
   // =================================================================================================
@@ -337,6 +362,52 @@ export class Preferences {
     this.api.saveSettings(next).subscribe({
       error: () => { this.sync.set(prev); this.fail('your sync settings'); },
     });
+  }
+
+  // =================================================================================================
+  // (G) Offline / installable app — toggle the service worker on/off (a support escape hatch).
+  // The SW makes the app installable + keeps it instantly available offline (the shell, not your data —
+  // /api is never cached, so live data always comes fresh from the network). The DISABLE toggle
+  // unregisters the SW for support; the choice is sticky (localStorage) so a reload won't re-register.
+  // =================================================================================================
+
+  /** True when the platform can run a service worker at all (false in unsupported/insecure contexts). */
+  readonly swSupported = typeof navigator !== 'undefined' && 'serviceWorker' in navigator;
+
+  /** Whether offline/installable mode is currently ENABLED (the inverse of the sticky opt-out flag). */
+  readonly offlineEnabled = signal<boolean>(this.readOfflineEnabled());
+
+  private readOfflineEnabled(): boolean {
+    try {
+      return localStorage.getItem(OFFLINE_DISABLED_KEY) !== 'true';
+    } catch {
+      return true;
+    }
+  }
+
+  /**
+   * Flip the offline/installable mode. Disabling unregisters every service worker NOW (so the current
+   * tab stops being controlled) and persists the opt-out so app.config skips re-registration on reload.
+   * Re-enabling clears the flag; it takes effect on the next reload (we don't hot-register here).
+   */
+  async setOfflineEnabled(value: boolean): Promise<void> {
+    this.offlineEnabled.set(value);
+    try {
+      if (value) {
+        localStorage.removeItem(OFFLINE_DISABLED_KEY);
+        this.snack.open('Offline mode will turn on after you reload.', 'Reload', { duration: 6000 })
+          .onAction().subscribe(() => document.location.reload());
+      } else {
+        localStorage.setItem(OFFLINE_DISABLED_KEY, 'true');
+        await this.sw.disable();
+        // Tearing down push too: with no SW there's no background delivery surface.
+        void this.push.unsubscribe();
+        this.snack.open('Offline mode disabled. The app now runs online-only.', 'OK', { duration: 4000 });
+      }
+    } catch {
+      this.offlineEnabled.set(!value); // revert the optimistic flip
+      this.fail('offline mode');
+    }
   }
 
   private fail(what: string): void {
