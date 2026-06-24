@@ -46,18 +46,27 @@ export interface AddFoodData {
  */
 export type AddFoodResult = AddFoodRequest[];
 
-/**
- * One reviewable row — an AI-parsed item OR a hand-added one. Every field is editable before the user
- * commits the batch; nothing is logged until "Add to <meal>". Macros are per-item TOTALS (quantity is a
- * label/scaler the user can adjust, but the macros stand on their own — the commit posts them as-is).
- */
-interface ReviewItem {
-  description: string;
-  quantity: number;
+/** The four tracked macros as a group — used for an item's TOTALS and its per-one-serving baseline. */
+interface MacroSet {
   calories: number;
   proteinG: number;
   carbG: number;
   fatG: number;
+}
+
+/**
+ * One reviewable row — an AI-parsed item OR a hand-added one. Every field is editable before the user
+ * commits the batch; nothing is logged until "Add to <meal>". The macro fields are the per-item TOTALS at
+ * the current {@link quantity}; {@link perUnit} holds the macros for ONE serving so changing the quantity
+ * rescales the totals LIVE. Editing a macro directly sets that total at the current quantity and re-derives
+ * its per-serving rate (so a later quantity change still scales from the value you typed). The commit posts
+ * the TOTALS (the backend stores a manual row's macros as-is; quantity is a label there).
+ */
+interface ReviewItem extends MacroSet {
+  description: string;
+  quantity: number;
+  /** Macros per ONE quantity unit — the scaling baseline. Full precision; only the totals are rounded. */
+  perUnit: MacroSet;
 }
 
 /** Which input mode is active. */
@@ -71,9 +80,42 @@ function safeNum(n: number | null | undefined): number {
   return typeof n === 'number' && Number.isFinite(n) ? n : 0;
 }
 
+/** Round to one decimal place (the convention for macro grams, matching the server). */
+const round1 = (n: number): number => Math.round(n * 10) / 10;
+
+/** Macros for ONE serving, derived from an item's TOTALS at a given quantity (guards divide-by-zero). */
+function perUnitOf(total: MacroSet, quantity: number): MacroSet {
+  const q = quantity > 0 ? quantity : 1;
+  return {
+    calories: total.calories / q,
+    proteinG: total.proteinG / q,
+    carbG: total.carbG / q,
+    fatG: total.fatG / q,
+  };
+}
+
+/** Scale a per-serving baseline up to TOTALS for a quantity (calories whole, macro grams to 0.1, floored at 0). */
+function scaleTotals(perUnit: MacroSet, quantity: number): MacroSet {
+  const q = Math.max(0, quantity);
+  return {
+    calories: Math.max(0, Math.round(perUnit.calories * q)),
+    proteinG: round1(Math.max(0, perUnit.proteinG * q)),
+    carbG: round1(Math.max(0, perUnit.carbG * q)),
+    fatG: round1(Math.max(0, perUnit.fatG * q)),
+  };
+}
+
 /** A fresh, all-zero review row (used by "+ add item" and the manual-mode single item). */
 function blankItem(): ReviewItem {
-  return { description: '', quantity: 1, calories: 0, proteinG: 0, carbG: 0, fatG: 0 };
+  return {
+    description: '',
+    quantity: 1,
+    calories: 0,
+    proteinG: 0,
+    carbG: 0,
+    fatG: 0,
+    perUnit: { calories: 0, proteinG: 0, carbG: 0, fatG: 0 },
+  };
 }
 
 const MEALS: { value: Meal; label: string }[] = [
@@ -322,14 +364,17 @@ export class AddFoodDialog implements OnDestroy {
       return;
     }
     this.items.set(
-      parsed.map((i) => ({
-        description: i.description,
-        quantity: i.quantity > 0 ? i.quantity : 1,
-        calories: Math.max(0, Math.round(safeNum(i.calories))),
-        proteinG: Math.max(0, safeNum(i.proteinG)),
-        carbG: Math.max(0, safeNum(i.carbG)),
-        fatG: Math.max(0, safeNum(i.fatG)),
-      })),
+      parsed.map((i) => {
+        const quantity = i.quantity > 0 ? i.quantity : 1;
+        const total: MacroSet = {
+          calories: Math.max(0, Math.round(safeNum(i.calories))),
+          proteinG: Math.max(0, safeNum(i.proteinG)),
+          carbG: Math.max(0, safeNum(i.carbG)),
+          fatG: Math.max(0, safeNum(i.fatG)),
+        };
+        // Capture the per-serving baseline so adjusting the quantity rescales these totals live.
+        return { description: i.description, quantity, ...total, perUnit: perUnitOf(total, quantity) };
+      }),
     );
     this.fromAi.set(from);
     this.announce.set(
@@ -358,18 +403,41 @@ export class AddFoodDialog implements OnDestroy {
 
   /**
    * Patch one field on a review row. Numeric fields are coerced through safeNum + floored at 0 so a
-   * blanked/NaN input becomes a clean number (never NaN reaches the commit), and quantity is capped.
+   * blanked/NaN input never reaches the commit, and quantity is capped.
+   *  - Changing the QUANTITY rescales every macro TOTAL from the row's per-serving baseline (the live math).
+   *  - Editing a MACRO sets that total at the current quantity AND re-derives its per-serving rate, so a
+   *    later quantity change still scales from the value you typed.
    */
   updateItem(index: number, patch: Partial<ReviewItem>): void {
-    const clean: Partial<ReviewItem> = { ...patch };
-    for (const k of ['calories', 'proteinG', 'carbG', 'fatG'] as const) {
-      if (k in clean) clean[k] = Math.max(0, safeNum(clean[k] as number | null));
-    }
-    if ('quantity' in clean) {
-      const q = safeNum(clean.quantity as number | null);
-      clean.quantity = Math.min(MAX_QUANTITY, Math.max(0, q));
-    }
-    this.items.update((list) => list.map((it, i) => (i === index ? { ...it, ...clean } : it)));
+    this.items.update((list) =>
+      list.map((it, i) => {
+        if (i !== index) return it;
+        const next: ReviewItem = { ...it, perUnit: { ...it.perUnit } };
+
+        // Direct macro edits: set the total at the current quantity, then refresh that macro's per-unit rate.
+        const qForRate = next.quantity > 0 ? next.quantity : 1;
+        for (const k of ['calories', 'proteinG', 'carbG', 'fatG'] as const) {
+          if (k in patch) {
+            const v = Math.max(0, safeNum(patch[k] as number | null));
+            next[k] = k === 'calories' ? Math.round(v) : v;
+            next.perUnit[k] = next[k] / qForRate;
+          }
+        }
+
+        // Quantity change: clamp, then rescale all totals from the (unchanged) per-serving baseline → LIVE math.
+        if ('quantity' in patch) {
+          next.quantity = Math.min(MAX_QUANTITY, Math.max(0, safeNum(patch.quantity as number | null)));
+          const scaled = scaleTotals(next.perUnit, next.quantity);
+          next.calories = scaled.calories;
+          next.proteinG = scaled.proteinG;
+          next.carbG = scaled.carbG;
+          next.fatG = scaled.fatG;
+        }
+
+        if ('description' in patch) next.description = patch.description as string;
+        return next;
+      }),
+    );
   }
 
   /**
@@ -415,8 +483,8 @@ export class AddFoodDialog implements OnDestroy {
           description: i.description.trim(),
           quantity: q,
           servingDesc: q === 1 ? '1 serving' : `${q} servings`,
-          // Macros are the per-item TOTALS shown in the row — commit them as-is (quantity is a label only).
-          // Coerce through safeNum so a blanked/NaN field logs 0, never NaN.
+          // Macros are the per-item TOTALS shown in the row (already rescaled to the chosen quantity) —
+          // commit them as-is; the backend stores a manual row's macros directly. safeNum guards NaN→0.
           calories: Math.max(0, Math.round(safeNum(i.calories))),
           proteinG: Math.max(0, safeNum(i.proteinG)),
           carbG: Math.max(0, safeNum(i.carbG)),
