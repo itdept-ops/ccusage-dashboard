@@ -68,7 +68,8 @@
   display: block;
   position: relative;
   width: 100%;
-  min-height: 100svh;
+  height: 100%; // fill the immersive shell frame (.content--immersive); inner .pb-scroll owns the scroll
+  min-height: 0;
   background: var(--pulse-bg);
   color: var(--pulse-ink);
   font-family: "Plus Jakarta Sans", system-ui, sans-serif;
@@ -110,7 +111,7 @@
 // Sticky glass RANGE STRIP — fixed chrome at the top, safe-area aware.
 .pb-strip {
   position: fixed;
-  top: 0;
+  top: var(--beta-bar-top, 0px);
   left: 0;
   right: 0;
   z-index: 30;
@@ -191,10 +192,15 @@
   text-align: center;
 }
 
-// The single vertical scroll region. 100dvh so it tracks the dynamic viewport under the fixed strip.
+// The single vertical scroll region. height:100% fills the immersive shell frame (.content--immersive),
+// so this is the ONLY scrollbar (previously it grew past 100dvh and the :host/document scrolled — the
+// source of the double scrollbar). The fixed strip pins over it at the top of the frame.
 .pb-scroll {
-  min-height: 100dvh;
+  height: 100%;
+  overflow-y: auto;
   overflow-x: hidden;
+  overscroll-behavior-y: contain;
+  -webkit-overflow-scrolling: touch;
   padding-top: calc(var(--strip-h) + var(--safe-top) + 12px);
   padding-bottom: calc(var(--safe-bottom) + 32px);
   padding-inline: var(--gutter) var(--gutter-r);

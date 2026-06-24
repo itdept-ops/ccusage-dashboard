@@ -74,7 +74,8 @@
   display: block;
   position: relative;
   width: 100%;
-  min-height: 100svh;
+  height: 100%; // fill the immersive shell frame (.content--immersive); inner .bb-scroll owns the scroll
+  min-height: 0;
   background: var(--paper);
   color: var(--ink);
   font-family: var(--font-ui);
@@ -112,10 +113,10 @@
 // SHELL LAYOUT
 // ============================================================================
 
-// The single vertical scroll region. 100dvh tracks the dynamic viewport under the
-// fixed chrome (sticky switcher up top, share bar at the bottom).
+// The single vertical scroll region. height:100% fills the immersive shell frame (.content--immersive),
+// so this is the ONLY scrollbar; fixed chrome (switcher up top, share bar at the bottom) pins over it.
 .bb-scroll {
-  height: 100dvh;
+  height: 100%;
   overflow-y: auto;
   overflow-x: hidden;
   overscroll-behavior-y: contain;
@@ -131,7 +132,7 @@
 // ---- Sticky bill-switcher pill scroller (fixed top) ----
 .bb-switcher {
   position: fixed;
-  top: 0;
+  top: var(--beta-bar-top, 0px);
   left: 0;
   right: 0;
   z-index: 30;

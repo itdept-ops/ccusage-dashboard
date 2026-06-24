@@ -138,6 +138,20 @@ export class App implements AfterViewInit {
     return App.barePrefixes.some(p => path === p || path.startsWith(p + '/'));
   }
 
+  /**
+   * Immersive "app-within-the-app" pages (the /beta + /tracker-beta surfaces). Unlike bare, the top nav
+   * STAYS visible — but the page owns the rest of the viewport with its OWN single inner scroll region +
+   * fixed top/bottom bars, so the shell frames it (.content--immersive: fixed height under the topbar,
+   * overflow:hidden) to kill the second/document scrollbar. Mirrors {@link bareLayout}, kept fresh on the
+   * same NavigationEnd below.
+   */
+  readonly immersiveLayout = signal(App.isImmersive(this.router.url));
+  private static readonly immersivePrefixes = ['/beta', '/tracker-beta'];
+  private static isImmersive(url: string): boolean {
+    const path = url.split('?')[0];
+    return App.immersivePrefixes.some(p => path === p || path.startsWith(p + '/'));
+  }
+
   /** The current route path (no query), kept fresh on each navigation — drives the group-active flags. */
   readonly currentPath = signal(this.router.url.split('?')[0]);
 
@@ -343,6 +357,7 @@ export class App implements AfterViewInit {
       .pipe(filter(e => e instanceof NavigationEnd), takeUntilDestroyed())
       .subscribe(() => {
         this.bareLayout.set(App.isBare(this.router.url));
+        this.immersiveLayout.set(App.isImmersive(this.router.url));
         this.currentPath.set(this.router.url.split('?')[0]);
         this.closeMobileNav(); // never leave the drawer open across a route change
       });

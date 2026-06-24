@@ -1109,6 +1109,27 @@
   margin: 0;
   padding: 0;
 }
+
+/* Immersive app-within-the-app pages (the /beta + /tracker-beta surfaces): the top nav STAYS visible
+   (immersive != bare), but the page owns the rest of the viewport and provides its OWN single inner
+   scroll region + fixed top/bottom bars. We make .content a fixed-height, non-scrolling frame that
+   exactly fills the space under the 56px sticky topbar, so:
+     • topbar (56px, in flow) + this (100dvh − 56px) == 100dvh  →  NO document scroll (one scrollbar).
+     • the topbar is position:sticky (in normal flow, NOT fixed), so this box already starts directly
+       below it — no margin-top / top offset is needed to clear the bar.
+     • the beta pages' position:fixed TOP bars inherit --beta-bar-top (the 56px topbar height) so they sit
+       just below the shell topbar. We deliberately do NOT use transform/contain to make a containing
+       block: that would also trap the pages' bottom-sheets/modals and stop their scrims from covering the
+       topbar. Viewport-fixed bars + the inherited offset keep the bars correct AND let sheets/modals cover
+       the full viewport. */
+.content--immersive {
+  max-width: none;
+  margin: 0;
+  padding: 0;
+  height: calc(100dvh - 56px);
+  overflow: hidden;
+  --beta-bar-top: 56px;
+}
 /* NOTE: the sticky-footer rules for bare pages live in the GLOBAL src/styles.scss, not here — they must
    reach the router-inserted page component, which doesn't carry this (encapsulated) component's scope. */
 

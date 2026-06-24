@@ -48,7 +48,8 @@
   display: block;
   position: relative;
   width: 100%;
-  min-height: 100svh;
+  height: 100%; // fill the immersive shell frame (.content--immersive); inner .atr-scroll owns the scroll
+  min-height: 0;
   background: var(--atr-bg);
   color: var(--atr-ink);
   font-family: "Plus Jakarta Sans", system-ui, sans-serif;
@@ -89,7 +90,7 @@
 // Fixed glass top bar — greeting + date + actions, safe-area aware. Hairline, no heavy shadow.
 .atr-bar {
   position: fixed;
-  top: 0;
+  top: var(--beta-bar-top, 0px);
   left: 0;
   right: 0;
   z-index: 30;
@@ -125,9 +126,10 @@
 .atr-bar__btn--primary { border-color: var(--atr-edge); font-weight: 700; }
 .atr-bar__btn mat-icon { font-size: 22px; width: 22px; height: 22px; }
 
-// The single vertical scroll region. 100dvh tracks the dynamic viewport under the fixed bar.
+// The single vertical scroll region. height:100% fills the immersive shell frame (.content--immersive),
+// so this is the ONLY scrollbar; the fixed bar pins over it at the top of the frame.
 .atr-scroll {
-  height: 100dvh;
+  height: 100%;
   overflow-y: auto;
   overflow-x: hidden;
   overscroll-behavior-y: contain;

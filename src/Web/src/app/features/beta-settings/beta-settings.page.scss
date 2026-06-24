@@ -11,8 +11,14 @@
   --bset-radius: 16px;
   --bset-tap: 44px;
 
+  // This page has no inner scroll region or fixed bars, so :host IS the scroller: fill the immersive
+  // shell frame (.content--immersive) and own the single scrollbar (overflow:hidden on the frame above
+  // would otherwise clip the content with no way to reach it).
   display: block;
-  min-height: 100svh;
+  height: 100%;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
   background: var(--bset-bg);
   color: var(--bset-text);
 }

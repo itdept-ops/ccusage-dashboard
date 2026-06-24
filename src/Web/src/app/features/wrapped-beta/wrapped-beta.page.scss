@@ -88,7 +88,8 @@
   display: block;
   position: relative;
   width: 100%;
-  min-height: 100svh;
+  height: 100%; // fill the immersive shell frame (.content--immersive); inner .wb-scroll owns the scroll
+  min-height: 0;
   background:
     radial-gradient(1200px 600px at 50% -10%, color-mix(in srgb, var(--spark-a) 16%, transparent), transparent 70%),
     radial-gradient(900px 500px at 90% 10%, color-mix(in srgb, var(--spark-b) 10%, transparent), transparent 70%),
@@ -134,7 +135,7 @@
 // ---- Sticky period switcher (fixed top) ----
 .wb-switcher {
   position: fixed;
-  top: 0; left: 0; right: 0;
+  top: var(--beta-bar-top, 0px); left: 0; right: 0;
   z-index: 30;
   min-height: calc(var(--switcher-h) + var(--safe-top));
   padding-top: var(--safe-top);
@@ -178,9 +179,9 @@
   &:disabled { opacity: .5; cursor: default; }
 }
 
-// ---- The vertical scroll region ----
+// ---- The vertical scroll region (height:100% fills the immersive shell frame; the ONLY scrollbar) ----
 .wb-scroll {
-  height: 100dvh;
+  height: 100%;
   overflow-y: auto;
   overflow-x: hidden;
   overscroll-behavior-y: contain;

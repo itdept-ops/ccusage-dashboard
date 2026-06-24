@@ -82,7 +82,8 @@
   display: block;
   position: relative;
   width: 100%;
-  min-height: 100svh; // fixed chrome floor
+  height: 100%; // fill the immersive shell frame (.content--immersive); inner .tb-scroll owns the scroll
+  min-height: 0;
   background: var(--bg-base);
   color: var(--ink);
   font-family: var(--font-ui);
@@ -132,11 +133,11 @@
 // SHELL LAYOUT — class names the page component (and children) bind to.
 // ============================================================================
 
-// The single vertical scroll region. 100dvh so it tracks the dynamic viewport
-// (URL bar collapse) under the fixed chrome. scroll-snap on section landings.
+// The single vertical scroll region. height:100% fills the immersive shell frame (.content--immersive,
+// which is itself 100dvh − topbar), so this is the ONLY scrollbar. scroll-snap on section landings.
 :host ::ng-deep .tb-scroll,
 .tb-scroll {
-  height: 100dvh;
+  height: 100%;
   overflow-y: auto;
   overflow-x: hidden;
   overscroll-behavior-y: contain;
@@ -154,7 +155,7 @@
 // Sticky glass DAY STRIP — fixed chrome at the top, safe-area aware. Hairline, no shadow.
 .tb-day-strip {
   position: fixed;
-  top: 0;
+  top: var(--beta-bar-top, 0px);
   left: 0;
   right: 0;
   z-index: 30;
