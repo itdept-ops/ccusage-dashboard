@@ -245,6 +245,16 @@ export const routes: Routes = [
     title: 'Usage IQ · My Recipes',
   },
   {
+    // Meal Planner Tool — a standalone weekly meal-plan page over the household's FamilyMeals (find-or-create
+    // household via /api/family/meals). Pulled out of the Family Hub into the Tools nav. Gated meals.use; the
+    // robust macro-aware "Plan my day & week" planner is layered in via the tracker.ai dialog. The family
+    // meal↔grocery↔macros tie-in stays on the Family meals page too.
+    path: 'meal-planner',
+    canActivate: [permissionGuard(PERM.mealsUse)],
+    loadComponent: () => import('./features/meal-planner/meal-planner').then(m => m.MealPlanner),
+    title: 'Usage IQ · Meal Planner',
+  },
+  {
     // 75 Hard — a six-task daily challenge layered on the tracker. Gated by the SAME tracker permission
     // (tracker.self); a coach/admin read of someone else is enforced server-side via tracker.viewall.
     path: 'challenge',

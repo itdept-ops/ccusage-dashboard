@@ -13,6 +13,7 @@ import {
   SavedViewUpsertRequest, SessionDetail, Settings, ShareAccessItem, ShareCreated, ShareListItem, SharedUserDto, SuggestGoalResponse, SuggestWorkoutRequest, SuggestWorkoutResponse, SummaryResponse,
   SyncResult, SyncStatus, TrackerDayDto, TrackerProfileDto, TrackerRecapResult, UpsertActivityRequest, UsageFilter, UsageRecord, UsageStats,
   WatchActivityDto, WeeklyReviewResponse, WeightInsightResponse, WeightPointDto, WeightStatsDto, WhatToEatRequest, WhatToEatResult, WorkoutXSearchResultDto,
+  PlanMealsRequest, PlanMealsResult, PlanMealToWrite, PlanMealsToPlanResult,
   AskRequest, AskResponse,
   VoiceParseRequest, VoiceParseResponse,
   CycleData, CyclePeriod, CycleNote, CycleSettings, CycleSettingsPatch, CycleOverlayMember,
@@ -1016,6 +1017,32 @@ export class Api {
       constraints: body.constraints ?? null,
       meal: body.meal ?? null,
     });
+  }
+
+  /**
+   * "✨ Plan my day / week": ask Gemini for a macro-aware multi-day meal plan that fits the caller's REMAINING
+   * budget. Reads the caller's OWN context server-side (remaining macros, recent foods, saved recipes, on-hand
+   * groceries, already-planned meals) — NO identity is sent. `days` is clamped 1..7; `slots` defaults to
+   * breakfast/lunch/dinner. Each option carries its own macros + a FULL ingredient list labelled onList/listedQty
+   * against the grocery list. ALWAYS 200: AI-off returns `aiUsed:false` with a deterministic fallback plan (never
+   * a 503). WRITES NOTHING — committing is the separate `planMealsToPlan` call. Gated tracker.ai; rate-limited "ai".
+   */
+  planMeals(body: PlanMealsRequest = {}): Observable<PlanMealsResult> {
+    return this.http.post<PlanMealsResult>(`${this.base}/ai/plan-meals`, {
+      days: body.days ?? null,
+      slots: body.slots ?? null,
+      constraints: body.constraints ?? null,
+      weekStart: body.weekStart ?? null,
+    });
+  }
+
+  /**
+   * Commit the reviewed AI plan: write the chosen `meals` into the household meal plan (the SAME create path as
+   * POST /api/family/meals — clamped, household-scoped). The AI wrote nothing; the user confirmed first. ADDITIONALLY
+   * gated by meals.use (checked in-handler since the route group is /ai). Returns how many meals were created.
+   */
+  planMealsToPlan(meals: PlanMealToWrite[]): Observable<PlanMealsToPlanResult> {
+    return this.http.post<PlanMealsToPlanResult>(`${this.base}/ai/plan-meals/to-plan`, { meals });
   }
 
   /**

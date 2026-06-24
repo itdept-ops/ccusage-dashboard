@@ -172,7 +172,7 @@ export class App implements AfterViewInit {
   readonly fitnessGroupActive = computed(() =>
     this.pathInGroup(['/tracker', '/challenge', '/trophies', '/feed']));
   readonly toolsGroupActive = computed(() =>
-    this.pathInGroup(['/ask', '/automations', '/bills', '/grocery', '/recipes']));
+    this.pathInGroup(['/ask', '/automations', '/bills', '/grocery', '/recipes', '/meal-planner']));
   readonly socialGroupActive = computed(() =>
     this.pathInGroup(['/chat', '/people']));
   readonly betaGroupActive = computed(() =>
@@ -207,6 +207,7 @@ export class App implements AfterViewInit {
     '/bills': 'bills.use',
     '/grocery': 'grocery.use',
     '/recipes': 'recipes.use',
+    '/meal-planner': 'meals.use',
     '/beta': 'beta.access',
     '/family': 'family.use',
     '/locations': 'location.self',
@@ -338,6 +339,7 @@ export class App implements AfterViewInit {
     { route: '/bills', label: 'Bill Splitter', perms: [PERM.billsUse] },
     { route: '/grocery', label: 'Grocery list', perms: [PERM.groceryUse] },
     { route: '/recipes', label: 'My Recipes', perms: [PERM.recipesUse] },
+    { route: '/meal-planner', label: 'Meal Planner', perms: [PERM.mealsUse] },
     { route: '/beta', label: 'Beta', perms: [PERM.betaAccess] },
     { route: '/family', label: 'Family', perms: [PERM.familyUse] },
     { route: '/chat', label: 'Chat', perms: [PERM.chatRead] },

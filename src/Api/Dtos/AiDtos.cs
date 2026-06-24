@@ -324,6 +324,91 @@ public sealed class WhatToEatDto
 }
 
 // ===================================================================================
+// plan-meals (the robust "plan my day / week" AI planner) + add-to-plan
+// ===================================================================================
+
+/// <summary>
+/// "✨ Plan my day / week" request. Everything is OPTIONAL — the server reads the caller's OWN context (their
+/// remaining macro budget, recent eaten foods, saved recipes, on-hand groceries, and already-planned meals);
+/// NO identity is sent. <see cref="Days"/> is how many days to plan (1 = today, clamped 1..7); <see cref="Slots"/>
+/// is which meal slots to fill each day (defaults to breakfast/lunch/dinner; unknown slots are dropped).
+/// <see cref="Constraints"/> is a free-text refine ("high protein", "vegetarian", "quick"), treated strictly as
+/// DATA. <see cref="WeekStart"/> (YYYY-MM-DD) anchors the plan; absent → the caller's local "today".
+/// </summary>
+public sealed class PlanMealsRequest
+{
+    public int? Days { get; set; }
+    public IReadOnlyList<string>? Slots { get; set; }
+    public string? Constraints { get; set; }
+    public string? WeekStart { get; set; }
+}
+
+/// <summary>One planned slot in the AI day/week plan: a <see cref="Slot"/> (breakfast|lunch|dinner|snack), a
+/// dish <see cref="Title"/>, a one-line <see cref="Why"/>, the per-dish <see cref="Macros"/> (CLAMPED), and the
+/// FULL <see cref="Ingredients"/> list, each DETERMINISTICALLY labelled against the household grocery list
+/// (<see cref="EatIngredientDto.OnList"/> / <see cref="EatIngredientDto.ListedQty"/>) by the endpoint.</summary>
+public sealed class PlanMealSlotDto
+{
+    public string Slot { get; set; } = "dinner";
+    public string Title { get; set; } = "";
+    public string Why { get; set; } = "";
+    public MacroSet Macros { get; set; } = new();
+    public IReadOnlyList<EatIngredientDto> Ingredients { get; set; } = Array.Empty<EatIngredientDto>();
+}
+
+/// <summary>One day of the AI plan: the <see cref="LocalDate"/> (YYYY-MM-DD) and its proposed <see cref="Slots"/>.</summary>
+public sealed class PlanMealDayDto
+{
+    public string LocalDate { get; set; } = "";
+    public IReadOnlyList<PlanMealSlotDto> Slots { get; set; } = Array.Empty<PlanMealSlotDto>();
+}
+
+/// <summary>
+/// The "✨ Plan my day / week" result: 1+ days of proposed meals. <see cref="AiUsed"/> is false on the friendly
+/// NON-AI fallback (Gemini off/unavailable) — a small deterministic plan drawn from the caller's recent foods,
+/// saved recipes, and groceries — so the dialog labels it plainly. The endpoint ALWAYS returns 200. Creating
+/// meals is a SEPARATE confirmed action (POST /api/ai/plan-meals/to-plan) — nothing is written here.
+/// </summary>
+public sealed class PlanMealsDto
+{
+    public bool AiUsed { get; set; }
+    public IReadOnlyList<PlanMealDayDto> Days { get; set; } = Array.Empty<PlanMealDayDto>();
+}
+
+/// <summary>One meal the caller chose to commit from the reviewed AI plan: the target <see cref="LocalDate"/>
+/// (YYYY-MM-DD) + <see cref="Slot"/>, the <see cref="Title"/>, optional newline-joined <see cref="Ingredients"/>,
+/// and optional per-dish macros (<see cref="MacroSource"/> "ai" when these came from the planner). The
+/// add-to-plan endpoint writes each of these into the household meal plan via the SAME create path as POST
+/// /api/family/meals (clamped, household-scoped) — the AI never wrote anything; the user confirmed first.</summary>
+public sealed class PlanMealToWriteDto
+{
+    public string LocalDate { get; set; } = "";
+    public string? Slot { get; set; }
+    public string Title { get; set; } = "";
+    public string? Ingredients { get; set; }
+    public int? Servings { get; set; }
+    public int? Calories { get; set; }
+    public double? ProteinG { get; set; }
+    public double? CarbG { get; set; }
+    public double? FatG { get; set; }
+    public string? MacroSource { get; set; }
+}
+
+/// <summary>The "commit the reviewed plan" request: the chosen <see cref="Meals"/> to write into the household
+/// meal plan. Caller-scoped (the JWT identity); the count is clamped server-side. Nothing else is taken from
+/// the body.</summary>
+public sealed class PlanMealsToPlanRequest
+{
+    public IReadOnlyList<PlanMealToWriteDto>? Meals { get; set; }
+}
+
+/// <summary>The add-to-plan result: how many meals were actually created in the household plan.</summary>
+public sealed class PlanMealsToPlanResultDto
+{
+    public int Added { get; set; }
+}
+
+// ===================================================================================
 // meal-feedback
 // ===================================================================================
 

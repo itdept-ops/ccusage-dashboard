@@ -3446,6 +3446,76 @@ export interface WhatToEatResult {
 }
 
 /**
+ * "✨ Plan my day / week" request (POST /api/ai/plan-meals; mirrors PlanMealsRequest). Everything is OPTIONAL —
+ * the server reads the caller's OWN context (remaining macro budget, recent foods, saved recipes, on-hand
+ * groceries, already-planned meals); NO identity is sent. `days` is how many days to plan (1 = today, clamped
+ * 1..7); `slots` is which meal slots to fill each day (defaults to breakfast/lunch/dinner; unknown slots are
+ * dropped server-side). `constraints` is a free-text refine ("high protein", "vegetarian", "quick"), treated
+ * strictly as DATA. `weekStart` ("YYYY-MM-DD") anchors the plan; absent → the caller's local "today".
+ */
+export interface PlanMealsRequest {
+  days?: number | null;
+  slots?: FamilyMealSlot[] | null;
+  constraints?: string | null;
+  weekStart?: string | null;
+}
+
+/**
+ * One planned slot in the AI day/week plan (mirrors PlanMealSlotDto): a `slot`, a dish `title`, a one-line
+ * `why`, the per-dish `macros`, and the FULL `ingredients` list — each DETERMINISTICALLY labelled (`onList`/
+ * `listedQty`) against the household grocery list by the endpoint (same shape as the what-to-eat ingredients).
+ */
+export interface PlanMealSlot {
+  slot: FamilyMealSlot;
+  title: string;
+  why: string;
+  macros: MacroSet;
+  ingredients: EatIngredient[];
+}
+
+/** One day of the AI plan (mirrors PlanMealDayDto): the `localDate` (YYYY-MM-DD) + its proposed `slots`. */
+export interface PlanMealDay {
+  localDate: string;
+  slots: PlanMealSlot[];
+}
+
+/**
+ * "✨ Plan my day / week" result (POST /api/ai/plan-meals; mirrors PlanMealsDto). 1+ `days` of proposed meals.
+ * `aiUsed` is false on the friendly NON-AI fallback (Gemini off/unavailable) — a small deterministic plan
+ * drawn from the caller's recent foods, saved recipes, and groceries — so the dialog labels it plainly. The
+ * endpoint ALWAYS returns 200. Creating meals is a SEPARATE confirmed action (planMealsToPlan) — nothing is
+ * written here.
+ */
+export interface PlanMealsResult {
+  aiUsed: boolean;
+  days: PlanMealDay[];
+}
+
+/**
+ * One meal the caller chose to commit from the reviewed AI plan (mirrors PlanMealToWriteDto): the target
+ * `localDate` (YYYY-MM-DD) + `slot`, the `title`, optional newline-joined `ingredients`, and optional per-dish
+ * macros (`macroSource` "ai" when these came from the planner). The add-to-plan endpoint writes each into the
+ * household meal plan via the SAME create path as POST /api/family/meals (clamped, household-scoped).
+ */
+export interface PlanMealToWrite {
+  localDate: string;
+  slot?: FamilyMealSlot | string | null;
+  title: string;
+  ingredients?: string | null;
+  servings?: number | null;
+  calories?: number | null;
+  proteinG?: number | null;
+  carbG?: number | null;
+  fatG?: number | null;
+  macroSource?: FamilyMealMacroSource | null;
+}
+
+/** The add-to-plan result (mirrors PlanMealsToPlanResultDto): how many meals were created in the household plan. */
+export interface PlanMealsToPlanResult {
+  added: number;
+}
+
+/**
  * "Ask my life" request (POST /api/ai/ask): ONLY a free-text question, treated strictly as DATA. Identity is
  * NEVER sent — the server resolves the caller from the JWT and assembles a perm-filtered, caller-scoped
  * snapshot of their own data server-side.
@@ -4791,6 +4861,8 @@ export const PERM = {
   groceryUse: 'grocery.use',
   /** My Recipes (group "Tools"; page-gate): save/organize your own recipes, optionally share read-only. */
   recipesUse: 'recipes.use',
+  /** Meal Planner (group "Tools"; page-gate): the household weekly meal plan + the macro-aware AI planner. Private, never default. */
+  mealsUse: 'meals.use',
   // ---- Beta (group "Beta"; page-gate for the experimental Beta section) ----
   betaAccess: 'beta.access',
   // ---- AI (group "AI"; token-spending; never default) ----
@@ -4837,6 +4909,7 @@ export const PERM_GROUP_OF: Readonly<Record<string, string>> = {
   [PERM.automationsUse]: 'Tools',
   [PERM.groceryUse]: 'Tools',
   [PERM.recipesUse]: 'Tools',
+  [PERM.mealsUse]: 'Tools',
   // ---- Beta ----
   [PERM.trackerBeta]: 'Beta',
   [PERM.betaAccess]: 'Beta',

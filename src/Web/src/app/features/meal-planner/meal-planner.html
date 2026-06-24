@@ -1,0 +1,197 @@
+<section class="family meal-planner">
+  <header class="family__hero family__hero--page family__hero--meals">
+    <div class="family__hero-id">
+      <span class="family__crest" aria-hidden="true"><mat-icon>restaurant</mat-icon></span>
+      <div>
+        <p class="family__eyebrow">Tools</p>
+        <h1 class="family__name">Meal Planner</h1>
+        <p class="family__sub">Plan your week, meal by meal</p>
+      </div>
+    </div>
+    <div class="meals__hero-actions">
+      @if (canTrackerAi()) {
+        <button mat-flat-button color="primary" class="family__settings-btn meals__plan-btn" (click)="openPlanMyWeek()"
+                aria-label="Plan my day and week — a macro-aware plan that fits my remaining budget">
+          <mat-icon class="meals__spark" aria-hidden="true">auto_awesome</mat-icon>
+          Plan my day &amp; week
+        </button>
+        <button mat-stroked-button class="family__settings-btn meals__plan-btn" (click)="openWhatToEat()"
+                aria-label="What should I eat — meal options that fit my remaining macros today">
+          <mat-icon class="meals__spark" aria-hidden="true">auto_awesome</mat-icon>
+          What should I eat?
+        </button>
+      }
+      <button mat-stroked-button class="family__settings-btn meals__grocery-btn"
+              [disabled]="addingWeek() || mealCount() === 0" (click)="addWeekToGrocery()">
+        @if (addingWeek()) {
+          <mat-spinner [diameter]="20" />
+        } @else {
+          <mat-icon aria-hidden="true">add_shopping_cart</mat-icon>
+        }
+        Add this week's ingredients to grocery list
+      </button>
+    </div>
+  </header>
+
+  <!-- ── Week navigator ──────────────────────────────────────────────── -->
+  <div class="week-nav">
+    <button mat-icon-button matTooltip="Previous week" aria-label="Previous week" (click)="shiftWeek(-1)">
+      <mat-icon aria-hidden="true">chevron_left</mat-icon>
+    </button>
+    <div class="week-nav__label">
+      <span class="week-nav__range">{{ weekLabel() }}</span>
+      @if (isThisWeek()) {
+        <span class="week-nav__this">This week</span>
+      } @else {
+        <button mat-button class="week-nav__reset" (click)="goThisWeek()">Jump to this week</button>
+      }
+    </div>
+    <button mat-icon-button matTooltip="Next week" aria-label="Next week" (click)="shiftWeek(1)">
+      <mat-icon aria-hidden="true">chevron_right</mat-icon>
+    </button>
+  </div>
+
+  @if (loading()) {
+    <div class="family__loading">
+      <mat-spinner [diameter]="28" />
+      <span>Setting the table…</span>
+    </div>
+  } @else if (error()) {
+    <div class="family__error">
+      <mat-icon aria-hidden="true">error_outline</mat-icon>
+      <p>We couldn't load the meal plan just now. Please try again in a moment.</p>
+    </div>
+  } @else {
+    <div class="week-grid">
+      @for (cell of cells(); track cell.localDate) {
+        <article class="day-card" [class.day-card--today]="cell.isToday">
+          <header class="day-card__head">
+            <div class="day-card__date">
+              <span class="day-card__weekday">{{ cell.weekday }}</span>
+              <span class="day-card__day">{{ cell.dateLabel }}</span>
+            </div>
+            @if (cell.isToday) { <span class="day-card__today-tag">Today</span> }
+          </header>
+
+          @if (cell.meals.length) {
+            <ul class="meal-list">
+              @for (meal of cell.meals; track meal.id) {
+                <li class="meal" [class.meal--primary]="meal.slot === 'dinner'">
+                  <span class="meal__slot" [matTooltip]="slotMeta(meal.slot).label" aria-hidden="true">
+                    <mat-icon>{{ slotMeta(meal.slot).icon }}</mat-icon>
+                  </span>
+                  <div class="meal__main">
+                    <p class="meal__title">{{ meal.title }}</p>
+                    <span class="meal__slot-label">{{ slotMeta(meal.slot).label }}</span>
+
+                    <div class="meal__macros">
+                      @if (hasMacros(meal)) {
+                        <p class="meal__macros-per">
+                          <strong>{{ meal.perServing.calories }}</strong> kcal
+                          <span class="meal__macros-pcf">{{ meal.perServing.proteinG }}P / {{ meal.perServing.carbG }}C / {{ meal.perServing.fatG }}F</span>
+                          <span class="meal__macros-unit">/ serving</span>
+                        </p>
+                        <p class="meal__macros-total">
+                          {{ meal.calories }} kcal total · {{ meal.servings }} {{ meal.servings === 1 ? 'serving' : 'servings' }}
+                          <span class="meal__macros-tag meal__macros-tag--set">macros: {{ macroTag(meal) }}</span>
+                        </p>
+                      } @else {
+                        <p class="meal__macros-total">
+                          <span class="meal__macros-tag">macros: not set</span>
+                        </p>
+                      }
+                    </div>
+
+                    @if (canAddToTracker(meal)) {
+                      <button mat-stroked-button class="meal__track" (click)="addToTracker(meal)"
+                              [disabled]="loggingMealId() !== null">
+                        @if (loggingMealId() === meal.id) {
+                          <mat-spinner [diameter]="16" />
+                        } @else {
+                          <mat-icon class="meals__spark" aria-hidden="true">auto_awesome</mat-icon>
+                        }
+                        Add to my tracker
+                      </button>
+                    }
+                  </div>
+                  <div class="meal__actions">
+                    @if (hasIngredients(meal)) {
+                      <button mat-icon-button class="meal__btn" matTooltip="Add ingredients to grocery list"
+                              aria-label="Add ingredients to grocery list" (click)="addMealToGrocery(meal)">
+                        <mat-icon aria-hidden="true">add_shopping_cart</mat-icon>
+                      </button>
+                    }
+                    <button mat-icon-button class="meal__btn" matTooltip="Edit" aria-label="Edit" (click)="editMeal(cell, meal)">
+                      <mat-icon aria-hidden="true">edit</mat-icon>
+                    </button>
+                    <button mat-icon-button class="meal__btn meal__delete" matTooltip="Remove" aria-label="Remove" (click)="removeMeal(meal)">
+                      <mat-icon aria-hidden="true">delete_outline</mat-icon>
+                    </button>
+                  </div>
+                </li>
+              }
+            </ul>
+          } @else {
+            <p class="day-card__empty">Nothing planned</p>
+          }
+
+          @if (cell.rollup.hasMacros) {
+            <div class="day-roll" aria-label="Planned macros for the day">
+              <span class="day-roll__cal">
+                <strong>{{ cell.rollup.calories }}</strong>@if (showGoals() && calorieGoal() != null) { / {{ calorieGoal() }}} kcal
+              </span>
+              <span class="day-roll__pcf">
+                @if (showGoals() && proteinGoal() != null) {
+                  {{ cell.rollup.proteinG }}/{{ proteinGoal() }}g P
+                } @else {
+                  {{ cell.rollup.proteinG }}g P
+                }
+                · {{ cell.rollup.carbG }}g C · {{ cell.rollup.fatG }}g F
+              </span>
+              <span class="day-roll__note">planned · per serving</span>
+            </div>
+          }
+
+          <button mat-stroked-button class="day-card__add" (click)="addMeal(cell)">
+            <mat-icon aria-hidden="true">add</mat-icon> Add a meal
+          </button>
+        </article>
+      }
+    </div>
+
+    @if (hasWeekMacros()) {
+      <div class="week-roll" aria-label="Planned macros for the week">
+        <span class="week-roll__label"><mat-icon aria-hidden="true">insights</mat-icon> This week (planned)</span>
+        <span class="week-roll__cal">
+          <strong>{{ weekRollup().calories }}</strong>@if (showGoals() && calorieGoal() != null) { / {{ calorieGoal()! * 7 }}} kcal
+        </span>
+        <span class="week-roll__pcf">
+          @if (showGoals() && proteinGoal() != null) {
+            {{ weekRollup().proteinG }}/{{ proteinGoal()! * 7 }}g P
+          } @else {
+            {{ weekRollup().proteinG }}g P
+          }
+          · {{ weekRollup().carbG }}g C · {{ weekRollup().fatG }}g F
+        </span>
+        <span class="week-roll__note">
+          @if (showGoals()) {
+            Per-serving totals vs your daily goal ×7
+          } @else {
+            Sum of each meal’s per-serving macros
+          }
+        </span>
+      </div>
+    }
+
+    @if (mealCount() === 0) {
+      <p class="meals__hint">
+        <mat-icon aria-hidden="true">tips_and_updates</mat-icon>
+        @if (canTrackerAi()) {
+          Tap “Plan my day &amp; week” for a macro-aware plan, or add meals by hand — then send the whole week to your grocery list in one tap.
+        } @else {
+          Plan a few meals, jot the ingredients, then send the whole week to your grocery list in one tap.
+        }
+      </p>
+    }
+  }
+</section>

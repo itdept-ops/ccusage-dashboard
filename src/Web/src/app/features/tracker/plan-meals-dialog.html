@@ -1,0 +1,253 @@
+<!-- Sticky-feel header (sits outside the single scroll region): title + close. -->
+<div class="wte-head">
+  <div class="wte-head-id">
+    <mat-icon class="wte-spark" aria-hidden="true">auto_awesome</mat-icon>
+    <div>
+      <h2 mat-dialog-title class="wte-title">Plan my day &amp; week</h2>
+      <p class="wte-sub">A macro-aware plan that fits your remaining budget</p>
+    </div>
+  </div>
+  <button mat-icon-button type="button" class="wte-close" (click)="close()" aria-label="Close">
+    <mat-icon>close</mat-icon>
+  </button>
+</div>
+
+<!-- Polite sr-only status: announces fetch state + results. -->
+<span class="wte-sr-status" role="status" aria-live="polite">{{ announce() }}</span>
+
+<mat-dialog-content class="wte-body">
+
+  <!-- ─────────────────────────── FORM (scope + slots + refine) ─────────────────────────── -->
+  @if (phase() === 'form' || phase() === 'loading') {
+    <div class="pm-form">
+      <div class="pm-field">
+        <span class="pm-field__label">Plan for</span>
+        <mat-button-toggle-group class="pm-scope" [value]="scope()" (change)="setScope($event.value)"
+                                 [disabled]="phase() === 'loading'" aria-label="How many days to plan">
+          <mat-button-toggle value="today">Today</mat-button-toggle>
+          <mat-button-toggle value="week">This week</mat-button-toggle>
+        </mat-button-toggle-group>
+      </div>
+
+      <div class="pm-field">
+        <span class="pm-field__label">Meals</span>
+        <div class="pm-slots" role="group" aria-label="Which meal slots to fill">
+          @for (m of slotMeta; track m.slot) {
+            <button type="button" class="pm-slot" [class.pm-slot--on]="isSlotOn(m.slot)"
+                    [attr.aria-pressed]="isSlotOn(m.slot)" [disabled]="phase() === 'loading'"
+                    (click)="toggleSlot(m.slot)">
+              <mat-icon aria-hidden="true">{{ m.icon }}</mat-icon>
+              <span>{{ m.label }}</span>
+            </button>
+          }
+        </div>
+      </div>
+
+      <mat-form-field appearance="outline" class="pm-refine" subscriptSizing="dynamic">
+        <mat-label>Any preferences? (optional)</mat-label>
+        <input matInput maxlength="200" placeholder="high protein · vegetarian · quick · budget"
+               [ngModel]="constraints()" (ngModelChange)="constraints.set($event)"
+               (keydown.enter)="generate()" [disabled]="phase() === 'loading'" />
+      </mat-form-field>
+
+      <button mat-flat-button color="primary" type="button" class="pm-go"
+              [disabled]="phase() === 'loading' || !hasSlots()" (click)="generate()">
+        @if (phase() === 'loading') {
+          <mat-progress-spinner mode="indeterminate" diameter="18" aria-hidden="true" />
+          <span>Building your plan…</span>
+        } @else {
+          <mat-icon class="wte-spark" aria-hidden="true">auto_awesome</mat-icon>
+          <span>Generate plan</span>
+        }
+      </button>
+    </div>
+  }
+
+  <!-- ─────────────────────────── PLAN ─────────────────────────── -->
+  @if (phase() === 'plan') {
+    <!-- Friendly NON-AI fallback banner (Gemini off/unavailable). -->
+    @if (fallback()) {
+      <p class="wte-fallback" role="status">
+        <mat-icon aria-hidden="true">tips_and_updates</mat-icon>
+        AI is unavailable right now — here's a plan from your recent foods, saved recipes and on-hand groceries.
+      </p>
+    }
+
+    <!-- Top action bar: tweak, or commit the whole plan at once. -->
+    <div class="pm-topbar">
+      <button mat-stroked-button type="button" (click)="backToForm()">
+        <mat-icon aria-hidden="true">tune</mat-icon> Adjust
+      </button>
+      <span class="pm-topbar__spacer"></span>
+      @if (canPlan()) {
+        <button mat-flat-button color="primary" type="button"
+                [disabled]="isBusy('planAll')" (click)="addAllToPlan()">
+          @if (isBusy('planAll')) {
+            <mat-progress-spinner mode="indeterminate" diameter="18" aria-hidden="true" />
+          } @else {
+            <mat-icon aria-hidden="true">playlist_add</mat-icon>
+          }
+          Add all to plan
+        </button>
+      }
+      <button mat-stroked-button type="button"
+              [disabled]="isBusy('groceryAll') || !hasAnyNeeded()" (click)="addAllToGrocery()"
+              [matTooltip]="hasAnyNeeded() ? '' : 'Everything is already on your list'">
+        @if (isBusy('groceryAll')) {
+          <mat-progress-spinner mode="indeterminate" diameter="18" aria-hidden="true" />
+        } @else {
+          <mat-icon aria-hidden="true">add_shopping_cart</mat-icon>
+        }
+        Add all to grocery
+      </button>
+    </div>
+
+    <div class="pm-days">
+      @for (day of days(); track day.localDate; let di = $index) {
+        <section class="pm-day" [attr.aria-label]="dayLabel(day.localDate)">
+          <header class="pm-day__head">
+            <span class="pm-day__label"><mat-icon aria-hidden="true">event</mat-icon>{{ dayLabel(day.localDate) }}</span>
+            @if (canPlan()) {
+              <button mat-button type="button" class="pm-day__add"
+                      [disabled]="isBusy('planDay:' + di)" (click)="addDayToPlan(di, day)">
+                @if (isBusy('planDay:' + di)) {
+                  <mat-progress-spinner mode="indeterminate" diameter="16" aria-hidden="true" />
+                } @else {
+                  <mat-icon aria-hidden="true">playlist_add</mat-icon>
+                }
+                Add day
+              </button>
+            }
+          </header>
+
+          <div class="pm-slots-list">
+            @for (s of day.slots; track $index; let si = $index) {
+              <article class="wte-card pm-meal">
+                <div class="pm-meal__top">
+                  <span class="pm-meal__slot" [matTooltip]="slotLabel(s.slot)" aria-hidden="true">
+                    <mat-icon>{{ slotIcon(s.slot) }}</mat-icon>
+                  </span>
+                  <div class="pm-meal__id">
+                    <h3 class="wte-card-title">{{ s.title }}</h3>
+                    <span class="pm-meal__slot-label">{{ slotLabel(s.slot) }}</span>
+                  </div>
+                </div>
+                @if (s.why) { <p class="wte-card-why">{{ s.why }}</p> }
+
+                <!-- Per-dish macros. -->
+                <div class="wte-macros">
+                  <span class="wte-macro wte-macro--cal mono-num">{{ s.macros.calories | number }} <small>kcal</small></span>
+                  <span class="wte-macro mono-num">{{ s.macros.proteinG | number:'1.0-0' }}<small>P</small></span>
+                  <span class="wte-macro mono-num">{{ s.macros.carbsG | number:'1.0-0' }}<small>C</small></span>
+                  <span class="wte-macro mono-num">{{ s.macros.fatG | number:'1.0-0' }}<small>F</small></span>
+                </div>
+
+                <!-- Full ingredient list; each row badged "On your list" (with qty) vs "Need", + a per-item add. -->
+                @if (s.ingredients.length) {
+                  <div class="wte-ings">
+                    <span class="wte-ing-label"><mat-icon aria-hidden="true">list_alt</mat-icon> Ingredients</span>
+                    <ul class="wte-ings-list">
+                      @for (ing of s.ingredients; track $index; let ii = $index) {
+                        <li class="wte-ing" [class.wte-ing--have]="ing.onList" [class.wte-ing--need]="!ing.onList">
+                          <span class="wte-ing-name">
+                            {{ ing.name }}@if (ing.quantity) { <span class="wte-ing-qty">· {{ ing.quantity }}</span> }
+                          </span>
+                          @if (ing.onList) {
+                            <span class="wte-badge wte-badge--have" matTooltip="Already on your grocery list">
+                              <mat-icon aria-hidden="true">check</mat-icon>
+                              On your list@if (ing.listedQty && ing.listedQty > 1) { <span class="wte-badge-qty">×{{ ing.listedQty }}</span> }
+                            </span>
+                          } @else {
+                            <span class="wte-badge wte-badge--need">Need</span>
+                          }
+                          <button mat-icon-button type="button" class="wte-ing-add"
+                                  [disabled]="isBusy('ing:' + di + ':' + si + ':' + ii)"
+                                  (click)="addIngredientToGrocery(di, si, ii, ing)"
+                                  [matTooltip]="ing.onList ? 'Add one more to your grocery list' : 'Add to your grocery list'"
+                                  [attr.aria-label]="'Add ' + ing.name + ' to your grocery list'">
+                            @if (isBusy('ing:' + di + ':' + si + ':' + ii)) {
+                              <mat-progress-spinner mode="indeterminate" diameter="16" aria-hidden="true" />
+                            } @else {
+                              <mat-icon aria-hidden="true">add_shopping_cart</mat-icon>
+                            }
+                          </button>
+                        </li>
+                      }
+                    </ul>
+                  </div>
+                }
+
+                <!-- Per-slot actions: add to plan + add needed to grocery. -->
+                <div class="wte-actions">
+                  @if (canPlan()) {
+                    <button mat-flat-button color="primary" type="button" class="wte-action"
+                            [disabled]="isBusy('plan:' + di + ':' + si)" (click)="addSlotToPlan(di, si, day.localDate, s)"
+                            [attr.aria-label]="'Add ' + s.title + ' to your meal plan'">
+                      @if (isBusy('plan:' + di + ':' + si)) {
+                        <mat-progress-spinner mode="indeterminate" diameter="18" aria-hidden="true" />
+                      } @else {
+                        <mat-icon aria-hidden="true">event</mat-icon>
+                      }
+                      Add to plan
+                    </button>
+                  }
+                  <button mat-stroked-button type="button" class="wte-action"
+                          [disabled]="isBusy('grocery:' + di + ':' + si) || missingCount(s) === 0"
+                          (click)="addSlotNeededToGrocery(di, si, s)"
+                          [matTooltip]="missingCount(s) === 0 ? 'Everything is already on your list' : ''"
+                          [attr.aria-label]="'Add the needed ingredients of ' + s.title + ' to your grocery list'">
+                    @if (isBusy('grocery:' + di + ':' + si)) {
+                      <mat-progress-spinner mode="indeterminate" diameter="18" aria-hidden="true" />
+                    } @else {
+                      <mat-icon aria-hidden="true">add_shopping_cart</mat-icon>
+                    }
+                    Add needed@if (missingCount(s) > 0) { <span class="wte-action-count">({{ missingCount(s) }})</span> }
+                  </button>
+                </div>
+              </article>
+            }
+          </div>
+        </section>
+      }
+    </div>
+  }
+
+  <!-- ─────────────────────────── EMPTY ─────────────────────────── -->
+  @if (phase() === 'empty') {
+    <div class="wte-state">
+      @if (fallback()) {
+        <mat-icon class="wte-state-glyph" aria-hidden="true">cloud_off</mat-icon>
+        <p class="wte-state-title">AI suggestions are off right now</p>
+        <p class="wte-state-sub">
+          And there wasn't enough from your recent foods, recipes or groceries to plan from yet.
+          Add meals manually, or try again later.
+        </p>
+      } @else {
+        <mat-icon class="wte-state-glyph" aria-hidden="true">no_meals</mat-icon>
+        <p class="wte-state-title">No plan to show just now</p>
+        <p class="wte-state-sub">Try a different scope or a refine (like “quick” or “high protein”).</p>
+      }
+      <button mat-stroked-button type="button" (click)="backToForm()">
+        <mat-icon aria-hidden="true">tune</mat-icon> Adjust and try again
+      </button>
+    </div>
+  }
+
+  <!-- ─────────────────────────── ERROR ─────────────────────────── -->
+  @if (phase() === 'error') {
+    <div class="wte-state">
+      <mat-icon class="wte-state-glyph" aria-hidden="true">cloud_off</mat-icon>
+      <p class="wte-state-title">The planner is unavailable</p>
+      <p class="wte-state-sub">I couldn't reach it just now — add meals manually, or try again.</p>
+      <div class="wte-state-actions">
+        <button mat-stroked-button type="button" (click)="generate()">
+          <mat-icon aria-hidden="true">refresh</mat-icon> Try again
+        </button>
+        <button mat-stroked-button type="button" (click)="backToForm()">
+          <mat-icon aria-hidden="true">tune</mat-icon> Adjust
+        </button>
+      </div>
+    </div>
+  }
+
+</mat-dialog-content>

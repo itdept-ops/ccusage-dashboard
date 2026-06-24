@@ -1706,6 +1706,55 @@ public static class FamilyMealsChoresEndpoints
         return added;
     }
 
+    /// <summary>
+    /// One meal to write into a household's plan via <see cref="CreateMealsAsync"/>: the date + slot + title and
+    /// the OPTIONAL ingredients/macros. The SHARED meal-create path (same clamps/normalisation as POST /meals),
+    /// so the AI planner's "add to plan" never duplicates the meal model — it just feeds reviewed rows through.
+    /// </summary>
+    internal sealed record MealToCreate(
+        string? LocalDate, string? Slot, string? Title, string? Ingredients,
+        int? Servings, int? Calories, double? ProteinG, double? CarbG, double? FatG, string? MacroSource);
+
+    /// <summary>
+    /// Create the given <paramref name="meals"/> in <paramref name="householdId"/> using the SAME clamp +
+    /// slot-normalisation + macro-application logic as POST /api/family/meals (single-sourced — no parallel meal
+    /// model). Rows with a blank title or an invalid date are skipped; the set is clamped to <see cref="MaxMealIds"/>.
+    /// Returns the number actually created. Caller is responsible for the household scoping (members write their
+    /// own household's plan). Saves once at the end.
+    /// </summary>
+    internal static async Task<int> CreateMealsAsync(
+        UsageDbContext db, int householdId, int callerId, IReadOnlyList<MealToCreate> meals, CancellationToken ct)
+    {
+        var now = DateTime.UtcNow;
+        var added = 0;
+        foreach (var m in meals.Take(MaxMealIds))
+        {
+            var title = (m.Title ?? "").Trim();
+            if (title.Length == 0) continue;
+            if (ParseDate(m.LocalDate) is not DateOnly date) continue;
+
+            var meal = new FamilyMeal
+            {
+                HouseholdId = householdId,
+                LocalDate = date,
+                Slot = NormalizeSlot(m.Slot),
+                Title = Clamp(title, 200),
+                Ingredients = ClampIngredients(m.Ingredients),
+                CreatedByUserId = callerId,
+                CreatedUtc = now,
+            };
+            // Reuse the exact optional-macro application (clamped + source-normalised) as the meal upsert.
+            ApplyMacroFields(meal, new MealUpsertRequest(
+                LocalDate: null, Slot: null, Title: null, Ingredients: null,
+                Servings: m.Servings, Calories: m.Calories, ProteinG: m.ProteinG,
+                CarbG: m.CarbG, FatG: m.FatG, MacroSource: m.MacroSource));
+            db.FamilyMeals.Add(meal);
+            added++;
+        }
+        if (added > 0) await db.SaveChangesAsync(ct);
+        return added;
+    }
+
     /// <summary>Split a meal's newline-separated ingredients into trimmed, non-blank lines.</summary>
     private static IEnumerable<string> SplitIngredients(string? ingredients) =>
         (ingredients ?? "")

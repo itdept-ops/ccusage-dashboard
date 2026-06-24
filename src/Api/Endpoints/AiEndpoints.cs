@@ -176,6 +176,87 @@ public static class AiEndpoints
             return Results.Ok(new WhatToEatDto { AiUsed = false, Options = FallbackOptions(ctx) });
         });
 
+        // ---- "Plan my day / week": a macro-aware multi-day plan from the caller's OWN context (read server-side) --
+        // The robust extension of /what-to-eat: instead of one slot's options it builds a per-DAY plan across N
+        // days, filling the requested slots, each meal fitting the caller's daily remaining macro budget. CONTEXT
+        // comes from the SAME server-side build (remaining macros + recent foods + the caller's saved recipes +
+        // on-hand groceries + planned meals) — NO identity from the body. Like /what-to-eat it NEVER 503s: when
+        // Gemini is off/unavailable it floors to 200 with a deterministic NON-AI plan (aiUsed:false) built from the
+        // caller's recipes/recent foods/groceries. Writes NOTHING — the user reviews then commits via the
+        // add-to-plan endpoint below. Each ingredient is DETERMINISTICALLY labelled against the grocery list.
+        g.MapPost("/plan-meals", async (
+            PlanMealsRequest body, CurrentUserAccessor me, CurrentHouseholdAccessor households,
+            GeminiService gemini, UsageDbContext db, CancellationToken ct) =>
+        {
+            var caller = (await me.GetUserAsync(ct))!;
+            // Reuse the what-to-eat context build (remaining macros + recent foods + recipes + groceries + meals).
+            var ctx = await BuildEatContextAsync(db, households, caller,
+                new WhatToEatRequest { Constraints = body?.Constraints }, ct);
+
+            // Resolve the planned dates (anchor + N days) and the slots to fill — both clamped, caller-supplied only.
+            var anchor = ParseLocalDate(body?.WeekStart) ?? await TodayAsync(db, ct);
+            var dayCount = Math.Clamp(body?.Days ?? 1, 1, MaxPlanDays);
+            var dates = Enumerable.Range(0, dayCount).Select(i => anchor.AddDays(i)).ToList();
+            var slots = NormalizePlanSlots(body?.Slots);
+
+            if (gemini.IsConfigured)
+            {
+                var result = await gemini.PlanMealsAsync(
+                    ctx.Snapshot, body?.Constraints, dates, slots,
+                    ctx.RemCal, ctx.RemP, ctx.RemC, ctx.RemF, ct);
+                if (result is { Days.Count: > 0 })
+                    return Results.Ok(new PlanMealsDto
+                    {
+                        AiUsed = true,
+                        Days = result.Days.Select(d => new PlanMealDayDto
+                        {
+                            LocalDate = d.LocalDate.ToString("yyyy-MM-dd"),
+                            Slots = d.Slots.Select(s => new PlanMealSlotDto
+                            {
+                                Slot = s.Slot,
+                                Title = s.Title,
+                                Why = s.Why,
+                                Macros = s.Macros,
+                                Ingredients = s.Ingredients
+                                    .Select(i => LabelIngredient(i.Name, i.Quantity, ctx.GroceryByName)).ToList(),
+                            }).ToList(),
+                        }).ToList(),
+                    });
+            }
+
+            // Gemini off/unavailable/empty -> deterministic NON-AI plan (200), one option per requested day.
+            return Results.Ok(new PlanMealsDto { AiUsed = false, Days = FallbackPlan(ctx, dates, slots) });
+        });
+
+        // ---- "Add to plan": COMMIT the reviewed AI plan into the household meal planner (FamilyMeals) ----
+        // The single WRITE in the planner flow: the frontend posts the meals the user accepted (date+slot+title,
+        // optional ingredients/macros) and we create them through the SAME shared meal-create path as POST
+        // /api/family/meals (single-sourced clamps/normalisation — no duplicate meal model). Household-scoped via
+        // GetOrCreate (solo users auto-get a household, mirroring the grocery tool); the count is clamped. Gated by
+        // the group's tracker.ai PLUS meals.use (the planner tool gate, checked here since the route group is /ai).
+        g.MapPost("/plan-meals/to-plan", async (
+            PlanMealsToPlanRequest body, CurrentUserAccessor me, CurrentHouseholdAccessor households,
+            UsageDbContext db, CancellationToken ct) =>
+        {
+            var caller = (await me.GetUserAsync(ct))!;
+            if (!caller.Permissions.Contains(Permissions.MealsUse))
+                return Results.Json(
+                    new { message = $"You don't have permission: {Permissions.MealsUse}" },
+                    statusCode: StatusCodes.Status403Forbidden);
+
+            var household = (await households.GetOrCreateForCallerAsync(caller, ct))!;
+
+            var toCreate = (body?.Meals ?? Array.Empty<PlanMealToWriteDto>())
+                .Select(m => new FamilyMealsChoresEndpoints.MealToCreate(
+                    m.LocalDate, m.Slot, m.Title, m.Ingredients,
+                    m.Servings, m.Calories, m.ProteinG, m.CarbG, m.FatG, m.MacroSource))
+                .ToList();
+
+            var added = await FamilyMealsChoresEndpoints.CreateMealsAsync(
+                db, household.Id, caller.Id, toCreate, ct);
+            return Results.Ok(new PlanMealsToPlanResultDto { Added = added });
+        });
+
         // ---- Estimate the kind + macros for a free-text supplement ("whey, 1 scoop") ----
         // Most supplements/vitamins/meds estimate to all-zeros; protein powders carry real macros. The
         // frontend falls back to manual entry on the 503 (Gemini off / quota / parse failure).
@@ -1075,6 +1156,23 @@ public static class AiEndpoints
             foreach (var n in recent) sb.Append("- ").Append(n).Append('\n');
         }
 
+        // The caller's OWN saved recipes (owner-scoped by email; titles only, deduped) — a strong source the
+        // planner can reuse. NEVER another user's recipes; no email enters the snapshot.
+        var recipeTitles = await db.Recipes.AsNoTracking()
+            .Where(r => r.OwnerEmail == caller.Email)
+            .OrderByDescending(r => r.UpdatedUtc)
+            .Select(r => r.Title)
+            .Take(40)
+            .ToListAsync(ct);
+        var recipes = recipeTitles
+            .Select(t => Snip(t, 80)).Where(t => t.Length > 0)
+            .Distinct(StringComparer.OrdinalIgnoreCase).Take(30).ToList();
+        if (recipes.Count > 0)
+        {
+            sb.Append("my_recipes:\n");
+            foreach (var n in recipes) sb.Append("- ").Append(n).Append('\n');
+        }
+
         // Household-scoped reads (groceries on the list + planned meals). Read-only: absent household => empty.
         // The grocery list is the SOURCE OF TRUTH the endpoint cross-references each AI ingredient against
         // (deterministically, below) — it is NOT fed to the model as "pantry"/"on-hand" to infer from anymore.
@@ -1126,7 +1224,7 @@ public static class AiEndpoints
         var constraints = Snip(body?.Constraints, 400);
 
         return new EatContext(sb.ToString(), remCal, remP, remC, remF, onHand, groceryByName,
-            await PlannedMealTitlesAsync(db, household, today, ct), recent, craving, constraints);
+            await PlannedMealTitlesAsync(db, household, today, ct), recent, recipes, craving, constraints);
     }
 
     /// <summary>The next week's planned meal titles for the caller's household (deterministic-fallback source).</summary>
@@ -1187,6 +1285,80 @@ public static class AiEndpoints
         return options;
     }
 
+    /// <summary>The default + allowed meal slots for the day/week planner (mirrors the FamilyMeal slot vocab).</summary>
+    private static readonly string[] PlanSlotVocab = { "breakfast", "lunch", "dinner", "snack" };
+    private static readonly string[] DefaultPlanSlots = { "breakfast", "lunch", "dinner" };
+
+    /// <summary>Normalise the caller-supplied slots to the known vocabulary (dedup, order-preserving); an empty/
+    /// all-invalid set falls back to breakfast/lunch/dinner. NEVER trusts unknown slot strings into the prompt.</summary>
+    private static IReadOnlyList<string> NormalizePlanSlots(IReadOnlyList<string>? slots)
+    {
+        if (slots is null || slots.Count == 0) return DefaultPlanSlots;
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var outp = new List<string>();
+        foreach (var raw in slots)
+        {
+            var s = (raw ?? "").Trim().ToLowerInvariant();
+            if (PlanSlotVocab.Contains(s) && seen.Add(s)) outp.Add(s);
+        }
+        return outp.Count > 0 ? outp : DefaultPlanSlots;
+    }
+
+    /// <summary>Parse a plain "YYYY-MM-DD" anchor date for the planner (null/blank/invalid → null, the caller's
+    /// local "today" is then used). Same loose parse as the family endpoints' ParseDate.</summary>
+    private static DateOnly? ParseLocalDate(string? s) =>
+        DateOnly.TryParse(s, System.Globalization.CultureInfo.InvariantCulture,
+            System.Globalization.DateTimeStyles.None, out var d) ? d : null;
+
+    /// <summary>
+    /// The friendly NON-AI day/week plan used when Gemini is off/unavailable: for each requested date, seed each
+    /// requested slot with one deterministic idea drawn (in order) from the caller's saved recipes, then their
+    /// recent foods, then planned meals — cycling so days vary. Macros are zero (no AI estimate). Ingredients are
+    /// empty (the deterministic floor has no recipe breakdown), so nothing is mislabelled. Mirrors FallbackOptions.
+    /// </summary>
+    private static IReadOnlyList<PlanMealDayDto> FallbackPlan(
+        EatContext ctx, IReadOnlyList<DateOnly> dates, IReadOnlyList<string> slots)
+    {
+        // The pool of dish titles to seed from, most-intentful first; de-duped, blanks dropped.
+        var pool = new List<string>();
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        void AddPool(IEnumerable<string> titles)
+        {
+            foreach (var t in titles)
+            {
+                var title = (t ?? "").Trim();
+                if (title.Length > 0 && seen.Add(title)) pool.Add(title);
+            }
+        }
+        AddPool(ctx.MyRecipes);
+        AddPool(ctx.PlannedMeals);
+        AddPool(ctx.RecentFoods);
+
+        var days = new List<PlanMealDayDto>();
+        var idx = 0;
+        foreach (var date in dates)
+        {
+            var daySlots = new List<PlanMealSlotDto>();
+            foreach (var slot in slots)
+            {
+                if (pool.Count == 0) break;
+                var title = pool[idx % pool.Count];
+                idx++;
+                daySlots.Add(new PlanMealSlotDto
+                {
+                    Slot = slot,
+                    Title = title,
+                    Why = "From your recipes, recent meals, and plan.",
+                    Macros = new MacroSet(),
+                    Ingredients = Array.Empty<EatIngredientDto>(),
+                });
+            }
+            if (daySlots.Count > 0)
+                days.Add(new PlanMealDayDto { LocalDate = date.ToString("yyyy-MM-dd"), Slots = daySlots });
+        }
+        return days;
+    }
+
     /// <summary>Map the parsed Gemini options to the wire DTO (macros already CLAMPED), DETERMINISTICALLY
     /// labelling each ingredient against the household grocery list: <c>onList</c> + the current <c>listedQty</c>
     /// (null when not on the list). The cross-reference is case/space-insensitive and "xN"-aware, reusing the
@@ -1221,6 +1393,8 @@ public static class AiEndpoints
 
     private const int MaxFallbackOptions = 5;
     private const int MaxFallbackHave = 12;
+    /// <summary>Max days the "plan my day / week" planner spans (mirrors the 7-day meal-plan window).</summary>
+    private const int MaxPlanDays = 7;
 
     /// <summary>The caller-scoped "what should I eat?" context: the model snapshot + the remaining budget + the
     /// raw lists used to build the deterministic fallback. Carries NO identity.</summary>
@@ -1228,7 +1402,7 @@ public static class AiEndpoints
         string Snapshot, int RemCal, double RemP, double RemC, double RemF,
         IReadOnlyList<string> OnHand, IReadOnlyDictionary<string, int> GroceryByName,
         IReadOnlyList<string> PlannedMeals, IReadOnlyList<string> RecentFoods,
-        string Craving, string Constraints);
+        IReadOnlyList<string> MyRecipes, string Craving, string Constraints);
 
     /// <summary>A compact, model-friendly summary of the caller's day so far (goal, intake, burn, foods).</summary>
     private static async Task<string> BuildDaySummaryAsync(

@@ -1,0 +1,9 @@
+// The Meal Planner Tool reuses the Family meals styles (family.scss + meals.scss) for the weekly grid, hero,
+// week-nav, day cards and macro rollups. Only the small tool-page deltas live here.
+
+:host { display: block; }
+
+// The tool page has no "← Family Hub" back-link, so give the hero a little breathing room at the top.
+.meal-planner {
+  .family__hero--page { margin-top: 0; }
+}
