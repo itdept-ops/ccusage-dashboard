@@ -9,9 +9,11 @@ import { AtriumWidgetShell, WidgetPhase } from './widget-shell';
 import { ReorderableWidget } from './reorderable';
 
 /**
- * Atrium "Spend this month" widget — month total + the top-3 spending categories as bars. Best-effort
- * own subscription to {@link Api.financeSummary} (catch → null). Gated on {@link PERM.familyFinance};
- * the endpoint 403s without it, so the page auto-hides the card when the perm is missing.
+ * Atrium "Spend this month" widget — a big Clash Display month total, a 12-month SVG SPARKLINE of the
+ * rolling spend trend (a real mini chart with an accent gradient stroke + soft area fill, never flat),
+ * and the top-3 spending categories as mini-bars. Best-effort own subscription to
+ * {@link Api.financeSummary} (catch → null). Gated on {@link PERM.familyFinance}; the endpoint 403s
+ * without it, so the page auto-hides the card when the perm is missing.
  */
 @Component({
   selector: 'atr-spend-widget',
@@ -20,36 +22,76 @@ import { ReorderableWidget } from './reorderable';
   imports: [AtriumWidgetShell],
   template: `
     <atr-widget-shell
-      title="Spend this month" route="/family/finance" accentVar="--atr-spend"
-      [phase]="phase()" emptyText="No spending recorded this month."
+      title="Spend this month" route="/family/finance"
+      accentA="#fb7185" accentB="#f0a35a"
+      [phase]="phase()" emptyText="No spending recorded this month." emptyIcon="savings"
       [reordering]="reordering()"
       (retry)="reload()" (moveUp)="moveUp.emit()" (moveDown)="moveDown.emit()" (hide)="hide.emit()">
 
       @if (summary(); as s) {
         <div body class="sp">
-          <span class="sp__total">{{ money(s.totalSpent) }}</span>
-          <div class="sp__cats">
-            @for (c of topCategories(); track c.category) {
-              <div class="sp__cat">
-                <span class="sp__cat-name">{{ c.category }}</span>
-                <span class="sp__cat-bar"><i [style.width.%]="barPct(c.amount)"></i></span>
-                <span class="sp__cat-amt">{{ money(c.amount) }}</span>
-              </div>
+          <div class="sp__top">
+            <div class="sp__head">
+              <span class="sp__total">{{ money(s.totalSpent) }}</span>
+              <span class="sp__sub">{{ monthLabel(s.month) }}</span>
+            </div>
+            @if (spark(); as pts) {
+              <svg class="sp__spark" viewBox="0 0 100 36" preserveAspectRatio="none"
+                   role="img" aria-label="Monthly spend trend">
+                <defs>
+                  <linearGradient [attr.id]="gradId" x1="0" y1="0" x2="1" y2="0">
+                    <stop offset="0" stop-color="#fb7185" />
+                    <stop offset="1" stop-color="#f0a35a" />
+                  </linearGradient>
+                  <linearGradient [attr.id]="fillId" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0" stop-color="#fb7185" stop-opacity="0.28" />
+                    <stop offset="1" stop-color="#fb7185" stop-opacity="0" />
+                  </linearGradient>
+                </defs>
+                <path [attr.d]="pts.area" [attr.fill]="'url(#' + fillId + ')'" />
+                <path [attr.d]="pts.line" fill="none" [attr.stroke]="'url(#' + gradId + ')'"
+                      stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" />
+                <circle [attr.cx]="pts.lastX" [attr.cy]="pts.lastY" r="2.6" fill="#fb7185" />
+              </svg>
             }
           </div>
+
+          @if (topCategories().length) {
+            <div class="sp__cats">
+              @for (c of topCategories(); track c.category) {
+                <div class="sp__cat">
+                  <span class="sp__cat-name">{{ c.category }}</span>
+                  <span class="sp__cat-bar"><i [style.width.%]="barPct(c.amount)"></i></span>
+                  <span class="sp__cat-amt">{{ money(c.amount) }}</span>
+                </div>
+              }
+            </div>
+          }
         </div>
       }
     </atr-widget-shell>
   `,
   styles: [`
-    .sp { display: flex; flex-direction: column; gap: 12px; }
-    .sp__total { font-weight: 700; font-size: 22px; color: var(--atr-ink); }
-    .sp__cats { display: flex; flex-direction: column; gap: 8px; }
-    .sp__cat { display: grid; grid-template-columns: 90px 1fr auto; align-items: center; gap: 8px; }
-    .sp__cat-name { font-size: 12px; color: var(--atr-ink-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .sp__cat-bar { height: 6px; border-radius: 999px; background: rgba(255,255,255,.08); overflow: hidden; }
-    .sp__cat-bar > i { display: block; height: 100%; border-radius: 999px; background: var(--atr-spend); }
-    .sp__cat-amt { font-size: 12px; color: var(--atr-ink); font-variant-numeric: tabular-nums; }
+    .sp { display: flex; flex-direction: column; gap: 14px; }
+    .sp__top { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; }
+    .sp__head { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+    .sp__total {
+      font-family: var(--font-display); font-variant-numeric: tabular-nums;
+      font-weight: 600; font-size: 32px; letter-spacing: -.03em; color: var(--ink); line-height: 1;
+    }
+    .sp__sub { font-size: 11px; font-weight: 600; letter-spacing: .03em; text-transform: uppercase; color: var(--ink-dim); }
+    .sp__spark { width: 108px; height: 38px; flex: 0 0 auto; }
+
+    .sp__cats { display: flex; flex-direction: column; gap: 9px; }
+    .sp__cat { display: grid; grid-template-columns: 84px 1fr auto; align-items: center; gap: 10px; }
+    .sp__cat-name { font-size: 12px; font-weight: 600; color: var(--ink-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .sp__cat-bar { height: 7px; border-radius: var(--r-pill); background: color-mix(in srgb, var(--ink) 8%, transparent); overflow: hidden; }
+    .sp__cat-bar > i {
+      display: block; height: 100%; border-radius: var(--r-pill);
+      background: linear-gradient(90deg, #fb7185, #f0a35a);
+      transition: width 600ms var(--ease-spring);
+    }
+    .sp__cat-amt { font-size: 12px; font-weight: 700; color: var(--ink); font-variant-numeric: tabular-nums; }
   `],
 })
 export class SpendWidget extends ReorderableWidget {
@@ -60,6 +102,10 @@ export class SpendWidget extends ReorderableWidget {
   private readonly data = signal<FinanceSummary | null>(null);
   private readonly failed = signal(false);
   private readonly loadingState = signal(true);
+
+  /** Unique gradient ids so this card's sparkline strokes/fills don't collide with another instance. */
+  protected readonly gradId = `sp-line-${Math.random().toString(36).slice(2, 8)}`;
+  protected readonly fillId = `sp-fill-${Math.random().toString(36).slice(2, 8)}`;
 
   /** Auto-hide unless the user holds family.finance. */
   readonly visible = computed(() => {
@@ -76,6 +122,27 @@ export class SpendWidget extends ReorderableWidget {
   private readonly maxAmount = computed(() =>
     Math.max(1, ...this.topCategories().map(c => c.amount)));
 
+  /** Build the sparkline path data from the rolling monthly-spend trend (≥2 points needed). */
+  readonly spark = computed<{ line: string; area: string; lastX: number; lastY: number } | null>(() => {
+    const trend = this.data()?.monthlyTrend ?? [];
+    if (trend.length < 2) return null;
+    const vals = trend.map(t => t.spent);
+    const min = Math.min(...vals);
+    const max = Math.max(...vals);
+    const span = max - min || 1;
+    const W = 100, H = 36, PAD = 3;
+    const n = vals.length;
+    const pts = vals.map((v, i) => {
+      const x = n === 1 ? W / 2 : (i / (n - 1)) * W;
+      const y = PAD + (1 - (v - min) / span) * (H - PAD * 2);
+      return { x, y };
+    });
+    const line = pts.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x.toFixed(2)} ${p.y.toFixed(2)}`).join(' ');
+    const area = `${line} L${W} ${H} L0 ${H} Z`;
+    const last = pts[pts.length - 1];
+    return { line, area, lastX: last.x, lastY: last.y };
+  });
+
   readonly phase = computed<WidgetPhase>(() => {
     if (this.loadingState()) return 'loading';
     if (this.failed()) return 'failed';
@@ -89,6 +156,15 @@ export class SpendWidget extends ReorderableWidget {
 
   money(n: number): string {
     return n.toLocaleString(undefined, { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
+  }
+
+  /** "yyyy-MM" → "June 2026" for the subtitle. */
+  monthLabel(month: string): string {
+    const [y, m] = (month ?? '').split('-').map(Number);
+    if (!y || !m) return 'This month';
+    const d = new Date(y, m - 1, 1);
+    return Number.isNaN(d.getTime()) ? 'This month'
+      : d.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
   }
 
   constructor() {

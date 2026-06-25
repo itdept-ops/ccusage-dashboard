@@ -1,183 +1,186 @@
 // ============================================================================
-// Home "Atrium" — command-center design tokens + shell layout.
+// Home "Atrium" — rebuilt on the shared beta-ui "Strata" foundation.
 //
-// ISOLATED design system: every token here is defined on :host of app-beta-home so all child widgets
-// inherit them via the cascade. NONE of the global Usage IQ --tech-* tokens are used or imported — this
-// mirrors how tracker-beta ("Strata") scopes its tokens. Child widgets reference var(--atr-card) etc.
+// One line adopts the whole Strata token contract (layered bg, glass, ink scale, radii, the lift-1/2/3
+// depth system, spring/bounce easing, blur cap, env() safe-area, the a11y killswitches); then HOME
+// OVERRIDES the per-page accent contract with its OWN signature gradient: a vivid VIOLET → BLUE. Every
+// kit component + every Atrium widget reads --accent-a/--accent-b off this :host cascade, so this single
+// override re-skins the screen (the page chrome, the pull-refresh ring, the focus ring all follow).
 //
-// Palette is VERBATIM from the Atrium build brief. Dark-only by design. The prefers-reduced-motion
-// killswitch, the prefers-reduced-transparency / prefers-contrast blur-drop, and env() safe-area insets
-// are all honored here so child widgets inherit a consistent contract.
+// ISOLATED + gated by beta.access: nothing here touches the global --tech-* tokens or the flagship
+// tracker-beta. The kit partial is the only import.
 // ============================================================================
+
+@use '../beta-ui/beta-kit' as kit;
 
 :host {
-  // Declaring dark renders dark UA chrome (scrollbars, tap highlights) and stops a light-mode device
-  // from flipping the page. A real opt-in light theme is a separate, app-wide concern.
-  color-scheme: dark;
+  @include kit.beta-host;          // the whole Strata token contract on :host
 
-  // ---- COMMAND-CENTER PALETTE ----
-  --atr-bg: #0b0d18;
-  --atr-card: #161a2e;
-  --atr-edge: rgba(255, 255, 255, .08);
-  --atr-ink: #eef0fb;
-  --atr-ink-dim: #9aa0c4;
-
-  // domain accents
-  --atr-rings: #7c5cff;
-  --atr-hard: #f0a35a;
-  --atr-event: #38bdf8;
-  --atr-online: #34d399;
-  --atr-spend: #fb7185;
-
-  // glass for the fixed bar
-  --atr-glass: rgba(18, 22, 40, .72);
-  --atr-blur: 16px;
-
-  // ---- RADII / ELEVATION / MOTION ----
-  --r-card: 22px;
-  --lift: 0 8px 24px rgba(4, 6, 20, .45), inset 0 1px 0 var(--atr-edge);
-  --atr-ease: cubic-bezier(.22, 1, .36, 1);
-
-  // ---- CHROME + SAFE AREA ----
-  --atr-bar-h: 56px;
-  --safe-top: env(safe-area-inset-top, 0px);
-  --safe-bottom: env(safe-area-inset-bottom, 0px);
-  --gutter: max(16px, env(safe-area-inset-left, 0px));
-  --gutter-r: max(16px, env(safe-area-inset-right, 0px));
-
-  display: block;
-  position: relative;
-  width: 100%;
-  height: 100%; // fill the immersive shell frame (.content--immersive); inner .atr-scroll owns the scroll
-  min-height: 0;
-  background: var(--atr-bg);
-  color: var(--atr-ink);
-  font-family: "Plus Jakarta Sans", system-ui, sans-serif;
-  font-size: 15px;
-  line-height: 1.4;
-  -webkit-font-smoothing: antialiased;
-  -webkit-tap-highlight-color: transparent;
-  touch-action: manipulation;
-  overscroll-behavior: none;
+  // ---- HOME's SIGNATURE ACCENT: violet → blue (the per-page contract override) ----
+  --accent-a: #8b5cff;             // signature violet (start)
+  --accent-b: #4f7bff;             // signature blue   (end)
 }
 
-// ---- a11y: reduced transparency / forced contrast => drop blur, solidify glass ----
-@media (prefers-reduced-transparency: reduce), (prefers-contrast: more) {
-  :host {
-    --atr-blur: 0px;
-    --atr-glass: #11162a;
-  }
-}
-
-// ---- MOTION KILLSWITCH: collapse every animation/transition to instant ----
-@media (prefers-reduced-motion: reduce) {
-  :host,
-  :host *,
-  :host *::before,
-  :host *::after {
-    animation-duration: .001ms !important;
-    animation-delay: 0ms !important;
-    transition-duration: .001ms !important;
-    transition-delay: 0ms !important;
-    scroll-behavior: auto !important;
-  }
-}
+@include kit.beta-springs;          // @supports linear() spring upgrade (top-level, once)
+@include kit.beta-a11y;             // reduced-motion + reduced-transparency/contrast killswitches (once)
 
 // ============================================================================
-// SHELL LAYOUT
+// SHELL — the kit pull-to-refresh wrapper IS the scroll container.
 // ============================================================================
 
-// Fixed glass top bar — greeting + date + actions, safe-area aware. Hairline, no heavy shadow.
-.atr-bar {
-  position: fixed;
-  top: var(--beta-bar-top, 0px);
-  left: 0;
-  right: 0;
-  z-index: 30;
-  height: calc(var(--atr-bar-h) + var(--safe-top));
-  padding-top: var(--safe-top);
-  padding-inline: var(--gutter) var(--gutter-r);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  background: var(--atr-glass);
-  backdrop-filter: blur(var(--atr-blur)) saturate(1.4);
-  -webkit-backdrop-filter: blur(var(--atr-blur)) saturate(1.4);
-  border-bottom: 1px solid var(--atr-edge);
-}
+.atr-ptr { display: block; height: 100%; }
 
-.atr-bar__text { display: flex; flex-direction: column; min-width: 0; }
-.atr-bar__greet {
-  font-weight: 700; font-size: 15px; color: var(--atr-ink);
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-}
-.atr-bar__date { font-size: 12px; color: var(--atr-ink-dim); }
-
-.atr-bar__actions { display: flex; align-items: center; gap: 6px; flex: 0 0 auto; }
-.atr-bar__btn {
-  display: inline-grid; place-items: center;
-  min-width: 44px; min-height: 44px; padding: 0 10px;
-  border-radius: 12px; border: 1px solid transparent; background: transparent;
-  color: var(--atr-ink); text-decoration: none; font: inherit; font-size: 14px; cursor: pointer;
-  transition: background 120ms var(--atr-ease);
-}
-.atr-bar__btn:hover { background: rgba(255, 255, 255, .06); }
-.atr-bar__btn--primary { border-color: var(--atr-edge); font-weight: 700; }
-.atr-bar__btn mat-icon { font-size: 22px; width: 22px; height: 22px; }
-
-// The single vertical scroll region. height:100% fills the immersive shell frame (.content--immersive),
-// so this is the ONLY scrollbar; the fixed bar pins over it at the top of the frame.
+// The single vertical scroll column inside the pull-refresh. height auto here (the wrapper owns scroll),
+// so this is just the flex stack of header + cards, gutter + safe-area padded.
 .atr-scroll {
-  height: 100%;
-  overflow-y: auto;
-  overflow-x: hidden;
-  overscroll-behavior-y: contain;
-  scroll-snap-type: y proximity;
-  -webkit-overflow-scrolling: touch;
-  padding-top: calc(var(--atr-bar-h) + var(--safe-top) + 12px);
-  padding-bottom: calc(var(--safe-bottom) + 24px);
-  padding-inline: var(--gutter) var(--gutter-r);
   display: flex;
   flex-direction: column;
   gap: 14px;
+  min-height: 100%;
+  padding-top: calc(var(--safe-top) + 10px);
+  padding-bottom: calc(var(--safe-bottom) + 28px);
+  padding-inline: var(--gutter) var(--gutter-r);
+  scroll-snap-type: y proximity;
 }
 
-// Below-fold widgets: skip rendering work until they scroll near (paired with contain-intrinsic-size).
-.atr-defer {
-  content-visibility: auto;
-  contain-intrinsic-size: auto 150px;
+// ============================================================================
+// IMMERSIVE PAGE HEADER — greeting + date + quick actions, with an accent bloom.
+// ============================================================================
+
+.hh {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 6px 2px 4px;
+  isolation: isolate;
 }
+
+// Soft accent bloom behind the greeting — the page's "wow" gradient, never flat.
+.hh__bloom {
+  position: absolute;
+  top: -40px; left: -30px; right: 30%;
+  height: 160px; z-index: -1; pointer-events: none;
+  background: radial-gradient(120px 90px at 30% 30%,
+    color-mix(in srgb, var(--accent-a) 42%, transparent),
+    transparent 70%);
+  filter: blur(18px);
+  opacity: .9;
+}
+
+.hh__row { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.hh__text { min-width: 0; }
+.hh__date {
+  display: block; font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+  color: var(--ink-dim); margin-bottom: 4px;
+}
+.hh__greet {
+  margin: 0; font-family: var(--font-display); font-weight: 600; font-size: 30px; line-height: 1.05;
+  letter-spacing: -.02em; color: var(--ink);
+  overflow: hidden; text-overflow: ellipsis;
+}
+
+.hh__actions { display: flex; align-items: center; gap: 8px; flex: 0 0 auto; }
+.hh__btn {
+  display: inline-grid; place-items: center;
+  min-width: 44px; min-height: 44px; padding: 0 12px;
+  border-radius: 14px; border: 1px solid var(--hairline);
+  background: var(--glass);
+  backdrop-filter: blur(var(--blur-glass)) saturate(1.3);
+  -webkit-backdrop-filter: blur(var(--blur-glass)) saturate(1.3);
+  color: var(--ink); text-decoration: none; font: inherit; font-size: 14px; font-weight: 700; cursor: pointer;
+  transition: transform 120ms var(--ease-spring), background 120ms var(--ease-out);
+}
+.hh__btn:active { transform: scale(.92); }
+.hh__btn--primary {
+  border-color: transparent;
+  background: linear-gradient(135deg, var(--accent-a), var(--accent-b));
+  color: #fff; box-shadow: 0 6px 20px color-mix(in srgb, var(--accent-a) 38%, transparent);
+}
+.hh__btn mat-icon { font-size: 22px; width: 22px; height: 22px; }
+
+// Quick-action chip rail under the greeting — horizontal momentum scroll, hidden scrollbar.
+.hh__quick {
+  display: flex; gap: 8px; overflow-x: auto; overflow-y: hidden;
+  scroll-snap-type: x proximity; overscroll-behavior-x: contain; -webkit-overflow-scrolling: touch;
+  scrollbar-width: none; margin-inline: -2px; padding: 2px;
+}
+.hh__quick::-webkit-scrollbar { display: none; }
+.hh__chip {
+  flex: 0 0 auto; scroll-snap-align: start;
+  display: inline-flex; align-items: center; gap: 6px;
+  min-height: 38px; padding: 0 14px; border-radius: var(--r-pill);
+  border: 1px solid var(--hairline);
+  background: color-mix(in srgb, var(--accent-a) 8%, var(--bg-rise));
+  color: var(--ink); text-decoration: none; font-weight: 700; font-size: 13px;
+  transition: transform 120ms var(--ease-spring);
+}
+.hh__chip:active { transform: scale(.95); }
+.hh__chip mat-icon {
+  font-size: 18px; width: 18px; height: 18px;
+  color: color-mix(in srgb, var(--accent-a) 70%, var(--ink));
+}
+
+// ============================================================================
+// STAGGERED SPRING ENTRANCE — each card rises + fades on a per-index delay.
+// ============================================================================
+
+.atr-card-in {
+  animation: atr-rise 520ms var(--ease-spring-up) both;
+  animation-delay: calc(var(--i, 0) * 70ms);
+  will-change: transform, opacity;
+}
+@keyframes atr-rise {
+  from { opacity: 0; transform: translateY(16px) scale(.985); }
+  to   { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .atr-card-in { animation: none; }
+}
+
+// Below-fold cards: skip render work until they scroll near (paired with contain-intrinsic-size).
+.atr-defer { content-visibility: auto; contain-intrinsic-size: auto 170px; }
+
+// ============================================================================
+// HINT + EMPTY STATES
+// ============================================================================
 
 .atr-hint {
-  margin: 0; padding: 10px 14px; border-radius: 14px;
-  background: rgba(255, 255, 255, .04); border: 1px dashed var(--atr-edge);
-  font-size: 13px; color: var(--atr-ink-dim);
+  display: flex; align-items: center; gap: 8px;
+  margin: 0; padding: 10px 14px; border-radius: 16px;
+  background: color-mix(in srgb, var(--accent-a) 7%, transparent);
+  border: 1px dashed color-mix(in srgb, var(--accent-a) 32%, var(--hairline));
+  font-size: 13px; font-weight: 600; color: var(--ink-dim);
 }
+.atr-hint mat-icon { font-size: 18px; width: 18px; height: 18px; color: var(--ink-dim); }
 .atr-hint__reset {
-  margin-left: 8px; border: none; background: none; padding: 0;
-  color: var(--atr-event); font: inherit; font-size: 13px; cursor: pointer; text-decoration: underline;
+  margin-left: auto; border: none; background: none; padding: 0;
+  color: var(--accent-b); font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; text-decoration: underline;
 }
 
 .atr-empty {
-  margin: 8px 0; padding: 18px; border-radius: var(--r-card);
-  background: var(--atr-card); border: 1px solid var(--atr-edge);
-  color: var(--atr-ink-dim); font-size: 14px; text-align: center;
+  display: flex; flex-direction: column; align-items: center; gap: 12px; text-align: center;
+  margin: 8px 0; padding: 28px 20px; border-radius: var(--r-card);
+  background: var(--bg-rise); border: 1px solid var(--hairline); box-shadow: var(--lift-1);
 }
-
-// Optional "+ Quick log" pill at the foot of the column (no fixed bottom bar).
-.atr-quicklog {
-  align-self: center;
-  display: inline-flex; align-items: center; gap: 6px;
-  min-height: 44px; padding: 0 18px; margin-top: 4px;
-  border-radius: 999px; border: 1px solid var(--atr-edge); background: var(--atr-card);
-  color: var(--atr-ink); text-decoration: none; font-weight: 600; font-size: 14px;
+.atr-empty__ic {
+  display: grid; place-items: center; width: 52px; height: 52px; border-radius: 16px;
+  background: color-mix(in srgb, var(--accent-a) 14%, transparent);
 }
-.atr-quicklog mat-icon { font-size: 20px; width: 20px; height: 20px; color: var(--atr-rings); }
+.atr-empty__ic mat-icon { font-size: 28px; width: 28px; height: 28px; color: color-mix(in srgb, var(--accent-a) 80%, var(--ink)); }
+.atr-empty__msg { margin: 0; color: var(--ink-dim); font-size: 14px; max-width: 30ch; }
+.atr-empty__btn {
+  min-height: 40px; padding: 0 18px; border-radius: var(--r-pill);
+  border: none; background: linear-gradient(135deg, var(--accent-a), var(--accent-b));
+  color: #fff; font: inherit; font-size: 14px; font-weight: 700; cursor: pointer;
+  box-shadow: 0 6px 20px color-mix(in srgb, var(--accent-a) 34%, transparent);
+  transition: transform 120ms var(--ease-spring);
+}
+.atr-empty__btn:active { transform: scale(.95); }
 
-// Own visible focus ring (never outline:none without a replacement).
+// Own visible focus ring (tracks the page accent via --focus).
 :host ::ng-deep :focus-visible {
-  outline: 2px solid var(--atr-rings);
+  outline: 2px solid var(--focus);
   outline-offset: 2px;
   border-radius: 8px;
 }

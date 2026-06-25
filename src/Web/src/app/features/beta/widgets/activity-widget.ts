@@ -9,9 +9,10 @@ import { AtriumWidgetShell, WidgetPhase } from './widget-shell';
 import { ReorderableWidget } from './reorderable';
 
 /**
- * Atrium "Recent activity" widget — the latest 6 request-log rows (method, path, status, who). Best-effort
- * own subscription to {@link Api.requestLogs} (catch → null). Gated on {@link PERM.activityView}; the
- * endpoint is admin-only, so the page auto-hides the card when the perm is missing.
+ * Atrium "Recent activity" widget — the latest 6 request-log rows (status pill, method, path, who).
+ * Best-effort own subscription to {@link Api.requestLogs} (catch → null). Gated on
+ * {@link PERM.activityView}; the endpoint is admin-only, so the page auto-hides the card when the perm
+ * is missing.
  */
 @Component({
   selector: 'atr-activity-widget',
@@ -20,8 +21,9 @@ import { ReorderableWidget } from './reorderable';
   imports: [AtriumWidgetShell],
   template: `
     <atr-widget-shell
-      title="Recent activity" route="/activity" accentVar="--atr-ink-dim"
-      [phase]="phase()" emptyText="No recent requests."
+      title="Recent activity" route="/activity"
+      accentA="#a4a7c6" accentB="#6d7194"
+      [phase]="phase()" emptyText="No recent requests." emptyIcon="history"
       [reordering]="reordering()"
       (retry)="reload()" (moveUp)="moveUp.emit()" (moveDown)="moveDown.emit()" (hide)="hide.emit()">
 
@@ -29,7 +31,9 @@ import { ReorderableWidget } from './reorderable';
         <ul body class="ac">
           @for (r of rows(); track r.id) {
             <li class="ac__row">
-              <span class="ac__status" [class.ac__status--err]="r.statusCode >= 400">{{ r.statusCode }}</span>
+              <span class="ac__status"
+                    [class.ac__status--ok]="r.statusCode < 400"
+                    [class.ac__status--err]="r.statusCode >= 400">{{ r.statusCode }}</span>
               <span class="ac__method">{{ r.method }}</span>
               <span class="ac__path">{{ r.path }}</span>
               <span class="ac__who">{{ r.userName || '—' }}</span>
@@ -40,13 +44,23 @@ import { ReorderableWidget } from './reorderable';
     </atr-widget-shell>
   `,
   styles: [`
-    .ac { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
-    .ac__row { display: grid; grid-template-columns: 36px 44px 1fr auto; align-items: center; gap: 8px; font-size: 12px; }
-    .ac__status { font-variant-numeric: tabular-nums; color: var(--atr-online); font-weight: 700; }
-    .ac__status--err { color: var(--atr-spend); }
-    .ac__method { color: var(--atr-ink-dim); font-weight: 700; }
-    .ac__path { color: var(--atr-ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .ac__who { color: var(--atr-ink-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 90px; }
+    .ac { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+    .ac__row { display: grid; grid-template-columns: 42px 42px 1fr auto; align-items: center; gap: 9px; font-size: 12px; }
+    .ac__status {
+      justify-self: start; min-width: 38px; text-align: center;
+      padding: 2px 6px; border-radius: var(--r-pill);
+      font-variant-numeric: tabular-nums; font-weight: 700; font-size: 11px;
+    }
+    .ac__status--ok { color: var(--signal); background: color-mix(in srgb, var(--signal) 13%, transparent); }
+    .ac__status--err { color: var(--warn); background: color-mix(in srgb, var(--warn) 14%, transparent); }
+    .ac__method { color: var(--ink-dim); font-weight: 700; letter-spacing: .02em; }
+    .ac__path {
+      color: var(--ink); font-weight: 600;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .ac__who {
+      color: var(--ink-faint); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 90px;
+    }
   `],
 })
 export class ActivityWidget extends ReorderableWidget {

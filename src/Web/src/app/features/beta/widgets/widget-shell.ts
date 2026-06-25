@@ -1,29 +1,39 @@
-import { ChangeDetectionStrategy, Component, input, output } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, input, output } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { MatIconModule } from '@angular/material/icon';
+
+import { BetaSkeleton } from '../../beta-ui';
 
 /** The four lifecycle phases every Atrium widget renders. `hidden` is handled by the parent (the card is
  *  simply not projected), so a widget body only ever sees the other three. */
 export type WidgetPhase = 'loading' | 'ready' | 'empty' | 'failed';
 
 /**
- * The shared chrome for an Atrium widget card: a tap-through surface (deep-links to the live page via
- * `route`), a header (accent dot + title + optional trailing slot), and the standard skeleton / empty /
- * failed scaffolding. Each widget projects its own READY body into `[body]`; the shell owns the rest so
- * every card states are visually consistent and one widget's failure never escapes its own card.
+ * STRATA widget card — the shared chrome for every Atrium HOME widget, rebuilt on the shared beta-ui
+ * foundation (`@use '../../beta-ui/beta-kit'`). It is a DEPTH surface, not a flat card: a sediment
+ * `--bg-rise` extrusion lifted with `--lift-2`, a gradient hairline edge that picks up the per-domain
+ * accent, an accent glow that blooms on press, a spring entrance, and tap/press feedback. Each domain
+ * passes a `from`/`to` accent pair so its card carries its own hue inside HOME's violet→blue page accent.
  *
- * Pure presentational + isolated: uses only inherited `--atr-*` tokens (no global `--tech-*`, no live
- * imports). The accent color is passed as a token name so each domain keeps its hue.
+ * Phases are unchanged: a `BetaSkeleton`-driven loading state, a tasteful empty state (an accent-tinted
+ * glyph + the nudge — never a blank box), and a failed/retry state. Each widget projects its READY body
+ * into `[body]`; the shell owns the rest so one widget's failure never escapes its own card.
+ *
+ * Pure presentational + isolated: inherits the kit token contract from the page `:host` (no global
+ * `--tech-*`, no live imports). The accent is passed as a from/to pair (gradient stops), so the dot,
+ * edge, and glow all render the domain's hue as a real gradient — never flat.
  */
 @Component({
   selector: 'atr-widget-shell',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RouterLink, MatIconModule],
+  imports: [RouterLink, MatIconModule, BetaSkeleton],
   template: `
-    <section class="w" [class.w--reorder]="reordering()">
+    <section class="w" [class.w--reorder]="reordering()" [class.w--press]="pressable()"
+             [style.--wa]="accentA()" [style.--wb]="accentB()">
+      <span class="w__edge" aria-hidden="true"></span>
       <header class="w__head">
-        <span class="w__dot" [style.background]="'var(' + accentVar() + ')'" aria-hidden="true"></span>
+        <span class="w__dot" aria-hidden="true"></span>
         <span class="w__title">{{ title() }}</span>
 
         @if (reordering()) {
@@ -50,13 +60,14 @@ export type WidgetPhase = 'loading' | 'ready' | 'empty' | 'failed';
 
       @switch (phase()) {
         @case ('loading') {
-          <div class="w__skel" aria-hidden="true">
-            <span class="w__skel-line"></span>
-            <span class="w__skel-line w__skel-line--short"></span>
+          <div class="w__skel">
+            <app-bs-skeleton height="22px" width="60%" radius="10px" />
+            <app-bs-skeleton height="14px" width="85%" radius="8px" />
           </div>
         }
         @case ('failed') {
-          <div class="w__state">
+          <div class="w__state w__state--fail">
+            <span class="w__state-ic" aria-hidden="true"><mat-icon>cloud_off</mat-icon></span>
             <p class="w__state-msg">Couldn't load.</p>
             <button type="button" class="w__retry" (click)="retry.emit()">
               <mat-icon aria-hidden="true">refresh</mat-icon> Retry
@@ -64,7 +75,8 @@ export type WidgetPhase = 'loading' | 'ready' | 'empty' | 'failed';
           </div>
         }
         @case ('empty') {
-          <div class="w__state">
+          <div class="w__state w__state--empty">
+            <span class="w__state-ic" aria-hidden="true"><mat-icon>{{ emptyIcon() }}</mat-icon></span>
             <p class="w__state-msg">{{ emptyText() }}</p>
           </div>
         }
@@ -75,57 +87,102 @@ export type WidgetPhase = 'loading' | 'ready' | 'empty' | 'failed';
     </section>
   `,
   styles: [`
+    @use '../../beta-ui/beta-kit' as kit;
+
     .w {
+      position: relative;
       display: block;
-      border-radius: var(--r-card, 22px);
-      background: var(--atr-card);
-      border: 1px solid var(--atr-edge);
-      box-shadow: var(--lift);
+      border-radius: var(--r-card);
+      background:
+        radial-gradient(120% 90% at 0% 0%, color-mix(in srgb, var(--wa, var(--accent-a)) 9%, transparent), transparent 60%),
+        var(--bg-rise);
+      box-shadow: var(--lift-2);
       padding: 16px;
       scroll-snap-align: start;
+      overflow: hidden;
+      isolation: isolate;
+      transition: transform 140ms var(--ease-out), box-shadow 220ms var(--ease-out);
     }
-    .w--reorder { outline: 2px dashed var(--atr-ink-dim); outline-offset: 2px; }
+    // Gradient hairline edge that picks up the domain accent (top-lit), masked to a 1px ring.
+    .w__edge {
+      position: absolute; inset: 0; border-radius: inherit; padding: 1px; pointer-events: none; z-index: 0;
+      background: linear-gradient(150deg,
+        color-mix(in srgb, var(--wa, var(--accent-a)) 55%, transparent),
+        var(--hairline) 38%,
+        color-mix(in srgb, var(--wb, var(--accent-b)) 28%, transparent));
+      -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+      -webkit-mask-composite: xor; mask-composite: exclude;
+    }
+    .w > :not(.w__edge) { position: relative; z-index: 1; }
+
+    // Tap/press feedback — the whole card sinks a touch and blooms its accent glow.
+    .w--press { cursor: pointer; -webkit-tap-highlight-color: transparent; }
+    .w--press:active {
+      transform: scale(.985);
+      box-shadow: var(--lift-1),
+        0 0 0 1px color-mix(in srgb, var(--wa, var(--accent-a)) 40%, transparent),
+        0 8px 30px color-mix(in srgb, var(--wa, var(--accent-a)) 28%, transparent);
+    }
+
+    .w--reorder { outline: 2px dashed var(--ink-faint); outline-offset: 3px; }
 
     .w__head { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
-    .w__dot { flex: 0 0 auto; width: 9px; height: 9px; border-radius: 999px; }
-    .w__title { font-weight: 700; font-size: 14px; letter-spacing: .01em; color: var(--atr-ink); }
+    .w__dot {
+      flex: 0 0 auto; width: 10px; height: 10px; border-radius: 50%;
+      background: linear-gradient(135deg, var(--wa, var(--accent-a)), var(--wb, var(--accent-b)));
+      box-shadow: 0 0 0 4px color-mix(in srgb, var(--wa, var(--accent-a)) 16%, transparent);
+    }
+    .w__title {
+      font-family: var(--font-ui); font-weight: 700; font-size: 13px; letter-spacing: .03em;
+      text-transform: uppercase; color: var(--ink-dim);
+    }
 
     .w__open {
       margin-left: auto; display: grid; place-items: center;
-      width: 32px; height: 32px; border-radius: 999px;
-      color: var(--atr-ink-dim); text-decoration: none;
-      transition: background 120ms ease, color 120ms ease;
+      width: 34px; height: 34px; border-radius: 50%;
+      color: var(--ink-dim); text-decoration: none;
+      background: color-mix(in srgb, var(--ink) 4%, transparent);
+      transition: background 120ms var(--ease-out), color 120ms var(--ease-out), transform 120ms var(--ease-out);
     }
-    .w__open:hover { background: rgba(255,255,255,.06); color: var(--atr-ink); }
+    .w__open:hover { background: color-mix(in srgb, var(--ink) 9%, transparent); color: var(--ink); }
+    .w__open:active { transform: scale(.92); }
+    .w__open mat-icon { font-size: 22px; width: 22px; height: 22px; }
 
     .w__reorder { margin-left: auto; display: flex; gap: 6px; }
     .w__rbtn {
       display: grid; place-items: center;
-      width: 36px; height: 36px; border-radius: 10px;
-      border: 1px solid var(--atr-edge); background: transparent; color: var(--atr-ink);
-      cursor: pointer;
+      width: 36px; height: 36px; border-radius: 11px;
+      border: 1px solid var(--hairline); background: color-mix(in srgb, var(--ink) 3%, transparent);
+      color: var(--ink); cursor: pointer;
+      transition: transform 120ms var(--ease-spring);
     }
-    .w__rbtn--off { color: var(--atr-spend); }
+    .w__rbtn:active { transform: scale(.9); }
+    .w__rbtn--off { color: var(--warn); }
     .w__rbtn mat-icon { font-size: 20px; width: 20px; height: 20px; }
 
-    .w__skel { display: flex; flex-direction: column; gap: 10px; padding: 4px 0 8px; }
-    .w__skel-line {
-      height: 16px; border-radius: 8px;
-      background: linear-gradient(100deg, rgba(255,255,255,.04) 30%, rgba(255,255,255,.10) 50%, rgba(255,255,255,.04) 70%);
-      background-size: 200% 100%;
-      animation: atr-shimmer 1.4s ease infinite;
-    }
-    .w__skel-line--short { width: 55%; }
-    @keyframes atr-shimmer { to { background-position: -200% 0; } }
+    .w__skel { display: flex; flex-direction: column; gap: 12px; padding: 2px 0 6px; }
 
-    .w__state { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 6px 0; }
-    .w__state-msg { margin: 0; color: var(--atr-ink-dim); font-size: 13px; }
-    .w__retry {
-      display: inline-flex; align-items: center; gap: 6px;
-      min-height: 36px; padding: 0 12px; border-radius: 999px;
-      border: 1px solid var(--atr-edge); background: transparent; color: var(--atr-ink);
-      font: inherit; font-size: 13px; cursor: pointer;
+    // Tasteful states — never a bare line. An accent-tinted glyph anchors the message.
+    .w__state {
+      display: flex; align-items: center; gap: 10px; padding: 8px 2px;
     }
+    .w__state-ic {
+      flex: 0 0 auto; display: grid; place-items: center; width: 36px; height: 36px; border-radius: 12px;
+      background: color-mix(in srgb, var(--wa, var(--accent-a)) 12%, transparent);
+    }
+    .w__state-ic mat-icon { font-size: 20px; width: 20px; height: 20px; color: color-mix(in srgb, var(--wa, var(--accent-a)) 80%, var(--ink)); }
+    .w__state--fail .w__state-ic { background: color-mix(in srgb, var(--warn) 14%, transparent); }
+    .w__state--fail .w__state-ic mat-icon { color: var(--warn); }
+    .w__state-msg { margin: 0; flex: 1 1 auto; color: var(--ink-dim); font-size: 13px; }
+    .w__retry {
+      flex: 0 0 auto;
+      display: inline-flex; align-items: center; gap: 6px;
+      min-height: 36px; padding: 0 12px; border-radius: var(--r-pill);
+      border: 1px solid var(--hairline); background: color-mix(in srgb, var(--ink) 4%, transparent);
+      color: var(--ink); font: inherit; font-size: 13px; font-weight: 600; cursor: pointer;
+      transition: transform 120ms var(--ease-spring);
+    }
+    .w__retry:active { transform: scale(.94); }
     .w__retry mat-icon { font-size: 18px; width: 18px; height: 18px; }
   `],
 })
@@ -134,12 +191,15 @@ export class AtriumWidgetShell {
   readonly title = input.required<string>();
   /** Deep-link to the matching LIVE page; null hides the chevron (e.g. presence has no single target). */
   readonly route = input<string | null>(null);
-  /** The CSS custom-property NAME for this domain's accent (e.g. `--atr-rings`). */
-  readonly accentVar = input<string>('--atr-ink');
+  /** This domain's accent gradient stops (read off the page accent contract by default). */
+  readonly accentA = input<string>('var(--accent-a)');
+  readonly accentB = input<string>('var(--accent-b)');
   /** Current lifecycle phase. */
   readonly phase = input.required<WidgetPhase>();
   /** Friendly nudge shown in the empty state. */
   readonly emptyText = input<string>('Nothing here yet.');
+  /** Material glyph anchoring the empty state (kept generic by default). */
+  readonly emptyIcon = input<string>('inbox');
   /** Whether the parent is in long-press reorder mode (swaps the trailing slot for move/hide controls). */
   readonly reordering = input<boolean>(false);
 
@@ -147,4 +207,7 @@ export class AtriumWidgetShell {
   readonly moveUp = output<void>();
   readonly moveDown = output<void>();
   readonly hide = output<void>();
+
+  /** Press feedback only when the card has a tap target (a route) and we're not reordering. */
+  protected readonly pressable = computed(() => !!this.route() && !this.reordering());
 }

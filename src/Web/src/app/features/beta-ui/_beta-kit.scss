@@ -1,0 +1,323 @@
+// ============================================================================
+// BETA-KIT — the SHARED "Strata" design-system partial for the (non-flagship)
+// beta pages.
+//
+// This is the flagship tracker-beta "Strata" token system (tracker-beta.page.scss)
+// GENERALIZED into a reusable partial. The flagship is NOT touched — it keeps its
+// own copy as the gold standard; this partial is what every OTHER beta page adopts
+// so they all share one contract (layered bg, glass, ink scale, radii, elevation,
+// spring motion, blur cap, safe-area, the a11y killswitches), while each page
+// supplies its OWN signature accent.
+//
+// ─── HOW A PAGE ADOPTS THE KIT (one line + an accent override) ───────────────
+//
+//   // my-beta.page.scss
+//   @use '../beta-ui/beta-kit' as kit;
+//
+//   :host {
+//     @include kit.beta-host;          // ← the whole Strata token contract
+//     --accent-a: #f0a35a;             // ← this page's signature accent (start)
+//     --accent-b: #fb7185;             // ← this page's signature accent (end)
+//   }
+//
+// …or reuse a NAMED domain accent instead of hand-picking hex:
+//
+//   :host {
+//     @include kit.beta-host;
+//     @include kit.accent('move');     // move / pro / water / coffee / spend / event …
+//   }
+//
+// Either way the kit components (app-bs-* primitives) inherit --accent-a/--accent-b
+// off the host cascade and render their gradients from THOSE — so dropping a page's
+// accent re-skins the whole screen. Gradients are emitted as SVG <linearGradient>
+// (never flat) by the SvgRing / ring components, matching the flagship convention.
+// ============================================================================
+
+
+@use 'sass:map';
+@use 'sass:list';
+
+// ─── The named domain accent pairs (reuse-friendly, generalized from Strata) ──
+// A page can either set --accent-a/--accent-b by hand or pull one of these by name
+// via the accent() mixin. Keys mirror the flagship's per-domain gradients plus the
+// Atrium command-center hues so beta pages can match an existing surface.
+$accents: (
+  // flagship Strata domains
+  'cal':    (#7c5cff, #3b82f6),   // calories   violet → blue   (the hero / default)
+  'pro':    (#22d3ee, #34d399),   // protein    cyan   → green
+  'move':   (#fb7185, #f59e0b),   // move/steps rose   → amber
+  'water':  (#38bdf8, #22d3ee),   // hydration  sky    → cyan
+  'coffee': (#c2772e, #f0b760),   // coffee     bronze → tan
+  // Atrium command-center hues (so beta pages can echo the home surface)
+  'rings':  (#7c5cff, #3b82f6),
+  'hard':   (#f0a35a, #fb7185),
+  'event':  (#38bdf8, #7c5cff),
+  'spend':  (#fb7185, #f0a35a),
+  'online': (#34d399, #22d3ee),
+);
+
+
+// ─── accent(name) — set --accent-a/--accent-b from a named pair ───────────────
+// Use inside a :host that already @include'd beta-host (or anywhere you want the
+// pair as locals). Falls back to the calorie violet→blue if the name is unknown.
+@mixin accent($name: 'cal') {
+  $pair: map.get($accents, $name);
+  @if $pair == null { $pair: map.get($accents, 'cal'); }
+  --accent-a: #{list.nth($pair, 1)};
+  --accent-b: #{list.nth($pair, 2)};
+}
+
+
+// ─── beta-host — the whole Strata token contract on one :host ─────────────────
+// @include this on a page (or any token-owning host) and every descendant — the
+// kit components included — inherits the system via the cascade. Mirrors the
+// flagship tracker-beta :host VERBATIM (generalized: per-domain accents collapse
+// to the --accent-a/--accent-b PER-PAGE CONTRACT, with the named map above for
+// reuse).
+@mixin beta-host {
+  // Dark-only (matches the rest of Usage IQ). Declaring the scheme makes the browser render dark UA
+  // chrome (scrollbars, form controls, tap highlights) and stops a light-mode device from flipping to
+  // light. A real opt-in light theme is a separate, app-wide feature.
+  color-scheme: dark;
+
+  // ---- DARK (default) ----
+  --bg-base: #0d0e16;
+  --bg-rise: #15172a;
+  --bg-sink: #0a0b12;
+  --glass: rgba(26, 29, 52, .62);
+  --glass-edge: rgba(255, 255, 255, .10);
+  --hairline: rgba(255, 255, 255, .07);
+  --ink: #f3f4ff;
+  --ink-dim: #a4a7c6;
+  --ink-faint: #6d7194;
+
+  // ---- THE PER-PAGE ACCENT CONTRACT ----
+  // A page OVERRIDES these two on its own :host to get its signature color. The kit
+  // components read --accent-a/--accent-b for every gradient / dot / fill. Default is
+  // the flagship calorie violet→blue so an un-themed page still looks intentional.
+  --accent-a: #7c5cff;
+  --accent-b: #3b82f6;
+
+  // Status hues (shared, not per-page): success green + over-goal warm amber (never red),
+  // plus a focus ring that resolves to the page accent so the ring matches the brand.
+  --signal: #34d399;            // goal-hit / success green
+  --warn: #f0a35a;              // GRAFT(Daylight): over-goal / destructive = warm AMBER, never red
+  --focus: var(--accent-a);     // visible focus ring tracks the page accent (>=3:1 on bg-base)
+
+  // ---- TYPE ----
+  --font-display: "Clash Display", system-ui, sans-serif;  // numerals only
+  --font-ui: "Plus Jakarta Sans", system-ui, sans-serif;   // labels / body
+
+  // ---- RADII ----
+  --r-glass: 28px;
+  --r-card: 24px;
+  --r-tile: 18px;
+  --r-ring: 32px;
+  --r-pill: 999px;
+
+  // ---- ELEVATION (the depth system) ----
+  --lift-1: 0 2px 8px rgba(4, 6, 20, .35);                                        // sediment resting
+  --lift-2: 0 8px 24px rgba(4, 6, 20, .45), inset 0 1px 0 var(--glass-edge);      // raised card
+  --lift-3: 0 16px 48px rgba(4, 6, 20, .55), inset 0 1px 0 var(--glass-edge);     // floating glass
+  --press: inset 0 2px 8px rgba(4, 6, 20, .5);                                    // depressed well
+
+  // ---- MOTION / EASING ----
+  --ease-out: cubic-bezier(.22, 1, .36, 1);
+  --ease-spring: cubic-bezier(.34, 1.56, .64, 1);
+  --ease-spring-up: cubic-bezier(.34, 1.56, .64, 1);   // @supports-upgraded to a real spring below
+  --ease-bounce: cubic-bezier(.34, 1.56, .64, 1);
+
+  // ---- BLUR (restricted to the floating glass surfaces only) ----
+  --blur-glass: 18px;          // capped; sediment cards are cheap matte extrusion, no blur
+
+  // ---- Safe-area gutters (resolved once, reused everywhere) ----
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --gutter: max(16px, env(safe-area-inset-left, 0px));
+  --gutter-r: max(16px, env(safe-area-inset-right, 0px));
+
+  // ---- Base box ----
+  display: block;
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  background: var(--bg-base);
+  color: var(--ink);
+  font-family: var(--font-ui);
+  font-size: 15px;
+  line-height: 1.4;
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  overscroll-behavior: none;
+}
+
+
+// ─── linear() spring upgrade where supported (richer overshoot than the cubic floor) ──
+// Emit this AT THE PARTIAL TOP LEVEL once per page is not possible from a mixin alone, so
+// the page calls beta-springs() once (typically right after the :host block).
+@mixin beta-springs {
+  @supports (animation-timing-function: linear(0, 1)) {
+    :host {
+      --ease-spring-up: linear(0, .006, .025 2.8%, .101 6.5%, .539 23%, .721, .849, .937, .991, 1.013, 1.019, 1.01, 1.004, .999, .998, 1);
+      --ease-bounce: linear(0, .004, .016, .035, .063, .098, .141, .191, .25, .316, .563, .737, .879, .969, 1.005, 1.011, 1.005, .996, 1);
+    }
+  }
+}
+
+
+// ─── beta-a11y — the three accessibility killswitches, scoped to :host ────────
+// Call once per page. Drops blur + solidifies glass under reduced-transparency /
+// forced-contrast, and collapses every animation/transition to instant under
+// reduced-motion (optimistic swaps + undo still function — only decorative motion
+// is removed). Mirrors the flagship killswitches VERBATIM.
+@mixin beta-a11y {
+  // reduced transparency / forced contrast => drop blur, solidify glass
+  @media (prefers-reduced-transparency: reduce), (prefers-contrast: more) {
+    :host {
+      --blur-glass: 0px;
+      --glass: var(--bg-rise);
+    }
+  }
+  // MOTION KILLSWITCH: collapse every animation/transition to instant
+  @media (prefers-reduced-motion: reduce) {
+    :host,
+    :host *,
+    :host *::before,
+    :host *::after {
+      animation-duration: .001ms !important;
+      animation-delay: 0ms !important;
+      transition-duration: .001ms !important;
+      transition-delay: 0ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+
+// ─── beta-kit — convenience: host tokens + springs + a11y in ONE include ──────
+// The truly one-line adoption. NOTE: because @supports / @media can't live inside a
+// selector-less mixin and also re-open :host cleanly in all sass versions, this mixin
+// is meant to be used as the BODY of a top-level `:host { … }` rule via beta-host,
+// followed by beta-springs() + beta-a11y() at top level. Provided here as a single
+// entry point for pages that want the full bundle:
+//
+//   @use '../beta-ui/beta-kit' as kit;
+//   :host { @include kit.beta-host; --accent-a: …; --accent-b: …; }
+//   @include kit.beta-springs;
+//   @include kit.beta-a11y;
+//
+// (kept as separate mixins so a page can opt out of any one piece.)
+
+
+// ============================================================================
+// OPTIONAL SHELL SCAFFOLD — generalized from the flagship .tb-* shell classes.
+// A page can `@include kit.beta-shell;` at top level to get the same scroll
+// region / sticky glass strip / floating hero / sediment card / fixed action bar
+// vocabulary the flagship uses, renamed to the neutral .bk-* prefix so beta pages
+// share one layout grammar. Purely opt-in — primitives don't depend on it.
+// ============================================================================
+@mixin beta-shell {
+  // Fixed-chrome heights a page can override to reserve scroll space.
+  :host { --bar-top-h: 52px; --bar-bottom-h: 72px; }
+
+  // The single vertical scroll region (the only scrollbar). scroll-snap on landings.
+  .bk-scroll {
+    height: 100%;
+    overflow-y: auto;
+    overflow-x: hidden;
+    overscroll-behavior-y: contain;
+    scroll-snap-type: y proximity;
+    -webkit-overflow-scrolling: touch;
+    padding-top: calc(var(--bar-top-h) + var(--safe-top));
+    padding-bottom: calc(var(--bar-bottom-h) + var(--safe-bottom) + 12px);
+    padding-inline: var(--gutter) var(--gutter-r);
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  // Sticky glass top strip — fixed chrome, safe-area aware, hairline (no shadow).
+  .bk-topbar {
+    position: fixed;
+    top: var(--beta-bar-top, 0px);
+    left: 0;
+    right: 0;
+    z-index: 30;
+    height: calc(var(--bar-top-h) + var(--safe-top));
+    padding-top: var(--safe-top);
+    padding-inline: var(--gutter) var(--gutter-r);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    background: var(--glass);
+    backdrop-filter: blur(var(--blur-glass)) saturate(1.4);
+    -webkit-backdrop-filter: blur(var(--blur-glass)) saturate(1.4);
+    border-bottom: 1px solid var(--hairline);
+  }
+
+  // Floating hero glass card — one of the blurred surfaces, --lift-3, --r-ring.
+  .bk-hero {
+    flex: 0 0 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    padding: 18px 16px;
+    border-radius: var(--r-ring);
+    background: var(--glass);
+    backdrop-filter: blur(var(--blur-glass)) saturate(1.4);
+    -webkit-backdrop-filter: blur(var(--blur-glass)) saturate(1.4);
+    box-shadow: var(--lift-3);
+    scroll-snap-align: start;
+  }
+
+  // Stacked sediment card — matte extrusion (no blur), --lift-2, scroll-snap landing.
+  .bk-card {
+    flex: 0 0 auto;
+    border-radius: var(--r-card);
+    background: var(--bg-rise);
+    box-shadow: var(--lift-2);
+    scroll-snap-align: start;
+    padding: 16px;
+  }
+
+  // Defer below-fold cards' render work until they scroll near.
+  .bk-defer {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 180px;
+  }
+
+  // Fixed bottom action bar — glass, --lift-3 (a blurred surface). Thumb-arc anchor.
+  .bk-actionbar {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 30;
+    min-height: calc(var(--bar-bottom-h) + var(--safe-bottom));
+    padding-bottom: max(12px, var(--safe-bottom));
+    padding-top: 10px;
+    padding-inline: var(--gutter) var(--gutter-r);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    background: var(--glass);
+    backdrop-filter: blur(var(--blur-glass)) saturate(1.4);
+    -webkit-backdrop-filter: blur(var(--blur-glass)) saturate(1.4);
+    border-top: 1px solid var(--hairline);
+    box-shadow: var(--lift-3);
+  }
+
+  // Own visible focus ring (never outline:none without a replacement).
+  :host ::ng-deep :focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 2px;
+    border-radius: 6px;
+  }
+}

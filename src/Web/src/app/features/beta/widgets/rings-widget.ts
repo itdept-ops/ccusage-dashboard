@@ -4,11 +4,14 @@ import { MatIconModule } from '@angular/material/icon';
 import { AuthService } from '../../../core/auth';
 import { PERM } from '../../../core/models';
 import { TrackerStore, toLocalDate } from '../../../core/tracker-store';
+import { BetaSvgRing } from '../../beta-ui';
 import { AtriumWidgetShell, WidgetPhase } from './widget-shell';
 import { ReorderableWidget } from './reorderable';
 
 /**
- * Atrium "Rings" widget — calories / protein / water at a glance, with one optimistic `+water` button.
+ * Atrium "Today's rings" widget — calories / protein / water as three REAL concentric SvgRings (kit
+ * `BetaSvgRing`, accent gradients rendered as SVG linearGradients, never flat), each with a big Clash
+ * Display numeral at its center, plus one optimistic `+water` button.
  *
  * Isolation: injects the ROOT {@link TrackerStore} (shared with the live `/tracker` and `/tracker-beta`
  * pages) and reads its signals READ-ONLY, plus the single legitimate user action `addHydration` (an
@@ -23,32 +26,47 @@ import { ReorderableWidget } from './reorderable';
   selector: 'atr-rings-widget',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [AtriumWidgetShell, MatIconModule],
+  imports: [AtriumWidgetShell, BetaSvgRing, MatIconModule],
   template: `
     <atr-widget-shell
-      title="Today's rings" route="/tracker" accentVar="--atr-rings"
-      [phase]="phase()" emptyText="No tracker data yet."
+      title="Today's rings" route="/tracker"
+      accentA="#8b5cff" accentB="#4f7bff"
+      [phase]="phase()" emptyText="No tracker data yet — log a meal to fill your rings." emptyIcon="data_usage"
       [reordering]="reordering()"
       (retry)="reload()" (moveUp)="moveUp.emit()" (moveDown)="moveDown.emit()" (hide)="hide.emit()">
 
       @if (day(); as d) {
         <div body class="rings">
-          <div class="ring ring--cal">
-            <span class="ring__num">{{ d.caloriesIn }}</span>
-            <span class="ring__unit">/ {{ d.calorieGoal ?? '—' }} kcal</span>
-            <span class="ring__bar"><i [style.width.%]="calPct()"></i></span>
+          <div class="ring">
+            <app-bs-ring [value]="calFrac()" [size]="92" [stroke]="9"
+                         from="#7c5cff" to="#4f7bff" [label]="calPct() + '% of calorie goal'">
+              <span class="ring__c">
+                <span class="ring__num">{{ d.caloriesIn }}</span>
+                <span class="ring__unit">/ {{ d.calorieGoal ?? '—' }}</span>
+              </span>
+            </app-bs-ring>
             <span class="ring__lbl">Calories</span>
           </div>
-          <div class="ring ring--pro">
-            <span class="ring__num">{{ d.proteinG }}g</span>
-            <span class="ring__unit">{{ proteinGoal() ? '/ ' + proteinGoal() + 'g' : 'protein' }}</span>
-            <span class="ring__bar ring__bar--pro"><i [style.width.%]="proPct()"></i></span>
+
+          <div class="ring">
+            <app-bs-ring [value]="proFrac()" [size]="92" [stroke]="9"
+                         from="#22d3ee" to="#34d399" [label]="proPct() + '% of protein goal'">
+              <span class="ring__c">
+                <span class="ring__num">{{ d.proteinG }}<small>g</small></span>
+                <span class="ring__unit">{{ proteinGoal() ? '/ ' + proteinGoal() + 'g' : 'protein' }}</span>
+              </span>
+            </app-bs-ring>
             <span class="ring__lbl">Protein</span>
           </div>
-          <div class="ring ring--water">
-            <span class="ring__num">{{ waterCups(d.hydrationMl) }}</span>
-            <span class="ring__unit">/ {{ waterCups(d.hydrationGoalMl) }} cups</span>
-            <span class="ring__bar ring__bar--water"><i [style.width.%]="waterPct()"></i></span>
+
+          <div class="ring">
+            <app-bs-ring [value]="waterFrac()" [size]="92" [stroke]="9"
+                         from="#38bdf8" to="#22d3ee" [label]="waterPct() + '% of hydration goal'">
+              <span class="ring__c">
+                <span class="ring__num">{{ waterCups(d.hydrationMl) }}</span>
+                <span class="ring__unit">/ {{ waterCups(d.hydrationGoalMl) }} cups</span>
+              </span>
+            </app-bs-ring>
             <button type="button" class="ring__add" (click)="addWater($event)"
                     [disabled]="busy()" aria-label="Add a cup of water">
               <mat-icon aria-hidden="true">add</mat-icon> water
@@ -59,21 +77,25 @@ import { ReorderableWidget } from './reorderable';
     </atr-widget-shell>
   `,
   styles: [`
-    .rings { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
-    .ring { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
-    .ring__num { font-weight: 700; font-size: 20px; color: var(--atr-ink); line-height: 1; }
-    .ring__unit { font-size: 11px; color: var(--atr-ink-dim); }
-    .ring__lbl { font-size: 11px; color: var(--atr-ink-dim); margin-top: 2px; }
-    .ring__bar { height: 6px; border-radius: 999px; background: rgba(255,255,255,.08); overflow: hidden; margin-top: 4px; }
-    .ring__bar > i { display: block; height: 100%; border-radius: 999px; background: var(--atr-rings); transition: width 240ms var(--atr-ease, ease); }
-    .ring__bar--pro > i { background: var(--atr-online); }
-    .ring__bar--water > i { background: var(--atr-event); }
-    .ring__add {
-      margin-top: 6px; display: inline-flex; align-items: center; gap: 3px; align-self: flex-start;
-      min-height: 32px; padding: 0 10px; border-radius: 999px;
-      border: 1px solid var(--atr-edge); background: transparent; color: var(--atr-event);
-      font: inherit; font-size: 12px; cursor: pointer;
+    .rings { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+    .ring { display: flex; flex-direction: column; align-items: center; gap: 8px; min-width: 0; }
+    .ring__c { display: flex; flex-direction: column; align-items: center; gap: 1px; line-height: 1; }
+    .ring__num {
+      font-family: var(--font-display); font-variant-numeric: tabular-nums;
+      font-weight: 600; font-size: 22px; letter-spacing: -.03em; color: var(--ink); line-height: 1;
     }
+    .ring__num small { font-size: 13px; font-weight: 600; color: var(--ink-dim); }
+    .ring__unit { font-family: var(--font-ui); font-size: 10px; color: var(--ink-faint); white-space: nowrap; }
+    .ring__lbl { font-size: 11px; font-weight: 600; letter-spacing: .03em; text-transform: uppercase; color: var(--ink-dim); }
+    .ring__add {
+      display: inline-flex; align-items: center; gap: 3px;
+      min-height: 30px; padding: 0 12px; border-radius: var(--r-pill);
+      border: 1px solid color-mix(in srgb, #38bdf8 40%, var(--hairline));
+      background: color-mix(in srgb, #38bdf8 12%, transparent);
+      color: #7ad0ff; font: inherit; font-size: 12px; font-weight: 600; cursor: pointer;
+      transition: transform 120ms var(--ease-spring);
+    }
+    .ring__add:active:not(:disabled) { transform: scale(.92); }
     .ring__add:disabled { opacity: .5; cursor: default; }
     .ring__add mat-icon { font-size: 16px; width: 16px; height: 16px; }
   `],
@@ -103,6 +125,11 @@ export class RingsWidget extends ReorderableWidget {
   readonly calPct = computed(() => this.pct(this.store.day()?.caloriesIn, this.store.day()?.calorieGoal));
   readonly proPct = computed(() => this.pct(this.store.day()?.proteinG, this.proteinGoal() ?? undefined));
   readonly waterPct = computed(() => this.pct(this.store.day()?.hydrationMl, this.store.day()?.hydrationGoalMl));
+
+  /** 0..1 fractions for the SvgRings (the % computeds power the aria labels). */
+  readonly calFrac = computed(() => this.calPct() / 100);
+  readonly proFrac = computed(() => this.proPct() / 100);
+  readonly waterFrac = computed(() => this.waterPct() / 100);
 
   constructor() {
     super();

@@ -3,13 +3,15 @@ import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/c
 import { AuthService } from '../../../core/auth';
 import { ChallengeStore } from '../../../core/challenge-store';
 import { PERM } from '../../../core/models';
+import { BetaSvgRing } from '../../beta-ui';
 import { AtriumWidgetShell, WidgetPhase } from './widget-shell';
 import { ReorderableWidget } from './reorderable';
 
 /**
- * Atrium "75 Hard" widget — current day / total, today's points, streak, and a compact day-progress pip
- * row. Injects the ROOT {@link ChallengeStore} (shared with the live `/challenge` page), reads it
- * READ-ONLY, and calls `store.load()` once on init (the store does not auto-load).
+ * Atrium "75 Hard" widget — a hero progress ring (day N of total, as a real `BetaSvgRing` with the streak
+ * flame + day-count at its center), today's points, and a compact day-progress pip row. Injects the ROOT
+ * {@link ChallengeStore} (shared with the live `/challenge` page), reads it READ-ONLY, and calls
+ * `store.load()` once on init (the store does not auto-load).
  *
  * Auto-hide: {@link visible} is false when the perm is missing OR a load has completed with no active
  * challenge (`loaded() && challenge() === null`) — the brief's "hidden if no challenge".
@@ -18,44 +20,71 @@ import { ReorderableWidget } from './reorderable';
   selector: 'atr-hard-widget',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [AtriumWidgetShell],
+  imports: [AtriumWidgetShell, BetaSvgRing],
   template: `
     <atr-widget-shell
-      title="75 Hard" route="/challenge" accentVar="--atr-hard"
-      [phase]="phase()" emptyText="No active challenge."
+      title="75 Hard" route="/challenge"
+      accentA="#f0a35a" accentB="#fb7185"
+      [phase]="phase()" emptyText="No active challenge — start one to track your streak." emptyIcon="local_fire_department"
       [reordering]="reordering()"
       (retry)="reload()" (moveUp)="moveUp.emit()" (moveDown)="moveDown.emit()" (hide)="hide.emit()">
 
       @if (challenge(); as c) {
         <div body class="hard">
-          <div class="hard__row">
-            <span class="hard__day">Day {{ c.currentDay }}<span class="hard__of">/ {{ c.totalDays }}</span></span>
-            <span class="hard__stat">{{ c.todayPoints }} pts today</span>
-            <span class="hard__stat hard__stat--streak">{{ c.currentStreak }}🔥</span>
-          </div>
-          <div class="hard__pips" role="img" [attr.aria-label]="c.currentDay + ' of ' + c.totalDays + ' days'">
-            @for (p of pips(); track p.i) {
-              <span class="hard__pip" [class.hard__pip--on]="p.done" [class.hard__pip--today]="p.today"></span>
-            }
+          <app-bs-ring class="hard__ring" [value]="dayFrac()" [size]="78" [stroke]="9"
+                       from="#f0a35a" to="#fb7185"
+                       [label]="'Day ' + c.currentDay + ' of ' + c.totalDays">
+            <span class="hard__c">
+              <span class="hard__day">{{ c.currentDay }}</span>
+              <span class="hard__of">/ {{ c.totalDays }}</span>
+            </span>
+          </app-bs-ring>
+
+          <div class="hard__side">
+            <div class="hard__streak">
+              <span class="hard__flame" aria-hidden="true">🔥</span>
+              <span class="hard__streak-n">{{ c.currentStreak }}</span>
+              <span class="hard__streak-l">day streak</span>
+            </div>
+            <div class="hard__pts">{{ c.todayPoints }} pts today</div>
+            <div class="hard__pips" role="img" [attr.aria-label]="c.currentDay + ' of ' + c.totalDays + ' days'">
+              @for (p of pips(); track p.i) {
+                <span class="hard__pip" [class.hard__pip--on]="p.done" [class.hard__pip--today]="p.today"></span>
+              }
+            </div>
           </div>
         </div>
       }
     </atr-widget-shell>
   `,
   styles: [`
-    .hard { display: flex; flex-direction: column; gap: 12px; }
-    .hard__row { display: flex; align-items: baseline; gap: 12px; }
-    .hard__day { font-weight: 700; font-size: 20px; color: var(--atr-ink); }
-    .hard__of { font-size: 13px; color: var(--atr-ink-dim); font-weight: 600; margin-left: 3px; }
-    .hard__stat { font-size: 12px; color: var(--atr-ink-dim); }
-    .hard__stat--streak { margin-left: auto; }
-    .hard__pips { display: flex; flex-wrap: wrap; gap: 4px; }
-    .hard__pip {
-      width: 8px; height: 8px; border-radius: 3px;
-      background: rgba(255,255,255,.10);
+    .hard { display: flex; align-items: center; gap: 16px; }
+    .hard__ring { flex: 0 0 auto; }
+    .hard__c { display: flex; flex-direction: column; align-items: center; line-height: 1; }
+    .hard__day {
+      font-family: var(--font-display); font-variant-numeric: tabular-nums;
+      font-weight: 600; font-size: 28px; letter-spacing: -.03em; color: var(--ink); line-height: 1;
     }
-    .hard__pip--on { background: var(--atr-hard); }
-    .hard__pip--today { box-shadow: 0 0 0 2px color-mix(in srgb, var(--atr-hard) 50%, transparent); }
+    .hard__of { font-family: var(--font-ui); font-size: 11px; font-weight: 600; color: var(--ink-faint); }
+
+    .hard__side { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 8px; }
+    .hard__streak { display: flex; align-items: baseline; gap: 6px; }
+    .hard__flame { font-size: 18px; line-height: 1; filter: drop-shadow(0 0 6px color-mix(in srgb, #fb7185 55%, transparent)); }
+    .hard__streak-n {
+      font-family: var(--font-display); font-variant-numeric: tabular-nums;
+      font-weight: 600; font-size: 24px; letter-spacing: -.03em; color: var(--ink); line-height: 1;
+    }
+    .hard__streak-l { font-size: 11px; font-weight: 600; letter-spacing: .03em; text-transform: uppercase; color: var(--ink-dim); }
+    .hard__pts {
+      align-self: flex-start;
+      padding: 3px 10px; border-radius: var(--r-pill);
+      background: color-mix(in srgb, #f0a35a 14%, transparent);
+      color: #f6bd84; font-size: 12px; font-weight: 700;
+    }
+    .hard__pips { display: flex; flex-wrap: wrap; gap: 4px; }
+    .hard__pip { width: 7px; height: 7px; border-radius: 2.5px; background: color-mix(in srgb, var(--ink) 10%, transparent); }
+    .hard__pip--on { background: linear-gradient(135deg, #f0a35a, #fb7185); }
+    .hard__pip--today { box-shadow: 0 0 0 2px color-mix(in srgb, #fb7185 55%, transparent); }
   `],
 })
 export class HardWidget extends ReorderableWidget {
@@ -78,6 +107,13 @@ export class HardWidget extends ReorderableWidget {
     if (this.store.error()) return 'failed';
     if (!this.store.loaded()) return 'loading';
     return 'empty'; // loaded, no challenge — but the page hides us via visible() anyway
+  });
+
+  /** Day completion fraction for the hero ring. */
+  readonly dayFrac = computed(() => {
+    const c = this.store.challenge();
+    if (!c || c.totalDays <= 0) return 0;
+    return Math.max(0, Math.min(1, c.currentDay / c.totalDays));
   });
 
   /** One pip per day; filled up to (and including) the current day, with the current day marked. */
