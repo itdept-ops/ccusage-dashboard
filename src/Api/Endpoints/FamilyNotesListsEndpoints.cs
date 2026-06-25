@@ -45,11 +45,14 @@ public static class FamilyNotesListsEndpoints
         long Id, string Name, string Kind,
         int CreatedByUserId, string CreatedByName,
         bool IsMine, bool CanEdit, IReadOnlyList<ShareTargetDto> SharedWith,
-        IReadOnlyList<ListItemDto> Items);
+        IReadOnlyList<ListItemDto> Items,
+        decimal? TotalCost, DateTime? ArchivedUtc, bool IsArchived);
 
     public sealed record NoteUpsertRequest(string? Title, string? Body, bool Pinned);
     public sealed record ListCreateRequest(string? Name, string? Kind);
     public sealed record ListRenameRequest(string? Name);
+    public sealed record ListCostRequest(decimal? TotalCost);
+    public sealed record ListArchiveRequest(bool Archived);
     public sealed record ListItemCreateRequest(string? Text, int? AssignedToUserId);
     public sealed record ListItemPatchRequest(string? Text, bool? Done, int? AssignedToUserId);
     public sealed record ShareRequest(int UserId, bool CanEdit);
@@ -362,15 +365,18 @@ public static class FamilyNotesListsEndpoints
     private static void MapLists(RouteGroupBuilder g)
     {
         // ---- GET /lists : household + shared-with-me lists, with their items ----
+        // Active-only by default; pass ?includeArchived=true to also return completed/archived lists.
         g.MapGet("/lists", async (
-            CurrentUserAccessor me, CurrentHouseholdAccessor households, UsageDbContext db, CancellationToken ct) =>
+            bool? includeArchived, CurrentUserAccessor me, CurrentHouseholdAccessor households,
+            UsageDbContext db, CancellationToken ct) =>
         {
             var caller = (await me.GetUserAsync(ct))!;
             var householdId = await households.GetOrCreateForCallerAsync(caller, ct) is { } hh ? hh.Id : 0;
 
             var sharedListIds = await SharedItemIdsAsync(db, ListType, caller.Id, ct);
             var lists = await db.FamilyLists.AsNoTracking()
-                .Where(l => l.HouseholdId == householdId || sharedListIds.Contains(l.Id))
+                .Where(l => (l.HouseholdId == householdId || sharedListIds.Contains(l.Id))
+                    && (includeArchived == true || l.ArchivedUtc == null))
                 .ToListAsync(ct);
             var listIds = lists.Select(l => l.Id).ToList();
             var items = await db.FamilyListItems.AsNoTracking()
@@ -439,6 +445,52 @@ public static class FamilyNotesListsEndpoints
             await db.SaveChangesAsync(ct);
 
             return Results.Ok(await SingleListDtoAsync(db, list.Id, caller.Id, householdId, ct));
+        });
+
+        // ---- PUT /lists/{id}/cost (set/clear the user-entered total spent; SHOPPING lists only; edit access) ----
+        // Owner-safe: a caller who can't VIEW gets 404 (existence never leaked); view-only gets 403. The value is
+        // clamped to [0, 1,000,000] and rounded to cents; null clears it. Returns the full updated list DTO.
+        g.MapPut("/lists/{id:long}/cost", async (
+            long id, ListCostRequest req, CurrentUserAccessor me, CurrentHouseholdAccessor households,
+            UsageDbContext db, CancellationToken ct) =>
+        {
+            var caller = (await me.GetUserAsync(ct))!;
+            var householdId = await households.GetOrCreateForCallerAsync(caller, ct) is { } hh ? hh.Id : 0;
+
+            var list = await db.FamilyLists.FirstOrDefaultAsync(l => l.Id == id, ct);
+            var access = await ResolveAccessAsync(db, ListType, list?.Id ?? 0, list?.HouseholdId ?? -1, caller.Id, householdId, ct);
+            if (list is null || !access.CanView) return NotFound();
+            if (!access.CanEdit) return Forbidden("You can only view this list.");
+            if (list.Kind != "shopping")
+                return Results.BadRequest(new { message = "Only a shopping list can have a total cost." });
+
+            list.TotalCost = req.TotalCost is decimal c ? Math.Clamp(Math.Round(c, 2), 0m, 1_000_000m) : null; // >=0, sane max
+            list.UpdatedUtc = DateTime.UtcNow;
+            await db.SaveChangesAsync(ct);
+
+            return Results.Ok(await SingleListDtoAsync(db, id, caller.Id, householdId, ct));
+        });
+
+        // ---- PUT /lists/{id}/archive (archive=true sets ArchivedUtc=now; false clears; BOTH kinds; edit access) ----
+        // Owner-safe (404 not 403 for non-viewers). Archiving is reversible, so it uses CanEdit (like rename/items),
+        // not CanManage. Returns the full updated list DTO — so a just-archived list still comes back in the reply.
+        g.MapPut("/lists/{id:long}/archive", async (
+            long id, ListArchiveRequest req, CurrentUserAccessor me, CurrentHouseholdAccessor households,
+            UsageDbContext db, CancellationToken ct) =>
+        {
+            var caller = (await me.GetUserAsync(ct))!;
+            var householdId = await households.GetOrCreateForCallerAsync(caller, ct) is { } hh ? hh.Id : 0;
+
+            var list = await db.FamilyLists.FirstOrDefaultAsync(l => l.Id == id, ct);
+            var access = await ResolveAccessAsync(db, ListType, list?.Id ?? 0, list?.HouseholdId ?? -1, caller.Id, householdId, ct);
+            if (list is null || !access.CanView) return NotFound();
+            if (!access.CanEdit) return Forbidden("You can only view this list.");
+
+            list.ArchivedUtc = req.Archived ? DateTime.UtcNow : null;
+            list.UpdatedUtc = DateTime.UtcNow;
+            await db.SaveChangesAsync(ct);
+
+            return Results.Ok(await SingleListDtoAsync(db, id, caller.Id, householdId, ct));
         });
 
         // ---- DELETE /lists/{id} (creator or household member) ----
@@ -839,7 +891,9 @@ public static class FamilyNotesListsEndpoints
         return new ListDto(
             l.Id, l.Name, l.Kind,
             l.CreatedByUserId, Name(names, l.CreatedByUserId),
-            IsMine: l.CreatedByUserId == callerId, CanEdit: canEdit, SharedWith: sharedWith, Items: items);
+            IsMine: l.CreatedByUserId == callerId, CanEdit: canEdit, SharedWith: sharedWith, Items: items,
+            TotalCost: l.Kind == "shopping" ? l.TotalCost : null,   // todo lists never carry a cost
+            ArchivedUtc: l.ArchivedUtc, IsArchived: l.ArchivedUtc is not null);
     }
 
     /// <summary>Re-project a single note (after a mutation) using the caller's household for access.</summary>

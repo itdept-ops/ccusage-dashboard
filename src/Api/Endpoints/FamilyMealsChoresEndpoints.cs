@@ -1638,10 +1638,13 @@ public static class FamilyMealsChoresEndpoints
     internal static async Task<FamilyList> FindOrCreateGroceriesAsync(
         UsageDbContext db, int householdId, int callerId, CancellationToken ct)
     {
-        // Reuse the household's "Groceries" list if it exists; otherwise make one. Don't dump ingredients
-        // into an arbitrary unrelated shopping list (e.g. "Costco run") just because it's the first one.
+        // Reuse the household's ACTIVE "Groceries" list if it exists; otherwise make one. Don't dump
+        // ingredients into an arbitrary unrelated shopping list (e.g. "Costco run") just because it's the
+        // first one. The ArchivedUtc == null filter is required so that "Complete & archive" (which archives
+        // the live Groceries list) cleanly starts a FRESH trip on the next open — the archived list becomes
+        // history (it shows under "Past trips") instead of being re-found here with its old items + total.
         var existing = await db.FamilyLists
-            .Where(l => l.HouseholdId == householdId && l.Kind == "shopping"
+            .Where(l => l.HouseholdId == householdId && l.Kind == "shopping" && l.ArchivedUtc == null
                 && l.Name.ToLower() == GroceriesName.ToLower())
             .FirstOrDefaultAsync(ct);
         if (existing is not null) return existing;

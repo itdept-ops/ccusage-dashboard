@@ -8,7 +8,24 @@
 
 /* ─────────────────────────── header ─────────────────────────── */
 .grocery__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
   margin-bottom: 18px;
+}
+
+.grocery__archived-toggle {
+  flex: 0 0 auto;
+  border-radius: var(--tech-r-control, 10px);
+  font-weight: 600;
+
+  mat-icon { font-size: 18px; width: 18px; height: 18px; }
+
+  &--on {
+    background: color-mix(in srgb, var(--tech-accent) 14%, transparent);
+    color: var(--tech-accent);
+  }
 }
 
 .grocery__id {
@@ -221,3 +238,105 @@
 }
 
 .grocery__clear mat-icon { font-size: 18px; width: 18px; height: 18px; }
+
+/* ─────────────────────────── total spent + complete trip ─────────────────────────── */
+.grocery__trip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 0 14px;
+  padding: 12px;
+  border: 1px solid var(--tech-border);
+  border-radius: var(--tech-r-control, 10px);
+  background: var(--tech-panel);
+}
+
+.grocery__cost {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.grocery__cost-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--tech-text-secondary);
+}
+
+.grocery__cost-field {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 4px 10px;
+  border: 1px solid var(--tech-border);
+  border-radius: var(--tech-r-control, 10px);
+  background: var(--tech-bg-sunken);
+
+  &:focus-within { border-color: var(--tech-accent); }
+}
+
+.grocery__cost-prefix {
+  color: var(--tech-text-tertiary, var(--tech-text-dim));
+  font-size: 15px;
+}
+
+.grocery__cost-input {
+  width: 84px;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: var(--tech-text);
+  font-size: 15px;
+  font-family: var(--tech-font-ui);
+
+  &::placeholder { color: var(--tech-text-tertiary, var(--tech-text-dim)); }
+}
+
+.grocery__cost-saved {
+  font-size: 12px;
+  color: var(--tech-text-tertiary, var(--tech-text-dim));
+}
+
+.grocery__complete {
+  flex: 0 0 auto;
+
+  mat-icon { font-size: 18px; width: 18px; height: 18px; }
+}
+
+/* ─────────────────────────── past trips (archived) ─────────────────────────── */
+.grocery__past { margin-top: 22px; }
+
+.grocery__past-empty {
+  margin: 0;
+  padding: 8px 2px;
+  font-size: 13px;
+  color: var(--tech-text-secondary);
+}
+
+.g-trip {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 8px 8px 12px;
+  border: 1px solid var(--tech-border);
+  border-radius: var(--tech-r-control, 10px);
+  background: var(--tech-bg-sunken);
+
+  &__main { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+  &__name { color: var(--tech-text); font-size: 15px; font-weight: 600; word-break: break-word; }
+  &__meta { font-size: 12px; color: var(--tech-text-tertiary, var(--tech-text-dim)); }
+  &__cost { color: var(--tech-accent); font-weight: 600; }
+  &__reopen {
+    flex: 0 0 auto;
+    mat-icon { font-size: 18px; width: 18px; height: 18px; }
+  }
+}
+
+/* iOS Safari: 16px stops zoom-on-focus for the hand-rolled native input. */
+@media (max-width: 640px) {
+  .grocery__cost-input { font-size: 16px; }
+}

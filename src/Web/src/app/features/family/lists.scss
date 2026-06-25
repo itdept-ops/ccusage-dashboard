@@ -8,9 +8,16 @@
 
 .lists-pane { padding-top: var(--tech-space-5, 20px); display: flex; flex-direction: column; gap: var(--tech-space-4, 16px); }
 .lists-pane__head {
-  display: flex; justify-content: flex-end;
+  display: flex; justify-content: flex-end; gap: var(--tech-space-2, 8px); flex-wrap: wrap;
   button { border-radius: var(--tech-r-control); font-weight: 600;
     mat-icon { width: 18px; height: 18px; font-size: 18px; } }
+}
+.lists-pane__archived-toggle {
+  margin-right: auto;
+  &--on {
+    background: color-mix(in srgb, var(--tech-accent) 14%, transparent);
+    color: var(--tech-accent);
+  }
 }
 
 .list-grid {
@@ -38,6 +45,8 @@
 .list-card__name { margin: 0; font-size: var(--tech-fs-h1, 18px); font-weight: 700;
   color: var(--tech-text); word-break: break-word; }
 .list-card__count { font-size: var(--tech-fs-label); color: var(--tech-text-tertiary); }
+.list-card__cost { color: var(--tech-accent); font-weight: 600; }
+.list-card__archived { color: var(--tech-text-tertiary); font-weight: 600; }
 .list-card__ro { color: var(--tech-text-tertiary); }
 .list-card__actions { flex: 0 0 auto; display: inline-flex; align-items: center; gap: 6px; }
 

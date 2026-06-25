@@ -1409,6 +1409,21 @@ export class Api {
     return this.http.put<FamilyList>(`${this.base}/family/lists/${id}`, { name });
   }
 
+  /** Set (or clear, with null) a shopping list's user-entered total spent. Edit access. Returns the updated list. */
+  setFamilyListCost(id: number, totalCost: number | null): Observable<FamilyList> {
+    return this.http.put<FamilyList>(`${this.base}/family/lists/${id}/cost`, { totalCost });
+  }
+
+  /** Archive (complete) or unarchive a list — both kinds. Edit access. Returns the updated list. */
+  archiveFamilyList(id: number, archived: boolean): Observable<FamilyList> {
+    return this.http.put<FamilyList>(`${this.base}/family/lists/${id}/archive`, { archived });
+  }
+
+  /** Lists including archived (for a "show completed" toggle). Defaults to active-only without the flag. */
+  familyListsAll(includeArchived = true): Observable<FamilyList[]> {
+    return this.http.get<FamilyList[]>(`${this.base}/family/lists`, { params: { includeArchived } });
+  }
+
   /** Delete a list (creator or any household member); its items cascade. */
   deleteFamilyList(id: number): Observable<void> {
     return this.http.delete<void>(`${this.base}/family/lists/${id}`);

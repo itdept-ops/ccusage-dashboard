@@ -54,6 +54,16 @@ export class Grocery {
   /** The "add an item" draft. */
   readonly draft = signal('');
 
+  /** The total-cost draft (currency string entered after shopping; seeded from the loaded list). */
+  readonly costDraft = signal('');
+
+  /** Whether the "Past trips" (archived shopping lists) view is shown. */
+  readonly showArchived = signal(false);
+
+  /** Past completed shopping trips (archived lists, other than the live one), loaded on demand. */
+  readonly archivedTrips = signal<FamilyList[]>([]);
+  readonly archivedLoading = signal(false);
+
   /** Whether a list-level write is in flight (disables the add bar + clear). */
   readonly busy = signal(false);
 
@@ -89,6 +99,7 @@ export class Grocery {
     try {
       const list = await firstValueFrom(this.api.grocery());
       this.list.set(list);
+      this.costDraft.set(list.totalCost != null ? String(list.totalCost) : '');
     } catch {
       this.list.set(null);
       this.error.set(true);
@@ -249,6 +260,98 @@ export class Grocery {
         duration: 4000,
       });
       void this.load();
+    } finally {
+      this.busy.set(false);
+    }
+  }
+
+  // ─────────────────────────────────── total cost + archive ────────────────────────────────────
+
+  /**
+   * Save the user-entered total spent on this trip (parsed from the currency draft; an empty/blank draft
+   * clears it). Saves on blur/Enter; the API stores the value and returns the whole updated list.
+   */
+  async saveCost(): Promise<void> {
+    const l = this.list();
+    if (!l || this.busy() || !this.canEdit()) return;
+    const raw = this.costDraft().trim();
+    const value = raw === '' ? null : Number(raw);
+    if (value !== null && (!Number.isFinite(value) || value < 0)) {
+      this.snack.open('Enter a valid amount', 'Dismiss', { duration: 3000 });
+      return;
+    }
+    // Don't write if nothing actually changed.
+    if ((l.totalCost ?? null) === value) return;
+    this.busy.set(true);
+    try {
+      const updated = await firstValueFrom(this.api.setFamilyListCost(l.id, value));
+      this.list.set(updated);
+      this.costDraft.set(updated.totalCost != null ? String(updated.totalCost) : '');
+    } catch {
+      this.snack.open("Couldn't save the total — try again", 'Dismiss', { duration: 4000 });
+    } finally {
+      this.busy.set(false);
+    }
+  }
+
+  /**
+   * Complete the trip: archive the household Groceries list, then re-load — the find-or-create returns a
+   * fresh empty Groceries list (the intended new-trip reset). The archived trip keeps its total for history.
+   */
+  async completeTrip(): Promise<void> {
+    const l = this.list();
+    if (!l || this.busy() || !this.canEdit()) return;
+    this.busy.set(true);
+    try {
+      await firstValueFrom(this.api.archiveFamilyList(l.id, true));
+      this.snack.open('Trip completed', 'OK', { duration: 2500 });
+      await this.load();
+      if (this.showArchived()) void this.loadArchived();
+    } catch {
+      this.snack.open("Couldn't complete the trip — try again", 'Dismiss', { duration: 4000 });
+    } finally {
+      this.busy.set(false);
+    }
+  }
+
+  /** Toggle the "Past trips" (completed shopping lists) view, loading them the first time it's opened. */
+  toggleArchived(): void {
+    const next = !this.showArchived();
+    this.showArchived.set(next);
+    if (next) void this.loadArchived();
+  }
+
+  /** Fetch the archived shopping lists (other completed trips) for the "Past trips" view. */
+  async loadArchived(): Promise<void> {
+    this.archivedLoading.set(true);
+    try {
+      const all = await firstValueFrom(this.api.familyListsAll(true));
+      const liveId = this.list()?.id;
+      this.archivedTrips.set(
+        all.filter((l) => l.kind === 'shopping' && l.isArchived && l.id !== liveId),
+      );
+    } catch {
+      this.snack.open("Couldn't load past trips — try again", 'Dismiss', { duration: 4000 });
+    } finally {
+      this.archivedLoading.set(false);
+    }
+  }
+
+  /** Item count for a past trip (used in the archived list summary). */
+  tripItemCount(trip: FamilyList): number {
+    return trip.items.length;
+  }
+
+  /** Re-open an archived trip (unarchive it). It drops out of the "Past trips" view. */
+  async unarchiveTrip(trip: FamilyList): Promise<void> {
+    if (this.busy()) return;
+    this.busy.set(true);
+    try {
+      await firstValueFrom(this.api.archiveFamilyList(trip.id, false));
+      this.archivedTrips.update((all) => all.filter((t) => t.id !== trip.id));
+      this.snack.open('Trip re-opened', 'OK', { duration: 2500 });
+    } catch {
+      this.snack.open("Couldn't re-open that trip — try again", 'Dismiss', { duration: 4000 });
     } finally {
       this.busy.set(false);
     }

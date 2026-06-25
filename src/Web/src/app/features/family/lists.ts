@@ -1,5 +1,5 @@
 import { Component, computed, inject, signal, ChangeDetectionStrategy } from '@angular/core';
-import { NgTemplateOutlet } from '@angular/common';
+import { CurrencyPipe, NgTemplateOutlet } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { catchError, firstValueFrom, of } from 'rxjs';
@@ -95,6 +95,7 @@ function emptySuggestPanel(): SuggestPanel {
   selector: 'app-family-lists',
   imports: [
     NgTemplateOutlet,
+    CurrencyPipe,
     RouterLink,
     FormsModule,
     MatIconModule,
@@ -120,6 +121,9 @@ export class FamilyLists {
   readonly lists = signal<FamilyList[]>([]);
   readonly loading = signal(true);
   readonly error = signal(false);
+
+  /** Whether archived (completed) lists are included in the view. Default off (active only). */
+  readonly showArchived = signal(false);
 
   /** Household members — the assignee pool for to-do items (avatar picker). Empty until loaded. */
   readonly members = signal<HouseholdMember[]>([]);
@@ -155,7 +159,7 @@ export class FamilyLists {
   private reload(initial = false): void {
     if (initial) this.loading.set(true);
     this.api
-      .familyLists()
+      .familyListsAll(this.showArchived())
       .pipe(
         catchError(() => {
           this.error.set(true);
@@ -247,6 +251,43 @@ export class FamilyLists {
       this.lists.update((all) => all.filter((l) => l.id !== list.id));
     } catch {
       this.snack.open("Couldn't delete that list.", 'OK', { duration: 4000 });
+    }
+  }
+
+  /** Flip the "show archived" toggle and re-fetch (archived lists are excluded server-side by default). */
+  toggleArchived(): void {
+    this.showArchived.update((v) => !v);
+    this.reload();
+  }
+
+  /**
+   * Complete & archive a list (both kinds). It leaves the active view; with the "show archived" toggle on
+   * it stays visible (re-fetched) so it can be re-opened. Reversible — gated on edit access like rename.
+   */
+  async archiveList(list: FamilyList): Promise<void> {
+    if (!list.canEdit) return;
+    const ok = await this.confirm({
+      title: 'Complete this list?',
+      message: `“${list.name}” will be archived. You can reopen it later from the completed view.`,
+    });
+    if (!ok) return;
+    try {
+      const updated = await firstValueFrom(this.api.archiveFamilyList(list.id, true));
+      if (this.showArchived()) this.upsert(updated);
+      else this.lists.update((all) => all.filter((l) => l.id !== list.id));
+    } catch {
+      this.snack.open("Couldn't archive that list.", 'OK', { duration: 4000 });
+    }
+  }
+
+  /** Reopen (unarchive) a list. With archived hidden it drops out of the view; with it shown it stays active. */
+  async unarchiveList(list: FamilyList): Promise<void> {
+    if (!list.canEdit) return;
+    try {
+      const updated = await firstValueFrom(this.api.archiveFamilyList(list.id, false));
+      this.upsert(updated);
+    } catch {
+      this.snack.open("Couldn't reopen that list.", 'OK', { duration: 4000 });
     }
   }
 

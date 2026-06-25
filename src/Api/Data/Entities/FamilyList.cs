@@ -24,5 +24,13 @@ public class FamilyList
     public DateTime CreatedUtc { get; set; }
     public DateTime UpdatedUtc { get; set; }
 
+    /// <summary>User-entered total actually spent on this trip, in dollars. Shopping lists only (null on todo
+    /// and on shopping lists not yet totalled). Set AFTER shopping; never computed from items.</summary>
+    public decimal? TotalCost { get; set; }
+
+    /// <summary>When the list was completed/archived (UTC). Null = active (default view); set = archived
+    /// (hidden unless explicitly requested). Applies to BOTH kinds.</summary>
+    public DateTime? ArchivedUtc { get; set; }
+
     public List<FamilyListItem> Items { get; set; } = new();
 }

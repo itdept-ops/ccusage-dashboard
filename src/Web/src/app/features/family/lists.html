@@ -49,6 +49,12 @@
 <ng-template #kindPane let-lists="lists" let-kind="kind">
   <div class="lists-pane">
     <div class="lists-pane__head">
+      <button mat-stroked-button type="button" class="lists-pane__archived-toggle"
+              [class.lists-pane__archived-toggle--on]="showArchived()"
+              (click)="toggleArchived()" [attr.aria-pressed]="showArchived()">
+        <mat-icon aria-hidden="true">history</mat-icon>
+        {{ showArchived() ? 'Hide completed' : 'Show completed' }}
+      </button>
       <button mat-flat-button color="primary" (click)="createList(kind)">
         <mat-icon aria-hidden="true">add</mat-icon>
         {{ kind === 'shopping' ? 'New shopping list' : 'New to-do list' }}
@@ -74,6 +80,10 @@
                 <h2 class="list-card__name">{{ list.name }}</h2>
                 <span class="list-card__count">
                   {{ doneCount(list) }}/{{ list.items.length }} done
+                  @if (kind === 'shopping' && list.totalCost != null) {
+                    <span class="list-card__cost">· {{ list.totalCost | currency }}</span>
+                  }
+                  @if (list.isArchived) { <span class="list-card__archived" matTooltip="Completed list">· archived</span> }
                   @if (!list.canEdit) { <span class="list-card__ro" matTooltip="You can view this list">· view only</span> }
                 </span>
               </div>
@@ -97,6 +107,15 @@
                       <button mat-menu-item (click)="renameList(list)">
                         <mat-icon aria-hidden="true">edit</mat-icon><span>Rename</span>
                       </button>
+                      @if (list.isArchived) {
+                        <button mat-menu-item (click)="unarchiveList(list)">
+                          <mat-icon aria-hidden="true">unarchive</mat-icon><span>Reopen</span>
+                        </button>
+                      } @else {
+                        <button mat-menu-item (click)="archiveList(list)">
+                          <mat-icon aria-hidden="true">archive</mat-icon><span>Complete &amp; archive</span>
+                        </button>
+                      }
                     }
                     @if (canManage(list)) {
                       <button mat-menu-item (click)="share(list)">

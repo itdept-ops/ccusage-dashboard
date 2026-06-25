@@ -2455,6 +2455,12 @@ export interface FamilyList {
   canEdit: boolean;
   sharedWith: FamilyShareTarget[];
   items: FamilyListItem[];
+  /** User-entered total spent (dollars). Shopping only; null on todo / not-yet-totalled. */
+  totalCost?: number | null;
+  /** When archived/completed (ISO UTC); null = active. Both kinds. */
+  archivedUtc?: string | null;
+  /** Convenience: archivedUtc != null. */
+  isArchived: boolean;
 }
 
 // ---- Family Hub F7: Quick-Add (one-line capture → list item / reminder / note) ----

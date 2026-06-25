@@ -14,6 +14,14 @@
         </p>
       </div>
     </div>
+    @if (list()) {
+      <button mat-stroked-button type="button" class="grocery__archived-toggle"
+              [class.grocery__archived-toggle--on]="showArchived()"
+              (click)="toggleArchived()" [attr.aria-pressed]="showArchived()">
+        <mat-icon aria-hidden="true">history</mat-icon>
+        {{ showArchived() ? 'Hide past trips' : 'Past trips' }}
+      </button>
+    }
   </header>
 
   <!-- ─────────────────────────── LOADING ─────────────────────────── -->
@@ -134,6 +142,33 @@
           </button>
         }
       </div>
+
+      <!-- Total spent + complete-and-archive (the "you've shopped" moment). -->
+      @if (canEdit()) {
+        <div class="grocery__trip">
+          <label class="grocery__cost" for="grocery-cost">
+            <span class="grocery__cost-label">Total spent</span>
+            <span class="grocery__cost-field">
+              <span class="grocery__cost-prefix" aria-hidden="true">$</span>
+              <input id="grocery-cost" class="grocery__cost-input" type="number" min="0" step="0.01"
+                     inputmode="decimal" placeholder="0.00"
+                     [ngModel]="costDraft()" (ngModelChange)="costDraft.set($event)"
+                     (blur)="saveCost()" (keydown.enter)="saveCost()"
+                     [disabled]="busy()" aria-label="Total spent on this trip, in dollars" />
+            </span>
+            <button mat-button type="button" class="grocery__cost-save" [disabled]="busy()" (click)="saveCost()">
+              Save total
+            </button>
+            @if (l.totalCost != null) {
+              <span class="grocery__cost-saved">Saved: {{ l.totalCost | currency }}</span>
+            }
+          </label>
+          <button mat-flat-button color="primary" type="button" class="grocery__complete"
+                  [disabled]="busy()" (click)="completeTrip()">
+            <mat-icon aria-hidden="true">task_alt</mat-icon> Complete &amp; archive
+          </button>
+        </div>
+      }
       <ul class="grocery__items grocery__items--done" aria-label="Checked-off items">
         @for (it of doneItems(); track it.id) {
           <li class="g-item g-item--done" [class.g-item--busy]="isItemBusy(it.id)">
@@ -160,6 +195,47 @@
           </li>
         }
       </ul>
+    }
+
+    <!-- ─────────────────────────── PAST TRIPS (archived) ─────────────────────────── -->
+    @if (showArchived()) {
+      <section class="grocery__past" aria-label="Past trips">
+        <div class="grocery__done-head"><span>Past trips</span></div>
+
+        @if (archivedLoading()) {
+          <div class="grocery__state" aria-live="polite">
+            <mat-progress-spinner mode="indeterminate" diameter="28" aria-hidden="true" />
+            <p>Loading past trips…</p>
+          </div>
+        } @else if (archivedTrips().length) {
+          <ul class="grocery__items" aria-label="Completed shopping trips">
+            @for (trip of archivedTrips(); track trip.id) {
+              <li class="g-trip">
+                <div class="g-trip__main">
+                  <span class="g-trip__name">{{ trip.name }}</span>
+                  <span class="g-trip__meta">
+                    {{ tripItemCount(trip) }} item{{ tripItemCount(trip) === 1 ? '' : 's' }}
+                    @if (trip.totalCost != null) {
+                      <span class="g-trip__cost">· {{ trip.totalCost | currency }}</span>
+                    }
+                    @if (trip.archivedUtc) {
+                      <span class="g-trip__date">· {{ trip.archivedUtc | date: 'mediumDate' }}</span>
+                    }
+                  </span>
+                </div>
+                @if (trip.canEdit) {
+                  <button mat-button type="button" class="g-trip__reopen" [disabled]="busy()"
+                          (click)="unarchiveTrip(trip)">
+                    <mat-icon aria-hidden="true">undo</mat-icon> Reopen
+                  </button>
+                }
+              </li>
+            }
+          </ul>
+        } @else {
+          <p class="grocery__past-empty">No past trips yet. Complete a trip to keep it here for reference.</p>
+        }
+      </section>
     }
   }
 </div>

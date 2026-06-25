@@ -749,6 +749,8 @@ public class UsageDbContext(DbContextOptions<UsageDbContext> options) : DbContex
             e.Property(x => x.Kind).HasMaxLength(16);
             e.Property(x => x.CreatedUtc).HasColumnType("timestamp with time zone");
             e.Property(x => x.UpdatedUtc).HasColumnType("timestamp with time zone");
+            e.Property(x => x.TotalCost).HasPrecision(12, 2);
+            e.Property(x => x.ArchivedUtc).HasColumnType("timestamp with time zone");
             e.HasMany(x => x.Items).WithOne(i => i.List!)
                 .HasForeignKey(i => i.ListId).OnDelete(DeleteBehavior.Cascade);
             e.HasIndex(x => x.HouseholdId);
