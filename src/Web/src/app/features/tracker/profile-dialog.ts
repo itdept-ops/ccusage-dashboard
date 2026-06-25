@@ -153,8 +153,20 @@ export class ProfileDialog {
   readonly trainingType = signal<TrainingType>(this.data.profile.trainingType ?? 'None');
   readonly proteinBasis = signal<ProteinBasis>(this.data.profile.proteinBasis ?? 'PerBodyweight');
   readonly lifeStage = signal<LifeStage>(this.data.profile.lifeStage ?? 'None');
+  /** Pregnancy trimester (1..3) — editable only when lifeStage = "Pregnant"; else carried through. */
+  readonly trimester = signal<number | null>(this.data.profile.trimester ?? null);
   readonly mealsPerDay = signal<number | null>(this.data.profile.mealsPerDay ?? null);
   readonly eatingWindow = signal<EatingWindow>(this.data.profile.eatingWindow ?? 'None');
+  /**
+   * Free-text dietary restrictions (allergies / foods to avoid). A HARD exclusion for the meal
+   * recommenders — round-tripped as the comma-joined CSV the onboarding card stores. Editable here so a
+   * returning user can review/clear an allergy (previously uneditable on the main edit surface).
+   */
+  readonly restrictions = signal<string | null>(this.data.profile.restrictions ?? null);
+  // ---- Navy-tape circumferences, held in the DISPLAYED unit (in or cm); converted to cm on save ----
+  readonly neckDisp = signal<number | null>(this.toLenDisp(this.data.profile.neckCm));
+  readonly waistDisp = signal<number | null>(this.toLenDisp(this.data.profile.waistCm));
+  readonly hipDisp = signal<number | null>(this.toLenDisp(this.data.profile.hipCm));
   /** Whether the optional "Fine-tune" panel is expanded. */
   readonly refineOpen = signal(false);
 
@@ -173,6 +185,11 @@ export class ProfileDialog {
   /** Volume suffix for the hydration-goal field ('fl oz' | 'ml'). */
   get volumeUnit(): string {
     return this.units.volumeUnit();
+  }
+
+  /** Circumference suffix for the Navy-tape fields ('in' | 'cm'). */
+  get lengthUnit(): string {
+    return this.units.lengthUnit();
   }
 
   /** Localized hydration-goal default for the hint, e.g. "~64 fl oz" / "~2000 ml" (canonical 2000 ml). */
@@ -222,6 +239,18 @@ export class ProfileDialog {
     return Math.round(this.units.volumeToDisplay(ml));
   }
 
+  /** A canonical cm circumference as a DISPLAY value (cm or in, 1dp) in the user's units. */
+  private toLenDisp(cm: number | null | undefined): number | null {
+    if (cm == null) return null;
+    return Math.round(this.units.lengthToDisplay(cm) * 10) / 10;
+  }
+
+  /** A display circumference value (in or cm) back to canonical cm (or null when empty/non-positive). */
+  private toCm(disp: number | null): number | null {
+    if (disp == null || disp <= 0) return null;
+    return this.units.lengthToCanonical(disp);
+  }
+
   /** Convert the display hydration-goal value back to metric ml (or null when empty/non-positive). */
   private currentHydrationGoalMl(disp: number | null): number | null {
     if (disp == null || disp <= 0) return null;
@@ -238,6 +267,9 @@ export class ProfileDialog {
     const wKg = this.currentWeightKg(this.weightDisp());
     const gKg = this.currentWeightKg(this.goalWeightDisp());
     const hydMl = this.currentHydrationGoalMl(this.hydrationGoalDisp());
+    const neckCm = this.toCm(this.neckDisp());
+    const waistCm = this.toCm(this.waistDisp());
+    const hipCm = this.toCm(this.hipDisp());
 
     // …flip the central unit signal, then re-emit each value as a DISPLAY value in the NEW unit.
     this.units.setLocal(sys);
@@ -254,6 +286,10 @@ export class ProfileDialog {
     this.weightDisp.set(this.toDisp(wKg));
     this.goalWeightDisp.set(this.toDisp(gKg));
     this.hydrationGoalDisp.set(this.toVolDisp(hydMl));
+    // Re-emit the Navy-tape circumferences in the new unit too.
+    this.neckDisp.set(this.toLenDisp(neckCm));
+    this.waistDisp.set(this.toLenDisp(waistCm));
+    this.hipDisp.set(this.toLenDisp(hipCm));
   }
 
   /** The current height in cm from whichever unit fields are active. */
@@ -289,12 +325,89 @@ export class ProfileDialog {
     trainingType: this.trainingType(),
     proteinBasis: this.proteinBasis(),
     lifeStage: this.lifeStage(),
-    trimester: this.data.profile.trimester ?? null,
+    trimester: this.lifeStage() === 'Pregnant' ? this.trimester() : null,
   }));
 
   readonly preview = computed(() => computeStats(this.statsInputs()));
 
   readonly hasSuggestion = computed(() => this.preview().suggestedCalorieGoal != null);
+
+  /** True only while lifeStage = "Pregnant" — gates the trimester select. */
+  readonly showTrimester = computed(() => this.lifeStage() === 'Pregnant');
+
+  /**
+   * U.S. Navy body-fat estimate (log10 formula) from the tape measurements + height + sex. All inputs are
+   * converted to canonical cm via the central UnitService. Null when the fields for the user's sex are
+   * missing — echoed live under the tape inputs so the user can sanity-check before saving. Ported from
+   * the onboarding card so the same numbers appear on both surfaces.
+   */
+  readonly navyBodyFatPct = computed<number | null>(() => {
+    const heightCm = this.currentHeightCm();
+    const sex = this.sex();
+    if (heightCm == null || heightCm <= 0 || sex === 'Unspecified') return null;
+    const neck = this.toCm(this.neckDisp());
+    const waist = this.toCm(this.waistDisp());
+    if (neck == null || waist == null) return null;
+
+    let pct: number;
+    if (sex === 'Female') {
+      const hip = this.toCm(this.hipDisp());
+      if (hip == null) return null;
+      const v = waist + hip - neck;
+      if (v <= 0) return null;
+      pct = 163.205 * Math.log10(v) - 97.684 * Math.log10(heightCm) - 78.387;
+    } else {
+      const v = waist - neck;
+      if (v <= 0) return null;
+      pct = 86.01 * Math.log10(v) - 70.041 * Math.log10(heightCm) + 36.76;
+    }
+    if (!Number.isFinite(pct)) return null;
+    pct = Math.round(pct * 10) / 10;
+    return pct > 0 && pct < 100 ? pct : null;
+  });
+
+  /** Apply the live Navy estimate into the body-fat % field (one-tap "use this"). */
+  applyNavyBodyFat(): void {
+    const bf = this.navyBodyFatPct();
+    if (bf != null) this.bodyFatPct.set(bf);
+  }
+
+  /**
+   * A compact, read-only digest of what the AI meal recommenders are told — eating style + restrictions
+   * (the hard exclusions) + signed pace — so the user can see WHY the AI excluded foods / chose a split.
+   * e.g. "Keto · no peanuts · cutting 0.5 kg/wk". Empty when there's nothing meaningful to show.
+   */
+  readonly dietSummary = computed<string[]>(() => {
+    const parts: string[] = [];
+
+    const pat = this.dietPattern();
+    if (pat && pat !== 'Balanced') {
+      parts.push(DIET_PATTERNS.find((d) => d.value === pat)?.label ?? pat);
+    }
+
+    const raw = (this.restrictions() ?? '').trim();
+    if (raw) {
+      raw
+        .split(',')
+        .map((t) => t.trim())
+        .filter((t) => t.length > 0)
+        .forEach((t) => parts.push(`no ${t.toLowerCase()}`));
+    }
+
+    const rate = this.weeklyRateKg();
+    if (rate != null && rate !== 0) {
+      const dir = rate < 0 ? 'cutting' : 'gaining';
+      const disp = this.units.formatWeight(Math.abs(rate), Math.abs(rate) < 1 ? 2 : 1);
+      if (disp) parts.push(`${dir} ${disp}/wk`);
+    }
+
+    const win = this.eatingWindow();
+    if (win && win !== 'None') {
+      parts.push(win === 'OMAD' ? 'OMAD' : win.replace('W', '').replace('x', ':'));
+    }
+
+    return parts;
+  });
 
   // ---- non-blocking check-in banner (weight drift vs the goal basis, or a stale baseline) ----
   /** Dismissed for this dialog session (the banner is informational, never blocking). */
@@ -509,6 +622,20 @@ export class ProfileDialog {
     // otherwise carry the existing basis forward untouched.
     const reAnchor = this.checkInDismissed();
 
+    // Navy-tape circumferences back to canonical cm (1 dp, like onboarding), null when blank.
+    const neckCm = this.toCm(this.neckDisp());
+    const waistCm = this.toCm(this.waistDisp());
+    const hipCm = this.toCm(this.hipDisp());
+    // Restrictions round-trip the comma-joined CSV; normalise to a clean CSV (or null when cleared).
+    const restrictionsCsv =
+      (this.restrictions() ?? '')
+        .split(',')
+        .map((t) => t.trim())
+        .filter((t) => t.length > 0)
+        .join(', ') || null;
+    // Trimester is only meaningful while pregnant; drop it otherwise so switching life stage clears it.
+    const trimester = this.lifeStage() === 'Pregnant' ? this.num(this.trimester()) : undefined;
+
     const body: TrackerProfileDto = {
       goal: this.goal(),
       weightKg: roundedWeight,
@@ -529,10 +656,15 @@ export class ProfileDialog {
       // ---- optional goal-builder refinements (all skippable) ----
       weeklyRateKg: this.weeklyRateKg() ?? undefined,
       bodyFatPct: this.num(this.bodyFatPct()),
+      neckCm: neckCm != null ? Math.round(neckCm * 10) / 10 : undefined,
+      waistCm: waistCm != null ? Math.round(waistCm * 10) / 10 : undefined,
+      hipCm: hipCm != null ? Math.round(hipCm * 10) / 10 : undefined,
       dietPattern: this.dietPattern(),
+      restrictions: restrictionsCsv,
       trainingType: this.trainingType(),
       proteinBasis: this.proteinBasis(),
       lifeStage: this.lifeStage(),
+      trimester,
       mealsPerDay: this.num(this.mealsPerDay()),
       eatingWindow: this.eatingWindow(),
       // Check-in bookkeeping: on a recompute, re-anchor to the current weight + now; else preserve.

@@ -299,10 +299,78 @@
   mat-form-field { margin-bottom: -1.25em; }
 }
 
+/* ── Dietary/profile summary chip line (read-only AI digest under the title) ── */
+.pf-diet-summary {
+  display: flex;
+  align-items: center;
+  gap: var(--tech-space-2);
+  margin: -4px var(--tech-space-4) 0;
+  padding: var(--tech-space-2) var(--tech-space-3);
+  border: 1px solid var(--tech-border);
+  border-radius: var(--tech-radius);
+  background: var(--tech-bg-sunken);
+}
+
+.pf-diet-summary-icon {
+  color: var(--tech-accent);
+  flex: 0 0 auto;
+  font-size: 18px;
+  width: 18px;
+  height: 18px;
+}
+
+.pf-diet-summary-chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 6px;
+}
+
+.pf-diet-chip {
+  font-size: var(--tech-fs-label);
+  font-weight: 600;
+  color: var(--tech-text-secondary);
+  text-transform: capitalize;
+}
+
+.pf-diet-sep { color: var(--tech-text-tertiary); }
+
+/* ── Navy-tape body-fat sub-block (inside Fine-tune) ── */
+.pf-navy {
+  display: flex;
+  flex-direction: column;
+  gap: var(--tech-space-2);
+}
+
+.pf-navy-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: var(--tech-space-2);
+  mat-form-field { margin-bottom: -1.25em; }
+}
+
+.pf-navy-est {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--tech-space-2);
+  font-size: var(--tech-fs-label);
+  color: var(--tech-text-secondary);
+}
+
+.pf-navy-use {
+  border-radius: var(--tech-r-control);
+  font-weight: 600;
+  color: var(--tech-accent);
+  min-height: 36px;
+}
+
 @media (max-width: 480px) {
   .pf-macgrid { grid-template-columns: 1fr; }
   .pf-preview-grid { grid-template-columns: 1fr; }
   .pf-checkin { flex-wrap: wrap; }
   .pf-checkin-actions { flex-direction: row; width: 100%; }
   .pf-refine-grid { grid-template-columns: 1fr; }
+  .pf-navy-grid { grid-template-columns: 1fr 1fr; }
+  .pf-diet-summary { margin-left: var(--tech-space-3); margin-right: var(--tech-space-3); }
 }

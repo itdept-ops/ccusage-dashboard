@@ -149,10 +149,16 @@ public static class AiEndpoints
 
         // ---- Quick feedback (verdict + swaps) on a free-text meal ----
         g.MapPost("/meal-feedback", async (
-            MealFeedbackRequest body, GeminiService gemini, CancellationToken ct) =>
+            MealFeedbackRequest body, CurrentUserAccessor me, GeminiService gemini, UsageDbContext db,
+            CancellationToken ct) =>
         {
             if (!gemini.IsConfigured) return Unconfigured();
-            var result = await gemini.MealFeedbackAsync(body?.Description, ct);
+            // The SWAPS are food suggestions -> thread the standing dietary profile (HARD allergy/avoid exclusion
+            // on swaps) + goal/diet for a goal-aware verdict.
+            var caller = (await me.GetUserAsync(ct))!;
+            var profile = await db.TrackerProfiles.AsNoTracking()
+                .FirstOrDefaultAsync(p => p.UserEmail == caller.Email, ct);
+            var result = await gemini.MealFeedbackAsync(body?.Description, profile, ct);
             return result is null ? Unavailable() : Results.Ok(result);
         });
 
@@ -173,7 +179,10 @@ public static class AiEndpoints
             if (!gemini.IsConfigured) return Unconfigured();
             var caller = (await me.GetUserAsync(ct))!;
             var (remCal, remP, remC, remF) = await RemainingTodayAsync(db, caller.Email, ct);
-            var result = await gemini.SuggestFoodsAsync(remCal, remP, remC, remF, ct);
+            // SUGGESTS FOOD -> thread the standing dietary profile so the HARD allergy/avoid exclusion applies.
+            var profile = await db.TrackerProfiles.AsNoTracking()
+                .FirstOrDefaultAsync(p => p.UserEmail == caller.Email, ct);
+            var result = await gemini.SuggestFoodsAsync(remCal, remP, remC, remF, profile, ct);
             return result is null ? Unavailable() : Results.Ok(result);
         });
 
@@ -200,8 +209,9 @@ public static class AiEndpoints
                     return Results.Ok(new WhatToEatDto { AiUsed = true, Options = ToEatOptionDtos(result.Options, ctx.GroceryByName) });
             }
 
-            // Gemini off, unavailable, or returned nothing usable -> friendly deterministic fallback (200).
-            return Results.Ok(new WhatToEatDto { AiUsed = false, Options = FallbackOptions(ctx) });
+            // Gemini off, unavailable, or returned nothing usable -> friendly deterministic fallback (200). The
+            // caller's standing restrictions (already loaded) make the deterministic options allergy-aware too.
+            return Results.Ok(new WhatToEatDto { AiUsed = false, Options = FallbackOptions(ctx, profile?.Restrictions) });
         });
 
         // ---- "Plan my day / week": a macro-aware multi-day plan from the caller's OWN context (read server-side) --
@@ -257,8 +267,13 @@ public static class AiEndpoints
                     });
             }
 
-            // Gemini off/unavailable/empty -> deterministic NON-AI plan (200), one option per requested day.
-            return Results.Ok(new PlanMealsDto { AiUsed = false, Days = FallbackPlan(ctx, dates, slots) });
+            // Gemini off/unavailable/empty -> deterministic NON-AI plan (200), one option per requested day. The
+            // caller's standing restrictions (already loaded) make the deterministic plan allergy-aware too.
+            return Results.Ok(new PlanMealsDto
+            {
+                AiUsed = false,
+                Days = FallbackPlan(ctx, dates, slots, profile?.Restrictions),
+            });
         });
 
         // ---- "✨ Refine with AI": rewrite ONE planned meal to honour a free-text preference (SUGGESTION ONLY) --
@@ -414,7 +429,11 @@ public static class AiEndpoints
             var caller = (await me.GetUserAsync(ct))!;
             var today = await TodayAsync(db, ct);
             var summary = await BuildDaySummaryAsync(db, caller.Email, today, ct);
-            var result = await gemini.DailyCoachAsync(caller.Email, today.ToString("yyyy-MM-dd"), summary, ct);
+            // Standing profile -> pace/macro/training grounding + the HARD allergy gate on any food a tip names.
+            var profile = await db.TrackerProfiles.AsNoTracking()
+                .FirstOrDefaultAsync(p => p.UserEmail == caller.Email, ct);
+            var result = await gemini.DailyCoachAsync(
+                caller.Email, today.ToString("yyyy-MM-dd"), summary, profile, today, ct);
             return result is null ? Unavailable() : Results.Ok(result);
         });
 
@@ -426,7 +445,10 @@ public static class AiEndpoints
             var caller = (await me.GetUserAsync(ct))!;
             var today = await TodayAsync(db, ct);
             var (isoWeek, summary) = await BuildWeekSummaryAsync(db, caller.Email, today, ct);
-            var result = await gemini.WeeklyReviewAsync(caller.Email, isoWeek, summary, ct);
+            // Standing profile -> judge progress vs the INTENDED goal pace, not just a flat calorie line.
+            var profile = await db.TrackerProfiles.AsNoTracking()
+                .FirstOrDefaultAsync(p => p.UserEmail == caller.Email, ct);
+            var result = await gemini.WeeklyReviewAsync(caller.Email, isoWeek, summary, profile, today, ct);
             return result is null ? Unavailable() : Results.Ok(result);
         });
 
@@ -438,7 +460,11 @@ public static class AiEndpoints
             var caller = (await me.GetUserAsync(ct))!;
             var today = await TodayAsync(db, ct);
             var summary = await BuildWeightSummaryAsync(db, caller.Email, today, ct);
-            var result = await gemini.WeightInsightAsync(caller.Email, today.ToString("yyyy-MM-dd"), summary, ct);
+            // Standing profile -> goal direction/weight/pace turn a raw delta into "on pace / faster than plan".
+            var profile = await db.TrackerProfiles.AsNoTracking()
+                .FirstOrDefaultAsync(p => p.UserEmail == caller.Email, ct);
+            var result = await gemini.WeightInsightAsync(
+                caller.Email, today.ToString("yyyy-MM-dd"), summary, profile, today, ct);
             return result is null ? Unavailable() : Results.Ok(result);
         });
 
@@ -510,14 +536,18 @@ public static class AiEndpoints
 
             if (!gemini.IsConfigured) return Unconfigured();
 
-            var weight = await db.TrackerProfiles.AsNoTracking()
-                .Where(p => p.UserEmail == caller.Email)
-                .Select(p => p.WeightKg)
-                .FirstOrDefaultAsync(ct);
+            // The day builder INFERS + FILLS a complete day of food, so it MUST honour the caller's standing
+            // dietary rules — load the FULL profile (same AsNoTracking read as the meal recommenders) for the HARD
+            // allergy/avoid exclusion + diet-pattern/cadence grounding. WeightKg (for exercise calories) comes
+            // from the same row, so this replaces the previous weight-only projection.
+            var today = await TodayAsync(db, ct);
+            var profile = await db.TrackerProfiles.AsNoTracking()
+                .FirstOrDefaultAsync(p => p.UserEmail == caller.Email, ct);
+            var weight = profile?.WeightKg;
 
             var result = await gemini.BuildDayAsync(
                 body?.Text, body?.Date, body?.LocalTimeOfDay, validImages,
-                body?.PriorDraft, answers, weight, ct);
+                body?.PriorDraft, answers, weight, profile, today, ct);
             if (result is null) return Unavailable();
 
             var priorRound = body?.PriorDraft is not null;
@@ -624,7 +654,11 @@ public static class AiEndpoints
                     Tomorrow = null,
                 });
 
-            var result = await gemini.DaySummaryAsync(caller.Email, localDate.ToString("yyyy-MM-dd"), summary, ct);
+            // Standing profile -> on-pattern/pace recap + the HARD allergy gate on any food the "tomorrow" nudge names.
+            var profile = await db.TrackerProfiles.AsNoTracking()
+                .FirstOrDefaultAsync(p => p.UserEmail == caller.Email, ct);
+            var result = await gemini.DaySummaryAsync(
+                caller.Email, localDate.ToString("yyyy-MM-dd"), summary, profile, localDate, ct);
             return result is null ? Unavailable() : Results.Ok(result);
         });
 
@@ -696,10 +730,14 @@ public static class AiEndpoints
             if (cache.TryGetValue(cacheKey, out TrackerRecapDto? cached) && cached is not null)
                 return Results.Ok(cached);
 
+            // Standing profile (loaded only on the AI path) -> frame the week against the INTENDED goal pace.
+            var profile = await db.TrackerProfiles.AsNoTracking()
+                .FirstOrDefaultAsync(p => p.UserEmail == caller.Email, ct);
+
             TrackerRecapResult? ai;
             try
             {
-                ai = await gemini.TrackerRecapAsync(TrackerRecapFacts(facts), ct);
+                ai = await gemini.TrackerRecapAsync(TrackerRecapFacts(facts), profile, today, ct);
             }
             catch
             {
@@ -990,6 +1028,15 @@ public static class AiEndpoints
         // ---- Tracker (the caller's own; gated by tracker.self) ----
         if (caller.Permissions.Contains(Permissions.TrackerSelf))
         {
+            // The caller's STANDING profile (goal + pace + macro targets + diet/training/restrictions) so goal-/
+            // macro-/restriction-grounded questions ("am I on pace", "what should I avoid") are answerable. Strictly
+            // DATA; no new fields leak identity. Absent (block empty) for an untouched/default profile.
+            var profile = await db.TrackerProfiles.AsNoTracking()
+                .FirstOrDefaultAsync(p => p.UserEmail == caller.Email, ct);
+            var profileBlock = GeminiService.CoachingProfileBlock(profile, today);
+            if (profileBlock.Length > 0)
+                sb.Append("TRACKER_PROFILE:\n").Append(Indent(profileBlock));
+
             var (todaySummary, _) = await BuildLoggedDaySummaryAsync(db, caller.Email, today, ct);
             sb.Append("TRACKER_TODAY (").Append(today.ToString("yyyy-MM-dd")).Append("):\n");
             sb.Append(Indent(todaySummary));
@@ -1316,20 +1363,63 @@ public static class AiEndpoints
     }
 
     /// <summary>
+    /// Parse the caller's free-text/CSV dietary restrictions into a small set of lowercased terms for the
+    /// deterministic (non-AI) fallbacks to filter on — MIRRORING the AI path: snip to ~200 chars, split on
+    /// commas/semicolons/newlines, trim, lowercase, drop empties and 1-char tokens, dedupe. Best-effort, NOT a
+    /// medical-grade allergen guarantee (substring matching can over- or under-block — see ContainsRestrictedTerm).
+    /// Empty when the caller has no restrictions, so the fallback behaviour is unchanged for those users.
+    /// </summary>
+    private static IReadOnlyList<string> RestrictionTerms(string? restrictions)
+    {
+        var cleaned = Snip(restrictions, 200);
+        if (cleaned.Length == 0) return Array.Empty<string>();
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        var terms = new List<string>();
+        foreach (var raw in cleaned.Split(new[] { ',', ';', '\n', '\r' },
+                     StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        {
+            var term = raw.ToLowerInvariant();
+            if (term.Length < 2) continue; // 1-char tokens over-block; skip
+            if (seen.Add(term)) terms.Add(term);
+        }
+        return terms;
+    }
+
+    /// <summary>True when <paramref name="text"/> contains ANY restriction term as a case-insensitive substring —
+    /// the deterministic mirror of the AI rule "anything containing them". Conservative (only ever DROPS options);
+    /// best-effort (won't catch synonyms/hidden sources, may over-block a substring like "nut" in "coconut").</summary>
+    private static bool ContainsRestrictedTerm(string? text, IReadOnlyList<string> terms)
+    {
+        if (terms.Count == 0) return false;
+        var t = (text ?? "").ToLowerInvariant();
+        if (t.Length == 0) return false;
+        foreach (var term in terms)
+            if (t.Contains(term, StringComparison.Ordinal)) return true;
+        return false;
+    }
+
+    /// <summary>
     /// The friendly NON-AI fallback used when Gemini is off/unavailable: a small deterministic option list built
     /// from the caller's next planned meals (and, failing that, on-hand groceries). Macros are zero (we have no
     /// AI estimate); each option carries a plain "from your plan" rationale so the dialog labels it honestly.
+    /// ALLERGY-AWARE: any option whose title (or, for the grocery-seeded option, a seed ingredient) contains a
+    /// caller restriction term is DROPPED — mirroring the AI "NEVER include" rule on the text that exists here
+    /// (titles for sources 1-2; titles + grocery names for source 3). Best-effort, not a medical guarantee.
     /// </summary>
-    private static IReadOnlyList<EatOptionDto> FallbackOptions(EatContext ctx)
+    private static IReadOnlyList<EatOptionDto> FallbackOptions(EatContext ctx, string? restrictions = null)
     {
         var options = new List<EatOptionDto>();
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var terms = RestrictionTerms(restrictions);
 
         void Add(string title, string why, IReadOnlyList<string>? ingredientNames = null)
         {
             if (options.Count >= MaxFallbackOptions) return;
             var t = title?.Trim();
             if (string.IsNullOrEmpty(t) || !seen.Add(t)) return; // skip blanks + de-dupe across all sources
+            // ALLERGY GATE: drop a suggestion whose title (or any seed ingredient name) hits a restriction term.
+            if (ContainsRestrictedTerm(t, terms)) return;
+            if (ingredientNames is not null && ingredientNames.Any(n => ContainsRestrictedTerm(n, terms))) return;
             // The deterministic floor has no recipe; any seed names ARE the grocery items, so label them onList.
             var ingredients = (ingredientNames ?? Array.Empty<string>())
                 .Select(n => LabelIngredient(n, "", ctx.GroceryByName)).ToList();
@@ -1351,10 +1441,14 @@ public static class AiEndpoints
         foreach (var title in ctx.RecentFoods)
             Add(title, "Something you've had recently.");
 
-        // 3) Failing all else, a single "use what's on hand" idea seeded with the grocery-list items.
+        // 3) Failing all else, a single "use what's on hand" idea seeded with the grocery-list items. PRE-FILTER
+        // the seeds so one restricted grocery item doesn't nuke the only option while clean ones remain.
         if (options.Count == 0 && ctx.OnHand.Count > 0)
-            Add("Make something with what you have", "Built from items on your grocery list.",
-                ctx.OnHand.Take(MaxFallbackHave).ToList());
+        {
+            var seeds = ctx.OnHand.Where(n => !ContainsRestrictedTerm(n, terms)).Take(MaxFallbackHave).ToList();
+            if (seeds.Count > 0)
+                Add("Make something with what you have", "Built from items on your grocery list.", seeds);
+        }
 
         return options;
     }
@@ -1419,11 +1513,14 @@ public static class AiEndpoints
     /// requested slot with one deterministic idea drawn (in order) from the caller's saved recipes, then their
     /// recent foods, then planned meals — cycling so days vary. Macros are zero (no AI estimate). Ingredients are
     /// empty (the deterministic floor has no recipe breakdown), so nothing is mislabelled. Mirrors FallbackOptions.
+    /// ALLERGY-AWARE: any pool title containing a caller restriction term is dropped (title-only — the floor has
+    /// no ingredient text here — so it's complete for this function). Best-effort, not a medical guarantee.
     /// </summary>
     private static IReadOnlyList<PlanMealDayDto> FallbackPlan(
-        EatContext ctx, IReadOnlyList<DateOnly> dates, IReadOnlyList<string> slots)
+        EatContext ctx, IReadOnlyList<DateOnly> dates, IReadOnlyList<string> slots, string? restrictions = null)
     {
-        // The pool of dish titles to seed from, most-intentful first; de-duped, blanks dropped.
+        // The pool of dish titles to seed from, most-intentful first; de-duped, blanks dropped, restriction-filtered.
+        var terms = RestrictionTerms(restrictions);
         var pool = new List<string>();
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         void AddPool(IEnumerable<string> titles)
@@ -1431,7 +1528,9 @@ public static class AiEndpoints
             foreach (var t in titles)
             {
                 var title = (t ?? "").Trim();
-                if (title.Length > 0 && seen.Add(title)) pool.Add(title);
+                if (title.Length == 0 || !seen.Add(title)) continue;
+                if (ContainsRestrictedTerm(title, terms)) continue; // ALLERGY GATE (title-only here)
+                pool.Add(title);
             }
         }
         AddPool(ctx.MyRecipes);

@@ -1,5 +1,17 @@
 <h2 mat-dialog-title class="pf-title">Your profile &amp; goals</h2>
 
+<!-- At-a-glance read-back of what the AI meal recommenders are told (eating style · restrictions · pace). -->
+@if (dietSummary().length) {
+  <div class="pf-diet-summary" role="note" aria-label="What the AI uses for your meals">
+    <mat-icon class="pf-diet-summary-icon" aria-hidden="true">restaurant_menu</mat-icon>
+    <span class="pf-diet-summary-chips">
+      @for (part of dietSummary(); track part; let last = $last) {
+        <span class="pf-diet-chip">{{ part }}</span>@if (!last) {<span class="pf-diet-sep" aria-hidden="true">·</span>}
+      }
+    </span>
+  </div>
+}
+
 <mat-dialog-content class="pf-body">
   <!-- Non-blocking check-in: weight drift or a stale baseline → one-tap recompute. Dismissible. -->
   @if (checkIn(); as ci) {
@@ -297,6 +309,43 @@
           </mat-form-field>
         </div>
 
+        <!-- Navy-tape body-fat estimate (optional): neck / waist / (hip, Female) → log10 % estimate. -->
+        <div class="pf-navy">
+          <span class="micro-label">Body-fat tape (optional)</span>
+          <div class="pf-navy-grid">
+            <mat-form-field appearance="outline">
+              <mat-label>Neck</mat-label>
+              <input matInput type="number" min="0" step="0.1" inputmode="decimal"
+                     [ngModel]="neckDisp()" (ngModelChange)="neckDisp.set($event)" />
+              <span matTextSuffix>{{ lengthUnit }}</span>
+            </mat-form-field>
+            <mat-form-field appearance="outline">
+              <mat-label>Waist</mat-label>
+              <input matInput type="number" min="0" step="0.1" inputmode="decimal"
+                     [ngModel]="waistDisp()" (ngModelChange)="waistDisp.set($event)" />
+              <span matTextSuffix>{{ lengthUnit }}</span>
+            </mat-form-field>
+            @if (sex() === 'Female') {
+              <mat-form-field appearance="outline">
+                <mat-label>Hip</mat-label>
+                <input matInput type="number" min="0" step="0.1" inputmode="decimal"
+                       [ngModel]="hipDisp()" (ngModelChange)="hipDisp.set($event)" />
+                <span matTextSuffix>{{ lengthUnit }}</span>
+              </mat-form-field>
+            }
+          </div>
+          @if (navyBodyFatPct(); as bf) {
+            <div class="pf-navy-est">
+              <span>Estimated body fat: <strong class="mono-num">{{ bf }}%</strong></span>
+              <button mat-stroked-button type="button" class="pf-navy-use" (click)="applyNavyBodyFat()">
+                Use this
+              </button>
+            </div>
+          } @else {
+            <p class="pf-share-note">Add neck + waist (and hip for female) with your height &amp; sex set above for an estimate.</p>
+          }
+        </div>
+
         <div class="pf-refine-grid">
           <mat-form-field appearance="outline">
             <mat-label>Eating style</mat-label>
@@ -332,6 +381,16 @@
               <mat-option value="Breastfeeding">Breastfeeding</mat-option>
             </mat-select>
           </mat-form-field>
+          @if (showTrimester()) {
+            <mat-form-field appearance="outline">
+              <mat-label>Trimester</mat-label>
+              <mat-select [ngModel]="trimester()" (ngModelChange)="trimester.set($event)">
+                <mat-option [value]="1">First</mat-option>
+                <mat-option [value]="2">Second</mat-option>
+                <mat-option [value]="3">Third</mat-option>
+              </mat-select>
+            </mat-form-field>
+          }
         </div>
 
         <div class="pf-refine-grid">
@@ -349,6 +408,14 @@
             </mat-select>
           </mat-form-field>
         </div>
+
+        <!-- Allergies / foods to avoid: a HARD exclusion for the AI meal recommenders (comma-separated). -->
+        <mat-form-field appearance="outline" class="pf-field">
+          <mat-label>Allergies &amp; foods to avoid (optional)</mat-label>
+          <textarea matInput rows="2" maxlength="300" placeholder="e.g. peanuts, shellfish, no pork"
+                    [ngModel]="restrictions()" (ngModelChange)="restrictions.set($event)"></textarea>
+          <mat-hint>Comma-separated. The AI meal planner treats these as a hard exclusion.</mat-hint>
+        </mat-form-field>
       </div>
     }
   </section>
