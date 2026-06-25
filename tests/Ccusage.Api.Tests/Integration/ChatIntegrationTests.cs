@@ -865,9 +865,9 @@ public class ChatIntegrationTests(WebAppFactory factory)
         var channelId = await CreateChannel(alice, "race-react-" + Guid.NewGuid().ToString("N")[..6]);
         var messageId = await Send(alice, channelId, "race to react");
 
-        // Two clients for the SAME user fire the SAME (message, user, emoji) ADD at once. The unique
-        // index on (MessageId, UserEmail, Emoji) lets at most one row in; the losing racer must recover
-        // from the 23505 violation rather than 500. Both calls succeed and converge on identical groups.
+        // Two clients for the SAME user fire the SAME (message, user, emoji) TOGGLE at once. The unique
+        // index on (MessageId, UserEmail, Emoji) lets at most one row in; the losing racer of the 23505
+        // ADD (or of a concurrent DELETE) must RECOVER and converge rather than 500. Both calls return 200.
         var second = Client(aliceEmail);
         var first = alice.PostAsJsonAsync($"/api/chat/messages/{messageId}/reactions", new { emoji = "👍" });
         var firstAgain = second.PostAsJsonAsync($"/api/chat/messages/{messageId}/reactions", new { emoji = "👍" });
@@ -876,15 +876,22 @@ public class ChatIntegrationTests(WebAppFactory factory)
         (await first).StatusCode.Should().Be(HttpStatusCode.OK);
         (await firstAgain).StatusCode.Should().Be(HttpStatusCode.OK);
 
-        // Exactly one reaction row survived: one group, count 1, the caller in ReactedBy.
+        // /reactions is a TOGGLE, so two concurrent toggles of the SAME reaction converge to a CONSISTENT
+        // end state of 0 OR 1 rows (never a duplicate/torn row), depending on interleaving: both saw
+        // "absent" -> both ADD -> the unique index keeps one, the loser recovers -> 1 row; OR one ADD
+        // committed before the other's read -> the second sees it and toggles it OFF -> 0 rows. The
+        // invariant is "no 500 + a consistent final state", NOT "always exactly 1".
         var hist = (await Json(await alice.GetAsync($"/api/chat/channels/{channelId}/messages")))
             .EnumerateArray().First(m => m.GetProperty("id").GetInt64() == messageId);
         var reactions = hist.GetProperty("reactions").EnumerateArray().ToList();
-        reactions.Should().ContainSingle();
-        reactions[0].GetProperty("emoji").GetString().Should().Be("👍");
-        reactions[0].GetProperty("count").GetInt32().Should().Be(1);
-        reactions[0].GetProperty("reactedByUserIds").EnumerateArray().Select(e => e.GetInt32())
-            .Should().ContainSingle().And.Contain(aliceId);
+        reactions.Count.Should().BeInRange(0, 1, "two concurrent toggles converge to 0 or 1 rows, never a duplicate");
+        if (reactions.Count == 1)
+        {
+            reactions[0].GetProperty("emoji").GetString().Should().Be("👍");
+            reactions[0].GetProperty("count").GetInt32().Should().Be(1);
+            reactions[0].GetProperty("reactedByUserIds").EnumerateArray().Select(e => e.GetInt32())
+                .Should().ContainSingle().And.Contain(aliceId);
+        }
     }
 
     [Fact]
