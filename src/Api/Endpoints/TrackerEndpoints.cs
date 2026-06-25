@@ -1994,12 +1994,21 @@ public static class TrackerEndpoints
             System.Globalization.CultureInfo.InvariantCulture,
             System.Globalization.DateTimeStyles.None, out result);
 
-    /// <summary>Parse an ISO-8601 UTC timestamp (round-trip "o" form) into a normalized-UTC DateTime.</summary>
-    private static bool TryParseUtc(string? value, out DateTime result) =>
-        DateTime.TryParse((value ?? "").Trim(),
-            System.Globalization.CultureInfo.InvariantCulture,
-            System.Globalization.DateTimeStyles.RoundtripKind | System.Globalization.DateTimeStyles.AdjustToUniversal,
-            out result);
+    /// <summary>Parse an ISO-8601 UTC timestamp into a Kind=Utc DateTime (required by Npgsql's timestamptz).
+    /// AssumeUniversal+AdjustToUniversal is the VALID combo that always yields Utc (RoundtripKind must NOT be
+    /// combined with AdjustToUniversal — that throws ArgumentException, which 500'd every profile save).</summary>
+    private static bool TryParseUtc(string? value, out DateTime result)
+    {
+        if (DateTime.TryParse((value ?? "").Trim(),
+                System.Globalization.CultureInfo.InvariantCulture,
+                System.Globalization.DateTimeStyles.AssumeUniversal | System.Globalization.DateTimeStyles.AdjustToUniversal,
+                out result))
+        {
+            result = DateTime.SpecifyKind(result, DateTimeKind.Utc);  // belt-and-suspenders for Npgsql timestamptz
+            return true;
+        }
+        return false;
+    }
 
     /// <summary>The app's display timezone, mirroring UsageQueries (UTC fallback on a bad/blank id).</summary>
     private static Task<TimeZoneInfo> DisplayTzAsync(UsageDbContext db, CancellationToken ct)

@@ -117,10 +117,10 @@ public class TrackerStatsTests
     // ---- Suggested calories per goal ----
 
     [Theory]
-    [InlineData(TrackerGoal.LoseWeight, 1600)] // TDEE - 500
+    [InlineData(TrackerGoal.LoseWeight, 1750)] // default -0.5 kg/wk (-550) → 1550, but floored at BMR 1750
     [InlineData(TrackerGoal.Maintain, 2100)]   // TDEE
-    [InlineData(TrackerGoal.GainMuscle, 2400)] // TDEE + 300
-    [InlineData(TrackerGoal.Endurance, 2100)]  // TDEE
+    [InlineData(TrackerGoal.GainMuscle, 2375)] // default +0.25 kg/wk (+275) → TDEE + 275
+    [InlineData(TrackerGoal.Endurance, 2100)]  // TDEE (no default pace)
     public void Suggested_calories_per_goal(TrackerGoal goal, int expected)
     {
         var s = TrackerStats.Compute(
@@ -137,13 +137,13 @@ public class TrackerStatsTests
     public void Suggested_macros_from_weight_and_calorie_target()
     {
         // 80 kg, Maintain, TDEE 2100 → suggested calories 2100.
-        // protein = round(1.8*80) = 144 g; fat = round(0.8*80) = 64 g;
-        // carbs = round((2100 - 144*4 - 64*9)/4) = round((2100 - 576 - 576)/4) = round(948/4) = 237 g.
+        // protein = round(1.6*80) = 128 g (Maintain, per-bodyweight); fat floor = max(0.6*80, 0.20*2100/9) = 48 g;
+        // carbs = round((2100 - 128*4 - 48*9)/4) = round((2100 - 512 - 432)/4) = round(1156/4) = 289 g.
         var s = TrackerStats.Compute(
             Profile(weightKg: 80, heightCm: 180, dob: new DateOnly(1990, 1, 1), sex: BiologicalSex.Male), Today);
-        s.SuggestedProteinG.Should().Be(144);
-        s.SuggestedFatG.Should().Be(64);
-        s.SuggestedCarbG.Should().Be(237);
+        s.SuggestedProteinG.Should().Be(128);
+        s.SuggestedFatG.Should().Be(48);
+        s.SuggestedCarbG.Should().Be(289);
     }
 
     [Fact]
@@ -153,10 +153,11 @@ public class TrackerStatsTests
         var s = TrackerStats.Compute(Profile(weightKg: 80, dailyGoal: 2000), Today);
         s.Bmr.Should().BeNull();
         s.SuggestedCalorieGoal.Should().BeNull();
-        // protein = 144, fat = 64, carbs = round((2000 - 576 - 576)/4) = round(848/4) = 212.
-        s.SuggestedProteinG.Should().Be(144);
-        s.SuggestedFatG.Should().Be(64);
-        s.SuggestedCarbG.Should().Be(212);
+        // protein = round(1.6*80) = 128, fat floor = max(0.6*80, 0.20*2000/9) = 48,
+        // carbs = round((2000 - 128*4 - 48*9)/4) = round((2000 - 512 - 432)/4) = round(1056/4) = 264.
+        s.SuggestedProteinG.Should().Be(128);
+        s.SuggestedFatG.Should().Be(48);
+        s.SuggestedCarbG.Should().Be(264);
     }
 
     [Fact]
