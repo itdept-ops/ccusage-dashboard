@@ -188,12 +188,14 @@ public static class AiEndpoints
         {
             var caller = (await me.GetUserAsync(ct))!;
             var ctx = await BuildEatContextAsync(db, households, caller, body, ct);
+            var profile = await db.TrackerProfiles.AsNoTracking()
+                .FirstOrDefaultAsync(p => p.UserEmail == caller.Email, ct);
 
             if (gemini.IsConfigured)
             {
                 var result = await gemini.WhatToEatAsync(
                     ctx.Snapshot, body?.Craving, body?.Constraints,
-                    ctx.RemCal, ctx.RemP, ctx.RemC, ctx.RemF, ct);
+                    ctx.RemCal, ctx.RemP, ctx.RemC, ctx.RemF, profile, ct);
                 if (result is { Options.Count: > 0 })
                     return Results.Ok(new WhatToEatDto { AiUsed = true, Options = ToEatOptionDtos(result.Options, ctx.GroceryByName) });
             }
@@ -218,6 +220,8 @@ public static class AiEndpoints
             // Reuse the what-to-eat context build (remaining macros + recent foods + recipes + groceries + meals).
             var ctx = await BuildEatContextAsync(db, households, caller,
                 new WhatToEatRequest { Constraints = body?.Constraints }, ct);
+            var profile = await db.TrackerProfiles.AsNoTracking()
+                .FirstOrDefaultAsync(p => p.UserEmail == caller.Email, ct);
 
             // Resolve the planned dates (anchor + N days) and the slots to fill — both clamped, caller-supplied only.
             var anchor = ParseLocalDate(body?.WeekStart) ?? await TodayAsync(db, ct);
@@ -232,7 +236,7 @@ public static class AiEndpoints
             {
                 var result = await gemini.PlanMealsAsync(
                     ctx.Snapshot, body?.Constraints, dates, slots,
-                    ctx.RemCal, ctx.RemP, ctx.RemC, ctx.RemF, onHand, ct);
+                    ctx.RemCal, ctx.RemP, ctx.RemC, ctx.RemF, onHand, profile, ct);
                 if (result is { Days.Count: > 0 })
                     return Results.Ok(new PlanMealsDto
                     {
@@ -265,16 +269,22 @@ public static class AiEndpoints
         // floors to 200 ECHOING the original fields with aiUsed:false (so previewing is harmless). The preference
         // is clamped + treated strictly as DATA in the prompt; AI-usage is logged automatically (kind "refine-meal").
         g.MapPost("/refine-meal", async (
-            RefineMealRequest body, GeminiService gemini, CancellationToken ct) =>
+            RefineMealRequest body, GeminiService gemini,
+            CurrentUserAccessor me, UsageDbContext db, CancellationToken ct) =>
         {
             var echo = EchoRefine(body);                        // AiUsed:false — the always-200 floor.
             if (!gemini.IsConfigured) return Results.Ok(echo);
 
             try
             {
+                // Standing dietary profile (diet pattern, training type, hard allergy/avoid restrictions) so the
+                // refinement honours the caller's rules — loaded only on the AI path, null is fine.
+                var caller = (await me.GetUserAsync(ct))!;
+                var profile = await db.TrackerProfiles.AsNoTracking()
+                    .FirstOrDefaultAsync(p => p.UserEmail == caller.Email, ct);
                 var result = await gemini.RefineMealAsync(
                     body?.Title, body?.Ingredients, body?.Servings, body?.Calories,
-                    body?.ProteinG, body?.CarbG, body?.FatG, body?.Preference, ct);
+                    body?.ProteinG, body?.CarbG, body?.FatG, body?.Preference, profile, ct);
                 return Results.Ok(result ?? echo);             // result is a RefineMealResponse(AiUsed:true).
             }
             catch
