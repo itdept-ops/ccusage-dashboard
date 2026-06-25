@@ -38,10 +38,10 @@ const ROOMS: Room[] = [
 
 /**
  * Collapsed-by-default "Rooms" drawer — the family navigation, demoted below the glance per the
- * "glanceable today first, navigation last" inversion. A 44px+ toggle expands a perm-filtered grid of
- * room tiles. A CHILD (holds chore.claim but not allowance.manage — logic COPIED from family-home.ts:92,
- * not imported) sees ONLY the Chores room, kid-safe. Expansion respects reduced-motion (the SCSS uses a
- * simple height/opacity transition the page host can disable). No live page is touched.
+ * "glanceable today first, navigation last" inversion, rebuilt on the shared beta-ui token contract. A
+ * 44px+ toggle expands a perm-filtered grid of room tiles. A CHILD (holds chore.claim but not
+ * allowance.manage — logic COPIED from family-home.ts:92, not imported) sees ONLY the Chores room,
+ * kid-safe. Expansion respects reduced-motion (the page-host killswitch collapses the animation).
  */
 @Component({
   selector: 'fb-rooms-drawer',
@@ -52,9 +52,10 @@ const ROOMS: Room[] = [
     <section class="drawer">
       <button type="button" class="drawer__toggle" (click)="toggle()"
               [attr.aria-expanded]="open()" aria-controls="fb-rooms-grid">
-        <mat-icon aria-hidden="true">{{ open() ? 'expand_less' : 'expand_more' }}</mat-icon>
+        <span class="drawer__ic" aria-hidden="true"><mat-icon>grid_view</mat-icon></span>
         <span>Rooms</span>
         <span class="drawer__hint">{{ open() ? 'Hide' : 'All family tools' }}</span>
+        <mat-icon class="drawer__chev" aria-hidden="true">{{ open() ? 'expand_less' : 'expand_more' }}</mat-icon>
       </button>
 
       @if (open()) {
@@ -72,29 +73,39 @@ const ROOMS: Room[] = [
   styles: [`
     .drawer { display: flex; flex-direction: column; gap: 12px; }
     .drawer__toggle {
-      display: flex; align-items: center; gap: 10px; width: 100%;
-      min-height: 52px; padding: 0 16px; border-radius: var(--r-card, 24px);
-      background: var(--bg-rise); border: 1px solid var(--glass-edge); color: var(--ink);
-      font: inherit; font-size: 15px; font-weight: 600; cursor: pointer;
+      display: flex; align-items: center; gap: 12px; width: 100%;
+      min-height: 56px; padding: 0 14px; border-radius: var(--r-card);
+      background: var(--bg-rise); box-shadow: var(--lift-1); border: 1px solid var(--hairline); color: var(--ink);
+      font: inherit; font-size: 15px; font-weight: 700; cursor: pointer;
+      transition: transform 120ms var(--ease-out);
     }
-    .drawer__toggle:focus-visible { outline: 2px solid var(--hearth-a); outline-offset: 2px; }
-    .drawer__hint { margin-left: auto; font-size: 12px; font-weight: 500; color: var(--ink-dim); }
+    .drawer__toggle:active { transform: scale(.99); }
+    .drawer__toggle:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+    .drawer__ic {
+      flex: 0 0 auto; display: grid; place-items: center; width: 32px; height: 32px; border-radius: 10px;
+      background: linear-gradient(135deg, color-mix(in srgb, var(--accent-a) 24%, transparent), color-mix(in srgb, var(--accent-b) 24%, transparent));
+    }
+    .drawer__ic mat-icon { font-size: 19px; width: 19px; height: 19px; color: color-mix(in srgb, var(--accent-a) 80%, var(--ink)); }
+    .drawer__hint { margin-left: auto; font-size: 12px; font-weight: 600; color: var(--ink-dim); }
+    .drawer__chev { flex: 0 0 auto; color: var(--ink-dim); }
 
     .grid {
       display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 10px;
-      animation: fb-drawer-in 220ms var(--ease-out, ease) both;
+      animation: fb-drawer-in 240ms var(--ease-spring-up) both;
     }
-    @keyframes fb-drawer-in { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+    @keyframes fb-drawer-in { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
 
     .tile {
-      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
-      min-height: 80px; padding: 12px 8px; border-radius: 18px;
-      background: var(--bg-rise); border: 1px solid var(--glass-edge);
+      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 7px;
+      min-height: 82px; padding: 12px 8px; border-radius: var(--r-tile);
+      background: var(--bg-rise); box-shadow: var(--lift-1); border: 1px solid var(--hairline);
       color: var(--ink); text-decoration: none; text-align: center;
+      transition: transform 120ms var(--ease-out);
     }
-    .tile:focus-visible { outline: 2px solid var(--hearth-a); outline-offset: 2px; }
-    .tile__icon { color: var(--hearth-a); font-size: 24px; width: 24px; height: 24px; }
-    .tile__label { font-size: 12px; font-weight: 500; line-height: 1.2; }
+    .tile:active { transform: scale(.96); }
+    .tile:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+    .tile__icon { color: color-mix(in srgb, var(--accent-a) 75%, var(--ink)); font-size: 24px; width: 24px; height: 24px; }
+    .tile__label { font-size: 12px; font-weight: 600; line-height: 1.2; }
 
     @media (prefers-reduced-motion: reduce) {
       .grid { animation: none; }

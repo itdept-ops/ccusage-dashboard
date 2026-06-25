@@ -19,9 +19,10 @@ interface RailPill {
 
 /**
  * The horizontal "today rail" — a scroll-snapping row of reminder + timer pills, urgency-first (soonest
- * due/ending leads). Timers show a live countdown; reminders show their pre-formatted local time + target
- * NAME (never an email — the DTO carries no email). `today` is page-owned (best-effort); the rail simply
- * renders nothing when there is nothing due, so it never reserves dead space.
+ * due/ending leads), rebuilt on the shared beta-ui token contract. Each pill is a glass-edged sediment
+ * chip; timers show a live countdown, reminders show their pre-formatted local time + target NAME (never
+ * an email — the DTO carries no email). `today` is page-owned (best-effort); the rail renders nothing when
+ * there is nothing due, so it never reserves dead space.
  */
 @Component({
   selector: 'fb-today-rail',
@@ -34,7 +35,7 @@ interface RailPill {
         @for (p of pills(); track p.key) {
           <a class="pill" [class.pill--timer]="p.kind === 'timer'" role="listitem"
              [routerLink]="p.route" [attr.aria-label]="p.label + ' — ' + p.meta">
-            <mat-icon class="pill__icon" aria-hidden="true">{{ p.icon }}</mat-icon>
+            <span class="pill__ic" aria-hidden="true"><mat-icon>{{ p.icon }}</mat-icon></span>
             <span class="pill__text">
               <span class="pill__label">{{ p.label }}</span>
               <span class="pill__meta">{{ p.meta }}</span>
@@ -45,6 +46,7 @@ interface RailPill {
     }
   `,
   styles: [`
+    :host { --reminder-h: #fcd34d; --timer-h: #6ee7b7; }
     .rail {
       display: flex; gap: 10px; overflow-x: auto;
       scroll-snap-type: x proximity; -webkit-overflow-scrolling: touch;
@@ -54,19 +56,26 @@ interface RailPill {
     .rail::-webkit-scrollbar { display: none; }
     .pill {
       flex: 0 0 auto; scroll-snap-align: start;
-      display: inline-flex; align-items: center; gap: 10px;
-      min-height: 56px; max-width: 80vw; padding: 0 16px;
-      border-radius: var(--r-pill, 999px);
-      background: var(--bg-rise); border: 1px solid var(--glass-edge);
+      display: inline-flex; align-items: center; gap: 11px;
+      min-height: 58px; max-width: 80vw; padding: 0 16px 0 12px;
+      border-radius: var(--r-pill);
+      background: var(--bg-rise); box-shadow: var(--lift-1);
+      border: 1px solid var(--hairline);
       color: var(--ink); text-decoration: none;
+      transition: transform 120ms var(--ease-out);
     }
-    .pill:focus-visible { outline: 2px solid var(--reminder); outline-offset: 2px; }
-    .pill--timer:focus-visible { outline-color: var(--event); }
-    .pill__icon { flex: 0 0 auto; color: var(--reminder); font-size: 22px; width: 22px; height: 22px; }
-    .pill--timer .pill__icon { color: var(--event); }
+    .pill:active { transform: scale(.98); }
+    .pill:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+    .pill__ic {
+      flex: 0 0 auto; display: grid; place-items: center; width: 36px; height: 36px; border-radius: 11px;
+      background: color-mix(in srgb, var(--reminder-h) 20%, transparent);
+    }
+    .pill__ic mat-icon { color: var(--reminder-h); font-size: 20px; width: 20px; height: 20px; }
+    .pill--timer .pill__ic { background: color-mix(in srgb, var(--timer-h) 20%, transparent); }
+    .pill--timer .pill__ic mat-icon { color: var(--timer-h); }
     .pill__text { display: flex; flex-direction: column; min-width: 0; }
     .pill__label {
-      font-size: 14px; font-weight: 600; line-height: 1.2;
+      font-size: 14px; font-weight: 700; line-height: 1.2;
       overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
     }
     .pill__meta { font-size: 12px; color: var(--ink-dim); font-variant-numeric: tabular-nums; }

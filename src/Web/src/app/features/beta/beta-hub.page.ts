@@ -1,89 +1,144 @@
-import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { MatIconModule } from '@angular/material/icon';
 
 import { AuthService } from '../../core/auth';
+import { BetaPullRefresh } from '../beta-ui';
 import { BETA_EXPERIMENTS, BetaExperiment } from './beta-experiments';
 
+/** A launcher tile = the shared experiment entry + the destination surface's OWN signature accent. */
+interface HubTile extends BetaExperiment {
+  /** Signature gradient start/end for this destination (drives the icon chip, glow, edge + arrow). */
+  readonly accentA: string;
+  readonly accentB: string;
+  /** A tighter one-liner for the tile (falls back to the shared blurb). */
+  readonly desc: string;
+}
+
 /**
- * Beta hub — a clean, mobile-friendly index of experimental surfaces. Lives in the normal app shell
- * (uses the app's --tech-* design tokens), gated by the `beta.access` page permission. Each card is a
- * pure data entry in {@link experimentDefs}; the visible list is filtered by per-card permission so a
- * card only appears if its own feature flag (e.g. tracker.beta) is also granted to the user.
+ * Each destination's SIGNATURE accent gradient, keyed by route (Strata=multi/violet, Bills=cream,
+ * Home=violet, Dashboard=pink, Family=amber, Wrapped=purple, Settings=slate). Kept here so the shared
+ * {@link BETA_EXPERIMENTS} source (which the nav also iterates) stays presentation-free. Falls back to
+ * the hub's own blue accent for any future entry that lacks a mapping.
+ */
+const SURFACE_ACCENTS: Record<string, { a: string; b: string; desc?: string }> = {
+  '/tracker-beta': { a: '#7c5cff', b: '#3b82f6', desc: 'A clean-sheet, mobile-first fitness tracker.' },     // Strata — multi/violet → blue
+  '/beta/bills':   { a: '#f0b760', b: '#fef3c7', desc: 'Snap a receipt, split it, share a claim link.' },   // Bills  — cream
+  '/beta/home':    { a: '#8b5cff', b: '#4f7bff', desc: 'Your cross-domain glance: rings, events, presence.' }, // Home  — violet
+  '/beta/dashboard': { a: '#fb7185', b: '#f472b6', desc: 'Token + cost analytics, glanceable on mobile.' },  // Dashboard — pink
+  '/beta/family':  { a: '#f0a35a', b: '#fbbf24', desc: 'Your whole household at a glance.' },                 // Family — amber
+  '/beta/wrapped': { a: '#a855f7', b: '#7c5cff', desc: 'Your Hub, the highlight reel.' },                     // Wrapped — purple
+  '/beta/settings': { a: '#64748b', b: '#94a3b8', desc: 'Your quick toggles, mobile-first.' },               // Settings — slate
+};
+
+/**
+ * Beta hub — a premium MOBILE LAUNCHER for the experimental surfaces, rebuilt onto the shared beta-ui
+ * "Strata" foundation (`@use '../beta-ui/beta-kit'`). An immersive header ("Beta" + tagline + a live
+ * count with an accent bloom) sits over a grid of rich entry tiles: each tile carries its destination's
+ * OWN signature accent gradient (Strata violet, Bills cream, Home violet, Dashboard pink, Family amber,
+ * Wrapped purple, Settings slate) on an icon chip + glow + accent edge, a title, a one-line description,
+ * and a subtle "experimental" treatment. Depth (sediment + lift + glow), a staggered spring entrance,
+ * press feedback, and pull-to-refresh give it a native-app feel. The HUB owns a BLUE signature accent.
+ *
+ * Each tile routes to its page via the existing `routerLink`, and the visible list is still filtered by
+ * per-card permission so a card only appears if its own feature flag (e.g. tracker.beta) is granted —
+ * the gating is UNCHANGED from the flat version.
+ *
+ * ISOLATED + gated by `beta.access`: nothing here touches the global --tech-* tokens or any live page;
+ * the flagship tracker-beta and the kit itself are consumed, never modified.
  */
 @Component({
   selector: 'app-beta-hub',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RouterLink, MatIconModule],
+  styleUrl: './beta-hub.page.scss',
+  imports: [RouterLink, MatIconModule, BetaPullRefresh],
   template: `
-    <section class="beta">
-      <header class="beta__head">
-        <h1 class="beta__title">Beta</h1>
-        <p class="beta__note">Experimental — these may change or move.</p>
-      </header>
+    <!-- The scroll column IS the kit pull-to-refresh (it owns overflow + the live accent spinner). -->
+    <app-bs-pull-refresh class="bh-ptr" [busy]="refreshing()" (refresh)="refresh()">
+      <div class="bh-scroll">
 
-      @if (experiments().length) {
-        <div class="beta__grid">
-          @for (x of experiments(); track x.route) {
-            <a class="beta-card" [routerLink]="x.route">
-              <span class="beta-card__icon"><mat-icon aria-hidden="true">{{ x.icon }}</mat-icon></span>
-              <span class="beta-card__body">
-                <span class="beta-card__title">{{ x.title }}</span>
-                <span class="beta-card__blurb">{{ x.blurb }}</span>
-              </span>
-              <mat-icon class="beta-card__chev" aria-hidden="true">chevron_right</mat-icon>
-            </a>
-          }
-        </div>
-      } @else {
-        <p class="beta__empty">No beta experiments are available to you yet.</p>
-      }
-    </section>
+        <!-- Immersive page header — "Beta" + tagline + a live count, with an accent bloom behind it. -->
+        <header class="bh-head">
+          <div class="bh-head__bloom" aria-hidden="true"></div>
+          <div class="bh-head__top">
+            <div class="bh-head__text">
+              <span class="bh-head__eyebrow"><span class="bh-spark" aria-hidden="true"></span> Experimental</span>
+              <h1 class="bh-head__title">Beta</h1>
+              <p class="bh-head__tag">Early surfaces we're shaping — they may change, move, or vanish.</p>
+            </div>
+            @if (tiles().length) {
+              <div class="bh-count" aria-hidden="true">
+                <span class="bh-count__n">{{ tiles().length }}</span>
+                <span class="bh-count__lbl">{{ tiles().length === 1 ? 'lab' : 'labs' }}</span>
+              </div>
+            }
+          </div>
+        </header>
+
+        @if (tiles().length) {
+          <!-- Launcher grid — staggered spring entrance, each tile carries its own signature accent. -->
+          <div class="bh-grid">
+            @for (t of tiles(); track t.route; let i = $index) {
+              <div class="bh-tile-in" [style.--i]="i">
+                <a class="bh-tile" [routerLink]="t.route"
+                   [style.--ta]="t.accentA" [style.--tb]="t.accentB"
+                   [attr.aria-label]="t.title + ' — ' + t.desc">
+                  <div class="bh-tile__top">
+                    <span class="bh-tile__icon"><mat-icon aria-hidden="true">{{ t.icon }}</mat-icon></span>
+                    <span class="bh-tag"><span class="bh-tag__dot" aria-hidden="true"></span> Beta</span>
+                  </div>
+                  <div class="bh-tile__body">
+                    <span class="bh-tile__title">
+                      {{ t.title }}
+                      <span class="bh-tile__arrow" aria-hidden="true">→</span>
+                    </span>
+                    <span class="bh-tile__desc">{{ t.desc }}</span>
+                  </div>
+                </a>
+              </div>
+            }
+          </div>
+        } @else {
+          <div class="bh-empty">
+            <span class="bh-empty__ic" aria-hidden="true"><mat-icon>science</mat-icon></span>
+            <p class="bh-empty__msg">No beta experiments are available to you yet. As features open up,
+              they'll land here first.</p>
+          </div>
+        }
+      </div>
+    </app-bs-pull-refresh>
   `,
-  styles: [`
-    .beta { max-width: 880px; margin: 0 auto; padding: var(--tech-space-6) var(--tech-space-4); }
-    .beta__head { margin-bottom: var(--tech-space-6); }
-    .beta__title { margin: 0; font-family: var(--tech-font-ui); font-size: 26px; font-weight: 700; color: var(--tech-text); letter-spacing: -0.01em; }
-    .beta__note { margin: var(--tech-space-1) 0 0; font-size: 13px; color: var(--tech-text-tertiary); }
-    .beta__empty { color: var(--tech-text-secondary); font-size: 14px; }
-
-    .beta__grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-      gap: var(--tech-space-4);
-    }
-
-    .beta-card {
-      display: flex; align-items: center; gap: var(--tech-space-3);
-      padding: var(--tech-space-4);
-      background: var(--tech-panel);
-      border: 1px solid var(--tech-border);
-      border-radius: var(--tech-radius);
-      box-shadow: var(--tech-shadow-panel);
-      text-decoration: none; color: inherit;
-      transition: border-color 120ms ease, background 120ms ease, transform 120ms ease;
-    }
-    .beta-card:hover { background: var(--tech-panel-raised); border-color: var(--tech-border-strong); transform: translateY(-1px); }
-    .beta-card:focus-visible { outline: 2px solid var(--tech-accent); outline-offset: 2px; }
-
-    .beta-card__icon {
-      flex: 0 0 auto; display: grid; place-items: center;
-      width: 40px; height: 40px; border-radius: 10px;
-      background: var(--tech-info-tint); color: var(--tech-accent);
-    }
-    .beta-card__body { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-    .beta-card__title { font-family: var(--tech-font-ui); font-size: 15px; font-weight: 600; color: var(--tech-text); }
-    .beta-card__blurb { font-size: 13px; color: var(--tech-text-secondary); line-height: 1.35; }
-    .beta-card__chev { margin-left: auto; color: var(--tech-text-tertiary); }
-  `],
 })
 export class BetaHubPage {
   private readonly auth = inject(AuthService);
 
-  /** Experiments visible to the current session (cards without a `perm` always show). */
-  readonly experiments = computed<BetaExperiment[]>(() => {
+  /** True while a (visual) pull-to-refresh settles — there's no live data here, so it's a brief reflow. */
+  readonly refreshing = signal(false);
+
+  /** Tiles visible to the current session (cards without a `perm` always show), each with its accent. */
+  readonly tiles = computed<HubTile[]>(() => {
     this.auth.permissions(); // re-run when permissions change
-    return BETA_EXPERIMENTS.filter(x => !x.perm || this.auth.hasPermission(x.perm));
+    return BETA_EXPERIMENTS
+      .filter(x => !x.perm || this.auth.hasPermission(x.perm))
+      .map(x => {
+        const sig = SURFACE_ACCENTS[x.route];
+        return {
+          ...x,
+          accentA: sig?.a ?? 'var(--accent-a)',
+          accentB: sig?.b ?? 'var(--accent-b)',
+          desc: sig?.desc ?? x.blurb,
+        };
+      });
   });
+
+  /**
+   * Pull-to-refresh: the hub is a static index (the visible set is derived from the session's permissions),
+   * so this just re-asserts the permission read and flips the spinner briefly for the native-feel gesture.
+   */
+  refresh(): void {
+    this.refreshing.set(true);
+    this.auth.permissions(); // re-read (cheap); the computed recomputes on any change
+    setTimeout(() => this.refreshing.set(false), 450);
+  }
 }

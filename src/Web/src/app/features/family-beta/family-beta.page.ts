@@ -5,14 +5,14 @@ import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { MatIconModule } from '@angular/material/icon';
-import { MatSnackBar } from '@angular/material/snack-bar';
 import { catchError, firstValueFrom, of } from 'rxjs';
 
 import { Api } from '../../core/api';
 import { FamilyAssistantResult, FamilyBriefing, FamilyToday } from '../../core/models';
 
-import { PullToRefreshDirective } from '../beta/widgets/pull-to-refresh';
-import { BottomSheet } from '../tracker-beta/ui/bottom-sheet';
+import {
+  BetaBottomSheet, BetaFab, BetaPullRefresh, BetaToaster, ToastController,
+} from '../beta-ui';
 import { NowHero } from './cards/now-hero';
 import { TodayRail } from './rail/today-rail';
 import { ChoresCard } from './cards/chores-card';
@@ -23,19 +23,27 @@ import { RoomsDrawer } from './drawer/rooms-drawer';
 import { WeatherCard } from './cards/weather-card';
 
 /**
- * Family "Hearth" — a NEW, beta-only mobile-first glance surface for the household. It inverts the live
- * family-home's "13-tile nav grid first" into "glanceable today first, navigation last" for 390px: a
- * fixed glass greeting strip (server `greeting` + friendly `dateLabel` + a presence-style household chip),
- * a warm "Now" hero (next event → soonest timer → AI narrative, never empty), a horizontal today rail
- * (reminders + timers, urgency-first), then vertical glance cards (Chores, Lists, Who's home, Pinned
- * notes, Weather when present), a collapsed Rooms drawer, and a fixed bottom action bar ("✨ Ask" + a
- * quick-add `+`).
+ * Family "Hearth" — a NEW, beta-only mobile-first glance surface for the household, REBUILT on the shared
+ * beta-ui "Strata" foundation (`@use '../beta-ui/beta-kit'`). It inverts the live family-home's "13-tile
+ * nav grid first" into "glanceable today first, navigation last" for 390px: an immersive scrolling header
+ * (server `greeting` + friendly `dateLabel` + quick-action chips + a family-finder button, safe-area
+ * aware), a warm "Now" hero (next event → soonest timer → AI narrative → calm, with a live countdown +
+ * mini today-timeline), a horizontal today rail (reminders + timers, urgency-first), then DEPTH glance
+ * cards (Chores with a progress ring + swipe-to-done rows, Lists, Who's home avatars, Pinned notes,
+ * Weather when present) with a staggered spring entrance, a collapsed Rooms drawer, and a fixed bottom
+ * action bar — a prominent gradient "✨ Ask" {@link BetaFab} pill + a quick-add `+`. The scroll column IS
+ * the kit {@link BetaPullRefresh} (a live accent ring tracks the pull). HOME-style toasts via
+ * {@link ToastController}/{@link BetaToaster}; the Ask/Quick-add sheets are the kit {@link BetaBottomSheet}.
  *
- * HARD ISOLATION: purely additive. It reuses the family {@link Api} READ-mostly (the Today snapshot +
- * briefing here; chores/household/presence inside their cards) and the existing fast-action WRITE
- * endpoints (quick-add, add list item, chore tick) only — it NEVER modifies any live family page, imports
- * NO `FamilyHome` internals (the `nextEvent`/`dateLabel`/`initials` helpers are COPIED into the cards),
- * and defines its OWN `--*` Hearth-ember tokens on `:host` (see family-beta.page.scss) — never `--tech-*`.
+ * Family-Hearth owns its SIGNATURE ACCENT — a warm AMBER → ROSE gradient — overriding the kit default on
+ * its `:host`, so every kit component + every card reads it off the cascade and the whole screen re-skins.
+ *
+ * HARD ISOLATION: purely additive + gated by `beta.access` (+ `family.use`). It reuses the family
+ * {@link Api} READ-mostly (the Today snapshot + briefing here; chores/household/presence inside their
+ * cards) and the existing fast-action WRITE endpoints (quick-add, add list item, chore tick) only — it
+ * NEVER modifies any live family page, imports NO `FamilyHome` internals (the `nextEvent`/`dateLabel`/
+ * `initials` helpers are COPIED into the cards), does NOT touch the flagship tracker-beta or the kit
+ * itself (it consumes them), and adds no npm deps.
  *
  * RESILIENCE: the shared Today snapshot + briefing load best-effort here (each its own `catchError`); each
  * self-loading card (chores / household) owns its own per-stream catch + skeleton/empty/failed; one dead
@@ -51,57 +59,66 @@ import { WeatherCard } from './cards/weather-card';
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
   styleUrl: './family-beta.page.scss',
+  providers: [ToastController],
   imports: [
-    FormsModule, RouterLink, MatIconModule, PullToRefreshDirective, BottomSheet,
+    FormsModule, RouterLink, MatIconModule,
+    BetaPullRefresh, BetaBottomSheet, BetaFab, BetaToaster,
     NowHero, TodayRail, ChoresCard, ListsCard, NotesCard, HouseholdCard, WeatherCard, RoomsDrawer,
   ],
   template: `
-    <!-- Fixed glass greeting strip: greeting + date + a link to the family-finder. -->
-    <header class="bar">
-      <div class="bar__text">
-        <span class="bar__greet">{{ greeting() || 'Hi there' }}</span>
-        @if (dateLabel(); as dl) { <span class="bar__date">{{ dl }}</span> }
+    <!-- The scroll column IS the kit pull-to-refresh (it owns overflow + the live accent spinner). -->
+    <app-bs-pull-refresh class="fb-ptr" [busy]="refreshing()" (refresh)="refreshAll()">
+      <div class="scroll">
+
+        <!-- Immersive page header — greeting + date + quick actions, with an accent bloom; scrolls with
+             the column (not the global app bar), reserving safe-area at the top. -->
+        <header class="hh">
+          <div class="hh__bloom" aria-hidden="true"></div>
+          <div class="hh__row">
+            <div class="hh__text">
+              @if (dateLabel(); as dl) { <span class="hh__date">{{ dl }}</span> }
+              <h1 class="hh__greet">{{ greeting() || 'Hi there' }}</h1>
+            </div>
+            <a class="hh__finder" routerLink="/family/locations" aria-label="Where's everyone">
+              <mat-icon aria-hidden="true">person_pin_circle</mat-icon>
+            </a>
+          </div>
+          <div class="hh__quick">
+            <a class="hh__chip" routerLink="/family/calendar"><mat-icon aria-hidden="true">event</mat-icon> Calendar</a>
+            <a class="hh__chip" routerLink="/family/lists"><mat-icon aria-hidden="true">checklist</mat-icon> Lists</a>
+            <a class="hh__chip" routerLink="/family/chores"><mat-icon aria-hidden="true">cleaning_services</mat-icon> Chores</a>
+            <a class="hh__chip" routerLink="/family/meals"><mat-icon aria-hidden="true">restaurant</mat-icon> Meals</a>
+          </div>
+        </header>
+
+        <!-- Staggered spring entrance: each block animates in on a per-index delay (--i). -->
+        <div class="rise" [style.--i]="0"><fb-now-hero [today]="today()" [briefing]="briefing()" /></div>
+        <div class="rise" [style.--i]="1"><fb-today-rail [today]="today()" /></div>
+        <div class="rise" [style.--i]="2"><fb-chores-card /></div>
+        <div class="rise rise--defer" [style.--i]="3"><fb-lists-card [today]="today()" [loading]="loadingToday()" [failed]="failedToday()" /></div>
+        <div class="rise rise--defer" [style.--i]="4"><fb-household-card /></div>
+        <div class="rise rise--defer" [style.--i]="5"><fb-notes-card [today]="today()" [loading]="loadingToday()" [failed]="failedToday()" /></div>
+        @if (today()?.weather; as w) {
+          <div class="rise rise--defer" [style.--i]="6"><fb-weather-card [weather]="w" /></div>
+        }
+        <div class="rise rise--defer" [style.--i]="7"><fb-rooms-drawer /></div>
+
+        <div class="scroll__foot" aria-hidden="true"></div>
       </div>
-      <a class="bar__finder" routerLink="/family/locations" aria-label="Where's everyone">
-        <mat-icon aria-hidden="true">person_pin_circle</mat-icon>
-      </a>
-    </header>
+    </app-bs-pull-refresh>
 
-    <!-- Thumb-scroll column. Pull-to-refresh re-runs all loads. -->
-    <main class="scroll" (atrPullRefresh)="refreshAll()">
-      <fb-now-hero [today]="today()" [briefing]="briefing()" />
-
-      <fb-today-rail [today]="today()" />
-
-      <fb-chores-card />
-
-      <fb-lists-card [today]="today()" [loading]="loadingToday()" [failed]="failedToday()" />
-
-      <fb-household-card />
-
-      <fb-notes-card [today]="today()" [loading]="loadingToday()" [failed]="failedToday()" />
-
-      @if (today()?.weather; as w) { <fb-weather-card [weather]="w" /> }
-
-      <fb-rooms-drawer />
-
-      <div class="scroll__foot" aria-hidden="true"></div>
-    </main>
-
-    <!-- Fixed bottom action bar: dominant Ask + secondary quick-add. -->
+    <!-- Fixed bottom action bar: a prominent gradient Ask pill + a secondary quick-add. -->
     <nav class="actions" aria-label="Quick actions">
-      <button type="button" class="actions__ask" (click)="openAsk()">
-        <mat-icon aria-hidden="true">auto_awesome</mat-icon> Ask
-      </button>
+      <app-bs-fab class="actions__ask" icon="auto_awesome" label="Ask" [extended]="true" (action)="openAsk()" />
       <button type="button" class="actions__add" (click)="openQuickAdd()" aria-label="Quick add">
         <mat-icon aria-hidden="true">add</mat-icon>
       </button>
     </nav>
 
-    <!-- ✨ Ask sheet — asks the assistant (read-only; it writes NOTHING). Isolated, no live-page styles. -->
-    <app-bottom-sheet [(open)]="askOpen" detent="half" label="Ask the family assistant">
+    <!-- ✨ Ask sheet — asks the assistant (read-only; it writes NOTHING). Kit bottom sheet. -->
+    <app-bs-sheet [(open)]="askOpen" detent="half" label="Ask the family assistant">
       <div class="sheet">
-        <h2 class="sheet__title">Ask anything</h2>
+        <h2 class="sheet__title"><mat-icon aria-hidden="true">auto_awesome</mat-icon> Ask anything</h2>
         <form class="sheet__form" (submit)="ask($event)">
           <input class="sheet__input" type="text" [(ngModel)]="askDraft" name="askDraft"
                  placeholder="What's on for today?" aria-label="Ask the family assistant"
@@ -116,12 +133,12 @@ import { WeatherCard } from './cards/weather-card';
         @else if (askAnswer(); as a) { <p class="sheet__answer" aria-live="polite">{{ a }}</p> }
         @else if (askError(); as e) { <p class="sheet__answer sheet__answer--err" aria-live="polite">{{ e }}</p> }
       </div>
-    </app-bottom-sheet>
+    </app-bs-sheet>
 
     <!-- + Quick-add sheet — one-line capture via the existing /family/quick-add endpoint. -->
-    <app-bottom-sheet [(open)]="addOpen" detent="peek" label="Quick add">
+    <app-bs-sheet [(open)]="addOpen" detent="peek" label="Quick add">
       <div class="sheet">
-        <h2 class="sheet__title">Quick add</h2>
+        <h2 class="sheet__title"><mat-icon aria-hidden="true">add_circle</mat-icon> Quick add</h2>
         <form class="sheet__form" (submit)="quickAdd($event)">
           <input class="sheet__input" type="text" [(ngModel)]="addDraft" name="addDraft"
                  placeholder="Milk, or 'remind me to call the dentist Tuesday'" aria-label="Quick add"
@@ -133,12 +150,15 @@ import { WeatherCard } from './cards/weather-card';
         </form>
         <p class="sheet__hint">We'll file it as a list item, reminder, or note automatically.</p>
       </div>
-    </app-bottom-sheet>
+    </app-bs-sheet>
+
+    <!-- One toaster host for the page's optimistic success/undo toasts. -->
+    <app-bs-toaster />
   `,
 })
 export class FamilyBetaPage implements OnDestroy {
   private readonly api = inject(Api);
-  private readonly snack = inject(MatSnackBar);
+  private readonly toasts = inject(ToastController);
   private readonly destroyRef = inject(DestroyRef);
 
   // ── shared best-effort sources (the page owns these; cards take them as inputs) ──
@@ -169,6 +189,9 @@ export class FamilyBetaPage implements OnDestroy {
   readonly adding = signal(false);
   readonly askAnswer = signal<string | null>(null);
   readonly askError = signal<string | null>(null);
+
+  /** True while a pull-to-refresh is in flight — drives the kit pull-refresh spinner. */
+  readonly refreshing = signal(false);
 
   /** The local "YYYY-MM-DD" the snapshot was last loaded for, to detect a day rollover. */
   private snapshotDay = '';
@@ -212,9 +235,16 @@ export class FamilyBetaPage implements OnDestroy {
   }
 
   /** Pull-to-refresh: re-pull the shared sources. Self-loading cards re-fetch on their own retry. */
-  refreshAll(): void {
-    this.loadToday();
-    this.loadBriefing();
+  async refreshAll(): Promise<void> {
+    this.refreshing.set(true);
+    try {
+      this.loadToday();
+      this.loadBriefing();
+      // Give the in-flight loads a beat so the spinner reads as real work, then settle.
+      await new Promise(r => setTimeout(r, 450));
+    } finally {
+      this.refreshing.set(false);
+    }
   }
 
   // ── Ask sheet ──
@@ -255,12 +285,13 @@ export class FamilyBetaPage implements OnDestroy {
       const res = await firstValueFrom(this.api.quickAdd(text));
       this.addDraft = '';
       this.addOpen.set(false);
-      this.snack.open(res.summary || 'Added.', 'OK', { duration: 4000, politeness: 'polite' });
+      this.toasts.show(res.summary || 'Added.', { tone: 'success' });
       // A list quick-add changes today's counts — re-pull the snapshot so the Lists card reflects it.
       if (res.kind === 'list' || res.kind === 'reminder') this.loadToday();
     } catch {
-      this.snack.open('Couldn’t add that', 'Retry', { duration: 5000, politeness: 'polite' })
-        .onAction().subscribe(() => void this.quickAdd(ev));
+      this.toasts.show('Couldn’t add that', {
+        tone: 'warn', actionLabel: 'Retry', onAction: () => void this.quickAdd(ev),
+      });
     } finally {
       this.adding.set(false);
     }

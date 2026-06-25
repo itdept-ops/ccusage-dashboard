@@ -1,180 +1,227 @@
-// Family "Hearth" beta — its OWN warm "Hearth-ember" token set on :host. These are scoped to this
-// component (and inherited by its child cards + the reused BottomSheet, which reads --glass/--blur-glass/
-// --r-glass/--lift-3/--ink-faint/--r-pill/--ease-out). NEVER the global --tech-* tokens — full isolation.
+// ============================================================================
+// Family "Hearth" — rebuilt on the shared beta-ui "Strata" foundation.
+//
+// One line adopts the whole Strata token contract (layered bg, glass, ink scale, radii, the lift-1/2/3
+// depth system, spring/bounce easing, blur cap, env() safe-area, the a11y killswitches); then the FAMILY
+// page OVERRIDES the per-page accent contract with its OWN signature gradient — a warm AMBER → ROSE,
+// matching the Hearth-ember identity. Every kit component (pull-refresh ring, FAB, toaster, bottom sheet,
+// swipe rows, the progress ring) + every glance card reads --accent-a/--accent-b off this :host cascade,
+// so this single override re-skins the whole screen (the chrome, the focus ring all follow).
+//
+// ISOLATED + gated by beta.access (+ family.use): nothing here touches the global --tech-* tokens or the
+// flagship tracker-beta. The kit partial is the only import; we consume the kit, never modify it.
+// ============================================================================
+
+@use '../beta-ui/beta-kit' as kit;
+
 :host {
-  display: block;
-  position: relative;
-  height: 100%; // fill the immersive shell frame (.content--immersive); inner .scroll owns the scroll
-  min-height: 0;
+  @include kit.beta-host;          // the whole Strata token contract on :host
 
-  // ── surfaces ──
-  --bg-base: #181210;
-  --bg-rise: #241b16;
-  --glass: rgba(40, 28, 22, .62);
-  --glass-edge: rgba(255, 236, 210, .10);
+  // ---- FAMILY's SIGNATURE ACCENT: warm amber → rose (the per-page contract override) ----
+  --accent-a: #f59e0b;             // signature amber (start)
+  --accent-b: #fb7185;             // signature rose  (end)
 
-  // ── ink ──
-  --ink: #fdf6ee;
-  --ink-dim: #c9b8a8;
-  --ink-faint: #8a786a;
+  // Warm the layered base toward the Hearth-ember surface (still within the kit's dark contract).
+  --bg-base: #161015;
+  --bg-rise: #221a1d;
+  --bg-sink: #0f0a0e;
 
-  // ── accents ──
-  --hearth-a: #f59e0b; // hero + Ask gradient start
-  --hearth-b: #ef6f53; // hero + Ask gradient end
-  --event: #6ee7b7;
-  --reminder: #fcd34d;
-  --list: #7dd3fc;
-  --note: #fcd34d;
-  --chore: #fca5a5;
-  --online: #34d399;
+  // A warm radial wash behind the whole column.
+  background: radial-gradient(120% 80% at 50% -10%, #2a1d1c 0%, var(--bg-base) 60%);
 
-  // ── shape ──
-  --r-card: 24px;
-  --r-glass: 28px;
-  --r-pill: 999px;
-
-  // ── elevation ──
-  --lift-1: 0 4px 16px rgba(8, 4, 2, .35);
-  --lift-2: 0 10px 30px rgba(8, 4, 2, .45);
-  --lift-3: 0 16px 48px rgba(8, 4, 2, .55), inset 0 1px 0 var(--glass-edge);
-
-  // ── motion ──
-  --ease-out: cubic-bezier(.22, 1, .36, 1);
-
-  // ── effects + safe-area ──
-  --blur-glass: 18px;
-  --safe-top: env(safe-area-inset-top, 0px);
-  --safe-bottom: env(safe-area-inset-bottom, 0px);
-
-  --bar-h: 64px;
-  --action-bar-h: 64px;
-
-  background: radial-gradient(120% 80% at 50% -10%, #2a1d15 0%, var(--bg-base) 60%);
-  color: var(--ink);
-  font-family: var(--font-ui, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif);
-  -webkit-font-smoothing: antialiased;
+  --bar-bottom-h: 76px;
 }
 
-// Cap the blur + drop translucency for users who ask for less transparency / reduced motion.
-@media (prefers-reduced-transparency: reduce) {
-  :host { --blur-glass: 0px; --glass: var(--bg-rise); }
-}
-@media (prefers-reduced-motion: reduce) {
-  :host { --ease-out: ease; }
-}
+@include kit.beta-springs;          // @supports linear() spring upgrade (top-level, once)
+@include kit.beta-a11y;             // reduced-motion + reduced-transparency/contrast killswitches (once)
 
-// ── fixed glass greeting strip ───────────────────────────────────────────────
-.bar {
-  position: fixed;
-  top: var(--beta-bar-top, 0px); left: 0; right: 0;
-  z-index: 20;
-  display: flex; align-items: center; gap: 12px;
-  min-height: calc(var(--bar-h) + var(--safe-top));
-  padding: var(--safe-top) max(16px, env(safe-area-inset-left)) 0 max(16px, env(safe-area-inset-left));
-  background: var(--glass);
-  backdrop-filter: blur(var(--blur-glass)) saturate(1.4);
-  -webkit-backdrop-filter: blur(var(--blur-glass)) saturate(1.4);
-  border-bottom: 1px solid var(--glass-edge);
-}
-.bar__text { display: flex; flex-direction: column; min-width: 0; }
-.bar__greet {
-  font-family: var(--font-display, inherit);
-  font-size: 18px; font-weight: 800; color: var(--ink);
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-}
-.bar__date { font-size: 12px; color: var(--ink-dim); }
-.bar__finder {
-  margin-left: auto; flex: 0 0 auto;
-  display: grid; place-items: center; width: 44px; height: 44px;
-  border-radius: 999px; color: var(--ink-dim); text-decoration: none;
-}
-.bar__finder:hover { background: rgba(255, 255, 255, .06); color: var(--ink); }
-.bar__finder:focus-visible { outline: 2px solid var(--hearth-a); outline-offset: 2px; }
+// ============================================================================
+// SHELL — the kit pull-to-refresh wrapper IS the scroll container.
+// ============================================================================
 
-// ── thumb-scroll column ──────────────────────────────────────────────────────
+.fb-ptr { display: block; height: 100%; }
+
+// The single vertical scroll column inside the pull-refresh. height auto here (the wrapper owns scroll),
+// so this is just the flex stack of header + cards, gutter + safe-area padded; bottom reserves the bar.
 .scroll {
-  position: relative;
-  display: flex; flex-direction: column; gap: 14px;
-  height: 100%; // fill the immersive shell frame (.content--immersive); the ONLY scrollbar
-  padding:
-    calc(var(--bar-h) + var(--safe-top) + 14px)
-    max(16px, env(safe-area-inset-right))
-    calc(var(--action-bar-h) + var(--safe-bottom) + 16px)
-    max(16px, env(safe-area-inset-left));
-  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-height: 100%;
+  padding-top: calc(var(--safe-top) + 10px);
+  padding-bottom: calc(var(--bar-bottom-h) + var(--safe-bottom) + 16px);
+  padding-inline: var(--gutter) var(--gutter-r);
   scroll-snap-type: y proximity;
-  -webkit-overflow-scrolling: touch;
 }
 .scroll__foot { height: 4px; }
 
-// Below-the-fold cards skip layout/paint until near the viewport (cheaper first paint on mobile).
-.scroll > fb-household-card,
-.scroll > fb-notes-card,
-.scroll > fb-weather-card,
-.scroll > fb-rooms-drawer {
-  content-visibility: auto;
-  contain-intrinsic-size: auto 140px;
+// ============================================================================
+// IMMERSIVE PAGE HEADER — greeting + date + quick actions, with an accent bloom.
+// ============================================================================
+
+.hh {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 6px 2px 4px;
+  isolation: isolate;
+}
+.hh__bloom {
+  position: absolute;
+  top: -40px; left: -30px; right: 30%;
+  height: 160px; z-index: -1; pointer-events: none;
+  background: radial-gradient(120px 90px at 30% 30%,
+    color-mix(in srgb, var(--accent-a) 44%, transparent),
+    transparent 70%);
+  filter: blur(18px);
+  opacity: .9;
 }
 
-// ── fixed bottom action bar ──────────────────────────────────────────────────
+.hh__row { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.hh__text { min-width: 0; }
+.hh__date {
+  display: block; font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+  color: var(--ink-dim); margin-bottom: 4px;
+}
+.hh__greet {
+  margin: 0; font-family: var(--font-display); font-weight: 600; font-size: 30px; line-height: 1.05;
+  letter-spacing: -.02em; color: var(--ink);
+  overflow: hidden; text-overflow: ellipsis;
+}
+
+.hh__finder {
+  flex: 0 0 auto;
+  display: inline-grid; place-items: center; width: 44px; height: 44px;
+  border-radius: 14px; border: 1px solid var(--hairline);
+  background: var(--glass);
+  backdrop-filter: blur(var(--blur-glass)) saturate(1.3);
+  -webkit-backdrop-filter: blur(var(--blur-glass)) saturate(1.3);
+  color: var(--ink-dim); text-decoration: none;
+  transition: transform 120ms var(--ease-spring), color 120ms var(--ease-out);
+}
+.hh__finder:hover { color: var(--ink); }
+.hh__finder:active { transform: scale(.92); }
+.hh__finder:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.hh__finder mat-icon { font-size: 22px; width: 22px; height: 22px; }
+
+// Quick-action chip rail under the greeting — horizontal momentum scroll, hidden scrollbar.
+.hh__quick {
+  display: flex; gap: 8px; overflow-x: auto; overflow-y: hidden;
+  scroll-snap-type: x proximity; overscroll-behavior-x: contain; -webkit-overflow-scrolling: touch;
+  scrollbar-width: none; margin-inline: -2px; padding: 2px;
+}
+.hh__quick::-webkit-scrollbar { display: none; }
+.hh__chip {
+  flex: 0 0 auto; scroll-snap-align: start;
+  display: inline-flex; align-items: center; gap: 6px;
+  min-height: 38px; padding: 0 14px; border-radius: var(--r-pill);
+  border: 1px solid var(--hairline);
+  background: color-mix(in srgb, var(--accent-a) 8%, var(--bg-rise));
+  color: var(--ink); text-decoration: none; font-weight: 700; font-size: 13px;
+  transition: transform 120ms var(--ease-spring);
+}
+.hh__chip:active { transform: scale(.95); }
+.hh__chip:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.hh__chip mat-icon {
+  font-size: 18px; width: 18px; height: 18px;
+  color: color-mix(in srgb, var(--accent-a) 72%, var(--ink));
+}
+
+// ============================================================================
+// STAGGERED SPRING ENTRANCE — each block rises + fades on a per-index delay.
+// ============================================================================
+
+.rise {
+  animation: fb-rise 520ms var(--ease-spring-up) both;
+  animation-delay: calc(var(--i, 0) * 65ms);
+  will-change: transform, opacity;
+}
+@keyframes fb-rise {
+  from { opacity: 0; transform: translateY(16px) scale(.985); }
+  to   { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .rise { animation: none; }
+}
+
+// Below-fold blocks: skip render work until they scroll near.
+.rise--defer { content-visibility: auto; contain-intrinsic-size: auto 170px; }
+
+// ============================================================================
+// FIXED BOTTOM ACTION BAR — glass strip with the Ask pill + a quick-add.
+// ============================================================================
+
 .actions {
   position: fixed;
   left: 0; right: 0; bottom: 0;
-  z-index: 20;
+  z-index: 30;
   display: flex; align-items: center; gap: 12px;
-  min-height: calc(var(--action-bar-h) + var(--safe-bottom));
-  padding:
-    10px
-    max(16px, env(safe-area-inset-right))
-    max(10px, var(--safe-bottom))
-    max(16px, env(safe-area-inset-left));
+  min-height: calc(var(--bar-bottom-h) + var(--safe-bottom));
+  padding: 12px var(--gutter-r) max(12px, var(--safe-bottom)) var(--gutter);
   background: var(--glass);
   backdrop-filter: blur(var(--blur-glass)) saturate(1.4);
   -webkit-backdrop-filter: blur(var(--blur-glass)) saturate(1.4);
-  border-top: 1px solid var(--glass-edge);
+  border-top: 1px solid var(--hairline);
   box-shadow: var(--lift-3);
 }
-.actions__ask {
-  flex: 1 1 auto;
-  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
-  min-height: 52px; border-radius: var(--r-pill);
-  border: none; cursor: pointer;
-  background: linear-gradient(135deg, var(--hearth-a), var(--hearth-b));
-  color: #1a0f06; font: inherit; font-size: 16px; font-weight: 800;
-}
-.actions__ask:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
-.actions__ask mat-icon { font-size: 22px; width: 22px; height: 22px; }
+// The kit FAB is the dominant Ask pill — stretch it across the bar.
+.actions__ask { flex: 1 1 auto; }
+.actions__ask ::ng-deep .bs-fab { width: 100%; min-height: 54px; }
+
 .actions__add {
   flex: 0 0 auto;
-  display: grid; place-items: center; width: 52px; height: 52px;
+  display: grid; place-items: center; width: 54px; height: 54px;
   border-radius: var(--r-pill);
-  border: 1px solid var(--glass-edge); background: var(--bg-rise); color: var(--ink);
-  cursor: pointer;
+  border: 1px solid var(--hairline); background: var(--bg-rise); color: var(--ink);
+  cursor: pointer; box-shadow: var(--lift-1);
+  transition: transform 120ms var(--ease-spring);
 }
-.actions__add:focus-visible { outline: 2px solid var(--hearth-a); outline-offset: 2px; }
+.actions__add:active { transform: scale(.94); }
+.actions__add:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.actions__add mat-icon { font-size: 26px; width: 26px; height: 26px; }
 
-// ── bottom-sheet bodies (Ask + Quick-add) ────────────────────────────────────
+// ============================================================================
+// BOTTOM-SHEET BODIES (Ask + Quick-add) — rendered inside the kit BottomSheet.
+// ============================================================================
+
 .sheet { display: flex; flex-direction: column; gap: 12px; padding-top: 4px; }
-.sheet__title { margin: 0; font-size: 18px; font-weight: 800; color: var(--ink); }
+.sheet__title {
+  margin: 0; display: flex; align-items: center; gap: 8px;
+  font-size: 19px; font-weight: 800; color: var(--ink);
+}
+.sheet__title mat-icon {
+  font-size: 22px; width: 22px; height: 22px;
+  color: color-mix(in srgb, var(--accent-a) 80%, var(--ink));
+}
 .sheet__form { display: flex; gap: 8px; }
 .sheet__input {
   flex: 1 1 auto; min-width: 0; min-height: 48px; padding: 0 16px;
-  border-radius: var(--r-pill); border: 1px solid var(--glass-edge);
-  background: var(--bg-base); color: var(--ink); font: inherit; font-size: 15px;
+  border-radius: var(--r-pill); border: 1px solid var(--hairline);
+  background: var(--bg-sink); color: var(--ink); font: inherit; font-size: 15px;
 }
 .sheet__input::placeholder { color: var(--ink-faint); }
-.sheet__input:focus-visible { outline: 2px solid var(--hearth-a); outline-offset: 1px; }
+.sheet__input:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
 .sheet__send {
   flex: 0 0 auto; display: grid; place-items: center; width: 48px; height: 48px;
-  border-radius: 999px; border: none; cursor: pointer;
-  background: linear-gradient(135deg, var(--hearth-a), var(--hearth-b)); color: #1a0f06;
+  border-radius: var(--r-pill); border: none; cursor: pointer;
+  background: linear-gradient(135deg, var(--accent-a), var(--accent-b)); color: #1a0f06;
+  transition: transform 120ms var(--ease-spring);
 }
+.sheet__send:active { transform: scale(.92); }
 .sheet__send:disabled { opacity: .4; cursor: default; }
 .sheet__send:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
 .sheet__hint { margin: 0; font-size: 12px; color: var(--ink-dim); }
 .sheet__answer { margin: 4px 0 0; font-size: 15px; line-height: 1.5; color: var(--ink); }
 .sheet__answer--load { color: var(--ink-dim); }
-.sheet__answer--err { color: var(--hearth-b); }
+.sheet__answer--err { color: var(--accent-b); }
 
-// No 390px overflow: everything is fluid (max-width:100%, min-width:0 on flex children) by construction.
-:host, .scroll, .bar, .actions { max-width: 100vw; }
+// Own visible focus ring (tracks the page accent via --focus).
+:host ::ng-deep :focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+  border-radius: 8px;
+}
+
+// No 390px overflow: everything is fluid by construction.
+:host, .scroll, .actions { max-width: 100vw; }

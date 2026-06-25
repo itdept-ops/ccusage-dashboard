@@ -1,0 +1,241 @@
+// ============================================================================
+// Beta Hub — the index of experimental surfaces, rebuilt on the shared beta-ui
+// "Strata" foundation.
+//
+// One line adopts the whole Strata token contract (layered bg, glass, ink scale, radii, the lift-1/2/3
+// depth system, spring/bounce easing, blur cap, env() safe-area, the a11y killswitches). The HUB owns
+// its OWN signature accent — a vivid BLUE — overriding the kit default, while EACH launcher tile carries
+// the destination surface's OWN signature gradient (Strata violet, Bills cream, Home violet, Dashboard
+// pink, Family amber, Wrapped purple, Settings slate) via a per-tile --ta/--tb override.
+//
+// ISOLATED + gated by beta.access: nothing here touches the global --tech-* tokens or the flagship
+// tracker-beta. The kit partial is the only import.
+// ============================================================================
+
+@use '../beta-ui/beta-kit' as kit;
+
+:host {
+  @include kit.beta-host;          // the whole Strata token contract on :host
+
+  // ---- THE HUB's SIGNATURE ACCENT: blue (the per-page contract override) ----
+  --accent-a: #3b82f6;             // signature blue (start)
+  --accent-b: #38bdf8;             // signature sky  (end)
+}
+
+@include kit.beta-springs;          // @supports linear() spring upgrade (top-level, once)
+@include kit.beta-a11y;             // reduced-motion + reduced-transparency/contrast killswitches (once)
+
+// ============================================================================
+// SHELL — the kit pull-to-refresh wrapper IS the scroll container.
+// ============================================================================
+
+.bh-ptr { display: block; height: 100%; }
+
+// The single vertical scroll column inside the pull-refresh (the wrapper owns scroll), so this is just
+// the flex stack of the immersive header + the tile grid, gutter + safe-area padded.
+.bh-scroll {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-height: 100%;
+  padding-top: calc(var(--safe-top) + 12px);
+  padding-bottom: calc(var(--safe-bottom) + 28px);
+  padding-inline: var(--gutter) var(--gutter-r);
+}
+
+// ============================================================================
+// IMMERSIVE PAGE HEADER — "Beta" + tagline + count, with an accent bloom.
+// ============================================================================
+
+.bh-head {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 8px 2px 2px;
+  isolation: isolate;
+}
+
+// Soft accent bloom behind the title — the page's "wow" gradient, never flat.
+.bh-head__bloom {
+  position: absolute;
+  top: -52px; left: -34px; right: 24%;
+  height: 180px; z-index: -1; pointer-events: none;
+  background: radial-gradient(140px 100px at 28% 28%,
+    color-mix(in srgb, var(--accent-a) 46%, transparent),
+    transparent 70%);
+  filter: blur(20px);
+  opacity: .9;
+}
+
+.bh-head__top { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.bh-head__text { min-width: 0; }
+
+.bh-head__eyebrow {
+  display: inline-flex; align-items: center; gap: 7px;
+  font-size: 11px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase;
+  color: color-mix(in srgb, var(--accent-b) 76%, var(--ink));
+}
+.bh-head__eyebrow .bh-spark {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: linear-gradient(135deg, var(--accent-a), var(--accent-b));
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent-a) 20%, transparent);
+}
+
+.bh-head__title {
+  margin: 4px 0 0; font-family: var(--font-display); font-weight: 600; font-size: 38px; line-height: 1;
+  letter-spacing: -.03em; color: var(--ink);
+}
+.bh-head__tag {
+  margin: 6px 0 0; font-size: 14px; font-weight: 600; color: var(--ink-dim); max-width: 32ch;
+}
+
+// Count chip — a glanceable "N experiments" pill in the top-right of the header.
+.bh-count {
+  flex: 0 0 auto;
+  display: inline-flex; align-items: baseline; gap: 5px;
+  padding: 8px 13px; border-radius: var(--r-pill);
+  border: 1px solid color-mix(in srgb, var(--accent-a) 30%, var(--hairline));
+  background: color-mix(in srgb, var(--accent-a) 12%, var(--bg-rise));
+  box-shadow: var(--lift-1);
+}
+.bh-count__n {
+  font-family: var(--font-display); font-variant-numeric: tabular-nums;
+  font-size: 20px; font-weight: 600; line-height: 1; letter-spacing: -.02em; color: var(--ink);
+}
+.bh-count__lbl {
+  font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--ink-dim);
+}
+
+// ============================================================================
+// LAUNCHER GRID — rich entry tiles, each with its OWN signature accent.
+// ============================================================================
+
+.bh-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 168px), 1fr));
+  gap: 14px;
+}
+
+// Staggered spring entrance — each tile rises + fades on a per-index delay (--i).
+.bh-tile-in {
+  animation: bh-rise 540ms var(--ease-spring-up) both;
+  animation-delay: calc(var(--i, 0) * 62ms);
+  will-change: transform, opacity;
+}
+@keyframes bh-rise {
+  from { opacity: 0; transform: translateY(18px) scale(.97); }
+  to   { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .bh-tile-in { animation: none; }
+}
+
+// The tile itself — a DEPTH surface (sediment rise + lift + a per-tile accent edge + glow), not a flat
+// card. Each tile reads its OWN --ta/--tb (set inline per route) for the icon, glow, edge + arrow.
+.bh-tile {
+  position: relative; isolation: isolate;
+  display: flex; flex-direction: column; gap: 12px;
+  min-height: 152px; padding: 16px;
+  border-radius: var(--r-card);
+  background:
+    linear-gradient(150deg,
+      color-mix(in srgb, var(--ta, var(--accent-a)) 13%, var(--bg-rise)),
+      var(--bg-rise) 62%);
+  border: 1px solid color-mix(in srgb, var(--ta, var(--accent-a)) 22%, var(--hairline));
+  box-shadow: var(--lift-2);
+  text-decoration: none; color: var(--ink);
+  overflow: hidden;
+  transition:
+    transform 160ms var(--ease-spring),
+    box-shadow 160ms var(--ease-out),
+    border-color 160ms var(--ease-out);
+}
+
+// Accent glow bloom anchored top-right behind the content — the depth "halo".
+.bh-tile::before {
+  content: ''; position: absolute; z-index: -1; pointer-events: none;
+  top: -46px; right: -36px; width: 130px; height: 130px; border-radius: 50%;
+  background: radial-gradient(circle,
+    color-mix(in srgb, var(--tb, var(--accent-b)) 42%, transparent), transparent 68%);
+  filter: blur(10px); opacity: .8;
+  transition: opacity 200ms var(--ease-out), transform 220ms var(--ease-spring);
+}
+
+.bh-tile:hover {
+  transform: translateY(-3px);
+  border-color: color-mix(in srgb, var(--ta, var(--accent-a)) 42%, var(--hairline));
+  box-shadow: var(--lift-3);
+}
+.bh-tile:hover::before { opacity: 1; transform: scale(1.12); }
+.bh-tile:active { transform: scale(.975) translateY(0); box-shadow: var(--press); }
+.bh-tile:focus-visible { outline: 2px solid color-mix(in srgb, var(--ta, var(--accent-a)) 80%, var(--focus)); outline-offset: 3px; }
+
+// Top row — the accent-gradient icon chip + the "experimental" treatment, justified apart.
+.bh-tile__top { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
+
+.bh-tile__icon {
+  flex: 0 0 auto; display: grid; place-items: center;
+  width: 46px; height: 46px; border-radius: 14px;
+  background: linear-gradient(135deg, var(--ta, var(--accent-a)), var(--tb, var(--accent-b)));
+  box-shadow:
+    0 6px 18px color-mix(in srgb, var(--ta, var(--accent-a)) 40%, transparent),
+    inset 0 1px 0 rgba(255, 255, 255, .25);
+}
+.bh-tile__icon mat-icon {
+  font-size: 25px; width: 25px; height: 25px; color: #fff;
+}
+
+// Subtle "new / experimental" treatment — a tiny pulsing-dot pill in the corner.
+.bh-tag {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 3px 8px 3px 7px; border-radius: var(--r-pill);
+  background: color-mix(in srgb, var(--tb, var(--accent-b)) 16%, transparent);
+  border: 1px solid color-mix(in srgb, var(--tb, var(--accent-b)) 34%, var(--hairline));
+  font-size: 10px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase;
+  color: color-mix(in srgb, var(--tb, var(--accent-b)) 60%, var(--ink));
+}
+.bh-tag__dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: linear-gradient(135deg, var(--ta, var(--accent-a)), var(--tb, var(--accent-b)));
+  animation: bh-pulse 2.4s var(--ease-out) infinite;
+}
+@keyframes bh-pulse {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50%      { transform: scale(1.5); opacity: .55; }
+}
+@media (prefers-reduced-motion: reduce) { .bh-tag__dot { animation: none; } }
+
+// Body — title + one-line description, pushed to the bottom of the tile.
+.bh-tile__body { margin-top: auto; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.bh-tile__title {
+  display: flex; align-items: center; gap: 6px;
+  font-family: var(--font-ui); font-size: 17px; font-weight: 700; letter-spacing: -.01em; color: var(--ink);
+}
+.bh-tile__arrow {
+  font-size: 18px; line-height: 1; color: color-mix(in srgb, var(--ta, var(--accent-a)) 70%, var(--ink-dim));
+  transition: transform 180ms var(--ease-spring);
+}
+.bh-tile:hover .bh-tile__arrow { transform: translateX(3px); }
+.bh-tile__desc {
+  font-size: 12.5px; font-weight: 500; line-height: 1.35; color: var(--ink-dim);
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+
+// ============================================================================
+// EMPTY STATE — tasteful, on-brand.
+// ============================================================================
+
+.bh-empty {
+  display: flex; flex-direction: column; align-items: center; gap: 14px; text-align: center;
+  margin: 8px 0; padding: 36px 22px; border-radius: var(--r-card);
+  background: var(--bg-rise); border: 1px solid var(--hairline); box-shadow: var(--lift-1);
+}
+.bh-empty__ic {
+  display: grid; place-items: center; width: 58px; height: 58px; border-radius: 18px;
+  background: color-mix(in srgb, var(--accent-a) 14%, transparent);
+}
+.bh-empty__ic mat-icon {
+  font-size: 30px; width: 30px; height: 30px; color: color-mix(in srgb, var(--accent-a) 80%, var(--ink));
+}
+.bh-empty__msg { margin: 0; color: var(--ink-dim); font-size: 14px; max-width: 32ch; }
