@@ -140,7 +140,11 @@ public class AiIntegrationTests(WebAppFactory factory)
     public async Task Ai_route_returns_503_when_unconfigured(HttpMethod method, string url, object? body)
     {
         var (_, user) = await ProvisionUser("tracker.ai");
-        (await Send(user, method, url, body)).StatusCode.Should().Be(HttpStatusCode.ServiceUnavailable);
+        // /suggest-goal + /natural-goal are ALWAYS-ON: when Gemini is unconfigured they return 200 with the
+        // deterministic TrackerStats formula fallback (source="formula"), never 503. All others still 503.
+        var alwaysOn = url is "/api/ai/suggest-goal" or "/api/ai/natural-goal";
+        (await Send(user, method, url, body)).StatusCode
+            .Should().Be(alwaysOn ? HttpStatusCode.OK : HttpStatusCode.ServiceUnavailable);
     }
 
     [Theory]
