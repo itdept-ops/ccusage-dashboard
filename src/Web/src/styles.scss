@@ -53,6 +53,18 @@
   text-rendering: optimizeLegibility;
 }
 
+/* EVERY <mat-icon> in this app is a font/ligature icon (the app registers no SVG icons — verified), so force
+   the Material Icons font + ligatures on the element itself. This guarantees an icon renders as its glyph
+   even if Angular Material hasn't applied its `material-icons`/`mat-ligature-font` font-set class yet — a
+   not-yet-classed <mat-icon> otherwise inherits the body font and shows its raw ligature text (e.g.
+   "chevron_right"). The classed icons already resolve to the same font, so this only rescues the unclassed
+   ones. `mat-icon.mat-icon` (0,1,1) out-specifies Angular Material's own `.mat-icon` host rule. */
+mat-icon.mat-icon {
+  font-family: 'Material Icons';
+  font-feature-settings: 'liga';
+  -webkit-font-feature-settings: 'liga';
+}
+
 html {
   height: 100%;
   @include mat.theme(
