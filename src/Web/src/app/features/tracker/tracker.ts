@@ -80,6 +80,7 @@ import { MoveDayDialog, MoveDayData } from './move-day-dialog';
 import { AiDayBuilderDialog, AiDayBuilderData, AiDayBuilderResult } from './ai-day-builder-dialog';
 import { VoiceCaptureDialog, VoiceCaptureData, VoiceCaptureResult } from './voice-capture-dialog';
 import { WhatToEatDialog, WhatToEatData } from './what-to-eat-dialog';
+import { LeftoversDialog, LeftoversData, LeftoversResult } from './leftovers-dialog';
 import { WeightTrend } from './weight-trend';
 import { WeightStats } from './weight-stats';
 import { UnitService } from '../../core/unit.service';
@@ -273,6 +274,15 @@ export class Tracker {
    */
   readonly aiEnabled = computed(
     () => this.auth.hasPermission(PERM.trackerAi) && !this.store.readOnly(),
+  );
+
+  /**
+   * Whether the "Leftovers" action may render: the caller holds meals.use (it reads the meal planner) AND
+   * we're on the OWN, writable tracker (the from-meal log is tracker.self, already implied by this page).
+   * Hidden in read-only views of someone else.
+   */
+  readonly canLeftovers = computed(
+    () => this.auth.hasPermission(PERM.mealsUse) && !this.store.readOnly(),
   );
 
   /** True once the OWN day has something logged — we only spend the rate-limited key when there's data. */
@@ -1440,6 +1450,58 @@ export class Tracker {
         }
         void this.store.load();
       });
+  }
+
+  /**
+   * Open the "Leftovers" dialog: pull a PLANNED meal off the household meal planner and log it as leftovers
+   * onto the tracker over one or more upcoming days. The dialog loads the current + previous planner weeks,
+   * lets the user pick a meal + servings + days, and performs the per-day `addMealToTracker` writes itself
+   * (reusing /tracker/food/from-meal — no new backend). On close we snackbar the result and reload the day if
+   * the currently-viewed date was one of the logged days. Gated on meals.use + the own/writable tracker.
+   */
+  openLeftovers(): void {
+    if (!this.canLeftovers() || this.store.readOnly()) return;
+    const data: LeftoversData = { date: this.store.date() };
+    this.dialog
+      .open(LeftoversDialog, {
+        data,
+        width: '520px',
+        maxWidth: '95vw',
+        maxHeight: '92dvh',
+        panelClass: 'tracker-dialog',
+        autoFocus: false,
+      })
+      .afterClosed()
+      .subscribe((res: LeftoversResult | undefined) => {
+        if (!res) return;
+        this.announceLeftovers(res);
+        // Reload only if the day on screen was one of the days we just logged to (so the rings/lists refresh).
+        if (res.loggedDates.includes(this.store.date())) void this.store.load();
+      });
+  }
+
+  /** Build + show the Leftovers result snackbar (full success, partial, or total failure). */
+  private announceLeftovers(res: LeftoversResult): void {
+    const n = res.loggedDates.length;
+    const dayWord = (k: number) => `${k} day${k === 1 ? '' : 's'}`;
+    const portion = res.servings === 1 ? '1 serving' : `${res.servings} servings`;
+    if (n === 0) {
+      this.snack.open(`Could not log ${res.title} as leftovers`, 'Dismiss', { duration: 4000 });
+      return;
+    }
+    if (res.failed === 0) {
+      const msg = `Logged ${res.title} (${portion}) to ${dayWord(n)}`;
+      this.statusMsg.set(msg);
+      this.snack.open(msg, 'OK', { duration: 3000 });
+      return;
+    }
+    // Partial: be honest about how many days landed.
+    const total = n + res.failed;
+    this.snack.open(
+      `Logged ${res.title} to ${n} of ${dayWord(total)} — ${res.failed} failed`,
+      'Dismiss',
+      { duration: 5000 },
+    );
   }
 
   // ---- AI Day Builder (describe the whole day → reviewable draft → atomic commit) ----

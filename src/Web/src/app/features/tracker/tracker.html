@@ -55,6 +55,19 @@
         </button>
       }
 
+      @if (canLeftovers()) {
+        <button
+          mat-stroked-button
+          type="button"
+          class="tracker__leftoversbtn"
+          (click)="openLeftovers()"
+          aria-label="Log leftovers — pull a planned meal and eat it over the next day or days"
+          matTooltip="Log leftovers — pull a planned meal and eat it over the next day or days"
+        >
+          <mat-icon>takeout_dining</mat-icon> Leftovers…
+        </button>
+      }
+
       @if (!store.readOnly()) {
         <button
           mat-stroked-button

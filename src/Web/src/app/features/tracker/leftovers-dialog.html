@@ -1,0 +1,159 @@
+<!-- Header: title + close. -->
+<div class="lo-head">
+  <div class="lo-head-id">
+    <mat-icon class="lo-spark" aria-hidden="true">takeout_dining</mat-icon>
+    <div>
+      <h2 mat-dialog-title class="lo-title">Log leftovers</h2>
+      <p class="lo-sub">Pull a planned meal and eat it over the next day or days</p>
+    </div>
+  </div>
+  <button mat-icon-button type="button" class="lo-close" (click)="cancel()" aria-label="Close">
+    <mat-icon>close</mat-icon>
+  </button>
+</div>
+
+<mat-dialog-content class="lo-body">
+  @if (loading()) {
+    <!-- Loading the planner weeks. -->
+    <div class="lo-loading" role="status">
+      <mat-progress-spinner mode="indeterminate" diameter="28" aria-hidden="true" />
+      <span>Loading your planned meals…</span>
+    </div>
+  } @else if (!hasLoggable()) {
+    <!-- No meals with macros to log as leftovers. -->
+    <div class="lo-empty" role="status">
+      <mat-icon aria-hidden="true">no_meals</mat-icon>
+      <p>No planned meals with macros yet.</p>
+      <p class="lo-empty__hint">
+        Add macros to a meal on the meal planner (✨ Estimate with AI or the food database), then it can be
+        logged here as leftovers.
+      </p>
+    </div>
+  } @else {
+    <!-- 1) Pick a meal. -->
+    <section class="lo-section" aria-label="Pick a meal">
+      <span class="lo-label">Which meal?</span>
+
+      <mat-form-field appearance="outline" class="lo-search" subscriptSizing="dynamic">
+        <mat-icon matPrefix aria-hidden="true">search</mat-icon>
+        <mat-label>Search meals</mat-label>
+        <input
+          matInput
+          type="text"
+          autocomplete="off"
+          maxlength="80"
+          [ngModel]="query()"
+          (ngModelChange)="query.set($event)"
+          placeholder="e.g. chili, lasagna"
+        />
+      </mat-form-field>
+
+      <div class="lo-list" role="listbox" aria-label="Planned meals">
+        @for (c of filteredChoices(); track c.meal.id) {
+          <button
+            type="button"
+            role="option"
+            class="lo-meal"
+            [class.lo-meal--picked]="isPicked(c)"
+            [class.lo-meal--disabled]="!c.hasMacros"
+            [attr.aria-selected]="isPicked(c)"
+            [disabled]="!c.hasMacros"
+            (click)="pick(c)"
+          >
+            <span class="lo-meal__main">
+              <span class="lo-meal__title">{{ c.meal.title }}</span>
+              <span class="lo-meal__meta">
+                <span class="lo-meal__day">{{ c.plannedLabel }}</span>
+                @if (c.hasMacros) {
+                  <span class="lo-meal__macros mono-num">
+                    {{ c.meal.perServing.calories | number }} kcal ·
+                    {{ c.meal.perServing.proteinG | number: '1.0-1' }}g protein / serving
+                  </span>
+                } @else {
+                  <span class="lo-meal__nomacros">No macros yet — add them on the planner</span>
+                }
+              </span>
+            </span>
+            @if (isPicked(c)) {
+              <mat-icon class="lo-meal__check" aria-hidden="true">check_circle</mat-icon>
+            }
+          </button>
+        } @empty {
+          <p class="lo-list__none">No meals match “{{ query() }}”.</p>
+        }
+      </div>
+    </section>
+
+    <!-- 2) Servings per day. -->
+    <section class="lo-section" aria-label="Servings">
+      <span class="lo-label">How much per day?</span>
+      <mat-form-field appearance="outline" class="lo-servings" subscriptSizing="dynamic">
+        <mat-label>Servings</mat-label>
+        <input
+          matInput
+          type="number"
+          [min]="minServings"
+          [max]="maxServings"
+          step="0.5"
+          [ngModel]="servings()"
+          (ngModelChange)="servings.set($event)"
+        />
+      </mat-form-field>
+
+      <!-- Live per-day macro preview, rounded exactly as the server logs it. -->
+      @if (preview(); as pv) {
+        <div class="lo-preview" aria-label="What will be logged each day">
+          <span class="lo-preview__label"
+            ><mat-icon aria-hidden="true">analytics</mat-icon> Each day</span
+          >
+          <div class="lo-macros">
+            <span class="lo-macro lo-macro--cal mono-num">{{ pv.calories | number }} <small>kcal</small></span>
+            <span class="lo-macro mono-num">{{ pv.proteinG | number: '1.0-1' }}<small>P</small></span>
+            <span class="lo-macro mono-num">{{ pv.carbG | number: '1.0-1' }}<small>C</small></span>
+            <span class="lo-macro mono-num">{{ pv.fatG | number: '1.0-1' }}<small>F</small></span>
+          </div>
+        </div>
+      }
+    </section>
+
+    <!-- 3) Which days to eat it. -->
+    <section class="lo-section" aria-label="Which days">
+      <span class="lo-label">Eat it on…</span>
+      <div class="lo-days" role="group" aria-label="Days to log the leftover">
+        @for (chip of dayChips; track chip.iso) {
+          <button
+            type="button"
+            class="lo-day"
+            [class.lo-day--on]="isDaySelected(chip.iso)"
+            [attr.aria-pressed]="isDaySelected(chip.iso)"
+            (click)="toggleDay(chip.iso)"
+          >
+            @if (isDaySelected(chip.iso)) {
+              <mat-icon aria-hidden="true">check</mat-icon>
+            }
+            {{ chip.label }}
+          </button>
+        }
+      </div>
+      <p class="lo-daycount" aria-live="polite">
+        @if (selectedCount() > 0) {
+          Logging to {{ selectedCount() }} day{{ selectedCount() === 1 ? '' : 's' }}
+        } @else {
+          Pick at least one day
+        }
+      </p>
+    </section>
+  }
+</mat-dialog-content>
+
+<mat-dialog-actions align="end" class="lo-actions">
+  <button mat-stroked-button type="button" (click)="cancel()">Cancel</button>
+  <button mat-flat-button color="primary" type="button" [disabled]="!canAdd()" (click)="add()">
+    @if (saving()) {
+      <mat-progress-spinner mode="indeterminate" diameter="18" aria-hidden="true" />
+    } @else {
+      <mat-icon aria-hidden="true">add</mat-icon>
+    }
+    Log leftovers
+  </button>
+</mat-dialog-actions>
