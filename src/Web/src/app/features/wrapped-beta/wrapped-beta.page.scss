@@ -1,36 +1,36 @@
 // ============================================================================
-// Hub Wrapped — "Highlight Reel" design system + shell layout.
+// Hub Wrapped — the SHOWPIECE "Wrapped" highlight reel, rebuilt on the shared
+// beta-ui "Strata" kit. A full-bleed, immersive, swipeable STORY EXPERIENCE.
 //
-// ISOLATED design system: every token here is defined on :host of app-wrapped-beta
-// so the whole story inherits them via the cascade. NONE of the global Usage IQ
-// --tech-* tokens are used (mirrors how the other beta pages own their :host palette).
+// ONE LINE adopts the whole Strata token contract (layered bg, glass, ink scale,
+// radii, the lift-1/2/3 depth system, spring/bounce easing, blur cap, env()
+// safe-area, the a11y killswitches). Then Wrapped OVERRIDES the per-page accent
+// with its OWN signature — a PURPLE → MAGENTA — which re-skins the whole screen
+// (every kit primitive reads --accent-a/--accent-b off this :host cascade).
 //
-// Palette: a deep midnight stage with a per-accent gradient set — each story card
-// claims one accent so the reel feels like a celebration without a rainbow mess.
-// Dark only. A prefers-reduced-motion killswitch collapses the staggered reveal,
-// a reduced-transparency / forced-contrast drop solidifies the glass, and env()
-// safe-area insets are honored.
+// Each STORY SLIDE additionally claims its own per-card accent (set inline via
+// --sa / --grad on the slide element) so the reel feels like a celebration: a
+// big gradient hero with HUGE Clash Display numerals, a per-slide bloom + spark
+// confetti, animated count-ups + spring reveals. The horizontal snap-scroll reel
+// (with progress dots) is the spine; a vertical fallback scroll holds the full
+// summary card. Reduced-motion collapses every reveal via the kit a11y killswitch.
+//
+// ISOLATED + gated by beta.access: nothing here touches the global --tech-* tokens
+// or the flagship tracker-beta. The kit partial is the only style import; we
+// consume the kit, never modify it.
 // ============================================================================
 
+@use '../beta-ui/beta-kit' as kit;
+
 :host {
-  color-scheme: dark;
+  @include kit.beta-host;          // the whole Strata token contract on :host
 
-  // ---- STAGE ----
-  --stage: #0b0a1a;
-  --stage-rise: #16142e;
-  --stage-sink: #080713;
-  --ink: #f5f2ff;
-  --ink-dim: #b6b0d8;
-  --ink-faint: #807aa3;
-  --rule: rgba(245, 242, 255, .09);
-  --rule-strong: rgba(245, 242, 255, .18);
+  // ---- WRAPPED's SIGNATURE ACCENT: purple → magenta (the per-page contract override) ----
+  --accent-a: #a855f7;             // signature purple  (start)
+  --accent-b: #ec4899;             // signature magenta (end)
+  --spark-c:  #f59e0b;             // a warm third spark for the tri-tone cover wordmark
 
-  // ---- HEADLINE ACCENT (the master "primary" celebratory gradient) ----
-  --spark-a: #a855f7;
-  --spark-b: #ec4899;
-  --spark-c: #f59e0b;
-
-  // ---- PER-ACCENT GRADIENTS (one per card accent key) ----
+  // ---- PER-ACCENT GRADIENTS (one per card accent key) — the celebration palette ----
   --grad-primary:   linear-gradient(135deg, #a855f7, #ec4899);
   --grad-exercise:  linear-gradient(135deg, #f43f5e, #fb7185);
   --grad-food:      linear-gradient(135deg, #22c55e, #84cc16);
@@ -44,336 +44,450 @@
   --grad-bills:     linear-gradient(135deg, #34d399, #10b981);
   --grad-usage:     linear-gradient(135deg, #c084fc, #7c3aed);
 
-  // ---- PER-ACCENT SOLID (vivid, high-contrast on the dark stage) — the headline number colour ----
-  --sa-primary:   #c084fc;
-  --sa-exercise:  #fb7185;
-  --sa-food:      #4ade80;
-  --sa-activity:  #38bdf8;
-  --sa-hydration: #7dd3fc;
-  --sa-coffee:    #e6b980;
-  --sa-weight:    #5eead4;
-  --sa-sleep:     #a5b4fc;
-  --sa-hard:      #fbbf24;
-  --sa-trophy:    #fcd34d;
-  --sa-bills:     #6ee7b7;
-  --sa-usage:     #c4b5fd;
+  // ---- PER-ACCENT SOLID start/end (vivid, high-contrast on the deep stage) ----
+  --pa-primary:   #c084fc; --pb-primary:   #f472b6;
+  --pa-exercise:  #fb7185; --pb-exercise:  #fda4af;
+  --pa-food:      #4ade80; --pb-food:      #a3e635;
+  --pa-activity:  #38bdf8; --pb-activity:  #60a5fa;
+  --pa-hydration: #7dd3fc; --pb-hydration: #38bdf8;
+  --pa-coffee:    #e6b980; --pb-coffee:    #c0853f;
+  --pa-weight:    #5eead4; --pb-weight:    #2dd4bf;
+  --pa-sleep:     #a5b4fc; --pb-sleep:     #818cf8;
+  --pa-hard:      #fbbf24; --pb-hard:      #fb7185;
+  --pa-trophy:    #fcd34d; --pb-trophy:    #fbbf24;
+  --pa-bills:     #6ee7b7; --pb-bills:     #34d399;
+  --pa-usage:     #c4b5fd; --pb-usage:     #a78bfa;
 
-  // ---- RADII ----
-  --r-card: 24px;
-  --r-pill: 999px;
-
-  // ---- TAP TARGET ----
-  --tap: 44px;
-
-  // ---- TYPE ----
-  --font-num: "Clash Display", system-ui, sans-serif;
-  --font-ui: "Plus Jakarta Sans", system-ui, sans-serif;
-
-  // ---- MOTION ----
-  --ease-spring: cubic-bezier(.34, 1.56, .64, 1);
-  --ease-out: cubic-bezier(.22, 1, .36, 1);
-
-  // ---- GLASS (sticky period switcher) ----
-  --glass: rgba(22, 20, 46, .82);
-  --blur-glass: 18px;
-
-  // ---- Safe-area gutters ----
-  --safe-b: env(safe-area-inset-bottom, 0px);
-  --safe-top: env(safe-area-inset-top, 0px);
-  --gutter: max(18px, env(safe-area-inset-left, 0px));
-  --gutter-r: max(18px, env(safe-area-inset-right, 0px));
-
-  --switcher-h: 60px;
-
-  display: block;
-  position: relative;
-  width: 100%;
-  height: 100%; // fill the immersive shell frame (.content--immersive); inner .wb-scroll owns the scroll
-  min-height: 0;
+  // A deeper, richer stage than the kit default — a midnight purple bloom.
   background:
-    radial-gradient(1200px 600px at 50% -10%, color-mix(in srgb, var(--spark-a) 16%, transparent), transparent 70%),
-    radial-gradient(900px 500px at 90% 10%, color-mix(in srgb, var(--spark-b) 10%, transparent), transparent 70%),
-    var(--stage);
-  color: var(--ink);
-  font-family: var(--font-ui);
-  font-size: 15px;
-  line-height: 1.4;
-  -webkit-font-smoothing: antialiased;
-  -webkit-tap-highlight-color: transparent;
-  touch-action: manipulation;
-  overscroll-behavior: none;
+    radial-gradient(1200px 700px at 50% -12%, color-mix(in srgb, var(--accent-a) 22%, transparent), transparent 68%),
+    radial-gradient(900px 600px at 92% 8%, color-mix(in srgb, var(--accent-b) 14%, transparent), transparent 70%),
+    radial-gradient(120% 90% at 50% 110%, #190f2e 0%, transparent 60%),
+    var(--bg-base);
+
+  --reel-pad: max(18px, env(safe-area-inset-left, 0px));
+  --reel-pad-r: max(18px, env(safe-area-inset-right, 0px));
+
+  height: 100%;   // fill the immersive shell frame (.content--immersive); inner regions own the scroll
 }
 
-// ---- a11y: reduced transparency / forced contrast => drop blur, solidify glass ----
-@media (prefers-reduced-transparency: reduce), (prefers-contrast: more) {
-  :host {
-    --blur-glass: 0px;
-    --glass: var(--stage-rise);
-  }
-}
-
-// ---- MOTION KILLSWITCH: collapse the staggered reveal + any drift ----
-@media (prefers-reduced-motion: reduce) {
-  :host,
-  :host *,
-  :host *::before,
-  :host *::after {
-    animation-duration: .001ms !important;
-    animation-delay: 0ms !important;
-    transition-duration: .001ms !important;
-    transition-delay: 0ms !important;
-    scroll-behavior: auto !important;
-  }
-  // ensure revealed cards land in their final visible state (no stuck pre-reveal opacity)
-  .wb-card { opacity: 1 !important; transform: none !important; }
-}
+@include kit.beta-springs;          // @supports linear() spring upgrade (top-level, once)
+@include kit.beta-a11y;             // reduced-motion + reduced-transparency/contrast killswitches (once)
 
 // ============================================================================
-// SHELL LAYOUT
+// SHELL — a sticky glass period switcher + a single inner scroll region.
 // ============================================================================
 
-// ---- Sticky period switcher (fixed top) ----
-.wb-switcher {
+// ---- Sticky glass top strip: the period segmented control, safe-area aware ----
+.wb-top {
   position: fixed;
   top: var(--beta-bar-top, 0px); left: 0; right: 0;
   z-index: 30;
-  min-height: calc(var(--switcher-h) + var(--safe-top));
-  padding-top: var(--safe-top);
-  padding-inline: var(--gutter) var(--gutter-r);
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
+  gap: 10px;
+  min-height: calc(56px + var(--safe-top));
+  padding-top: var(--safe-top);
+  padding-inline: var(--reel-pad) var(--reel-pad-r);
   background: var(--glass);
   backdrop-filter: blur(var(--blur-glass)) saturate(1.4);
   -webkit-backdrop-filter: blur(var(--blur-glass)) saturate(1.4);
-  border-bottom: 1px solid var(--rule);
+  border-bottom: 1px solid var(--hairline);
+}
+.wb-top__seg { flex: 1 1 auto; max-width: 320px; }
+.wb-top__share {
+  flex: 0 0 auto;
+  display: inline-grid; place-items: center;
+  width: 44px; height: 44px; border-radius: 14px;
+  border: 1px solid var(--glass-edge);
+  background: color-mix(in srgb, var(--accent-a) 14%, var(--bg-rise));
+  color: var(--ink); cursor: pointer;
+  transition: transform 120ms var(--ease-spring), background 160ms var(--ease-out);
+  mat-icon { font-size: 22px; width: 22px; height: 22px; }
+  &:active { transform: scale(.92); }
+  &:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+  &:disabled { opacity: .4; cursor: default; }
 }
 
-.wb-seg {
-  display: inline-flex;
-  gap: 4px;
-  padding: 4px;
-  border-radius: var(--r-pill);
-  background: var(--stage-sink);
-  border: 1px solid var(--rule);
-}
-.wb-seg__btn {
-  min-height: 36px;
-  padding: 0 18px;
-  display: inline-flex;
-  align-items: center;
-  border: none;
-  border-radius: var(--r-pill);
-  background: transparent;
-  color: var(--ink-dim);
-  font: 600 14px/1 var(--font-ui);
-  white-space: nowrap;
-  cursor: pointer;
-  transition: color 160ms var(--ease-out), background 160ms var(--ease-out);
+// ---- The pull-refresh wrapper IS the scroll container ----
+.wb-ptr { display: block; height: 100%; }
 
-  &.is-active {
-    color: #fff;
-    background: var(--grad-primary);
-  }
-  &:disabled { opacity: .5; cursor: default; }
-}
-
-// ---- The vertical scroll region (height:100% fills the immersive shell frame; the ONLY scrollbar) ----
+// ---- The single vertical scroll region under the sticky strip ----
 .wb-scroll {
   height: 100%;
-  overflow-y: auto;
-  overflow-x: hidden;
-  overscroll-behavior-y: contain;
-  -webkit-overflow-scrolling: touch;
-  padding-top: calc(var(--switcher-h) + var(--safe-top) + 12px);
-  padding-bottom: calc(var(--safe-b) + 48px);
-  padding-inline: var(--gutter) var(--gutter-r);
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  max-width: 720px;
-  margin-inline: auto;
+  padding-top: calc(56px + var(--safe-top));
+  padding-bottom: calc(var(--safe-bottom) + 28px);
 }
 
-// ---- Intro / cover ----
-.wb-cover {
-  text-align: center;
-  padding: 24px 8px 8px;
+// ============================================================================
+// THE REEL — a horizontal scroll-snap track of full-bleed story slides.
+// One slide per viewport; mandatory x-snap; momentum; hidden scrollbar.
+// ============================================================================
+
+.wb-reel {
+  flex: 0 0 auto;
+  display: flex;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scroll-snap-type: x mandatory;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  // The reel is tall — a full immersive story panel. Capped so desktop centers nicely.
+  height: clamp(440px, 72vh, 660px);
+  &::-webkit-scrollbar { display: none; }
 }
-.wb-cover__kicker {
+
+// ---- One story slide: full-bleed, gradient hero, its own accent ----
+.wb-slide {
+  flex: 0 0 100%;
+  width: 100%;
+  scroll-snap-align: center;
+  scroll-snap-stop: always;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 32px var(--reel-pad) 40px;
+  overflow: hidden;
+  isolation: isolate;
+
+  // each slide carries an accent pair inline via --sa / --sb; default to the page accent.
+  --sa: var(--accent-a);
+  --sb: var(--accent-b);
+}
+
+// Per-slide gradient bloom — the immersive "wow" wash behind the numeral. Never flat.
+.wb-slide__bloom {
+  position: absolute; inset: 0; z-index: -2; pointer-events: none;
+  background:
+    radial-gradient(90% 60% at 18% 22%, color-mix(in srgb, var(--sa) 38%, transparent), transparent 60%),
+    radial-gradient(80% 70% at 88% 88%, color-mix(in srgb, var(--sb) 26%, transparent), transparent 62%);
+}
+// A subtle vignette so the numeral always pops off the stage.
+.wb-slide__vignette {
+  position: absolute; inset: 0; z-index: -1; pointer-events: none;
+  background: radial-gradient(120% 120% at 50% 40%, transparent 40%, color-mix(in srgb, var(--bg-sink) 70%, transparent) 100%);
+}
+
+// Floating spark confetti — small accent dots that drift; killed by reduced-motion.
+.wb-slide__sparks { position: absolute; inset: 0; z-index: -1; pointer-events: none; overflow: hidden; }
+.wb-spark {
+  position: absolute;
+  width: var(--s, 8px); height: var(--s, 8px);
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--sa), var(--sb));
+  opacity: .5;
+  top: var(--y, 20%); left: var(--x, 50%);
+  animation: wb-float var(--dur, 6s) var(--ease-out) infinite alternate;
+  animation-delay: var(--d, 0s);
+  will-change: transform, opacity;
+}
+@keyframes wb-float {
+  from { transform: translateY(0) scale(.9); opacity: .25; }
+  to   { transform: translateY(-22px) scale(1.1); opacity: .6; }
+}
+
+// ---- Slide content (staggered spring reveal; the active slide animates in) ----
+.wb-slide__chip {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 7px 14px 7px 10px; border-radius: var(--r-pill);
+  background: color-mix(in srgb, var(--sa) 16%, var(--glass));
+  border: 1px solid color-mix(in srgb, var(--sa) 36%, transparent);
+  color: var(--ink);
+  font: 700 12.5px/1 var(--font-ui); letter-spacing: .04em; text-transform: uppercase;
+  mat-icon { font-size: 18px; width: 18px; height: 18px; color: #fff; }
+}
+.wb-slide__chip-ico {
+  display: grid; place-items: center; width: 24px; height: 24px; border-radius: 8px;
+  background: linear-gradient(135deg, var(--sa), var(--sb));
+}
+
+// The HUGE Clash Display numeral — the whole point of the slide.
+.wb-slide__num {
   margin: 0;
-  font: 700 12px/1 var(--font-ui);
-  letter-spacing: .22em;
-  text-transform: uppercase;
-  color: var(--ink-faint);
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  font-size: clamp(64px, 24vw, 132px);
+  line-height: .9;
+  letter-spacing: -.04em;
+  // Gradient-fill where supported; solid vivid fallback otherwise (never invisible).
+  color: var(--pa, var(--ink));
 }
-.wb-cover__title {
-  margin: 10px 0 0;
-  font: 800 clamp(40px, 13vw, 72px)/.95 var(--font-num);
-  letter-spacing: -.02em;
-  color: var(--ink); // readable fallback when gradient-text clipping isn't applied
-}
-// Gradient-fill the title ONLY where background-clip:text is supported; else the solid --ink shows.
 @supports ((-webkit-background-clip: text) or (background-clip: text)) {
-  .wb-cover__title {
-    background: linear-gradient(110deg, var(--spark-a), var(--spark-b) 45%, var(--spark-c));
+  .wb-slide__num {
+    background: linear-gradient(120deg, var(--pa, var(--sa)), var(--pb, var(--sb)) 90%);
     -webkit-background-clip: text;
     background-clip: text;
     -webkit-text-fill-color: transparent;
   }
 }
-.wb-cover__sub {
-  margin: 12px 0 0;
-  font: 500 15px/1.4 var(--font-ui);
+// A trailing unit chip beside the numeral (smaller, ink-dim).
+.wb-slide__unit {
+  font-family: var(--font-ui); font-weight: 700; font-size: clamp(18px, 5vw, 26px);
+  color: var(--ink-dim); letter-spacing: -.01em; margin-left: 6px;
+  -webkit-text-fill-color: var(--ink-dim); // override the clip on the numeral wrapper
+}
+
+.wb-slide__label {
+  margin: 0;
+  font: 800 clamp(20px, 6vw, 28px)/1.1 var(--font-display);
+  letter-spacing: -.01em;
+  color: var(--ink);
+  max-width: 18ch;
+}
+.wb-slide__sub {
+  margin: 0;
+  font: 500 15px/1.5 var(--font-ui);
+  color: var(--ink-dim);
+  max-width: 30ch;
+}
+
+// ---- COVER slide (the first one): tri-tone wordmark + name ----
+.wb-cover {
+  align-items: center;
+  text-align: center;
+  justify-content: center;
+}
+.wb-cover__kicker {
+  margin: 0; font: 700 13px/1 var(--font-ui); letter-spacing: .26em; text-transform: uppercase;
   color: var(--ink-dim);
 }
-.wb-cover__range {
-  margin: 6px 0 0;
-  font: 600 13px/1 var(--font-ui);
-  color: var(--ink-faint);
-}
-
-// ============================================================================
-// STORY CARDS — one big headline stat each, gradient-accented, staggered reveal.
-// ============================================================================
-
-.wb-card {
-  position: relative;
-  flex: 0 0 auto;
-  border-radius: var(--r-card);
-  background:
-    linear-gradient(180deg, color-mix(in srgb, var(--stage-rise) 92%, transparent), var(--stage-sink));
-  border: 1px solid var(--rule);
-  box-shadow: 0 18px 48px rgba(0, 0, 0, .45), inset 0 1px 0 var(--rule);
-  padding: 28px 24px;
-  overflow: hidden;
-
-  // each card claims one accent (set inline via --accent on the element)
-  &::before {
-    content: "";
-    position: absolute;
-    inset: 0;
-    background: var(--accent, var(--grad-primary));
-    opacity: .14;
-    pointer-events: none;
-  }
-  // a brighter bar down the leading edge so the accent reads even when tinted low
-  &::after {
-    content: "";
-    position: absolute;
-    top: 0; bottom: 0; left: 0;
-    width: 5px;
-    background: var(--accent, var(--grad-primary));
-  }
-
-  // staggered reveal (collapsed by the reduced-motion killswitch above)
-  opacity: 0;
-  transform: translateY(18px) scale(.985);
-  animation: wb-reveal 620ms var(--ease-spring) forwards;
-  animation-delay: var(--delay, 0ms);
-}
-
-.wb-card__icon {
-  position: relative;
-  display: grid;
-  place-items: center;
-  width: 52px; height: 52px;
-  border-radius: 16px;
-  margin-bottom: 16px;
-  background: var(--accent, var(--grad-primary));
-  color: #fff;
-  box-shadow: 0 8px 22px rgba(0, 0, 0, .35);
-  mat-icon { font-size: 28px; width: 28px; height: 28px; }
-}
-.wb-card__headline {
-  position: relative;
-  margin: 0;
-  font: 800 clamp(46px, 15vw, 88px)/.92 var(--font-num);
+.wb-cover__word {
+  margin: 12px 0 0;
+  font: 600 clamp(52px, 17vw, 104px)/.92 var(--font-display);
   letter-spacing: -.03em;
-  // Solid vivid per-accent colour (treatment B): high-contrast on the dark card and can never
-  // go invisible (no gradient-clip / transparent fill). --accent-solid is set inline per card;
-  // --ink is the safety fallback if it's somehow unset.
-  color: var(--accent-solid, var(--ink));
-}
-.wb-card__label {
-  position: relative;
-  margin: 8px 0 0;
-  font: 700 18px/1.2 var(--font-ui);
   color: var(--ink);
 }
-.wb-card__sub {
-  position: relative;
-  margin: 6px 0 0;
-  font: 500 14px/1.4 var(--font-ui);
-  color: var(--ink-dim);
-  max-width: 42ch;
-}
-
-// ---- Outro footer ----
-.wb-outro {
-  text-align: center;
-  padding: 18px 8px 8px;
-  color: var(--ink-faint);
-  font: 600 13px/1.5 var(--font-ui);
-}
-
-@keyframes wb-reveal {
-  to { opacity: 1; transform: translateY(0) scale(1); }
-}
-
-// ============================================================================
-// LOADING / EMPTY STATES
-// ============================================================================
-
-.wb-skeleton {
-  min-height: 168px;
-  border-radius: var(--r-card);
-  background: linear-gradient(100deg, var(--stage-sink) 30%, var(--stage-rise) 50%, var(--stage-sink) 70%);
-  background-size: 200% 100%;
-  animation: wb-shimmer 1.4s var(--ease-out) infinite;
-  border: 1px solid var(--rule);
-}
-@keyframes wb-shimmer { to { background-position: -200% 0; } }
-
-.wb-empty {
-  margin: 48px auto;
-  max-width: 320px;
-  text-align: center;
-  color: var(--ink-dim);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 14px;
-
-  .wb-empty__icon {
-    display: grid; place-items: center;
-    width: 72px; height: 72px;
-    border-radius: 50%;
-    background: var(--grad-primary);
-    color: #fff;
-    box-shadow: 0 12px 32px rgba(0, 0, 0, .4);
-    mat-icon { font-size: 38px; width: 38px; height: 38px; }
+@supports ((-webkit-background-clip: text) or (background-clip: text)) {
+  .wb-cover__word {
+    background: linear-gradient(110deg, var(--accent-a), var(--accent-b) 48%, var(--spark-c));
+    background-size: 200% auto;
+    -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+    animation: wb-shine 5s var(--ease-out) infinite;
   }
-  h2 { margin: 0; font: 800 24px/1.1 var(--font-num); color: var(--ink); }
-  p { margin: 0; font: 500 15px/1.5 var(--font-ui); }
 }
-.wb-empty__btn {
-  min-height: var(--tap);
-  padding: 0 24px;
-  border: none;
-  border-radius: var(--r-pill);
-  background: var(--grad-primary);
-  color: #fff;
-  font: 700 15px/1 var(--font-ui);
-  cursor: pointer;
-  text-decoration: none;
-  display: inline-flex; align-items: center;
+@keyframes wb-shine { to { background-position: 200% center; } }
+.wb-cover__name { margin: 16px 0 0; font: 600 18px/1.4 var(--font-ui); color: var(--ink); }
+.wb-cover__range {
+  margin: 6px 0 0; font: 700 13px/1 var(--font-ui); letter-spacing: .02em; color: var(--ink-dim);
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 8px 14px; border-radius: var(--r-pill);
+  background: color-mix(in srgb, var(--accent-a) 12%, var(--glass));
+  border: 1px solid var(--glass-edge);
+}
+.wb-cover__hint {
+  margin: 22px 0 0; display: inline-flex; align-items: center; gap: 8px;
+  color: var(--ink-faint); font: 600 13px/1 var(--font-ui);
+  animation: wb-nudge 1.8s var(--ease-out) infinite;
+  mat-icon { font-size: 20px; width: 20px; height: 20px; }
+}
+@keyframes wb-nudge { 0%, 100% { transform: translateX(0); } 50% { transform: translateX(6px); } }
+
+// ---- staggered reveal of the ACTIVE slide's content ----
+.wb-slide.is-active .wb-reveal {
+  animation: wb-rise 620ms var(--ease-spring-up) both;
+  animation-delay: calc(var(--ri, 0) * 90ms + 60ms);
+}
+@keyframes wb-rise {
+  from { opacity: 0; transform: translateY(22px) scale(.96); }
+  to   { opacity: 1; transform: none; }
 }
 
-// ---- Own focus ring ----
+// ============================================================================
+// PROGRESS DOTS + nav — under the reel, like a story tray.
+// ============================================================================
+.wb-tray {
+  flex: 0 0 auto;
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  padding: 16px var(--reel-pad) 4px;
+}
+.wb-dot {
+  width: 8px; height: 8px; border-radius: var(--r-pill);
+  border: none; padding: 0; cursor: pointer;
+  background: var(--ink-faint); opacity: .5;
+  transition: width 280ms var(--ease-spring), opacity 200ms var(--ease-out), background 200ms var(--ease-out);
+  &:focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; }
+  &.is-on {
+    width: 26px; opacity: 1;
+    background: linear-gradient(90deg, var(--accent-a), var(--accent-b));
+  }
+}
+
+// ============================================================================
+// SHAREABLE SUMMARY — the recap card below the reel (a vertical scroll section).
+// This is the "premium year-in-review" wrap-up + the share affordance.
+// ============================================================================
+.wb-recap {
+  flex: 0 0 auto;
+  margin: 18px var(--reel-pad) 0;
+  border-radius: var(--r-glass);
+  background: var(--glass);
+  backdrop-filter: blur(var(--blur-glass)) saturate(1.4);
+  -webkit-backdrop-filter: blur(var(--blur-glass)) saturate(1.4);
+  border: 1px solid var(--glass-edge);
+  box-shadow: var(--lift-3);
+  overflow: hidden;
+  content-visibility: auto;
+  contain-intrinsic-size: auto 360px;
+}
+// A gradient header band that brands the share card.
+.wb-recap__band {
+  position: relative;
+  padding: 22px 20px 18px;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--accent-a) 30%, var(--bg-rise)), color-mix(in srgb, var(--accent-b) 24%, var(--bg-sink)));
+  border-bottom: 1px solid var(--glass-edge);
+  overflow: hidden;
+  &::after {
+    content: ""; position: absolute; inset: 0; pointer-events: none;
+    background: radial-gradient(60% 80% at 85% 10%, color-mix(in srgb, var(--accent-b) 40%, transparent), transparent 60%);
+  }
+}
+.wb-recap__kicker {
+  margin: 0; position: relative;
+  font: 700 11px/1 var(--font-ui); letter-spacing: .22em; text-transform: uppercase; color: var(--ink-dim);
+}
+.wb-recap__title {
+  margin: 8px 0 0; position: relative;
+  font: 600 clamp(26px, 8vw, 36px)/1 var(--font-display); letter-spacing: -.02em; color: var(--ink);
+}
+.wb-recap__name { margin: 6px 0 0; position: relative; font: 600 14px/1.4 var(--font-ui); color: var(--ink-dim); }
+
+// The headline grid of the top stats inside the share card.
+.wb-recap__grid {
+  display: grid; grid-template-columns: repeat(2, 1fr); gap: 1px;
+  background: var(--hairline);
+}
+.wb-recap__cell {
+  background: var(--bg-rise);
+  padding: 16px 16px;
+  display: flex; flex-direction: column; gap: 4px;
+  min-width: 0;
+}
+.wb-recap__cell-num {
+  font-family: var(--font-display); font-variant-numeric: tabular-nums;
+  font-size: clamp(26px, 8vw, 34px); font-weight: 600; line-height: 1; letter-spacing: -.02em;
+  color: var(--cn, var(--ink));
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.wb-recap__cell-label {
+  font: 700 11px/1.2 var(--font-ui); letter-spacing: .04em; text-transform: uppercase; color: var(--ink-dim);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.wb-recap__foot {
+  display: flex; align-items: center; gap: 12px;
+  padding: 16px 18px calc(16px + var(--safe-bottom));
+}
+.wb-recap__brand {
+  flex: 1 1 auto; min-width: 0;
+  display: flex; flex-direction: column; gap: 2px;
+}
+.wb-recap__brand-name {
+  font: 800 14px/1 var(--font-ui); letter-spacing: -.01em; color: var(--ink);
+}
+.wb-recap__brand-sub { font: 600 12px/1 var(--font-ui); color: var(--ink-faint); }
+.wb-recap__share {
+  flex: 0 0 auto;
+  display: inline-flex; align-items: center; gap: 8px;
+  min-height: 44px; padding: 0 18px; border: none; border-radius: var(--r-pill);
+  background: linear-gradient(135deg, var(--accent-a), var(--accent-b));
+  color: #fff; font: 700 14px/1 var(--font-ui); cursor: pointer;
+  box-shadow: 0 8px 22px color-mix(in srgb, var(--accent-a) 36%, transparent);
+  transition: transform 120ms var(--ease-spring);
+  mat-icon { font-size: 20px; width: 20px; height: 20px; }
+  &:active { transform: scale(.96); }
+  &:focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; }
+}
+
+// A small "what's in this wrap" tail list of the remaining cards (below the share card).
+.wb-tail {
+  margin: 18px var(--reel-pad) 4px;
+  display: flex; flex-direction: column; gap: 8px;
+}
+.wb-tail__head {
+  font: 700 12px/1 var(--font-ui); letter-spacing: .14em; text-transform: uppercase; color: var(--ink-faint);
+  margin: 0 0 2px 4px;
+}
+.wb-tail__row {
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px 14px; border-radius: var(--r-tile);
+  background: var(--bg-rise); border: 1px solid var(--hairline); box-shadow: var(--lift-1);
+}
+.wb-tail__ico {
+  flex: 0 0 auto; display: grid; place-items: center; width: 38px; height: 38px; border-radius: 12px;
+  background: var(--tg, var(--grad-primary)); color: #fff;
+  mat-icon { font-size: 20px; width: 20px; height: 20px; }
+}
+.wb-tail__txt { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.wb-tail__label { font: 700 14px/1.2 var(--font-ui); color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wb-tail__sub { font: 500 12px/1.3 var(--font-ui); color: var(--ink-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wb-tail__val {
+  flex: 0 0 auto; font-family: var(--font-display); font-variant-numeric: tabular-nums;
+  font-size: 18px; font-weight: 600; letter-spacing: -.02em; color: var(--tv, var(--ink));
+}
+
+// ============================================================================
+// LOADING / EMPTY / ERROR — elevated, on-brand states.
+// ============================================================================
+
+// ---- loading: a cover skeleton + shimmer slide placeholder ----
+.wb-load {
+  flex: 1 1 auto;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 18px; padding: 40px var(--reel-pad);
+}
+.wb-load__word {
+  font: 600 clamp(48px, 16vw, 92px)/.9 var(--font-display); letter-spacing: -.03em; color: var(--ink-faint);
+  opacity: .35;
+}
+.wb-load__bars { display: flex; flex-direction: column; gap: 12px; width: 100%; max-width: 360px; }
+
+// ---- empty + error: a centered, premium glass hero ----
+.wb-state {
+  flex: 1 1 auto;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 16px; text-align: center;
+  padding: 40px var(--reel-pad);
+  max-width: 380px; margin-inline: auto;
+}
+.wb-state__orb {
+  display: grid; place-items: center; width: 92px; height: 92px; border-radius: 50%;
+  background: linear-gradient(135deg, var(--accent-a), var(--accent-b));
+  color: #fff; box-shadow: 0 18px 48px color-mix(in srgb, var(--accent-a) 40%, transparent);
+  animation: wb-orb 3.4s var(--ease-out) infinite;
+  mat-icon { font-size: 46px; width: 46px; height: 46px; }
+}
+@keyframes wb-orb {
+  0%, 100% { transform: translateY(0) scale(1); }
+  50% { transform: translateY(-8px) scale(1.04); }
+}
+.wb-state__title { margin: 0; font: 600 28px/1.05 var(--font-display); letter-spacing: -.01em; color: var(--ink); }
+.wb-state__body { margin: 0; font: 500 15px/1.55 var(--font-ui); color: var(--ink-dim); }
+.wb-state__cta {
+  margin-top: 6px;
+  display: inline-flex; align-items: center; gap: 8px;
+  min-height: 48px; padding: 0 24px; border: none; border-radius: var(--r-pill);
+  background: linear-gradient(135deg, var(--accent-a), var(--accent-b));
+  color: #fff; font: 700 15px/1 var(--font-ui); text-decoration: none; cursor: pointer;
+  box-shadow: 0 10px 28px color-mix(in srgb, var(--accent-a) 36%, transparent);
+  transition: transform 120ms var(--ease-spring);
+  mat-icon { font-size: 20px; width: 20px; height: 20px; }
+  &:active { transform: scale(.96); }
+  &:focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; }
+}
+
+// Own visible focus ring (tracks the page accent via --focus).
 :host ::ng-deep :focus-visible {
-  outline: 2px solid var(--spark-b);
+  outline: 2px solid var(--focus);
   outline-offset: 2px;
   border-radius: 8px;
 }
+
+// No 390px overflow: everything is fluid / clamped by construction.
+:host, .wb-scroll { max-width: 100vw; }
