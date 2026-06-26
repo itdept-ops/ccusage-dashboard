@@ -1140,6 +1140,16 @@
   }
 }
 
+/* Home-route picker can run long (every page you may land on — now incl. the beta surfaces), so it must
+   SCROLL rather than clip under the shared .account-menu's overflow:hidden. Scoped to the .home-menu
+   panelClass so the (short) user menu is unaffected. overflow-x stays hidden (from .account-menu); we only
+   open the y axis + cap the height to the viewport. */
+::ng-deep .home-menu.mat-mdc-menu-panel {
+  max-height: min(72dvh, 560px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
 /* Smooth, on-brand open animation for the account menu surface. */
 ::ng-deep .account-menu.mat-mdc-menu-panel {
   transform-origin: top right;

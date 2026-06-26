@@ -564,16 +564,6 @@ export class App implements AfterViewInit {
         this.onForcedLogout();
       }
     });
-
-    // Immersive (beta + tracker-beta) routes own a SINGLE inner scroll region (.content--immersive frames
-    // the viewport under the slim bar; the page provides its own scroller inside). Hard-lock the DOCUMENT
-    // scroll while immersive so no sub-pixel/device rounding of the slim-bar-vs-frame height — or a stale
-    // cached shell — can ever leak a SECOND (document) scrollbar alongside the inner one. Toggling a class
-    // on <html> (rather than inline styles) keeps the lock declarative and lets the global stylesheet own
-    // the rule; it's removed the instant we navigate back to a normal (document-scrolling) page.
-    effect(() => {
-      document.documentElement.classList.toggle('immersive-locked', this.immersiveLayout());
-    });
   }
 
   /**
