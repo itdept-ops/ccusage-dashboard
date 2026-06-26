@@ -3,8 +3,21 @@ using Microsoft.Extensions.Options;
 
 namespace Ccusage.Api.Services;
 
-/// <summary>One queued background push: the recipient + the minimal title/body/link. NO secrets ever.</summary>
-public readonly record struct WebPushItem(string RecipientEmail, string Title, string Body, string? Link);
+/// <summary>One notification action button: the action id the SW echoes back on click + its short label.
+/// The matching deep-link lives in <see cref="WebPushItem.ActionUrls"/> keyed by <see cref="Action"/>.</summary>
+public readonly record struct WebPushAction(string Action, string Title);
+
+/// <summary>
+/// One queued background push: the recipient + the minimal title/body/link. NO secrets ever.
+/// <para><see cref="Actions"/> + <see cref="ActionUrls"/> are OPTIONAL deep-link action buttons (e.g. a DM
+/// "Reply" that opens the conversation). Both null ⇒ a plain push, exactly as before. When present they are
+/// passed through to the SW, which renders the buttons and, on click, navigates the in-app url for that
+/// action. The SW never POSTs; an action is purely a deep-link.</para>
+/// </summary>
+public readonly record struct WebPushItem(
+    string RecipientEmail, string Title, string Body, string? Link,
+    IReadOnlyList<WebPushAction>? Actions = null,
+    IReadOnlyDictionary<string, string>? ActionUrls = null);
 
 /// <summary>
 /// Off-request-path, fire-and-forget driver for <see cref="WebPushSender"/> — the exact pattern of
@@ -49,7 +62,9 @@ public sealed class WebPushForwarder(
             {
                 using var scope = scopeFactory.CreateScope();
                 var sender = scope.ServiceProvider.GetRequiredService<WebPushSender>();
-                await sender.SendToUserAsync(item.RecipientEmail, item.Title, item.Body, item.Link, stoppingToken);
+                await sender.SendToUserAsync(
+                    item.RecipientEmail, item.Title, item.Body, item.Link,
+                    item.Actions, item.ActionUrls, stoppingToken);
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested) { break; }
             catch (Exception ex)

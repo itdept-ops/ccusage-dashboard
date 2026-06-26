@@ -21,7 +21,7 @@ import { MatSnackBar } from '@angular/material/snack-bar';
 import { Api } from '../../core/api';
 import { AuthService } from '../../core/auth';
 import { AddFoodRequest, ImageRequest, ParsedFoodItemDto, Meal, PERM } from '../../core/models';
-import { captureImage, pickImage, confirmPhotoNotice } from './ai-image';
+import { captureImage, pickImage, confirmPhotoNotice, downscaleToJpeg } from './ai-image';
 import {
   VoiceRecording,
   confirmVoiceNotice,
@@ -38,6 +38,13 @@ export interface AddFoodData {
    * an AI "What should I eat?" suggestion) — a prefill the user edits/confirms; nothing auto-logs.
    */
   prefillQuery?: string;
+  /**
+   * Optional initial PHOTO. When set (e.g. a photo shared into the app via the OS share sheet) and vision
+   * AI is held, the dialog opens in Photo mode and immediately runs its existing AI photo-parse on this
+   * File — surfacing the identified foods in the editable review. Same path as picking a gallery photo;
+   * nothing auto-logs. Ignored (falls back to Describe/Manual) when vision AI isn't available.
+   */
+  prefillPhoto?: File;
 }
 
 /**
@@ -170,8 +177,19 @@ export class AddFoodDialog implements OnDestroy {
 
   readonly meals = MEALS;
 
-  /** Initial mode: Describe when text AI is held, else Photo when only vision is held, else Manual. */
-  readonly mode = signal<Mode>(this.canUseAi ? 'describe' : this.canUseVision ? 'photo' : 'manual');
+  /**
+   * Initial mode: a shared-in photo (with vision held) opens straight in Photo mode; else Describe when
+   * text AI is held, else Photo when only vision is held, else Manual.
+   */
+  readonly mode = signal<Mode>(
+    this.data.prefillPhoto && this.canUseVision
+      ? 'photo'
+      : this.canUseAi
+        ? 'describe'
+        : this.canUseVision
+          ? 'photo'
+          : 'manual',
+  );
   readonly meal = signal<Meal>(this.data.meal);
 
   // ---- Describe / Speak ----
@@ -213,6 +231,13 @@ export class AddFoodDialog implements OnDestroy {
   );
 
   constructor() {
+    // A photo shared into the app (with vision held) → open in Photo mode and run the AI parse on it now,
+    // exactly as if the user had attached that file from the gallery. The editable review is the result.
+    if (this.data.prefillPhoto && this.canUseVision) {
+      void this.parsePrefillPhoto(this.data.prefillPhoto);
+      return;
+    }
+
     // Pre-seed the describe box from an AI food suggestion (editable; never auto-logs).
     const seed = this.data.prefillQuery?.trim();
     if (seed && this.canUseAi) {
@@ -313,6 +338,16 @@ export class AddFoodDialog implements OnDestroy {
   /** 🖼️ Attach an existing photo from the gallery/files → parse-meal {image} → review. */
   async attachPhoto(): Promise<void> {
     await this.runPhoto(pickImage);
+  }
+
+  /**
+   * Run the photo flow on a File handed in via {@link AddFoodData.prefillPhoto} (e.g. a photo the OS share
+   * sheet routed into the app). Reuses the SAME {@link runPhoto} path as the gallery picker — a one-shot
+   * `source` that just downscales the shared File into an {@link ImageRequest} — so it gets the identical
+   * privacy notice, parse, review and graceful-fallback behaviour.
+   */
+  private async parsePrefillPhoto(file: File): Promise<void> {
+    await this.runPhoto(() => downscaleToJpeg(file));
   }
 
   /**

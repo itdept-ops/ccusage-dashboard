@@ -158,8 +158,28 @@ public sealed class ChatNotificationService(
             // opted in. Enqueue only — never block/slow/fail the fan-out; the worker gates on their prefs.
             discord.Enqueue(new DiscordForwardItem(email, NotificationTypeName(n.Type), actor?.Name, n.Text, n.Link, Category: n.Type));
             // Fire-and-forget: background web-push to the recipient's registered devices (no-op without keys).
-            webPush.Enqueue(new WebPushItem(email, PushTitle(n.Type), n.Text, n.Link));
+            // A DIRECT MESSAGE gets a "Reply" deep-link action that opens the conversation (the link already
+            // points at /chat?c=…&m=…); other chat types stay plain. Backward-compatible (null ⇒ no buttons).
+            var (pa, pu) = n.Type == NotificationType.DirectMessage
+                ? PushAction("reply", "Reply", n.Link)
+                : (null, null);
+            webPush.Enqueue(new WebPushItem(email, PushTitle(n.Type), n.Text, n.Link, pa, pu));
         }
+    }
+
+    /// <summary>
+    /// Build a single deep-link push action: an <c>actions</c> list of one {action, title} and the matching
+    /// <c>actionUrls</c> map (action → in-app relative url). Returns (null, null) when <paramref name="url"/>
+    /// is null/blank, so the push stays a plain (button-less) notification. The SW renders the button and, on
+    /// click, navigates the url — it never POSTs.
+    /// </summary>
+    private static (IReadOnlyList<WebPushAction>? actions, IReadOnlyDictionary<string, string>? urls) PushAction(
+        string action, string title, string? url)
+    {
+        if (string.IsNullOrWhiteSpace(url)) return (null, null);
+        return (
+            new[] { new WebPushAction(action, title) },
+            new Dictionary<string, string>(StringComparer.Ordinal) { [action] = url });
     }
 
     /// <summary>
@@ -294,8 +314,11 @@ public sealed class ChatNotificationService(
                 .SendAsync("InboxUnreadChanged", inboxUnreadByEmail.GetValueOrDefault(email, 0), ct);
             // Fire-and-forget Discord mirror for opted-in recipients (no actor on a family alert).
             discord.Enqueue(new DiscordForwardItem(email, NotificationTypeName(n.Type), null, n.Text, n.Link, Category: n.Type));
-            // Fire-and-forget background web-push (no-op without keys).
-            webPush.Enqueue(new WebPushItem(email, PushTitle(n.Type), n.Text, n.Link));
+            // Fire-and-forget background web-push (no-op without keys). A family alert (reminder / heads-up /
+            // briefing / timer) carries its own in-app route in n.Link (e.g. /family/calendar, /family/today),
+            // so attach a "View" deep-link action that opens it. Backward-compatible (null link ⇒ plain push).
+            var (fa, fu) = PushAction("view", "View", n.Link);
+            webPush.Enqueue(new WebPushItem(email, PushTitle(n.Type), n.Text, n.Link, fa, fu));
         }
         return created.Count;
     }
@@ -398,7 +421,10 @@ public sealed class ChatNotificationService(
         await hub.Clients.User(targetEmail).SendAsync("ReceiveNotification", ToDto(n, sender), ct);
         await hub.Clients.User(targetEmail).SendAsync("InboxUnreadChanged", inbox, ct);
         discord.Enqueue(new DiscordForwardItem(targetEmail, NotificationTypeName(n.Type), senderName, n.Text, n.Link, Category: n.Type));
-        webPush.Enqueue(new WebPushItem(targetEmail, PushTitle(n.Type), n.Text, n.Link));
+        // A NUDGE gets an "Open" deep-link action to its target (the challenge hub) so the recipient can act
+        // straight from the push. Backward-compatible (the SW no-ops without actions).
+        var (na, nu) = PushAction("open", "Open", n.Link);
+        webPush.Enqueue(new WebPushItem(targetEmail, PushTitle(n.Type), n.Text, n.Link, na, nu));
         return true;
     }
 

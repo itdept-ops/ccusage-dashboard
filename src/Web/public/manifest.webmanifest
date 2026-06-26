@@ -41,11 +41,18 @@
   ],
   "share_target": {
     "action": "/share",
-    "method": "GET",
+    "method": "POST",
+    "enctype": "multipart/form-data",
     "params": {
       "title": "title",
       "text": "text",
-      "url": "url"
+      "url": "url",
+      "files": [
+        {
+          "name": "photo",
+          "accept": ["image/*", "image/jpeg", "image/png", "image/webp"]
+        }
+      ]
     }
   },
   "shortcuts": [

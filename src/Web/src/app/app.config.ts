@@ -6,6 +6,7 @@ import { provideServiceWorker } from '@angular/service-worker';
 
 import { routes } from './app.routes';
 import { authInterceptor } from './core/auth.interceptor';
+import { offlineInterceptor } from './core/offline.interceptor';
 import { OFFLINE_DISABLED_KEY } from './core/sw-update';
 
 /**
@@ -27,7 +28,7 @@ export const appConfig: ApplicationConfig = {
   providers: [
     provideBrowserGlobalErrorListeners(),
     provideRouter(routes),
-    provideHttpClient(withFetch(), withInterceptors([authInterceptor])),
+    provideHttpClient(withFetch(), withInterceptors([authInterceptor, offlineInterceptor])),
     provideAnimations(),
     // Register our custom worker (it importScripts ngsw-worker.js) so push notifications render from the
     // backend's flat { title, body, url } payload. Prod-only; honours the user's offline opt-out.

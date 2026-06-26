@@ -59,9 +59,17 @@ public sealed class WebPushSender
     /// subscriptions. No-op (returns immediately) when web-push is unconfigured or the recipient has no
     /// subscriptions. Prunes any subscription the push service reports as gone (404/410). NEVER throws.
     /// <paramref name="recipientEmail"/> must be lower-cased.
+    /// <para><paramref name="actions"/> + <paramref name="actionUrls"/> are OPTIONAL deep-link action buttons.
+    /// When non-empty they are added to the payload as <c>actions</c> (array of {action, title}) and
+    /// <c>actionUrls</c> (map action→in-app relative url); the SW renders the buttons and navigates the url on
+    /// click. When null/empty the payload is byte-for-byte the legacy <c>{ title, body, url }</c> shape, so
+    /// existing notifications are unchanged. The action urls are in-app relative paths — never a secret.</para>
     /// </summary>
     public async Task SendToUserAsync(
-        string recipientEmail, string title, string body, string? link, CancellationToken ct = default)
+        string recipientEmail, string title, string body, string? link,
+        IReadOnlyList<WebPushAction>? actions = null,
+        IReadOnlyDictionary<string, string>? actionUrls = null,
+        CancellationToken ct = default)
     {
         if (!_options.IsConfigured)
         {
@@ -109,7 +117,25 @@ public sealed class WebPushSender
         if (subs.Count == 0) return;
 
         // Minimal payload — title + body + link only. NO secrets, NO email. The service worker reads these.
-        var payload = JsonSerializer.Serialize(new { title, body, url = link });
+        // OPTIONALLY carry deep-link action buttons: include `actions`/`actionUrls` ONLY when both are present
+        // and non-empty, so a plain push stays byte-for-byte the legacy { title, body, url } shape (the SW
+        // no-ops without them, and existing notifications are unchanged). Action urls are in-app relative paths.
+        string payload;
+        if (actions is { Count: > 0 } && actionUrls is { Count: > 0 })
+        {
+            payload = JsonSerializer.Serialize(new
+            {
+                title,
+                body,
+                url = link,
+                actions = actions.Select(a => new { action = a.Action, title = a.Title }).ToArray(),
+                actionUrls,
+            });
+        }
+        else
+        {
+            payload = JsonSerializer.Serialize(new { title, body, url = link });
+        }
         var vapid = new VapidDetails(_options.Subject, _options.PublicKey, _options.PrivateKey);
 
         var goneEndpoints = new List<string>();
