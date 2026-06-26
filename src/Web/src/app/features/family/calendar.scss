@@ -281,6 +281,52 @@
   mat-spinner { --mdc-circular-progress-active-indicator-color: currentColor; }
 }
 
+/* 👥 Person picker (a multi-person roster → pick whose shifts to add to your calendar). */
+.cal-people {
+  margin-top: var(--tech-space-3, 12px);
+  padding: var(--tech-space-3, 12px) var(--tech-space-4, 16px);
+  border: 1px solid var(--tech-border-subtle);
+  border-left: 3px solid var(--tech-accent);
+  border-radius: var(--tech-r-control, 10px);
+  background: var(--tech-bg-sunken);
+}
+
+.cal-people__prompt {
+  margin: 0 0 var(--tech-space-3, 12px);
+  font-size: var(--tech-fs-label);
+  color: var(--tech-text-secondary);
+}
+
+.cal-people__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--tech-space-2, 8px);
+}
+
+/* Each name is a full-width-on-mobile tap target (wraps to a row on wider screens). */
+.cal-people__list li {
+  flex: 1 1 14rem;
+  min-width: 0;
+}
+
+.cal-people__btn {
+  width: 100%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 8px;
+  font-weight: 600;
+  mat-icon { flex: 0 0 auto; }
+  span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+}
+
+.cal-people__cancel {
+  margin-top: var(--tech-space-2, 8px);
+}
+
 /* ── ✨ Best time for X (cyan-accented variant of the AI bar) ────────── */
 .cal-besttime {
   background:

@@ -254,6 +254,16 @@ export class FamilyCalendar implements OnDestroy {
   /** True while "Add all" is bulk-creating proposals (disables every per-card button + the AI boxes). */
   readonly addingAll = signal(false);
 
+  // ---- 👥 Person picker (multi-person roster: pick whose shifts to add) ----
+  /**
+   * When an uploaded schedule lists several people (a work-shift roster with a Name column), we stash ALL of
+   * its proposed events here and show {@link personPickerNames} so the user picks ONE person — then we filter
+   * down to that person's shifts as the proposals. Empty when there's no pending multi-person upload.
+   */
+  private readonly pendingPeopleEvents = signal<ScheduleAiEvent[]>([]);
+  /** The DISTINCT person names found in the pending roster (2+ → the picker shows). Empty otherwise. */
+  readonly personPickerNames = signal<string[]>([]);
+
   // ---- 📄 Upload a schedule (extract events from an image / PDF) ----
   /** True while a chosen image/PDF schedule is being prepared + sent for extraction. */
   readonly uploadBusy = signal(false);
@@ -965,11 +975,12 @@ export class FamilyCalendar implements OnDestroy {
     this.proposals.set(this.proposals().filter((x) => x !== p));
   }
 
-  /** Clear the AI box + any pending proposals. */
+  /** Clear the AI box + any pending proposals (and any pending person picker). */
   clearAi(): void {
     this.aiText.set('');
     this.aiStatus.set('');
     this.proposals.set([]);
+    this.clearPersonPicker();
   }
 
   // ---- 📄 Upload a schedule (image / PDF → extracted proposed events) ----
@@ -1038,6 +1049,7 @@ export class FamilyCalendar implements OnDestroy {
     this.uploadBusy.set(true);
     this.aiStatus.set('Reading your schedule…');
     this.proposals.set([]);
+    this.clearPersonPicker();
     try {
       const payload: ScheduleImageFile[] = [];
       for (const file of files) {
@@ -1058,12 +1070,30 @@ export class FamilyCalendar implements OnDestroy {
       }
 
       const result = await firstValueFrom(this.api.scheduleFromImage(payload));
-      const proposed = (result.events ?? []).map((ai) => this.toProposed(ai));
-      this.proposals.set(proposed);
-
+      const events = result.events ?? [];
       const tooManyNote = tooMany
         ? `I read the first ${FamilyCalendar.UPLOAD_MAX_FILES} files. `
         : '';
+
+      // A multi-person roster (a work-shift schedule with a Name column) attributes each shift to a `person`.
+      // If 2+ distinct people are named, DON'T dump everyone's shifts as proposals — show a picker so the user
+      // adds just ONE person's shifts to THEIR calendar (e.g. she's "Abigail Fortunato" here but picks
+      // "Abigail Beatty" from the roster). 0–1 distinct people keeps the original single-person flow unchanged.
+      const people = this.distinctPeople(events);
+      if (people.length >= 2) {
+        this.pendingPeopleEvents.set(events);
+        this.personPickerNames.set(people);
+        this.aiStatus.set(
+          tooManyNote +
+            (result.notes?.trim() ? result.notes!.trim() + ' ' : '') +
+            'This schedule lists several people — choose whose shifts to add to your calendar.',
+        );
+        return;
+      }
+
+      const proposed = events.map((ai) => this.toProposed(ai));
+      this.proposals.set(proposed);
+
       if (proposed.length === 0) {
         this.aiStatus.set(
           tooManyNote +
@@ -1102,6 +1132,52 @@ export class FamilyCalendar implements OnDestroy {
     } finally {
       this.uploadBusy.set(false);
     }
+  }
+
+  // ---- 👥 Person picker (multi-person roster → one person's shifts) ----
+
+  /**
+   * The DISTINCT, non-empty `person` names across the extracted events, in first-seen order. Trimmed; matched
+   * case-insensitively so "Abigail Beatty" and "abigail beatty" don't show twice (the first spelling wins).
+   */
+  private distinctPeople(events: ScheduleAiEvent[]): string[] {
+    const seen = new Set<string>();
+    const names: string[] = [];
+    for (const ev of events) {
+      const name = (ev.person ?? '').trim();
+      if (!name) continue;
+      const key = name.toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      names.push(name);
+    }
+    return names;
+  }
+
+  /**
+   * The user picked a person from the roster: filter the stashed events down to THAT person's shifts (matched
+   * case-insensitively on `person`) and turn them into the normal proposal cards, then confirm/add as usual.
+   */
+  pickPerson(name: string): void {
+    const key = name.trim().toLowerCase();
+    const mine = this.pendingPeopleEvents().filter(
+      (ev) => (ev.person ?? '').trim().toLowerCase() === key,
+    );
+    this.clearPersonPicker();
+    const proposed = mine.map((ai) => this.toProposed(ai));
+    this.proposals.set(proposed);
+    const n = proposed.length;
+    this.aiStatus.set(
+      n === 0
+        ? `I couldn't find any shifts for ${name}. Try another name.`
+        : `Showing ${name}'s ${n === 1 ? 'shift' : `${n} shifts`} — review ${n === 1 ? 'it' : 'them'} below, then add ${n === 1 ? 'it' : 'them'} to your calendar.`,
+    );
+  }
+
+  /** Dismiss the person picker without choosing (clears the stashed roster + the name list). */
+  clearPersonPicker(): void {
+    this.pendingPeopleEvents.set([]);
+    this.personPickerNames.set([]);
   }
 
   // ---- ✨ Best time for X ----

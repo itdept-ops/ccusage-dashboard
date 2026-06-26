@@ -239,6 +239,30 @@
         <p class="cal-ai__status" aria-live="polite">{{ msg }}</p>
       }
 
+      <!-- 👥 Person picker: a multi-person roster (a work-shift schedule with a Name column) lists several
+           people — pick ONE whose shifts to add to YOUR calendar (then the normal proposal cards show). -->
+      @if (personPickerNames().length) {
+        <div class="cal-people" role="group" aria-label="Whose shifts to add">
+          <p class="cal-people__prompt">
+            This schedule lists several people — whose shifts should we add to <strong>your</strong> calendar?
+          </p>
+          <ul class="cal-people__list">
+            @for (name of personPickerNames(); track name) {
+              <li>
+                <button mat-stroked-button type="button" class="cal-people__btn"
+                        (click)="pickPerson(name)">
+                  <mat-icon aria-hidden="true">person</mat-icon>
+                  <span>{{ name }}</span>
+                </button>
+              </li>
+            }
+          </ul>
+          <button mat-button type="button" class="cal-people__cancel" (click)="clearPersonPicker()">
+            Cancel
+          </button>
+        </div>
+      }
+
       @if (proposals().length) {
         @if (proposals().length > 1) {
           <div class="cal-ai__cards-head">

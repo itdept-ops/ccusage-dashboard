@@ -2976,6 +2976,10 @@ export interface ScheduleAiRequest {
  * One AI-proposed event to CONFIRM before it's created (mirrors ScheduleEventDto). Times are already-clamped
  * ISO UTC instants; `recurrence` is the supported vocabulary. The user edits/confirms, then the frontend
  * creates it via POST /events (passing the recurrence).
+ *
+ * `person` is the name a MULTI-PERSON roster (a work-shift schedule with a Name column) attributed the shift
+ * to — e.g. "Abigail Beatty" — or null for a single-person document. The calendar uses it to show a
+ * person-picker that filters the proposed events down to one person's shifts before confirming.
  */
 export interface ScheduleAiEvent {
   title: string;
@@ -2985,6 +2989,7 @@ export interface ScheduleAiEvent {
   location: string | null;
   description: string | null;
   recurrence: CalendarRecurrence;
+  person?: string | null;
 }
 
 /**

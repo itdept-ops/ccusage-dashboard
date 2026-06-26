@@ -89,10 +89,13 @@ public static class FamilyCalendarEndpoints
         string? Location, string? Description, string? HtmlLink, string? HangoutLink, bool IsRecurring);
 
     /// <summary>One AI-proposed event the family member CONFIRMS (then the frontend creates it via POST
-    /// /events). Times are UTC + already clamped; <see cref="Recurrence"/> is the supported vocabulary.</summary>
+    /// /events). Times are UTC + already clamped; <see cref="Recurrence"/> is the supported vocabulary.
+    /// <see cref="Person"/> is the name a multi-person roster attributed the shift to (e.g. "Abigail Beatty"),
+    /// or null for a single-person document — the frontend uses it for a person-picker that filters the
+    /// proposed events down to ONE person's shifts before confirming.</summary>
     public sealed record ScheduleEventDto(
         string Title, DateTime StartUtc, DateTime EndUtc, bool AllDay,
-        string? Location, string? Description, string Recurrence);
+        string? Location, string? Description, string Recurrence, string? Person);
 
     /// <summary>The "Schedule with AI" response: 0+ proposed events to confirm + an optional short note.</summary>
     public sealed record ScheduleAiDto(IReadOnlyList<ScheduleEventDto> Events, string? Notes);
@@ -404,8 +407,10 @@ public static class FamilyCalendarEndpoints
             var result = await gemini.ScheduleEventsAsync(req.Text, reference, tz, ct);
             if (result is null) return AiUnavailable();
 
+            // Free-text scheduling is always single-person, so Person rides through as null (the from-image
+            // path below is the one that populates it for a multi-person roster).
             var events = result.Events.Select(e => new ScheduleEventDto(
-                e.Title, e.StartUtc, e.EndUtc, e.AllDay, e.Location, e.Description, e.Recurrence)).ToList();
+                e.Title, e.StartUtc, e.EndUtc, e.AllDay, e.Location, e.Description, e.Recurrence, e.Person)).ToList();
             return Results.Ok(new ScheduleAiDto(events, result.Notes));
         }).RequirePermission(Permissions.FamilyAi).RequireRateLimiting(AiEndpoints.RateLimitPolicy);
 
@@ -438,8 +443,10 @@ public static class FamilyCalendarEndpoints
             var result = await gemini.ScheduleFromImagesAsync(files, reference, tz, ct);
             if (result is null) return AiUnavailable();
 
+            // A multi-person roster carries each event's Person through so the frontend can offer a picker that
+            // filters to one person's shifts; a single-person document leaves it null (unchanged behavior).
             var events = result.Events.Select(e => new ScheduleEventDto(
-                e.Title, e.StartUtc, e.EndUtc, e.AllDay, e.Location, e.Description, e.Recurrence)).ToList();
+                e.Title, e.StartUtc, e.EndUtc, e.AllDay, e.Location, e.Description, e.Recurrence, e.Person)).ToList();
             return Results.Ok(new ScheduleAiDto(events, result.Notes));
         // IMAGE/PDF intake is the vision gate; the parse still needs family.ai. The group keeps family.use.
         }).RequirePermission(Permissions.AiVision).RequirePermission(Permissions.FamilyAi)
