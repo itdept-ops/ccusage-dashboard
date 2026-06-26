@@ -25,6 +25,19 @@ public static class HomeRoutes
         ["/locations"] = new[] { Permissions.LocationSelf },
         ["/users"] = new[] { Permissions.UsersView },
         ["/activity"] = new[] { Permissions.ActivityView },
+
+        // Beta surfaces (the mobile-first redesigns) — mirror the route guards in app.routes.ts so a beta
+        // page can be set as the landing page. The /beta section is gated by beta.access; tracker-beta has
+        // its own tracker.beta guard. (Routes that ALSO require a feature perm, e.g. /beta/family needs
+        // family.use, are filtered in the SPA picker; beta.access is the section gate here.)
+        ["/tracker-beta"] = new[] { Permissions.TrackerBeta },
+        ["/beta"] = new[] { Permissions.BetaAccess },
+        ["/beta/home"] = new[] { Permissions.BetaAccess },
+        ["/beta/dashboard"] = new[] { Permissions.BetaAccess },
+        ["/beta/family"] = new[] { Permissions.BetaAccess },
+        ["/beta/bills"] = new[] { Permissions.BetaAccess },
+        ["/beta/wrapped"] = new[] { Permissions.BetaAccess },
+        ["/beta/settings"] = new[] { Permissions.BetaAccess },
     };
 
     public static bool IsKnown(string route) => Map.ContainsKey(route);
