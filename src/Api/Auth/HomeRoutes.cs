@@ -41,6 +41,10 @@ public static class HomeRoutes
         ["/beta/chat"] = new[] { Permissions.BetaAccess },
         ["/beta/ask"] = new[] { Permissions.BetaAccess },
         ["/beta/meals"] = new[] { Permissions.BetaAccess },
+        ["/beta/people"] = new[] { Permissions.BetaAccess },
+        ["/beta/fleet"] = new[] { Permissions.BetaAccess },
+        ["/beta/trophies"] = new[] { Permissions.BetaAccess },
+        ["/beta/automations"] = new[] { Permissions.BetaAccess },
     };
 
     public static bool IsKnown(string route) => Map.ContainsKey(route);

@@ -1,0 +1,197 @@
+// ============================================================================
+// Automations "Relay" — built on the shared beta-ui "Strata" foundation.
+//
+// One line adopts the whole Strata token contract (layered bg, glass, ink scale, radii, the lift depth
+// system, spring/bounce easing, blur cap, env() safe-area, the a11y killswitches); then the AUTOMATIONS
+// page OVERRIDES the per-page accent contract with its OWN signature gradient — a bold ORANGE (amber →
+// red), the "energy / trigger / relay" identity. Every kit component (pull-refresh ring, FAB, swipe row,
+// bottom sheet, toaster, skeleton) + every subcomponent reads --accent-a/--accent-b off this :host
+// cascade, so this single override re-skins the whole screen.
+//
+// ISOLATED + gated by beta.access + automations.use: nothing here touches the global --tech-* tokens or
+// the flagship tracker-beta. The kit partial is the only import; we consume the kit, never modify it.
+// ============================================================================
+
+@use '../beta-ui/beta-kit' as kit;
+
+:host {
+  @include kit.beta-host;          // the whole Strata token contract on :host
+
+  // ---- RELAY'S SIGNATURE ACCENT: amber → red (the per-page contract override) ----
+  --accent-a: #fb923c;             // signature amber  (start)
+  --accent-b: #ef4444;             // signature red    (end)
+
+  // A faint warm wash behind the whole column (still within the kit's dark contract).
+  background: radial-gradient(120% 80% at 50% -8%, #1c1110 0%, var(--bg-base) 58%);
+
+  height: 100%; // fill the immersive shell frame; the pull-refresh owns the scroll
+}
+
+@include kit.beta-springs;          // @supports linear() spring upgrade (top-level, once)
+@include kit.beta-a11y;             // reduced-motion + reduced-transparency/contrast killswitches (once)
+
+// ============================================================================
+// SHELL — the kit pull-to-refresh wrapper IS the scroll container.
+// ============================================================================
+
+.ab-ptr { display: block; height: 100%; }
+
+.ab-scroll {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-height: 100%;
+  padding-top: calc(var(--safe-top) + 8px);
+  // Reserve room for the fixed extended FAB above the safe-area.
+  padding-bottom: calc(var(--safe-bottom) + 96px);
+  padding-inline: var(--gutter) var(--gutter-r);
+}
+
+// ============================================================================
+// IMMERSIVE PAGE HEADER — title + accent bloom + active-rule glance.
+// ============================================================================
+
+.hh {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 6px 2px 2px;
+  isolation: isolate;
+}
+
+.hh__bloom {
+  position: absolute;
+  top: -40px; left: -30px; right: 28%;
+  height: 170px; z-index: -1; pointer-events: none;
+  background: radial-gradient(130px 96px at 30% 30%,
+    color-mix(in srgb, var(--accent-a) 50%, transparent), transparent 70%);
+  filter: blur(20px);
+  opacity: .9;
+}
+
+.hh__row { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.hh__text { min-width: 0; }
+.hh__eyebrow {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 12px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase;
+  color: var(--ink-dim); margin-bottom: 4px;
+}
+.hh__spark {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: linear-gradient(135deg, var(--accent-a), var(--accent-b));
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent-a) 20%, transparent);
+}
+.hh__title {
+  margin: 0; font-family: var(--font-display); font-weight: 600; font-size: 32px; line-height: 1.04;
+  letter-spacing: -.02em; color: var(--ink);
+}
+.hh__tag { margin: 5px 0 0; font-size: 13px; font-weight: 600; color: var(--ink-dim); line-height: 1.35; max-width: 30ch; }
+
+// A floating accent glyph badge in the header's top-right.
+.hh__glyph {
+  flex: 0 0 auto; display: grid; place-items: center; width: 46px; height: 46px; border-radius: 15px;
+  background: linear-gradient(135deg, var(--accent-a), var(--accent-b)); color: #2a0a00;
+  box-shadow: 0 10px 26px color-mix(in srgb, var(--accent-a) 42%, transparent), inset 0 1px 0 rgba(255,255,255,.25);
+}
+.hh__glyph mat-icon { font-size: 26px; width: 26px; height: 26px; }
+
+// Glance row — active / total / paused numerals on glass.
+.hh__glance {
+  display: flex; align-items: center; gap: 14px;
+  padding: 14px 16px; border-radius: var(--r-card);
+  background: var(--glass);
+  backdrop-filter: blur(var(--blur-glass)) saturate(1.4);
+  -webkit-backdrop-filter: blur(var(--blur-glass)) saturate(1.4);
+  box-shadow: var(--lift-3);
+  border: 1px solid var(--glass-edge);
+}
+.hh__stat { display: flex; flex-direction: column; gap: 1px; min-width: 0; flex: 1 1 0; }
+.hh__stat-n {
+  font-family: var(--font-display); font-variant-numeric: tabular-nums;
+  font-size: 28px; font-weight: 600; letter-spacing: -.02em; color: var(--ink); line-height: 1;
+}
+.hh__stat-n--mute { color: var(--ink-faint); }
+.hh__stat-l {
+  font-size: 11px; font-weight: 700; letter-spacing: .03em; text-transform: uppercase; color: var(--ink-dim);
+  white-space: nowrap;
+}
+.hh__div { width: 1px; align-self: stretch; background: var(--hairline); flex: 0 0 auto; }
+
+// ============================================================================
+// RULES LIST — swipe rows of WHEN→THEN cards, spring stagger.
+// ============================================================================
+
+.ab-list { display: flex; flex-direction: column; gap: 12px; }
+.ab-rules { display: flex; flex-direction: column; gap: 11px; }
+
+.ab-row-in {
+  animation: ab-rise 460ms var(--ease-spring-up) both;
+  animation-delay: calc(var(--i, 0) * 62ms);
+  will-change: transform, opacity;
+}
+@keyframes ab-rise {
+  from { opacity: 0; transform: translateY(14px) scale(.985); }
+  to   { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) { .ab-row-in { animation: none; } }
+
+.ab-skel { display: flex; flex-direction: column; gap: 11px; }
+
+.ab-hint {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  margin: 2px 0 0; font-size: 12px; font-weight: 600; color: var(--ink-faint);
+}
+.ab-hint mat-icon { font-size: 16px; width: 16px; height: 16px; }
+
+// ============================================================================
+// STATES — error + empty (tasteful "No automations yet").
+// ============================================================================
+.ab-state {
+  display: flex; flex-direction: column; align-items: center; text-align: center; gap: 12px;
+  padding: 34px 18px; border-radius: var(--r-card);
+  background: var(--bg-rise); border: 1px dashed var(--hairline);
+}
+.ab-state-ic {
+  display: grid; place-items: center; width: 56px; height: 56px; border-radius: 18px;
+  background: color-mix(in srgb, var(--accent-a) 12%, var(--bg-sink)); color: var(--accent-a);
+}
+.ab-state-ic mat-icon { font-size: 28px; width: 28px; height: 28px; }
+.ab-state-msg { margin: 0; font-size: 14px; font-weight: 600; color: var(--ink-dim); max-width: 32ch; line-height: 1.4; }
+.ab-state-btn {
+  display: inline-flex; align-items: center; gap: 7px;
+  min-height: 48px; padding: 0 22px; border: none; border-radius: var(--r-pill);
+  background: linear-gradient(135deg, var(--accent-a), var(--accent-b)); color: #2a0a00;
+  font-family: var(--font-ui); font-size: 14.5px; font-weight: 800; cursor: pointer; box-shadow: var(--lift-2);
+  -webkit-tap-highlight-color: transparent; touch-action: manipulation;
+  transition: transform 120ms var(--ease-out);
+}
+.ab-state-btn:active { transform: scale(.97); }
+.ab-state-btn:focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; }
+.ab-state-btn mat-icon { font-size: 19px; width: 19px; height: 19px; }
+
+// Empty state — a touch more presence (glyph glow + heading).
+.ab-empty { padding: 44px 20px; }
+.ab-empty-ic {
+  width: 68px; height: 68px; border-radius: 22px;
+  background: linear-gradient(135deg,
+    color-mix(in srgb, var(--accent-a) 22%, var(--bg-sink)),
+    color-mix(in srgb, var(--accent-b) 18%, var(--bg-sink)));
+  color: var(--accent-a);
+  box-shadow: 0 12px 34px color-mix(in srgb, var(--accent-a) 26%, transparent);
+}
+.ab-empty-ic mat-icon { font-size: 34px; width: 34px; height: 34px; }
+.ab-empty-h {
+  margin: 2px 0 -2px; font-family: var(--font-display); font-weight: 600; font-size: 22px; color: var(--ink);
+  letter-spacing: -.01em;
+}
+
+// Own visible focus ring (tracks the page accent via --focus).
+:host ::ng-deep :focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+  border-radius: 8px;
+}
+
+// No 390px overflow: everything is fluid by construction.
+:host, .ab-scroll { max-width: 100vw; }

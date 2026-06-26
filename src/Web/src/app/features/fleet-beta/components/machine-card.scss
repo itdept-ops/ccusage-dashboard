@@ -1,0 +1,104 @@
+// BETA FLEET · MachineCard — a depth card over the page's Strata cascade. Inherits --accent-a/-b,
+// the ink scale, radii, the lift system, and motion from the host page; defines no tokens of its own.
+
+:host { display: block; }
+
+.mc {
+  position: relative;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px 16px 16px;
+  border-radius: var(--r-card);
+  background: var(--bg-rise);
+  box-shadow: var(--lift-2);
+  border: 1px solid var(--hairline);
+  text-align: left;
+  color: var(--ink);
+  font-family: var(--font-ui);
+  cursor: pointer;
+  overflow: hidden;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  transition: transform 140ms var(--ease-spring), box-shadow 140ms var(--ease-out);
+}
+.mc:active { transform: scale(.985); box-shadow: var(--lift-1); }
+.mc:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+
+// Gradient accent edge along the top — the "gradient-edge" depth cue.
+.mc__edge {
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--accent-a), var(--accent-b));
+  opacity: .85;
+}
+
+// ---- header row ----
+.mc__head { display: flex; align-items: center; gap: 12px; min-width: 0; }
+
+.mc__ico {
+  position: relative;
+  flex: 0 0 auto;
+  display: grid; place-items: center;
+  width: 42px; height: 42px;
+  border-radius: 13px;
+  background: color-mix(in srgb, var(--accent-a) 14%, var(--bg-sink));
+  border: 1px solid var(--glass-edge);
+  color: var(--accent-a);
+}
+.mc__ico mat-icon { font-size: 22px; width: 22px; height: 22px; }
+
+// Live online pulse dot (animated halo).
+.mc__pulse {
+  position: absolute; top: -2px; right: -2px;
+  width: 11px; height: 11px; border-radius: 50%;
+  background: var(--signal);
+  border: 2px solid var(--bg-rise);
+}
+.mc__pulse::after {
+  content: ''; position: absolute; inset: -3px;
+  border-radius: 50%; border: 2px solid var(--signal);
+  animation: mc-pulse 1.8s var(--ease-out) infinite;
+}
+@keyframes mc-pulse {
+  0% { transform: scale(.7); opacity: .8; }
+  100% { transform: scale(1.8); opacity: 0; }
+}
+
+.mc__id { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.mc__name {
+  font-size: 16px; font-weight: 800; letter-spacing: -.01em; color: var(--ink);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.mc__meta {
+  display: flex; align-items: center; gap: 5px;
+  font-size: 12px; font-weight: 600; color: var(--ink-dim);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.mc__live {
+  display: inline-flex; align-items: center;
+  color: var(--signal); font-weight: 800;
+}
+.mc__sub, .mc__seen { overflow: hidden; text-overflow: ellipsis; }
+.mc__dot { color: var(--ink-faint); }
+
+.mc__chev { flex: 0 0 auto; color: var(--ink-faint); font-size: 22px; width: 22px; height: 22px; }
+
+// ---- per-machine stat tiles ----
+.mc__tiles {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
+}
+
+// ---- relative-spend bar ----
+.mc__bar {
+  position: relative; height: 6px; border-radius: var(--r-pill);
+  background: var(--bg-sink); overflow: hidden;
+}
+.mc__bar i {
+  position: absolute; inset: 0 auto 0 0; display: block; height: 100%;
+  border-radius: var(--r-pill);
+  background: linear-gradient(90deg, var(--accent-a), var(--accent-b));
+  transition: width 600ms var(--ease-spring);
+}

@@ -1,0 +1,116 @@
+// ============================================================================
+// Circle person ACTION SHEET — content styles for the kit BottomSheet body.
+// Inherits the rose accent + Strata tokens from the page host cascade.
+// ============================================================================
+
+@use 'sass:list';
+
+:host { display: block; }
+
+$hues: #fb7185, #f0a35a, #a78bfa, #38bdf8, #34d399, #f472b6;
+
+.cs { display: flex; flex-direction: column; gap: 16px; padding: 6px 2px 4px; }
+
+// ---- Header ----
+.cs__head { display: flex; align-items: center; gap: 14px; }
+.cs__avatar-wrap { position: relative; flex: 0 0 auto; width: 60px; height: 60px; --av: #{list.nth($hues, 1)}; }
+@for $i from 1 through 6 {
+  .cs__avatar-wrap[style*='--hue: #{$i - 1}'] { --av: #{list.nth($hues, $i)}; }
+}
+.cs__avatar {
+  width: 60px; height: 60px; border-radius: 50%; object-fit: cover; display: block;
+  border: 2px solid color-mix(in srgb, var(--av) 60%, transparent); background: var(--bg-sink);
+}
+.cs__avatar--init {
+  display: grid; place-items: center;
+  font-family: var(--font-display); font-weight: 600; font-size: 23px; color: #1a0e14;
+  background: linear-gradient(135deg,
+    color-mix(in srgb, var(--av) 92%, #fff),
+    color-mix(in srgb, var(--av) 78%, #000));
+}
+.cs__dot {
+  position: absolute; right: 0; bottom: 2px;
+  width: 16px; height: 16px; border-radius: 50%; border: 3px solid var(--glass);
+  background: var(--ink-faint);
+}
+.cs__dot[data-presence='online'] { background: var(--signal); }
+.cs__dot[data-presence='away'] { background: var(--warn); }
+
+.cs__id { min-width: 0; flex: 1 1 auto; display: flex; flex-direction: column; gap: 4px; }
+.cs__name {
+  display: flex; align-items: center; gap: 8px;
+  font-family: var(--font-display); font-weight: 600; font-size: 21px; letter-spacing: -.02em; color: var(--ink);
+}
+.cs__you {
+  padding: 1px 8px; border-radius: var(--r-pill);
+  background: linear-gradient(135deg, var(--accent-a), var(--accent-b)); color: #1a0e14;
+  font-family: var(--font-ui); font-size: 10px; font-weight: 800;
+}
+.cs__presence { font-size: 12.5px; font-weight: 700; color: var(--ink-dim); }
+.cs__presence[data-presence='online'] { color: var(--signal); }
+
+.cs__chips { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 2px; }
+.cs__chip {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 2px 9px 2px 7px; border-radius: var(--r-pill);
+  font-size: 11px; font-weight: 700; border: 1px solid var(--hairline); color: var(--ink-dim); background: var(--bg-sink);
+}
+.cs__chip mat-icon { font-size: 13px; width: 13px; height: 13px; }
+.cs__chip--contact {
+  color: var(--accent-a); border-color: color-mix(in srgb, var(--accent-a) 30%, transparent);
+  background: color-mix(in srgb, var(--accent-a) 10%, var(--bg-sink));
+}
+.cs__chip--family {
+  color: #38bdf8; border-color: color-mix(in srgb, #38bdf8 28%, transparent);
+  background: color-mix(in srgb, #38bdf8 10%, var(--bg-sink));
+}
+
+.cs__status {
+  display: flex; align-items: flex-start; gap: 7px; margin: 0;
+  padding: 11px 13px; border-radius: var(--r-tile);
+  background: var(--bg-sink); border: 1px solid var(--hairline);
+  font-size: 13.5px; font-weight: 600; font-style: italic; color: var(--ink-dim);
+}
+.cs__status mat-icon { flex: 0 0 auto; font-size: 16px; width: 16px; height: 16px; color: var(--ink-faint); margin-top: 1px; }
+
+// ---- Primary actions ----
+.cs__actions { display: flex; gap: 10px; }
+.cs__act {
+  flex: 1 1 0; display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  min-height: 50px; padding: 0 16px; border-radius: var(--r-pill);
+  border: 1px solid var(--hairline); background: var(--bg-rise); color: var(--ink);
+  font-family: var(--font-ui); font-size: 14.5px; font-weight: 800; cursor: pointer;
+  -webkit-tap-highlight-color: transparent; touch-action: manipulation;
+  transition: transform 120ms var(--ease-out);
+}
+.cs__act:active { transform: scale(.97); }
+.cs__act:disabled { opacity: .55; pointer-events: none; }
+.cs__act:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.cs__act mat-icon { font-size: 20px; width: 20px; height: 20px; }
+.cs__act--primary {
+  border: none; color: #fff; box-shadow: var(--lift-2);
+  background: linear-gradient(135deg, var(--accent-a), var(--accent-b));
+}
+
+// ---- Nudge picker ----
+.cs__nudge { display: flex; flex-direction: column; gap: 9px; }
+.cs__nudge-h {
+  font-size: 11px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-dim);
+}
+.cs__nudge-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
+.cs__nudge-btn {
+  display: inline-flex; align-items: center; gap: 9px; text-align: left;
+  min-height: 50px; padding: 0 13px; border-radius: var(--r-tile);
+  border: 1px solid var(--hairline); background: var(--bg-rise); color: var(--ink);
+  font-family: var(--font-ui); font-size: 13px; font-weight: 700; cursor: pointer;
+  -webkit-tap-highlight-color: transparent; touch-action: manipulation;
+  transition: transform 120ms var(--ease-out), box-shadow 140ms var(--ease-out);
+}
+.cs__nudge-btn:active { transform: scale(.98); box-shadow: var(--press); }
+.cs__nudge-btn:disabled { opacity: .55; pointer-events: none; }
+.cs__nudge-btn:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.cs__nudge-btn mat-icon {
+  flex: 0 0 auto; font-size: 19px; width: 19px; height: 19px; color: var(--accent-a);
+}
+
+.cs__none { margin: 0; padding: 8px 2px; font-size: 13.5px; font-weight: 600; color: var(--ink-faint); text-align: center; }

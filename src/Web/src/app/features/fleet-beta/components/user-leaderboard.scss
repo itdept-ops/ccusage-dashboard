@@ -1,0 +1,72 @@
+// BETA FLEET · UserLeaderboard — ranked accent bars over the page's Strata cascade.
+
+:host { display: block; }
+
+.lb { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 14px; }
+
+.lb__row {
+  display: flex; align-items: stretch; gap: 12px;
+  // Spring-stagger entrance per row.
+  animation: lb-in .5s var(--ease-spring-up) both;
+  animation-delay: calc(var(--i, 0) * 45ms);
+}
+@keyframes lb-in {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: none; }
+}
+
+.lb__rank {
+  flex: 0 0 auto;
+  align-self: center;
+  width: 26px; height: 26px;
+  display: grid; place-items: center;
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--accent-a) 12%, var(--bg-sink));
+  border: 1px solid var(--glass-edge);
+  font-family: var(--font-display); font-variant-numeric: tabular-nums;
+  font-size: 14px; font-weight: 600; color: var(--accent-a);
+}
+
+.lb__body { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+
+.lb__top { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.lb__name {
+  display: inline-flex; align-items: center; gap: 6px; min-width: 0;
+  font-size: 15px; font-weight: 700; color: var(--ink);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.lb__kind { flex: 0 0 auto; font-size: 17px; width: 17px; height: 17px; color: var(--ink-dim); }
+.lb__cost {
+  flex: 0 0 auto;
+  font-family: var(--font-display); font-variant-numeric: tabular-nums;
+  font-size: 18px; font-weight: 600; letter-spacing: -.02em; color: var(--ink);
+}
+
+.lb__bar {
+  position: relative; height: 8px; border-radius: var(--r-pill);
+  background: var(--bg-sink); overflow: hidden;
+}
+.lb__bar i {
+  position: absolute; inset: 0 auto 0 0; display: block; height: 100%;
+  border-radius: var(--r-pill);
+  background: linear-gradient(90deg, var(--accent-a), var(--accent-b));
+  box-shadow: 0 0 12px color-mix(in srgb, var(--accent-a) 50%, transparent);
+  transition: width 640ms var(--ease-spring);
+}
+
+.lb__foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.lb__share {
+  font-size: 12px; font-weight: 700; color: var(--accent-a);
+}
+.lb__nums { display: inline-flex; align-items: center; gap: 10px; }
+.lb__num {
+  font-size: 11px; font-weight: 600; letter-spacing: .02em; color: var(--ink-dim);
+  white-space: nowrap;
+}
+
+.lb__empty {
+  display: flex; flex-direction: column; align-items: center; gap: 8px;
+  padding: 28px 16px; color: var(--ink-faint); text-align: center;
+}
+.lb__empty mat-icon { font-size: 30px; width: 30px; height: 30px; opacity: .7; }
+.lb__empty span { font-size: 13px; font-weight: 600; }

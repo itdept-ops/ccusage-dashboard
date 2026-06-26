@@ -4,7 +4,7 @@ import { MatIconModule } from '@angular/material/icon';
 
 import { AuthService } from '../../core/auth';
 import { BetaPullRefresh } from '../beta-ui';
-import { BETA_EXPERIMENTS, BetaExperiment } from './beta-experiments';
+import { BETA_EXPERIMENTS, BetaExperiment, canSeeExperiment } from './beta-experiments';
 
 /** A launcher tile = the shared experiment entry + the destination surface's OWN signature accent. */
 interface HubTile extends BetaExperiment {
@@ -29,6 +29,13 @@ const SURFACE_ACCENTS: Record<string, { a: string; b: string; desc?: string }> =
   '/beta/family':  { a: '#f0a35a', b: '#fbbf24', desc: 'Your whole household at a glance.' },                 // Family — amber
   '/beta/wrapped': { a: '#a855f7', b: '#7c5cff', desc: 'Your Hub, the highlight reel.' },                     // Wrapped — purple
   '/beta/settings': { a: '#64748b', b: '#94a3b8', desc: 'Your quick toggles, mobile-first.' },               // Settings — slate
+  '/beta/chat':    { a: '#2dd4bf', b: '#0ea5e9', desc: 'Fast, native-feel chat — bubbles, reactions, typing.' }, // Messenger — teal
+  '/beta/ask':     { a: '#818cf8', b: '#6366f1', desc: 'Chat with an AI grounded in your own numbers.' },     // Ask — indigo
+  '/beta/meals':   { a: '#34d399', b: '#a3e635', desc: 'Plan the week, swipe the days, fill the cart.' },     // Meals — green
+  '/beta/people':  { a: '#fb7185', b: '#f43f5e', desc: 'Your circle, online-first — message or nudge in a tap.' }, // People — rose
+  '/beta/fleet':   { a: '#22d3ee', b: '#06b6d4', desc: 'Every machine + reporter: live pulses, spend, board.' },  // Fleet — cyan
+  '/beta/trophies': { a: '#fbbf24', b: '#f59e0b', desc: 'Your achievements wall — earned badges gleam.' },    // Trophies — gold
+  '/beta/automations': { a: '#fb923c', b: '#ef4444', desc: 'If-this-then-that rules as WHEN → THEN cards.' },  // Automations — orange
 };
 
 /**
@@ -120,7 +127,7 @@ export class BetaHubPage {
   readonly tiles = computed<HubTile[]>(() => {
     this.auth.permissions(); // re-run when permissions change
     return BETA_EXPERIMENTS
-      .filter(x => !x.perm || this.auth.hasPermission(x.perm))
+      .filter(x => canSeeExperiment(x, p => this.auth.hasPermission(p)))
       .map(x => {
         const sig = SURFACE_ACCENTS[x.route];
         return {

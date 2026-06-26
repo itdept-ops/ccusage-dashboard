@@ -363,6 +363,19 @@ body {
   background-color: var(--tech-bg);
 }
 
+/* Immersive (beta + tracker-beta) routes provide their OWN single inner scroll region (the
+   `.content--immersive` frame in app.scss sizes the viewport under the slim bar; each page scrolls inside
+   it). The DOCUMENT must therefore never scroll on these routes. `App` toggles `.immersive-locked` on
+   <html> while immersive; locking html+body overflow here guarantees EXACTLY ONE scrollbar (the page's
+   inner one) — no sub-pixel rounding between the slim bar and the frame, and no stale cached shell, can
+   ever leak a second (document) scrollbar alongside it. Removed the instant we leave an immersive route. */
+html.immersive-locked,
+html.immersive-locked body {
+  overflow: hidden;
+  /* Pin to the dynamic viewport so the frame math (100dvh − bar) and the lock agree exactly. */
+  height: 100dvh;
+}
+
 /* Techy atmosphere: two corner mesh glows + a faint 32px grid. Painted on a FIXED, full-viewport layer
    (a real positioned element — NOT `background-attachment: fixed`, which iOS Safari mis-renders, and which
    only ever covered <body>'s box ≈ one viewport, so scrolling a tall/gated page fell through to the

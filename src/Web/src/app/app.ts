@@ -35,7 +35,7 @@ import { SwUpdateService } from './core/sw-update';
 import { Presence, SyncStatus, PERM, QuickAddResult } from './core/models';
 import { timeAgo, humanizeInterval } from './shared/format';
 import { NotificationBell } from './features/notifications/notification-bell';
-import { BETA_EXPERIMENTS } from './features/beta/beta-experiments';
+import { BETA_EXPERIMENTS, BetaExperiment, canSeeExperiment } from './features/beta/beta-experiments';
 
 /** A teammate online, enriched with the initials + "you" flag the indicator needs to render. */
 interface OnlineUser extends Presence {
@@ -230,6 +230,9 @@ export class App implements AfterViewInit {
    * is an ADDITIONAL gate layered on the beta.access trigger gate. Exposed for the nav template.
    */
   readonly betaExperiments = BETA_EXPERIMENTS;
+  /** Nav-template predicate: may the caller SEE this beta entry (its `perm` + any-of `anyPerm` gate). */
+  readonly canSeeBeta = (x: BetaExperiment): boolean =>
+    canSeeExperiment(x, p => this.auth.hasPermission(p));
   readonly adminGroupActive = computed(() =>
     this.pathInGroup(['/users', '/admin/locations', '/activity', '/ai-usage', '/settings']),
   );
@@ -406,6 +409,10 @@ export class App implements AfterViewInit {
     { route: '/beta/chat', label: 'Beta · Chat', perms: [PERM.betaAccess] },
     { route: '/beta/ask', label: 'Beta · Ask', perms: [PERM.betaAccess] },
     { route: '/beta/meals', label: 'Beta · Meals', perms: [PERM.betaAccess] },
+    { route: '/beta/people', label: 'Beta · People', perms: [PERM.betaAccess] },
+    { route: '/beta/fleet', label: 'Beta · Fleet', perms: [PERM.betaAccess] },
+    { route: '/beta/trophies', label: 'Beta · Trophies', perms: [PERM.betaAccess] },
+    { route: '/beta/automations', label: 'Beta · Automations', perms: [PERM.betaAccess] },
     { route: '/family', label: 'Family', perms: [PERM.familyUse] },
     { route: '/chat', label: 'Chat', perms: [PERM.chatRead] },
     { route: '/people', label: 'People', perms: [PERM.chatRead, PERM.familyUse] },
@@ -556,6 +563,16 @@ export class App implements AfterViewInit {
         this.lastRevokeSeq = seq;
         this.onForcedLogout();
       }
+    });
+
+    // Immersive (beta + tracker-beta) routes own a SINGLE inner scroll region (.content--immersive frames
+    // the viewport under the slim bar; the page provides its own scroller inside). Hard-lock the DOCUMENT
+    // scroll while immersive so no sub-pixel/device rounding of the slim-bar-vs-frame height — or a stale
+    // cached shell — can ever leak a SECOND (document) scrollbar alongside the inner one. Toggling a class
+    // on <html> (rather than inline styles) keeps the lock declarative and lets the global stylesheet own
+    // the rule; it's removed the instant we navigate back to a normal (document-scrolling) page.
+    effect(() => {
+      document.documentElement.classList.toggle('immersive-locked', this.immersiveLayout());
     });
   }
 

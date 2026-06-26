@@ -1,0 +1,136 @@
+// ============================================================================
+// Circle person ROW — a rich roster row, themed off the page's rose accent host.
+// Reads --accent-a/--accent-b + the Strata tokens from the cascade; --hue is a
+// per-person index set inline for a stable avatar fallback color.
+// ============================================================================
+
+@use 'sass:list';
+
+:host { display: block; }
+
+// The six avatar-fallback hues (warm social palette; presence dot is separate).
+$hues: #fb7185, #f0a35a, #a78bfa, #38bdf8, #34d399, #f472b6;
+
+.cr {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  width: 100%;
+  text-align: left;
+  padding: 12px 12px;
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-tile);
+  background: var(--bg-rise);
+  box-shadow: var(--lift-1);
+  color: var(--ink);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  transition: transform 120ms var(--ease-spring), box-shadow 160ms var(--ease-out);
+}
+.cr:active { transform: scale(.985); box-shadow: var(--press); }
+.cr:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+
+// Online rows get a faint accent left-edge so the eye lands on who's around.
+.cr[data-presence='online'] {
+  border-color: color-mix(in srgb, var(--accent-a) 30%, var(--hairline));
+  box-shadow: var(--lift-1), inset 3px 0 0 -1px color-mix(in srgb, var(--accent-a) 70%, transparent);
+}
+.cr--self {
+  background: color-mix(in srgb, var(--accent-a) 8%, var(--bg-rise));
+}
+
+// ---- Avatar ----
+.cr__avatar-wrap { position: relative; flex: 0 0 auto; width: 48px; height: 48px; }
+.cr__avatar {
+  width: 48px; height: 48px; border-radius: 50%; object-fit: cover; display: block;
+  border: 2px solid color-mix(in srgb, var(--av) 60%, transparent);
+  background: var(--bg-sink);
+}
+.cr__avatar--init {
+  display: grid; place-items: center;
+  font-family: var(--font-display); font-weight: 600; font-size: 18px; letter-spacing: -.02em;
+  color: #1a0e14;
+  background: linear-gradient(135deg,
+    color-mix(in srgb, var(--av) 92%, #fff),
+    color-mix(in srgb, var(--av) 78%, #000));
+}
+// Resolve --av from the per-person --hue index.
+.cr__avatar-wrap { --av: #{list.nth($hues, 1)}; }
+@for $i from 1 through 6 {
+  .cr__avatar-wrap[style*='--hue: #{$i - 1}'] { --av: #{list.nth($hues, $i)}; }
+}
+
+.cr__dot {
+  position: absolute; right: -1px; bottom: -1px;
+  width: 14px; height: 14px; border-radius: 50%;
+  border: 3px solid var(--bg-rise);
+  background: var(--ink-faint);
+}
+.cr__dot[data-presence='online'] {
+  background: var(--signal);
+  box-shadow: 0 0 0 0 color-mix(in srgb, var(--signal) 70%, transparent);
+  animation: cr-pulse 2.2s var(--ease-out) infinite;
+}
+.cr__dot[data-presence='away'] { background: var(--warn); }
+@keyframes cr-pulse {
+  0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--signal) 60%, transparent); }
+  70% { box-shadow: 0 0 0 7px color-mix(in srgb, var(--signal) 0%, transparent); }
+  100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--signal) 0%, transparent); }
+}
+@media (prefers-reduced-motion: reduce) { .cr__dot { animation: none; } }
+
+// ---- Body ----
+.cr__body { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.cr__top { display: flex; align-items: center; gap: 7px; min-width: 0; }
+.cr__name {
+  font-size: 15.5px; font-weight: 800; letter-spacing: -.01em; color: var(--ink);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.cr__you {
+  flex: 0 0 auto; padding: 1px 7px; border-radius: var(--r-pill);
+  background: linear-gradient(135deg, var(--accent-a), var(--accent-b)); color: #1a0e14;
+  font-size: 10px; font-weight: 800; letter-spacing: .02em;
+}
+
+.cr__meta { display: flex; align-items: center; gap: 10px; min-width: 0; flex-wrap: wrap; }
+.cr__presence {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 12px; font-weight: 700; color: var(--ink-dim);
+}
+.cr__presence[data-presence='online'] { color: var(--signal); }
+.cr__pdot { width: 6px; height: 6px; border-radius: 50%; background: var(--ink-faint); }
+.cr__pdot[data-presence='online'] { background: var(--signal); }
+.cr__pdot[data-presence='away'] { background: var(--warn); }
+.cr__city {
+  display: inline-flex; align-items: center; gap: 3px;
+  font-size: 12px; font-weight: 600; color: var(--ink-faint);
+  min-width: 0;
+}
+.cr__city mat-icon { font-size: 14px; width: 14px; height: 14px; }
+
+.cr__status {
+  font-size: 12.5px; font-weight: 600; font-style: italic; color: var(--ink-faint);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%;
+}
+
+.cr__chips { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 1px; }
+.cr__chip {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 2px 9px 2px 7px; border-radius: var(--r-pill);
+  font-size: 11px; font-weight: 700; letter-spacing: .01em;
+  border: 1px solid var(--hairline); color: var(--ink-dim); background: var(--bg-sink);
+}
+.cr__chip mat-icon { font-size: 13px; width: 13px; height: 13px; }
+.cr__chip--contact {
+  color: var(--accent-a);
+  border-color: color-mix(in srgb, var(--accent-a) 30%, transparent);
+  background: color-mix(in srgb, var(--accent-a) 10%, var(--bg-sink));
+}
+.cr__chip--family {
+  color: #38bdf8;
+  border-color: color-mix(in srgb, #38bdf8 28%, transparent);
+  background: color-mix(in srgb, #38bdf8 10%, var(--bg-sink));
+}
+
+.cr__chev { flex: 0 0 auto; color: var(--ink-faint); font-size: 22px; width: 22px; height: 22px; align-self: center; }

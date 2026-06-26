@@ -1,0 +1,106 @@
+// BETA FLEET · MachineSheet — detail content inside the kit BottomSheet. Inherits the Strata cascade
+// off the host page; the sheet primitive owns the panel/glass/scrim chrome.
+
+:host { display: contents; }
+
+.ms { display: flex; flex-direction: column; gap: 18px; padding: 6px 2px 8px; }
+
+// ---- hero ----
+.ms__hero { display: flex; align-items: center; gap: 14px; }
+.ms__ico {
+  position: relative; flex: 0 0 auto;
+  display: grid; place-items: center;
+  width: 54px; height: 54px; border-radius: 16px;
+  background: color-mix(in srgb, var(--accent-a) 16%, var(--bg-sink));
+  border: 1px solid var(--glass-edge);
+  color: var(--accent-a);
+}
+.ms__ico mat-icon { font-size: 28px; width: 28px; height: 28px; }
+.ms__pulse {
+  position: absolute; top: -1px; right: -1px;
+  width: 13px; height: 13px; border-radius: 50%;
+  background: var(--signal); border: 2px solid var(--bg-rise);
+}
+.ms__pulse::after {
+  content: ''; position: absolute; inset: -3px;
+  border-radius: 50%; border: 2px solid var(--signal);
+  animation: ms-pulse 1.8s var(--ease-out) infinite;
+}
+@keyframes ms-pulse {
+  0% { transform: scale(.7); opacity: .8; }
+  100% { transform: scale(1.8); opacity: 0; }
+}
+.ms__id { min-width: 0; }
+.ms__name {
+  margin: 0; font-family: var(--font-display); font-weight: 600; font-size: 24px;
+  letter-spacing: -.02em; color: var(--ink);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.ms__state {
+  margin: 2px 0 0; display: flex; align-items: center; gap: 6px;
+  font-size: 13px; font-weight: 600; color: var(--ink-dim);
+}
+.ms__live { color: var(--signal); font-weight: 800; }
+.ms__sep { color: var(--ink-faint); }
+
+// ---- tiles ----
+.ms__tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+
+// ---- sections ----
+.ms__sec { display: flex; flex-direction: column; gap: 10px; }
+.ms__sec-h {
+  display: inline-flex; align-items: center; gap: 8px;
+  font-size: 11px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase;
+  color: var(--ink-dim);
+}
+.ms__geo {
+  padding: 1px 7px; border-radius: var(--r-pill);
+  background: var(--bg-sink); border: 1px solid var(--hairline);
+  color: var(--ink-dim); font-size: 10px; font-weight: 800; letter-spacing: .04em;
+}
+.ms__geo.is-gps { color: var(--signal); border-color: color-mix(in srgb, var(--signal) 40%, transparent); }
+
+// chips
+.ms__chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.ms__chip {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 6px 11px; border-radius: var(--r-pill);
+  background: var(--bg-rise); border: 1px solid var(--hairline);
+  font-size: 13px; font-weight: 600; color: var(--ink);
+}
+.ms__chip mat-icon { font-size: 16px; width: 16px; height: 16px; color: var(--accent-a); }
+.ms__none { font-size: 13px; color: var(--ink-faint); }
+
+// spec grid
+.ms__grid { margin: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.ms__cell {
+  display: flex; flex-direction: column; gap: 3px;
+  padding: 10px 12px; border-radius: var(--r-tile);
+  background: var(--bg-rise); border: 1px solid var(--hairline);
+  min-width: 0;
+}
+.ms__cell dt {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 11px; font-weight: 700; letter-spacing: .02em; color: var(--ink-dim);
+}
+.ms__cell dt mat-icon { font-size: 15px; width: 15px; height: 15px; }
+.ms__cell dd {
+  margin: 0; font-size: 14px; font-weight: 600; color: var(--ink);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.ms__cell dd.mono { font-variant-numeric: tabular-nums; }
+
+// location
+.ms__loc { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.ms__place { font-size: 14px; font-weight: 600; color: var(--ink); }
+.ms__map {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 7px 13px; min-height: 38px; border-radius: var(--r-pill);
+  background: color-mix(in srgb, var(--accent-a) 14%, var(--bg-sink));
+  border: 1px solid color-mix(in srgb, var(--accent-a) 30%, transparent);
+  color: var(--accent-a); font-size: 13px; font-weight: 700; text-decoration: none;
+  -webkit-tap-highlight-color: transparent; touch-action: manipulation;
+}
+.ms__map:active { transform: scale(.96); }
+.ms__map:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.ms__map mat-icon { font-size: 16px; width: 16px; height: 16px; }

@@ -248,7 +248,7 @@
             <span>Beta home</span>
           </a>
           @for (x of betaExperiments; track x.route) {
-            @if (!x.perm || auth.hasPermission(x.perm)) {
+            @if (canSeeBeta(x)) {
               <a mat-menu-item class="nav-menu__item" [routerLink]="x.route" routerLinkActive="active">
                 <mat-icon class="nav-menu__icon" aria-hidden="true">{{ x.icon }}</mat-icon>
                 <span>{{ x.title }}</span>
@@ -538,7 +538,7 @@
       <a class="mobile-nav__item" routerLink="/beta" routerLinkActive="active"
          [routerLinkActiveOptions]="{ exact: true }" (click)="closeMobileNav()">Beta home</a>
       @for (x of betaExperiments; track x.route) {
-        @if (!x.perm || auth.hasPermission(x.perm)) {
+        @if (canSeeBeta(x)) {
           <a class="mobile-nav__item" [routerLink]="x.route" routerLinkActive="active"
              (click)="closeMobileNav()">{{ x.title }}</a>
         }

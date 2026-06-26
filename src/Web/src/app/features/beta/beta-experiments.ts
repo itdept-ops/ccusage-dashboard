@@ -15,6 +15,24 @@ export interface BetaExperiment {
   readonly icon: string;
   /** Optional ADDITIONAL permission gate (on top of beta.access) — the entry only renders if held. */
   readonly perm?: string;
+  /**
+   * Optional ADDITIONAL any-of permission gate (on top of beta.access) — the entry renders if the caller
+   * holds AT LEAST ONE of these. Mirrors the route's `anyPermissionGuard(...)` for surfaces whose live
+   * twin aggregates more than one feature (e.g. People = chat.read ∪ family.use, Fleet = fleet.view ∪
+   * reporter.manage), so a caller holding only one of them still discovers the card.
+   */
+  readonly anyPerm?: readonly string[];
+}
+
+/**
+ * Whether the caller may SEE this experiment in the hub grid / nav dropdown — its `perm` (if any) AND its
+ * any-of `anyPerm` (if any) must both pass. `has` is a `hasPermission`-style probe. `beta.access` itself is
+ * checked separately (the Beta dropdown trigger + the route guard), so it is not re-tested here.
+ */
+export function canSeeExperiment(x: BetaExperiment, has: (perm: string) => boolean): boolean {
+  if (x.perm && !has(x.perm)) return false;
+  if (x.anyPerm && !x.anyPerm.some(has)) return false;
+  return true;
 }
 
 export const BETA_EXPERIMENTS: readonly BetaExperiment[] = [
@@ -98,5 +116,41 @@ export const BETA_EXPERIMENTS: readonly BetaExperiment[] = [
     // Gated on `meals.use` (the feature); the route additionally STACKS beta.access + meals.use, so a
     // direct nav re-checks both. Mirrors the live /meal-planner over the same household meal/grocery data.
     perm: 'meals.use',
+  },
+  {
+    title: 'People',
+    blurb: 'Your circle, online-first — contacts + household, message or nudge in a tap',
+    route: '/beta/people',
+    icon: 'groups',
+    // Any-of chat.read | family.use — mirrors the live /people aggregation gate; the route STACKS
+    // beta.access + that any-of, so a chat-only OR family-only caller still discovers + can open it.
+    anyPerm: ['chat.read', 'family.use'],
+  },
+  {
+    title: 'Fleet',
+    blurb: 'Every machine + reporter — live pulses, per-machine spend, and a top-user board',
+    route: '/beta/fleet',
+    icon: 'dns',
+    // Any-of fleet.view | reporter.manage — mirrors the live /fleet gate; the route STACKS beta.access +
+    // that any-of, so a caller holding only one of them still sees the card.
+    anyPerm: ['fleet.view', 'reporter.manage'],
+  },
+  {
+    title: 'Trophies',
+    blurb: 'Your achievements wall — earned badges gleam, locked ones tease what\'s next',
+    route: '/beta/trophies',
+    icon: 'emoji_events',
+    // Gated on `tracker.self`; the route STACKS beta.access + tracker.self. The page shows only the
+    // caller's OWN milestones (name + userId, never an email).
+    perm: 'tracker.self',
+  },
+  {
+    title: 'Automations',
+    blurb: 'Your if-this-then-that rules as WHEN → THEN cards — toggle, swipe, add on the go',
+    route: '/beta/automations',
+    icon: 'bolt',
+    // Gated on `automations.use`; the route STACKS beta.access + automations.use. Mirrors the live
+    // /automations page over the caller's own rules.
+    perm: 'automations.use',
   },
 ];

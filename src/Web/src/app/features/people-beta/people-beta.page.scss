@@ -1,0 +1,248 @@
+// ============================================================================
+// People "Circle" — built on the shared beta-ui "Strata" foundation.
+//
+// One line adopts the whole Strata token contract (layered bg, glass, ink scale, radii, the lift-1/2/3
+// depth system, spring/bounce easing, blur cap, env() safe-area, the a11y killswitches); then the
+// CIRCLE page OVERRIDES the per-page accent contract with its OWN signature gradient — a warm ROSE
+// (rose → red), the "social / circle" identity. Every kit component (pull-refresh ring, segmented
+// control, swipe rows, bottom sheet, skeleton, toaster) + every subcomponent reads --accent-a/--accent-b
+// off this :host cascade, so this single override re-skins the whole screen.
+//
+// ISOLATED + gated by beta.access + any-of chat.read|family.use: nothing here touches the global
+// --tech-* tokens or the flagship tracker-beta. The kit partial is the only import; we consume the kit,
+// never modify it.
+// ============================================================================
+
+@use 'sass:list';
+@use '../beta-ui/beta-kit' as kit;
+
+:host {
+  @include kit.beta-host;          // the whole Strata token contract on :host
+
+  // ---- CIRCLE'S SIGNATURE ACCENT: rose → red (the per-page contract override) ----
+  --accent-a: #fb7185;             // signature rose (start)
+  --accent-b: #f43f5e;             // signature red  (end)
+
+  // A faint rose wash behind the whole column (still within the kit's dark contract).
+  background: radial-gradient(120% 80% at 50% -8%, #1c0e14 0%, var(--bg-base) 58%);
+
+  height: 100%; // fill the immersive shell frame; the pull-refresh owns the scroll
+}
+
+@include kit.beta-springs;          // @supports linear() spring upgrade (top-level, once)
+@include kit.beta-a11y;             // reduced-motion + reduced-transparency/contrast killswitches (once)
+
+// ============================================================================
+// SHELL — the kit pull-to-refresh wrapper IS the scroll container.
+// ============================================================================
+
+.pl-ptr { display: block; height: 100%; }
+
+.pl-scroll {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-height: 100%;
+  padding-top: calc(var(--safe-top) + 8px);
+  padding-bottom: calc(var(--safe-bottom) + 28px);
+  padding-inline: var(--gutter) var(--gutter-r);
+}
+
+// ============================================================================
+// IMMERSIVE PAGE HEADER — who's-online hero count + overlapping avatars + filter.
+// ============================================================================
+
+.hh {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 6px 2px 2px;
+  isolation: isolate;
+}
+
+.hh__bloom {
+  position: absolute;
+  top: -40px; left: -30px; right: 25%;
+  height: 170px; z-index: -1; pointer-events: none;
+  background: radial-gradient(130px 96px at 28% 30%,
+    color-mix(in srgb, var(--accent-a) 48%, transparent), transparent 70%);
+  filter: blur(20px);
+  opacity: .9;
+}
+
+.hh__row { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.hh__text { min-width: 0; }
+.hh__eyebrow {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 12px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase;
+  color: var(--ink-dim); margin-bottom: 4px;
+}
+.hh__spark {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: linear-gradient(135deg, var(--accent-a), var(--accent-b));
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent-a) 20%, transparent);
+}
+.hh__title {
+  margin: 0; font-family: var(--font-display); font-weight: 600; font-size: 34px; line-height: 1.02;
+  letter-spacing: -.02em; color: var(--ink);
+}
+
+// Hero "who's online" count chip.
+.hh__count {
+  flex: 0 0 auto; display: flex; flex-direction: column; align-items: center; gap: 0;
+  min-width: 64px; padding: 8px 14px; border-radius: var(--r-card);
+  background: var(--glass);
+  backdrop-filter: blur(var(--blur-glass)) saturate(1.4);
+  -webkit-backdrop-filter: blur(var(--blur-glass)) saturate(1.4);
+  border: 1px solid color-mix(in srgb, var(--accent-a) 24%, var(--glass-edge));
+  box-shadow: var(--lift-2);
+}
+.hh__count-n {
+  font-family: var(--font-display); font-variant-numeric: tabular-nums;
+  font-size: 30px; font-weight: 600; letter-spacing: -.03em; line-height: 1;
+  background: linear-gradient(135deg, var(--accent-a), var(--accent-b));
+  -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; color: var(--accent-a);
+}
+.hh__count-l {
+  font-size: 10px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-dim);
+}
+.hh__count--zero .hh__count-n {
+  background: none; -webkit-text-fill-color: var(--ink-faint); color: var(--ink-faint);
+}
+
+// Hero stack: overlapping live avatars + a one-line glance.
+.hh__hero { display: flex; align-items: center; gap: 12px; min-height: 8px; }
+.hh__stack { display: flex; align-items: center; flex: 0 0 auto; }
+$hues: #fb7185, #f0a35a, #a78bfa, #38bdf8, #34d399, #f472b6;
+.hh__face {
+  --av: #{list.nth($hues, 1)};
+  position: relative;
+  width: 38px; height: 38px; border-radius: 50%;
+  border: 2px solid var(--bg-base);
+  overflow: hidden; display: grid; place-items: center;
+  background: var(--bg-sink);
+  box-shadow: var(--lift-1);
+  animation: hh-pop 460ms var(--ease-spring-up) both;
+  animation-delay: calc(var(--i, 0) * 60ms);
+}
+// First face has no negative margin; the rest overlap.
+.hh__face:first-child { margin-left: 0; }
+.hh__face:not(:first-child) { margin-left: -12px; }
+@for $i from 1 through 6 {
+  .hh__face[style*='--hue: #{$i - 1}'] { --av: #{list.nth($hues, $i)}; }
+}
+.hh__face img { width: 100%; height: 100%; object-fit: cover; }
+.hh__face-init {
+  font-family: var(--font-display); font-weight: 600; font-size: 15px; color: #1a0e14;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--av) 92%, #fff), color-mix(in srgb, var(--av) 78%, #000));
+  width: 100%; height: 100%; display: grid; place-items: center;
+}
+.hh__face--more {
+  background: var(--bg-rise);
+  font-family: var(--font-display); font-weight: 600; font-size: 13px; color: var(--ink-dim);
+}
+@keyframes hh-pop {
+  from { opacity: 0; transform: scale(.6); }
+  to { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) { .hh__face { animation: none; } }
+
+.hh__hero-msg {
+  margin: 0; min-width: 0; font-size: 13px; font-weight: 600; color: var(--ink-dim);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.hh__hero-msg--quiet {
+  display: inline-flex; align-items: center; gap: 7px; color: var(--ink-faint); font-style: italic;
+}
+.hh__hero-msg--quiet mat-icon { font-size: 17px; width: 17px; height: 17px; }
+
+.hh__seg { display: block; }
+
+// ============================================================================
+// LOADING SKELETONS.
+// ============================================================================
+.pl-skel { display: flex; flex-direction: column; gap: 10px; }
+.pl-skel-row {
+  display: flex; align-items: center; gap: 13px;
+  padding: 12px; border-radius: var(--r-tile);
+  background: var(--bg-rise); border: 1px solid var(--hairline);
+}
+.pl-skel-lines { flex: 1 1 auto; display: flex; flex-direction: column; gap: 7px; }
+
+// ============================================================================
+// STATE (empty / error).
+// ============================================================================
+.pl-state {
+  display: flex; flex-direction: column; align-items: center; text-align: center; gap: 13px;
+  padding: 40px 20px; border-radius: var(--r-card);
+  background: var(--bg-rise); border: 1px dashed var(--hairline);
+  margin-top: 4px;
+}
+.pl-state-ic {
+  display: grid; place-items: center; width: 60px; height: 60px; border-radius: 19px;
+  background: color-mix(in srgb, var(--accent-a) 12%, var(--bg-sink)); color: var(--accent-a);
+}
+.pl-state-ic mat-icon { font-size: 30px; width: 30px; height: 30px; }
+.pl-state-msg { margin: 0; font-size: 14.5px; font-weight: 600; color: var(--ink-dim); max-width: 30ch; }
+.pl-state-btn {
+  display: inline-flex; align-items: center; gap: 7px;
+  min-height: 46px; padding: 0 20px; border: none; border-radius: var(--r-pill);
+  background: linear-gradient(135deg, var(--accent-a), var(--accent-b)); color: #fff;
+  font-family: var(--font-ui); font-size: 14px; font-weight: 800; cursor: pointer; box-shadow: var(--lift-2);
+  -webkit-tap-highlight-color: transparent; touch-action: manipulation;
+  transition: transform 120ms var(--ease-out);
+}
+.pl-state-btn:active { transform: scale(.97); }
+.pl-state-btn:focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; }
+.pl-state-btn mat-icon { font-size: 19px; width: 19px; height: 19px; }
+
+// ============================================================================
+// ROSTER GROUPS (Online now / Everyone) + rows.
+// ============================================================================
+.pl-group { display: flex; flex-direction: column; gap: 10px; }
+.pl-group-h { display: flex; align-items: center; gap: 8px; padding: 0 4px; }
+.pl-group-t {
+  margin: 0; font-size: 13px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; color: var(--ink-dim);
+}
+.pl-group-c {
+  display: inline-grid; place-items: center; min-width: 22px; height: 20px; padding: 0 6px;
+  border-radius: var(--r-pill); background: var(--bg-sink); border: 1px solid var(--hairline);
+  font-family: var(--font-display); font-variant-numeric: tabular-nums; font-size: 12px; font-weight: 600; color: var(--ink-dim);
+}
+.pl-group-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--ink-faint); }
+.pl-group-pulse {
+  width: 9px; height: 9px; border-radius: 50%; background: var(--signal);
+  box-shadow: 0 0 0 0 color-mix(in srgb, var(--signal) 60%, transparent);
+  animation: pl-pulse 2.2s var(--ease-out) infinite;
+}
+@keyframes pl-pulse {
+  0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--signal) 55%, transparent); }
+  70% { box-shadow: 0 0 0 6px color-mix(in srgb, var(--signal) 0%, transparent); }
+  100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--signal) 0%, transparent); }
+}
+@media (prefers-reduced-motion: reduce) { .pl-group-pulse { animation: none; } }
+
+.pl-rows { display: flex; flex-direction: column; gap: 10px; }
+
+// Each row springs in on a per-index delay (capped so a long list doesn't cascade forever).
+.pl-row-in {
+  animation: pl-rise 460ms var(--ease-spring-up) both;
+  animation-delay: calc(min(var(--i, 0), 12) * 45ms);
+  will-change: transform, opacity;
+}
+@keyframes pl-rise {
+  from { opacity: 0; transform: translateY(14px) scale(.985); }
+  to   { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) { .pl-row-in { animation: none; } }
+
+// Own visible focus ring (tracks the page accent via --focus).
+:host ::ng-deep :focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+  border-radius: 8px;
+}
+
+// No 390px overflow: everything is fluid by construction.
+:host, .pl-scroll { max-width: 100vw; }

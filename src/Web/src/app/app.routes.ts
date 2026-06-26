@@ -249,6 +249,34 @@ export const routes: Routes = [
     loadChildren: () => import('./features/meals-beta/meals-beta.routes').then(m => m.MEALS_BETA_ROUTES),
   },
   {
+    // People "Circle" — the mobile-first social roster over the SAME GET /api/people aggregation as the live
+    // /people page. Lazy children STACK both guards (beta.access + any-of chat.read|family.use). Placed before
+    // the `beta` hub route so the more-specific `beta/people` matches first. No live page is touched.
+    path: 'beta/people',
+    loadChildren: () => import('./features/people-beta/people-beta.routes').then(m => m.PEOPLE_BETA_ROUTES),
+  },
+  {
+    // Fleet — the mobile-first machines + reporters view over the SAME Api.fleet rollup as the live /fleet page.
+    // Lazy children STACK both guards (beta.access + any-of fleet.view|reporter.manage). Placed before the `beta`
+    // hub route so the more-specific `beta/fleet` matches first. No live page is touched.
+    path: 'beta/fleet',
+    loadChildren: () => import('./features/fleet-beta/fleet-beta.routes').then(m => m.FLEET_BETA_ROUTES),
+  },
+  {
+    // Trophies — the mobile-first achievements wall over the SAME Api.trophies() data as the live /trophies page.
+    // Lazy children STACK both guards (beta.access + tracker.self). Placed before the `beta` hub route so the
+    // more-specific `beta/trophies` matches first. No live page is touched.
+    path: 'beta/trophies',
+    loadChildren: () => import('./features/trophies-beta/trophies-beta.routes').then(m => m.TROPHIES_BETA_ROUTES),
+  },
+  {
+    // Automations "Relay" — the mobile-first if-this-then-that rules screen over the SAME rules endpoints as the
+    // live /automations page. Lazy children STACK both guards (beta.access + automations.use). Placed before the
+    // `beta` hub route so the more-specific `beta/automations` matches first. No live page is touched.
+    path: 'beta/automations',
+    loadChildren: () => import('./features/automations-beta/automations-beta.routes').then(m => m.AUTOMATIONS_BETA_ROUTES),
+  },
+  {
     // Beta hub — a permission-gated index of experimental surfaces. Purely additive: lives in the normal
     // app shell, gated by beta.access; each experiment card inside is further gated by its own feature perm.
     path: 'beta',
