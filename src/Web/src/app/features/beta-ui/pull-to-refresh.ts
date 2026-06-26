@@ -58,6 +58,10 @@ import {
       display: flex; align-items: center; justify-content: center;
       overflow: hidden; pointer-events: none;
       padding-top: var(--safe-top, 0px);
+      /* Ease the reveal back instead of snapping 1:1 to the released pull. While
+         dragging the height/opacity are driven live (no perceptible lag at this
+         duration); on release they glide to 0. Collapsed under reduced-motion below. */
+      transition: height 220ms var(--ease-out), opacity 220ms var(--ease-out);
     }
     .ptr-ring { width: 28px; height: 28px; display: block; }
     .ptr-track { stroke: var(--hairline); }
@@ -69,6 +73,7 @@ import {
       overscroll-behavior-y: contain; -webkit-overflow-scrolling: touch;
     }
     @media (prefers-reduced-motion: reduce) {
+      .ptr-indicator { transition: none; }
       .ptr-indicator.spinning .ptr-ring { animation: none; }
     }
   `],

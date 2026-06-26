@@ -98,6 +98,21 @@ $accents: (
   --accent-a: #7c5cff;
   --accent-b: #3b82f6;
 
+  // Readable INK for text/icons sitting ON the accent gradient. WHITE fails WCAG AA on
+  // several of the lighter accent stops (amber/tan/sky); a near-black ink clears 4.5:1 on
+  // every accent pair in the map. Kit primitives that paint text/icons on the gradient
+  // (fab label, toast action, active segment label, swipe action) use var(--ink-on-accent).
+  // A page may override it per-accent if it ships a dark gradient that needs white instead.
+  --ink-on-accent: #0c0d12;
+
+  // ---- LAYOUT RHYTHM (shared page-frame tokens; pages may override per-page) ----
+  --content-max: 640px;     // max readable column width for a centered page body
+  --stack-gap: 16px;        // the default vertical gap between stacked sections
+  --title-xl: 34px;         // hero / screen title
+  --title-lg: 30px;         // section / card title
+  // Bottom clearance a scroll region reserves so a fixed FAB never covers the last row.
+  --fab-clear: calc(var(--safe-bottom, 0px) + 92px);
+
   // Status hues (shared, not per-page): success green + over-goal warm amber (never red),
   // plus a focus ring that resolves to the page accent so the ring matches the brand.
   --signal: #34d399;            // goal-hit / success green
@@ -319,5 +334,48 @@ $accents: (
     outline: 2px solid var(--focus);
     outline-offset: 2px;
     border-radius: 6px;
+  }
+}
+
+
+// ============================================================================
+// beta-focus — the ONE canonical focus ring for a page.
+// `@include kit.beta-focus;` ONCE at the SCSS root of a page, replacing any
+// hand-rolled :focus-visible block. Emits a single accent-tracking ring that
+// pierces emulated encapsulation (::ng-deep) so it also lands on kit primitives'
+// internal focusable elements. The ring tracks --focus (= the page accent).
+// ============================================================================
+@mixin beta-focus {
+  :host ::ng-deep :focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 2px;
+    border-radius: 8px;
+  }
+}
+
+
+// ============================================================================
+// tap44 — guarantee a >=44px touch target WITHOUT changing the visual size.
+// `@include kit.tap44;` INSIDE a chip / pill / small-button selector. For a
+// normal small control it simply floors min-height/min-width to 44px; the visual
+// box (padding/background) is unchanged because the control already centers its
+// content. For a TINY dot/handle that must stay visually small, the floor would
+// distort it — pass `$pseudo: true` to instead lay a centered 44px ::before
+// hit-area over the control (the control needs position:relative;).
+// ============================================================================
+@mixin tap44($pseudo: false) {
+  @if $pseudo {
+    position: relative;
+    &::before {
+      content: '';
+      position: absolute;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      width: 44px; height: 44px;
+      // purely a hit-area; never paints.
+    }
+  } @else {
+    min-height: 44px;
+    min-width: 44px;
   }
 }

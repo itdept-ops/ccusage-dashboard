@@ -92,9 +92,11 @@ const EMPTY_FILTER: UsageFilter = {
           </div>
 
           <!-- Range pills. -->
-          <div class="hh__pills" role="group" aria-label="Date range">
+          <div class="hh__pills" role="radiogroup" aria-label="Date range">
             @for (p of presets; track p.key) {
-              <button type="button" class="pill" [class.pill--on]="activePreset() === p.key"
+              <button type="button" class="pill" role="radio"
+                      [class.pill--on]="activePreset() === p.key"
+                      [attr.aria-checked]="activePreset() === p.key"
                       (click)="setDatePreset(p.key)">{{ p.label }}</button>
             }
           </div>

@@ -155,7 +155,7 @@ export class ToastController {
       flex: 0 0 auto; padding: 6px 12px; min-height: 36px;
       border: none; border-radius: var(--r-pill);
       background: linear-gradient(135deg, var(--accent-a), var(--accent-b));
-      color: #fff; font-family: var(--font-ui); font-size: 13px; font-weight: 700;
+      color: var(--ink-on-accent); font-family: var(--font-ui); font-size: 13px; font-weight: 700;
       cursor: pointer; touch-action: manipulation; -webkit-tap-highlight-color: transparent;
     }
     .bs-toast.is-warn .bs-toast-action { background: var(--warn); color: #1a0e00; }

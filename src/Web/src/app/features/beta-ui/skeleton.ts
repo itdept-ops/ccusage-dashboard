@@ -29,14 +29,19 @@ import {
   },
   template: '',
   styles: [`
-    .bs-skeleton {
+    /* \`bs-skeleton\` is a HOST class (host:{class:'bs-skeleton'}), so it sits on this
+       component's own element, which belongs to the PARENT view. Under emulated
+       ViewEncapsulation a bare \`.bs-skeleton{…}\` compiles to \`.bs-skeleton[_ngcontent-…]\`
+       and NEVER matches the host (the host only carries \`_nghost-…\`). Target it via
+       \`:host(.bs-skeleton)\` so the rule actually lands — otherwise the block is invisible. */
+    :host(.bs-skeleton) {
       display: block;
       background: linear-gradient(100deg, var(--bg-sink) 30%, var(--bg-rise) 50%, var(--bg-sink) 70%);
       background-size: 200% 100%;
       animation: bs-shimmer 1.4s var(--ease-out) infinite;
     }
     @keyframes bs-shimmer { to { background-position: -200% 0; } }
-    @media (prefers-reduced-motion: reduce) { .bs-skeleton { animation: none; } }
+    @media (prefers-reduced-motion: reduce) { :host(.bs-skeleton) { animation: none; } }
   `],
 })
 export class BetaSkeleton {

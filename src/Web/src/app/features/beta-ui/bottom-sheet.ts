@@ -10,11 +10,17 @@ const DETENT_FRACTION: Record<SheetDetent, number> = { peek: 0.32, half: 0.62, f
 
 /**
  * BETA-KIT BottomSheet — a reusable draggable bottom sheet, generalized from the flagship
- * Strata `app-bottom-sheet`. Rises with translateY only (320ms --ease-out), supports
+ * Strata `app-bottom-sheet`. Rises with translateY only (320ms --ease-out bs-rise), supports
  * peek/half/full snap detents, swipe-down + scrim-tap + Escape dismiss, overscroll
- * containment, a focus trap (focus moves in on open, returns to the opener on close),
- * dvh/keyboard awareness, and a full reduced-motion collapse (the page-host killswitch
- * from beta-kit handles the instant swap).
+ * containment, dvh/keyboard awareness, and a full reduced-motion collapse (the page-host
+ * killswitch from beta-kit handles the instant swap).
+ *
+ * FOCUS TRAP: on open, focus moves to the first focusable in the body (or the panel itself
+ * when the body has none); Tab / Shift+Tab wrap within the panel so focus can't escape behind
+ * the scrim; on dismiss, focus returns to the opener element. (role=dialog + aria-modal.)
+ *
+ * DISMISS is IMMEDIATE: the panel is removed via the `@if (open())` the moment open flips
+ * false (there is no out-animation — only the rise-in is animated); `closed` fires synchronously.
  *
  * Inherits all visuals from the beta-kit tokens on the host page (var(--glass), --r-glass,
  * --lift-3, --ease-out, safe-area). No flagship imports; dependency-free + tree-shakeable.
@@ -140,7 +146,12 @@ export class BetaBottomSheet {
       if (this.open()) {
         const active = (typeof document !== 'undefined' ? document.activeElement : null) as HTMLElement | null;
         if (active && !this.host.nativeElement.contains(active)) this.opener = active;
-        queueMicrotask(() => this.panel()?.nativeElement.focus?.());
+        // Prefer the first focusable in the body; fall back to the panel (tabindex=-1) so a
+        // body with no controls still pulls focus off the page behind the sheet.
+        queueMicrotask(() => {
+          const target = this.focusables()[0] ?? this.panel()?.nativeElement;
+          target?.focus?.();
+        });
       }
     });
   }
@@ -154,6 +165,45 @@ export class BetaBottomSheet {
       e.preventDefault();
       e.stopPropagation();
       this.dismiss();
+      return;
+    }
+    if (e.key === 'Tab') this.trapTab(e);
+  }
+
+  /** The focusable elements inside the panel, in DOM order. The panel itself (tabindex=-1)
+   *  is the fallback target when the body has none. */
+  private focusables(): HTMLElement[] {
+    const panel = this.panel()?.nativeElement;
+    if (!panel) return [];
+    const sel = 'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]),'
+      + ' select:not([disabled]), [tabindex]:not([tabindex="-1"])';
+    return Array.from(panel.querySelectorAll<HTMLElement>(sel))
+      .filter(el => el.offsetParent !== null || el === document.activeElement);
+  }
+
+  /** Wrap Tab / Shift+Tab focus within the panel so focus never escapes the sheet. */
+  private trapTab(e: KeyboardEvent): void {
+    const panel = this.panel()?.nativeElement;
+    if (!panel) return;
+    const els = this.focusables();
+    // No focusable body content => keep focus on the panel.
+    if (els.length === 0) {
+      e.preventDefault();
+      panel.focus();
+      return;
+    }
+    const first = els[0];
+    const last = els[els.length - 1];
+    const active = document.activeElement as HTMLElement | null;
+    // Out of (or at the edge of) the panel => wrap to the opposite end.
+    if (e.shiftKey) {
+      if (active === first || active === panel || !panel.contains(active)) {
+        e.preventDefault();
+        last.focus();
+      }
+    } else if (active === last || active === panel || !panel.contains(active)) {
+      e.preventDefault();
+      first.focus();
     }
   }
 

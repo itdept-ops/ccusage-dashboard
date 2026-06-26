@@ -44,7 +44,7 @@ import { MatIconModule } from '@angular/material/icon';
   `,
   styles: [`
     :host { display: inline-block; }
-    :host.bs-fab-fixed {
+    :host(.bs-fab-fixed) {
       position: fixed; z-index: 40;
       right: max(16px, env(safe-area-inset-right, 0px));
       bottom: calc(16px + env(safe-area-inset-bottom, 0px));
@@ -54,7 +54,7 @@ import { MatIconModule } from '@angular/material/icon';
       min-width: 56px; min-height: 56px; padding: 0;
       border: none; border-radius: var(--r-pill);
       background: linear-gradient(135deg, var(--accent-a), var(--accent-b));
-      color: #fff; box-shadow: var(--lift-3);
+      color: var(--ink-on-accent); box-shadow: var(--lift-3);
       cursor: pointer; touch-action: manipulation; -webkit-tap-highlight-color: transparent;
       transition: transform 120ms var(--ease-out), box-shadow 120ms var(--ease-out);
     }

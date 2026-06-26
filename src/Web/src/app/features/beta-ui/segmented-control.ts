@@ -71,7 +71,7 @@ export interface Segment {
       will-change: transform, width;
     }
     .bs-seg-btn {
-      position: relative; z-index: 1; flex: 1 1 0; min-width: 0; min-height: 38px;
+      position: relative; z-index: 1; flex: 1 1 0; min-width: 0; min-height: 44px;
       display: flex; align-items: center; justify-content: center;
       padding: 8px 12px; border: none; background: transparent;
       font-family: var(--font-ui); font-size: 13px; font-weight: 700;
@@ -80,7 +80,7 @@ export interface Segment {
       white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
       transition: color 200ms var(--ease-out);
     }
-    .bs-seg-btn.is-active { color: #fff; }
+    .bs-seg-btn.is-active { color: var(--ink-on-accent); }
     .bs-seg-btn:disabled { opacity: .45; pointer-events: none; }
     .bs-seg-btn:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: var(--r-pill); }
     @media (prefers-reduced-motion: reduce) {
