@@ -130,7 +130,12 @@ builder.Services.Configure<GeminiOptions>(builder.Configuration.GetSection(Gemin
 builder.Services.AddHttpClient(GeminiService.HttpClientName, c =>
 {
     c.BaseAddress = new Uri("https://generativelanguage.googleapis.com");
-    c.Timeout = TimeSpan.FromSeconds(20);
+    // 60s (not ~20s) because multimodal DOCUMENT parsing — e.g. extracting a week of shifts from a
+    // schedule PDF/image — routinely takes 20-40s; the old 20s ceiling timed those calls out, which the
+    // service caught as a failure and surfaced as a 503. Every text-only AI call still returns in a few
+    // seconds, so the higher ceiling only ever gives the genuinely-slow document calls room to finish.
+    // (A timeout throws a TaskCanceledException out of SendAsync and is NOT retried, so this can't double up.)
+    c.Timeout = TimeSpan.FromSeconds(60);
 });
 builder.Services.AddScoped<GeminiService>();
 
