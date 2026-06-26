@@ -11,11 +11,11 @@ import { OptimisticTracker } from '../state/optimistic-tracker';
  * sheets (food/water/coffee/exercise/weight/supplement) and the three fast lanes (scan/snap/brain-dump);
  * this menu only *chooses* one and emits it. Other sheets/components depend on this union VERBATIM.
  *
- *   domain tiles : 'food' | 'water' | 'coffee' | 'exercise' | 'weight' | 'supplement'
+ *   domain tiles : 'food' | 'water' | 'coffee' | 'exercise' | 'weight' | 'supplement' | 'activity'
  *   fast lanes   : 'scan' (barcode) | 'snap' (photo meal) | 'brain' (AI brain-dump)
  */
 export type LogTarget =
-  | 'food' | 'water' | 'coffee' | 'exercise' | 'weight' | 'supplement'
+  | 'food' | 'water' | 'coffee' | 'exercise' | 'weight' | 'supplement' | 'activity'
   | 'scan' | 'snap' | 'brain';
 
 /** One pickable cell in the fan-out (domain tile or fast lane). */
@@ -223,6 +223,7 @@ export class LogMenuSheet {
     { target: 'exercise',   icon: 'fitness_center', label: 'Exercise', accentA: 'var(--move-a)',   accentB: 'var(--move-b)' },
     { target: 'weight',     icon: 'monitor_weight', label: 'Weight',   accentA: 'var(--pro-a)',    accentB: 'var(--pro-b)' },
     { target: 'supplement', icon: 'medication',   label: 'Supplement', accentA: 'var(--pro-a)',    accentB: 'var(--cal-b)' },
+    { target: 'activity',   icon: 'watch',        label: 'Watch',      accentA: 'var(--move-a)',   accentB: 'var(--move-b)' },
   ];
 
   /** Close the sheet and emit the chosen destination for the page to route. */

@@ -20,6 +20,7 @@ import { WeightCard } from './cards/weight-card';
 import { LogMenuSheet, LogTarget } from './sheets/log-menu-sheet';
 import { FoodSheet } from './sheets/food-sheet';
 import { WeightSheet } from './sheets/weight-sheet';
+import { WatchSheet } from './sheets/watch-sheet';
 import { CoffeeSheet, ExerciseSheet, SupplementSheet } from './sheets/quick-sheets';
 import { currentStreak, dayHasAnyLog } from './util/streak';
 
@@ -53,7 +54,7 @@ import { currentStreak, dayHasAnyLog } from './util/streak';
     MatIconModule,
     HeroRing, QuickRail,
     FuelCard, WaterCard, MoveCard, CoffeeCard, WeightCard,
-    LogMenuSheet, FoodSheet, WeightSheet, CoffeeSheet, ExerciseSheet, SupplementSheet,
+    LogMenuSheet, FoodSheet, WeightSheet, WatchSheet, CoffeeSheet, ExerciseSheet, SupplementSheet,
   ],
   template: `
     <!-- ─────────────────── DAY STRIP (fixed top glass) ─────────────────── -->
@@ -107,7 +108,7 @@ import { currentStreak, dayHasAnyLog } from './util/streak';
         <!-- CARD STACK -->
         <app-fuel-card (addToMeal)="openFood($event)" />
         <app-tb-water-card />
-        <app-move-card (addExercise)="exerciseOpen.set(true)" />
+        <app-move-card (addExercise)="exerciseOpen.set(true)" (editWatch)="watchOpen.set(true)" />
         <app-tracker-beta-coffee-card />
         <div class="tb-defer">
           <app-weight-card #weightCard (weigh)="weightOpen.set(true)" />
@@ -140,6 +141,7 @@ import { currentStreak, dayHasAnyLog } from './util/streak';
     <app-exercise-sheet [(open)]="exerciseOpen" />
     <app-supplement-sheet [(open)]="supplementOpen" />
     <app-weight-sheet [(open)]="weightOpen" (logged)="onWeighed()" />
+    <app-watch-sheet [(open)]="watchOpen" (logged)="onWatchSaved()" />
   `,
   styles: [`
     /* DAY STRIP internals */
@@ -222,6 +224,7 @@ export class TrackerBetaPage {
   protected readonly exerciseOpen = signal(false);
   protected readonly supplementOpen = signal(false);
   protected readonly weightOpen = signal(false);
+  protected readonly watchOpen = signal(false);
 
   private readonly scrollEl = viewChild<ElementRef<HTMLElement>>('scroll');
   private readonly weightCard = viewChild<WeightCard>('weightCard');
@@ -382,6 +385,7 @@ export class TrackerBetaPage {
       case 'exercise': this.exerciseOpen.set(true); break;
       case 'weight': this.weightOpen.set(true); break;
       case 'supplement': this.supplementOpen.set(true); break;
+      case 'activity': this.watchOpen.set(true); break;
     }
   }
 
@@ -398,6 +402,14 @@ export class TrackerBetaPage {
   /** A weigh-in settled → re-pull the weight card's history so the new point animates into the sparkline. */
   protected onWeighed(): void {
     void this.weightCard()?.refresh();
+  }
+
+  /**
+   * Watch stats settled. The optimistic wrapper already patched + recomputed the day's `activity` (so the
+   * Move ring / burn ticked instantly and reconciled with the server row); nothing further to pull here.
+   */
+  protected onWatchSaved(): void {
+    /* day().activity is already current via OptimisticTracker.upsertActivity — no extra fetch needed. */
   }
 
   // ── horizontal day-swipe gesture (content area) ──

@@ -30,6 +30,7 @@ import { group } from '../util/units';
  *   selector: app-move-card
  *   inputs:   none (reads everything off the injected OptimisticTracker / shared day() signal)
  *   outputs:  addExercise (void) — the page opens the exercise quick-sheet
+ *             editWatch   (void) — the page opens the watch-stats sheet (tap the steps ring / watch row)
  */
 @Component({
   selector: 'app-move-card',
@@ -45,6 +46,58 @@ import { group } from '../util/units';
         </span>
       </header>
 
+      <!--
+        The steps ring + watch read-outs double as the EDIT-WATCH affordance: tapping them opens the
+        watch-stats sheet (distinct from "+ add exercise" below, which opens the exercise sheet). It's a
+        plain <div> in read-only views (no edit), a <button> otherwise.
+      -->
+      @if (!readOnly()) {
+        <button type="button" class="mv-top mv-top-btn" (click)="editWatch.emit()"
+                aria-label="Edit watch stats — steps, distance, active calories">
+          <!-- Steps ring (move gradient, rose→amber). Decorative; the figures carry an aria-label. -->
+          <div class="mv-ring" role="img" [attr.aria-label]="ringAria()">
+            <svg viewBox="0 0 120 120" width="120" height="120" aria-hidden="true">
+              <defs>
+                <linearGradient id="mv-grad" x1="0" y1="0" x2="1" y2="1">
+                  <stop offset="0" stop-color="var(--move-a)" />
+                  <stop offset="1" stop-color="var(--move-b)" />
+                </linearGradient>
+              </defs>
+              <circle class="mv-track" cx="60" cy="60" [attr.r]="R" />
+              <circle class="mv-arc" cx="60" cy="60" [attr.r]="R"
+                      [attr.stroke-dasharray]="CIRC"
+                      [attr.stroke-dashoffset]="dashOffset()"
+                      transform="rotate(-90 60 60)" />
+            </svg>
+            <div class="mv-ring-center">
+              <span class="mv-steps">{{ group(displaySteps()) }}</span>
+              <span class="mv-steps-l">steps</span>
+            </div>
+          </div>
+
+          <dl class="mv-stats">
+            @if (stepGoal()) {
+              <div class="mv-stat">
+                <dt>goal</dt>
+                <dd>{{ group(stepGoal()!) }}</dd>
+              </div>
+            }
+            @if (distance(); as dist) {
+              <div class="mv-stat">
+                <dt>distance</dt>
+                <dd>{{ dist }}</dd>
+              </div>
+            }
+            @if (activeCalories() != null) {
+              <div class="mv-stat">
+                <dt>active</dt>
+                <dd>{{ group(activeCalories()!) }} kcal</dd>
+              </div>
+            }
+          </dl>
+          <span class="mv-top-edit" aria-hidden="true">edit</span>
+        </button>
+      } @else {
       <div class="mv-top">
         <!-- Steps ring (move gradient, rose→amber). Decorative; the figures carry an aria-label. -->
         <div class="mv-ring" role="img" [attr.aria-label]="ringAria()">
@@ -88,6 +141,7 @@ import { group } from '../util/units';
           }
         </dl>
       </div>
+      }
 
       <!-- Exercise rows — each a swipe-to-delete ledger line. -->
       @if (exercises().length) {
@@ -142,6 +196,23 @@ import { group } from '../util/units';
 
     .mv-top {
       display: flex; align-items: center; gap: 18px; margin-bottom: 14px;
+    }
+    /* The tappable variant (edit watch stats) — a full-width button reset over the ring + read-outs. */
+    .mv-top-btn {
+      position: relative; width: 100%; box-sizing: border-box;
+      padding: 8px; border: 1px solid transparent; border-radius: var(--r-tile);
+      background: transparent; color: inherit; font: inherit; text-align: left;
+      cursor: pointer; touch-action: manipulation; -webkit-tap-highlight-color: transparent;
+      transition: background 120ms var(--ease-out), border-color 120ms var(--ease-out),
+                  transform 120ms var(--ease-out), box-shadow 120ms var(--ease-out);
+    }
+    .mv-top-btn:active { transform: scale(.99); box-shadow: var(--press); background: var(--bg-sink); }
+    .mv-top-btn:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+    /* A quiet "edit" hint pinned top-right, so the tap target reads as editable. */
+    .mv-top-edit {
+      position: absolute; top: 8px; right: 10px;
+      font-family: var(--font-ui); font-size: 10px; font-weight: 600;
+      letter-spacing: .06em; text-transform: uppercase; color: var(--ink-faint);
     }
 
     .mv-ring {
@@ -234,6 +305,8 @@ export class MoveCard {
 
   /** The page opens the exercise quick-sheet in response. */
   readonly addExercise = output<void>();
+  /** The page opens the watch-stats sheet in response (tap the steps ring / watch read-outs). */
+  readonly editWatch = output<void>();
 
   // ---- ring geometry (matches the 120x120 viewBox + 10px stroke) ----
   protected readonly R = 52;

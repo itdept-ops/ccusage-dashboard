@@ -7,7 +7,7 @@ import { TrackerStore } from '../../../core/tracker-store';
 import {
   AddCoffeeRequest, AddExerciseRequest, AddFoodRequest, AddHydrationRequest, AddSupplementRequest,
   CoffeeEntryDto, ExerciseEntryDto, FoodEntryDto, HydrationEntryDto, LogWeightRequest,
-  SupplementEntryDto, TrackerDayDto, TrackerProfileDto,
+  SupplementEntryDto, TrackerDayDto, TrackerProfileDto, UpsertActivityRequest, WatchActivityDto,
 } from '../../../core/models';
 
 /**
@@ -44,6 +44,7 @@ import {
  *     addExercise(body: AddExerciseRequest): Promise<void>
  *     deleteExercise(id: number): Promise<void>
  *     logWeight(body: LogWeightRequest): Promise<TrackerProfileDto>
+ *     upsertActivity(body: UpsertActivityRequest): Promise<WatchActivityDto>
  *
  * Provide this at the route/page level (it injects the root TrackerStore + Api + MatSnackBar).
  */
@@ -258,6 +259,36 @@ export class OptimisticTracker {
       this.snack.open('Couldn’t log weight', 'Retry', { duration: 5000, politeness: 'polite' })
         .onAction().subscribe(() => void this.logWeight(body));
       throw new Error('logWeight failed');
+    }
+  }
+
+  // ── WATCH ACTIVITY ─────────────────────────────────────────────────────────────
+
+  /**
+   * Upsert the day's manually-recorded smartwatch stats (steps / distance / active calories) — one row
+   * per day. Like {@link logWeight} this patches the day's `activity` optimistically and recomputes the
+   * derived burn so the Move ring / caloriesOut tick instantly, then PUTs and reconciles with the server's
+   * saved row. On failure it reverts to the prior `activity` and offers a Retry snackbar. The wire is
+   * metric: `distanceMeters` is metres (the sheet converts from the user's display unit before calling).
+   */
+  async upsertActivity(body: UpsertActivityRequest): Promise<WatchActivityDto> {
+    const prev = this.day()?.activity ?? null;
+    const provisional: WatchActivityDto = {
+      steps: body.steps ?? undefined,
+      distanceMeters: body.distanceMeters ?? undefined,
+      activeCalories: body.activeCalories ?? undefined,
+      calorieMode: body.calorieMode,
+    };
+    this.patch(d => this.recompute({ ...d, activity: provisional }));
+    try {
+      const saved = await firstValueFrom(this.api.upsertActivity(body));
+      this.patch(d => this.recompute({ ...d, activity: saved }));
+      return saved;
+    } catch {
+      this.patch(d => this.recompute({ ...d, activity: prev }));
+      this.snack.open('Couldn’t save watch stats', 'Retry', { duration: 5000, politeness: 'polite' })
+        .onAction().subscribe(() => void this.upsertActivity(body));
+      throw new Error('upsertActivity failed');
     }
   }
 
