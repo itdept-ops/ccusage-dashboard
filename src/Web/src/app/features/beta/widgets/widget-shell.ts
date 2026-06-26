@@ -1,5 +1,5 @@
-import { ChangeDetectionStrategy, Component, computed, input, output } from '@angular/core';
-import { RouterLink } from '@angular/router';
+import { ChangeDetectionStrategy, Component, computed, inject, input, output } from '@angular/core';
+import { Router, RouterLink } from '@angular/router';
 import { MatIconModule } from '@angular/material/icon';
 
 import { BetaSkeleton } from '../../beta-ui';
@@ -30,7 +30,7 @@ export type WidgetPhase = 'loading' | 'ready' | 'empty' | 'failed';
   imports: [RouterLink, MatIconModule, BetaSkeleton],
   template: `
     <section class="w" [class.w--reorder]="reordering()" [class.w--press]="pressable()"
-             [style.--wa]="accentA()" [style.--wb]="accentB()">
+             [style.--wa]="accentA()" [style.--wb]="accentB()" (click)="onCardTap()">
       <span class="w__edge" aria-hidden="true"></span>
       <header class="w__head">
         <span class="w__dot" aria-hidden="true"></span>
@@ -51,7 +51,8 @@ export type WidgetPhase = 'loading' | 'ready' | 'empty' | 'failed';
         } @else {
           <ng-content select="[head-trailing]"></ng-content>
           @if (route(); as r) {
-            <a class="w__open" [routerLink]="r" [attr.aria-label]="'Open ' + title()">
+            <a class="w__open" [routerLink]="r" [attr.aria-label]="'Open ' + title()"
+               (click)="$event.stopPropagation()">
               <mat-icon aria-hidden="true">chevron_right</mat-icon>
             </a>
           }
@@ -209,6 +210,19 @@ export class AtriumWidgetShell {
   readonly moveDown = output<void>();
   readonly hide = output<void>();
 
+  private readonly router = inject(Router);
+
   /** Press feedback only when the card has a tap target (a route) and we're not reordering. */
   protected readonly pressable = computed(() => !!this.route() && !this.reordering());
+
+  /**
+   * The WHOLE card is the tap target (matching its press feedback + cursor) — tapping anywhere on a widget
+   * with a `route` opens that page, not just the small chevron. Inner controls (the rings' +water button)
+   * already `stopPropagation`, and the chevron link does too, so they act without also navigating. No-op
+   * while reordering or for routeless widgets (e.g. presence).
+   */
+  protected onCardTap(): void {
+    const r = this.route();
+    if (r && !this.reordering()) void this.router.navigateByUrl(r);
+  }
 }
