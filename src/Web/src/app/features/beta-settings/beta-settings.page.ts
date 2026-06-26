@@ -14,9 +14,7 @@ import {
   BetaPullRefresh, BetaSectionHeader, BetaSegmentedControl, BetaToaster, ToastController, Segment,
 } from '../beta-ui';
 import { BetaToggleRow } from './beta-toggle-row';
-
-/** A home-page option: the route saved as the landing preference + a label + an icon, gated by perm(s). */
-interface HomeOption { route: string; label: string; icon: string; perms: readonly string[]; }
+import { HomeOption, HOME_OPTIONS } from '../../core/home-options';
 
 /**
  * Settings (beta) — the live Settings hub's QUICK TOGGLES reskinned onto the shared beta-ui "Strata"
@@ -290,18 +288,13 @@ export class BetaSettingsPage {
     { key: 'notifySystemEvents', label: 'System events', icon: 'campaign' },
   ];
 
-  // ── home-page picker (mirrors AuthService.homePerms; gated per route) ──
-  private static readonly homeDefs: readonly HomeOption[] = [
-    { route: '/', label: 'Dashboard', icon: '◧', perms: [PERM.dashboardView] },
-    { route: '/tracker', label: 'Tracker', icon: '◓', perms: [PERM.trackerSelf] },
-    { route: '/family', label: 'Family', icon: '⌂', perms: [PERM.familyUse] },
-    { route: '/calendar', label: 'Calendar', icon: '▦', perms: [PERM.calendarView] },
-    { route: '/chat', label: 'Chat', icon: '◌', perms: [PERM.chatRead] },
-    { route: '/activity', label: 'Activity', icon: '✦', perms: [PERM.activityView] },
-  ];
+  // Home-page picker — the SHARED HOME_OPTIONS (the SAME list the profile-dropdown picker + canAccessHome
+  // use), so this mobile picker offers exactly what the dropdown does, with the same selection, and the two
+  // can never diverge. Previously this was a separate hand-kept list of only 6 live routes — that mismatch
+  // (no beta routes, fewer live ones) is the "beta settings doesn't connect to the dropdown" oddness.
   readonly homeOptions = computed<HomeOption[]>(() => {
     this.auth.permissions(); // re-run on permission change
-    return BetaSettingsPage.homeDefs.filter(h => this.auth.hasAnyPermission(...h.perms));
+    return HOME_OPTIONS.filter(h => this.auth.hasAnyPermission(...h.perms));
   });
   /** The current home choice: a route the user can still access, or 'auto' for the smart default. */
   readonly homeChoice = computed<string>(() => {

@@ -25,6 +25,19 @@ public static class HomeRoutes
         ["/locations"] = new[] { Permissions.LocationSelf },
         ["/users"] = new[] { Permissions.UsersView },
         ["/activity"] = new[] { Permissions.ActivityView },
+        // Tracker / Tools / Social pages the home picker also offers — must be allow-listed here too, else a
+        // PATCH /api/auth/home for them was rejected (and the SPA's canAccessHome rejected them), so choosing
+        // any of these as your landing page silently failed. Each mirrors its route guard.
+        ["/ask"] = new[] { Permissions.TrackerAi },
+        ["/challenge"] = new[] { Permissions.TrackerSelf },
+        ["/trophies"] = new[] { Permissions.TrackerSelf },
+        ["/feed"] = new[] { Permissions.TrackerSelf },
+        ["/automations"] = new[] { Permissions.AutomationsUse },
+        ["/bills"] = new[] { Permissions.BillsUse },
+        ["/grocery"] = new[] { Permissions.GroceryUse },
+        ["/recipes"] = new[] { Permissions.RecipesUse },
+        ["/meal-planner"] = new[] { Permissions.MealsUse },
+        ["/people"] = new[] { Permissions.ChatRead, Permissions.FamilyUse },
 
         // Beta surfaces (the mobile-first redesigns) — mirror the route guards in app.routes.ts so a beta
         // page can be set as the landing page. The /beta section is gated by beta.access; tracker-beta has

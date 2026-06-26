@@ -33,6 +33,7 @@ import { LocationCapture } from './core/location-capture';
 import { ClientInfoCapture } from './core/client-info';
 import { SwUpdateService } from './core/sw-update';
 import { Presence, SyncStatus, PERM, QuickAddResult } from './core/models';
+import { HomeOption, HOME_OPTIONS } from './core/home-options';
 import { timeAgo, humanizeInterval } from './shared/format';
 import { NotificationBell } from './features/notifications/notification-bell';
 import { BETA_EXPERIMENTS, BetaExperiment, canSeeExperiment } from './features/beta/beta-experiments';
@@ -53,13 +54,6 @@ interface QuickLink {
   perm: string | null;
 }
 
-/** A home-page option in the picker: a page route + label, shown only when the caller can reach it. */
-interface HomeOption {
-  route: string;
-  label: string;
-  /** Any-of these permissions grants access (mirrors the route guard). */
-  perms: readonly string[];
-}
 
 @Component({
   selector: 'app-root',
@@ -373,59 +367,12 @@ export class App implements AfterViewInit {
     return App.quickLinkDefs.filter((l) => !l.perm || this.auth.hasPermission(l.perm));
   });
 
-  /**
-   * The landing pages the home-page picker offers, in nav order. Each carries the SAME any-of permission
-   * set as its route guard (PERM.fleetView/reporterManage for /fleet — never dashboard.view), so the
-   * picker only ever lists pages the caller can actually reach.
-   */
-  private static readonly homeOptionDefs: readonly HomeOption[] = [
-    { route: '/', label: 'Dashboard', perms: [PERM.dashboardView] },
-    { route: '/calendar', label: 'Calendar', perms: [PERM.calendarView] },
-    { route: '/pricing', label: 'Pricing', perms: [PERM.pricingView] },
-    {
-      route: '/reporter',
-      label: 'Reporter',
-      perms: [PERM.reporterView, PERM.reporterManage, PERM.reporterSelf],
-    },
-    { route: '/fleet', label: 'Fleet', perms: [PERM.fleetView, PERM.reporterManage] },
-    { route: '/tracker', label: 'Tracker', perms: [PERM.trackerSelf] },
-    { route: '/ask', label: 'Ask my life', perms: [PERM.trackerAi] },
-    { route: '/tracker-beta', label: 'Tracker Beta', perms: [PERM.trackerBeta] },
-    { route: '/challenge', label: '75 Hard', perms: [PERM.trackerSelf] },
-    { route: '/trophies', label: 'Trophies', perms: [PERM.trackerSelf] },
-    { route: '/feed', label: 'Activity feed', perms: [PERM.trackerSelf] },
-    { route: '/automations', label: 'Automations', perms: [PERM.automationsUse] },
-    { route: '/bills', label: 'Bill Splitter', perms: [PERM.billsUse] },
-    { route: '/grocery', label: 'Grocery list', perms: [PERM.groceryUse] },
-    { route: '/recipes', label: 'My Recipes', perms: [PERM.recipesUse] },
-    { route: '/meal-planner', label: 'Meal Planner', perms: [PERM.mealsUse] },
-    { route: '/beta', label: 'Beta', perms: [PERM.betaAccess] },
-    { route: '/beta/home', label: 'Beta · Home', perms: [PERM.betaAccess] },
-    { route: '/beta/dashboard', label: 'Beta · Dashboard', perms: [PERM.betaAccess] },
-    { route: '/beta/family', label: 'Beta · Family', perms: [PERM.betaAccess] },
-    { route: '/beta/bills', label: 'Beta · Bills', perms: [PERM.betaAccess] },
-    { route: '/beta/wrapped', label: 'Beta · Wrapped', perms: [PERM.betaAccess] },
-    { route: '/beta/settings', label: 'Beta · Settings', perms: [PERM.betaAccess] },
-    { route: '/beta/chat', label: 'Beta · Chat', perms: [PERM.betaAccess] },
-    { route: '/beta/ask', label: 'Beta · Ask', perms: [PERM.betaAccess] },
-    { route: '/beta/meals', label: 'Beta · Meals', perms: [PERM.betaAccess] },
-    { route: '/beta/people', label: 'Beta · People', perms: [PERM.betaAccess] },
-    { route: '/beta/fleet', label: 'Beta · Fleet', perms: [PERM.betaAccess] },
-    { route: '/beta/trophies', label: 'Beta · Trophies', perms: [PERM.betaAccess] },
-    { route: '/beta/automations', label: 'Beta · Automations', perms: [PERM.betaAccess] },
-    { route: '/family', label: 'Family', perms: [PERM.familyUse] },
-    { route: '/chat', label: 'Chat', perms: [PERM.chatRead] },
-    { route: '/people', label: 'People', perms: [PERM.chatRead, PERM.familyUse] },
-    { route: '/locations', label: 'My locations', perms: [PERM.locationSelf] },
-    { route: '/users', label: 'Users', perms: [PERM.usersView] },
-    { route: '/activity', label: 'Activity', perms: [PERM.activityView] },
-    { route: '/settings', label: 'Settings', perms: [PERM.settingsView] },
-  ];
-
-  /** Home-page picker options filtered to the pages the current session can actually land on. */
+  /** Home-page picker options filtered to the pages the current session can actually land on. The list is
+   * the shared {@link HOME_OPTIONS} (one source of truth for BOTH this dropdown picker and the beta Settings
+   * picker, and the same set AuthService.canAccessHome honours) — so the two pickers can never drift. */
   readonly homeOptions = computed<HomeOption[]>(() => {
     this.auth.permissions(); // re-run when permissions change
-    return App.homeOptionDefs.filter((o) => this.auth.hasAnyPermission(...o.perms));
+    return HOME_OPTIONS.filter((o) => this.auth.hasAnyPermission(...o.perms));
   });
 
   constructor() {

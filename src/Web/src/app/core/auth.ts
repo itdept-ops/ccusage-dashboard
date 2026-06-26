@@ -1,7 +1,8 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { Observable, tap } from 'rxjs';
-import { AuthSession, MeResponse, ProfilePrefs, PERM } from './models';
+import { AuthSession, MeResponse, ProfilePrefs } from './models';
+import { HOME_PERMS } from './home-options';
 
 const STORAGE_KEY = 'usage_iq_session';
 
@@ -32,29 +33,14 @@ export class AuthService {
   }
 
   /**
-   * route -> the permission key(s) that grant access; the caller needs ANY one. Mirrors the route
-   * guards in app.routes.ts (and the backend HomeRoutes.Map) EXACTLY, so a saved home preference is
-   * honoured only while the caller still holds that route's permission.
+   * Whether the caller currently holds (one of) the permission(s) that the given home route requires.
+   * The route -> any-of-perms map is {@link HOME_PERMS} — the SINGLE source of truth shared with both home
+   * pickers (the profile dropdown + beta Settings) and the backend allowlist HomeRoutes.cs. This previously
+   * listed only ~13 live routes, so a saved BETA home (or /ask, /trophies, …) silently failed the check and
+   * fell back to another page. Now every selectable route is covered because the same list drives both.
    */
-  private static readonly homePerms: Readonly<Record<string, readonly string[]>> = {
-    '/': [PERM.dashboardView],
-    '/calendar': [PERM.calendarView],
-    '/pricing': [PERM.pricingView],
-    '/settings': [PERM.settingsView],
-    '/reporter': [PERM.reporterView, PERM.reporterManage, PERM.reporterSelf],
-    '/fleet': [PERM.fleetView, PERM.reporterManage],
-    '/chat': [PERM.chatRead],
-    '/tracker': [PERM.trackerSelf],
-    '/feed': [PERM.trackerSelf],
-    '/family': [PERM.familyUse],
-    '/locations': [PERM.locationSelf],
-    '/users': [PERM.usersView],
-    '/activity': [PERM.activityView],
-  };
-
-  /** Whether the caller currently holds (one of) the permission(s) that the given home route requires. */
   canAccessHome(route: string): boolean {
-    const required = AuthService.homePerms[route];
+    const required = HOME_PERMS[route];
     return !!required && this.hasAnyPermission(...required);
   }
 
