@@ -4459,20 +4459,30 @@ public sealed class GeminiService(
 
     /// <summary>
     /// The shared <c>generationConfig</c> for every structured-JSON generate call. Beyond the JSON mime type
-    /// and a low temperature it now sets:
-    ///   • <c>maxOutputTokens</c> = 4096 — generous, so a multi-option answer is never silently truncated
-    ///     (a truncated reply yields invalid JSON → parse-failed → the empty "No options" state); and
+    /// and a low temperature it sets:
+    ///   • <c>maxOutputTokens</c> (default 4096) — generous, so a multi-option answer is never silently
+    ///     truncated (a truncated reply yields invalid JSON → parse-failed → the empty "No options" state).
+    ///     DOCUMENT extraction (a multi-person schedule roster, a long receipt) emits a far larger array, so
+    ///     the multimodal path passes <see cref="MultimodalMaxOutputTokens"/>; you only pay for tokens
+    ///     actually generated, so a higher ceiling costs nothing on small replies; and
     ///   • a <c>thinkingConfig.thinkingBudget</c> = 1024 — keeps SOME 2.5-flash reasoning (answer quality) but
     ///     NEVER lets thinking starve the answer of output tokens (budget 0 would disable thinking entirely;
     ///     an unbounded budget could eat the whole output cap and leave no answer text).
     /// </summary>
-    private static object GenerationConfig() => new
+    private static object GenerationConfig(int maxOutputTokens = 4096) => new
     {
         temperature = 0.2,
         responseMimeType = "application/json",
-        maxOutputTokens = 4096,
+        maxOutputTokens,
         thinkingConfig = new { thinkingBudget = 1024 },
     };
+
+    /// <summary>Output-token cap for multimodal/DOCUMENT calls. A full multi-person schedule roster (up to the
+    /// 60-event cap × ~8 JSON fields each) or a long receipt is much bigger than the 4096 text default, and a
+    /// reply truncated at the cap parses as invalid JSON → parse-failed → 503 (exactly the schedule-import
+    /// bug). 16384 leaves ~15k answer tokens after the 1024 thinking budget — ample for the 60-event cap — and
+    /// the 60s Gemini client timeout gives the longer generation room to finish.</summary>
+    private const int MultimodalMaxOutputTokens = 16384;
 
     /// <summary>
     /// POST a prompt to <c>:generateContent</c> with structured-JSON output, and return the parsed JSON
@@ -4663,7 +4673,7 @@ public sealed class GeminiService(
             var body = new
             {
                 contents = new[] { new { parts = parts.ToArray() } },
-                generationConfig = GenerationConfig(),
+                generationConfig = GenerationConfig(MultimodalMaxOutputTokens),
             };
 
             var client = httpFactory.CreateClient(HttpClientName);
