@@ -66,9 +66,10 @@ const PAGE_SIZE = 25;
             </button>
           </div>
 
-          <div class="hh__pills" role="group" aria-label="Date range">
+          <div class="hh__pills" role="radiogroup" aria-label="Date range">
             @for (p of presets; track p.key) {
               <button type="button" class="pill" [class.pill--on]="activePreset() === p.key"
+                      role="radio" [attr.aria-checked]="activePreset() === p.key"
                       (click)="setDatePreset(p.key)">{{ p.label }}</button>
             }
           </div>
@@ -84,13 +85,13 @@ const PAGE_SIZE = 25;
         <div class="rise pb-card" [style.--i]="1">
           <app-pulse-trend
             [summary]="summary()" [loading]="loading()" [groupBy]="groupBy()"
-            (groupByChange)="setGroupBy($event)" />
+            (groupByChange)="setGroupBy($event)" (widen)="setDatePreset('all')" />
         </div>
 
         <div class="rise pb-card pb-defer" [style.--i]="2">
           <app-pulse-breakdown
             [slices]="breakdownSlices()" [dim]="breakdownDim()" [loading]="loading()"
-            (dimChange)="setBreakdownDim($event)" />
+            (dimChange)="setBreakdownDim($event)" (widen)="setDatePreset('all')" />
         </div>
 
         @if (showEfficiency()) {
@@ -102,7 +103,7 @@ const PAGE_SIZE = 25;
         <div class="rise pb-card pb-defer" [style.--i]="4">
           <app-pulse-recent
             [page]="records()" [loading]="loading()" [loadingMore]="loadingMore()"
-            (more)="loadMore()" />
+            (more)="loadMore()" (widen)="setDatePreset('all')" />
         </div>
       </div>
     </app-bs-pull-refresh>

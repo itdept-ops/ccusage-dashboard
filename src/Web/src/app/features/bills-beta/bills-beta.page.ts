@@ -77,7 +77,7 @@ import { ReceiptReviewSheet, ReceiptReviewResult } from './ui/receipt-review-she
               <app-bs-stat-tile [value]="openCount()" label="Open bills"
                                 [ringValue]="settledFrac()" />
               <app-bs-stat-tile [value]="unclaimedCount()" label="Need claiming"
-                                accentA="var(--warn)" accentB="var(--warn)" />
+                                accentA="color-mix(in srgb, var(--warn) 78%, #fff)" accentB="var(--warn)" />
             </div>
 
             <div class="bb-filter">

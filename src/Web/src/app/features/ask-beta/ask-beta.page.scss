@@ -100,7 +100,7 @@
 .abh__title {
   margin: 0;
   font-family: var(--font-display);
-  font-weight: 600; font-size: 27px; line-height: 1.05; letter-spacing: -.02em;
+  font-weight: 600; font-size: var(--title-lg); line-height: 1.05; letter-spacing: -.02em;
   color: var(--ink);
 }
 
@@ -344,7 +344,8 @@
 
 .ab-error__retry {
   flex: 0 0 auto;
-  min-height: 36px;
+  @include kit.tap44;            // floor to a 44px touch target (was 36px)
+  display: inline-flex; align-items: center; justify-content: center;
   padding: 7px 14px;
   border-radius: var(--r-pill);
   border: none;

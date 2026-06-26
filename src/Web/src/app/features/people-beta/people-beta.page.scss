@@ -223,6 +223,19 @@ $hues: #fb7185, #f0a35a, #a78bfa, #38bdf8, #34d399, #f472b6;
 }
 @media (prefers-reduced-motion: reduce) { .pl-group-pulse { animation: none; } }
 
+// Live "N online now" line above the roster — reuses the presence pulse styling.
+.pl-livecount {
+  display: flex; align-items: center; gap: 9px; margin: -4px 4px 2px;
+  font-size: 13px; font-weight: 600; color: var(--ink-dim);
+}
+.pl-livecount strong { font-weight: 800; color: var(--ink); }
+.pl-livecount-pulse {
+  flex: 0 0 auto; width: 9px; height: 9px; border-radius: 50%; background: var(--signal);
+  box-shadow: 0 0 0 0 color-mix(in srgb, var(--signal) 60%, transparent);
+  animation: pl-pulse 2.2s var(--ease-out) infinite;
+}
+@media (prefers-reduced-motion: reduce) { .pl-livecount-pulse { animation: none; } }
+
 .pl-rows { display: flex; flex-direction: column; gap: 10px; }
 
 // Each row springs in on a per-index delay (capped so a long list doesn't cascade forever).

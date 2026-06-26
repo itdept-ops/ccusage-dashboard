@@ -1,4 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, input, output, signal } from '@angular/core';
+import { MatIconModule } from '@angular/material/icon';
 
 import { GroupBy, SummaryResponse } from '../../../core/models';
 import { BetaSegmentedControl, BetaSkeleton, BetaSectionHeader, type Segment } from '../../beta-ui';
@@ -17,7 +18,7 @@ type Metric = 'cost' | 'tokens';
   selector: 'app-pulse-trend',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [BetaSegmentedControl, BetaSkeleton, BetaSectionHeader],
+  imports: [MatIconModule, BetaSegmentedControl, BetaSkeleton, BetaSectionHeader],
   template: `
     <div class="trend">
       <app-bs-section-header title="Trend" [subtitle]="subLabel()" icon="show_chart" />
@@ -70,7 +71,11 @@ type Metric = 'cost' | 'tokens';
           </span>
         </div>
       } @else {
-        <p class="trend__empty">No data in this range</p>
+        <div class="trend__empty">
+          <span class="trend__empty-ic" aria-hidden="true"><mat-icon>show_chart</mat-icon></span>
+          <p class="trend__empty-msg">No data in this range</p>
+          <button type="button" class="trend__empty-cta" (click)="widen.emit()">Widen range</button>
+        </div>
       }
     </div>
   `,
@@ -104,7 +109,24 @@ type Metric = 'cost' | 'tokens';
     .trend__peak {
       font-size: 12px; font-weight: 700; color: var(--ink-dim); font-variant-numeric: tabular-nums;
     }
-    .trend__empty { margin: 24px 0; text-align: center; color: var(--ink-dim); font-size: 14px; }
+    .trend__empty {
+      display: flex; flex-direction: column; align-items: center; gap: 10px;
+      margin: 22px 0; text-align: center;
+    }
+    .trend__empty-ic {
+      display: grid; place-items: center; width: 48px; height: 48px; border-radius: 50%;
+      background: color-mix(in srgb, var(--accent-a) 12%, transparent);
+      color: color-mix(in srgb, var(--accent-a) 70%, var(--ink));
+    }
+    .trend__empty-ic mat-icon { font-size: 26px; width: 26px; height: 26px; }
+    .trend__empty-msg { margin: 0; color: var(--ink-dim); font-size: 14px; font-weight: 600; }
+    .trend__empty-cta {
+      min-height: 44px; padding: 0 18px; border-radius: var(--r-pill); border: 0; cursor: pointer;
+      background: linear-gradient(135deg, var(--accent-a), var(--accent-b)); color: var(--ink-on-accent);
+      font: inherit; font-size: 14px; font-weight: 700;
+      transition: transform 120ms var(--ease-spring);
+    }
+    .trend__empty-cta:active { transform: scale(.96); }
   `],
 })
 export class PulseTrendCard {
@@ -114,6 +136,9 @@ export class PulseTrendCard {
 
   /** Bubbled up so the page can re-fetch the summary with the new groupBy. */
   readonly groupByChange = output<GroupBy>();
+
+  /** Emitted from the empty-state CTA so the page can widen to the all-time range. */
+  readonly widen = output<void>();
 
   readonly metric = signal<Metric>('cost');
 

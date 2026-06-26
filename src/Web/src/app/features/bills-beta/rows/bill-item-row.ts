@@ -73,6 +73,14 @@ export interface AssignChange {
               </button>
             }
           </div>
+
+          <!-- Focusable Delete path — the swipe gesture isn't reachable by keyboard/switch users. -->
+          <div class="bir__expandact">
+            <button type="button" class="bir__del" (click)="delete.emit(item())"
+                    [attr.aria-label]="'Delete ' + item().name">
+              <mat-icon aria-hidden="true">delete_outline</mat-icon> Delete
+            </button>
+          </div>
         }
       </div>
     </app-bs-swipe-row>
@@ -125,6 +133,19 @@ export interface AssignChange {
       &.is-sel { border-color: var(--accent-b); color: var(--accent-b); }
     }
     .bir__avatar--open.is-sel { border-color: var(--ink-dim); color: var(--ink); }
+
+    /* Keyboard/switch-reachable delete (the swipe-left gesture isn't focusable). */
+    .bir__expandact { display: flex; justify-content: flex-end; padding: 0 12px 12px; }
+    .bir__del {
+      display: inline-flex; align-items: center; gap: 6px;
+      min-height: 44px; padding: 0 14px; border-radius: var(--r-pill);
+      border: 1px solid color-mix(in srgb, var(--warn) 45%, var(--hairline));
+      background: color-mix(in srgb, var(--warn) 10%, transparent); color: var(--warn);
+      font: 700 13px/1 var(--font-ui); cursor: pointer;
+      -webkit-tap-highlight-color: transparent; touch-action: manipulation;
+      mat-icon { font-size: 18px; width: 18px; height: 18px; }
+    }
+    .bir__del:active { transform: scale(.97); }
   `],
 })
 export class BillItemRow {

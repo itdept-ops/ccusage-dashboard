@@ -197,6 +197,7 @@
   min-height: 44px; padding: 0 18px; border-radius: var(--r-pill);
   border: none; background: linear-gradient(135deg, var(--accent-a), var(--accent-b));
   color: #04222a; font: inherit; font-size: 14px; font-weight: 800; cursor: pointer;
+  text-decoration: none; // the all-time CTA is an <a routerLink> — keep it looking like the button
   box-shadow: var(--lift-2); -webkit-tap-highlight-color: transparent; touch-action: manipulation;
   transition: transform 120ms var(--ease-spring);
 }

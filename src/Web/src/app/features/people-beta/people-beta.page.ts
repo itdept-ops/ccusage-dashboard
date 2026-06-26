@@ -127,6 +127,14 @@ type Filter = 'all' | 'contacts' | 'family';
             }
           </div>
         } @else {
+          <!-- Live "N online now" pulse line — from the already-loaded presence fields, no new endpoint. -->
+          @if (onlineCount() > 0) {
+            <p class="pl-livecount" role="status" aria-live="polite">
+              <span class="pl-livecount-pulse" aria-hidden="true"></span>
+              <strong>{{ onlineCount() }}</strong> online now
+            </p>
+          }
+
           <!-- ONLINE-FIRST roster: Online now, then Everyone. -->
           @if (onlineGroup().length > 0) {
             <section class="pl-group" aria-label="Online now">

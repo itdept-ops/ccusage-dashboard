@@ -1,5 +1,6 @@
 import { DatePipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, input, output } from '@angular/core';
+import { MatIconModule } from '@angular/material/icon';
 
 import { PagedResult, UsageRecord } from '../../../core/models';
 import { CompactPipe } from '../../../shared/format';
@@ -15,7 +16,7 @@ import { BetaSectionHeader, BetaSkeleton } from '../../beta-ui';
   selector: 'app-pulse-recent',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DatePipe, CompactPipe, BetaSectionHeader, BetaSkeleton],
+  imports: [DatePipe, CompactPipe, MatIconModule, BetaSectionHeader, BetaSkeleton],
   template: `
     <div class="rf">
       <app-bs-section-header title="Recent" [subtitle]="countLabel()" icon="receipt_long" />
@@ -54,7 +55,11 @@ import { BetaSectionHeader, BetaSkeleton } from '../../beta-ui';
           </button>
         }
       } @else {
-        <p class="rf__empty">No records in this range</p>
+        <div class="rf__empty">
+          <span class="rf__empty-ic" aria-hidden="true"><mat-icon>receipt_long</mat-icon></span>
+          <p class="rf__empty-msg">No records in this range</p>
+          <button type="button" class="rf__empty-cta" (click)="widen.emit()">Widen range</button>
+        </div>
       }
     </div>
   `,
@@ -93,7 +98,24 @@ import { BetaSectionHeader, BetaSkeleton } from '../../beta-ui';
     }
     .rf__more:active { transform: scale(.98); }
     .rf__more:disabled { opacity: .6; }
-    .rf__empty { margin: 16px 0; text-align: center; color: var(--ink-dim); font-size: 14px; }
+    .rf__empty {
+      display: flex; flex-direction: column; align-items: center; gap: 10px;
+      margin: 16px 0; text-align: center;
+    }
+    .rf__empty-ic {
+      display: grid; place-items: center; width: 48px; height: 48px; border-radius: 50%;
+      background: color-mix(in srgb, var(--accent-a) 12%, transparent);
+      color: color-mix(in srgb, var(--accent-a) 70%, var(--ink));
+    }
+    .rf__empty-ic mat-icon { font-size: 26px; width: 26px; height: 26px; }
+    .rf__empty-msg { margin: 0; color: var(--ink-dim); font-size: 14px; font-weight: 600; }
+    .rf__empty-cta {
+      min-height: 44px; padding: 0 18px; border-radius: var(--r-pill); border: 0; cursor: pointer;
+      background: linear-gradient(135deg, var(--accent-a), var(--accent-b)); color: var(--ink-on-accent);
+      font: inherit; font-size: 14px; font-weight: 700;
+      transition: transform 120ms var(--ease-spring);
+    }
+    .rf__empty-cta:active { transform: scale(.96); }
   `],
 })
 export class PulseRecentFeed {
@@ -103,6 +125,9 @@ export class PulseRecentFeed {
 
   /** Emitted to ask the page for the next page (it appends + re-renders). */
   readonly more = output<void>();
+
+  /** Emitted from the empty-state CTA so the page can widen to the all-time range. */
+  readonly widen = output<void>();
 
   readonly items = computed(() => this.page()?.items ?? []);
 

@@ -93,8 +93,9 @@ interface HomeOption { route: string; label: string; icon: string; perms: readon
         @if (homeOptions().length > 1) {
           <section class="rise" [style.--i]="1">
             <app-bs-section-header title="Home page" subtitle="Where the app opens" icon="home" />
-            <div class="card card--list">
+            <div class="card card--list" role="radiogroup" aria-label="Home page">
               <button type="button" class="home-row" [class.is-active]="homeChoice() === 'auto'"
+                      role="radio" [attr.aria-checked]="homeChoice() === 'auto'"
                       (click)="setHome(null)">
                 <span class="home-ic" aria-hidden="true">✧</span>
                 <span class="home-text">
@@ -105,6 +106,7 @@ interface HomeOption { route: string; label: string; icon: string; perms: readon
               </button>
               @for (h of homeOptions(); track h.route) {
                 <button type="button" class="home-row" [class.is-active]="homeChoice() === h.route"
+                        role="radio" [attr.aria-checked]="homeChoice() === h.route"
                         (click)="setHome(h.route)">
                   <span class="home-ic" aria-hidden="true">{{ h.icon }}</span>
                   <span class="home-text"><span class="home-title">{{ h.label }}</span></span>

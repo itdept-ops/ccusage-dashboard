@@ -87,9 +87,12 @@ interface RecapCell { readonly num: string; readonly label: string; readonly acc
       </button>
     </header>
 
+    <!-- A single sr-only polite node: announces only on slide CHANGE (not the per-rAF count-up). -->
+    <span class="wb-sr" aria-live="polite">{{ slideAnnounce() }}</span>
+
     <!-- ─────────────── PULL-TO-REFRESH OWNS THE SCROLL ─────────────── -->
     <app-bs-pull-refresh class="wb-ptr" [busy]="refreshing()" (refresh)="reload()">
-      <div class="wb-scroll" aria-live="polite">
+      <div class="wb-scroll">
 
         @if (loading()) {
           <div class="wb-load" aria-hidden="true">
@@ -176,14 +179,24 @@ interface RecapCell { readonly num: string; readonly label: string; readonly acc
             }
           </div>
 
-          <!-- progress-dot tray -->
-          <div class="wb-tray" role="tablist" aria-label="Reel progress">
-            @for (s of slides(); track s.key; let i = $index) {
-              <button type="button" class="wb-dot" [class.is-on]="active() === i"
-                      role="tab" [attr.aria-selected]="active() === i"
-                      [attr.aria-label]="'Go to slide ' + (i + 1)"
-                      (click)="goTo(i)"></button>
-            }
+          <!-- progress-dot tray + keyboard Prev/Next arrows -->
+          <div class="wb-tray">
+            <button type="button" class="wb-nav" aria-label="Previous slide"
+                    [disabled]="active() === 0" (click)="prev()">
+              <mat-icon aria-hidden="true">chevron_left</mat-icon>
+            </button>
+            <div class="wb-dots" role="tablist" aria-label="Reel progress">
+              @for (s of slides(); track s.key; let i = $index) {
+                <button type="button" class="wb-dot" [class.is-on]="active() === i"
+                        role="tab" [attr.aria-selected]="active() === i"
+                        [attr.aria-label]="'Go to slide ' + (i + 1)"
+                        (click)="goTo(i)"></button>
+              }
+            </div>
+            <button type="button" class="wb-nav" aria-label="Next slide"
+                    [disabled]="active() >= slides().length - 1" (click)="next()">
+              <mat-icon aria-hidden="true">chevron_right</mat-icon>
+            </button>
           </div>
 
           <!-- ─── SHAREABLE SUMMARY CARD ─── -->
@@ -261,6 +274,15 @@ export class WrappedBetaPage {
 
   /** Index of the slide currently snapped into view (drives the dots + count-up). */
   readonly active = signal(0);
+
+  /**
+   * A single polite sr-only line that announces ONLY on slide change ("Slide N of M") — so a screen
+   * reader isn't spammed by the per-rAF count-up that re-runs every animation frame on the active slide.
+   */
+  readonly slideAnnounce = computed(() => {
+    const total = this.slides().length;
+    return total ? `Slide ${this.active() + 1} of ${total}` : '';
+  });
 
   readonly cards = computed<WrappedCard[]>(() => this.data()?.cards ?? []);
 
@@ -383,6 +405,16 @@ export class WrappedBetaPage {
   goTo(i: number): void {
     this.active.set(i);
     this.scrollReelTo(i, 'smooth');
+  }
+
+  /** Keyboard Prev arrow → step back one slide (clamped). */
+  prev(): void {
+    if (this.active() > 0) this.goTo(this.active() - 1);
+  }
+
+  /** Keyboard Next arrow → step forward one slide (clamped). */
+  next(): void {
+    if (this.active() < this.slides().length - 1) this.goTo(this.active() + 1);
   }
 
   private scrollReelTo(i: number, behavior: ScrollBehavior): void {

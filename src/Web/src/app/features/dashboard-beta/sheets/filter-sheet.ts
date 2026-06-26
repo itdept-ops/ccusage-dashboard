@@ -31,10 +31,11 @@ import { BetaBottomSheet, BetaSegmentedControl, type Segment } from '../../beta-
 
         @if (projects().length) {
           <section class="fs__group">
-            <h3 class="fs__label">Projects</h3>
-            <div class="fs__chips">
+            <h3 class="fs__label" id="fs-lbl-projects">Projects</h3>
+            <div class="fs__chips" role="group" aria-labelledby="fs-lbl-projects">
               @for (p of projects(); track p.id) {
                 <button type="button" class="chip" [class.chip--on]="hasProject(p.id)"
+                        [attr.aria-pressed]="hasProject(p.id)"
                         (click)="toggleProject(p.id)">{{ p.name }}</button>
               }
             </div>
@@ -43,10 +44,11 @@ import { BetaBottomSheet, BetaSegmentedControl, type Segment } from '../../beta-
 
         @if (models().length) {
           <section class="fs__group">
-            <h3 class="fs__label">Models</h3>
-            <div class="fs__chips">
+            <h3 class="fs__label" id="fs-lbl-models">Models</h3>
+            <div class="fs__chips" role="group" aria-labelledby="fs-lbl-models">
               @for (m of models(); track m.model) {
                 <button type="button" class="chip" [class.chip--on]="hasModel(m.model)"
+                        [attr.aria-pressed]="hasModel(m.model)"
                         (click)="toggleModel(m.model)">{{ m.model }}</button>
               }
             </div>
@@ -55,10 +57,11 @@ import { BetaBottomSheet, BetaSegmentedControl, type Segment } from '../../beta-
 
         @if (sources().length) {
           <section class="fs__group">
-            <h3 class="fs__label">Sources</h3>
-            <div class="fs__chips">
+            <h3 class="fs__label" id="fs-lbl-sources">Sources</h3>
+            <div class="fs__chips" role="group" aria-labelledby="fs-lbl-sources">
               @for (s of sources(); track s.name) {
                 <button type="button" class="chip" [class.chip--on]="hasSource(s.name)"
+                        [attr.aria-pressed]="hasSource(s.name)"
                         (click)="toggleSource(s.name)">{{ s.name }}</button>
               }
             </div>
@@ -67,10 +70,11 @@ import { BetaBottomSheet, BetaSegmentedControl, type Segment } from '../../beta-
 
         @if (machines().length) {
           <section class="fs__group">
-            <h3 class="fs__label">Machines</h3>
-            <div class="fs__chips">
+            <h3 class="fs__label" id="fs-lbl-machines">Machines</h3>
+            <div class="fs__chips" role="group" aria-labelledby="fs-lbl-machines">
               @for (mc of machines(); track mc.name) {
                 <button type="button" class="chip" [class.chip--on]="hasMachine(mc.name)"
+                        [attr.aria-pressed]="hasMachine(mc.name)"
                         (click)="toggleMachine(mc.name)">{{ mc.label }}</button>
               }
             </div>
@@ -173,7 +177,7 @@ import { BetaBottomSheet, BetaSegmentedControl, type Segment } from '../../beta-
     .fs__cancel:active, .fs__commit:active { transform: scale(.98); }
     .fs__cancel { flex: 0 0 38%; background: var(--bg-rise); color: var(--ink-dim); }
     .fs__commit {
-      background: linear-gradient(135deg, var(--accent-a), var(--accent-b)); color: #fff; border: 0;
+      background: linear-gradient(135deg, var(--accent-a), var(--accent-b)); color: var(--ink-on-accent); border: 0;
       box-shadow: 0 8px 22px -8px color-mix(in srgb, var(--accent-a) 70%, transparent);
     }
   `],

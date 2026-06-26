@@ -87,7 +87,7 @@
   align-items: center;
   justify-content: center;
   gap: 10px;
-  min-height: calc(56px + var(--safe-top));
+  min-height: calc(var(--bar-top-h) + var(--safe-top));
   padding-top: var(--safe-top);
   padding-inline: var(--reel-pad) var(--reel-pad-r);
   background: var(--glass);
@@ -118,8 +118,14 @@
   height: 100%;
   display: flex;
   flex-direction: column;
-  padding-top: calc(56px + var(--safe-top));
+  padding-top: calc(var(--bar-top-h) + var(--safe-top));
   padding-bottom: calc(var(--safe-bottom) + 28px);
+}
+
+// A single sr-only polite announcer (visually hidden; announces "Slide N of M" on change).
+.wb-sr {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
 }
 
 // ============================================================================
@@ -305,14 +311,34 @@
 // ============================================================================
 .wb-tray {
   flex: 0 0 auto;
-  display: flex; align-items: center; justify-content: center; gap: 8px;
+  display: flex; align-items: center; justify-content: center; gap: 6px;
   padding: 16px var(--reel-pad) 4px;
 }
+.wb-dots {
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+}
+// Keyboard Prev/Next arrows — real 44px targets flanking the dots.
+.wb-nav {
+  flex: 0 0 auto;
+  display: inline-grid; place-items: center;
+  width: 44px; height: 44px; border-radius: 50%;
+  border: none; padding: 0; cursor: pointer;
+  background: transparent; color: var(--ink-dim);
+  transition: color 160ms var(--ease-out), background 160ms var(--ease-out), transform 120ms var(--ease-spring);
+  mat-icon { font-size: 24px; width: 24px; height: 24px; }
+  &:hover:not(:disabled) { color: var(--ink); background: color-mix(in srgb, var(--ink) 9%, transparent); }
+  &:active:not(:disabled) { transform: scale(.9); }
+  &:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+  &:disabled { opacity: .3; cursor: default; }
+}
 .wb-dot {
+  position: relative;
   width: 8px; height: 8px; border-radius: var(--r-pill);
   border: none; padding: 0; cursor: pointer;
   background: var(--ink-faint); opacity: .5;
   transition: width 280ms var(--ease-spring), opacity 200ms var(--ease-out), background 200ms var(--ease-out);
+  // Keep the 8px visual but lay a centered 44px transparent hit-area over each dot.
+  @include kit.tap44(true);
   &:focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; }
   &.is-on {
     width: 26px; opacity: 1;

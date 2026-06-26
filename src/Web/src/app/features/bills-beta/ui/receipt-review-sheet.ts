@@ -100,6 +100,7 @@ export interface ReceiptReviewResult {
       background: var(--bg-sink); border: 1px solid var(--hairline); border-radius: 12px;
       color: var(--ink); font: 500 15px/1 var(--font-ui); min-height: 48px; padding: 0 12px; outline: none;
       &:focus { border-color: var(--accent-b); }
+      &:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
     }
     .rrs__amtwrap { position: relative; display: flex; align-items: center; }
     .rrs__cur { position: absolute; left: 12px; color: var(--ink-dim); font: 500 14px/1 var(--font-display); pointer-events: none; }

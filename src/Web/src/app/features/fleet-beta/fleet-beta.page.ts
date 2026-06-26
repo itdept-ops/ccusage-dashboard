@@ -2,6 +2,7 @@ import {
   ChangeDetectionStrategy, Component, computed, inject, signal,
 } from '@angular/core';
 import { MatIconModule } from '@angular/material/icon';
+import { RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 
 import { Api } from '../../core/api';
@@ -49,7 +50,7 @@ const EMPTY_FILTER: UsageFilter = {
   changeDetection: ChangeDetectionStrategy.OnPush,
   providers: [ToastController],
   imports: [
-    MatIconModule, CompactPipe,
+    MatIconModule, RouterLink, CompactPipe,
     BetaPullRefresh, BetaSegmentedControl, BetaSectionHeader, BetaSkeleton, BetaToaster,
     FleetMachineCard, FleetUserLeaderboard, FleetMachineSheet,
   ],
@@ -136,10 +137,18 @@ const EMPTY_FILTER: UsageFilter = {
           } @else {
             <div class="fb-state">
               <span class="fb-state__ic" aria-hidden="true"><mat-icon>dns</mat-icon></span>
-              <p class="fb-state__msg">No machines have reported in this range.</p>
-              <button type="button" class="fb-state__btn" (click)="setDatePreset('all')">
-                <mat-icon aria-hidden="true">all_inclusive</mat-icon> View all time
-              </button>
+              @if (activePreset() === 'all') {
+                <!-- All-time already shows nothing → no machine has EVER reported. Point forward: add a reporter. -->
+                <p class="fb-state__msg">No machine has reported yet. Connect one to start tracking your fleet.</p>
+                <a class="fb-state__btn" routerLink="/reporter">
+                  <mat-icon aria-hidden="true">add_link</mat-icon> Connect a machine
+                </a>
+              } @else {
+                <p class="fb-state__msg">No machines have reported in this range.</p>
+                <button type="button" class="fb-state__btn" (click)="setDatePreset('all')">
+                  <mat-icon aria-hidden="true">all_inclusive</mat-icon> View all time
+                </button>
+              }
             </div>
           }
 

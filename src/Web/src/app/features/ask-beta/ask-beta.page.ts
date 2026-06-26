@@ -120,6 +120,11 @@ export class AskBetaPage {
     void this.ask(question);
   }
 
+  /** Composer dictation toggled → announce it on the page's polite live region. */
+  onListeningChange(listening: boolean): void {
+    this.announce.set(listening ? 'Listening…' : 'Stopped listening.');
+  }
+
   /**
    * Ask a question. Trims + guards empty/in-flight. On success appends the turn (grounded answer or plain
    * floor); on a network failure shows the inline error + remembers the question so "Try again" can retry.

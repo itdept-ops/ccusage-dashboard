@@ -29,8 +29,11 @@ import { CompactPipe } from '../../../shared/format';
           <span class="hero__delta" [class.is-up]="delta()! > 0" [class.is-down]="delta()! < 0"
                 [attr.title]="'vs ' + prevLabel()">
             <span class="hero__delta-arrow" aria-hidden="true">{{ delta()! >= 0 ? '▲' : '▼' }}</span>
-            {{ absDeltaPct() }}%
+            <span aria-hidden="true">{{ absDeltaPct() }}%</span>
+            <span class="hero__sr">{{ deltaSr() }}</span>
           </span>
+        } @else {
+          <span class="hero__delta hero__delta--none">no prior period to compare</span>
         }
       </div>
 
@@ -118,7 +121,13 @@ import { CompactPipe } from '../../../shared/format';
     }
     .hero__delta.is-up { color: var(--warn); background: color-mix(in srgb, var(--warn) 14%, transparent); border-color: color-mix(in srgb, var(--warn) 32%, transparent); }
     .hero__delta.is-down { color: var(--signal); background: color-mix(in srgb, var(--signal) 14%, transparent); border-color: color-mix(in srgb, var(--signal) 32%, transparent); }
+    .hero__delta--none { font-weight: 600; letter-spacing: 0; text-transform: none; color: var(--ink-faint); }
     .hero__delta-arrow { font-size: 9px; }
+    /* Visually-hidden text — read by screen readers, conveys the delta direction the color/arrow imply. */
+    .hero__sr {
+      position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; border: 0;
+      overflow: hidden; clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap;
+    }
 
     .hero__cost-row { display: flex; align-items: flex-end; justify-content: space-between; gap: 14px; width: 100%; margin-top: 6px; }
     .hero__cost-wrap { display: flex; align-items: baseline; gap: 3px; line-height: 1; min-width: 0; }
@@ -176,6 +185,14 @@ export class PulseHeroCard {
     if (d === null) return '0';
     const a = Math.abs(d);
     return a >= 100 ? Math.round(a).toString() : a.toFixed(1).replace(/\.0$/, '');
+  });
+
+  /** Screen-reader equivalent of the color/arrow delta (e.g. "up 12% vs the previous period"). */
+  readonly deltaSr = computed(() => {
+    const d = this.delta();
+    if (d === null) return '';
+    const dir = d > 0 ? 'up' : d < 0 ? 'down' : 'no change,';
+    return `${dir} ${this.absDeltaPct()}% vs ${this.prevLabel()}`;
   });
 
   readonly cachePct = computed(() => Math.round((this.cacheEff()?.cacheReadRatio ?? 0) * 100));

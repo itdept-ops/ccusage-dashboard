@@ -83,6 +83,8 @@ export class AskComposer {
   readonly busy = input<boolean>(false);
   /** A trimmed, non-empty question to ask. */
   readonly send = output<string>();
+  /** Dictation started (true) / stopped (false) — so the parent can announce it on the page live region. */
+  readonly listeningChange = output<boolean>();
 
   private readonly box = viewChild.required<ElementRef<HTMLTextAreaElement>>('box');
 
@@ -145,6 +147,7 @@ export class AskComposer {
     }
     this.recording = session.recording;
     this.listening.set(true);
+    this.listeningChange.emit(true);
     try {
       const result = await session.done;
       if (result?.text) {
@@ -155,6 +158,7 @@ export class AskComposer {
       // Permission/hardware error — the box keeps whatever interim text landed; user can type.
     } finally {
       this.listening.set(false);
+      this.listeningChange.emit(false);
       this.recording = null;
     }
   }

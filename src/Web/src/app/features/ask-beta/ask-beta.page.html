@@ -109,7 +109,8 @@
 </app-bs-pull-refresh>
 
 <!-- ── Composer (sticky bottom) ── -->
-<app-ask-composer [busy]="loading()" (send)="onSend($event)" />
+<app-ask-composer [busy]="loading()" (send)="onSend($event)"
+                  (listeningChange)="onListeningChange($event)" />
 
 <span class="sr-only" aria-live="polite">{{ announce() }}</span>
 

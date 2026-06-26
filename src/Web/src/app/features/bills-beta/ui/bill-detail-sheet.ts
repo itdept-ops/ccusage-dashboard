@@ -170,6 +170,7 @@ export interface BumpChange { bill: BillDto; dir: number; }
       border-bottom: 1px solid transparent; padding: 4px 0;
     }
     .bd__title:focus { border-bottom-color: var(--hairline); }
+    .bd__title:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: 6px; }
     .bd__status {
       flex: 0 0 auto; padding: 5px 11px; border-radius: var(--r-pill);
       font: 800 11px/1 var(--font-ui); letter-spacing: .05em; text-transform: uppercase;
@@ -188,6 +189,7 @@ export interface BumpChange { bill: BillDto; dir: number; }
       border-radius: var(--r-tile); background: var(--bg-sink);
     }
     .bd__addfield input { background: transparent; border: none; outline: none; color: var(--ink); font: 500 15px/1 var(--font-ui); min-width: 0; }
+    .bd__addfield:focus-within { outline: 2px solid var(--focus); outline-offset: 1px; border-radius: var(--r-tile); }
     .bd__addname { flex: 1 1 auto; }
     .bd__addamt { width: 84px; text-align: right; font-family: var(--font-display); font-weight: 600; }
     .bd__addbtn, .bd__snap {

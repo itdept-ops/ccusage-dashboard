@@ -1,5 +1,6 @@
 import { DecimalPipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, input, output } from '@angular/core';
+import { MatIconModule } from '@angular/material/icon';
 
 import { BetaSegmentedControl, BetaSkeleton, BetaSectionHeader, type Segment } from '../../beta-ui';
 
@@ -25,7 +26,7 @@ export type BreakdownDim = 'model' | 'source' | 'project';
   selector: 'app-pulse-breakdown',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DecimalPipe, BetaSegmentedControl, BetaSkeleton, BetaSectionHeader],
+  imports: [DecimalPipe, MatIconModule, BetaSegmentedControl, BetaSkeleton, BetaSectionHeader],
   template: `
     <div class="bd">
       <app-bs-section-header title="Breakdown" [subtitle]="subLabel()" icon="leaderboard" />
@@ -62,7 +63,11 @@ export type BreakdownDim = 'model' | 'source' | 'project';
           <p class="bd__more">+{{ otherCount() }} more · \${{ otherCost() | number:'1.2-2' }}</p>
         }
       } @else {
-        <p class="bd__empty">No cost in this range</p>
+        <div class="bd__empty">
+          <span class="bd__empty-ic" aria-hidden="true"><mat-icon>leaderboard</mat-icon></span>
+          <p class="bd__empty-msg">No cost in this range</p>
+          <button type="button" class="bd__empty-cta" (click)="widen.emit()">Widen range</button>
+        </div>
       }
     </div>
   `,
@@ -111,7 +116,24 @@ export type BreakdownDim = 'model' | 'source' | 'project';
       transition: width 600ms var(--ease-spring);
     }
     .bd__more { margin: 2px 0 0; font-size: 12px; font-weight: 600; color: var(--ink-faint); font-variant-numeric: tabular-nums; }
-    .bd__empty { margin: 16px 0; text-align: center; color: var(--ink-dim); font-size: 14px; }
+    .bd__empty {
+      display: flex; flex-direction: column; align-items: center; gap: 10px;
+      margin: 16px 0; text-align: center;
+    }
+    .bd__empty-ic {
+      display: grid; place-items: center; width: 48px; height: 48px; border-radius: 50%;
+      background: color-mix(in srgb, var(--accent-a) 12%, transparent);
+      color: color-mix(in srgb, var(--accent-a) 70%, var(--ink));
+    }
+    .bd__empty-ic mat-icon { font-size: 26px; width: 26px; height: 26px; }
+    .bd__empty-msg { margin: 0; color: var(--ink-dim); font-size: 14px; font-weight: 600; }
+    .bd__empty-cta {
+      min-height: 44px; padding: 0 18px; border-radius: var(--r-pill); border: 0; cursor: pointer;
+      background: linear-gradient(135deg, var(--accent-a), var(--accent-b)); color: var(--ink-on-accent);
+      font: inherit; font-size: 14px; font-weight: 700;
+      transition: transform 120ms var(--ease-spring);
+    }
+    .bd__empty-cta:active { transform: scale(.96); }
   `],
 })
 export class PulseBreakdownCard {
@@ -122,6 +144,9 @@ export class PulseBreakdownCard {
 
   /** Emitted when the user flips the dimension toggle (page swaps the slices). */
   readonly dimChange = output<BreakdownDim>();
+
+  /** Emitted from the empty-state CTA so the page can widen to the all-time range. */
+  readonly widen = output<void>();
 
   protected readonly dimSegs: Segment[] = [
     { key: 'model', label: 'Model' },
