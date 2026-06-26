@@ -14,13 +14,13 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="Usage IQ" />
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap"
-      rel="stylesheet"
-    />
-    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet" />
+    <!-- Web fonts (Inter, JetBrains Mono, Material Icons) are self-hosted in /fonts, declared via
+         @font-face in styles.scss, and service-worker prefetched — so they render OFFLINE with no
+         third-party CDN call. Preloaded (same-origin, crossorigin per font CORS) so the first paint
+         already carries the real type + <mat-icon> glyphs instead of a fallback flash. -->
+    <link rel="preload" href="/fonts/inter.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="/fonts/jetbrains-mono.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="/fonts/material-icons.woff2" as="font" type="font/woff2" crossorigin />
     <script src="https://accounts.google.com/gsi/client" async></script>
     <!-- No-flash theme bootstrap: applied synchronously BEFORE the Angular bundle paints, so the very
          first frame already carries the saved theme (no dark→light flash on a light-theme reload). Reads

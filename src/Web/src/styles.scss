@@ -5,6 +5,54 @@
 // custom components at https://material.angular.dev/guide/theming
 @use '@angular/material' as mat;
 
+/* ─────────────────────────────────────────────────────────────────────────────
+   Self-hosted web fonts — Inter, JetBrains Mono, Material Icons.
+   Previously pulled from the Google Fonts CDN; now bundled in /fonts and
+   service-worker prefetched (ngsw "app" group) so the installable PWA renders
+   the correct type AND <mat-icon> glyphs OFFLINE, with zero third-party request.
+   Inter (wght 100–900) + JetBrains Mono (wght 400–800) are variable — a single
+   woff2 spans every weight the app uses (400/500/600/700). Material Icons is the
+   classic ligature font; font-display:block so an icon never flashes as its raw
+   ligature text ("chevron_right") while the font loads.
+   ───────────────────────────────────────────────────────────────────────────── */
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url('/fonts/inter.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'JetBrains Mono';
+  font-style: normal;
+  font-weight: 400 800;
+  font-display: swap;
+  src: url('/fonts/jetbrains-mono.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Material Icons';
+  font-style: normal;
+  font-weight: 400;
+  font-display: block;
+  src: url('/fonts/material-icons.woff2') format('woff2');
+}
+.material-icons {
+  font-family: 'Material Icons';
+  font-weight: normal;
+  font-style: normal;
+  font-size: 24px;
+  line-height: 1;
+  letter-spacing: normal;
+  text-transform: none;
+  display: inline-block;
+  white-space: nowrap;
+  word-wrap: normal;
+  direction: ltr;
+  -webkit-font-feature-settings: 'liga';
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
 html {
   height: 100%;
   @include mat.theme(
