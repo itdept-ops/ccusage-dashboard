@@ -104,12 +104,13 @@ export type WidgetPhase = 'loading' | 'ready' | 'empty' | 'failed';
       transition: transform 140ms var(--ease-out), box-shadow 220ms var(--ease-out);
     }
     // Gradient hairline edge that picks up the domain accent (top-lit), masked to a 1px ring.
+    // Lit EVENLY along the top edge and fading to the plain hairline below — a vertical (180deg)
+    // ramp keeps the two top corners symmetric so neither rounded corner flares into a bright seam.
     .w__edge {
       position: absolute; inset: 0; border-radius: inherit; padding: 1px; pointer-events: none; z-index: 0;
-      background: linear-gradient(150deg,
-        color-mix(in srgb, var(--wa, var(--accent-a)) 55%, transparent),
-        var(--hairline) 38%,
-        color-mix(in srgb, var(--wb, var(--accent-b)) 28%, transparent));
+      background: linear-gradient(180deg,
+        color-mix(in srgb, var(--wa, var(--accent-a)) 26%, var(--hairline)),
+        var(--hairline) 48%);
       -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
       -webkit-mask-composite: xor; mask-composite: exclude;
     }
