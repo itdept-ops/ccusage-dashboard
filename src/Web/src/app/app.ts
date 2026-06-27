@@ -33,11 +33,15 @@ import { LocationCapture } from './core/location-capture';
 import { ClientInfoCapture } from './core/client-info';
 import { SwUpdateService } from './core/sw-update';
 import { PwaService } from './core/pwa';
+import { PlatformService } from './core/platform';
 import { Presence, SyncStatus, PERM, QuickAddResult } from './core/models';
 import { HomeOption, HOME_OPTIONS } from './core/home-options';
+import { normalizeHome } from './core/nav-model';
 import { timeAgo, humanizeInterval } from './shared/format';
 import { NotificationBell } from './features/notifications/notification-bell';
 import { BETA_EXPERIMENTS, BetaExperiment, canSeeExperiment } from './features/beta/beta-experiments';
+import { MobileTopbar } from './features/shell/mobile-topbar/mobile-topbar';
+import { BottomTabBar } from './features/shell/bottom-tab-bar/bottom-tab-bar';
 
 /** A teammate online, enriched with the initials + "you" flag the indicator needs to render. */
 interface OnlineUser extends Presence {
@@ -69,6 +73,8 @@ interface QuickLink {
     MatMenuModule,
     NotificationBell,
     CommandPalette,
+    MobileTopbar,
+    BottomTabBar,
   ],
   templateUrl: './app.html',
   changeDetection: ChangeDetectionStrategy.Eager,
@@ -96,6 +102,7 @@ export class App implements AfterViewInit {
   private host = inject(ElementRef<HTMLElement>);
   readonly palette = inject(CommandPaletteService);
   readonly theme = inject(ThemeService);
+  readonly platform = inject(PlatformService);
 
   /** Quick theme picker shown in the account menu (mirrors /preferences). */
   readonly themeModes: readonly { value: ThemeMode; label: string; icon: string }[] = [
@@ -198,18 +205,24 @@ export class App implements AfterViewInit {
   }
 
   /**
-   * Immersive "app-within-the-app" pages (the /beta + /tracker-beta surfaces). Unlike bare, the top nav
-   * STAYS visible — but the page owns the rest of the viewport with its OWN single inner scroll region +
-   * fixed top/bottom bars, so the shell frames it (.content--immersive: fixed height under the topbar,
-   * overflow:hidden) to kill the second/document scrollbar. Mirrors {@link bareLayout}, kept fresh on the
-   * same NavigationEnd below.
+   * The shell chrome to render around the page, derived from {@link bareLayout} + the resolved platform:
+   *   • 'bare'    — the bare/public allowlist (widget pop-outs, share/bill views, the marketing pages):
+   *                 NO app chrome at all (the page brings its own). Same prefix set as before.
+   *   • 'mobile'  — a phone (device OR forced via {@link PlatformService}): the slim <app-mobile-topbar>
+   *                 + a single <app-bottom-tab-bar>, with the page framed between them.
+   *   • 'desktop' — everything else: the full desktop toolbar (grouped dropdowns + right cluster), unchanged.
+   * `bareLayout` is the existing NavigationEnd-tracked signal; `platform.isMobile()` is reactive, so this
+   * recomputes on both a route change AND a live desktop/mobile override flip.
    */
-  readonly immersiveLayout = signal(App.isImmersive(this.router.url));
-  private static readonly immersivePrefixes = ['/beta', '/tracker-beta'];
-  private static isImmersive(url: string): boolean {
-    const path = url.split('?')[0];
-    return App.immersivePrefixes.some((p) => path === p || path.startsWith(p + '/'));
-  }
+  readonly shellMode = computed<'bare' | 'mobile' | 'desktop'>(() => {
+    if (this.bareLayout()) return 'bare';
+    // The mobile shell tracks the SAME gate as the per-page mobile twins (isMobileGated): a phone WITHOUT
+    // the platform.mobile grant keeps the full desktop experience (today's responsive behavior), so we never
+    // wrap a desktop-laid-out page in mobile chrome for un-opted-in users. Reading permissions() keeps it
+    // reactive to a grant change; platform.isMobile() is already reactive to the viewport + override.
+    this.auth.permissions();
+    return (this.platform.isMobile() && this.auth.hasPermission('platform.mobile')) ? 'mobile' : 'desktop';
+  });
 
   /** The current route path (no query), kept fresh on each navigation — drives the group-active flags. */
   readonly currentPath = signal(this.router.url.split('?')[0]);
@@ -394,6 +407,10 @@ export class App implements AfterViewInit {
     return HOME_OPTIONS.filter((o) => this.auth.hasAnyPermission(...o.perms));
   });
 
+  /** The brand-link destination: the saved home route, normalized so a legacy /beta/* or /tracker-beta
+   *  preference resolves to its canonical page (see {@link normalizeHome}). Reactive off the session. */
+  readonly brandHome = computed(() => normalizeHome(this.auth.homeRoute()));
+
   constructor() {
     // Wire the service-worker update prompt (prod-only; no-ops when the SW is disabled). Snackbar on a
     // new deployed version — "New version available — Reload" — reloads only if the user clicks.
@@ -433,7 +450,6 @@ export class App implements AfterViewInit {
       )
       .subscribe(() => {
         this.bareLayout.set(App.isBare(this.router.url));
-        this.immersiveLayout.set(App.isImmersive(this.router.url));
         this.currentPath.set(this.router.url.split('?')[0]);
         this.closeMobileNav(); // never leave the drawer open across a route change
         this.maybeApplyPwaHome(); // installed-app launch → saved home (once the router has settled)
@@ -574,7 +590,7 @@ export class App implements AfterViewInit {
     if (this.pwaHomeApplied || !this.launchedFromPwa) return;
     if (!this.auth.isAuthenticated()) return; // session not ready yet — a later NavigationEnd retries
     this.pwaHomeApplied = true;
-    const home = this.auth.homeRoute();
+    const home = normalizeHome(this.auth.homeRoute());
     if (home && home !== '/' && this.router.url.split('?')[0] === '/') {
       void this.router.navigateByUrl(home);
     }
@@ -622,7 +638,7 @@ export class App implements AfterViewInit {
     const subtree = App.routePermSubtrees.find((r) => path === r || path.startsWith(r + '/'));
     const required = App.routePerm[subtree ?? path];
     if (required && !this.auth.hasPermission(required)) {
-      this.router.navigateByUrl(this.auth.homeRoute());
+      this.router.navigateByUrl(normalizeHome(this.auth.homeRoute()));
     }
   }
 
@@ -799,26 +815,5 @@ export class App implements AfterViewInit {
     this.status.set(null);
     this.userCount.set(null);
     this.router.navigate(['/login']);
-  }
-
-  /**
-   * The slim immersive bar's back affordance: always lets the user leave the page. If we're on a beta
-   * SUB-page (e.g. /beta/bills) we route up to the Beta hub (/beta) — a deterministic, in-app destination
-   * that never escapes the SPA. From the hub root (/beta or /tracker-beta) we use the browser's history
-   * back if there's somewhere to return to, else fall back to the caller's home route. This keeps the
-   * affordance simple and means it never strands the user (no dead-end, no leaving the app shell).
-   */
-  immersiveBack(): void {
-    const path = this.router.url.split('?')[0];
-    const isBetaSubPage = path.startsWith('/beta/');
-    if (isBetaSubPage) {
-      this.router.navigateByUrl('/beta');
-      return;
-    }
-    if (typeof history !== 'undefined' && history.length > 1) {
-      history.back();
-      return;
-    }
-    this.router.navigateByUrl(this.auth.homeRoute());
   }
 }

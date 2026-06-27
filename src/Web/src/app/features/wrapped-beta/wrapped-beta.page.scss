@@ -68,7 +68,7 @@
   --reel-pad: max(18px, env(safe-area-inset-left, 0px));
   --reel-pad-r: max(18px, env(safe-area-inset-right, 0px));
 
-  height: 100%;   // fill the immersive shell frame (.content--immersive); inner regions own the scroll
+  height: 100%;   // fill the immersive shell frame (.content--mobile); inner regions own the scroll
 }
 
 @include kit.beta-springs;          // @supports linear() spring upgrade (top-level, once)

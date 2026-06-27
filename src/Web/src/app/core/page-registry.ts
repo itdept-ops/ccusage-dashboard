@@ -4,6 +4,8 @@ import { authGuard } from './auth.guard';
 import { permissionGuard, anyPermissionGuard } from './permission.guard';
 import { isMobileGated } from './platform.guard';
 import { PERM } from './models';
+import { OptimisticTracker } from '../features/tracker-beta/state/optimistic-tracker';
+import { OptimisticFamily } from '../features/family-beta/state/optimistic-family';
 
 /**
  * The CENTRAL registry of the authenticated app's pages — the single source of truth that drives (a) the route
@@ -63,6 +65,7 @@ export const PAGE_REGISTRY: readonly PageDef[] = [
   {
     id: 'dashboard', path: '', title: 'Usage IQ · Dashboard', perm: PERM.dashboardView,
     desktop: () => import('../features/dashboard/dashboard').then(m => m.Dashboard),
+    mobile: () => import('../features/dashboard-beta/dashboard-beta.page').then(m => m.DashboardBetaPage),
     nav: { group: 'Usage', label: 'Dashboard', icon: 'space_dashboard', tab: true },
     home: { label: 'Dashboard', icon: 'space_dashboard' },
   },
@@ -89,6 +92,7 @@ export const PAGE_REGISTRY: readonly PageDef[] = [
     id: 'fleet', path: 'fleet', title: 'Usage IQ · Fleet',
     anyPerm: [PERM.fleetView, PERM.reporterManage],
     desktop: () => import('../features/fleet/fleet').then(m => m.Fleet),
+    mobile: () => import('../features/fleet-beta/fleet-beta.page').then(m => m.FleetBetaPage),
     nav: { group: 'Usage', label: 'Fleet', icon: 'dns' },
     home: { label: 'Fleet', icon: 'dns' },
   },
@@ -97,6 +101,8 @@ export const PAGE_REGISTRY: readonly PageDef[] = [
   {
     id: 'tracker', path: 'tracker', title: 'Usage IQ · Tracker', perm: PERM.trackerSelf,
     desktop: () => import('../features/tracker/tracker').then(m => m.Tracker),
+    mobile: () => import('../features/tracker-beta/tracker-beta.page').then(m => m.TrackerBetaPage),
+    providers: [OptimisticTracker],
     nav: { group: 'Fitness', label: 'Tracker', icon: 'fitness_center', tab: true },
     home: { label: 'Tracker', icon: 'fitness_center' },
   },
@@ -114,6 +120,7 @@ export const PAGE_REGISTRY: readonly PageDef[] = [
   {
     id: 'trophies', path: 'trophies', title: 'Usage IQ · Trophies', perm: PERM.trackerSelf,
     desktop: () => import('../features/trophies/trophies').then(m => m.Trophies),
+    mobile: () => import('../features/trophies-beta/trophies-beta.page').then(m => m.TrophiesBetaPage),
     nav: { group: 'Fitness', label: 'Trophies', icon: 'emoji_events' },
     home: { label: 'Trophies', icon: 'emoji_events' },
   },
@@ -128,18 +135,21 @@ export const PAGE_REGISTRY: readonly PageDef[] = [
   {
     id: 'ask', path: 'ask', title: 'Usage IQ · Ask my life', perm: PERM.trackerAi,
     desktop: () => import('../features/ask/ask').then(m => m.Ask),
+    mobile: () => import('../features/ask-beta/ask-beta.page').then(m => m.AskBetaPage),
     nav: { group: 'Tools', label: 'Ask', icon: 'auto_awesome' },
     home: { label: 'Ask my life', icon: 'auto_awesome' },
   },
   {
     id: 'automations', path: 'automations', title: 'Usage IQ · Automations', perm: PERM.automationsUse,
     desktop: () => import('../features/automations/automations').then(m => m.Automations),
+    mobile: () => import('../features/automations-beta/automations-beta.page').then(m => m.AutomationsBetaPage),
     nav: { group: 'Tools', label: 'Automations', icon: 'bolt' },
     home: { label: 'Automations', icon: 'bolt' },
   },
   {
     id: 'bills', path: 'bills', title: 'Usage IQ · Bill Splitter', perm: PERM.billsUse,
     desktop: () => import('../features/bills/bills').then(m => m.Bills),
+    mobile: () => import('../features/bills-beta/bills-beta.page').then(m => m.BillsBetaPage),
     nav: { group: 'Tools', label: 'Bills', icon: 'receipt_long' },
     home: { label: 'Bill Splitter', icon: 'receipt_long' },
   },
@@ -158,6 +168,7 @@ export const PAGE_REGISTRY: readonly PageDef[] = [
   {
     id: 'meal-planner', path: 'meal-planner', title: 'Usage IQ · Meal Planner', perm: PERM.mealsUse,
     desktop: () => import('../features/meal-planner/meal-planner').then(m => m.MealPlanner),
+    mobile: () => import('../features/meals-beta/meals-beta.page').then(m => m.MealsBetaPage),
     nav: { group: 'Tools', label: 'Meal Planner', icon: 'restaurant_menu' },
     home: { label: 'Meal Planner', icon: 'restaurant_menu' },
   },
@@ -172,6 +183,7 @@ export const PAGE_REGISTRY: readonly PageDef[] = [
   {
     id: 'chat', path: 'chat', title: 'Usage IQ · Chat', perm: PERM.chatRead,
     desktop: () => import('../features/chat/chat').then(m => m.Chat),
+    mobile: () => import('../features/chat-beta/chat-beta.page').then(m => m.ChatBetaPage),
     nav: { group: 'Social', label: 'Chat', icon: 'chat_bubble', tab: true },
     home: { label: 'Chat', icon: 'chat_bubble' },
   },
@@ -179,6 +191,7 @@ export const PAGE_REGISTRY: readonly PageDef[] = [
     id: 'people', path: 'people', title: 'Usage IQ · People',
     anyPerm: [PERM.chatRead, PERM.familyUse],
     desktop: () => import('../features/people/people').then(m => m.People),
+    mobile: () => import('../features/people-beta/people-beta.page').then(m => m.PeopleBetaPage),
     nav: { group: 'Social', label: 'People', icon: 'groups' },
     home: { label: 'People', icon: 'groups' },
   },
@@ -186,6 +199,8 @@ export const PAGE_REGISTRY: readonly PageDef[] = [
   // ---- Family (a hub with children; the whole group is gated by family.use) ----
   {
     id: 'family', path: 'family', perm: PERM.familyUse,
+    mobile: () => import('../features/family-beta/family-beta.page').then(m => m.FamilyBetaPage),
+    providers: [OptimisticFamily],
     nav: { group: 'Family', label: 'Family', icon: 'cottage', tab: true },
     home: { label: 'Family', icon: 'cottage' },
     children: [
@@ -212,6 +227,7 @@ export const PAGE_REGISTRY: readonly PageDef[] = [
   {
     id: 'settings', path: 'settings', title: 'Usage IQ · Settings', perm: PERM.settingsView,
     desktop: () => import('../features/settings/settings').then(m => m.Settings),
+    mobile: () => import('../features/beta-settings/beta-settings.page').then(m => m.BetaSettingsPage),
     nav: { group: 'Admin', label: 'Settings', icon: 'settings' },
     home: { label: 'Settings', icon: 'settings' },
   },

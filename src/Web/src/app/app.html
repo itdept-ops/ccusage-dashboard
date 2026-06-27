@@ -2,59 +2,40 @@
      auto-dismisses on reconnect (the @if drops it when pwa.online() flips back to true). Pinned to the
      bottom + safe-area aware so it stays clear of the sticky top toolbar. -->
 @if (!pwa.online()) {
-  <div class="offline-banner" role="status" aria-live="polite">
+  <div class="offline-banner" [class.offline-banner--mobile]="shellMode() === 'mobile'" role="status" aria-live="polite">
     <mat-icon class="offline-banner__icon" aria-hidden="true">cloud_off</mat-icon>
     <span class="offline-banner__text">You're offline — changes may not save.</span>
   </div>
 }
 
-@if (bareLayout()) {
-<!-- Bare/public chrome: no app toolbar (the page brings its own). -->
-} @else if (immersiveLayout()) {
-<!-- IMMERSIVE (beta) routes: a SLIM, native-feeling glass bar replaces the full desktop toolbar.
-     LEFT = a back affordance that always lets the user leave the page; RIGHT = the SAME avatar +
-     account menu the full toolbar uses (so account/profile/sign-out/home-route still work). No full
-     nav menus, no search, no terminal prompt — the immersive page owns the rest of the chrome. -->
-<mat-toolbar class="slimbar glass">
-  <button mat-icon-button type="button" class="slimbar__back" (click)="immersiveBack()"
-          matTooltip="Back" matTooltipClass="axon-tip" aria-label="Go back">
-    <mat-icon>arrow_back_ios_new</mat-icon>
-  </button>
-
-  <span class="slimbar__brand" aria-hidden="true">
-    <svg class="slimbar__logo" width="20" height="20" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <defs>
-        <linearGradient id="uiq-logo-grad-slim" x1="3" y1="29" x2="29" y2="3" gradientUnits="userSpaceOnUse">
-          <stop stop-color="#3D8BFF" /><stop offset="0.52" stop-color="#8B7CFF" /><stop offset="1" stop-color="#3FD8D0" />
-        </linearGradient>
-      </defs>
-      <rect x="1.25" y="1.25" width="29.5" height="29.5" rx="7.5" fill="#0B1019" stroke="url(#uiq-logo-grad-slim)" stroke-width="1.5" />
-      <rect x="7" y="18" width="3.6" height="7" rx="1.3" fill="url(#uiq-logo-grad-slim)" />
-      <rect x="14.2" y="13" width="3.6" height="12" rx="1.3" fill="url(#uiq-logo-grad-slim)" />
-      <rect x="21.4" y="8" width="3.6" height="17" rx="1.3" fill="url(#uiq-logo-grad-slim)" />
-    </svg>
-    <span class="slimbar__beta">BETA</span>
-  </span>
-
-  <span class="spacer"></span>
-
-  @if (auth.isAuthenticated() && auth.session(); as u) {
-    <button mat-button class="user" [matMenuTriggerFor]="userMenu"
-            #slimUserTrigger="matMenuTrigger"
-            [class.user--open]="slimUserTrigger.menuOpen"
-            aria-haspopup="menu" aria-label="Account menu">
-      @if (u.picture) {
-        <img class="user__avatar" [src]="u.picture" alt="" referrerpolicy="no-referrer" />
-      } @else {
-        <span class="user__avatar user__avatar--init">{{ initials() }}</span>
-      }
-      <mat-icon class="user__chev" aria-hidden="true">expand_more</mat-icon>
-    </button>
+@switch (shellMode()) {
+  @case ('bare') {
+    <!-- Bare/public chrome: no app toolbar (the page brings its own). -->
   }
-</mat-toolbar>
-} @else {
+  @case ('mobile') {
+    <!-- MOBILE shell: the slim glass top bar (back + brand + account avatar) on every in-app route,
+         with the global bottom tab bar mounted once below. The account avatar is the SHELL's own
+         #userMenu trigger projected into the topbar's trailing slot, so account/profile/sign-out/
+         home-route bind to the same root-level menu the desktop toolbar uses. -->
+    <app-mobile-topbar [authed]="auth.isAuthenticated()" [homePath]="brandHome()">
+      @if (auth.isAuthenticated() && auth.session(); as u) {
+        <button topbarTrailing mat-button class="user" [matMenuTriggerFor]="userMenu"
+                #mobileUserTrigger="matMenuTrigger"
+                [class.user--open]="mobileUserTrigger.menuOpen"
+                aria-haspopup="menu" aria-label="Account menu">
+          @if (u.picture) {
+            <img class="user__avatar" [src]="u.picture" alt="" referrerpolicy="no-referrer" />
+          } @else {
+            <span class="user__avatar user__avatar--init">{{ initials() }}</span>
+          }
+          <mat-icon class="user__chev" aria-hidden="true">expand_more</mat-icon>
+        </button>
+      }
+    </app-mobile-topbar>
+  }
+  @case ('desktop') {
 <mat-toolbar class="topbar glass">
-  <a class="brand" [routerLink]="auth.homeRoute()" aria-label="Usage IQ home">
+  <a class="brand" [routerLink]="brandHome()" aria-label="Usage IQ home">
     <svg class="brand__logo" width="24" height="24" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
       <defs>
         <linearGradient id="uiq-logo-grad" x1="3" y1="29" x2="29" y2="3" gradientUnits="userSpaceOnUse">
@@ -594,6 +575,13 @@
     }
   </nav>
 }
+  }
+}
+
+<!-- The GLOBAL mobile bottom tab bar: mounted ONCE, only on the mobile shell. It derives its tabs +
+     "More" sheet from the page registry (core/nav-model), so it never drifts from the desktop nav. -->
+@if (shellMode() === 'mobile') {
+  <app-bottom-tab-bar />
 }
 
 <!-- Account menu + home-page picker submenu. Declared ONCE here at the shell root (not inside either
@@ -700,7 +688,8 @@
     }
   </mat-menu>
 
-<main class="content" [class.content--bare]="bareLayout()" [class.content--immersive]="immersiveLayout()">
+<main class="content" [class.content--bare]="bareLayout()"
+      [class.content--mobile]="shellMode() === 'mobile'">
   <router-outlet />
 </main>
 

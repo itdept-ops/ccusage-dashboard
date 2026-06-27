@@ -1,0 +1,200 @@
+// ============================================================================
+// BOTTOM TAB BAR — the global mobile bottom navigation, on the shared beta-kit
+// "Strata" tokens (glass surface, ink scale, radii, safe-area, a11y killswitches).
+// Fixed to the bottom edge, safe-area-aware, 44px+ touch targets.
+// ============================================================================
+@use '../../beta-ui/beta-kit' as kit;
+
+:host {
+  @include kit.beta-host;
+  // The bar's own accent (drives the active tab's ink + indicator). The flagship
+  // violet→blue reads well on the dark glass and matches the Atrium home surface.
+  --accent-a: #7c5cff;
+  --accent-b: #3b82f6;
+
+  // The bar is FIXED chrome, not a page body — undo beta-host's block-fill box so
+  // it only occupies its own footprint and floats above the routed content.
+  display: block;
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 40;
+  width: 100%;
+  height: auto;
+  min-height: 0;
+  background: transparent;
+}
+@include kit.beta-a11y;
+
+.tabbar {
+  display: flex;
+  align-items: stretch;
+  justify-content: space-around;
+  gap: 2px;
+  padding: 6px max(6px, env(safe-area-inset-left)) calc(6px + var(--safe-bottom)) max(6px, env(safe-area-inset-right));
+  background: var(--glass);
+  backdrop-filter: blur(var(--blur-glass)) saturate(1.4);
+  -webkit-backdrop-filter: blur(var(--blur-glass)) saturate(1.4);
+  border-top: 1px solid var(--glass-edge);
+  box-shadow: var(--lift-3);
+}
+
+// One tab — a routerLink anchor (or the "More" button). Flex column: icon over label.
+.tab {
+  flex: 1 1 0;
+  min-width: 0;
+  // 44px+ touch target (the chrome above adds the safe-area inset below this).
+  min-height: 48px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  padding: 4px 2px;
+  border: 0;
+  background: none;
+  border-radius: var(--r-tile);
+  color: var(--ink-dim);
+  font: inherit;
+  font-family: var(--font-ui);
+  cursor: pointer;
+  text-decoration: none;
+  -webkit-tap-highlight-color: transparent;
+  transition: color 160ms var(--ease-out), transform 120ms var(--ease-spring);
+}
+.tab:active { transform: scale(.94); }
+
+.tab__icon {
+  width: 24px;
+  height: 24px;
+  font-size: 24px;
+  line-height: 24px;
+  display: grid;
+  place-items: center;
+}
+
+.tab__label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .01em;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+// Active state — the routerLinkActive class ('active') tints the ink to the accent
+// and floats a small pill indicator behind the icon. "More" never gets it (it isn't
+// a route), so the sheet stays a neutral utility affordance.
+.tab.active {
+  color: var(--ink);
+}
+.tab.active .tab__icon {
+  color: transparent;
+  background: linear-gradient(135deg, var(--accent-a), var(--accent-b));
+  -webkit-background-clip: text;
+  background-clip: text;
+}
+
+// Own visible focus ring (never bare outline:none).
+.tab:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: -2px;
+  border-radius: var(--r-tile);
+}
+
+// ── The "More" sheet body — a grouped list of every nav item + account rows. ──
+.more {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 6px 0 8px;
+}
+
+.more__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  padding-top: 2px;
+}
+.more__title {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--ink);
+}
+.more__hint {
+  margin: 0;
+  font-size: 12px;
+  color: var(--ink-dim);
+}
+
+.more__group { display: flex; flex-direction: column; gap: 6px; }
+.more__group-label {
+  margin: 0 0 2px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+}
+
+// A row in the sheet — icon + label, full-width, 44px+, sediment background on press.
+.more__row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  min-height: 52px;
+  padding: 8px 14px;
+  border: 0;
+  border-radius: var(--r-card);
+  background: var(--bg-rise);
+  color: var(--ink);
+  font: inherit;
+  font-family: var(--font-ui);
+  font-size: 15px;
+  font-weight: 600;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background 140ms var(--ease-out), transform 120ms var(--ease-spring);
+}
+.more__row:active { transform: scale(.985); background: color-mix(in srgb, var(--accent-a) 12%, var(--bg-rise)); }
+.more__row.active {
+  background: color-mix(in srgb, var(--accent-a) 18%, var(--bg-rise));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent-a) 45%, var(--hairline));
+}
+
+.more__row-icon {
+  flex: 0 0 auto;
+  width: 24px;
+  height: 24px;
+  font-size: 24px;
+  line-height: 24px;
+  display: grid;
+  place-items: center;
+  color: var(--ink-dim);
+}
+.more__row.active .more__row-icon { color: var(--accent-a); }
+.more__row-label { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.more__row-chev { flex: 0 0 auto; color: var(--ink-faint); font-size: 20px; }
+
+// A thin divider between the nav groups and the account/session rows.
+.more__rule {
+  height: 1px;
+  margin: 2px 0;
+  background: var(--hairline);
+  border: 0;
+}
+
+// Sign out reads as the one destructive row (warm amber per the kit, never red).
+.more__row--danger { color: var(--warn); }
+.more__row--danger .more__row-icon { color: var(--warn); }
+
+.more__row:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}

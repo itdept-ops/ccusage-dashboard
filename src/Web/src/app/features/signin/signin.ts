@@ -12,6 +12,7 @@ import {
 import { ActivatedRoute, Router } from '@angular/router';
 import { HttpErrorResponse } from '@angular/common/http';
 import { MatIconModule } from '@angular/material/icon';
+import { normalizeHome } from '../../core/nav-model';
 import { firstValueFrom } from 'rxjs';
 import { AuthService } from '../../core/auth';
 import { MarketingNav } from '../marketing/marketing-nav';
@@ -53,7 +54,9 @@ export class SignIn {
   }
 
   private returnUrl(): string {
-    return this.route.snapshot.queryParamMap.get('returnUrl') || this.auth.homeRoute();
+    // An explicit ?returnUrl stays verbatim; the homeRoute() fallback is normalized so a saved legacy
+    // /beta/* or /tracker-beta home lands on its canonical page (the device then picks desktop/mobile).
+    return this.route.snapshot.queryParamMap.get('returnUrl') || normalizeHome(this.auth.homeRoute());
   }
 
   private async initGoogle(): Promise<void> {

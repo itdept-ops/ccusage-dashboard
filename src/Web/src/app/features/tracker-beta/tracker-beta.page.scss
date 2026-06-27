@@ -82,7 +82,7 @@
   display: block;
   position: relative;
   width: 100%;
-  height: 100%; // fill the immersive shell frame (.content--immersive); inner .tb-scroll owns the scroll
+  height: 100%; // fill the immersive shell frame (.content--mobile); inner .tb-scroll owns the scroll
   min-height: 0;
   background: var(--bg-base);
   color: var(--ink);
@@ -133,7 +133,7 @@
 // SHELL LAYOUT — class names the page component (and children) bind to.
 // ============================================================================
 
-// The single vertical scroll region. height:100% fills the immersive shell frame (.content--immersive,
+// The single vertical scroll region. height:100% fills the immersive shell frame (.content--mobile,
 // which is itself 100dvh − topbar), so this is the ONLY scrollbar. scroll-snap on section landings.
 :host ::ng-deep .tb-scroll,
 .tb-scroll {

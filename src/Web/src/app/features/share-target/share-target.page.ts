@@ -3,6 +3,7 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { MatDialog } from '@angular/material/dialog';
 
 import { AuthService } from '../../core/auth';
+import { normalizeHome } from '../../core/nav-model';
 import { PERM } from '../../core/models';
 import { toLocalDate } from '../../core/tracker-store';
 import { AddFoodDialog, AddFoodData } from '../tracker/add-food-dialog';
@@ -203,7 +204,7 @@ export class ShareTargetPage implements OnInit {
   /** Quiet redirect to the resolved home (never strand the user on a blank /share page). */
   private goHome(): void {
     try {
-      void this.router.navigateByUrl(this.auth.homeRoute(), { replaceUrl: true });
+      void this.router.navigateByUrl(normalizeHome(this.auth.homeRoute()), { replaceUrl: true });
     } catch {
       try {
         void this.router.navigateByUrl('/', { replaceUrl: true });
