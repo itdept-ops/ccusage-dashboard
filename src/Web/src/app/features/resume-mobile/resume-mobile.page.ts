@@ -640,7 +640,7 @@ interface ExportTarget {
 
     <!-- ─── EDITOR: floating AI assistant + sticky save bar ─── -->
     @if (!loading() && !errored() && hasMaster() && tab() === 'editor') {
-      <app-bs-fab icon="auto_awesome" label="AI assistant" [extended]="false" [fixed]="true" (action)="openChat()" />
+      <app-bs-fab class="rm-editor-fab" icon="auto_awesome" label="AI assistant" [extended]="false" [fixed]="true" (action)="openChat()" />
       <div class="rm-savebar" [class.is-dirty]="dirty()">
         <button type="button" class="rm-savebar__export" (click)="openExport(null, '')">
           <mat-icon aria-hidden="true">download</mat-icon>
