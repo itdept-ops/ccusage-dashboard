@@ -1,19 +1,67 @@
 <app-marketing-nav />
 
 <main class="mpage">
-  <div class="bg-fx" aria-hidden="true"><div class="grid-fade"></div><div class="orb orb-a"></div><div class="orb orb-b"></div></div>
+  <div class="bg-fx" aria-hidden="true"><div class="grid-fade"></div><div class="orb orb-a"></div><div class="orb orb-b"></div><div class="orb orb-c"></div></div>
 
-  <header class="mpage-hero">
-    <span class="page-eyebrow">AI</span>
-    <h1>Talk to your tracker. Get structured data back.</h1>
-    <p>Usage IQ weaves Google Gemini through the food &amp; fitness tracker. You describe a meal, snap a plate, or say a workout — it returns clean, clamped, editable numbers you confirm before anything is logged.</p>
+  <header class="mpage-hero ai-hero">
+    <span class="page-eyebrow">The agentic layer</span>
+    <h1>Agents that don't just report. <span class="grad">They act.</span></h1>
+    <p>
+      Usage IQ weaves Google Gemini through the OS as a team of agents. Snap a plate, say a workout, drop a
+      photo of a schedule — and a sentence becomes a logged action. They don't chart your past. They do the
+      grind, then hand you the pen.
+    </p>
+
+    <!-- BOOT SEQUENCE — the agent layer coming online -->
+    <div class="boot-term" role="img" aria-label="Agent layer boot sequence: kernel ok, Gemini bridge connected, agents armed and off by default, leash engaged — you confirm every action.">
+      <div class="boot-bar" aria-hidden="true"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="boot-name">agents.sh</span></div>
+      <ul class="boot-lines" aria-hidden="true">
+        @for (line of bootLines; track line; let i = $index) {
+          <li class="boot-line" [style.--d.ms]="i * 420">
+            <span class="boot-prompt">›</span><span class="boot-text">{{ line }}</span><span class="boot-ok">ok</span>
+          </li>
+        }
+      </ul>
+    </div>
   </header>
 
-  <!-- (2) How it works -->
+  <!-- (1) The ACT — what makes them agents, not a chatbot -->
   <section class="ai-section">
     <header class="section-head">
-      <span class="section-eyebrow">How it works</span>
-      <h2>One careful pattern behind every assist.</h2>
+      <span class="section-eyebrow">Action, not chat</span>
+      <h2>A sentence or a photo in. A logged action out.</h2>
+      <p class="section-lead">
+        These aren't chatbots bolted on. They're agents wired into the OS that turn intent into a structured
+        entry — scaled to your body, priced to your goals — and then stop, so you can confirm.
+      </p>
+    </header>
+
+    <ul class="act-grid">
+      <li class="act-card panel">
+        <span class="act-glyph" aria-hidden="true"><mat-icon>photo_camera</mat-icon></span>
+        <p class="act-line"><span class="act-in">Snap your dinner</span> <span class="act-pulse" aria-hidden="true"></span> <span class="act-out">logged as macros</span></p>
+      </li>
+      <li class="act-card panel">
+        <span class="act-glyph" aria-hidden="true"><mat-icon>directions_run</mat-icon></span>
+        <p class="act-line"><span class="act-in">“Jogged two miles”</span> <span class="act-pulse" aria-hidden="true"></span> <span class="act-out">a structured entry, scaled to you</span></p>
+      </li>
+      <li class="act-card panel">
+        <span class="act-glyph" aria-hidden="true"><mat-icon>flag</mat-icon></span>
+        <p class="act-line"><span class="act-in">“Lose 10 lbs in 3 months”</span> <span class="act-pulse" aria-hidden="true"></span> <span class="act-out">a safe daily plan</span></p>
+      </li>
+      <li class="act-card panel">
+        <span class="act-glyph" aria-hidden="true"><mat-icon>tips_and_updates</mat-icon></span>
+        <p class="act-line"><span class="act-in">“What can I eat?”</span> <span class="act-pulse" aria-hidden="true"></span> <span class="act-out">answers, not charts</span></p>
+      </li>
+    </ul>
+  </section>
+
+  <!-- (2) The leash — guardrails as a feature -->
+  <section class="ai-section">
+    <header class="section-head">
+      <span class="section-eyebrow">The leash</span>
+      <h2>Agents that act — on a leash you hold.</h2>
+      <p class="section-lead">One careful pattern wraps every agent in the OS. The autonomy is real; the guardrails are the selling point.</p>
     </header>
     <ul class="pillar-grid">
       @for (p of pillars; track p.title) {
@@ -26,9 +74,15 @@
     </ul>
   </section>
 
-  <!-- (3) The entry points, grouped -->
+  <!-- (3) The agents, grouped by life-domain -->
+  <header class="section-head agents-intro">
+    <span class="section-eyebrow">The roster</span>
+    <h2>The agents that run your life.</h2>
+    <p class="section-lead">Every one is a shipped endpoint under <code>/api/ai/*</code> — here is exactly what you say, what the agent does, and the strict JSON it hands back for you to confirm.</p>
+  </header>
+
   @for (g of groups; track g.group) {
-    <section class="ai-section" [attr.aria-label]="g.group">
+    <section class="ai-section" [attr.data-accent]="g.accent" [attr.aria-label]="g.group">
       <header class="group-head">
         <span class="group-rule" aria-hidden="true"></span>
         <h2><mat-icon aria-hidden="true">{{ g.icon }}</mat-icon>{{ g.group }}</h2>
@@ -51,7 +105,7 @@
 
             <p class="assist-where"><mat-icon aria-hidden="true">place</mat-icon><span>{{ a.where }}</span></p>
 
-            <!-- input → output flow -->
+            <!-- input → agent → action -->
             <div class="assist-flow">
               <div class="flow-io flow-in">
                 <span class="io-label">{{ a.youSayVerb }}</span>
@@ -59,12 +113,12 @@
               </div>
 
               <div class="flow-arrow">
-                <span class="prompt-gist"><span class="prompt-gist-prefix">The prompt asks Gemini to </span>{{ a.promptAsks }}</span>
-                <mat-icon aria-hidden="true">arrow_downward</mat-icon>
+                <span class="prompt-gist"><span class="prompt-gist-prefix">The agent is told to </span>{{ a.promptAsks }}</span>
+                <span class="pulse-rail" aria-hidden="true"><span class="pulse-dot"></span></span>
               </div>
 
               <div class="flow-io flow-out">
-                <span class="io-label">What comes back</span>
+                <span class="io-label">It prefills — you confirm</span>
                 <p class="returns-type"><code>{{ a.returnsType }}</code></p>
                 <ul class="returns-fields">
                   @for (f of a.returnsFields; track f) {
@@ -87,10 +141,10 @@
       <div class="ai-privacy-body">
         <h2>Multimodal, and private by posture.</h2>
         <p>
-          The two camera features — <strong>Snap a meal</strong> and <strong>Scan label</strong> — send your photo to Google
+          The two camera agents — <strong>Snap a meal</strong> and <strong>Scan label</strong> — send your photo to Google
           Gemini to read the food; it is not stored by Usage IQ, and a one-time notice tells you so before the first use.
-          Images are downscaled in your browser first. Every AI feature is gated by the <code>tracker.ai</code> permission,
-          <strong>off by default</strong> — when it is off, the assists simply disappear and the tracker still works.
+          Images are downscaled in your browser first. The whole agent layer is gated by the <code>tracker.ai</code> permission,
+          <strong>off by default</strong> — when it is off, the agents simply disappear and the OS still runs.
         </p>
       </div>
     </aside>
@@ -100,11 +154,11 @@
   <section class="mpage-cta">
     <div class="cta-card panel">
       <div class="cta-glow" aria-hidden="true"></div>
-      <h2>See the AI in action.</h2>
-      <p>Sign in to your dashboard, or browse the full feature list.</p>
+      <h2>Put the agents to work.</h2>
+      <p>Enter the OS, or tour the domains they act across.</p>
       <div class="cta-row">
-        <a class="cta-pill" routerLink="/signin">Sign in <span>→</span></a>
-        <a class="ghost-link" routerLink="/features">See features <span>→</span></a>
+        <a class="cta-pill" routerLink="/signin">Enter the OS <span>→</span></a>
+        <a class="ghost-link" routerLink="/features">Tour the domains <span>→</span></a>
       </div>
     </div>
   </section>

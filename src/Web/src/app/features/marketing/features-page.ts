@@ -4,8 +4,9 @@ import { MatIconModule } from '@angular/material/icon';
 import { MarketingNav } from './marketing-nav';
 import { MarketingFooter } from './marketing-footer';
 
+/** One installed capability of the OS, grouped under the life-domain (subsystem) it belongs to. */
 interface FeatureBlock {
-  /** Section this block belongs to. The template renders a heading when the group changes. */
+  /** The subsystem (life-domain) this block belongs to. The template renders a heading when it changes. */
   group: string;
   icon: string;
   kicker: string;
@@ -14,22 +15,82 @@ interface FeatureBlock {
   points: string[];
 }
 
+/** Per-subsystem header metadata: the OS framing line + the accent it always wears (drawn only from the three --tech accents). */
+interface Subsystem {
+  group: string;
+  /** monospace boot status line shown under the subsystem heading. */
+  status: string;
+  /** one-line description of what this module is. */
+  lead: string;
+  /** which --tech accent token this domain is tinted with, app-wide. */
+  accent: 'blue' | 'cyan' | 'violet';
+}
+
 @Component({
   selector: 'app-features-page',
   imports: [RouterLink, MatIconModule, MarketingNav, MarketingFooter],
   templateUrl: './features-page.html',
   changeDetection: ChangeDetectionStrategy.Eager,
-  styleUrl: './marketing-page.scss',
+  styleUrls: ['./marketing-page.scss', './features-page.scss'],
 })
 export class FeaturesPage {
+  /** Subsystem metadata, keyed by group name (rendered as a "module" header). */
+  readonly subsystems: Record<string, Subsystem> = {
+    'Work · AI cost intelligence': {
+      group: 'Work · AI cost intelligence',
+      status: 'work module: mounted',
+      lead: 'Claude Code + Codex spend, priced to the token and sliced any way you think.',
+      accent: 'blue',
+    },
+    'Body · the tracker': {
+      group: 'Body · the tracker',
+      status: 'body module: mounted',
+      lead: 'Food, training, and the numbers behind the goal — your whole physical day, logged.',
+      accent: 'cyan',
+    },
+    'Home · the Family Hub': {
+      group: 'Home · the Family Hub',
+      status: 'home module: mounted',
+      lead: 'One calendar, the lists, the money, and the meal plan that becomes the grocery run.',
+      accent: 'violet',
+    },
+    'People · live chat': {
+      group: 'People · live chat',
+      status: 'people module: mounted',
+      lead: 'Real-time channels and DMs, in the app — curated, never an open directory.',
+      accent: 'blue',
+    },
+    'Place · locations': {
+      group: 'Place · locations',
+      status: 'place module: mounted',
+      lead: 'A private "where’s everyone" map — opt-in, by name, never by email.',
+      accent: 'cyan',
+    },
+    'The agentic layer': {
+      group: 'The agentic layer',
+      status: 'agents: armed · off by default',
+      lead: 'Gemini assists wired through every domain — they turn a sentence or a photo into a logged action, then hand you the pen.',
+      accent: 'violet',
+    },
+    'The access spine': {
+      group: 'The access spine',
+      status: 'kernel: ok · 39 caps enforced',
+      lead: 'The security and self-hosting floor that makes one system safe to run a whole life on.',
+      accent: 'blue',
+    },
+  };
+
+  /** Ordered list of subsystem names, used to render module headers in order. */
+  readonly groupOrder: string[] = Object.keys(this.subsystems);
+
   readonly blocks: FeatureBlock[] = [
-    // ───────────────────────── A) AI usage intelligence ─────────────────────────
+    // ───────────────────────── Work · AI cost intelligence ─────────────────────────
     {
-      group: 'AI usage intelligence',
+      group: 'Work · AI cost intelligence',
       icon: 'hub',
       kicker: 'Unified',
       title: 'Two agents, one number',
-      text: 'Claude Code and OpenAI Codex write usage logs in different shapes. Usage IQ parses both from your local JSONL, de-duplicates the noise, and rolls them into a single source of truth.',
+      text: 'Claude Code and OpenAI Codex write usage logs in different shapes. The OS parses both from your local JSONL, de-duplicates the noise, and rolls them into a single source of truth.',
       points: [
         'Per-source breakdown, or everything combined',
         'Automatic de-duplication of repeated API events',
@@ -37,7 +98,7 @@ export class FeaturesPage {
       ],
     },
     {
-      group: 'AI usage intelligence',
+      group: 'Work · AI cost intelligence',
       icon: 'payments',
       kicker: 'Real cost',
       title: 'Real dollars, your rates',
@@ -49,7 +110,7 @@ export class FeaturesPage {
       ],
     },
     {
-      group: 'AI usage intelligence',
+      group: 'Work · AI cost intelligence',
       icon: 'filter_alt',
       kicker: 'Slice it',
       title: 'Filter any way you think',
@@ -61,7 +122,7 @@ export class FeaturesPage {
       ],
     },
     {
-      group: 'AI usage intelligence',
+      group: 'Work · AI cost intelligence',
       icon: 'calendar_month',
       kicker: 'Rhythm',
       title: 'See how you actually work',
@@ -73,11 +134,11 @@ export class FeaturesPage {
       ],
     },
     {
-      group: 'AI usage intelligence',
+      group: 'Work · AI cost intelligence',
       icon: 'bolt',
       kicker: 'Cache insight',
       title: 'Know what the cache buys you',
-      text: 'Prompt caching is most of the savings on a busy day. Usage IQ surfaces your cache hit share and the dollars it saved against full input pricing.',
+      text: 'Prompt caching is most of the savings on a busy day. The OS surfaces your cache hit share and the dollars it saved against full input pricing.',
       points: [
         'Cache hit share across the current filter',
         'Estimated dollars saved versus uncached input',
@@ -85,7 +146,7 @@ export class FeaturesPage {
       ],
     },
     {
-      group: 'AI usage intelligence',
+      group: 'Work · AI cost intelligence',
       icon: 'bookmark',
       kicker: 'Saved views',
       title: 'Pin the questions you ask twice',
@@ -97,7 +158,7 @@ export class FeaturesPage {
       ],
     },
     {
-      group: 'AI usage intelligence',
+      group: 'Work · AI cost intelligence',
       icon: 'leaderboard',
       kicker: 'Fleet',
       title: 'See the whole team at a glance',
@@ -109,7 +170,7 @@ export class FeaturesPage {
       ],
     },
     {
-      group: 'AI usage intelligence',
+      group: 'Work · AI cost intelligence',
       icon: 'sensors',
       kicker: 'Reporter',
       title: 'A reporter that minds its own business',
@@ -121,7 +182,7 @@ export class FeaturesPage {
       ],
     },
     {
-      group: 'AI usage intelligence',
+      group: 'Work · AI cost intelligence',
       icon: 'ios_share',
       kicker: 'Share',
       title: 'Show without giving away the keys',
@@ -133,7 +194,7 @@ export class FeaturesPage {
       ],
     },
     {
-      group: 'AI usage intelligence',
+      group: 'Work · AI cost intelligence',
       icon: 'notifications_active',
       kicker: 'Digests',
       title: 'Spend lands in your channel',
@@ -145,149 +206,9 @@ export class FeaturesPage {
       ],
     },
 
-    // ───────────────────────── A2) Family Hub ─────────────────────────
+    // ───────────────────────── Body · the tracker ─────────────────────────
     {
-      group: 'Family Hub',
-      icon: 'calendar_month',
-      kicker: 'One calendar',
-      title: 'The whole house, one calendar',
-      text: 'A Sunday–Saturday week, month, and agenda calendar backed by each member’s own Google Calendar. Opt in and everyone’s events overlay in one color-coded view — or drop in a photo of a schedule and let AI draft the events.',
-      points: [
-        'Synced with each member’s own Google Calendar',
-        'Opt-in, color-coded family overlay',
-        'Snap a schedule photo/PDF → AI drafts the events',
-      ],
-    },
-    {
-      group: 'Family Hub',
-      icon: 'restaurant_menu',
-      kicker: 'Meals → macros → groceries',
-      title: 'Plan dinner, get the grocery list',
-      text: 'Plan the week’s meals and the same data flows everywhere: pull each meal’s macros, push a planned meal straight into your fitness tracker, and extrapolate the ingredients into the shared grocery list.',
-      points: [
-        'Weekly meal planner for the household',
-        'Macros pulled per meal; push a meal to your tracker',
-        'Ingredients roll into the shared grocery list',
-      ],
-    },
-    {
-      group: 'Family Hub',
-      icon: 'checklist',
-      kicker: 'Stay on top of it',
-      title: 'Lists, notes, reminders, polls',
-      text: 'Shared grocery and to-do lists, family notes, reminders so nothing slips, shared timers, and quick polls to settle a plan or pick a time together.',
-      points: [
-        'Shared lists, notes, and reminders',
-        'Shared timers and countdowns',
-        'Polls to pick a time or settle a plan',
-      ],
-    },
-    {
-      group: 'Family Hub',
-      icon: 'savings',
-      kicker: 'Money & chores',
-      title: 'Budgets, bills, and a fair share of chores',
-      text: 'Track budgets, bills, and balances behind an extra finance permission, and split the household chores so everyone carries their part.',
-      points: [
-        'Finance double-gated for extra privacy',
-        'An “explain my month” + money-coach AI',
-        'Chores, shared fairly across the house',
-      ],
-    },
-
-    // ───────────────────────── A3) Locations ─────────────────────────
-    {
-      group: 'Locations',
-      icon: 'person_pin_circle',
-      kicker: 'Where’s everyone',
-      title: 'See the family on a map',
-      text: 'Members who opt in show up on a shared “Where’s everyone” map — by name, never by email. Your own location is private by default; you choose whether to share it with the household.',
-      points: [
-        'Opt-in only — private by default',
-        'A household “Where’s everyone” map (OpenStreetMap)',
-        'Your own location history, just for you',
-      ],
-    },
-
-    // ───────────────────────── A4) AI everywhere ─────────────────────────
-    {
-      group: 'AI everywhere',
-      icon: 'auto_awesome',
-      kicker: 'On your terms',
-      title: 'AI woven through — and off by default',
-      text: 'Google Gemini powers a schedule-from-photo, day / meal / finance coaches, and an action-taking family assistant. Every AI feature is gated by its own permission and is OFF for everyone until you turn it on.',
-      points: [
-        'Separate AI permissions — everyone starts AI-off',
-        'Schedule-from-photo, coaches, family assistant',
-        'Falls back to a plain summary when AI is off',
-      ],
-    },
-    {
-      group: 'AI everywhere',
-      icon: 'privacy_tip',
-      kicker: 'Private by design',
-      title: 'AI that respects your data',
-      text: 'AI sees only the minimal context a feature needs. Uploaded images are digested in memory and never stored, and an admin AI-usage log records metadata only — never your prompt content.',
-      points: [
-        'Images digested in-memory, never stored',
-        'AI-usage log: metadata only, never content',
-        'Fixed providers — no user-supplied URLs',
-      ],
-    },
-
-    // ───────────────────────── B) Team chat ─────────────────────────
-    {
-      group: 'Team chat',
-      icon: 'forum',
-      kicker: 'Real-time',
-      title: 'Channels and DMs, live',
-      text: 'A real-time SignalR layer powers channels and direct messages right inside the app — no third-party chat tool, no extra login.',
-      points: [
-        'Channels and one-to-one direct messages',
-        'Emoji reactions on any message',
-        'Typing indicators and unread counts',
-      ],
-    },
-    {
-      group: 'Team chat',
-      icon: 'groups',
-      kicker: 'Circles',
-      title: 'Admins shape who talks to whom',
-      text: 'Contacts and circles are admin-curated, so each person can only message the people you have approved for them.',
-      points: [
-        'Admins choose each person’s contacts',
-        'Curated circles keep DMs in bounds',
-        'No open directory of the whole org',
-      ],
-    },
-    {
-      group: 'Team chat',
-      icon: 'notifications',
-      kicker: 'Notifications',
-      title: 'Reached the way you want',
-      text: 'An in-app bell, toasts, and browser notifications keep people in the loop, with per-user triggers so nobody drowns in noise.',
-      points: [
-        'In-app bell, toasts, and browser notifications',
-        'Per-user notification triggers',
-        'Unread counts that follow you across the app',
-      ],
-    },
-    {
-      group: 'Team chat',
-      icon: 'gavel',
-      kicker: 'Moderation',
-      title: 'Keep the room in order',
-      text: 'Moderators can edit or delete other people’s messages and archive channels when a conversation has run its course.',
-      points: [
-        'Edit or delete others’ messages',
-        'Archive channels that are done',
-        'A dedicated, grantable moderation capability',
-      ],
-    },
-
-    // ───────────────────────── C) Food & fitness tracker ─────────────────────────
-    {
-      group: 'Food & fitness tracker',
+      group: 'Body · the tracker',
       icon: 'restaurant',
       kicker: 'Meals',
       title: 'Log meals with real macros',
@@ -299,7 +220,7 @@ export class FeaturesPage {
       ],
     },
     {
-      group: 'Food & fitness tracker',
+      group: 'Body · the tracker',
       icon: 'fitness_center',
       kicker: 'Exercise',
       title: 'A WorkoutX exercise library',
@@ -311,7 +232,7 @@ export class FeaturesPage {
       ],
     },
     {
-      group: 'Food & fitness tracker',
+      group: 'Body · the tracker',
       icon: 'monitor_heart',
       kicker: 'Body stats',
       title: 'The numbers behind the goal',
@@ -319,7 +240,7 @@ export class FeaturesPage {
       points: ['BMI from your current stats', 'BMR / TDEE energy budget', 'Weight trend over time'],
     },
     {
-      group: 'Food & fitness tracker',
+      group: 'Body · the tracker',
       icon: 'water_drop',
       kicker: 'Hydration & watch',
       title: 'Hydration and watch activity, counted',
@@ -331,7 +252,19 @@ export class FeaturesPage {
       ],
     },
     {
-      group: 'Food & fitness tracker',
+      group: 'Body · the tracker',
+      icon: 'emoji_events',
+      kicker: 'Challenge',
+      title: '75-Hard, coffee, and trophies',
+      text: 'Run the 75-Hard challenge, keep a coffee count, and earn trophies as streaks and milestones land — the gamified edge that keeps the daily log a habit.',
+      points: [
+        'The 75-Hard challenge, tracked day by day',
+        'A coffee counter for the part of the day that’s honest',
+        'Trophies for streaks and milestones hit',
+      ],
+    },
+    {
+      group: 'Body · the tracker',
       icon: 'diversity_3',
       kicker: 'Sharing',
       title: 'Share your log with the right people',
@@ -343,13 +276,153 @@ export class FeaturesPage {
       ],
     },
 
-    // ───────────────────────── D) Security & access ─────────────────────────
+    // ───────────────────────── Home · the Family Hub ─────────────────────────
     {
-      group: 'Security & access',
+      group: 'Home · the Family Hub',
+      icon: 'calendar_month',
+      kicker: 'One calendar',
+      title: 'The whole house, one calendar',
+      text: 'A Sunday–Saturday week, month, and agenda calendar backed by each member’s own Google Calendar. Opt in and everyone’s events overlay in one color-coded view — or drop in a photo of a schedule and let AI draft the events.',
+      points: [
+        'Synced with each member’s own Google Calendar',
+        'Opt-in, color-coded family overlay',
+        'Snap a schedule photo/PDF → AI drafts the events',
+      ],
+    },
+    {
+      group: 'Home · the Family Hub',
+      icon: 'restaurant_menu',
+      kicker: 'Meals → macros → groceries',
+      title: 'Plan dinner, get the grocery list',
+      text: 'Plan the week’s meals and the same data flows everywhere: pull each meal’s macros, push a planned meal straight into your fitness tracker, and extrapolate the ingredients into the shared grocery list.',
+      points: [
+        'Weekly meal planner for the household',
+        'Macros pulled per meal; push a meal to your tracker',
+        'Ingredients roll into the shared grocery list',
+      ],
+    },
+    {
+      group: 'Home · the Family Hub',
+      icon: 'checklist',
+      kicker: 'Stay on top of it',
+      title: 'Lists, notes, reminders, polls',
+      text: 'Shared grocery and to-do lists, family notes, reminders so nothing slips, shared timers, and quick polls to settle a plan or pick a time together.',
+      points: [
+        'Shared lists, notes, and reminders',
+        'Shared timers and countdowns',
+        'Polls to pick a time or settle a plan',
+      ],
+    },
+    {
+      group: 'Home · the Family Hub',
+      icon: 'savings',
+      kicker: 'Money & chores',
+      title: 'Budgets, bills, and a fair share of chores',
+      text: 'Track budgets, bills, and balances behind an extra finance permission, and split the household chores so everyone carries their part.',
+      points: [
+        'Finance double-gated for extra privacy',
+        'An “explain my month” + money-coach AI',
+        'Chores + allowance, shared fairly across the house',
+      ],
+    },
+
+    // ───────────────────────── People · live chat ─────────────────────────
+    {
+      group: 'People · live chat',
+      icon: 'forum',
+      kicker: 'Real-time',
+      title: 'Channels and DMs, live',
+      text: 'A real-time SignalR layer powers channels and direct messages right inside the OS — no third-party chat tool, no extra login.',
+      points: [
+        'Channels and one-to-one direct messages',
+        'Emoji reactions on any message',
+        'Typing indicators and unread counts',
+      ],
+    },
+    {
+      group: 'People · live chat',
+      icon: 'groups',
+      kicker: 'Circles',
+      title: 'Admins shape who talks to whom',
+      text: 'Contacts and circles are admin-curated, so each person can only message the people you have approved for them.',
+      points: [
+        'Admins choose each person’s contacts',
+        'Curated circles keep DMs in bounds',
+        'No open directory of the whole org',
+      ],
+    },
+    {
+      group: 'People · live chat',
+      icon: 'notifications',
+      kicker: 'Notifications',
+      title: 'Reached the way you want',
+      text: 'An in-app bell, toasts, and browser notifications keep people in the loop, with per-user triggers so nobody drowns in noise.',
+      points: [
+        'In-app bell, toasts, and browser notifications',
+        'Per-user notification triggers',
+        'Unread counts that follow you across the app',
+      ],
+    },
+    {
+      group: 'People · live chat',
+      icon: 'gavel',
+      kicker: 'Moderation',
+      title: 'Keep the room in order',
+      text: 'Moderators can edit or delete other people’s messages and archive channels when a conversation has run its course.',
+      points: [
+        'Edit or delete others’ messages',
+        'Archive channels that are done',
+        'A dedicated, grantable moderation capability',
+      ],
+    },
+
+    // ───────────────────────── Place · locations ─────────────────────────
+    {
+      group: 'Place · locations',
+      icon: 'person_pin_circle',
+      kicker: 'Where’s everyone',
+      title: 'See the family on a map',
+      text: 'Members who opt in show up on a shared “Where’s everyone” map — by name, never by email. Your own location is private by default; you choose whether to share it with the household.',
+      points: [
+        'Opt-in only — private by default',
+        'A household “Where’s everyone” map (OpenStreetMap)',
+        'Your own location history, just for you',
+      ],
+    },
+
+    // ───────────────────────── The agentic layer ─────────────────────────
+    {
+      group: 'The agentic layer',
+      icon: 'auto_awesome',
+      kicker: 'It acts',
+      title: 'AI that turns a sentence into a logged action',
+      text: 'Google Gemini powers schedule-from-photo, day / meal / finance coaches, macro and exercise estimation, and an action-taking family assistant. The agents prefill the action — you confirm it. Every assist is gated by its own permission and is OFF for everyone until you turn it on.',
+      points: [
+        'Snap a meal → macros; say a workout → a structured entry',
+        'Photo of a schedule → a week of calendar events drafts itself',
+        'Separate AI permissions — everyone starts AI-off',
+      ],
+    },
+    {
+      group: 'The agentic layer',
+      icon: 'privacy_tip',
+      kicker: 'On a leash you hold',
+      title: 'AI that respects your data',
+      text: 'Every agent sees only the minimal context its feature needs and never auto-logs — it prefills, you confirm. Uploaded images are digested in memory and never stored, and an admin AI-usage log records metadata only — never your prompt content.',
+      points: [
+        'Never auto-logs — it prefills, you confirm',
+        'Images digested in-memory, never stored',
+        'AI-usage log: metadata only, never content — fixed providers',
+      ],
+    },
+
+    // ───────────────────────── The access spine ─────────────────────────
+    {
+      group: 'The access spine',
       icon: 'verified_user',
       kicker: 'Identity',
       title: 'Sign-in pinned to Google',
-      text: 'Google sign-in gates the whole app, and every account is bound to its Google subject id so a borrowed email alone can’t get in.',
+      text: 'Google sign-in gates the whole OS, and every account is bound to its Google subject id so a borrowed email alone can’t get in.',
       points: [
         'Google identity, pinned to the subject id',
         'Open sign-up policy with a default permission set',
@@ -357,7 +430,7 @@ export class FeaturesPage {
       ],
     },
     {
-      group: 'Security & access',
+      group: 'The access spine',
       icon: 'shield_person',
       kicker: 'Permissions',
       title: '39 capabilities, server-enforced',
@@ -369,7 +442,19 @@ export class FeaturesPage {
       ],
     },
     {
-      group: 'Security & access',
+      group: 'The access spine',
+      icon: 'dns',
+      kicker: 'Yours',
+      title: 'Self-hosted, open source, nothing phoning home',
+      text: 'Angular + .NET 9 + PostgreSQL, Docker-composed to run anywhere and deployed keylessly to AWS. Open source, self-hosted on your infrastructure — no telemetry, no seat pricing.',
+      points: [
+        'Runs on your own servers, Docker-composed',
+        'Open source at github.com/itdept-ops/usage-iq',
+        'No telemetry, no seat pricing — your data, your infra',
+      ],
+    },
+    {
+      group: 'The access spine',
       icon: 'logout',
       kicker: 'Force-logout',
       title: 'End a live session on demand',
@@ -381,7 +466,7 @@ export class FeaturesPage {
       ],
     },
     {
-      group: 'Security & access',
+      group: 'The access spine',
       icon: 'fact_check',
       kicker: 'Auditability',
       title: 'A record of what happened',

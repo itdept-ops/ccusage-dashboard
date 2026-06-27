@@ -11,6 +11,176 @@
   padding: clamp(28px, 4.5vw, 52px) clamp(16px, 4vw, 40px) 0;
 }
 
+/* third orb (cyan) so the bed reads as all three accents */
+.orb-c {
+  bottom: -160px;
+  left: 18%;
+  width: 360px; height: 360px;
+  opacity: 0.32;
+  animation-delay: -14s;
+  background: radial-gradient(circle, color-mix(in srgb, var(--tech-accent-cyan, #3fd8d0) 50%, transparent), transparent 68%);
+}
+
+/* clipped-gradient shimmer heading (matches login/about) */
+.grad {
+  background: var(--tech-border-neon, linear-gradient(100deg, #3d8bff, #8b7cff 52%, #3fd8d0));
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: ai-shimmer 6s linear infinite;
+}
+@keyframes ai-shimmer { to { background-position: 200% center; } }
+
+/* a lead paragraph under a section head */
+.section-lead {
+  max-width: 60ch;
+  margin: 14px auto 0;
+  font-size: clamp(0.98rem, 1.4vw, 1.08rem);
+  line-height: 1.6;
+  color: var(--tech-text-secondary);
+  code {
+    font-family: var(--tech-font-mono);
+    font-size: 0.86em;
+    padding: 1px 6px;
+    border-radius: 6px;
+    background: color-mix(in srgb, var(--tech-accent) 12%, transparent);
+    color: var(--tech-text-secondary);
+  }
+}
+
+/* ───────────────────────── Hero — boot sequence terminal ───────────────────────── */
+.ai-hero h1 .grad { display: inline-block; }
+
+.boot-term {
+  max-width: 460px;
+  margin: clamp(28px, 4vw, 40px) auto 0;
+  text-align: left;
+  border-radius: var(--tech-r-panel, 12px);
+  border: 1px solid var(--tech-border-strong);
+  background: color-mix(in srgb, #000 30%, var(--tech-bg-sunken, #05080f));
+  box-shadow: var(--tech-glow, 0 0 30px -10px rgba(99, 140, 255, 0.5));
+  overflow: hidden;
+}
+.boot-bar {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--tech-border-subtle);
+  background: color-mix(in srgb, var(--tech-accent) 6%, transparent);
+  .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--tech-border-strong); }
+  .dot:nth-child(1) { background: color-mix(in srgb, var(--tech-accent) 70%, transparent); }
+  .dot:nth-child(2) { background: color-mix(in srgb, var(--tech-accent-2, #8b7cff) 70%, transparent); }
+  .dot:nth-child(3) { background: color-mix(in srgb, var(--tech-accent-cyan, #3fd8d0) 70%, transparent); }
+  .boot-name {
+    margin-left: 6px;
+    font-family: var(--tech-font-mono);
+    font-size: 12px;
+    color: var(--tech-text-tertiary);
+  }
+}
+.boot-lines { margin: 0; padding: 14px 16px; list-style: none; }
+.boot-line {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 0;
+  font-family: var(--tech-font-mono);
+  font-size: 0.86rem;
+  line-height: 1.5;
+  color: var(--tech-text-secondary);
+  opacity: 0;
+  transform: translateY(4px);
+  animation: boot-in 360ms var(--tech-ease, ease) forwards;
+  animation-delay: var(--d, 0ms);
+  .boot-prompt { color: var(--tech-accent); font-weight: 700; }
+  .boot-text { flex: 1 1 auto; }
+  .boot-ok {
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--tech-accent-cyan, #3fd8d0);
+  }
+}
+@keyframes boot-in { to { opacity: 1; transform: translateY(0); } }
+
+/* ───────────────────────── (1) The ACT cards ───────────────────────── */
+.act-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: clamp(14px, 2vw, 20px);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.act-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: clamp(16px, 2.4vw, 22px);
+  transition: border-color 200ms var(--tech-ease), transform 200ms var(--tech-ease);
+  &:hover { border-color: var(--tech-border-strong); transform: translateY(-2px); }
+}
+.act-glyph {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 44px; height: 44px;
+  border-radius: var(--tech-r-control, 12px);
+  background: color-mix(in srgb, var(--tech-accent) 16%, transparent);
+  color: var(--tech-accent-cyan, #3fd8d0);
+  mat-icon { font-size: 24px; width: 24px; height: 24px; }
+}
+.act-line {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0;
+  font-size: 0.96rem;
+  line-height: 1.4;
+  .act-in { color: var(--tech-text); font-weight: 600; }
+  .act-out { color: var(--tech-text-secondary); }
+}
+/* AGENT-PULSE — a traveling dot from intent → action */
+.act-pulse {
+  position: relative;
+  flex: 0 0 36px;
+  height: 2px;
+  border-radius: 2px;
+  background: linear-gradient(90deg,
+    color-mix(in srgb, var(--tech-accent) 70%, transparent),
+    var(--tech-accent-cyan, #3fd8d0));
+  overflow: hidden;
+  &::after {
+    content: '';
+    position: absolute;
+    top: 50%; left: 0;
+    width: 8px; height: 8px;
+    margin-top: -4px;
+    border-radius: 50%;
+    background: var(--tech-accent-cyan, #3fd8d0);
+    box-shadow: 0 0 8px 1px color-mix(in srgb, var(--tech-accent-cyan, #3fd8d0) 80%, transparent);
+    animation: act-travel 2.4s var(--tech-ease, ease-in-out) infinite;
+  }
+}
+@keyframes act-travel {
+  0% { left: -8px; opacity: 0; }
+  20% { opacity: 1; }
+  80% { opacity: 1; }
+  100% { left: 36px; opacity: 0; }
+}
+
+.agents-intro {
+  max-width: 720px;
+  margin-top: clamp(36px, 5vw, 56px);
+  margin-bottom: 0;
+  padding: 0 clamp(16px, 4vw, 40px);
+}
+
 /* ───────────────────────── (2) How-it-works pillars ───────────────────────── */
 .pillar-grid {
   display: grid;
@@ -184,7 +354,7 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 6px;
+  gap: 10px;
   padding: 12px 8px;
   .prompt-gist {
     max-width: 46ch;
@@ -194,10 +364,33 @@
     color: var(--tech-text-tertiary);
     .prompt-gist-prefix { color: var(--tech-text-accent, #3fd8d0); }
   }
-  mat-icon {
-    font-size: 22px; width: 22px; height: 22px;
-    color: color-mix(in srgb, var(--tech-accent) 70%, var(--tech-text-tertiary));
+}
+/* AGENT-PULSE rail — a pulse of light running from the prompt down to the action */
+.pulse-rail {
+  position: relative;
+  width: 2px;
+  height: 30px;
+  border-radius: 2px;
+  background: linear-gradient(180deg,
+    color-mix(in srgb, var(--tech-accent) 60%, transparent),
+    var(--tech-accent-cyan, #3fd8d0));
+  overflow: hidden;
+  .pulse-dot {
+    position: absolute;
+    left: 50%; top: 0;
+    width: 6px; height: 6px;
+    margin-left: -3px;
+    border-radius: 50%;
+    background: var(--tech-accent-cyan, #3fd8d0);
+    box-shadow: 0 0 8px 1px color-mix(in srgb, var(--tech-accent-cyan, #3fd8d0) 80%, transparent);
+    animation: pulse-down 2.2s var(--tech-ease, ease-in-out) infinite;
   }
+}
+@keyframes pulse-down {
+  0% { top: -6px; opacity: 0; }
+  25% { opacity: 1; }
+  75% { opacity: 1; }
+  100% { top: 30px; opacity: 0; }
 }
 
 .flow-out {
@@ -286,11 +479,39 @@
   }
 }
 
+/* ───────────────────────── DOMAIN-TINTED groups ─────────────────────────
+   Each life-domain wears one of the three tech accents, applied as a
+   --dom-accent local var so the group icon, rule, and card icon all share it.
+   Defaults to blue; cyan = Body, violet = Home/People/Growth. */
+.ai-section {
+  --dom-accent: var(--tech-accent);
+  &[data-accent='cyan'] { --dom-accent: var(--tech-accent-cyan, #3fd8d0); }
+  &[data-accent='violet'] { --dom-accent: var(--tech-accent-2, #8b7cff); }
+}
+.ai-section[data-accent] {
+  .group-head h2 mat-icon { color: var(--dom-accent); }
+  .assist-icon {
+    background: color-mix(in srgb, var(--dom-accent) 16%, transparent);
+    color: var(--dom-accent);
+  }
+  .assist-card {
+    border-top: 1px solid color-mix(in srgb, var(--dom-accent) 38%, var(--tech-border-subtle));
+    &:hover { border-color: var(--tech-border-strong); border-top-color: color-mix(in srgb, var(--dom-accent) 55%, var(--tech-border-subtle)); }
+  }
+}
+
 /* ───────────────────────── Accessibility / tap targets ───────────────────────── */
 @media (max-width: 560px) {
   .assist-grid { grid-template-columns: 1fr; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .pillar-card, .assist-card { transition: none; }
+  .pillar-card, .assist-card, .act-card { transition: none; }
+  .grad { animation: none !important; }
+  /* AGENT-PULSE becomes a static lit dot; boot lines appear immediately */
+  .act-pulse::after, .pulse-dot { animation: none !important; }
+  .act-pulse::after { left: 14px; opacity: 1; }
+  .pulse-dot { top: 12px; opacity: 1; }
+  .orb-c { animation: none !important; }
+  .boot-line { opacity: 1; transform: none; animation: none !important; }
 }

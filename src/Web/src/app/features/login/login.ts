@@ -13,7 +13,27 @@ import { MatIconModule } from '@angular/material/icon';
 import { MarketingNav } from '../marketing/marketing-nav';
 import { MarketingFooter } from '../marketing/marketing-footer';
 
-interface Feature {
+/** A life-domain module that boots under the OS kernel. `accent` maps to a
+ *  fixed tech token (blue/cyan/violet) reused on every marketing page so a
+ *  domain always wears the same color. */
+interface Domain {
+  key: string;
+  icon: string;
+  /** monospace boot status line, e.g. "work module: mounted" */
+  boot: string;
+  title: string;
+  text: string;
+  /** which of the three tech accents tints this domain */
+  accent: 'blue' | 'cyan' | 'violet';
+}
+interface Agent {
+  icon: string;
+  /** the trigger — a sentence or a photo */
+  cue: string;
+  /** the action the agent takes */
+  act: string;
+}
+interface Proof {
   icon: string;
   title: string;
   text: string;
@@ -22,21 +42,6 @@ interface Stat {
   value: number;
   suffix: string;
   label: string;
-}
-interface Source {
-  name: string;
-  tag: string;
-}
-interface Step {
-  n: string;
-  title: string;
-  text: string;
-}
-interface Module {
-  icon: string;
-  eyebrow: string;
-  title: string;
-  text: string;
 }
 
 @Component({
@@ -58,156 +63,139 @@ export class Login {
   /** Forwarded to /signin so a deep-linked guard redirect survives the marketing detour. */
   readonly returnUrl = signal<string | null>(null);
 
-  readonly sources: Source[] = [
-    { name: 'Claude Code', tag: 'Anthropic' },
-    { name: 'OpenAI Codex', tag: 'Codex CLI' },
-    { name: 'Self-hosted', tag: 'Your infra' },
-    { name: 'PostgreSQL', tag: 'Your data' },
+  /** The hero "boot sequence" — monospace status lines that type in one at a time,
+   *  ending on the kernel coming fully online. Ties the OS metaphor to the real
+   *  reporter terminal the product actually runs. */
+  readonly boot: string[] = [
+    '$ usage-iq --boot',
+    '  kernel: online',
+    '  mounting work · body · home',
+    '  mounting people · place · growth',
+    '  agents: armed · permission-gated',
+    '  ✓ one system · your entire life',
   ];
 
-  /** Marquee of the stack Usage IQ runs on and speaks to — duplicated in the template for a seamless loop. */
-  readonly marquee: string[] = [
-    'Claude Code',
-    'OpenAI Codex',
-    'Anthropic API',
-    'Angular 21',
-    '.NET 9',
-    'PostgreSQL',
-    'SignalR',
-    'Team chat',
-    'Fitness tracker',
-    'USDA',
-    'FatSecret',
-    'WorkoutX',
-    'Activity heatmap',
-    'Share links',
-    'Discord',
-    'Self-hosted',
-  ];
-
-  /** The three layers that grew around the namesake usage dashboard. */
-  readonly modules: Module[] = [
+  /** The six life-domains that boot under the kernel — the breadth payload.
+   *  Rendered both as the constellation satellites and the domain panels. */
+  readonly domains: Domain[] = [
     {
+      key: 'work',
       icon: 'monitoring',
-      eyebrow: 'The namesake',
-      title: 'AI usage intelligence',
-      text: 'Unify Claude Code and Codex spend, price it from an editable table, and slice it by day, project, model or session.',
+      boot: 'work module: mounted',
+      title: 'Work',
+      text: 'AI cost intelligence: Claude Code + Codex spend, priced to the token, sliced any way you think — plus fleet leaderboards, share links and digests.',
+      accent: 'blue',
     },
     {
-      icon: 'forum',
-      eyebrow: 'Grew around it',
-      title: 'Team chat',
-      text: 'Real-time SignalR channels and DMs with reactions, curated contacts, and notifications across an in-app bell, toasts and the browser.',
-    },
-    {
+      key: 'body',
       icon: 'fitness_center',
-      eyebrow: 'Grew around it',
-      title: 'Food & fitness tracker',
-      text: 'Meals and macros, an exercise library, hydration and watch activity — with BMI/BMR/TDEE, a weight trend, and coach sharing.',
+      boot: 'body module: mounted',
+      title: 'Body',
+      text: 'Food + macros, a WorkoutX exercise library, BMI/BMR/TDEE, weight trend, hydration, watch activity, coffee, 75-Hard and trophies.',
+      accent: 'cyan',
+    },
+    {
+      key: 'home',
+      icon: 'home',
+      boot: 'home module: mounted',
+      title: 'Home',
+      text: 'The Family Hub: shared calendar, lists, notes, reminders, polls, chores + allowance, bills + budget, and a meal planner that builds the grocery list.',
+      accent: 'violet',
+    },
+    {
+      key: 'people',
+      icon: 'forum',
+      boot: 'people module: mounted',
+      title: 'People',
+      text: 'Real-time chat: channels and DMs with reactions, curated contacts and circles, and notifications across an in-app bell, toasts and the browser.',
+      accent: 'blue',
+    },
+    {
+      key: 'place',
+      icon: 'location_on',
+      boot: 'place module: mounted',
+      title: 'Place',
+      text: "Locations and a private “where’s everyone” map — opt-in, on your own infrastructure, never shared outward.",
+      accent: 'cyan',
+    },
+    {
+      key: 'growth',
+      icon: 'trending_up',
+      boot: 'growth module: mounted',
+      title: 'Growth',
+      text: 'A resume builder that tailors to a job description and exports ATS-clean, plus goals that the OS tracks against the rest of your life.',
+      accent: 'violet',
     },
   ];
 
-  /** Animated counter band — values count up when scrolled into view. */
-  readonly stats: Stat[] = [
-    { value: 3, suffix: '', label: 'Modules, one app' },
-    { value: 14, suffix: 'M+', label: 'Tokens tracked' },
-    { value: 25, suffix: '', label: 'Permission scopes' },
-    { value: 100, suffix: '%', label: 'Self-hosted' },
+  /** The agentic layer — assists that turn a sentence or a photo into a logged
+   *  action, then hand you the pen. Every one is off by default, prefills only. */
+  readonly agents: Agent[] = [
+    {
+      icon: 'photo_camera',
+      cue: 'Snap a photo of your dinner',
+      act: 'and it returns estimated macros, ready to log.',
+    },
+    {
+      icon: 'mic',
+      cue: '“Jogged two miles”',
+      act: 'becomes a structured workout, scaled to your weight.',
+    },
+    {
+      icon: 'event',
+      cue: 'Drop a photo of a schedule',
+      act: 'and a week of calendar events drafts itself.',
+    },
+    {
+      icon: 'restaurant',
+      cue: '“What can I eat with 500 calories left?”',
+      act: 'gets answers that fit your day — not another chart.',
+    },
+    {
+      icon: 'auto_awesome',
+      cue: 'A daily coach reads your day',
+      act: 'and a weekly review reads your week.',
+    },
+    {
+      icon: 'calculate',
+      cue: 'Set a goal',
+      act: 'and a deterministic baseline is refined into a plan.',
+    },
   ];
 
-  /** Live count for each stat, mirrors `stats` by index. */
-  readonly counts = signal<number[]>(this.stats.map(() => 0));
-
-  readonly features: Feature[] = [
-    {
-      icon: 'hub',
-      title: 'Unified usage',
-      text: 'Claude Code and OpenAI Codex usage, de-duplicated and unified into one view.',
-    },
-    {
-      icon: 'insights',
-      title: 'Cost & tokens',
-      text: 'Break spend down by day, project, model, or session — with an editable pricing table.',
-    },
-    {
-      icon: 'calendar_month',
-      title: 'Activity calendar',
-      text: 'A GitHub-style heatmap of every active hour, with session-level drill-down.',
-    },
-    {
-      icon: 'forum',
-      title: 'Real-time team chat',
-      text: 'SignalR channels and DMs with emoji reactions and curated contacts and circles.',
-    },
-    {
-      icon: 'notifications_active',
-      title: 'Notifications',
-      text: 'Customizable alerts across an in-app bell, toasts, and the browser — never miss a mention.',
-    },
-    {
-      icon: 'fitness_center',
-      title: 'Food & fitness tracker',
-      text: 'Meals, macros, exercises, hydration and watch activity, with BMI/BMR/TDEE and a weight trend.',
-    },
+  /** The trust spine — back the breadth with verifiable substance. */
+  readonly proofs: Proof[] = [
     {
       icon: 'shield_person',
-      title: 'Role-based access',
-      text: 'Google sign-in with a 25-capability permission catalog, re-checked on every request.',
-    },
-    {
-      icon: 'ios_share',
-      title: 'Shareable views',
-      text: 'Public, time-limited links to a read-only dashboard — revoke them anytime.',
-    },
-    {
-      icon: 'sync',
-      title: 'Always fresh',
-      text: 'A background reporter posts new usage on a timer; only metadata, never your prompts.',
-    },
-    {
-      icon: 'forum',
-      title: 'Discord digests',
-      text: 'Scheduled usage summaries pushed straight to your team Discord channel.',
-    },
-    {
-      icon: 'fact_check',
-      title: 'Audit & force-logout',
-      text: 'Every request and permission change is logged; revoke a session in real time.',
+      title: '39 server-enforced capabilities',
+      text: 'Granular permissions re-checked on the server every request — not hidden in the UI. Google-pinned identity, full audit log, real-time force-logout.',
     },
     {
       icon: 'dns',
       title: 'Self-hosted, no telemetry',
-      text: 'Your infra, your Postgres, no seat pricing — nothing phones home.',
+      text: 'Angular + .NET 9 + PostgreSQL, Docker-composed to run anywhere, deployed keylessly to AWS. No seat pricing. Nothing phones home.',
+    },
+    {
+      icon: 'devices',
+      title: 'Desktop and native mobile',
+      text: 'One system, two first-class platforms — the same data on a grand desktop surface and a native mobile shell.',
+    },
+    {
+      icon: 'lock',
+      title: 'Agents on a leash you hold',
+      text: 'Every assist is off by default, permission-gated, sees only the minimum, and never auto-logs. It prefills; you confirm.',
     },
   ];
 
-  readonly steps: Step[] = [
-    {
-      n: '01',
-      title: 'Run the reporter',
-      text: 'A tiny agent on your machine reads Claude Code & Codex logs and posts new usage metadata — never prompt or response content.',
-    },
-    {
-      n: '02',
-      title: 'It lands in Postgres',
-      text: 'Records are de-duplicated, priced from your editable rate table, and bucketed by your timezone.',
-    },
-    {
-      n: '03',
-      title: 'The workspace opens up',
-      text: 'See cost, tokens and cache tiers on one screen — then chat with the team and track meals, workouts and weight alongside it.',
-    },
+  readonly stats: Stat[] = [
+    { value: 6, suffix: '', label: 'Life-domains, one OS' },
+    { value: 39, suffix: '', label: 'Server-enforced caps' },
+    { value: 2, suffix: '', label: 'First-class platforms' },
+    { value: 100, suffix: '%', label: 'Self-hosted, yours' },
   ];
 
-  readonly terminal: string[] = [
-    '$ usage-iq reporter --watch',
-    '  scanning ~/.claude/projects … 2,264 files',
-    '  + 318 new records  (412 deduped)',
-    '  posting → https://usageiq.online/api/ingest',
-    '  ✓ synced 14.15M tokens · $182.4',
-    '  ✓ chat live · tracker synced',
-    '  next run in 30:00 …',
-  ];
+  /** Live count for each stat, mirrors `stats` by index. */
+  readonly counts = signal<number[]>(this.stats.map(() => 0));
 
   constructor() {
     const ru = this.route.snapshot.queryParamMap.get('returnUrl');

@@ -1,0 +1,92 @@
+/* ─────────────────────────────────────────────────────────────────────────
+   How it works — page-specific styles only.
+   Shared classes (.mpage, .bg-fx, .panel, .flow, .flow-stage, .flow-marker,
+   .flow-body, .section-head, .faq, .cta-card, etc.) come from
+   marketing-page.scss; --tech-* vars are global. Reframed as the OS boot
+   sequence: domain-tinted stages, monospace boot status lines, agent-pulse.
+   ───────────────────────────────────────────────────────────────────────── */
+
+/* Clipped-gradient hero word (reuses the shipped .grad treatment). */
+.mpage-hero h1 .grad {
+  background: var(--tech-border-neon, linear-gradient(100deg, #3d8bff, #8b7cff 52%, #3fd8d0));
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* ───────────────────────── Domain-tinted boot stages ─────────────────────────
+   Each stage wears one of the three tech accents via a CSS var, so the tint is
+   never hardcoded and the light theme keeps working. */
+.flow-stage {
+  --stage-accent: var(--tech-accent);
+  &[data-accent='blue']   { --stage-accent: var(--tech-accent); }
+  &[data-accent='violet'] { --stage-accent: var(--tech-accent-2, #8b7cff); }
+  &[data-accent='cyan']   { --stage-accent: var(--tech-accent-cyan, #3fd8d0); }
+}
+
+/* Tint the node ring + a gradient top-rule on the panel by the stage accent. */
+.flow-stage .flow-marker .flow-icon {
+  border-color: color-mix(in srgb, var(--stage-accent) 60%, transparent);
+  color: var(--stage-accent);
+  position: relative;
+
+  /* AGENT-PULSE: a traveling lit dot that runs the node ring, signifying an
+     agent acting. Static lit dot under reduced motion. */
+  &::after {
+    content: '';
+    position: absolute;
+    inset: -3px;
+    border-radius: 50%;
+    border: 1.5px solid transparent;
+    border-top-color: color-mix(in srgb, var(--stage-accent) 85%, transparent);
+    opacity: 0.85;
+    animation: agent-pulse 3.2s linear infinite;
+  }
+}
+
+.flow-body {
+  position: relative;
+  border-top: 1px solid color-mix(in srgb, var(--stage-accent) 55%, var(--tech-border-subtle));
+}
+
+.flow-domain {
+  display: inline-block;
+  margin-bottom: 8px;
+  padding: 3px 10px;
+  border-radius: var(--tech-r-pill, 999px);
+  border: 1px solid color-mix(in srgb, var(--stage-accent) 45%, var(--tech-border-subtle));
+  background: color-mix(in srgb, var(--stage-accent) 12%, transparent);
+  font-family: var(--tech-font-mono);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--stage-accent);
+}
+
+/* BOOT SEQUENCE: monospace status line under each stage title. */
+.boot-line {
+  margin: 4px 0 12px;
+  font-family: var(--tech-font-mono);
+  font-size: 0.82rem;
+  line-height: 1.5;
+  color: var(--tech-text-tertiary);
+  .boot-caret {
+    color: var(--stage-accent);
+    font-weight: 700;
+  }
+}
+
+@keyframes agent-pulse {
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .flow-stage .flow-marker .flow-icon::after {
+    animation: none;
+    /* static lit dot at the top of the ring */
+    inset: -3px;
+    border-color: transparent;
+    border-top-color: color-mix(in srgb, var(--stage-accent) 85%, transparent);
+  }
+}

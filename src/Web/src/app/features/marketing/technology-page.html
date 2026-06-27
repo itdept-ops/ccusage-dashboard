@@ -1,19 +1,47 @@
 <app-marketing-nav />
 
 <main class="mpage">
-  <div class="bg-fx" aria-hidden="true"><div class="grid-fade"></div><div class="orb orb-a"></div><div class="orb orb-b"></div></div>
+  <div class="bg-fx" aria-hidden="true">
+    <div class="grid-fade"></div>
+    <div class="orb orb-a"></div>
+    <div class="orb orb-b"></div>
+    <div class="orb orb-c"></div>
+  </div>
 
-  <header class="mpage-hero">
-    <span class="page-eyebrow">Technology</span>
-    <h1>What Usage IQ is built on.</h1>
-    <p>An Angular SPA, a .NET 9 API with a SignalR hub, and PostgreSQL — packaged with Docker and self-hosted by design. Your data stays on your infrastructure; secrets stay out of the repo.</p>
+  <header class="mpage-hero tech-hero">
+    <span class="page-eyebrow">The engine</span>
+    <h1>The kernel under <span class="grad">the OS</span>.</h1>
+    <p>
+      One self-hosted system carries your whole life — so the engineering has to be real. An Angular
+      SPA, a .NET&nbsp;9 API with a SignalR hub, and PostgreSQL, packaged with Docker and deployed
+      keylessly. Your data stays on your infrastructure; secrets stay out of the repo; nothing phones
+      home.
+    </p>
+
+    <!-- Boot sequence — the OS coming online (reuses the terminal-card motif) -->
+    <div class="boot-card" data-reveal>
+      <div class="boot-bar" aria-hidden="true">
+        <span class="boot-dot"></span><span class="boot-dot"></span><span class="boot-dot"></span>
+        <span class="boot-title">usage-iq · boot</span>
+      </div>
+      <ul class="boot-lines">
+        @for (b of bootLines; track b.tag; let i = $index) {
+          <li style="--d: {{ i }}">
+            <span class="boot-prompt" aria-hidden="true">›</span>
+            <span class="boot-tag">{{ b.tag }}:</span>
+            <span class="boot-ok">{{ b.ok }}</span>
+            <span class="boot-status" aria-hidden="true">ok</span>
+          </li>
+        }
+      </ul>
+    </div>
   </header>
 
   <!-- (1) The stack -->
-  <section class="tech-section">
+  <section class="tech-section" data-reveal>
     <header class="section-head">
       <span class="section-eyebrow">The stack</span>
-      <h2>The pieces, and what each does.</h2>
+      <h2>Every part of the <span class="grad">engine</span>, and what it does.</h2>
     </header>
     <ul class="tech-grid">
       @for (t of stack; track t.name) {
@@ -27,10 +55,10 @@
   </section>
 
   <!-- (2) Integrations & APIs -->
-  <section class="tech-section">
+  <section class="tech-section" data-reveal>
     <header class="section-head">
       <span class="section-eyebrow">Integrations &amp; APIs</span>
-      <h2>What we call out to — and what stays put.</h2>
+      <h2>What it calls out to — and what <span class="grad">stays put</span>.</h2>
     </header>
     <ul class="api-grid">
       @for (a of integrations; track a.name) {
@@ -48,10 +76,11 @@
   </section>
 
   <!-- (3) Architecture -->
-  <section class="tech-section">
+  <section class="tech-section" data-reveal>
     <header class="section-head">
       <span class="section-eyebrow">Architecture</span>
       <h2>Angular ⇄ .NET API (+ SignalR) ⇄ PostgreSQL.</h2>
+      <p class="section-sub">The system map — four nodes, one request path, end to end.</p>
     </header>
 
     <ol class="arch-flow">
@@ -81,10 +110,10 @@
   </section>
 
   <!-- (4) Self-hosted by design -->
-  <section class="tech-section">
+  <section class="tech-section" data-reveal>
     <header class="section-head">
       <span class="section-eyebrow">Self-hosted by design</span>
-      <h2>It runs on your infrastructure.</h2>
+      <h2>It runs on <span class="grad">your</span> infrastructure.</h2>
     </header>
     <ul class="tech-grid">
       @for (pr of principles; track pr.title) {
@@ -98,14 +127,14 @@
   </section>
 
   <!-- (5) CTA -->
-  <section class="mpage-cta">
+  <section class="mpage-cta" data-reveal>
     <div class="cta-card panel">
       <div class="cta-glow" aria-hidden="true"></div>
-      <h2>See it running.</h2>
-      <p>Sign in to your dashboard, or browse the full feature list.</p>
+      <h2>One builder. One server. The whole picture.</h2>
+      <p>This is the engineering floor under the OS. See it running, or tour every domain it carries.</p>
       <div class="cta-row">
-        <a class="cta-pill" routerLink="/signin">Sign in <span>→</span></a>
-        <a class="ghost-link" routerLink="/features">See features <span>→</span></a>
+        <a class="cta-pill" routerLink="/signin">Enter the OS <span>→</span></a>
+        <a class="ghost-link" routerLink="/features">Tour the domains <span>→</span></a>
       </div>
     </div>
   </section>

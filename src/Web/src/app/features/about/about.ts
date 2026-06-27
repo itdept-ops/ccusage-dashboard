@@ -60,7 +60,7 @@ export class About implements AfterViewInit, OnDestroy {
 
   /** Identity. */
   readonly name = 'Junior Fortunato';
-  readonly descriptor = 'Software engineer · Agentic-AI builder · Founder · U.S. Army veteran';
+  readonly descriptor = 'Founder · U.S. Army veteran · Full-stack engineer · Agentic-AI builder';
   readonly initials = 'JF';
 
   /**
@@ -84,10 +84,10 @@ export class About implements AfterViewInit, OnDestroy {
 
   /** Headline metrics for the animated counters. */
   readonly metrics: Metric[] = [
+    { value: '6', suffix: '', label: 'Life domains in one OS' },
     { value: '3', suffix: '+', label: 'Years building with agentic AI' },
-    { value: '6', suffix: '', label: 'Critical positions qualified' },
-    { value: '1', suffix: '', label: 'Software company founded' },
-    { value: '100', suffix: '%', label: 'Production systems shipped solo' },
+    { value: '1', suffix: '', label: 'Person at the keyboard' },
+    { value: '100', suffix: '%', label: 'Built solo, with a team of agents' },
   ];
 
   /** The three identity pillars surfaced under the hero. */

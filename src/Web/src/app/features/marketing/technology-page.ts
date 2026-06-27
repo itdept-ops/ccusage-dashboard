@@ -1,4 +1,12 @@
-import { Component, ChangeDetectionStrategy } from '@angular/core';
+import {
+  AfterViewInit,
+  Component,
+  ElementRef,
+  NgZone,
+  OnDestroy,
+  ChangeDetectionStrategy,
+  inject,
+} from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { MatIconModule } from '@angular/material/icon';
 import { MarketingNav } from './marketing-nav';
@@ -20,6 +28,16 @@ interface ArchNode {
   text: string;
 }
 
+/**
+ * Public "Technology" page — reframed to the Agentic Life OS spine as
+ * "the engine under the OS": the proof that one builder engineered a real,
+ * production, self-hosted system. Every factual claim is preserved verbatim
+ * in substance; only the framing/visuals carry the OS metaphor.
+ *
+ * Bare layout (own chrome): marketing nav + footer, the shared orb/grid
+ * backdrop, and scroll-revealed sections. The IntersectionObserver reveal is
+ * gated behind `.js-reveal` so a no-JS / reduced-motion render shows everything.
+ */
 @Component({
   selector: 'app-technology-page',
   imports: [RouterLink, MatIconModule, MarketingNav, MarketingFooter],
@@ -27,17 +45,29 @@ interface ArchNode {
   changeDetection: ChangeDetectionStrategy.Eager,
   styleUrls: ['./marketing-page.scss', './technology-page.scss'],
 })
-export class TechnologyPage {
+export class TechnologyPage implements AfterViewInit, OnDestroy {
+  private host = inject<ElementRef<HTMLElement>>(ElementRef);
+  private zone = inject(NgZone);
+
+  /** Boot-sequence status lines for the hero terminal — the OS coming online. */
+  readonly bootLines: { tag: string; ok: string }[] = [
+    { tag: 'kernel', ok: '.NET 9 minimal-API · online' },
+    { tag: 'store', ok: 'PostgreSQL · single source of truth' },
+    { tag: 'realtime', ok: 'SignalR hub · mounted' },
+    { tag: 'surface', ok: 'Angular SPA · rendered' },
+    { tag: 'host', ok: 'Docker + nginx · self-hosted' },
+  ];
+
   /** (1) The stack — every claim true per the codebase. */
   readonly stack: TechCard[] = [
     {
-      name: 'Angular 21',
+      name: 'Angular 22',
       role: 'Standalone-component, signals-based SPA — with Angular Material and ECharts driving the charts.',
       icon: 'web',
     },
     {
       name: '.NET 9',
-      role: 'A minimal-API backend handling ingest, query, and auth.',
+      role: 'A minimal-API backend handling ingest, query, and auth — the kernel every module boots on.',
       icon: 'dns',
     },
     {
@@ -47,7 +77,7 @@ export class TechnologyPage {
     },
     {
       name: 'PostgreSQL',
-      role: 'The single source of truth — token rows, users, chat, and the tracker.',
+      role: 'The single source of truth — token rows, users, chat, and the tracker, all in one database.',
       icon: 'database',
     },
     {
@@ -169,4 +199,47 @@ export class TechnologyPage {
       text: 'Your data stays on your infrastructure. The whole project is open source at github.com/itdept-ops/usage-iq.',
     },
   ];
+
+  private observer?: IntersectionObserver;
+  private revealFailsafe?: ReturnType<typeof setTimeout>;
+
+  ngAfterViewInit(): void {
+    const reduce =
+      typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    const els = Array.from(this.host.nativeElement.querySelectorAll<HTMLElement>('[data-reveal]'));
+
+    // No observer support, or motion is reduced → reveal everything immediately.
+    if (reduce || typeof IntersectionObserver === 'undefined') {
+      els.forEach((el) => el.classList.add('is-in'));
+      return;
+    }
+
+    // Arm the hidden→reveal state only now that JS + IntersectionObserver are
+    // confirmed available, so a no-JS render can never strand a section at opacity:0.
+    this.host.nativeElement.classList.add('js-reveal');
+
+    this.zone.runOutsideAngular(() => {
+      this.observer = new IntersectionObserver(
+        (entries) => {
+          for (const e of entries) {
+            if (e.isIntersecting) {
+              e.target.classList.add('is-in');
+              this.observer?.unobserve(e.target);
+            }
+          }
+        },
+        { threshold: 0.16, rootMargin: '0px 0px -8% 0px' },
+      );
+      els.forEach((el) => this.observer!.observe(el));
+      // Failsafe: if the observer never fires (throttled/backgrounded tab),
+      // reveal everything. Idempotent with the per-element reveals above.
+      this.revealFailsafe = setTimeout(() => els.forEach((el) => el.classList.add('is-in')), 2500);
+    });
+  }
+
+  ngOnDestroy(): void {
+    this.observer?.disconnect();
+    if (this.revealFailsafe !== undefined) clearTimeout(this.revealFailsafe);
+  }
 }

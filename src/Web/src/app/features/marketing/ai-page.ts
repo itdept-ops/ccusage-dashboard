@@ -35,11 +35,17 @@ interface AiGroup {
   blurb: string;
   /** Material icon for the group. */
   icon: string;
+  /**
+   * Life-domain accent the group wears — one of the three tech accents, reused
+   * consistently so a domain always carries the same color across the OS.
+   * 'blue' = Work, 'cyan' = Body, 'violet' = Home/People/Growth.
+   */
+  accent: 'blue' | 'cyan' | 'violet';
   /** The assists in this group. */
   assists: AiAssist[];
 }
 
-/** "How it works" pillar card. */
+/** A trust pillar — the leash on every agent. */
 interface Pillar {
   icon: string;
   title: string;
@@ -47,9 +53,11 @@ interface Pillar {
 }
 
 /**
- * Public marketing showcase for Usage IQ's AI — Google Gemini woven through
- * the food & fitness tracker. Every claim here is extracted from the shipped
- * endpoints under POST/GET /api/ai/*.
+ * Public marketing showcase for Usage IQ's agentic AI layer — Google Gemini
+ * woven through the OS as agents that turn a sentence or a photo into a logged
+ * ACTION, then hand you the pen. Every claim here is extracted from the shipped
+ * endpoints under POST/GET /api/ai/*; nothing is autonomous (AI prefills, you
+ * confirm — off by default, permission-gated, never auto-logged).
  */
 @Component({
   selector: 'app-ai-page',
@@ -59,17 +67,25 @@ interface Pillar {
   styleUrls: ['./marketing-page.scss', './ai-page.scss'],
 })
 export class AiPage {
-  /** (2) How it works — the posture behind every assist. */
-  readonly pillars: Pillar[] = [
+  /** Boot-sequence status lines for the hero terminal — the agent layer coming online. */
+  readonly bootLines: readonly string[] = [
+    'kernel: ok',
+    'gemini bridge: connected',
+    'agents: armed · off by default',
+    'leash: engaged — you confirm every action',
+  ];
+
+  /** The leash — the posture behind every agent. Guardrails as a feature, not a disclaimer. */
+  readonly pillars: readonly Pillar[] = [
     {
       icon: 'auto_awesome',
       title: 'Powered by Google Gemini',
-      text: 'Every assist runs on Gemini (gemini-2.5-flash), called server-side — your front end never holds a model key.',
+      text: 'Every agent runs on Gemini (gemini-2.5-flash), called server-side — your front end never holds a model key.',
     },
     {
       icon: 'data_object',
       title: 'Tight prompts, strict JSON',
-      text: 'Each feature uses a pre-built prompt that forces a strict JSON shape and treats your text or photo strictly as data — never as instructions.',
+      text: 'Each agent uses a pre-built prompt that forces a strict JSON shape and treats your text or photo strictly as data — never as instructions.',
     },
     {
       icon: 'straighten',
@@ -78,22 +94,23 @@ export class AiPage {
     },
     {
       icon: 'edit_note',
-      title: 'Always editable, never auto-logged',
-      text: 'Results prefill an editable review — you confirm or tweak every field before anything is saved.',
+      title: 'It prefills — you hold the pen',
+      text: 'Nothing is auto-logged. Every result lands in an editable review; you confirm or tweak each field before a single thing is saved.',
     },
     {
       icon: 'lock',
       title: 'Permission-gated, off by default',
-      text: 'AI is behind the tracker.ai permission, off by default. When it is off, every assist simply disappears and the tracker still works.',
+      text: 'The agent layer is behind the tracker.ai permission, off by default. When it is off, every agent simply disappears and the OS still runs.',
     },
   ];
 
-  /** (3) The entry points, grouped exactly as the inventory groups them. */
-  readonly groups: AiGroup[] = [
+  /** The agents, grouped by the life-domain they act inside. */
+  readonly groups: readonly AiGroup[] = [
     {
       group: 'Food — from text',
-      blurb: 'Type a food, a whole meal, or a recipe and get editable calories and macros back.',
+      blurb: 'Say a food, a whole meal, or a recipe and an agent turns the sentence into editable calories and macros — ready to log.',
       icon: 'restaurant',
+      accent: 'cyan',
       assists: [
         {
           title: 'Estimate macros from a description',
@@ -167,8 +184,9 @@ export class AiPage {
     {
       group: 'Food — from a photo',
       blurb:
-        'Multimodal: point your camera at a plate or a nutrition label. The image is sent to Google Gemini and is never stored by Usage IQ.',
+        'Multimodal agents: point your camera at a plate or a nutrition label. The image is sent to Google Gemini, read into structured items, and is never stored by Usage IQ.',
       icon: 'photo_camera',
+      accent: 'cyan',
       assists: [
         {
           title: 'Photo of a meal → per-item macros',
@@ -208,8 +226,9 @@ export class AiPage {
     {
       group: 'Exercise',
       blurb:
-        'Log a workout by talking, not by filling a form — calories scale to your own body weight, read server-side.',
+        'Log a workout by talking, not by filling a form — an agent parses the sentence and scales calories to your own body weight, read server-side.',
       icon: 'fitness_center',
+      accent: 'cyan',
       assists: [
         {
           title: 'Free-text exercise → calories burned',
@@ -260,8 +279,9 @@ export class AiPage {
     {
       group: 'Goals',
       blurb:
-        'A one-tap daily target from your own profile, or a plan from a plain-English goal — with a safety check.',
+        'A one-tap daily target from your own profile, or a plan an agent drafts from a plain-English goal — with a built-in safety check.',
       icon: 'flag',
+      accent: 'violet',
       assists: [
         {
           title: 'Profile stats → daily target',
@@ -301,8 +321,9 @@ export class AiPage {
     {
       group: 'Coaching',
       blurb:
-        'Goal-aware ideas and encouragement built from your own day and week — server-cached, never auto-fired on load.',
+        'Goal-aware ideas and encouragement an agent builds from your own day and week — server-cached, never auto-fired on load.',
       icon: 'psychology',
+      accent: 'violet',
       assists: [
         {
           title: 'What should I eat?',
@@ -353,8 +374,9 @@ export class AiPage {
     {
       group: 'Weight & hydration',
       blurb:
-        'A plain-language read of your weight trend, a personalized fluid goal, and drinks parsed from a sentence.',
+        'A plain-language read of your weight trend, a personalized fluid goal, and drinks an agent parses straight from a sentence.',
       icon: 'monitor_weight',
+      accent: 'cyan',
       assists: [
         {
           title: 'Weight trend insight',
