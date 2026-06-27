@@ -7,7 +7,7 @@ import { MatSnackBar } from '@angular/material/snack-bar';
 import { Router } from '@angular/router';
 
 import { TrackerStore, toLocalDate } from '../../core/tracker-store';
-import { Meal } from '../../core/models';
+import { FoodEntryDto, Meal } from '../../core/models';
 import { UnitService } from '../../core/unit.service';
 
 import { OptimisticTracker } from './state/optimistic-tracker';
@@ -20,6 +20,7 @@ import { CoffeeCard } from './cards/coffee-card';
 import { WeightCard } from './cards/weight-card';
 import { LogMenuSheet, LogTarget } from './sheets/log-menu-sheet';
 import { FoodSheet } from './sheets/food-sheet';
+import { FoodEditSheet } from './sheets/food-edit-sheet';
 import { WeightSheet } from './sheets/weight-sheet';
 import { WatchSheet } from './sheets/watch-sheet';
 import { CoffeeSheet, ExerciseSheet, SupplementSheet } from './sheets/quick-sheets';
@@ -56,7 +57,7 @@ import { currentStreak, dayHasAnyLog } from './util/streak';
     MatIconModule,
     HeroRing, QuickRail,
     FuelCard, WaterCard, MoveCard, CoffeeCard, WeightCard,
-    LogMenuSheet, FoodSheet, WeightSheet, WatchSheet, CoffeeSheet, ExerciseSheet, SupplementSheet,
+    LogMenuSheet, FoodSheet, FoodEditSheet, WeightSheet, WatchSheet, CoffeeSheet, ExerciseSheet, SupplementSheet,
     LeftoversSheet,
   ],
   template: `
@@ -109,7 +110,7 @@ import { currentStreak, dayHasAnyLog } from './util/streak';
         }
 
         <!-- CARD STACK -->
-        <app-fuel-card (addToMeal)="openFood($event)" />
+        <app-fuel-card (addToMeal)="openFood($event)" (editFood)="openEditFood($event)" />
         <app-tb-water-card />
         <app-move-card (addExercise)="exerciseOpen.set(true)" (editWatch)="watchOpen.set(true)" />
         <app-tracker-beta-coffee-card />
@@ -140,6 +141,7 @@ import { currentStreak, dayHasAnyLog } from './util/streak';
     <!-- ─────────────────── SHEETS (overlay; closed by default) ─────────────────── -->
     <app-log-menu-sheet [(open)]="logOpen" (choose)="route($event)" />
     <app-food-sheet [(open)]="foodOpen" />
+    <app-food-edit-sheet [(open)]="foodEditOpen" [(entry)]="editingFood" />
     <app-coffee-sheet [(open)]="coffeeOpen" />
     <app-exercise-sheet [(open)]="exerciseOpen" />
     <app-supplement-sheet [(open)]="supplementOpen" />
@@ -225,6 +227,9 @@ export class TrackerBetaPage {
   // ── sheet open states ──
   protected readonly logOpen = signal(false);
   protected readonly foodOpen = signal(false);
+  protected readonly foodEditOpen = signal(false);
+  /** The logged food entry currently being edited (two-way bound into the edit sheet; null when closed). */
+  protected readonly editingFood = signal<FoodEntryDto | null>(null);
   protected readonly coffeeOpen = signal(false);
   protected readonly exerciseOpen = signal(false);
   protected readonly supplementOpen = signal(false);
@@ -403,6 +408,17 @@ export class TrackerBetaPage {
    */
   protected openFood(_meal: Meal): void {
     this.foodOpen.set(true);
+  }
+
+  /**
+   * Open the edit sheet for a tapped logged food row (owner-only — the card hides the affordance in
+   * read-only views). Seeds the sheet's two-way `entry` model with the row, then opens it; the sheet
+   * commits servings/macros/meal/delete through OptimisticTracker (instant ring tick + reconcile).
+   */
+  protected openEditFood(f: FoodEntryDto): void {
+    if (this.readOnly()) return;
+    this.editingFood.set(f);
+    this.foodEditOpen.set(true);
   }
 
   // ── weight reconcile ──

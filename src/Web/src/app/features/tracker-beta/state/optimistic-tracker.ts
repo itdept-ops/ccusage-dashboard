@@ -7,7 +7,8 @@ import { TrackerStore } from '../../../core/tracker-store';
 import {
   AddCoffeeRequest, AddExerciseRequest, AddFoodRequest, AddHydrationRequest, AddSupplementRequest,
   CoffeeEntryDto, ExerciseEntryDto, FoodEntryDto, HydrationEntryDto, LogWeightRequest,
-  SupplementEntryDto, TrackerDayDto, TrackerProfileDto, UpsertActivityRequest, WatchActivityDto,
+  SupplementEntryDto, TrackerDayDto, TrackerProfileDto, UpdateFoodRequest, UpsertActivityRequest,
+  WatchActivityDto,
 } from '../../../core/models';
 
 /**
@@ -34,6 +35,7 @@ import {
  *   writes (all return Promise<void>; optimistic + undo built in):
  *     addFood(body: AddFoodRequest): Promise<void>
  *     addFoods(bodies: AddFoodRequest[]): Promise<{ added: number; failed: number }>
+ *     updateFood(id: number, body: UpdateFoodRequest, optimistic: Partial<FoodEntryDto>): Promise<void>
  *     deleteFood(id: number): Promise<void>
  *     addHydration(body: AddHydrationRequest): Promise<void>
  *     deleteHydration(id: number): Promise<void>
@@ -112,6 +114,28 @@ export class OptimisticTracker {
     const failed = results.length - added;
     if (failed > 0) this.snack.open(`Added ${added} of ${results.length}`, 'OK', { duration: 4000, politeness: 'polite' });
     return { added, failed };
+  }
+
+  /**
+   * Edit a logged food OPTIMISTICALLY (the mobile twin of the desktop inline editor). The caller computes
+   * the optimistic local shape of the edited row (`optimistic` — for a priced row the rescaled-by-quantity
+   * preview; for a manual row the typed totals); we patch + recompute the day FIRST so the row, the hero
+   * ring and the meal subtotals move sub-second, THEN PUT. On settle we reconcile the row with the server's
+   * authoritative entity (priced rows are recomputed server-side); on failure we revert the row to its prior
+   * snapshot and offer a Retry. Mirrors {@link addFood}'s patch→fire→reconcile/rollback shape.
+   */
+  async updateFood(id: number, body: UpdateFoodRequest, optimistic: Partial<FoodEntryDto>): Promise<void> {
+    const prev = this.day()?.foods.find(f => f.id === id);
+    if (!prev) return;
+    const next: FoodEntryDto = { ...prev, ...optimistic };
+    this.patch(d => this.recompute({ ...d, foods: d.foods.map(f => (f.id === id ? next : f)) }));
+    try {
+      const real = await firstValueFrom(this.api.updateFood(id, body));
+      this.patch(d => this.recompute({ ...d, foods: d.foods.map(f => (f.id === id ? real : f)) }));
+    } catch {
+      this.rollback(d => this.recompute({ ...d, foods: d.foods.map(f => (f.id === id ? prev : f)) }),
+        'Couldn’t save change', () => this.updateFood(id, body, optimistic));
+    }
   }
 
   async deleteFood(id: number): Promise<void> {

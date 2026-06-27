@@ -34,13 +34,18 @@ const MEAL_ORDER: ReadonlyArray<{ meal: Meal; title: string }> = [
  * "+ add to {meal}" affordance under every group asks the page to open the food sheet pre-targeted at that
  * meal.
  *
+ * Each logged row is also TAPPABLE: outside read-only views the row body is a focusable button that emits
+ * `editFood(f)` so the page can open the edit sheet (servings/quantity, meal slot, macros, delete) — the
+ * mobile twin of the desktop inline editor. Swipe-left still deletes; tapping opens the editor.
+ *
  * This component OWNS its sediment-card styling with the Strata `var(--*)` tokens inherited from the page
- * host (no global `--tech-*`). It does NOT open the food sheet itself — the sheet is a sibling component —
- * it merely emits `addToMeal(meal)` so the page can route the request. All numbers come from the wrapper's
- * locally-recomputed `day()`, so adds/deletes reflect instantly without a reload.
+ * host (no global `--tech-*`). It does NOT open any sheet itself — the sheets are sibling components — it
+ * merely emits `addToMeal(meal)` / `editFood(f)` so the page can route the request. All numbers come from
+ * the wrapper's locally-recomputed `day()`, so adds/edits/deletes reflect instantly without a reload.
  *
  *   selector: app-fuel-card
- *   outputs:  addToMeal (Meal) — the user tapped "+ add to {meal}"; the page opens the food sheet for it
+ *   outputs:  addToMeal (Meal)        — the user tapped "+ add to {meal}"; the page opens the food sheet for it
+ *             editFood  (FoodEntryDto) — the user tapped a logged row; the page opens the edit sheet for it
  */
 @Component({
   selector: 'app-fuel-card',
@@ -80,16 +85,32 @@ const MEAL_ORDER: ReadonlyArray<{ meal: Meal; title: string }> = [
                   [disabled]="readOnly()"
                   [label]="'Delete ' + f.description"
                   (delete)="onDelete(f)">
-                  <div class="fc-row">
-                    <div class="fc-row-main">
-                      <span class="fc-name">{{ f.description }}</span>
-                      <span class="fc-leader" aria-hidden="true"></span>
-                      <span class="fc-kcal">{{ kcal(f) }}</span>
+                  @if (readOnly()) {
+                    <div class="fc-row">
+                      <div class="fc-row-main">
+                        <span class="fc-name">{{ f.description }}</span>
+                        <span class="fc-leader" aria-hidden="true"></span>
+                        <span class="fc-kcal">{{ kcal(f) }}</span>
+                      </div>
+                      @if (macroLine(f); as ml) {
+                        <span class="fc-macros">{{ ml }}</span>
+                      }
                     </div>
-                    @if (macroLine(f); as ml) {
-                      <span class="fc-macros">{{ ml }}</span>
-                    }
-                  </div>
+                  } @else {
+                    <button type="button" class="fc-row fc-row-edit"
+                            [attr.aria-label]="'Edit ' + f.description + ', ' + kcal(f) + ' kcal'"
+                            (click)="editFood.emit(f)">
+                      <div class="fc-row-main">
+                        <span class="fc-name">{{ f.description }}</span>
+                        <span class="fc-leader" aria-hidden="true"></span>
+                        <span class="fc-kcal">{{ kcal(f) }}</span>
+                        <mat-icon class="fc-edit-ic" aria-hidden="true">edit</mat-icon>
+                      </div>
+                      @if (macroLine(f); as ml) {
+                        <span class="fc-macros">{{ ml }}</span>
+                      }
+                    </button>
+                  }
                 </app-swipe-row>
               }
 
@@ -162,6 +183,22 @@ const MEAL_ORDER: ReadonlyArray<{ meal: Meal; title: string }> = [
     /* ── ledger row (GRAFT LEDGER: name · dotted-leader · tabular kcal) ─────── */
     app-swipe-row { margin: 2px 0; }
     .fc-row { padding: 7px 2px; min-height: 30px; }
+    /* Tappable edit affordance: the row body becomes a full-width button (still inside the swipe-row). */
+    .fc-row-edit {
+      display: block; width: 100%; box-sizing: border-box;
+      min-height: 44px; padding: 8px 2px; margin: 0;
+      background: none; border: 0; text-align: left; color: var(--ink); cursor: pointer;
+      border-radius: var(--r-tile); touch-action: pan-y; -webkit-tap-highlight-color: transparent;
+      transition: background 120ms var(--ease-out);
+    }
+    .fc-row-edit:active { background: var(--bg-sink); }
+    .fc-row-edit:focus-visible {
+      outline: 2px solid var(--focus); outline-offset: 2px; border-radius: var(--r-tile);
+    }
+    .fc-edit-ic {
+      flex: 0 0 auto; font-size: 16px; width: 16px; height: 16px;
+      color: var(--ink-faint); align-self: center; margin-left: 2px;
+    }
     .fc-row-main { display: flex; align-items: baseline; gap: 6px; }
     .fc-name {
       font-family: var(--font-ui); font-size: 15px; font-weight: 500; color: var(--ink);
@@ -203,7 +240,7 @@ const MEAL_ORDER: ReadonlyArray<{ meal: Meal; title: string }> = [
       outline: 2px solid var(--focus); outline-offset: 3px; border-radius: var(--r-tile);
     }
     @media (prefers-reduced-motion: reduce) {
-      .fc-chevron, .fc-add { transition: none; }
+      .fc-chevron, .fc-add, .fc-row-edit { transition: none; }
     }
   `],
 })
@@ -212,6 +249,9 @@ export class FuelCard {
 
   /** The user tapped "+ add to {meal}" — the page opens the food sheet pre-targeted at this meal. */
   readonly addToMeal = output<Meal>();
+
+  /** The user tapped a logged food row — the page opens the edit sheet seeded with this entry. */
+  readonly editFood = output<FoodEntryDto>();
 
   /** Collapsed state is local UI; the card opens expanded. */
   protected readonly expanded = signal(true);

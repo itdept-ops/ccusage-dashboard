@@ -120,20 +120,33 @@ export class BottomSheet {
 
   /** The element focused when the sheet opened — focus is returned here on close (a11y). */
   private opener: HTMLElement | null = null;
+  /** Previous open() value, so the lifecycle effect can act on the rising AND falling edge. */
+  private wasOpen = false;
 
   constructor() {
     // Mirror open() onto the [hidden] host attr so the fixed overlay never traps taps when closed.
     effect(() => {
       this.host.nativeElement.toggleAttribute('hidden', !this.open());
     });
-    // Move focus into the panel on open (focus-trap entry point); remember the opener to restore later.
+    // Focus + lifecycle on EVERY open() transition. Crucially this fires on the FALLING edge too, so a
+    // programmatic close (a host committing a save/delete with open.set(false)) restores focus to the opener
+    // and emits (closed) — identical to a scrim-tap / Escape / swipe-down. Without it those exits would
+    // strand focus on <body> and skip the host's reset hook.
     effect(() => {
-      if (this.open()) {
+      const isOpen = this.open();
+      if (isOpen && !this.wasOpen) {
+        // Opening: remember the opener (focus-trap entry), then move focus into the panel.
         const active = (typeof document !== 'undefined' ? document.activeElement : null) as HTMLElement | null;
-        // Don't capture our own panel as the opener on a re-entrant focus.
         if (active && !this.host.nativeElement.contains(active)) this.opener = active;
         queueMicrotask(() => this.panel()?.nativeElement.focus?.());
+      } else if (!isOpen && this.wasOpen) {
+        // Closing (any path): notify the host, then return focus to the opener.
+        this.closed.emit();
+        const opener = this.opener;
+        this.opener = null;
+        if (opener?.isConnected) queueMicrotask(() => opener.focus?.());
       }
+      this.wasOpen = isOpen;
     });
   }
 
@@ -177,13 +190,8 @@ export class BottomSheet {
     }
   }
 
-  /** Animate out then fire closed + clear open. Returns focus to the element that opened the sheet. */
+  /** Dismiss the sheet. The open()-transition effect emits (closed) + restores focus for ALL close paths. */
   private dismiss(): void {
     this.open.set(false);
-    this.closed.emit();
-    // Restore focus to the opener so keyboard/AT users land back where they were (focus-trap exit).
-    const opener = this.opener;
-    this.opener = null;
-    if (opener?.isConnected) queueMicrotask(() => opener.focus?.());
   }
 }
