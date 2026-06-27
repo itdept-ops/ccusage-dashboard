@@ -1,0 +1,415 @@
+// ============================================================================
+// Profile "How others see me" — the MOBILE twin of the live /profile page, rebuilt on the shared
+// beta-ui "Strata" foundation. One line adopts the whole Strata token contract (layered bg, glass,
+// ink scale, radii, the lift-1/2/3 depth system, spring/bounce easing, blur cap, env() safe-area, the
+// a11y killswitches); then this page OVERRIDES the per-page accent contract with its OWN signature —
+// an INDIGO → VIOLET ramp (a calm "identity / settings" hue). Every kit component (pull-refresh ring,
+// the segmented mode picker, the toaster) reads --accent-a/--accent-b off this :host cascade, so this
+// single override re-skins the whole screen.
+//
+// ISOLATED + gated by platform.mobile on the SAME /profile route: nothing here touches the global
+// --tech-* tokens or the live page. The kit partial is the only import; we consume it, never modify it.
+// ============================================================================
+
+@use '../beta-ui/beta-kit' as kit;
+
+:host {
+  @include kit.beta-host;          // the whole Strata token contract on :host
+
+  // ---- PROFILE's SIGNATURE ACCENT: indigo → violet (the per-page contract override) ----
+  --accent-a: #818cf8;             // signature indigo (start)
+  --accent-b: #a855f7;             // signature violet (end)
+
+  // A faint indigo wash behind the whole column (still within the kit's dark contract).
+  background: radial-gradient(120% 80% at 50% -8%, #15132a 0%, var(--bg-base) 58%);
+
+  height: 100%; // fill the immersive shell frame; the pull-refresh owns the scroll
+}
+
+@include kit.beta-springs;          // @supports linear() spring upgrade (top-level, once)
+@include kit.beta-a11y;             // reduced-motion + reduced-transparency/contrast killswitches (once)
+
+// ============================================================================
+// SHELL — the kit pull-to-refresh wrapper IS the scroll container.
+// ============================================================================
+
+.pm-ptr { display: block; height: 100%; }
+
+.pm-scroll {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-height: 100%;
+  padding-top: calc(var(--safe-top) + 8px);
+  padding-bottom: calc(var(--safe-bottom) + 24px);
+  padding-inline: var(--gutter) var(--gutter-r);
+}
+
+// ============================================================================
+// IMMERSIVE HEADER — title + accent bloom + the live name-preview chip.
+// ============================================================================
+
+.pm-hero {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 6px 2px 2px;
+  isolation: isolate;
+}
+
+.pm-hero__bloom {
+  position: absolute;
+  top: -44px; left: -30px; right: 28%;
+  height: 168px; z-index: -1; pointer-events: none;
+  background: radial-gradient(130px 96px at 30% 30%,
+    color-mix(in oklab, var(--accent-a) 42%, transparent), transparent 70%);
+  filter: blur(8px);
+}
+
+.pm-hero__kicker {
+  display: inline-flex; align-items: center; gap: 6px;
+  margin: 0;
+  font-family: var(--font-ui); font-size: 12px; font-weight: 700;
+  letter-spacing: .08em; text-transform: uppercase;
+  color: var(--ink-dim);
+
+  mat-icon {
+    font-size: 16px; width: 16px; height: 16px;
+    color: var(--accent-a);
+  }
+}
+
+.pm-hero__title {
+  margin: 0;
+  font-family: var(--font-display, var(--font-ui)); font-weight: 800;
+  font-size: clamp(26px, 8vw, 34px); line-height: 1.05;
+  letter-spacing: -.02em; color: var(--ink);
+}
+
+// ---- the live preview chip ----
+.pm-preview {
+  display: flex; align-items: center; gap: 12px;
+  margin-top: 4px; padding: 12px 14px;
+  background: var(--glass);
+  backdrop-filter: blur(var(--blur-glass)) saturate(1.3);
+  -webkit-backdrop-filter: blur(var(--blur-glass)) saturate(1.3);
+  border: 1px solid var(--glass-edge);
+  border-radius: var(--r-card);
+  box-shadow: var(--lift-1);
+
+  &.is-offline { opacity: .82; }
+}
+
+.pm-preview--skel {
+  // keep the same footprint while loading (CLS≈0)
+  align-items: center;
+}
+
+.pm-preview__avatar {
+  flex: 0 0 auto;
+  width: 44px; height: 44px; border-radius: 50%;
+  display: grid; place-items: center;
+  background: linear-gradient(135deg, var(--accent-a), var(--accent-b));
+  color: var(--ink-on-accent);
+  font-family: var(--font-ui); font-weight: 800; font-size: 18px;
+  box-shadow: var(--lift-1);
+}
+
+.pm-preview__body { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+
+.pm-preview__name {
+  font-family: var(--font-ui); font-weight: 700; font-size: 16px;
+  color: var(--ink);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+
+.pm-preview__meta {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-family: var(--font-ui); font-size: 12.5px; color: var(--ink-dim);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+
+.pm-preview__dot {
+  flex: 0 0 auto;
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--signal);
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--signal) 28%, transparent);
+
+  &--off { background: var(--ink-faint, #6b7280); box-shadow: none; }
+}
+
+// ============================================================================
+// CARDS — the settings sections.
+// ============================================================================
+
+.pm-card {
+  display: flex; flex-direction: column; gap: 12px;
+  padding: 16px 14px;
+  background: var(--bg-rise);
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-card);
+  box-shadow: var(--lift-1);
+}
+
+.pm-card__head { display: flex; align-items: flex-start; gap: 11px; }
+
+.pm-card__ic {
+  flex: 0 0 auto;
+  font-size: 22px; width: 22px; height: 22px;
+  margin-top: 1px;
+  color: var(--accent-a);
+}
+
+.pm-card__titles { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+
+.pm-card__title {
+  margin: 0;
+  font-family: var(--font-ui); font-weight: 700; font-size: 16px;
+  color: var(--ink);
+}
+
+.pm-card__sub {
+  margin: 0;
+  font-family: var(--font-ui); font-size: 12.5px; line-height: 1.4;
+  color: var(--ink-dim);
+}
+
+// ---- the name-mode segmented control + its hint ----
+.pm-modeseg { display: block; }
+
+.pm-hint {
+  margin: 0;
+  font-family: var(--font-ui); font-size: 12.5px; line-height: 1.45;
+  color: var(--ink-dim);
+}
+
+// ---- text fields (nickname, status) ----
+.pm-field { display: flex; flex-direction: column; gap: 6px; }
+
+.pm-field__label {
+  font-family: var(--font-ui); font-size: 12px; font-weight: 700;
+  letter-spacing: .04em; text-transform: uppercase; color: var(--ink-dim);
+}
+
+.pm-field__input {
+  width: 100%; box-sizing: border-box;
+  min-height: 48px; padding: 12px 14px;
+  background: var(--bg-sink);
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-pill);
+  font-family: var(--font-ui); font-size: 15px; color: var(--ink);
+  -webkit-tap-highlight-color: transparent;
+  transition: border-color 180ms var(--ease-out), box-shadow 180ms var(--ease-out);
+
+  &::placeholder { color: var(--ink-faint, var(--ink-dim)); }
+  &:focus {
+    outline: none;
+    border-color: color-mix(in oklab, var(--accent-a) 60%, var(--hairline));
+    box-shadow: 0 0 0 3px color-mix(in oklab, var(--accent-a) 22%, transparent);
+  }
+}
+
+.pm-field__help {
+  font-family: var(--font-ui); font-size: 12px; color: var(--ink-dim);
+}
+
+// ============================================================================
+// TOGGLE ROWS — the presence / sharing switches.
+// ============================================================================
+
+.pm-rows { display: flex; flex-direction: column; gap: 2px; }
+
+.pm-row {
+  display: flex; align-items: center; gap: 12px;
+  width: 100%; min-height: 60px; padding: 12px 4px;
+  border: none; background: transparent; text-align: left;
+  cursor: pointer; touch-action: manipulation; -webkit-tap-highlight-color: transparent;
+  border-radius: var(--r-tile);
+  transition: background 160ms var(--ease-out);
+
+  & + & { border-top: 1px solid var(--hairline); }
+  &:active { background: var(--bg-sink); }
+  &:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+}
+
+.pm-row__ic {
+  flex: 0 0 auto;
+  width: 38px; height: 38px; border-radius: var(--r-tile);
+  display: grid; place-items: center;
+  background: var(--bg-sink);
+  color: var(--ink-dim);
+  transition: background 200ms var(--ease-out), color 200ms var(--ease-out);
+
+  mat-icon { font-size: 20px; width: 20px; height: 20px; }
+}
+
+.pm-row.is-on .pm-row__ic {
+  background: color-mix(in oklab, var(--accent-a) 20%, transparent);
+  color: var(--accent-a);
+}
+
+.pm-row__body { display: flex; flex-direction: column; gap: 2px; flex: 1 1 auto; min-width: 0; }
+
+.pm-row__title {
+  font-family: var(--font-ui); font-weight: 650; font-size: 15px; color: var(--ink);
+}
+
+.pm-row__blurb {
+  font-family: var(--font-ui); font-size: 12px; line-height: 1.4; color: var(--ink-dim);
+}
+
+// ---- the iOS-style switch ----
+.pm-switch {
+  flex: 0 0 auto;
+  position: relative;
+  width: 50px; height: 30px; border-radius: var(--r-pill);
+  background: var(--bg-sink);
+  border: 1px solid var(--hairline);
+  transition: background 220ms var(--ease-out), border-color 220ms var(--ease-out);
+}
+
+.pm-switch__knob {
+  position: absolute; top: 2px; left: 2px;
+  width: 24px; height: 24px; border-radius: 50%;
+  background: var(--ink-dim);
+  box-shadow: var(--lift-1);
+  transition: transform 260ms var(--ease-spring-up, var(--ease-out)), background 220ms var(--ease-out);
+}
+
+.pm-row.is-on .pm-switch {
+  background: linear-gradient(135deg, var(--accent-a), var(--accent-b));
+  border-color: transparent;
+}
+
+.pm-row.is-on .pm-switch__knob {
+  transform: translateX(20px);
+  background: var(--ink-on-accent, #fff);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pm-switch__knob { transition: none; }
+}
+
+// ============================================================================
+// DATA EXPORT.
+// ============================================================================
+
+.pm-export-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  width: 100%; min-height: 48px; padding: 12px 16px;
+  border: 1px solid var(--hairline); border-radius: var(--r-pill);
+  background: var(--bg-sink); color: var(--ink);
+  font-family: var(--font-ui); font-weight: 700; font-size: 14px;
+  cursor: pointer; touch-action: manipulation; -webkit-tap-highlight-color: transparent;
+  transition: background 160ms var(--ease-out);
+
+  mat-icon { font-size: 20px; width: 20px; height: 20px; }
+  &:active { background: var(--bg-rise); }
+  &:disabled { opacity: .6; pointer-events: none; }
+  &:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+}
+
+// ============================================================================
+// FOOTNOTE.
+// ============================================================================
+
+.pm-foot {
+  margin: 2px 4px 0;
+  font-family: var(--font-ui); font-size: 11.5px; line-height: 1.4;
+  text-align: center; color: var(--ink-faint, var(--ink-dim));
+}
+
+// ============================================================================
+// STICKY SAVE BAR — docked above the bottom safe-area.
+// ============================================================================
+
+.pm-savebar-spacer { height: 4px; }
+
+.pm-savebar {
+  position: absolute; left: 0; right: 0;
+  bottom: 0; z-index: 20;
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px max(var(--gutter), 16px) calc(12px + var(--safe-bottom));
+  background: linear-gradient(180deg, transparent, var(--bg-base) 36%);
+  pointer-events: none; // only the button + hint take pointer events when needed
+}
+
+.pm-savebar__hint {
+  flex: 1 1 auto; min-width: 0;
+  font-family: var(--font-ui); font-size: 13px; font-weight: 600;
+  color: var(--ink-dim);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+
+.pm-savebar.is-dirty .pm-savebar__hint { color: var(--accent-a); }
+
+.pm-savebar__btn {
+  pointer-events: auto;
+  flex: 0 0 auto;
+  display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+  min-height: 46px; padding: 12px 22px;
+  border: none; border-radius: var(--r-pill);
+  background: linear-gradient(135deg, var(--accent-a), var(--accent-b));
+  color: var(--ink-on-accent); font-family: var(--font-ui); font-weight: 800; font-size: 14px;
+  box-shadow: var(--lift-2);
+  cursor: pointer; touch-action: manipulation; -webkit-tap-highlight-color: transparent;
+  transition: transform 160ms var(--ease-spring-up, var(--ease-out)), opacity 160ms var(--ease-out);
+
+  mat-icon { font-size: 20px; width: 20px; height: 20px; }
+  &:active { transform: scale(.97); }
+  &:disabled {
+    opacity: .5; pointer-events: none;
+    background: var(--bg-rise); color: var(--ink-dim); box-shadow: none;
+  }
+  &:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+}
+
+// ============================================================================
+// LOADING / ERROR STATES.
+// ============================================================================
+
+.pm-state {
+  display: flex; flex-direction: column; align-items: center; text-align: center;
+  gap: 10px; padding: 36px 18px;
+}
+
+.pm-state__orb {
+  width: 64px; height: 64px; border-radius: 50%;
+  display: grid; place-items: center;
+  background: color-mix(in oklab, var(--warn) 16%, transparent);
+  color: var(--warn);
+  mat-icon { font-size: 30px; width: 30px; height: 30px; }
+}
+
+.pm-state__title { margin: 4px 0 0; font-family: var(--font-ui); font-weight: 700; font-size: 18px; color: var(--ink); }
+.pm-state__body { margin: 0; font-family: var(--font-ui); font-size: 13.5px; color: var(--ink-dim); max-width: 30ch; }
+
+.pm-state__cta {
+  margin-top: 6px;
+  display: inline-flex; align-items: center; gap: 7px;
+  min-height: 44px; padding: 10px 20px;
+  border: none; border-radius: var(--r-pill);
+  background: linear-gradient(135deg, var(--accent-a), var(--accent-b));
+  color: var(--ink-on-accent); font-family: var(--font-ui); font-weight: 700; font-size: 14px;
+  cursor: pointer; touch-action: manipulation; -webkit-tap-highlight-color: transparent;
+  mat-icon { font-size: 19px; width: 19px; height: 19px; }
+  &:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+}
+
+// ============================================================================
+// MISC — the spinner used by the save/export buttons.
+// ============================================================================
+
+.pm-spin { animation: pm-spin 900ms linear infinite; }
+@keyframes pm-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .pm-spin { animation: none; } }
+
+// ============================================================================
+// DESKTOP — center the column (the page can be reached on a wide viewport too).
+// ============================================================================
+
+@media (min-width: 720px) {
+  .pm-scroll { max-width: 560px; margin-inline: auto; }
+  .pm-savebar { max-width: 560px; margin-inline: auto; }
+}

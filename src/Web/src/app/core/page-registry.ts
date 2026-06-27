@@ -72,6 +72,7 @@ export const PAGE_REGISTRY: readonly PageDef[] = [
   {
     id: 'calendar', path: 'calendar', title: 'Usage IQ · Calendar', perm: PERM.calendarView,
     desktop: () => import('../features/calendar/calendar').then(m => m.Calendar),
+    mobile: () => import('../features/calendar-mobile/calendar-mobile.page').then(m => m.CalendarMobilePage),
     nav: { group: 'Usage', label: 'Calendar', icon: 'calendar_month' },
     home: { label: 'Calendar', icon: 'calendar_month' },
   },
@@ -109,11 +110,13 @@ export const PAGE_REGISTRY: readonly PageDef[] = [
   {
     id: 'tracker-profile', path: 'tracker/profile', title: 'Usage IQ · My Profile & Goal', perm: PERM.trackerSelf,
     desktop: () => import('../features/tracker/profile-page').then(m => m.ProfilePage),
+    mobile: () => import('../features/tracker-profile-mobile/tracker-profile-mobile.page').then(m => m.TrackerProfileMobilePage),
     home: { label: 'My Profile & Goal', icon: 'assignment_ind' },
   },
   {
     id: 'challenge', path: 'challenge', title: 'Usage IQ · 75 Hard', perm: PERM.trackerSelf,
     desktop: () => import('../features/challenge/challenge').then(m => m.Challenge),
+    mobile: () => import('../features/challenge-mobile/challenge-mobile.page').then(m => m.ChallengeMobilePage),
     nav: { group: 'Fitness', label: '75 Hard', icon: 'local_fire_department' },
     home: { label: '75 Hard', icon: 'local_fire_department' },
   },
@@ -127,6 +130,7 @@ export const PAGE_REGISTRY: readonly PageDef[] = [
   {
     id: 'feed', path: 'feed', title: 'Usage IQ · Activity feed', perm: PERM.trackerSelf,
     desktop: () => import('../features/feed/feed').then(m => m.Feed),
+    mobile: () => import('../features/feed-mobile/feed-mobile.page').then(m => m.FeedMobilePage),
     nav: { group: 'Fitness', label: 'Activity', icon: 'dynamic_feed' },
     home: { label: 'Activity feed', icon: 'dynamic_feed' },
   },
@@ -156,12 +160,14 @@ export const PAGE_REGISTRY: readonly PageDef[] = [
   {
     id: 'grocery', path: 'grocery', title: 'Usage IQ · Grocery list', perm: PERM.groceryUse,
     desktop: () => import('../features/grocery/grocery').then(m => m.Grocery),
+    mobile: () => import('../features/grocery-mobile/grocery-mobile.page').then(m => m.GroceryMobilePage),
     nav: { group: 'Tools', label: 'Grocery', icon: 'shopping_cart' },
     home: { label: 'Grocery list', icon: 'shopping_cart' },
   },
   {
     id: 'recipes', path: 'recipes', title: 'Usage IQ · My Recipes', perm: PERM.recipesUse,
     desktop: () => import('../features/recipes/recipes').then(m => m.Recipes),
+    mobile: () => import('../features/recipes-mobile/recipes-mobile.page').then(m => m.RecipesMobilePage),
     nav: { group: 'Tools', label: 'My Recipes', icon: 'menu_book' },
     home: { label: 'My Recipes', icon: 'menu_book' },
   },
@@ -258,10 +264,12 @@ export const PAGE_REGISTRY: readonly PageDef[] = [
   {
     id: 'preferences', path: 'preferences', title: 'Usage IQ · Settings', authOnly: true,
     desktop: () => import('../features/preferences/preferences').then(m => m.Preferences),
+    mobile: () => import('../features/preferences-mobile/preferences-mobile.page').then(m => m.PreferencesMobilePage),
   },
   {
     id: 'profile', path: 'profile', title: 'Usage IQ · Profile', authOnly: true,
     desktop: () => import('../features/profile/profile').then(m => m.Profile),
+    mobile: () => import('../features/profile-mobile/profile-mobile.page').then(m => m.ProfileMobilePage),
   },
   {
     id: 'locations', path: 'locations', title: 'Usage IQ · My locations', perm: PERM.locationSelf,

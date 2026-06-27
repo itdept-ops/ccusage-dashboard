@@ -1,0 +1,544 @@
+// ============================================================================
+// Calendar "Activity" — the mobile-first twin of the live /calendar page, rebuilt on the shared
+// beta-ui "Strata" foundation. One line adopts the whole Strata token contract; then this page
+// OVERRIDES the per-page accent with its OWN signature: a cool CYAN → INDIGO. Every kit component
+// reads --accent-a/--accent-b off this :host cascade, so the single override re-skins the screen
+// (the pull-refresh ring, the segmented pill, the stat-tile rings, the focus ring all follow).
+//
+// ISOLATED + gated by platform.mobile + calendar.view: nothing here touches the global --tech-*
+// tokens or the live /calendar page. The kit partial is the only import. The activity + hour bars
+// are pure CSS — echarts is intentionally NOT loaded on mobile.
+// ============================================================================
+
+@use '../beta-ui/beta-kit' as kit;
+
+:host {
+  @include kit.beta-host;            // the whole Strata token contract on :host
+
+  // ---- SIGNATURE ACCENT: CYAN → INDIGO (the per-page contract override) ----
+  --accent-a: #38bdf8;               // cyan (start)
+  --accent-b: #6366f1;               // indigo (end)
+}
+
+@include kit.beta-springs;           // @supports linear() spring upgrade (top-level, once)
+@include kit.beta-a11y;              // reduced-motion + reduced-transparency/contrast killswitches (once)
+
+// ============================================================================
+// SHELL — the kit pull-to-refresh wrapper IS the scroll container.
+// ============================================================================
+
+.cm-ptr { display: block; height: 100%; }
+
+.cm-scroll {
+  min-height: 100%;
+  padding:
+    8px
+    max(16px, env(safe-area-inset-right))
+    max(28px, env(safe-area-inset-bottom))
+    max(16px, env(safe-area-inset-left));
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  // Center the column on wider/desktop viewports (the twin still renders there in dev).
+  max-width: 560px;
+  margin-inline: auto;
+}
+
+// ============================================================================
+// HERO
+// ============================================================================
+
+.cm-hero {
+  position: relative;
+  padding: 14px 4px 4px;
+  overflow: visible;
+
+  &__bloom {
+    position: absolute;
+    inset: -40px -30px auto -30px;
+    height: 180px;
+    background: radial-gradient(60% 100% at 30% 0%,
+      color-mix(in srgb, var(--accent-a) 26%, transparent), transparent 70%);
+    filter: blur(6px);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  &__eyebrow,
+  &__title,
+  &__sub,
+  .cm-seg-wrap { position: relative; z-index: 1; }
+
+  &__eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin: 0 0 4px;
+    font-family: var(--font-ui);
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: var(--accent-a);
+
+    mat-icon { font-size: 16px; width: 16px; height: 16px; }
+  }
+
+  &__title {
+    margin: 0;
+    font-family: var(--font-display);
+    font-size: 30px;
+    font-weight: 600;
+    letter-spacing: -.02em;
+    line-height: 1.05;
+    color: var(--ink);
+  }
+
+  &__sub {
+    margin: 6px 0 0;
+    font-family: var(--font-ui);
+    font-size: 13px;
+    line-height: 1.45;
+    color: var(--ink-dim);
+  }
+}
+
+.cm-seg-wrap { margin-top: 14px; }
+.cm-seg { display: flex; width: 100%; }
+
+// ============================================================================
+// STAT TILES
+// ============================================================================
+
+.cm-tiles {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+
+  &--2 { margin-top: -4px; }
+}
+
+.cm-context {
+  margin: -4px 2px 0;
+  font-family: var(--font-ui);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--ink-dim);
+}
+
+// ============================================================================
+// CARDS (recent activity / hours / sessions)
+// ============================================================================
+
+.cm-card {
+  background: var(--bg-rise);
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-card);
+  box-shadow: var(--lift-1);
+  padding: 14px;
+
+  &__head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+
+  &__title {
+    margin: 0;
+    font-family: var(--font-ui);
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: -.01em;
+    color: var(--ink);
+  }
+
+  &__hint {
+    font-family: var(--font-ui);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: .02em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    white-space: nowrap;
+  }
+}
+
+// ---- RECENT ACTIVITY STRIP ----
+.cm-bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 5px;
+  height: 132px;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  padding-bottom: 2px;
+
+  &::-webkit-scrollbar { display: none; }
+}
+
+.cm-bar {
+  flex: 0 0 auto;
+  width: 18px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  height: 100%;
+
+  &__track {
+    flex: 1 1 auto;
+    width: 100%;
+    display: flex;
+    align-items: flex-end;
+    border-radius: var(--r-pill);
+    background: color-mix(in srgb, var(--ink) 6%, transparent);
+    overflow: hidden;
+  }
+
+  &__fill {
+    width: 100%;
+    min-height: 2px;
+    border-radius: var(--r-pill);
+    background: linear-gradient(180deg, var(--accent-a), var(--accent-b));
+    transition: height 360ms var(--ease-spring, var(--ease-out));
+  }
+
+  &__dom {
+    font-family: var(--font-ui);
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--ink-dim);
+    font-variant-numeric: tabular-nums;
+  }
+
+  &__dow {
+    font-family: var(--font-ui);
+    font-size: 9px;
+    font-weight: 600;
+    color: var(--ink-faint);
+    text-transform: uppercase;
+  }
+
+  &.is-zero &__fill { background: color-mix(in srgb, var(--ink) 14%, transparent); }
+
+  &.is-today &__dom { color: var(--accent-a); }
+  &.is-today &__track { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent-a) 45%, transparent); }
+}
+
+// ---- WHEN YOU WORK: 24-hour distribution ----
+.cm-hours {
+  display: grid;
+  grid-template-columns: repeat(24, 1fr);
+  align-items: flex-end;
+  gap: 2px;
+  height: 96px;
+}
+
+.cm-hbar {
+  display: flex;
+  align-items: flex-end;
+  height: 100%;
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--ink) 6%, transparent);
+  overflow: hidden;
+
+  &__fill {
+    width: 100%;
+    min-height: 2px;
+    border-radius: 3px;
+    background: linear-gradient(180deg,
+      color-mix(in srgb, var(--accent-a) 80%, transparent), var(--accent-b));
+    transition: height 360ms var(--ease-spring, var(--ease-out));
+  }
+
+  &.is-peak &__fill {
+    background: linear-gradient(180deg, var(--accent-a), var(--accent-b));
+    box-shadow: 0 0 10px color-mix(in srgb, var(--accent-a) 55%, transparent);
+  }
+
+  &__axis { display: none; }
+}
+
+.cm-hours__axis {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 8px;
+  font-family: var(--font-ui);
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--ink-faint);
+}
+
+// ---- TOP SESSIONS LIST ----
+.cm-sess {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+
+  &__row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    min-height: 48px;
+    padding: 8px 6px;
+    border: none;
+    border-radius: var(--r-tile);
+    background: transparent;
+    text-align: left;
+    cursor: pointer;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+    color: var(--ink);
+    transition: background-color 120ms var(--ease-out);
+
+    &:active { background: color-mix(in srgb, var(--accent-a) 10%, transparent); }
+    &:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+  }
+
+  &__dot {
+    flex: 0 0 auto;
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--accent-a), var(--accent-b));
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent-a) 16%, transparent);
+  }
+
+  &__body { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+
+  &__id {
+    font-family: var(--font-mono, monospace);
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--ink);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+
+  &__meta {
+    font-family: var(--font-ui);
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--ink-dim);
+  }
+
+  &__cost {
+    flex: 0 0 auto;
+    font-family: var(--font-display);
+    font-variant-numeric: tabular-nums;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--ink);
+  }
+
+  &__chev { flex: 0 0 auto; color: var(--ink-faint); }
+}
+
+// ============================================================================
+// EMPTY / ERROR STATES
+// ============================================================================
+
+.cm-empty {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 4px;
+  font-family: var(--font-ui);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink-dim);
+
+  mat-icon { color: var(--ink-faint); font-size: 20px; width: 20px; height: 20px; }
+}
+
+.cm-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 8px;
+  padding: 28px 16px;
+  background: var(--bg-rise);
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-card);
+  box-shadow: var(--lift-1);
+
+  &__orb {
+    display: grid;
+    place-items: center;
+    width: 56px; height: 56px;
+    border-radius: 50%;
+    background: color-mix(in srgb, var(--warn) 16%, transparent);
+    color: var(--warn);
+    margin-bottom: 4px;
+
+    mat-icon { font-size: 30px; width: 30px; height: 30px; }
+  }
+
+  &__title { margin: 0; font-family: var(--font-ui); font-size: 17px; font-weight: 700; color: var(--ink); }
+  &__body { margin: 0; font-family: var(--font-ui); font-size: 13px; color: var(--ink-dim); max-width: 30ch; }
+
+  &__cta {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 8px;
+    padding: 10px 18px;
+    min-height: 44px;
+    border: none;
+    border-radius: var(--r-pill);
+    background: linear-gradient(135deg, var(--accent-a), var(--accent-b));
+    color: #06121f;
+    font-family: var(--font-ui);
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    box-shadow: var(--lift-1);
+
+    &:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+    mat-icon { font-size: 18px; width: 18px; height: 18px; }
+  }
+}
+
+.cm-foot {
+  margin: 2px 2px 4px;
+  text-align: center;
+  font-family: var(--font-ui);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--ink-faint);
+}
+
+// ============================================================================
+// SESSION DRILL-DOWN SHEET BODY
+// ============================================================================
+
+.sd {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding-top: 4px;
+
+  &__head { display: flex; align-items: center; gap: 10px; }
+
+  &__dot {
+    flex: 0 0 auto;
+    width: 12px; height: 12px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--accent-a), var(--accent-b));
+    box-shadow: 0 0 0 5px color-mix(in srgb, var(--accent-a) 16%, transparent);
+  }
+
+  &__titles { min-width: 0; }
+
+  &__title {
+    margin: 0;
+    font-family: var(--font-mono, monospace);
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--ink);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+
+  &__sub { font-family: var(--font-ui); font-size: 12px; font-weight: 600; color: var(--ink-dim); }
+
+  &__skel { display: flex; flex-direction: column; gap: 10px; }
+
+  &__stats {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+
+    .sd__stat {
+      flex: 1 1 0;
+      min-width: 90px;
+      padding: 10px 12px;
+      border-radius: var(--r-tile);
+      background: var(--bg-sink);
+      border: 1px solid var(--hairline);
+      font-family: var(--font-ui);
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--ink-dim);
+
+      b {
+        display: block;
+        font-family: var(--font-display);
+        font-variant-numeric: tabular-nums;
+        font-size: 20px;
+        font-weight: 600;
+        color: var(--ink);
+      }
+    }
+  }
+
+  &__msgs {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  &__msg {
+    padding: 10px 12px;
+    border-radius: var(--r-tile);
+    background: var(--bg-rise);
+    border: 1px solid var(--hairline);
+
+    &.is-side { opacity: .82; border-style: dashed; }
+  }
+
+  &__msg-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  &__msg-model {
+    font-family: var(--font-mono, monospace);
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--ink);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+
+  &__msg-cost {
+    flex: 0 0 auto;
+    font-family: var(--font-display);
+    font-variant-numeric: tabular-nums;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--ink);
+  }
+
+  &__msg-bot {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 4px;
+    font-family: var(--font-ui);
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--ink-dim);
+  }
+
+  &__msg-tag {
+    padding: 1px 7px;
+    border-radius: var(--r-pill);
+    background: color-mix(in srgb, var(--accent-a) 16%, transparent);
+    color: var(--accent-a);
+    font-size: 10px;
+    letter-spacing: .03em;
+    text-transform: uppercase;
+  }
+}

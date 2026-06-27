@@ -1,0 +1,471 @@
+// ============================================================================
+// Feed Pulse — the mobile-first activity-feed twin, rebuilt on the shared beta-ui "Strata" foundation.
+// One line adopts the whole Strata token contract (layered bg, glass, ink scale, radii, the lift depth
+// system, spring/bounce easing, blur cap, env() safe-area, the a11y killswitches); then FEED OVERRIDES
+// the per-page accent contract with its OWN signature: a warm CORAL → ORANGE ramp. Every kit component
+// reads --accent-a/--accent-b off this :host cascade, so this single override re-skins the screen (the
+// pull-refresh ring, the focus ring, the cheer glow all follow).
+//
+// ISOLATED + gated by platform.mobile + tracker.self: nothing here touches the global --tech-* tokens or
+// the live /feed page. The kit partial is the only import. Per-kind badge hues (workout / challenge /
+// hydration) are LOCAL tokens layered ON TOP of the coral page accent.
+// ============================================================================
+
+@use '../beta-ui/beta-kit' as kit;
+
+:host {
+  @include kit.beta-host;          // the whole Strata token contract on :host
+
+  // ---- FEED'S SIGNATURE ACCENT: CORAL → ORANGE (the per-page contract override) ----
+  --accent-a: #fb7185;             // coral (start)
+  --accent-b: #f97316;             // warm orange (end)
+
+  // ---- Per-kind badge hues (LOCAL — layered on the coral accent) ----
+  --k-workout:   #fb7185;          // coral
+  --k-challenge: #f59e0b;          // amber/medal
+  --k-hydration: #38bdf8;          // sky
+  --k-generic:   #a78bfa;          // violet
+}
+
+@include kit.beta-springs;          // @supports linear() spring upgrade (top-level, once)
+@include kit.beta-a11y;             // reduced-motion + reduced-transparency/contrast killswitches (once)
+
+// ============================================================================
+// SHELL — the kit pull-to-refresh wrapper IS the scroll container.
+// ============================================================================
+
+.fm-ptr { display: block; height: 100%; }
+
+.fm-scroll {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-height: 100%;
+  max-width: 720px;          // centers on desktop; full-bleed within 390px
+  margin-inline: auto;
+  width: 100%;
+  box-sizing: border-box;
+  padding-top: calc(var(--safe-top) + 8px);
+  padding-bottom: calc(var(--safe-bottom) + 32px);
+  padding-inline: var(--gutter) var(--gutter-r);
+}
+
+// ============================================================================
+// IMMERSIVE HERO — title + accent bloom + circle/self mode chip.
+// ============================================================================
+
+.fm-hero {
+  position: relative;
+  padding: 6px 4px 4px;
+  overflow: visible;
+
+  &__bloom {
+    position: absolute;
+    inset: -40px -30% auto -10%;
+    height: 180px;
+    background: radial-gradient(60% 80% at 22% 0%, color-mix(in srgb, var(--accent-a) 32%, transparent), transparent 70%);
+    filter: blur(var(--blur-cap, 30px));
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  &__eyebrow {
+    position: relative;
+    z-index: 1;
+    margin: 0 0 2px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: color-mix(in srgb, var(--accent-a) 78%, var(--ink-2));
+
+    mat-icon { font-size: 16px; width: 16px; height: 16px; }
+  }
+
+  &__title {
+    position: relative;
+    z-index: 1;
+    margin: 0;
+    font-family: var(--font-display, inherit);
+    font-size: clamp(30px, 9vw, 40px);
+    line-height: 1.02;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    color: var(--ink-0);
+  }
+
+  &__sub {
+    position: relative;
+    z-index: 1;
+    margin: 8px 0 0;
+    max-width: 44ch;
+    font-size: 13.5px;
+    line-height: 1.45;
+    color: var(--ink-2);
+  }
+
+  &__chip {
+    position: relative;
+    z-index: 1;
+    margin-top: 12px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border-radius: var(--r-pill);
+    font-size: 12.5px;
+    font-weight: 650;
+    color: var(--ink-1);
+    background: var(--glass-1);
+    border: 1px solid var(--hair);
+    box-shadow: var(--lift-1);
+
+    mat-icon { font-size: 16px; width: 16px; height: 16px; }
+
+    &.is-circle {
+      color: color-mix(in srgb, var(--accent-a) 88%, var(--ink-0));
+      border-color: color-mix(in srgb, var(--accent-a) 36%, var(--hair));
+      background: color-mix(in srgb, var(--accent-a) 12%, var(--glass-1));
+    }
+  }
+}
+
+// ============================================================================
+// LOADING SKELETON
+// ============================================================================
+
+.fm-skel {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 4px 2px;
+
+  &__row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  &__lines {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+}
+
+// ============================================================================
+// STATE CARDS — empty / error (elevated, accent-led).
+// ============================================================================
+
+.fm-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 10px;
+  margin: 12px 4px;
+  padding: 30px 22px;
+  border-radius: var(--r-card);
+  background: var(--glass-1);
+  border: 1px solid var(--hair);
+  box-shadow: var(--lift-1);
+
+  &__orb {
+    display: grid;
+    place-items: center;
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    background: color-mix(in srgb, var(--accent-a) 16%, var(--glass-2));
+    border: 1px solid color-mix(in srgb, var(--accent-a) 28%, var(--hair));
+    color: color-mix(in srgb, var(--accent-a) 90%, var(--ink-0));
+
+    mat-icon { font-size: 30px; width: 30px; height: 30px; }
+  }
+
+  &__title {
+    margin: 4px 0 0;
+    font-size: 18px;
+    font-weight: 750;
+    color: var(--ink-0);
+  }
+
+  &__body {
+    margin: 0;
+    max-width: 38ch;
+    font-size: 13.5px;
+    line-height: 1.5;
+    color: var(--ink-2);
+
+    strong { color: var(--ink-1); font-weight: 700; }
+  }
+
+  &__cta {
+    margin-top: 8px;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 44px;
+    padding: 0 20px;
+    border: none;
+    border-radius: var(--r-pill);
+    font: inherit;
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--on-accent, #fff);
+    background: linear-gradient(120deg, var(--accent-a), var(--accent-b));
+    box-shadow: var(--lift-2);
+    cursor: pointer;
+    text-decoration: none;
+    transition: transform var(--ease-spring, 160ms) ;
+
+    &:active { transform: scale(0.97); }
+    mat-icon { font-size: 19px; width: 19px; height: 19px; }
+  }
+}
+
+// ============================================================================
+// THE FEED — day sections with STICKY headers + tap-target rows.
+// ============================================================================
+
+.fm-feed {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.fm-day {
+  &__head {
+    position: sticky;
+    top: calc(var(--safe-top) - 2px);
+    z-index: 3;
+    margin: 10px 0 4px;
+    padding: 6px 10px;
+    width: fit-content;
+    border-radius: var(--r-pill);
+    font-size: 12px;
+    font-weight: 750;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--ink-1);
+    background: color-mix(in srgb, var(--bg-1, var(--glass-2)) 86%, transparent);
+    backdrop-filter: blur(var(--blur-cap, 18px));
+    border: 1px solid var(--hair);
+    box-shadow: var(--lift-1);
+  }
+}
+
+.fm-rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.fm-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 13px;
+  border-radius: var(--r-tile, 16px);
+  background: var(--glass-1);
+  border: 1px solid var(--hair);
+  box-shadow: var(--lift-1);
+
+  // ---- avatar with a per-kind glyph badge ----
+  &__avatar {
+    position: relative;
+    flex: 0 0 auto;
+    width: 44px;
+    height: 44px;
+  }
+
+  &__init {
+    display: grid;
+    place-items: center;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    font-size: 15px;
+    font-weight: 750;
+    letter-spacing: 0.01em;
+    color: var(--ink-0);
+    background:
+      linear-gradient(140deg,
+        color-mix(in srgb, var(--kind, var(--accent-a)) 26%, var(--glass-2)),
+        var(--glass-2));
+    border: 1px solid color-mix(in srgb, var(--kind, var(--accent-a)) 30%, var(--hair));
+  }
+
+  &__badge {
+    position: absolute;
+    right: -3px;
+    bottom: -3px;
+    display: grid;
+    place-items: center;
+    width: 21px;
+    height: 21px;
+    border-radius: 50%;
+    color: var(--on-accent, #fff);
+    background: var(--kind, var(--accent-a));
+    border: 2px solid var(--bg-0, var(--glass-1));
+    box-shadow: var(--lift-1);
+
+    mat-icon { font-size: 13px; width: 13px; height: 13px; }
+  }
+
+  // per-kind hue routed into the --kind custom prop the avatar/badge read
+  &__avatar[data-tone='workout']   { --kind: var(--k-workout); }
+  &__avatar[data-tone='challenge'] { --kind: var(--k-challenge); }
+  &__avatar[data-tone='hydration'] { --kind: var(--k-hydration); }
+  &__avatar[data-tone='generic']   { --kind: var(--k-generic); }
+
+  &__body {
+    flex: 1;
+    min-width: 0;
+  }
+
+  &__text {
+    margin: 0;
+    font-size: 14px;
+    line-height: 1.4;
+    color: var(--ink-1);
+  }
+
+  &__name {
+    font-weight: 750;
+    color: var(--ink-0);
+  }
+
+  &__verb { color: var(--ink-1); }
+  &__verb::before { content: ' '; }
+
+  &__time {
+    display: block;
+    margin-top: 3px;
+    font-size: 11.5px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    color: var(--ink-3, var(--ink-2));
+  }
+
+  // ---- cheer toggle (big tap target) ----
+  .fm-cheer {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    min-height: 38px;
+    padding: 0 11px;
+    border-radius: var(--r-pill);
+    font: inherit;
+    background: var(--glass-2);
+    border: 1px solid var(--hair);
+    color: var(--ink-2);
+    cursor: pointer;
+    transition: transform var(--ease-spring, 160ms), background 140ms, border-color 140ms, color 140ms;
+
+    &:active { transform: scale(0.9); }
+
+    &__emoji {
+      font-size: 17px;
+      line-height: 1;
+      filter: grayscale(0.35);
+      transition: filter 140ms;
+    }
+
+    &__count {
+      font-size: 12.5px;
+      font-weight: 750;
+      font-variant-numeric: tabular-nums;
+    }
+
+    &.is-on {
+      color: color-mix(in srgb, var(--accent-a) 92%, var(--ink-0));
+      background: color-mix(in srgb, var(--accent-a) 16%, var(--glass-2));
+      border-color: color-mix(in srgb, var(--accent-a) 42%, var(--hair));
+      box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent-a) 30%, transparent),
+                  0 4px 14px color-mix(in srgb, var(--accent-a) 26%, transparent);
+
+      .fm-cheer__emoji { filter: none; }
+    }
+  }
+}
+
+// ---- spring-staggered row entrance (collapsed under reduced-motion by the kit a11y mixin) ----
+.fm-reveal {
+  animation: fm-rise 460ms var(--ease-spring, cubic-bezier(0.22, 1, 0.36, 1)) both;
+  animation-delay: calc(var(--ri, 0) * 34ms);
+}
+
+@keyframes fm-rise {
+  from { opacity: 0; transform: translateY(10px) scale(0.985); }
+  to   { opacity: 1; transform: none; }
+}
+
+// ============================================================================
+// LOAD-OLDER FOOTER + caught-up line.
+// ============================================================================
+
+.fm-more {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  margin: 14px 0 4px;
+
+  &__error {
+    margin: 0;
+    font-size: 12.5px;
+    color: var(--danger, #f87171);
+  }
+
+  &__btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 44px;
+    padding: 0 22px;
+    border-radius: var(--r-pill);
+    font: inherit;
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--ink-1);
+    background: var(--glass-1);
+    border: 1px solid var(--hair);
+    box-shadow: var(--lift-1);
+    cursor: pointer;
+    transition: transform var(--ease-spring, 160ms);
+
+    &:active:not(:disabled) { transform: scale(0.97); }
+    &:disabled { opacity: 0.6; cursor: default; }
+
+    mat-icon { font-size: 19px; width: 19px; height: 19px; }
+  }
+
+  &__spin {
+    width: 15px;
+    height: 15px;
+    border-radius: 50%;
+    border: 2px solid color-mix(in srgb, var(--accent-a) 40%, var(--hair));
+    border-top-color: var(--accent-a);
+    animation: fm-spin 720ms linear infinite;
+  }
+}
+
+@keyframes fm-spin { to { transform: rotate(360deg); } }
+
+.fm-foot {
+  margin: 16px 0 0;
+  text-align: center;
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--ink-3, var(--ink-2));
+}

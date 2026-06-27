@@ -1,0 +1,454 @@
+// ============================================================================
+// Grocery "Cart" — the mobile-first twin of /grocery, on the shared beta-ui "Strata" foundation.
+// One line adopts the whole Strata token contract (layered bg, glass, ink scale, radii, the
+// lift depth system, spring/bounce easing, env() safe-area, the a11y killswitches); then this page
+// OVERRIDES the per-page accent contract with its OWN signature: a fresh GREEN (lime → emerald), so
+// every kit component (the pull-refresh ring, the swipe underlay, the focus ring) follows.
+//
+// ISOLATED + gated by platform.mobile + grocery.use: nothing here touches the global tokens or the
+// live /grocery page. The kit partial is the only import.
+// ============================================================================
+
+@use '../beta-ui/beta-kit' as kit;
+
+:host {
+  @include kit.beta-host;            // the whole Strata token contract on :host
+
+  // ---- GROCERY'S SIGNATURE ACCENT: GREEN (the per-page contract override) ----
+  --accent-a: #a3e635;               // lime (start)
+  --accent-b: #22c55e;               // emerald (end)
+
+  display: block;
+  height: 100%;
+  position: relative;
+}
+
+@include kit.beta-springs;           // @supports linear() spring upgrade (top-level, once)
+@include kit.beta-a11y;              // reduced-motion + reduced-transparency/contrast killswitches (once)
+
+// ============================================================================
+// SHELL — the kit pull-to-refresh wrapper IS the scroll container.
+// ============================================================================
+
+.gm-ptr { display: block; height: 100%; }
+
+.gm-scroll {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-height: 100%;
+  max-width: 720px;                  // centers on desktop; full-bleed within 390px
+  margin-inline: auto;
+  width: 100%;
+  box-sizing: border-box;
+  padding-top: calc(var(--safe-top) + 8px);
+  // leave room for the sticky add bar (≈68px) + the bottom tab bar / safe area
+  padding-bottom: calc(var(--safe-bottom) + 96px);
+  padding-inline: var(--gutter) var(--gutter-r);
+}
+
+// ============================================================================
+// IMMERSIVE HERO — items-left ring + count, behind a green bloom.
+// ============================================================================
+
+.gm-hero {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 8px;
+  padding: 18px 12px 6px;
+  overflow: clip;
+}
+
+.gm-hero__bloom {
+  position: absolute;
+  top: -40px;
+  left: 50%;
+  width: 280px;
+  height: 280px;
+  transform: translateX(-50%);
+  background: radial-gradient(circle, color-mix(in srgb, var(--accent-b) 26%, transparent), transparent 68%);
+  filter: blur(36px);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.gm-hero__skel {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 24px 0;
+}
+
+.gm-hero__kicker {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+
+  mat-icon {
+    font-size: 16px;
+    width: 16px;
+    height: 16px;
+    color: var(--accent-b);
+  }
+}
+
+.gm-hero__ring {
+  position: relative;
+  z-index: 1;
+  width: 132px;
+  height: 132px;
+  display: grid;
+  place-items: center;
+}
+
+.gm-ring {
+  width: 132px;
+  height: 132px;
+  transform: rotate(-90deg);
+
+  &__track {
+    fill: none;
+    stroke: rgba(255, 255, 255, .1);
+    stroke-width: 9;
+  }
+
+  &__fill {
+    fill: none;
+    stroke: var(--accent-b);
+    stroke-width: 9;
+    stroke-linecap: round;
+    transition: stroke-dasharray 600ms var(--ease-spring);
+
+    &.is-clear { stroke: var(--accent-a); }
+  }
+
+  &__center {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+  }
+
+  &__n {
+    font-family: var(--font-display, inherit);
+    font-size: 38px;
+    font-weight: 800;
+    line-height: 1;
+    color: var(--ink);
+    font-variant-numeric: tabular-nums;
+  }
+
+  &__lbl {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    color: var(--ink-dim);
+  }
+}
+
+.gm-hero__title {
+  position: relative;
+  z-index: 1;
+  margin: 6px 0 0;
+  font-size: 19px;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.gm-hero__sub {
+  position: relative;
+  z-index: 1;
+  margin: 0;
+  font-size: 13px;
+  color: var(--ink-dim);
+}
+
+// ============================================================================
+// GROUPS + ROWS
+// ============================================================================
+
+.gm-group { display: flex; flex-direction: column; gap: 8px; }
+.gm-group--done { opacity: .92; }
+
+.gm-group__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 4px;
+  min-height: 28px;
+}
+
+.gm-group__title {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+}
+
+.gm-group__count {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ink-dim);
+  background: var(--bg-rise);
+  border-radius: var(--r-pill);
+  padding: 2px 9px;
+}
+
+.gm-clear {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  color: var(--ink-dim);
+  font-size: 12px;
+  font-weight: 700;
+  padding: 6px 8px;
+  border-radius: var(--r-pill);
+  -webkit-tap-highlight-color: transparent;
+
+  mat-icon { font-size: 18px; width: 18px; height: 18px; }
+  &:hover { color: var(--warn); }
+  &:disabled { opacity: .5; cursor: default; }
+}
+
+.gm-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+// the tappable row body (also the projected content inside a swipe-row)
+.gm-row {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-height: 56px;
+  padding: 10px 16px;
+  border: 0;
+  text-align: left;
+  cursor: pointer;
+  background: var(--bg-rise);
+  border-radius: var(--r-tile);
+  box-shadow: var(--lift-1);
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 140ms var(--ease-out), background 140ms var(--ease-out), box-shadow 140ms var(--ease-out);
+
+  &:active { transform: scale(.985); }
+  &.is-busy { opacity: .55; }
+  &:disabled { cursor: default; }
+
+  &__box {
+    flex: 0 0 auto;
+    width: 24px;
+    height: 24px;
+    border-radius: 8px;
+    border: 2px solid color-mix(in srgb, var(--ink-dim) 55%, transparent);
+    display: grid;
+    place-items: center;
+    transition: border-color 140ms var(--ease-out), background 140ms var(--ease-out);
+
+    &--on {
+      border-color: transparent;
+      background: linear-gradient(135deg, var(--accent-a), var(--accent-b));
+    }
+
+    mat-icon {
+      font-size: 18px;
+      width: 18px;
+      height: 18px;
+      color: var(--ink-on-accent);
+    }
+  }
+
+  &__name {
+    flex: 1 1 auto;
+    min-width: 0;
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--ink);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__qty {
+    flex: 0 0 auto;
+    font-size: 13px;
+    font-weight: 800;
+    color: var(--accent-b);
+    background: color-mix(in srgb, var(--accent-b) 16%, transparent);
+    border-radius: var(--r-pill);
+    padding: 2px 9px;
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+.gm-row--done {
+  background: color-mix(in srgb, var(--bg-rise) 70%, transparent);
+  box-shadow: none;
+
+  .gm-row__name {
+    color: var(--ink-dim);
+    text-decoration: line-through;
+    text-decoration-color: color-mix(in srgb, var(--ink-dim) 60%, transparent);
+  }
+}
+
+// ============================================================================
+// EMPTY / ERROR STATES
+// ============================================================================
+
+.gm-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 10px;
+  padding: 36px 24px;
+  margin-top: 8px;
+
+  &__orb {
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    background: var(--bg-rise);
+    box-shadow: var(--lift-1);
+
+    mat-icon { font-size: 30px; width: 30px; height: 30px; color: var(--accent-b); }
+  }
+
+  &__title { margin: 4px 0 0; font-size: 17px; font-weight: 700; color: var(--ink); }
+  &__body { margin: 0; font-size: 14px; color: var(--ink-dim); max-width: 30ch; }
+
+  &__cta {
+    margin-top: 6px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    border: 0;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--ink-on-accent);
+    background: linear-gradient(135deg, var(--accent-a), var(--accent-b));
+    border-radius: var(--r-pill);
+    padding: 11px 20px;
+    box-shadow: var(--lift-1);
+    -webkit-tap-highlight-color: transparent;
+
+    mat-icon { font-size: 18px; width: 18px; height: 18px; }
+  }
+}
+
+.gm-readonly {
+  display: inline-flex;
+  align-self: center;
+  align-items: center;
+  gap: 6px;
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: var(--ink-dim);
+
+  mat-icon { font-size: 16px; width: 16px; height: 16px; }
+}
+
+// ============================================================================
+// STICKY ADD BAR — floats above the bottom tab bar / safe area.
+// ============================================================================
+
+.gm-add {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 720px;
+  margin-inline: auto;
+  box-sizing: border-box;
+  padding: 10px var(--gutter-r) calc(var(--safe-bottom) + 10px) var(--gutter);
+
+  // a frosted lift off the scroll behind it
+  background: linear-gradient(to top, var(--bg-base) 62%, transparent);
+
+  &__ic {
+    position: absolute;
+    left: calc(var(--gutter) + 14px);
+    color: var(--ink-dim);
+    font-size: 20px;
+    width: 20px;
+    height: 20px;
+    pointer-events: none;
+  }
+
+  &__input {
+    flex: 1 1 auto;
+    min-width: 0;
+    height: 50px;
+    padding: 0 14px 0 44px;
+    font-size: 16px;                 // 16px avoids iOS zoom-on-focus
+    color: var(--ink);
+    background: var(--bg-rise);
+    border: 1px solid var(--glass-edge);
+    border-radius: var(--r-pill);
+    box-shadow: var(--lift-2);
+    outline: none;
+    transition: border-color 140ms var(--ease-out), box-shadow 140ms var(--ease-out);
+
+    &::placeholder { color: var(--ink-faint); }
+    &:focus {
+      border-color: var(--accent-b);
+      box-shadow: var(--lift-2), 0 0 0 3px color-mix(in srgb, var(--accent-b) 30%, transparent);
+    }
+    &:disabled { opacity: .6; }
+  }
+
+  &__btn {
+    flex: 0 0 auto;
+    width: 50px;
+    height: 50px;
+    display: grid;
+    place-items: center;
+    border: 0;
+    cursor: pointer;
+    border-radius: 50%;
+    color: var(--ink-on-accent);
+    background: linear-gradient(135deg, var(--accent-a), var(--accent-b));
+    box-shadow: var(--lift-2);
+    -webkit-tap-highlight-color: transparent;
+    transition: transform 140ms var(--ease-spring), opacity 140ms var(--ease-out);
+
+    &:active { transform: scale(.92); }
+    &:disabled { opacity: .45; cursor: default; }
+
+    mat-icon { font-size: 24px; width: 24px; height: 24px; }
+  }
+}

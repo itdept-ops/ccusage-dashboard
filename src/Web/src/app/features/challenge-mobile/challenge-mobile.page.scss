@@ -1,0 +1,378 @@
+// ============================================================================
+// 75 HARD — Streak (mobile twin of the live /challenge page), rebuilt on the shared beta-ui "Strata"
+// foundation. One line adopts the whole Strata token contract (layered bg, glass, ink scale, radii, the
+// lift-1/2/3 depth system, spring/bounce easing, blur cap, env() safe-area, the a11y killswitches); then
+// this page OVERRIDES the per-page accent contract with its OWN signature: a FLAME ramp (orange → ember).
+// Every kit component reads --accent-a/--accent-b off this :host cascade, so the single override re-skins
+// the screen (the hero ring, the pull-refresh ring, the segmented pill, the focus ring all follow).
+//
+// ISOLATED + gated by platform.mobile + the SAME tracker permissions: nothing here touches the global
+// --tech-* tokens or the live /challenge page. The kit partial is the only import.
+// ============================================================================
+
+@use '../beta-ui/beta-kit' as kit;
+
+:host {
+  @include kit.beta-host;          // the whole Strata token contract on :host
+
+  // ---- 75-HARD SIGNATURE ACCENT: FLAME (the per-page contract override) ----
+  --accent-a: #fb7185;             // ember rose-orange (start)
+  --accent-b: #f97316;             // flame orange (end)
+
+  // local medal hues for the leaderboard podium
+  --m-gold:   #fbbf24;
+  --m-silver: #cbd5e1;
+  --m-bronze: #d08b5b;
+}
+
+@include kit.beta-springs;          // @supports linear() spring upgrade (top-level, once)
+@include kit.beta-a11y;             // reduced-motion + reduced-transparency/contrast killswitches (once)
+
+// ============================================================================
+// SHELL — the kit pull-to-refresh wrapper IS the scroll container.
+// ============================================================================
+
+.cm-ptr { display: block; height: 100%; }
+
+.cm-scroll {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-height: 100%;
+  max-width: 720px;          // centers on desktop; full-bleed within 390px
+  margin-inline: auto;
+  width: 100%;
+  box-sizing: border-box;
+  padding-top: calc(var(--safe-top) + 8px);
+  padding-bottom: calc(var(--safe-bottom) + 32px);
+  padding-inline: var(--gutter) var(--gutter-r);
+}
+
+// ============================================================================
+// IMMERSIVE HERO — streak ring + numeral + stat row, behind a flame bloom.
+// ============================================================================
+
+.cm-hero {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 22px 16px 18px;
+  border-radius: var(--r-ring);
+  background: var(--glass);
+  backdrop-filter: blur(var(--blur-glass)) saturate(1.4);
+  -webkit-backdrop-filter: blur(var(--blur-glass)) saturate(1.4);
+  box-shadow: var(--lift-3);
+  border: 1px solid var(--glass-edge);
+  isolation: isolate;
+  overflow: hidden;
+  text-align: center;
+}
+
+.cm-hero__bloom {
+  position: absolute;
+  inset: -30% -10% auto -10%;
+  height: 220px; z-index: -1; pointer-events: none;
+  background: radial-gradient(140px 120px at 50% 28%,
+    color-mix(in srgb, var(--accent-a) 46%, transparent),
+    color-mix(in srgb, var(--accent-b) 18%, transparent) 55%,
+    transparent 74%);
+  filter: blur(14px);
+  opacity: .95;
+}
+
+.cm-hero__skel {
+  display: flex; flex-direction: column; align-items: center; gap: 14px; padding: 8px 0 4px;
+}
+
+.cm-hero__kicker {
+  display: inline-flex; align-items: center; gap: 6px; margin: 0;
+  font-size: 12px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase;
+  color: color-mix(in srgb, var(--accent-a) 78%, var(--ink));
+}
+.cm-hero__kicker mat-icon { font-size: 17px; width: 17px; height: 17px; }
+
+// empty / no-challenge orb
+.cm-hero__orb {
+  display: grid; place-items: center; width: 72px; height: 72px; border-radius: 50%;
+  margin: 4px 0 2px;
+  background: var(--bg-sink);
+  border: 2px dashed color-mix(in srgb, var(--accent-a) 45%, var(--hairline));
+  color: color-mix(in srgb, var(--accent-a) 82%, var(--ink));
+}
+.cm-hero__orb mat-icon { font-size: 34px; width: 34px; height: 34px; }
+
+.cm-hero__ring { position: relative; margin: 4px 0 2px; }
+.cm-hero__ring::before {
+  content: ''; position: absolute; inset: -10px; border-radius: 50%; z-index: -1;
+  background: radial-gradient(circle, color-mix(in srgb, var(--accent-a) 30%, transparent), transparent 68%);
+  filter: blur(8px);
+}
+
+.cm-hero__numeral { display: flex; flex-direction: column; align-items: center; line-height: 1; }
+.cm-hero__n {
+  font-family: var(--font-display); font-variant-numeric: tabular-nums;
+  font-weight: 600; font-size: 54px; letter-spacing: -.03em;
+  background: linear-gradient(150deg, var(--accent-a), var(--accent-b));
+  -webkit-background-clip: text; background-clip: text;
+  -webkit-text-fill-color: transparent; color: var(--accent-a);
+}
+.cm-hero__of {
+  margin-top: 4px; font-family: var(--font-ui); font-size: 11.5px; font-weight: 700;
+  letter-spacing: .06em; text-transform: uppercase; color: var(--ink-dim);
+}
+
+.cm-hero__title {
+  margin: 6px 0 0; font-family: var(--font-display); font-weight: 600; font-size: 23px;
+  letter-spacing: -.02em; color: var(--ink);
+}
+.cm-hero__sub {
+  margin: 0; max-width: 34ch; font-size: 13.5px; font-weight: 600; color: var(--ink-dim); line-height: 1.4;
+}
+
+.cm-hero__cta {
+  display: inline-flex; align-items: center; gap: 7px; margin-top: 14px;
+  min-height: 44px; padding: 0 22px; border-radius: var(--r-pill);
+  background: linear-gradient(135deg, var(--accent-a), var(--accent-b));
+  color: var(--ink-on-accent); font: inherit; font-size: 14px; font-weight: 800;
+  text-decoration: none; cursor: pointer;
+  box-shadow: 0 6px 20px color-mix(in srgb, var(--accent-a) 38%, transparent);
+  transition: transform 120ms var(--ease-spring);
+}
+.cm-hero__cta:active { transform: scale(.95); }
+.cm-hero__cta mat-icon { font-size: 19px; width: 19px; height: 19px; }
+
+// stat row under the ring
+.cm-hero__stats {
+  display: inline-flex; align-items: stretch; gap: 14px; margin-top: 8px;
+}
+.cm-hero__stat {
+  display: flex; flex-direction: column; align-items: center; gap: 1px; min-width: 56px;
+  b { font-family: var(--font-display); font-variant-numeric: tabular-nums; font-weight: 600;
+      font-size: 19px; color: var(--ink); }
+  i {
+    font-style: normal; font-size: 10.5px; font-weight: 700; letter-spacing: .05em;
+    text-transform: uppercase; color: var(--ink-dim);
+  }
+}
+.cm-hero__sep { width: 1px; align-self: stretch; background: var(--hairline); }
+
+// ============================================================================
+// SEGMENTED CONTROL — Today | Leaderboard
+// ============================================================================
+
+.cm-seg-wrap { display: flex; }
+.cm-seg { flex: 1 1 auto; }
+
+// ============================================================================
+// SECTION HEADS + EMPTY/FOOT
+// ============================================================================
+
+.cm-today, .cm-board { display: flex; flex-direction: column; gap: 10px; }
+
+.cm-today__head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.cm-today__title {
+  margin: 0; font-family: var(--font-display); font-weight: 600; font-size: 18px;
+  letter-spacing: -.01em; color: var(--ink);
+}
+.cm-today__points {
+  font-variant-numeric: tabular-nums; font-size: 13px; font-weight: 800;
+  color: color-mix(in srgb, var(--accent-a) 70%, var(--ink));
+}
+
+.cm-empty {
+  display: flex; flex-direction: column; align-items: center; gap: 10px;
+  padding: 30px 20px; text-align: center;
+  border-radius: var(--r-card); background: var(--bg-rise); border: 1px solid var(--hairline);
+  font-size: 13.5px; font-weight: 600; color: var(--ink-dim); line-height: 1.45;
+  mat-icon { font-size: 30px; width: 30px; height: 30px; color: color-mix(in srgb, var(--accent-a) 60%, var(--ink-dim)); }
+}
+
+.cm-foot {
+  margin: 4px 2px 0; font-size: 11.5px; font-weight: 600; color: var(--ink-faint, var(--ink-dim)); line-height: 1.4;
+  text-align: center;
+}
+
+// ============================================================================
+// TASK ROWS — big tappable toggle rows with partial bars.
+// ============================================================================
+
+.cm-task {
+  position: relative;
+  display: flex; align-items: center; gap: 13px;
+  width: 100%; box-sizing: border-box; text-align: left;
+  min-height: 64px; padding: 12px 14px;
+  border-radius: var(--r-card);
+  background: var(--bg-rise);
+  border: 1px solid var(--hairline);
+  box-shadow: var(--lift-1);
+  font: inherit; color: var(--ink);
+  cursor: pointer; touch-action: manipulation; -webkit-tap-highlight-color: transparent;
+  overflow: hidden; isolation: isolate;
+  transition: transform 140ms var(--ease-spring), box-shadow 140ms var(--ease-out),
+              border-color 200ms var(--ease-out), background 200ms var(--ease-out);
+}
+.cm-task:active { transform: scale(.99); box-shadow: var(--press); }
+.cm-task:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.cm-task[disabled] { opacity: .6; pointer-events: none; }
+
+.cm-task.is-readonly { cursor: default; }
+.cm-task.is-readonly:active { transform: none; box-shadow: var(--lift-1); }
+
+// done: accent-tinted edge + a faint flame wash
+.cm-task.is-done {
+  border-color: color-mix(in srgb, var(--accent-a) 50%, var(--hairline));
+  background:
+    linear-gradient(120deg, color-mix(in srgb, var(--accent-a) 9%, transparent), transparent 60%),
+    var(--bg-rise);
+}
+.cm-task.is-partial {
+  border-color: color-mix(in srgb, var(--accent-a) 30%, var(--hairline));
+}
+
+// the lead check / icon disc
+.cm-task__check {
+  flex: 0 0 auto; display: grid; place-items: center; width: 42px; height: 42px; border-radius: 50%;
+  background: var(--bg-sink); border: 1px solid var(--hairline);
+  color: var(--ink-dim);
+  transition: background 200ms var(--ease-out), color 200ms var(--ease-out), border-color 200ms var(--ease-out);
+  mat-icon { font-size: 23px; width: 23px; height: 23px; }
+}
+.cm-task.is-done .cm-task__check {
+  background: linear-gradient(135deg, var(--accent-a), var(--accent-b));
+  border-color: transparent;
+  color: var(--ink-on-accent);
+  box-shadow: 0 4px 14px color-mix(in srgb, var(--accent-a) 38%, transparent);
+}
+.cm-task.is-partial .cm-task__check { color: color-mix(in srgb, var(--accent-a) 80%, var(--ink)); }
+
+// partial: a conic ring around the glyph shows progress
+.cm-task__partial {
+  display: grid; place-items: center; width: 100%; height: 100%; border-radius: 50%;
+  background:
+    radial-gradient(closest-side, var(--bg-sink) 70%, transparent 71%),
+    conic-gradient(var(--accent-a) calc(var(--p, 0) * 1%), transparent 0);
+  mat-icon { font-size: 19px; width: 19px; height: 19px; }
+}
+
+.cm-task__body { display: flex; flex-direction: column; gap: 3px; min-width: 0; flex: 1 1 auto; }
+.cm-task__label {
+  font-size: 14.5px; font-weight: 700; color: var(--ink);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.cm-task__meta {
+  font-size: 12px; font-weight: 600; color: var(--ink-dim);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+
+.cm-task__bar {
+  position: relative; display: block; height: 5px; margin-top: 4px;
+  border-radius: var(--r-pill); background: var(--bg-sink); overflow: hidden;
+}
+.cm-task__bar-fill {
+  position: absolute; inset: 0 auto 0 0; border-radius: var(--r-pill);
+  background: linear-gradient(90deg, var(--accent-a), var(--accent-b));
+  transition: width 500ms var(--ease-spring);
+}
+
+.cm-task__pts {
+  flex: 0 0 auto; display: flex; flex-direction: column; align-items: flex-end; line-height: 1.05;
+  b { font-family: var(--font-display); font-variant-numeric: tabular-nums; font-weight: 600;
+      font-size: 16px; color: var(--ink); }
+  i { font-style: normal; font-size: 10.5px; font-weight: 700; color: var(--ink-dim); }
+}
+.cm-task.is-done .cm-task__pts b { color: color-mix(in srgb, var(--accent-a) 75%, var(--ink)); }
+
+// ============================================================================
+// LEADERBOARD ROWS
+// ============================================================================
+
+.cm-row {
+  position: relative;
+  display: flex; align-items: center; gap: 11px;
+  padding: 11px 13px; min-height: 60px;
+  border-radius: var(--r-card);
+  background: var(--bg-rise);
+  border: 1px solid var(--hairline);
+  box-shadow: var(--lift-1);
+}
+.cm-row.is-self {
+  border-color: color-mix(in srgb, var(--accent-a) 48%, var(--hairline));
+  background:
+    linear-gradient(120deg, color-mix(in srgb, var(--accent-a) 8%, transparent), transparent 60%),
+    var(--bg-rise);
+}
+
+.cm-row__rank {
+  flex: 0 0 auto; display: grid; place-items: center; width: 24px; height: 24px;
+  font-family: var(--font-display); font-variant-numeric: tabular-nums; font-weight: 600; font-size: 14px;
+  color: var(--ink-dim);
+}
+.cm-row__rank[data-medal='1'] { color: var(--m-gold); }
+.cm-row__rank[data-medal='2'] { color: var(--m-silver); }
+.cm-row__rank[data-medal='3'] { color: var(--m-bronze); }
+
+.cm-row__avatar {
+  flex: 0 0 auto; display: grid; place-items: center; width: 40px; height: 40px; border-radius: 50%;
+  overflow: hidden;
+  background: var(--bg-sink); border: 1px solid var(--hairline);
+  font-family: var(--font-display); font-weight: 600; font-size: 14px;
+  color: color-mix(in srgb, var(--accent-a) 70%, var(--ink));
+  img { width: 100%; height: 100%; object-fit: cover; }
+}
+
+.cm-row__body { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1 1 auto; }
+.cm-row__name {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 14px; font-weight: 700; color: var(--ink);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.cm-row__you {
+  font-style: normal; font-size: 9.5px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase;
+  padding: 1px 6px; border-radius: var(--r-pill);
+  background: color-mix(in srgb, var(--accent-a) 18%, transparent);
+  color: color-mix(in srgb, var(--accent-a) 82%, var(--ink));
+}
+.cm-row__sub {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 11.5px; font-weight: 600; color: var(--ink-dim);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  mat-icon { font-size: 14px; width: 14px; height: 14px; color: color-mix(in srgb, var(--accent-a) 65%, var(--ink-dim)); }
+}
+
+.cm-row__pts {
+  flex: 0 0 auto; display: flex; flex-direction: column; align-items: flex-end; line-height: 1.05;
+  b { font-family: var(--font-display); font-variant-numeric: tabular-nums; font-weight: 600;
+      font-size: 17px; color: var(--ink); }
+  i { font-style: normal; font-size: 10px; font-weight: 700; color: var(--ink-dim); }
+}
+
+.cm-row__nudge {
+  flex: 0 0 auto; display: grid; place-items: center; width: 40px; height: 40px; border-radius: 50%;
+  border: 1px solid var(--hairline); background: var(--bg-sink);
+  color: color-mix(in srgb, var(--accent-a) 78%, var(--ink));
+  cursor: pointer; touch-action: manipulation; -webkit-tap-highlight-color: transparent;
+  transition: transform 120ms var(--ease-spring), background 160ms var(--ease-out);
+  mat-icon { font-size: 20px; width: 20px; height: 20px; }
+}
+.cm-row__nudge:active { transform: scale(.9); }
+.cm-row__nudge:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.cm-row__nudge:disabled { opacity: .5; pointer-events: none; }
+
+// ============================================================================
+// SPRING-STAGGER REVEAL — each row rises in on a per-index delay (--ri).
+// ============================================================================
+
+.cm-reveal {
+  animation: cm-rise 460ms var(--ease-spring-up, var(--ease-out)) both;
+  animation-delay: calc(var(--ri, 0) * 42ms);
+}
+@keyframes cm-rise {
+  from { opacity: 0; transform: translateY(10px) scale(.985); }
+  to   { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .cm-reveal { animation: none; }
+  .cm-task__bar-fill, .cm-task__check { transition: none; }
+}
