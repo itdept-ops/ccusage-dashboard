@@ -247,8 +247,8 @@ export class FamilyChores {
   }
 
   private apply(board: FamilyChoresDto): void {
-    this.chores.set(board.chores);
-    this.tally.set(board.tally);
+    this.chores.set(board.chores ?? []);
+    this.tally.set(board.tally ?? []);
     const wasChild = this.role() === 'child';
     this.role.set(board.role);
     this.canManage.set(board.canManage);

@@ -631,7 +631,8 @@ export class Tracker {
     const day = this.store.day();
     if (!day || day.readOnly) return false;
     const p = day.profile;
-    const empty = day.foods.length === 0 && day.exercises.length === 0;
+    if (!p) return false;
+    const empty = (day.foods?.length ?? 0) === 0 && (day.exercises?.length ?? 0) === 0;
     return (
       empty &&
       !p.dailyCalorieGoal &&
@@ -651,6 +652,7 @@ export class Tracker {
     const day = this.store.day();
     if (!day || day.readOnly) return false;
     const p = day.profile;
+    if (!p) return false;
     return p.weightKg == null || p.heightCm == null || !p.dateOfBirth || p.sex === 'Unspecified';
   });
 

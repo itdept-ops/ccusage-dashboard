@@ -1,0 +1,10 @@
+User-agent: *
+Allow: /
+
+# Gated application areas — not useful to index (client-rendered, auth-only).
+Disallow: /settings
+Disallow: /users
+Disallow: /family
+Disallow: /tracker
+
+Sitemap: https://usageiq.online/sitemap.xml

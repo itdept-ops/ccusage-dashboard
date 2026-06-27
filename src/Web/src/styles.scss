@@ -640,6 +640,16 @@ code, pre, kbd, samp {
   box-shadow: var(--tech-focus-ring);
 }
 
+/* In Windows High Contrast / forced-colors mode the OS strips box-shadow, so the
+   shadow-only ring above would leave keyboard focus invisible. Restore a real
+   outline there (WCAG 2.4.7 / 1.4.11) while keeping the designed ring elsewhere. */
+@media (forced-colors: active) {
+  :focus-visible {
+    outline: 2px solid Highlight;
+    outline-offset: 2px;
+  }
+}
+
 /* =========================================================================
    Reduced motion
    ========================================================================= */
