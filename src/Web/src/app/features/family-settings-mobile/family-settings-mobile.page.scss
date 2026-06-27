@@ -1,0 +1,540 @@
+// ============================================================================
+// Family Settings — the mobile-first twin of the live /family settings panel, rebuilt on the shared
+// beta-ui "Strata" foundation. One line adopts the whole Strata token contract (layered bg, glass, ink
+// scale, radii, the lift-1/2/3 depth system, spring/bounce easing, blur cap, env() safe-area, the a11y
+// killswitches); then this page OVERRIDES the per-page accent contract with its OWN signature: a calm
+// SLATE → INDIGO ramp. Every kit component reads --accent-a/--accent-b off this :host cascade, so this
+// single override re-skins the screen (pull-refresh ring, sheet handle, focus ring all follow).
+//
+// ISOLATED + gated by platform.mobile + the family route guard: nothing here touches the global --tech-*
+// tokens or the live /family page. The kit partial is the only import.
+// ============================================================================
+
+@use '../beta-ui/beta-kit' as kit;
+
+:host {
+  @include kit.beta-host;          // the whole Strata token contract on :host
+
+  // ---- THIS PAGE'S SIGNATURE ACCENT: SLATE → INDIGO (the per-page contract override) ----
+  --accent-a: #6366f1;             // indigo (start)
+  --accent-b: #4338ca;             // deep indigo (end)
+}
+
+@include kit.beta-springs;          // @supports linear() spring upgrade (top-level, once)
+@include kit.beta-a11y;             // reduced-motion + reduced-transparency/contrast killswitches (once)
+
+// ============================================================================
+// SHELL — the kit pull-to-refresh wrapper IS the scroll container.
+// ============================================================================
+
+.fs-ptr { display: block; height: 100%; }
+
+.fs-scroll {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  min-height: 100%;
+  max-width: 720px;          // centers on desktop; full-bleed within 390px
+  margin-inline: auto;
+  width: 100%;
+  box-sizing: border-box;
+  padding-top: calc(var(--safe-top) + 8px);
+  padding-bottom: calc(var(--safe-bottom) + 28px);
+  padding-inline: var(--gutter) var(--gutter-r);
+}
+
+// ============================================================================
+// IMMERSIVE HERO — title + accent bloom.
+// ============================================================================
+
+.fs-hero {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 4px 4px;
+  isolation: isolate;
+}
+
+.fs-hero__bloom {
+  position: absolute;
+  inset: -40px -30% auto -10%;
+  height: 200px;
+  z-index: -1;
+  background: radial-gradient(60% 80% at 25% 0%, color-mix(in srgb, var(--accent-a) 32%, transparent), transparent 70%);
+  filter: blur(var(--blur-glass));
+  pointer-events: none;
+}
+
+.fs-hero__kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+
+  mat-icon {
+    font-size: 16px;
+    width: 16px;
+    height: 16px;
+    color: var(--accent-a);
+  }
+}
+
+.fs-hero__title {
+  margin: 0;
+  font-size: clamp(26px, 7vw, 32px);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+}
+
+.fs-hero__sub {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--ink-dim);
+}
+
+.fs-hero__note {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 8px 0 0;
+  padding: 10px 12px;
+  border-radius: var(--r-tile);
+  background: color-mix(in srgb, var(--accent-a) 12%, var(--bg-rise));
+  border: 1px solid color-mix(in srgb, var(--accent-a) 24%, transparent);
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--ink);
+
+  mat-icon {
+    flex: none;
+    font-size: 18px;
+    width: 18px;
+    height: 18px;
+    margin-top: 1px;
+    color: var(--accent-a);
+  }
+}
+
+// ============================================================================
+// SECTIONS — a title + a glassy grouped card of rows.
+// ============================================================================
+
+.fs-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.fs-section__title {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 0 4px;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+
+  mat-icon {
+    font-size: 18px;
+    width: 18px;
+    height: 18px;
+    color: var(--accent-a);
+  }
+}
+
+.fs-card {
+  display: flex;
+  flex-direction: column;
+  border-radius: var(--r-tile);
+  background: var(--bg-rise);
+  border: 1px solid var(--hairline);
+  box-shadow: var(--lift-1);
+  overflow: hidden;
+}
+
+// ── one row ──
+.fs-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 64px;
+  padding: 12px 14px;
+  text-align: left;
+  background: transparent;
+  border: 0;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  appearance: none;
+
+  & + & { border-top: 1px solid var(--hairline); }
+
+  &:disabled { cursor: default; }
+
+  // pressed feedback on actionable rows
+  &.fs-row--toggle:not(:disabled):active,
+  &.fs-row--value:not(:disabled):active {
+    background: color-mix(in srgb, var(--accent-a) 8%, transparent);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--accent-a);
+    outline-offset: -2px;
+  }
+}
+
+.fs-row__ic {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--accent-a) 14%, var(--bg-sink));
+  color: var(--accent-a);
+
+  mat-icon { font-size: 20px; width: 20px; height: 20px; }
+}
+
+.fs-row__body {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.fs-row__label {
+  font-size: 15px;
+  font-weight: 650;
+  color: var(--ink);
+}
+
+.fs-row__hint {
+  font-size: 12.5px;
+  line-height: 1.35;
+  color: var(--ink-dim);
+
+  &.fs-row__hint--warn {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    margin-top: 4px;
+    color: color-mix(in srgb, var(--accent-a) 60%, var(--ink-dim));
+
+    mat-icon { font-size: 14px; width: 14px; height: 14px; }
+  }
+}
+
+.fs-row__value {
+  flex: none;
+  max-width: 46vw;
+  font-size: 14px;
+  font-weight: 650;
+  color: var(--accent-a);
+  text-align: right;
+
+  &.fs-row__value--clip {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+.fs-row__go {
+  flex: none;
+  font-size: 22px;
+  width: 22px;
+  height: 22px;
+  color: var(--ink-faint);
+  margin-left: -4px;
+}
+
+// ── input row (weather location) ──
+.fs-row--input {
+  cursor: text;
+  align-items: flex-start;
+
+  .fs-row__ic { margin-top: 2px; }
+
+  &.is-readonly { cursor: default; }
+}
+
+.fs-input {
+  width: 100%;
+  margin-top: 4px;
+  padding: 9px 11px;
+  border-radius: 10px;
+  border: 1px solid var(--hairline);
+  background: var(--bg-sink);
+  color: var(--ink);
+  font: inherit;
+  font-size: 15px;
+  box-sizing: border-box;
+  appearance: none;
+
+  &::placeholder { color: var(--ink-faint); }
+
+  &:focus-visible {
+    outline: none;
+    border-color: var(--accent-a);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent-a) 22%, transparent);
+  }
+
+  &:disabled { opacity: 0.6; }
+}
+
+// ============================================================================
+// SWITCH — a chunky on/off pill.
+// ============================================================================
+
+.fs-switch {
+  flex: none;
+  position: relative;
+  width: 50px;
+  height: 30px;
+  border-radius: var(--r-pill, 999px);
+  background: color-mix(in srgb, var(--ink-dim) 28%, transparent);
+  transition: background 240ms var(--ease-out, ease);
+
+  &.is-on { background: linear-gradient(135deg, var(--accent-a), var(--accent-b)); }
+}
+
+.fs-switch__knob {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: var(--lift-1);
+  transition: transform 240ms var(--ease-spring, ease);
+
+  .fs-switch.is-on & { transform: translateX(20px); }
+}
+
+.fs-row:disabled .fs-switch { opacity: 0.55; }
+
+// ============================================================================
+// SAVE BAR — position:absolute INSIDE the host (clears the ~62px global tab bar).
+// ============================================================================
+
+.fs-savebar-spacer { height: 76px; }
+
+.fs-savebar {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 20;
+  display: flex;
+  gap: 10px;
+  padding: 12px var(--gutter-r) calc(12px + var(--safe-bottom)) var(--gutter);
+  background: color-mix(in srgb, var(--bg-rise) 88%, transparent);
+  backdrop-filter: blur(var(--blur-glass));
+  -webkit-backdrop-filter: blur(var(--blur-glass));
+  border-top: 1px solid var(--hairline);
+  box-shadow: 0 -8px 24px -16px rgba(0, 0, 0, 0.5);
+  animation: fs-savebar-in 240ms var(--ease-spring, ease);
+}
+
+@keyframes fs-savebar-in {
+  from { transform: translateY(100%); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+.fs-savebar__btn {
+  flex: 1 1 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 46px;
+  border-radius: var(--r-pill, 999px);
+  border: 0;
+  font: inherit;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  appearance: none;
+
+  mat-icon { font-size: 20px; width: 20px; height: 20px; }
+
+  &:disabled { opacity: 0.6; cursor: default; }
+
+  &--ghost {
+    flex: 0 0 auto;
+    min-width: 96px;
+    background: var(--bg-sink);
+    color: var(--ink);
+    border: 1px solid var(--hairline);
+  }
+
+  &--save {
+    background: linear-gradient(135deg, var(--accent-a), var(--accent-b));
+    color: #fff;
+    box-shadow: var(--lift-2);
+
+    &:not(:disabled):active { transform: translateY(1px); }
+  }
+}
+
+.fs-spin {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.4);
+  border-top-color: #fff;
+  animation: fs-spin 0.7s linear infinite;
+}
+
+@keyframes fs-spin { to { transform: rotate(360deg); } }
+
+// ============================================================================
+// SKELETON + STATES.
+// ============================================================================
+
+.fs-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.fs-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 10px;
+  margin: 12px auto;
+  padding: 32px 24px;
+  max-width: 360px;
+}
+
+.fs-state__orb {
+  display: grid;
+  place-items: center;
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--accent-a) 14%, var(--bg-sink));
+  color: var(--accent-a);
+  box-shadow: var(--lift-1);
+
+  mat-icon { font-size: 32px; width: 32px; height: 32px; }
+}
+
+.fs-state__title {
+  margin: 4px 0 0;
+  font-size: 18px;
+  font-weight: 750;
+  color: var(--ink);
+}
+
+.fs-state__body {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--ink-dim);
+}
+
+.fs-state__cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  padding: 11px 20px;
+  border-radius: var(--r-pill, 999px);
+  border: 0;
+  background: linear-gradient(135deg, var(--accent-a), var(--accent-b));
+  color: #fff;
+  font: inherit;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: var(--lift-2);
+
+  mat-icon { font-size: 20px; width: 20px; height: 20px; }
+}
+
+// ============================================================================
+// PICKER SHEET — a radio list of options.
+// ============================================================================
+
+.fs-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-bottom: calc(var(--safe-bottom) + 8px);
+}
+
+.fs-picker__title {
+  margin: 0;
+  padding: 2px 4px;
+  font-size: 17px;
+  font-weight: 750;
+  color: var(--ink);
+}
+
+.fs-picker__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.fs-opt {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  min-height: 52px;
+  padding: 12px 14px;
+  border-radius: var(--r-tile);
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-size: 15px;
+  text-align: left;
+  cursor: pointer;
+  appearance: none;
+
+  &:not(.is-sel):active { background: color-mix(in srgb, var(--accent-a) 8%, transparent); }
+
+  &.is-sel {
+    background: color-mix(in srgb, var(--accent-a) 12%, var(--bg-sink));
+    border-color: color-mix(in srgb, var(--accent-a) 28%, transparent);
+    font-weight: 700;
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--accent-a);
+    outline-offset: -2px;
+  }
+}
+
+.fs-opt__label { min-width: 0; }
+
+.fs-opt__check {
+  flex: none;
+  font-size: 22px;
+  width: 22px;
+  height: 22px;
+  color: var(--accent-a);
+}

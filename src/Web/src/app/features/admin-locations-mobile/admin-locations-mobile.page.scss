@@ -1,0 +1,471 @@
+// ============================================================================
+// Admin Locations — the MOBILE twin of the live /admin/locations oversight map, rebuilt on the shared
+// beta-ui "Strata" foundation. One line adopts the whole Strata token contract (layered bg, glass, ink
+// scale, radii, the lift depth system, spring/bounce easing, blur cap, env() safe-area, the a11y
+// killswitches); then this page OVERRIDES the per-page accent with its OWN signature: a SKY → VIOLET ramp
+// (an "oversight / map" hue, distinct from the warm recipes/profile accents). Every kit component reads
+// --accent-a/--accent-b off this :host cascade, so this single override re-skins the screen.
+//
+// ISOLATED + gated by platform.mobile + location.view-all: nothing here touches the global --tech-* tokens
+// or the live page. The kit partial + the shared LocationMap are the only imports.
+// ============================================================================
+
+@use '../beta-ui/beta-kit' as kit;
+
+:host {
+  @include kit.beta-host;          // the whole Strata token contract on :host
+
+  // ---- THIS PAGE'S SIGNATURE ACCENT: SKY → VIOLET (the per-page contract override) ----
+  --accent-a: #38bdf8;             // sky (start)
+  --accent-b: #7c5cff;             // violet (end)
+
+  // The map must own the full surface, so this host is a fixed-size stage (no scroll column).
+  overflow: hidden;
+}
+
+@include kit.beta-springs;          // @supports linear() spring upgrade (top-level, once)
+@include kit.beta-a11y;             // reduced-motion + reduced-transparency/contrast killswitches (once)
+@include kit.beta-focus;            // one canonical accent focus ring (pierces kit primitives)
+
+// ============================================================================
+// STAGE — the full-bleed map fills the area under the global top bar + above the tab bar.
+// The LocationMap is absolutely stretched; the header / attribution / FAB float over it.
+// ============================================================================
+
+.al-stage {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+
+.al-map {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+
+  // The OSM tiles + our dark chrome want a calm base while loading.
+  background: var(--bg-sink);
+
+  // The shared map rounds its host by default; here it's full-bleed, so square the corners.
+  ::ng-deep .leaflet-host { border-radius: 0; }
+
+  // Keep Leaflet's default controls clear of our floating header + FAB, and on-brand-dark.
+  ::ng-deep .leaflet-control-zoom {
+    margin-top: calc(var(--safe-top) + 88px);
+    margin-right: 12px;
+    border: 1px solid var(--glass-edge);
+    border-radius: var(--r-tile);
+    overflow: hidden;
+    box-shadow: var(--lift-2);
+  }
+  ::ng-deep .leaflet-control-zoom a {
+    background: var(--bg-rise);
+    color: var(--ink);
+    border-bottom-color: var(--hairline);
+  }
+  ::ng-deep .leaflet-control-attribution {
+    // We render our own OSM note; hide the default tile attribution to avoid a double credit.
+    display: none;
+  }
+  ::ng-deep .leaflet-popup-content-wrapper {
+    background: var(--bg-rise);
+    color: var(--ink);
+    border-radius: var(--r-tile);
+    box-shadow: var(--lift-3);
+  }
+  ::ng-deep .leaflet-popup-tip { background: var(--bg-rise); }
+  ::ng-deep .leaflet-popup-content { font-family: var(--font-ui); }
+  ::ng-deep .lp-sub { color: var(--ink-dim); font-size: 12px; }
+}
+
+// A soft cover while the very first fetch + tiles settle (so we never flash a gray map + 0 pins).
+.al-cover {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  display: grid;
+  place-items: center;
+  background:
+    radial-gradient(120% 90% at 50% 0%, color-mix(in srgb, var(--accent-a) 14%, transparent), transparent 60%),
+    var(--bg-base);
+}
+
+// ============================================================================
+// FLOATING HEADER — a slim glass strip over the top of the map (title + context line).
+// ============================================================================
+
+.al-head {
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  z-index: 10;
+  padding: calc(var(--safe-top) + 10px) var(--gutter-r) 12px var(--gutter);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  isolation: isolate;
+  pointer-events: none;   // let map drags pass through the empty header area…
+  background: linear-gradient(180deg,
+    color-mix(in srgb, var(--bg-base) 86%, transparent) 0%,
+    color-mix(in srgb, var(--bg-base) 60%, transparent) 60%,
+    transparent 100%);
+
+  // …but the interactive bits inside re-enable pointer events.
+  .al-back, .al-context, .al-head__titles { pointer-events: auto; }
+}
+
+.al-head__bloom {
+  position: absolute;
+  inset: -30px -10px auto -10px;
+  height: 160px;
+  z-index: -1;
+  background: radial-gradient(110% 80% at 14% 0%,
+    color-mix(in srgb, var(--accent-a) 26%, transparent), transparent 70%);
+  filter: blur(6px);
+  pointer-events: none;
+}
+
+.al-head__row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.al-head__titles { display: flex; flex-direction: column; gap: 1px; }
+
+.al-head__kicker {
+  display: inline-flex; align-items: center; gap: 6px;
+  margin: 0;
+  font-size: 11.5px; font-weight: 800; letter-spacing: .09em; text-transform: uppercase;
+  color: var(--accent-a);
+  text-shadow: 0 1px 8px rgba(4, 6, 20, .6);
+  mat-icon { width: 15px; height: 15px; font-size: 15px; line-height: 15px; }
+}
+
+.al-head__title {
+  margin: 1px 0 0;
+  font-family: var(--font-display, var(--font-ui));
+  font-size: clamp(26px, 7.5vw, 34px); font-weight: 800; letter-spacing: -.02em;
+  color: var(--ink);
+  text-shadow: 0 2px 12px rgba(4, 6, 20, .65);
+}
+
+.al-back {
+  @include kit.tap44;
+  flex: 0 0 auto;
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 8px 14px 8px 10px;
+  border: 1px solid var(--glass-edge);
+  border-radius: var(--r-pill);
+  background: var(--glass);
+  backdrop-filter: blur(var(--blur-glass)) saturate(1.4);
+  -webkit-backdrop-filter: blur(var(--blur-glass)) saturate(1.4);
+  box-shadow: var(--lift-2);
+  color: var(--ink);
+  font: inherit; font-size: 13.5px; font-weight: 700;
+  cursor: pointer;
+  transition: transform 120ms var(--ease-out);
+  mat-icon { width: 20px; height: 20px; font-size: 20px; line-height: 20px; }
+  &:active { transform: scale(.96); }
+}
+
+.al-context {
+  display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap;
+  align-self: flex-start;
+  margin: 0;
+  padding: 5px 12px;
+  border: 1px solid var(--glass-edge);
+  border-radius: var(--r-pill);
+  background: var(--glass);
+  backdrop-filter: blur(var(--blur-glass)) saturate(1.4);
+  -webkit-backdrop-filter: blur(var(--blur-glass)) saturate(1.4);
+  box-shadow: var(--lift-1);
+  font-size: 12.5px; font-weight: 600; color: var(--ink-dim);
+  b { color: var(--ink); font-weight: 800; }
+  .mono-num { color: var(--ink); font-weight: 800; }
+  mat-icon {
+    width: 16px; height: 16px; font-size: 16px; line-height: 16px;
+    color: var(--accent-a);
+  }
+}
+
+// ============================================================================
+// OSM ATTRIBUTION — mandatory credit, a small glass chip bottom-left over the map.
+// ============================================================================
+
+.al-osm {
+  position: absolute;
+  left: var(--gutter);
+  bottom: calc(var(--safe-bottom) + 12px);
+  z-index: 10;
+  display: inline-flex; align-items: center; gap: 5px;
+  max-width: 60vw;
+  padding: 4px 9px;
+  border: 1px solid var(--glass-edge);
+  border-radius: var(--r-pill);
+  background: var(--glass);
+  backdrop-filter: blur(var(--blur-glass)) saturate(1.4);
+  -webkit-backdrop-filter: blur(var(--blur-glass)) saturate(1.4);
+  box-shadow: var(--lift-1);
+  font-size: 10.5px; font-weight: 600; color: var(--ink-faint);
+  mat-icon { width: 13px; height: 13px; font-size: 13px; line-height: 13px; }
+  a { color: var(--ink-dim); text-decoration: underline; }
+}
+
+// ============================================================================
+// FLOATING "People / History" PILL — absolute bottom-right, ABOVE the global tab bar.
+// (Not a viewport-fixed bar; it sits inside the host stage like profile-mobile's footer.)
+// ============================================================================
+
+.al-fab {
+  @include kit.tap44;
+  position: absolute;
+  right: var(--gutter-r);
+  bottom: calc(var(--safe-bottom) + 12px);
+  z-index: 12;
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 12px 18px 12px 16px;
+  border: none;
+  border-radius: var(--r-pill);
+  background: linear-gradient(120deg, var(--accent-a), var(--accent-b));
+  box-shadow: var(--lift-3), 0 8px 28px color-mix(in srgb, var(--accent-a) 36%, transparent);
+  color: var(--ink-on-accent);
+  font: inherit; font-size: 14.5px; font-weight: 800; letter-spacing: -.01em;
+  cursor: pointer;
+  transition: transform 140ms var(--ease-spring-up);
+  &:active { transform: scale(.95); }
+  mat-icon { width: 22px; height: 22px; font-size: 22px; line-height: 22px; }
+}
+.al-fab__txt { display: inline-flex; align-items: center; gap: 7px; }
+.al-fab__n {
+  display: inline-grid; place-items: center;
+  min-width: 22px; height: 22px; padding: 0 6px;
+  border-radius: var(--r-pill);
+  background: color-mix(in srgb, var(--ink-on-accent) 16%, transparent);
+  font-size: 12.5px; font-weight: 800;
+}
+
+// ============================================================================
+// BOTTOM SHEET BODY — the picker (roster) / history. Inherits the sheet's glass surface.
+// ============================================================================
+
+.ap {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-top: 4px;
+  padding-bottom: 8px;
+}
+
+// ---- sheet head (roster title or selected-user header) ----
+.ap-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 2px 2px 8px;
+  border-bottom: 1px solid var(--hairline);
+}
+
+.ap-head__back {
+  @include kit.tap44;
+  flex: 0 0 auto;
+  display: grid; place-items: center;
+  width: 38px; height: 38px;
+  border: 1px solid var(--glass-edge);
+  border-radius: var(--r-tile);
+  background: var(--bg-rise);
+  color: var(--ink);
+  cursor: pointer;
+  mat-icon { width: 22px; height: 22px; font-size: 22px; line-height: 22px; }
+  &:active { background: var(--bg-sink); }
+}
+
+.ap-head__titles { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.ap-head__title {
+  margin: 0;
+  font-size: 18px; font-weight: 800; letter-spacing: -.01em; color: var(--ink);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.ap-head__sub {
+  font-size: 12px; font-weight: 600; color: var(--ink-faint);
+}
+.ap-head__count {
+  flex: 0 0 auto;
+  display: inline-grid; place-items: center;
+  min-width: 30px; height: 26px; padding: 0 9px;
+  border-radius: var(--r-pill);
+  background: color-mix(in srgb, var(--accent-a) 18%, var(--bg-rise));
+  color: var(--ink); font-size: 13px; font-weight: 800;
+}
+
+// ============================================================================
+// ROSTER LIST — every user with a latest pin.
+// ============================================================================
+
+.ap-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+
+.ap-row {
+  @include kit.tap44;
+  width: 100%;
+  display: flex; align-items: center; gap: 12px;
+  padding: 11px 10px 11px 11px;
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-tile);
+  background: var(--bg-rise);
+  box-shadow: var(--lift-1);
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+  transition: transform 120ms var(--ease-out), border-color 120ms var(--ease-out);
+  &:active { transform: scale(.985); border-color: var(--glass-edge); }
+}
+
+.ap-row__glyph {
+  flex: 0 0 auto;
+  display: grid; place-items: center;
+  width: 40px; height: 40px;
+  border-radius: var(--r-tile);
+  background: linear-gradient(135deg,
+    color-mix(in srgb, var(--accent-a) 30%, transparent),
+    color-mix(in srgb, var(--accent-b) 24%, transparent));
+  color: var(--ink);
+  mat-icon { width: 24px; height: 24px; font-size: 24px; line-height: 24px; }
+}
+
+.ap-row__body { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.ap-row__name {
+  font-size: 14.5px; font-weight: 700; color: var(--ink);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.ap-row__place {
+  font-size: 12.5px; font-weight: 500; color: var(--ink-dim);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.ap-row__when {
+  flex: 0 0 auto;
+  font-size: 11.5px; font-weight: 600; color: var(--ink-faint);
+}
+.ap-row__go {
+  flex: 0 0 auto;
+  width: 20px; height: 20px; font-size: 20px; line-height: 20px;
+  color: var(--ink-faint);
+}
+
+// ============================================================================
+// HISTORY TIMELINE — the selected user's recent fixes (newest-first), a vertical rail.
+// ============================================================================
+
+.ap-hist { list-style: none; margin: 0; padding: 4px 2px 0; display: flex; flex-direction: column; }
+
+.ap-hist__item {
+  display: grid;
+  grid-template-columns: 28px 1fr;
+  gap: 10px;
+  padding: 4px 0;
+}
+
+.ap-hist__rail {
+  position: relative;
+  display: flex; justify-content: center;
+  // the connecting line
+  &::before {
+    content: '';
+    position: absolute;
+    top: 14px; bottom: -8px; left: 50%;
+    width: 2px; transform: translateX(-50%);
+    background: var(--hairline);
+  }
+}
+.ap-hist__item:last-child .ap-hist__rail::before { display: none; }
+
+.ap-hist__dot {
+  position: relative;
+  margin-top: 7px;
+  width: 11px; height: 11px;
+  border-radius: 50%;
+  background: var(--ink-faint);
+  box-shadow: 0 0 0 3px var(--bg-rise);
+}
+.ap-hist__item.is-latest .ap-hist__dot {
+  width: 13px; height: 13px;
+  margin-top: 6px;
+  background: linear-gradient(135deg, var(--accent-a), var(--accent-b));
+  box-shadow: 0 0 0 3px var(--bg-rise), 0 0 12px color-mix(in srgb, var(--accent-a) 60%, transparent);
+}
+
+.ap-hist__body {
+  display: flex; flex-direction: column; gap: 1px;
+  padding-bottom: 10px;
+  min-width: 0;
+}
+.ap-hist__place {
+  font-size: 14px; font-weight: 600; color: var(--ink);
+  word-break: break-word;
+}
+.ap-hist__when {
+  display: inline-flex; align-items: center; gap: 7px;
+  font-size: 12px; font-weight: 600; color: var(--ink-faint);
+}
+.ap-hist__tag {
+  display: inline-block;
+  padding: 1px 7px;
+  border-radius: var(--r-pill);
+  background: color-mix(in srgb, var(--accent-a) 22%, transparent);
+  color: var(--accent-a); font-size: 10px; font-weight: 800;
+  letter-spacing: .05em; text-transform: uppercase;
+}
+
+// ============================================================================
+// EMPTY + ERROR STATES (render cleanly with ZERO data).
+// ============================================================================
+
+.ap-empty {
+  display: flex; flex-direction: column; align-items: center; gap: 8px;
+  padding: 32px 16px;
+  text-align: center;
+  color: var(--ink-dim);
+  mat-icon {
+    width: 40px; height: 40px; font-size: 40px; line-height: 40px;
+    color: var(--ink-faint);
+  }
+  p { margin: 0; font-size: 14px; font-weight: 600; }
+}
+
+.ap-state {
+  display: flex; flex-direction: column; align-items: center; gap: 8px;
+  padding: 30px 18px;
+  text-align: center;
+}
+.ap-state__orb {
+  display: grid; place-items: center;
+  width: 60px; height: 60px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%,
+    color-mix(in srgb, var(--warn) 30%, transparent), var(--bg-rise));
+  box-shadow: var(--lift-2);
+  mat-icon {
+    width: 30px; height: 30px; font-size: 30px; line-height: 30px;
+    color: var(--warn);
+  }
+}
+.ap-state__title { margin: 4px 0 0; font-size: 17px; font-weight: 800; color: var(--ink); }
+.ap-state__body { margin: 0; font-size: 13.5px; font-weight: 500; color: var(--ink-dim); max-width: 36ch; }
+.ap-state__cta {
+  @include kit.tap44;
+  margin-top: 6px;
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 11px 20px;
+  border: none;
+  border-radius: var(--r-pill);
+  background: linear-gradient(120deg, var(--accent-a), var(--accent-b));
+  color: var(--ink-on-accent);
+  font: inherit; font-size: 14.5px; font-weight: 800;
+  cursor: pointer;
+  &:active { transform: scale(.96); }
+  mat-icon { width: 20px; height: 20px; font-size: 20px; line-height: 20px; }
+}
+
+// Shared mono-num convention (the kit pages use it for figures).
+.mono-num { font-variant-numeric: tabular-nums; font-feature-settings: 'tnum' 1; }

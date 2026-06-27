@@ -1,0 +1,471 @@
+// ============================================================================
+// Family Finance "Ledger" — the mobile-first twin of the live /family/finance Hub room, rebuilt on the
+// shared beta-ui "Strata" foundation. One line adopts the whole Strata token contract (layered bg, glass,
+// ink scale, radii, the lift-1/2/3 depth system, spring/bounce easing, blur cap, env() safe-area, the
+// a11y killswitches); then FINANCE OVERRIDES the per-page accent contract with its OWN signature: a cool
+// MINT → TEAL ramp. Every kit component reads --accent-a/--accent-b off this :host cascade, so this single
+// override re-skins the screen (pull-refresh ring, segmented pill, FAB, focus ring all follow).
+//
+// ISOLATED + double-gated by platform.mobile + family.use AND family.finance (server-side): nothing here
+// touches the global --tech-* tokens or the live /family/finance page. The kit partial is the only import.
+// ============================================================================
+
+@use '../beta-ui/beta-kit' as kit;
+
+:host {
+  @include kit.beta-host;          // the whole Strata token contract on :host
+
+  // ---- FINANCE' SIGNATURE ACCENT: MINT → TEAL (the per-page contract override) ----
+  --accent-a: #2dd4bf;             // mint (start)
+  --accent-b: #0d9488;             // teal (deep, end)
+}
+
+@include kit.beta-springs;          // @supports linear() spring upgrade (top-level, once)
+@include kit.beta-a11y;             // reduced-motion + reduced-transparency/contrast killswitches (once)
+
+// ============================================================================
+// SHELL — the kit pull-to-refresh wrapper IS the scroll container.
+// ============================================================================
+
+.ff-ptr { display: block; height: 100%; }
+
+.ff-scroll {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-height: 100%;
+  max-width: 720px;          // centers on desktop; full-bleed within 390px
+  margin-inline: auto;
+  width: 100%;
+  box-sizing: border-box;
+  padding-top: calc(var(--safe-top) + 8px);
+  padding-bottom: calc(var(--safe-bottom) + 96px);   // clears the fixed FAB
+  padding-inline: var(--gutter) var(--gutter-r);
+}
+
+.mono-num { font-variant-numeric: tabular-nums; }
+
+// ============================================================================
+// IMMERSIVE HERO — title + accent bloom + month stepper.
+// ============================================================================
+
+.ff-hero {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 4px 4px;
+  isolation: isolate;
+}
+
+.ff-hero__bloom {
+  position: absolute;
+  inset: -40px -20px auto -20px;
+  height: 200px;
+  z-index: -1;
+  background: radial-gradient(120% 80% at 18% 0%,
+    color-mix(in srgb, var(--accent-a) 30%, transparent), transparent 70%);
+  filter: blur(6px);
+  pointer-events: none;
+}
+
+.ff-hero__kicker {
+  display: inline-flex; align-items: center; gap: 6px;
+  margin: 0;
+  font-size: 12px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase;
+  color: var(--accent-a);
+  mat-icon { width: 16px; height: 16px; font-size: 16px; line-height: 16px; }
+}
+
+.ff-hero__title {
+  margin: 2px 0 0;
+  font-family: var(--font-display, var(--font-ui));
+  font-size: clamp(28px, 8vw, 36px); font-weight: 800; letter-spacing: -.02em;
+  color: var(--ink);
+}
+
+.ff-hero__sub {
+  margin: 0;
+  font-size: 13.5px; font-weight: 500; line-height: 1.4; color: var(--ink-dim);
+}
+
+.ff-month {
+  display: inline-flex; align-items: center; gap: 6px; align-self: flex-start;
+  margin-top: 12px;
+  padding: 4px;
+  background: var(--glass);
+  border: 1px solid var(--glass-edge);
+  border-radius: var(--r-pill);
+  box-shadow: var(--lift-1);
+}
+.ff-month__nav {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 36px; height: 36px; border-radius: 50%;
+  border: none; background: transparent; color: var(--ink-dim); cursor: pointer;
+  transition: transform 120ms var(--ease-out), background 120ms var(--ease-out);
+  &:active { transform: scale(.92); }
+  &:hover { background: var(--bg-sink); color: var(--ink); }
+  &:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+  mat-icon { width: 22px; height: 22px; font-size: 22px; line-height: 22px; }
+}
+.ff-month__label {
+  min-width: 116px; text-align: center;
+  font-size: 14px; font-weight: 800; letter-spacing: -.01em; color: var(--ink);
+}
+
+// ============================================================================
+// HEADLINE STAT TILES
+// ============================================================================
+
+.ff-stats {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px;
+}
+.ff-stats app-bs-stat-tile { min-width: 0; }
+
+// ============================================================================
+// ✨ AI NARRATION CARD
+// ============================================================================
+
+.ff-ai {
+  display: flex; gap: 10px;
+  padding: 13px 14px;
+  background: linear-gradient(135deg,
+    color-mix(in srgb, var(--accent-a) 9%, var(--glass)),
+    color-mix(in srgb, var(--accent-b) 6%, var(--glass)));
+  border: 1px solid color-mix(in srgb, var(--accent-a) 30%, var(--glass-edge));
+  border-radius: var(--r-glass);
+  box-shadow: var(--lift-1);
+}
+.ff-ai--tips { margin-top: 2px; }
+.ff-ai__spark {
+  flex: 0 0 auto;
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 32px; height: 32px; border-radius: 10px;
+  background: linear-gradient(135deg, var(--accent-a), var(--accent-b));
+  color: var(--ink-on-accent); box-shadow: var(--lift-1);
+  mat-icon { width: 19px; height: 19px; font-size: 19px; line-height: 19px; }
+}
+.ff-ai__body { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 8px; }
+.ff-ai__narr {
+  margin: 0; font-size: 13.5px; font-weight: 500; line-height: 1.5; color: var(--ink);
+}
+.ff-ai__insights {
+  list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 5px;
+  li {
+    position: relative; padding-left: 16px;
+    font-size: 12.5px; font-weight: 600; line-height: 1.4; color: var(--ink-dim);
+    &::before {
+      content: ''; position: absolute; left: 2px; top: 7px;
+      width: 6px; height: 6px; border-radius: 50%;
+      background: linear-gradient(135deg, var(--accent-a), var(--accent-b));
+    }
+  }
+}
+
+// ============================================================================
+// SEGMENTED TAB SWITCH
+// ============================================================================
+
+.ff-seg-wrap { padding: 2px 2px 0; }
+.ff-seg { width: 100%; }
+
+// ============================================================================
+// SPENDING — by-category bars
+// ============================================================================
+
+.ff-bars {
+  display: flex; flex-direction: column; gap: 12px;
+  padding: 14px 16px;
+  background: var(--glass);
+  border: 1px solid var(--glass-edge);
+  border-radius: var(--r-glass);
+  box-shadow: var(--lift-1);
+}
+.ff-bar {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  grid-template-areas: "top top" "track pct";
+  align-items: center; gap: 4px 8px;
+}
+.ff-bar__top { grid-area: top; display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.ff-bar__name {
+  font-size: 13.5px; font-weight: 700; color: var(--ink);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.ff-bar__amt { font-size: 13px; font-weight: 800; color: var(--ink); }
+.ff-bar__track {
+  grid-area: track;
+  height: 8px; border-radius: var(--r-pill);
+  background: var(--bg-sink); overflow: hidden;
+}
+.ff-bar__fill {
+  display: block; height: 100%; border-radius: var(--r-pill);
+  background: linear-gradient(90deg, var(--accent-a), var(--accent-b));
+  transition: width 420ms var(--ease-out);
+}
+.ff-bar__pct {
+  grid-area: pct; min-width: 34px; text-align: right;
+  font-size: 11.5px; font-weight: 700; color: var(--ink-dim);
+}
+
+// ── His vs Hers vs Joint split ──
+.ff-owners {
+  display: flex; flex-direction: column; gap: 10px;
+  padding: 14px 16px;
+  background: var(--glass);
+  border: 1px solid var(--glass-edge);
+  border-radius: var(--r-glass);
+  box-shadow: var(--lift-1);
+}
+.ff-owners__title {
+  font-size: 12px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; color: var(--ink-dim);
+}
+.ff-owner {
+  display: grid;
+  grid-template-columns: auto 52px 1fr auto;
+  align-items: center; gap: 8px;
+}
+.ff-owner__dot { width: 10px; height: 10px; border-radius: 50%; }
+.ff-owner__name { font-size: 13px; font-weight: 700; color: var(--ink); }
+.ff-owner__bar { height: 8px; border-radius: var(--r-pill); background: var(--bg-sink); overflow: hidden; }
+.ff-owner__fill { display: block; height: 100%; border-radius: var(--r-pill); transition: width 420ms var(--ease-out); }
+.ff-owner__amt { font-size: 12.5px; font-weight: 800; color: var(--ink); }
+
+// ============================================================================
+// TRANSACTIONS strip
+// ============================================================================
+
+.ff-txn-head {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 12px;
+  padding: 4px 4px 0;
+}
+.ff-txn-head__title {
+  font-size: 12px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; color: var(--ink-dim);
+}
+.ff-txn-head__count {
+  font-size: 12px; font-weight: 800; color: var(--accent-a);
+}
+
+.ff-list { display: flex; flex-direction: column; gap: 8px; }
+
+.ff-txn {
+  display: flex; align-items: center; gap: 12px; width: 100%;
+  min-height: 58px; padding: 10px 14px;
+  text-align: left;
+  background: var(--glass);
+  border: 1px solid var(--glass-edge);
+  border-radius: var(--r-tile);
+  box-shadow: var(--lift-1);
+  color: var(--ink); font-family: var(--font-ui);
+  cursor: pointer; -webkit-tap-highlight-color: transparent;
+  transition: transform 120ms var(--ease-out), box-shadow 120ms var(--ease-out);
+  &:active { transform: scale(.985); box-shadow: var(--press); }
+  &:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+}
+.ff-txn__glyph {
+  flex: 0 0 auto;
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 38px; height: 38px; border-radius: 11px;
+  background: color-mix(in srgb, var(--ink-faint) 16%, transparent);
+  color: var(--ink-dim);
+  mat-icon { width: 20px; height: 20px; font-size: 20px; line-height: 20px; }
+  &.is-income { background: color-mix(in srgb, #34d399 18%, transparent); color: #34d399; }
+  &.is-expense { background: color-mix(in srgb, #fb7185 16%, transparent); color: #fb7185; }
+  &.is-transfer { background: color-mix(in srgb, var(--accent-a) 16%, transparent); color: var(--accent-a); }
+}
+.ff-txn__body { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.ff-txn__merchant {
+  font-size: 14.5px; font-weight: 700; letter-spacing: -.01em; color: var(--ink);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.ff-txn__meta {
+  font-size: 12px; font-weight: 600; color: var(--ink-dim);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.ff-txn__amt {
+  flex: 0 0 auto; font-size: 14px; font-weight: 800; color: var(--ink);
+  &.is-in { color: #34d399; }
+}
+
+// ============================================================================
+// RECURRING — Money coach floor
+// ============================================================================
+
+.ff-recur-total {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 16px 18px;
+  background: linear-gradient(135deg,
+    color-mix(in srgb, var(--accent-a) 14%, var(--glass)),
+    color-mix(in srgb, var(--accent-b) 10%, var(--glass)));
+  border: 1px solid color-mix(in srgb, var(--accent-a) 34%, var(--glass-edge));
+  border-radius: var(--r-glass);
+  box-shadow: var(--lift-1);
+}
+.ff-recur-total__l { font-size: 13px; font-weight: 700; color: var(--ink-dim); }
+.ff-recur-total__n {
+  font-family: var(--font-display, var(--font-ui));
+  font-size: 26px; font-weight: 800; letter-spacing: -.02em; color: var(--ink);
+}
+
+.ff-recur {
+  display: flex; align-items: center; gap: 12px; width: 100%;
+  min-height: 58px; padding: 10px 14px;
+  background: var(--glass);
+  border: 1px solid var(--glass-edge);
+  border-radius: var(--r-tile);
+  box-shadow: var(--lift-1);
+}
+.ff-recur__glyph {
+  flex: 0 0 auto;
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 38px; height: 38px; border-radius: 11px;
+  background: linear-gradient(135deg,
+    color-mix(in srgb, var(--accent-a) 22%, transparent),
+    color-mix(in srgb, var(--accent-b) 22%, transparent));
+  color: var(--accent-a);
+  mat-icon { width: 20px; height: 20px; font-size: 20px; line-height: 20px; }
+}
+.ff-recur__body { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.ff-recur__merchant {
+  font-size: 14.5px; font-weight: 700; letter-spacing: -.01em; color: var(--ink);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.ff-recur__meta {
+  font-size: 12px; font-weight: 600; color: var(--ink-dim);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.ff-recur__amt { flex: 0 0 auto; font-size: 14px; font-weight: 800; color: var(--ink); }
+
+// ============================================================================
+// IMPORT HISTORY strip
+// ============================================================================
+
+.ff-imports {
+  display: flex; flex-direction: column; gap: 8px;
+  padding: 14px 16px;
+  background: var(--bg-sink);
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-glass);
+}
+.ff-imports__title {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 12px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; color: var(--ink-dim);
+  mat-icon { width: 16px; height: 16px; font-size: 16px; line-height: 16px; color: var(--accent-a); }
+}
+.ff-import { display: flex; flex-direction: column; gap: 1px; }
+.ff-import__file {
+  font-size: 13px; font-weight: 700; color: var(--ink);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.ff-import__meta {
+  font-size: 11.5px; font-weight: 600; color: var(--ink-dim);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+
+// ============================================================================
+// EMPTY + ERROR + MINI-EMPTY STATES
+// ============================================================================
+
+.ff-state, .ff-empty {
+  display: flex; flex-direction: column; align-items: center; text-align: center;
+  gap: 8px; padding: 36px 24px;
+  margin: 8px 4px;
+  background: var(--glass);
+  border: 1px solid var(--glass-edge);
+  border-radius: var(--r-glass);
+  box-shadow: var(--lift-1);
+}
+.ff-state__orb, .ff-empty__orb {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 64px; height: 64px; border-radius: 50%;
+  background: linear-gradient(135deg,
+    color-mix(in srgb, var(--accent-a) 20%, transparent),
+    color-mix(in srgb, var(--accent-b) 20%, transparent));
+  color: var(--accent-a);
+  mat-icon { width: 30px; height: 30px; font-size: 30px; line-height: 30px; }
+}
+.ff-state__title, .ff-empty__title {
+  margin: 4px 0 0; font-size: 18px; font-weight: 800; letter-spacing: -.01em; color: var(--ink);
+}
+.ff-state__body, .ff-empty__body {
+  margin: 0; max-width: 32ch; font-size: 13.5px; font-weight: 500; line-height: 1.45; color: var(--ink-dim);
+}
+.ff-state__cta, .ff-empty__cta {
+  display: inline-flex; align-items: center; gap: 6px; margin-top: 8px;
+  min-height: 44px; padding: 0 20px;
+  border: none; border-radius: var(--r-pill);
+  background: linear-gradient(135deg, var(--accent-a), var(--accent-b));
+  color: var(--ink-on-accent); font-family: var(--font-ui); font-size: 14px; font-weight: 700;
+  cursor: pointer; box-shadow: var(--lift-2);
+  &:active { transform: scale(.97); }
+  &:focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; }
+  mat-icon { width: 20px; height: 20px; font-size: 20px; line-height: 20px; }
+}
+
+.ff-mini-empty {
+  display: flex; flex-direction: column; align-items: center; text-align: center; gap: 6px;
+  padding: 26px 20px;
+  background: var(--bg-sink);
+  border: 1px dashed var(--hairline);
+  border-radius: var(--r-glass);
+  mat-icon { width: 28px; height: 28px; font-size: 28px; line-height: 28px; color: var(--ink-faint); }
+  p { margin: 0; font-size: 13px; font-weight: 600; color: var(--ink-dim); max-width: 30ch; }
+}
+
+// staggered reveal (collapsed under reduced-motion by the kit a11y killswitch)
+.ff-reveal {
+  animation: ff-rise 380ms var(--ease-out) both;
+  animation-delay: calc(var(--ri, 0) * 36ms);
+}
+@keyframes ff-rise {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+// ============================================================================
+// TRANSACTION DETAIL SHEET
+// ============================================================================
+
+.td { display: flex; flex-direction: column; gap: 16px; padding-top: 4px; }
+
+.td__head { display: flex; align-items: center; gap: 12px; }
+.td__glyph {
+  flex: 0 0 auto;
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 46px; height: 46px; border-radius: 13px;
+  background: color-mix(in srgb, var(--ink-faint) 16%, transparent);
+  color: var(--ink-dim);
+  mat-icon { width: 24px; height: 24px; font-size: 24px; line-height: 24px; }
+  &.is-income { background: color-mix(in srgb, #34d399 18%, transparent); color: #34d399; }
+  &.is-expense { background: color-mix(in srgb, #fb7185 16%, transparent); color: #fb7185; }
+  &.is-transfer { background: color-mix(in srgb, var(--accent-a) 16%, transparent); color: var(--accent-a); }
+}
+.td__titles { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.td__merchant {
+  margin: 0; font-size: 18px; font-weight: 800; letter-spacing: -.01em; color: var(--ink);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.td__sub { font-size: 12.5px; font-weight: 600; color: var(--ink-dim); }
+.td__amt {
+  flex: 0 0 auto; font-size: 19px; font-weight: 800; color: var(--ink);
+  &.is-in { color: #34d399; }
+}
+
+.td__rows { margin: 0; display: flex; flex-direction: column; }
+.td__row {
+  display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  padding: 11px 2px; border-bottom: 1px solid var(--hairline);
+  &:last-child { border-bottom: none; }
+  dt { font-size: 12.5px; font-weight: 700; color: var(--ink-dim); margin: 0; }
+  dd {
+    margin: 0; display: inline-flex; align-items: center; gap: 6px;
+    font-size: 14px; font-weight: 700; color: var(--ink); text-align: right;
+    min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+}
+.td__owner-dot { flex: 0 0 auto; width: 10px; height: 10px; border-radius: 50%; }
+.td__kind {
+  &.is-income { color: #34d399; }
+  &.is-expense { color: #fb7185; }
+  &.is-transfer { color: var(--accent-a); }
+}

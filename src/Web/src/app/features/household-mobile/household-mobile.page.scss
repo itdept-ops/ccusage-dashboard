@@ -1,0 +1,528 @@
+// ============================================================================
+// Household settings — the mobile-first twin of the live /family/household page, rebuilt on the shared
+// beta-ui "Strata" foundation. One line adopts the whole Strata token contract (layered bg, glass, ink
+// scale, radii, the lift-1/2/3 depth system, spring/bounce easing, blur cap, env() safe-area, the a11y
+// killswitches); then HOUSEHOLD OVERRIDES the per-page accent contract with its OWN signature: a warm
+// HEARTH AMBER → EMBER ramp. Every kit component reads --accent-a/--accent-b off this :host cascade, so
+// this single override re-skins the screen (pull-refresh ring, swipe reveal, FAB, focus ring all follow).
+//
+// ISOLATED + gated by platform.mobile: nothing here touches the global --tech-* tokens or the live
+// /family/household page. The kit partial is the only import.
+// ============================================================================
+
+@use '../beta-ui/beta-kit' as kit;
+
+:host {
+  @include kit.beta-host;          // the whole Strata token contract on :host
+
+  // ---- HOUSEHOLD'S SIGNATURE ACCENT: HEARTH AMBER → EMBER (the per-page contract override) ----
+  --accent-a: #f59e0b;             // hearth amber (start)
+  --accent-b: #d4530a;             // ember (deep, end)
+}
+
+@include kit.beta-springs;          // @supports linear() spring upgrade (top-level, once)
+@include kit.beta-a11y;             // reduced-motion + reduced-transparency/contrast killswitches (once)
+
+// ============================================================================
+// SHELL — the kit pull-to-refresh wrapper IS the scroll container.
+// ============================================================================
+
+.hh-ptr { display: block; height: 100%; }
+
+.hh-scroll {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-height: 100%;
+  max-width: 720px;          // centers on desktop; full-bleed within 390px
+  margin-inline: auto;
+  width: 100%;
+  box-sizing: border-box;
+  padding-top: calc(var(--safe-top) + 8px);
+  padding-bottom: calc(var(--safe-bottom) + 96px);   // clears the fixed FAB + global tab bar
+  padding-inline: var(--gutter) var(--gutter-r);
+}
+
+// ============================================================================
+// IMMERSIVE HERO — kicker + household name + count + inline rename.
+// ============================================================================
+
+.hh-hero {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 4px 4px;
+  isolation: isolate;
+}
+
+.hh-hero__bloom {
+  position: absolute;
+  inset: -40px -30px auto -30px;
+  height: 200px;
+  background: radial-gradient(60% 80% at 22% 0%,
+              color-mix(in oklab, var(--accent-a) 34%, transparent), transparent 70%);
+  filter: blur(var(--blur-glass));
+  z-index: -1;
+  pointer-events: none;
+}
+
+.hh-hero__kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  font-size: .76rem;
+  font-weight: 700;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: color-mix(in oklab, var(--accent-a) 78%, var(--ink-dim));
+
+  mat-icon { width: 18px; height: 18px; font-size: 18px; line-height: 18px; }
+}
+
+.hh-hero__title {
+  margin: 0;
+  font-size: 1.7rem;
+  font-weight: 800;
+  letter-spacing: -.02em;
+  line-height: 1.12;
+  color: var(--ink);
+}
+
+.hh-hero__sub {
+  margin: 0;
+  font-size: .9rem;
+  color: var(--ink-dim);
+}
+
+// inline rename row (owner only)
+.hh-rename {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.hh-rename__input {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 44px;
+  padding: 0 14px;
+  border-radius: var(--r-pill, 999px);
+  border: 1px solid var(--hairline);
+  background: var(--glass);
+  color: var(--ink);
+  font: inherit;
+  font-size: 1rem;
+  font-weight: 600;
+  outline: none;
+  transition: border-color .18s var(--ease-out), box-shadow .18s var(--ease-out);
+
+  &::placeholder { color: var(--ink-faint); font-weight: 500; }
+  &:focus-visible {
+    border-color: color-mix(in oklab, var(--accent-a) 60%, var(--hairline));
+    box-shadow: 0 0 0 3px color-mix(in oklab, var(--accent-a) 28%, transparent);
+  }
+  &:disabled { opacity: .6; }
+}
+
+.hh-rename__save {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border: none;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--accent-a), var(--accent-b));
+  color: #fff;
+  box-shadow: var(--lift-2);
+  cursor: pointer;
+  transition: transform .16s var(--ease-out), opacity .16s var(--ease-out);
+
+  mat-icon { width: 22px; height: 22px; font-size: 22px; line-height: 22px; }
+  &:active { transform: scale(.92); }
+  &:disabled { opacity: .4; box-shadow: none; cursor: default; }
+}
+
+// ============================================================================
+// MEMBER ROSTER — glassy cards; owner-removable rows wrap in a swipe-row.
+// ============================================================================
+
+.hh-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.hh-swipe { display: block; border-radius: var(--r-tile); }
+
+.hh-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 12px 14px;
+  border-radius: var(--r-tile);
+  border: 1px solid var(--hairline);
+  background: var(--glass);
+  box-shadow: var(--lift-1);
+  min-height: 72px;
+
+  &.is-busy { opacity: .55; }
+}
+
+.hh-avatar {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  overflow: hidden;
+  background: linear-gradient(135deg,
+              color-mix(in oklab, var(--accent-a) 28%, var(--bg-rise)),
+              color-mix(in oklab, var(--accent-b) 22%, var(--bg-rise)));
+  color: var(--ink);
+  font-weight: 800;
+  font-size: 1rem;
+
+  img { width: 100%; height: 100%; object-fit: cover; }
+
+  &.is-owner {
+    background: linear-gradient(135deg, var(--accent-a), var(--accent-b));
+    color: #fff;
+    box-shadow: 0 0 0 2px color-mix(in oklab, var(--accent-a) 40%, transparent);
+  }
+}
+
+.hh-avatar__txt { line-height: 1; }
+
+.hh-card__body {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.hh-card__name {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hh-you {
+  font-style: normal;
+  font-size: .66rem;
+  font-weight: 700;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  padding: 2px 7px;
+  border-radius: var(--r-pill, 999px);
+  background: color-mix(in oklab, var(--accent-a) 22%, transparent);
+  color: color-mix(in oklab, var(--accent-a) 86%, var(--ink));
+}
+
+.hh-card__role {
+  font-size: .82rem;
+  color: var(--ink-dim);
+}
+
+.hh-card__hint {
+  flex: 0 0 auto;
+  width: 22px; height: 22px; font-size: 22px; line-height: 22px;
+  color: var(--ink-faint);
+}
+
+.hh-crown {
+  flex: 0 0 auto;
+  display: inline-flex;
+  color: color-mix(in oklab, var(--accent-a) 88%, var(--ink-dim));
+  mat-icon { width: 22px; height: 22px; font-size: 22px; line-height: 22px; }
+}
+
+.hh-foot {
+  margin: 2px 4px 0;
+  font-size: .76rem;
+  color: var(--ink-faint);
+  text-align: center;
+}
+
+// staggered reveal of the roster cards
+.hh-reveal {
+  animation: hh-rise .42s var(--ease-out) both;
+  animation-delay: calc(var(--ri, 0) * 42ms);
+}
+
+@keyframes hh-rise {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+// ============================================================================
+// STATE BLOCKS — error + empty (render cleanly with ZERO data).
+// ============================================================================
+
+.hh-state, .hh-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 10px;
+  padding: 38px 22px;
+  border-radius: var(--r-glass, 22px);
+  border: 1px solid var(--hairline);
+  background: var(--glass);
+  box-shadow: var(--lift-1);
+}
+
+.hh-state__orb, .hh-empty__orb {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: linear-gradient(135deg,
+              color-mix(in oklab, var(--accent-a) 26%, var(--bg-rise)),
+              color-mix(in oklab, var(--accent-b) 20%, var(--bg-rise)));
+  color: color-mix(in oklab, var(--accent-a) 86%, var(--ink));
+  mat-icon { width: 32px; height: 32px; font-size: 32px; line-height: 32px; }
+}
+
+.hh-state__title, .hh-empty__title {
+  margin: 0;
+  font-size: 1.12rem;
+  font-weight: 800;
+  color: var(--ink);
+}
+
+.hh-state__body, .hh-empty__body {
+  margin: 0;
+  max-width: 30ch;
+  font-size: .9rem;
+  color: var(--ink-dim);
+}
+
+.hh-state__cta, .hh-empty__cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+  height: 44px;
+  padding: 0 20px;
+  border: none;
+  border-radius: var(--r-pill, 999px);
+  background: linear-gradient(135deg, var(--accent-a), var(--accent-b));
+  color: #fff;
+  font: inherit;
+  font-weight: 700;
+  box-shadow: var(--lift-2);
+  cursor: pointer;
+  transition: transform .16s var(--ease-out);
+
+  mat-icon { width: 20px; height: 20px; font-size: 20px; line-height: 20px; }
+  &:active { transform: scale(.96); }
+}
+
+// ============================================================================
+// ADD-MEMBER SHEET — the people-picker body inside the bottom sheet.
+// ============================================================================
+
+.hm {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 4px 18px calc(var(--safe-bottom) + 18px);
+}
+
+.hm__head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.hm__glyph {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 46px;
+  height: 46px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, var(--accent-a), var(--accent-b));
+  color: #fff;
+  box-shadow: var(--lift-1);
+  mat-icon { width: 24px; height: 24px; font-size: 24px; line-height: 24px; }
+}
+
+.hm__titles { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.hm__title { margin: 0; font-size: 1.15rem; font-weight: 800; color: var(--ink); }
+.hm__sub { font-size: .84rem; color: var(--ink-dim); }
+
+.hm__close {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border: 1px solid var(--hairline);
+  border-radius: 50%;
+  background: var(--glass);
+  color: var(--ink-dim);
+  cursor: pointer;
+  mat-icon { width: 22px; height: 22px; font-size: 22px; line-height: 22px; }
+  &:disabled { opacity: .5; }
+}
+
+.hm__list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.hm__cand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 10px 12px;
+  border-radius: var(--r-tile);
+  border: 1px solid var(--hairline);
+  background: var(--glass);
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color .16s var(--ease-out), background .16s var(--ease-out);
+
+  &.is-picked {
+    border-color: color-mix(in oklab, var(--accent-a) 60%, var(--hairline));
+    background: color-mix(in oklab, var(--accent-a) 12%, var(--glass));
+  }
+  &:disabled { opacity: .6; cursor: default; }
+}
+
+.hm__cand-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: .98rem;
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hm__radio {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 2px solid var(--hairline);
+  color: #fff;
+  transition: background .16s var(--ease-out), border-color .16s var(--ease-out);
+
+  &.is-on {
+    background: linear-gradient(135deg, var(--accent-a), var(--accent-b));
+    border-color: transparent;
+  }
+  mat-icon { width: 18px; height: 18px; font-size: 18px; line-height: 18px; }
+}
+
+.hm__empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 12px;
+  padding: 30px 18px;
+}
+
+.hm__empty-orb {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: var(--bg-rise);
+  color: var(--ink-dim);
+  mat-icon { width: 28px; height: 28px; font-size: 28px; line-height: 28px; }
+}
+
+.hm__empty-txt { margin: 0; max-width: 32ch; font-size: .9rem; color: var(--ink-dim); }
+
+.hm__actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.hm__btn {
+  flex: 1 1 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 48px;
+  border: none;
+  border-radius: var(--r-pill, 999px);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform .16s var(--ease-out), opacity .16s var(--ease-out);
+
+  mat-icon { width: 20px; height: 20px; font-size: 20px; line-height: 20px; }
+  &:active { transform: scale(.97); }
+  &:disabled { opacity: .45; cursor: default; transform: none; }
+}
+
+.hm__btn--ghost {
+  background: var(--glass);
+  border: 1px solid var(--hairline);
+  color: var(--ink-dim);
+}
+
+.hm__btn--add {
+  background: linear-gradient(135deg, var(--accent-a), var(--accent-b));
+  color: #fff;
+  box-shadow: var(--lift-2);
+}
+
+// ============================================================================
+// SPINNER — a tiny inline ring for in-flight buttons / rows.
+// ============================================================================
+
+.hh-spin {
+  display: inline-block;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2px solid color-mix(in oklab, #fff 55%, transparent);
+  border-top-color: #fff;
+  animation: hh-spin .7s linear infinite;
+}
+
+.hh-spin--row {
+  flex: 0 0 auto;
+  border-color: color-mix(in oklab, var(--accent-a) 40%, transparent);
+  border-top-color: var(--accent-a);
+}
+
+@keyframes hh-spin { to { transform: rotate(360deg); } }

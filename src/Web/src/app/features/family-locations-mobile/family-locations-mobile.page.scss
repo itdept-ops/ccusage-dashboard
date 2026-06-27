@@ -1,0 +1,398 @@
+@use '../beta-ui/beta-kit' as kit;
+
+:host {
+  @include kit.beta-host;
+  // Signature accent for the family-finder — a calm SKY → VIOLET (echoes the live "event" hue).
+  --accent-a: #38bdf8;
+  --accent-b: #7c5cff;
+
+  display: block;
+  position: relative;
+  // Own the immersive column under the global slim top bar + bottom tab bar.
+  height: 100%;
+  min-height: 100%;
+  overflow: hidden;
+  background: var(--bg-base);
+  color: var(--ink);
+}
+
+// Height the global tab bar occupies — the docked sheet sits ABOVE this.
+$tabbar: 62px;
+
+.fl {
+  position: absolute;
+  inset: 0;
+}
+
+// ─────────────── FULL-BLEED MAP ───────────────
+.fl-map {
+  position: absolute;
+  inset: 0;
+  // The map component fills the whole host; the sheet floats over its lower portion.
+  app-location-map {
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+  // Round-edge softening is unnecessary full-bleed; let Leaflet own the chrome.
+  ::ng-deep .leaflet-host { border-radius: 0; }
+
+  &.is-dim::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(120% 90% at 50% 0%, transparent, rgba(8, 9, 16, .55));
+    pointer-events: none;
+  }
+}
+
+.fl-map__placeholder {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background:
+    radial-gradient(90% 70% at 50% 18%, color-mix(in srgb, var(--accent-a) 16%, transparent), transparent 70%),
+    var(--bg-sink);
+
+  mat-icon {
+    font-size: 96px;
+    width: 96px;
+    height: 96px;
+    color: color-mix(in srgb, var(--accent-a) 24%, var(--ink-faint));
+    opacity: .5;
+  }
+}
+
+// ─────────────── FLOATING HEADER ───────────────
+.fl-head {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 5;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: calc(var(--safe-top, 0px) + 12px) 14px 16px;
+  background: linear-gradient(180deg, rgba(8, 9, 16, .82), rgba(8, 9, 16, .42) 60%, transparent);
+  pointer-events: none; // let map drags pass through gaps; children re-enable
+}
+
+.fl-head__text { pointer-events: auto; }
+
+.fl-head__eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--accent-a);
+
+  mat-icon { font-size: 15px; width: 15px; height: 15px; }
+}
+
+.fl-head__title {
+  margin: 3px 0 0;
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: -.01em;
+  color: var(--ink);
+  text-shadow: 0 1px 12px rgba(0, 0, 0, .55);
+}
+
+.fl-head__refresh {
+  pointer-events: auto;
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border: 1px solid var(--glass-edge);
+  border-radius: 50%;
+  background: var(--glass);
+  backdrop-filter: blur(10px);
+  color: var(--ink);
+  cursor: pointer;
+  transition: transform .12s ease, background .15s ease;
+
+  mat-icon { font-size: 22px; width: 22px; height: 22px; }
+
+  &:active { transform: scale(.92); }
+  &:disabled { opacity: .65; cursor: default; }
+
+  &.is-spinning mat-icon { animation: fl-spin 1s linear infinite; }
+}
+
+@keyframes fl-spin { to { transform: rotate(360deg); } }
+
+// ─────────────── DOCKED MEMBER SHEET ───────────────
+.fl-sheet {
+  position: absolute;
+  left: 0;
+  right: 0;
+  // Sit ABOVE the ~62px global tab bar (this host clears it; absolute keeps it off the viewport bottom).
+  bottom: $tabbar;
+  z-index: 6;
+
+  max-height: 56%;
+  display: flex;
+  flex-direction: column;
+  padding: 6px 0 max(8px, var(--safe-bottom, 0px));
+
+  background: var(--glass);
+  backdrop-filter: blur(18px) saturate(1.1);
+  border-top: 1px solid var(--glass-edge);
+  border-radius: 22px 22px 0 0;
+  box-shadow: 0 -18px 44px rgba(0, 0, 0, .5);
+}
+
+.fl-sheet__grip {
+  flex: 0 0 auto;
+  width: 40px;
+  height: 4px;
+  margin: 6px auto 4px;
+  border-radius: 99px;
+  background: var(--ink-faint);
+  opacity: .6;
+}
+
+.fl-sheet__head {
+  flex: 0 0 auto;
+  padding: 6px 18px 8px;
+}
+
+.fl-sheet__count {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: .02em;
+  color: var(--ink-dim);
+
+  .mono-num { color: var(--ink); font-weight: 800; }
+}
+
+// ─── LIST ───
+.fl-list {
+  list-style: none;
+  margin: 0;
+  padding: 2px 10px 4px;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+
+.fl-row {
+  border-radius: 14px;
+
+  & + & { margin-top: 4px; }
+
+  &.is-selected { background: color-mix(in srgb, var(--accent-a) 16%, transparent); }
+  &.is-self .fl-row__name { color: var(--accent-a); }
+}
+
+.fl-row__btn {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 60px;
+  padding: 9px 10px;
+  border: 0;
+  background: transparent;
+  border-radius: 14px;
+  text-align: left;
+  color: inherit;
+  cursor: pointer;
+  transition: background .12s ease;
+
+  &:active { background: rgba(255, 255, 255, .05); }
+}
+
+.fl-row__avatar {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: .02em;
+  color: #0b0c12;
+  background: var(--swatch, var(--accent-a));
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--swatch, var(--accent-a)) 35%, transparent);
+}
+
+.fl-row__body {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.fl-row__name {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.fl-row__you {
+  flex: 0 0 auto;
+  font-size: 9.5px;
+  font-weight: 800;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  padding: 2px 6px;
+  border-radius: 99px;
+  color: var(--ink-on-accent);
+  background: linear-gradient(135deg, var(--accent-a), var(--accent-b));
+}
+
+.fl-row__meta {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 12.5px;
+  color: var(--ink-dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+
+  .fl-row__pin { font-size: 14px; width: 14px; height: 14px; flex: 0 0 auto; color: var(--ink-faint); }
+}
+
+.fl-row__when {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 11.5px;
+  color: var(--ink-faint);
+}
+
+.fl-row__stale {
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  padding: 1px 6px;
+  border-radius: 99px;
+  color: var(--ink-dim);
+  background: var(--hairline);
+}
+
+.fl-row__go {
+  flex: 0 0 auto;
+  font-size: 20px;
+  width: 20px;
+  height: 20px;
+  color: var(--ink-faint);
+}
+
+.is-selected .fl-row__go { color: var(--accent-a); }
+
+// ─── SKELETON ROWS ───
+.fl-row--skel {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 9px 10px;
+  min-height: 60px;
+}
+
+.fl-row__skel-lines {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+// ─── STATES (empty / error) ───
+.fl-state {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 18px 26px 26px;
+}
+
+.fl-state__orb {
+  display: grid;
+  place-items: center;
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  margin-bottom: 14px;
+  background: radial-gradient(circle at 32% 28%, color-mix(in srgb, var(--accent-a) 32%, transparent), transparent 70%);
+  border: 1px solid var(--glass-edge);
+
+  mat-icon { font-size: 30px; width: 30px; height: 30px; color: var(--accent-a); }
+}
+
+.fl-state__title {
+  margin: 0 0 6px;
+  font-size: 17px;
+  font-weight: 800;
+  color: var(--ink);
+}
+
+.fl-state__body {
+  margin: 0 0 16px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--ink-dim);
+  max-width: 30ch;
+}
+
+.fl-state__cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 11px 18px;
+  border: 0;
+  border-radius: 99px;
+  font-size: 14px;
+  font-weight: 700;
+  text-decoration: none;
+  color: var(--ink-on-accent);
+  background: linear-gradient(135deg, var(--accent-a), var(--accent-b));
+  cursor: pointer;
+  box-shadow: 0 8px 22px color-mix(in srgb, var(--accent-b) 35%, transparent);
+
+  mat-icon { font-size: 19px; width: 19px; height: 19px; }
+  &:active { transform: scale(.97); }
+}
+
+// ─── FOOTER NOTE ───
+.fl-foot {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin: 6px 0 0;
+  padding: 0 18px;
+  font-size: 10.5px;
+  color: var(--ink-faint);
+  text-align: center;
+
+  mat-icon { font-size: 13px; width: 13px; height: 13px; }
+}
+
+// ─── reduced motion ───
+@media (prefers-reduced-motion: reduce) {
+  .fl-head__refresh.is-spinning mat-icon { animation: none; }
+  .fl-head__refresh:active,
+  .fl-state__cta:active { transform: none; }
+}

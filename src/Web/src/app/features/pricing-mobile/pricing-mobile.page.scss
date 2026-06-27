@@ -1,0 +1,415 @@
+// ============================================================================
+// Model Pricing — the MOBILE twin of the live /pricing page, rebuilt on the shared beta-ui "Strata"
+// foundation. One line adopts the whole Strata token contract on :host; then this page OVERRIDES the
+// per-page accent contract with its OWN signature — an AMBER → CYAN ramp (a "rates / money / config"
+// hue). Every kit component (pull-refresh ring, the toaster) reads --accent-a/--accent-b off this :host
+// cascade, so this single override re-skins the whole screen.
+//
+// ISOLATED + gated by platform.mobile on the SAME /pricing route: nothing here touches the global
+// --tech-* tokens or the live page. The kit partial is the only import; we consume it, never modify it.
+// ============================================================================
+
+@use '../beta-ui/beta-kit' as kit;
+
+:host {
+  @include kit.beta-host;          // the whole Strata token contract on :host
+
+  // ---- PRICING's SIGNATURE ACCENT: amber → cyan (the per-page contract override) ----
+  --accent-a: #f6c453;             // signature amber (start)
+  --accent-b: #38bdf8;             // signature cyan (end)
+
+  // A faint amber wash behind the whole column (still within the kit's dark contract).
+  background: radial-gradient(120% 80% at 50% -8%, #1d1a12 0%, var(--bg-base) 58%);
+
+  height: 100%; // fill the immersive shell frame; the pull-refresh owns the scroll
+}
+
+@include kit.beta-springs;          // @supports linear() spring upgrade (top-level, once)
+@include kit.beta-a11y;             // reduced-motion + reduced-transparency/contrast killswitches (once)
+
+// ============================================================================
+// SHELL — the kit pull-to-refresh wrapper IS the scroll container.
+// ============================================================================
+
+.pr-ptr { display: block; height: 100%; }
+
+.pr-scroll {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-height: 100%;
+  padding-top: calc(var(--safe-top) + 8px);
+  padding-bottom: calc(var(--safe-bottom) + 24px);
+  padding-inline: var(--gutter) var(--gutter-r);
+}
+
+// ============================================================================
+// IMMERSIVE HEADER — title + accent bloom + a tiny stat strip.
+// ============================================================================
+
+.pr-hero {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 6px 2px 2px;
+  isolation: isolate;
+}
+
+.pr-hero__bloom {
+  position: absolute;
+  top: -44px; left: -30px; right: 28%;
+  height: 168px; z-index: -1; pointer-events: none;
+  background: radial-gradient(130px 96px at 30% 30%,
+    color-mix(in oklab, var(--accent-a) 42%, transparent), transparent 70%);
+  filter: blur(8px);
+}
+
+.pr-hero__kicker {
+  display: inline-flex; align-items: center; gap: 6px;
+  margin: 0;
+  font-family: var(--font-ui); font-size: 12px; font-weight: 700;
+  letter-spacing: .08em; text-transform: uppercase;
+  color: var(--ink-dim);
+
+  mat-icon {
+    font-size: 16px; width: 16px; height: 16px;
+    color: var(--accent-a);
+  }
+}
+
+.pr-hero__title {
+  margin: 0;
+  font-family: var(--font-display, var(--font-ui)); font-weight: 800;
+  font-size: clamp(26px, 8vw, 34px); line-height: 1.05;
+  letter-spacing: -.02em; color: var(--ink);
+}
+
+.pr-hero__sub {
+  margin: 0;
+  font-family: var(--font-ui); font-size: 13px; line-height: 1.45;
+  color: var(--ink-dim);
+
+  strong { color: var(--ink); font-weight: 700; }
+}
+
+// ---- stat strip ----
+.pr-stats {
+  display: flex; align-items: stretch; gap: 10px;
+  margin-top: 4px;
+}
+
+.pr-stat {
+  display: flex; flex-direction: column; gap: 1px;
+  padding: 10px 14px;
+  background: var(--glass);
+  backdrop-filter: blur(var(--blur-glass)) saturate(1.3);
+  -webkit-backdrop-filter: blur(var(--blur-glass)) saturate(1.3);
+  border: 1px solid var(--glass-edge);
+  border-radius: var(--r-tile);
+  box-shadow: var(--lift-1);
+
+  &--ro {
+    flex-direction: row; align-items: center; gap: 6px;
+    margin-left: auto;
+    mat-icon { font-size: 16px; width: 16px; height: 16px; color: var(--ink-dim); }
+  }
+}
+
+.pr-stat__n {
+  font-family: var(--font-display, var(--font-ui)); font-weight: 800;
+  font-size: 22px; line-height: 1; color: var(--ink);
+  background: linear-gradient(135deg, var(--accent-a), var(--accent-b));
+  -webkit-background-clip: text; background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.pr-stat__l {
+  font-family: var(--font-ui); font-size: 11.5px; font-weight: 600;
+  letter-spacing: .03em; color: var(--ink-dim);
+}
+
+// ============================================================================
+// PRICING CARDS — one editable card per model.
+// ============================================================================
+
+.pr-card {
+  position: relative;
+  display: flex; flex-direction: column; gap: 12px;
+  padding: 16px 14px;
+  background: var(--bg-rise);
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-card);
+  box-shadow: var(--lift-1);
+  overflow: hidden;
+
+  &.is-placeholder {
+    border-color: color-mix(in oklab, var(--accent-a) 36%, var(--hairline));
+  }
+}
+
+// a slim accent rail down the left edge
+.pr-card__accent {
+  position: absolute; top: 0; left: 0; bottom: 0;
+  width: 3px;
+  background: linear-gradient(180deg, var(--accent-a), var(--accent-b));
+  opacity: .85;
+}
+
+.pr-card__head {
+  display: flex; align-items: center; gap: 8px;
+  padding-left: 4px;
+}
+
+.pr-card__title {
+  display: flex; align-items: center; gap: 8px; min-width: 0; flex: 1 1 auto;
+}
+
+.pr-card__dot {
+  flex: 0 0 auto;
+  width: 9px; height: 9px; border-radius: 50%;
+  background: linear-gradient(135deg, var(--accent-a), var(--accent-b));
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--accent-a) 22%, transparent);
+}
+
+.pr-pattern {
+  font-size: 14px; font-weight: 700; color: var(--ink);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  letter-spacing: -.01em;
+}
+
+.pr-badge {
+  flex: 0 0 auto;
+  font-family: var(--font-ui); font-size: 10.5px; font-weight: 700;
+  letter-spacing: .05em; text-transform: uppercase;
+  padding: 3px 8px; border-radius: var(--r-pill);
+  color: var(--accent-a);
+  background: color-mix(in oklab, var(--accent-a) 16%, transparent);
+  border: 1px solid color-mix(in oklab, var(--accent-a) 30%, transparent);
+}
+
+// ---- display-name field ----
+.pr-field { display: flex; flex-direction: column; gap: 6px; }
+
+.pr-field__label {
+  font-family: var(--font-ui); font-size: 11.5px; font-weight: 700;
+  letter-spacing: .04em; text-transform: uppercase; color: var(--ink-dim);
+}
+
+.pr-field__input {
+  width: 100%; box-sizing: border-box;
+  min-height: 46px; padding: 11px 14px;
+  background: var(--bg-sink);
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-pill);
+  font-family: var(--font-ui); font-size: 15px; color: var(--ink);
+  -webkit-tap-highlight-color: transparent;
+  transition: border-color 180ms var(--ease-out), box-shadow 180ms var(--ease-out);
+
+  &::placeholder { color: var(--ink-faint, var(--ink-dim)); }
+  &:focus {
+    outline: none;
+    border-color: color-mix(in oklab, var(--accent-a) 60%, var(--hairline));
+    box-shadow: 0 0 0 3px color-mix(in oklab, var(--accent-a) 22%, transparent);
+  }
+  &:disabled { opacity: .7; cursor: not-allowed; }
+}
+
+// ---- rate grid ----
+.pr-rates-label {
+  font-family: var(--font-ui); font-size: 11px; font-weight: 700;
+  letter-spacing: .05em; text-transform: uppercase; color: var(--ink-dim);
+  margin-top: 2px;
+}
+
+.pr-rates {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.pr-rate { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+
+.pr-rate__label {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-family: var(--font-ui); font-size: 12px; font-weight: 600; color: var(--ink-dim);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+
+  mat-icon {
+    flex: 0 0 auto;
+    font-size: 14px; width: 14px; height: 14px; color: var(--accent-a);
+  }
+}
+
+.pr-rate__inputwrap {
+  display: flex; align-items: center;
+  min-height: 46px; padding: 0 10px;
+  background: var(--bg-sink);
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-tile);
+  transition: border-color 180ms var(--ease-out), box-shadow 180ms var(--ease-out);
+
+  &:focus-within {
+    border-color: color-mix(in oklab, var(--accent-a) 60%, var(--hairline));
+    box-shadow: 0 0 0 3px color-mix(in oklab, var(--accent-a) 22%, transparent);
+  }
+}
+
+.pr-rate__pre {
+  flex: 0 0 auto;
+  font-family: var(--font-ui); font-size: 13px; font-weight: 700; color: var(--ink-dim);
+}
+
+.pr-rate__input {
+  flex: 1 1 auto; min-width: 0; width: 100%;
+  border: none; background: transparent; outline: none;
+  padding: 11px 4px;
+  font-size: 15px; font-weight: 600; color: var(--ink);
+  -webkit-tap-highlight-color: transparent;
+
+  &::placeholder { color: var(--ink-faint, var(--ink-dim)); }
+  &:disabled { color: var(--ink-dim); }
+
+  // trim the spinners for a cleaner numeric field
+  &::-webkit-outer-spin-button,
+  &::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+  & { -moz-appearance: textfield; appearance: textfield; }
+}
+
+.pr-rate__suf {
+  flex: 0 0 auto;
+  font-family: var(--font-ui); font-size: 12px; font-weight: 700; color: var(--ink-faint, var(--ink-dim));
+}
+
+// ---- per-card save ----
+.pr-save {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  width: 100%; min-height: 46px; padding: 12px 16px; margin-top: 2px;
+  border: 1px solid color-mix(in oklab, var(--accent-a) 36%, var(--hairline));
+  border-radius: var(--r-pill);
+  background: color-mix(in oklab, var(--accent-a) 12%, var(--bg-sink));
+  color: var(--ink);
+  font-family: var(--font-ui); font-weight: 700; font-size: 14px;
+  cursor: pointer; touch-action: manipulation; -webkit-tap-highlight-color: transparent;
+  transition: background 160ms var(--ease-out), transform 160ms var(--ease-spring-up, var(--ease-out));
+
+  mat-icon { font-size: 19px; width: 19px; height: 19px; color: var(--accent-a); }
+  &:active { transform: scale(.985); }
+  &:disabled { opacity: .55; pointer-events: none; }
+  &:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+}
+
+// ============================================================================
+// FOOTNOTE.
+// ============================================================================
+
+.pr-foot {
+  margin: 2px 4px 0;
+  font-family: var(--font-ui); font-size: 11.5px; line-height: 1.45;
+  text-align: center; color: var(--ink-faint, var(--ink-dim));
+
+  code {
+    font-size: 11px; padding: 1px 4px; border-radius: 4px;
+    background: var(--bg-sink); color: var(--ink-dim);
+  }
+}
+
+// ============================================================================
+// STICKY RECOMPUTE BAR — docked above the bottom safe-area (sits over the tab bar).
+// ============================================================================
+
+.pr-actionbar-spacer { height: 4px; }
+
+.pr-actionbar {
+  position: absolute; left: 0; right: 0;
+  bottom: 0; z-index: 20;
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px max(var(--gutter), 16px) calc(12px + var(--safe-bottom));
+  background: linear-gradient(180deg, transparent, var(--bg-base) 36%);
+  pointer-events: none; // only the button takes pointer events
+}
+
+.pr-actionbar__hint {
+  flex: 1 1 auto; min-width: 0;
+  font-family: var(--font-ui); font-size: 12px; font-weight: 600; line-height: 1.35;
+  color: var(--ink-dim);
+}
+
+.pr-actionbar__btn {
+  pointer-events: auto;
+  flex: 0 0 auto;
+  display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+  min-height: 46px; padding: 12px 22px;
+  border: none; border-radius: var(--r-pill);
+  background: linear-gradient(135deg, var(--accent-a), var(--accent-b));
+  color: var(--ink-on-accent); font-family: var(--font-ui); font-weight: 800; font-size: 14px;
+  box-shadow: var(--lift-2);
+  cursor: pointer; touch-action: manipulation; -webkit-tap-highlight-color: transparent;
+  transition: transform 160ms var(--ease-spring-up, var(--ease-out)), opacity 160ms var(--ease-out);
+
+  mat-icon { font-size: 20px; width: 20px; height: 20px; }
+  &:active { transform: scale(.97); }
+  &:disabled {
+    opacity: .55; pointer-events: none;
+    background: var(--bg-rise); color: var(--ink-dim); box-shadow: none;
+  }
+  &:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+}
+
+// ============================================================================
+// LOADING / EMPTY / ERROR STATES.
+// ============================================================================
+
+.pr-skel-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
+}
+
+.pr-state {
+  display: flex; flex-direction: column; align-items: center; text-align: center;
+  gap: 10px; padding: 40px 18px;
+}
+
+.pr-state__orb {
+  width: 64px; height: 64px; border-radius: 50%;
+  display: grid; place-items: center;
+  background: color-mix(in oklab, var(--warn) 16%, transparent);
+  color: var(--warn);
+  mat-icon { font-size: 30px; width: 30px; height: 30px; }
+
+  &--calm {
+    background: color-mix(in oklab, var(--accent-a) 16%, transparent);
+    color: var(--accent-a);
+  }
+}
+
+.pr-state__title { margin: 4px 0 0; font-family: var(--font-ui); font-weight: 700; font-size: 18px; color: var(--ink); }
+.pr-state__body { margin: 0; font-family: var(--font-ui); font-size: 13.5px; color: var(--ink-dim); max-width: 32ch; }
+
+.pr-state__cta {
+  margin-top: 6px;
+  display: inline-flex; align-items: center; gap: 7px;
+  min-height: 44px; padding: 10px 20px;
+  border: none; border-radius: var(--r-pill);
+  background: linear-gradient(135deg, var(--accent-a), var(--accent-b));
+  color: var(--ink-on-accent); font-family: var(--font-ui); font-weight: 700; font-size: 14px;
+  cursor: pointer; touch-action: manipulation; -webkit-tap-highlight-color: transparent;
+  mat-icon { font-size: 19px; width: 19px; height: 19px; }
+  &:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+}
+
+// ============================================================================
+// MISC — the spinner used by the save/recompute buttons.
+// ============================================================================
+
+.pr-spin { animation: pr-spin 900ms linear infinite; }
+@keyframes pr-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .pr-spin { animation: none; } }
+
+// ============================================================================
+// DESKTOP — center the column (the page can be reached on a wide viewport too).
+// ============================================================================
+
+@media (min-width: 720px) {
+  .pr-scroll { max-width: 600px; margin-inline: auto; }
+  .pr-actionbar { max-width: 600px; margin-inline: auto; }
+}

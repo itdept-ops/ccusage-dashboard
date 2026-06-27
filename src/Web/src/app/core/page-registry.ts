@@ -59,6 +59,27 @@ export interface PageDef {
   readonly home?: { readonly label: string; readonly icon?: string };
 }
 
+/**
+ * Build the desktop (+ optional mobile) route entries for a single Family child page. The mobile entry
+ * (when a `mobile` loader is given) is emitted FIRST with `canMatch: [isMobileGated]` so a phone gets the
+ * mobile twin and everything else falls through to the desktop entry at the same child path. The child's
+ * extra permission guard (when present) is applied to BOTH variants; the parent's `family.use` guard +
+ * providers are inherited from the parent route.
+ */
+function familyChild(c: {
+  path: string;
+  title: string;
+  perm?: string;
+  desktop: LoadComponent;
+  mobile?: LoadComponent;
+}): Route[] {
+  const canActivate = c.perm ? [permissionGuard(c.perm)] : undefined;
+  const desktop: Route = { path: c.path, title: c.title, canActivate, loadComponent: c.desktop };
+  if (!c.mobile) return [desktop];
+  const mobile: Route = { path: c.path, canMatch: [isMobileGated], canActivate, loadComponent: c.mobile };
+  return [mobile, desktop];
+}
+
 /** The page registry, in nav/declaration order. */
 export const PAGE_REGISTRY: readonly PageDef[] = [
   // ---- Usage ----
@@ -79,6 +100,7 @@ export const PAGE_REGISTRY: readonly PageDef[] = [
   {
     id: 'pricing', path: 'pricing', title: 'Usage IQ · Pricing', perm: PERM.pricingView,
     desktop: () => import('../features/pricing/pricing').then(m => m.Pricing),
+    mobile: () => import('../features/pricing-mobile/pricing-mobile.page').then(m => m.PricingMobilePage),
     nav: { group: 'Usage', label: 'Pricing', icon: 'sell' },
     home: { label: 'Pricing', icon: 'sell' },
   },
@@ -86,6 +108,7 @@ export const PAGE_REGISTRY: readonly PageDef[] = [
     id: 'reporter', path: 'reporter', title: 'Usage IQ · Reporter',
     anyPerm: [PERM.reporterView, PERM.reporterManage, PERM.reporterSelf],
     desktop: () => import('../features/reporter/reporter').then(m => m.ReporterPage),
+    mobile: () => import('../features/reporter-mobile/reporter-mobile.page').then(m => m.ReporterMobilePage),
     nav: { group: 'Usage', label: 'Reporter', icon: 'cloud_upload' },
     home: { label: 'Reporter', icon: 'cloud_upload' },
   },
@@ -181,6 +204,7 @@ export const PAGE_REGISTRY: readonly PageDef[] = [
   {
     id: 'resume', path: 'resume', title: 'Usage IQ · Resume Builder', perm: PERM.resumeUse,
     desktop: () => import('../features/resume/resume').then(m => m.Resume),
+    mobile: () => import('../features/resume-mobile/resume-mobile.page').then(m => m.ResumeMobilePage),
     nav: { group: 'Tools', label: 'Resume Builder', icon: 'description' },
     home: { label: 'Resume Builder', icon: 'description' },
   },
@@ -210,23 +234,84 @@ export const PAGE_REGISTRY: readonly PageDef[] = [
     nav: { group: 'Family', label: 'Family', icon: 'cottage', tab: true },
     home: { label: 'Family', icon: 'cottage' },
     children: [
+      // family-home index — desktop-only (the parent PageDef's top-level `mobile`=FamilyBetaPage is the /family glance).
       { path: '', title: 'Usage IQ · Family', loadComponent: () => import('../features/family/family-home').then(m => m.FamilyHome) },
-      { path: 'household', title: 'Usage IQ · Household', loadComponent: () => import('../features/family/household').then(m => m.HouseholdSettings) },
-      { path: 'settings', title: 'Usage IQ · Family Settings', loadComponent: () => import('../features/family/family-settings').then(m => m.FamilySettingsPanel) },
-      { path: 'notes', title: 'Usage IQ · Family Notes', loadComponent: () => import('../features/family/notes').then(m => m.FamilyNotes) },
-      { path: 'lists', title: 'Usage IQ · Family Lists', loadComponent: () => import('../features/family/lists').then(m => m.FamilyLists) },
-      { path: 'reminders', title: 'Usage IQ · Family Reminders', loadComponent: () => import('../features/family/reminders').then(m => m.FamilyReminders) },
-      { path: 'timer', title: 'Usage IQ · Family Timer', loadComponent: () => import('../features/family/timer').then(m => m.FamilyTimerWidget) },
-      { path: 'meals', title: 'Usage IQ · Meal Planner', loadComponent: () => import('../features/family/meals').then(m => m.FamilyMeals) },
-      { path: 'chores', title: 'Usage IQ · Chores', loadComponent: () => import('../features/family/chores').then(m => m.FamilyChores) },
-      { path: 'allowance', title: 'Usage IQ · Allowance', canActivate: [permissionGuard(PERM.allowanceManage)], loadComponent: () => import('../features/family/allowance').then(m => m.FamilyAllowance) },
-      { path: 'calendar', title: 'Usage IQ · Family Calendar', loadComponent: () => import('../features/family/calendar').then(m => m.FamilyCalendar) },
-      { path: 'polls', title: 'Usage IQ · Family Polls', loadComponent: () => import('../features/family/polls').then(m => m.FamilyPolls) },
-      { path: 'locations', title: 'Usage IQ · Where is everyone', loadComponent: () => import('../features/family/family-locations').then(m => m.FamilyLocations) },
-      { path: 'cycle', title: 'Usage IQ · Cycle', canActivate: [permissionGuard(PERM.cycleTrack)], loadComponent: () => import('../features/family/cycle').then(m => m.FamilyCycle) },
-      { path: 'identity', title: 'Usage IQ · Identity Map', canActivate: [permissionGuard(PERM.identityMap)], loadComponent: () => import('../features/family/identity-map').then(m => m.FamilyIdentityMap) },
-      { path: 'finance', title: 'Usage IQ · Family Finances', canActivate: [permissionGuard(PERM.familyFinance)], loadComponent: () => import('../features/family/finance').then(m => m.FamilyFinance) },
-    ],
+      ...familyChild({
+        path: 'household', title: 'Usage IQ · Household',
+        desktop: () => import('../features/family/household').then(m => m.HouseholdSettings),
+        mobile: () => import('../features/household-mobile/household-mobile.page').then(m => m.HouseholdMobilePage),
+      }),
+      ...familyChild({
+        path: 'settings', title: 'Usage IQ · Family Settings',
+        desktop: () => import('../features/family/family-settings').then(m => m.FamilySettingsPanel),
+        mobile: () => import('../features/family-settings-mobile/family-settings-mobile.page').then(m => m.FamilySettingsMobilePage),
+      }),
+      ...familyChild({
+        path: 'notes', title: 'Usage IQ · Family Notes',
+        desktop: () => import('../features/family/notes').then(m => m.FamilyNotes),
+        mobile: () => import('../features/family-notes-mobile/family-notes-mobile.page').then(m => m.FamilyNotesMobilePage),
+      }),
+      ...familyChild({
+        path: 'lists', title: 'Usage IQ · Family Lists',
+        desktop: () => import('../features/family/lists').then(m => m.FamilyLists),
+        mobile: () => import('../features/family-lists-mobile/family-lists-mobile.page').then(m => m.FamilyListsMobilePage),
+      }),
+      ...familyChild({
+        path: 'reminders', title: 'Usage IQ · Family Reminders',
+        desktop: () => import('../features/family/reminders').then(m => m.FamilyReminders),
+        mobile: () => import('../features/family-reminders-mobile/family-reminders-mobile.page').then(m => m.FamilyRemindersMobilePage),
+      }),
+      ...familyChild({
+        path: 'timer', title: 'Usage IQ · Family Timer',
+        desktop: () => import('../features/family/timer').then(m => m.FamilyTimerWidget),
+        mobile: () => import('../features/family-timer-mobile/family-timer-mobile.page').then(m => m.FamilyTimerMobilePage),
+      }),
+      ...familyChild({
+        path: 'meals', title: 'Usage IQ · Meal Planner',
+        desktop: () => import('../features/family/meals').then(m => m.FamilyMeals),
+        mobile: () => import('../features/family-meals-mobile/family-meals-mobile.page').then(m => m.FamilyMealsMobilePage),
+      }),
+      ...familyChild({
+        path: 'chores', title: 'Usage IQ · Chores',
+        desktop: () => import('../features/family/chores').then(m => m.FamilyChores),
+        mobile: () => import('../features/family-chores-mobile/family-chores-mobile.page').then(m => m.FamilyChoresMobilePage),
+      }),
+      ...familyChild({
+        path: 'allowance', title: 'Usage IQ · Allowance', perm: PERM.allowanceManage,
+        desktop: () => import('../features/family/allowance').then(m => m.FamilyAllowance),
+        mobile: () => import('../features/family-allowance-mobile/family-allowance-mobile.page').then(m => m.FamilyAllowanceMobilePage),
+      }),
+      ...familyChild({
+        path: 'calendar', title: 'Usage IQ · Family Calendar',
+        desktop: () => import('../features/family/calendar').then(m => m.FamilyCalendar),
+        mobile: () => import('../features/family-calendar-mobile/family-calendar-mobile.page').then(m => m.FamilyCalendarMobilePage),
+      }),
+      ...familyChild({
+        path: 'polls', title: 'Usage IQ · Family Polls',
+        desktop: () => import('../features/family/polls').then(m => m.FamilyPolls),
+        mobile: () => import('../features/family-polls-mobile/family-polls-mobile.page').then(m => m.FamilyPollsMobilePage),
+      }),
+      ...familyChild({
+        path: 'locations', title: 'Usage IQ · Where is everyone',
+        desktop: () => import('../features/family/family-locations').then(m => m.FamilyLocations),
+        mobile: () => import('../features/family-locations-mobile/family-locations-mobile.page').then(m => m.FamilyLocationsMobilePage),
+      }),
+      ...familyChild({
+        path: 'cycle', title: 'Usage IQ · Cycle', perm: PERM.cycleTrack,
+        desktop: () => import('../features/family/cycle').then(m => m.FamilyCycle),
+        mobile: () => import('../features/cycle-mobile/cycle-mobile.page').then(m => m.CycleMobilePage),
+      }),
+      ...familyChild({
+        path: 'identity', title: 'Usage IQ · Identity Map', perm: PERM.identityMap,
+        desktop: () => import('../features/family/identity-map').then(m => m.FamilyIdentityMap),
+        mobile: () => import('../features/identity-mobile/identity-mobile.page').then(m => m.IdentityMobilePage),
+      }),
+      ...familyChild({
+        path: 'finance', title: 'Usage IQ · Family Finances', perm: PERM.familyFinance,
+        desktop: () => import('../features/family/finance').then(m => m.FamilyFinance),
+        mobile: () => import('../features/family-finance-mobile/family-finance-mobile.page').then(m => m.FamilyFinanceMobilePage),
+      }),
+    ].flat(),
   },
 
   // ---- Admin ----
@@ -240,23 +325,27 @@ export const PAGE_REGISTRY: readonly PageDef[] = [
   {
     id: 'users', path: 'users', title: 'Usage IQ · Users', perm: PERM.usersView,
     desktop: () => import('../features/users/users').then(m => m.Users),
+    mobile: () => import('../features/users-mobile/users-mobile.page').then(m => m.UsersMobilePage),
     nav: { group: 'Admin', label: 'Users', icon: 'group' },
     home: { label: 'Users', icon: 'group' },
   },
   {
     id: 'admin-locations', path: 'admin/locations', title: 'Usage IQ · Locations', perm: PERM.locationViewAll,
     desktop: () => import('../features/location/admin-locations').then(m => m.AdminLocations),
+    mobile: () => import('../features/admin-locations-mobile/admin-locations-mobile.page').then(m => m.AdminLocationsMobilePage),
     nav: { group: 'Admin', label: 'Locations', icon: 'location_on' },
   },
   {
     id: 'activity', path: 'activity', title: 'Usage IQ · Activity', perm: PERM.activityView,
     desktop: () => import('../features/logs/logs').then(m => m.Logs),
+    mobile: () => import('../features/activity-mobile/activity-mobile.page').then(m => m.ActivityMobilePage),
     nav: { group: 'Admin', label: 'Activity', icon: 'receipt_long' },
     home: { label: 'Activity', icon: 'receipt_long' },
   },
   {
     id: 'ai-usage', path: 'ai-usage', title: 'Usage IQ · AI usage', perm: PERM.aiUsageView,
     desktop: () => import('../features/ai-usage/ai-usage').then(m => m.AiUsage),
+    mobile: () => import('../features/ai-usage-mobile/ai-usage-mobile.page').then(m => m.AiUsageMobilePage),
     nav: { group: 'Admin', label: 'AI usage', icon: 'smart_toy' },
   },
 
@@ -274,6 +363,7 @@ export const PAGE_REGISTRY: readonly PageDef[] = [
   {
     id: 'locations', path: 'locations', title: 'Usage IQ · My locations', perm: PERM.locationSelf,
     desktop: () => import('../features/location/my-locations').then(m => m.MyLocations),
+    mobile: () => import('../features/locations-mobile/locations-mobile.page').then(m => m.LocationsMobilePage),
     home: { label: 'My locations', icon: 'my_location' },
   },
 ];

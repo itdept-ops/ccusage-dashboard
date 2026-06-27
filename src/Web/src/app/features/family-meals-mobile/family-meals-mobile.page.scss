@@ -1,0 +1,719 @@
+// ============================================================================
+// Family Meals "Plan" — the mobile-first twin of the live /family/meals weekly meal planner, rebuilt on the
+// shared beta-ui "Strata" foundation. One line adopts the whole Strata token contract (layered bg, glass,
+// ink scale, radii, the lift-1/2/3 depth system, spring/out easing, blur cap, env() safe-area, the a11y
+// killswitches); then MEALS OVERRIDES the per-page accent contract with its OWN signature: a warm
+// AMBER → ROSE ramp. Every kit component reads --accent-a/--accent-b off this :host cascade, so this single
+// override re-skins the screen (pull-refresh ring, FAB, swipe accents, focus ring all follow).
+//
+// ISOLATED + gated by platform.mobile + family.use: nothing here touches the global --tech-* tokens or the
+// live /family/meals page. The kit partial is the only import.
+// ============================================================================
+
+@use '../beta-ui/beta-kit' as kit;
+
+:host {
+  @include kit.beta-host;            // the whole Strata token contract on :host
+
+  // ---- MEALS' SIGNATURE ACCENT: AMBER → ROSE (the per-page contract override) ----
+  --accent-a: #f59e0b;               // amber (start)
+  --accent-b: #e11d62;               // rose (deep, end)
+}
+
+@include kit.beta-springs;            // @supports linear() spring upgrade (top-level, once)
+@include kit.beta-a11y;               // reduced-motion + reduced-transparency/contrast killswitches (once)
+
+// ============================================================================
+// SHELL — the kit pull-to-refresh wrapper IS the scroll container.
+// ============================================================================
+
+.fm-ptr { display: block; height: 100%; }
+
+.fm-scroll {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-height: 100%;
+  max-width: 720px;            // centers on desktop; full-bleed within 390px
+  margin-inline: auto;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0 14px calc(120px + var(--safe-bottom));   // clears FAB + global tab bar
+}
+
+// ============================================================================
+// IMMERSIVE HEADER
+// ============================================================================
+
+.fm-hero {
+  position: relative;
+  isolation: isolate;
+  padding: calc(18px + var(--safe-top)) 4px 6px;
+  overflow: hidden;
+
+  &__bloom {
+    position: absolute;
+    inset: -40% -20% auto -20%;
+    height: 220px;
+    background:
+      radial-gradient(60% 80% at 20% 0%, color-mix(in oklab, var(--accent-a) 38%, transparent), transparent 70%),
+      radial-gradient(60% 80% at 90% 10%, color-mix(in oklab, var(--accent-b) 34%, transparent), transparent 72%);
+    filter: blur(var(--blur-glass, 18px));
+    z-index: -1;
+    pointer-events: none;
+  }
+
+  &__kicker {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin: 0 0 12px;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: var(--ink-dim);
+
+    mat-icon {
+      font-size: 18px;
+      width: 18px;
+      height: 18px;
+      color: var(--accent-b);
+    }
+  }
+}
+
+// ── Week navigation ──
+.fm-week {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+
+  &__nav {
+    flex: 0 0 auto;
+    display: grid;
+    place-items: center;
+    width: 44px;
+    height: 44px;
+    border: none;
+    border-radius: var(--r-pill, 999px);
+    background: var(--glass);
+    box-shadow: var(--lift-1);
+    color: var(--ink);
+    cursor: pointer;
+    transition: transform var(--ease-spring, .2s), background .2s;
+
+    &:active { transform: scale(.92); }
+    mat-icon { font-size: 24px; width: 24px; height: 24px; }
+  }
+
+  &__label {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 2px;
+    min-width: 0;
+  }
+
+  &__range {
+    font-size: 19px;
+    font-weight: 800;
+    color: var(--ink);
+    letter-spacing: -.01em;
+  }
+
+  &__today {
+    border: none;
+    background: none;
+    padding: 0;
+    font-size: 12.5px;
+    font-weight: 700;
+    color: var(--accent-b);
+    cursor: pointer;
+  }
+
+  &__cur {
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--ink-faint);
+  }
+}
+
+// ── Whole-week macro stats ──
+.fm-stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.fm-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  padding: 10px 4px;
+  border-radius: var(--r-tile, 18px);
+  background: var(--glass);
+  box-shadow: var(--lift-1);
+
+  &__n {
+    font-size: 17px;
+    font-weight: 800;
+    color: var(--ink);
+  }
+
+  &__l {
+    font-size: 10.5px;
+    font-weight: 600;
+    letter-spacing: .03em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+  }
+}
+
+// ============================================================================
+// WEEKDAY STRIP — swipe the week, tap a day to focus it.
+// ============================================================================
+
+.fm-strip {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  scroll-snap-type: x proximity;
+  -webkit-overflow-scrolling: touch;
+  padding: 4px 2px 6px;
+  scrollbar-width: none;
+  &::-webkit-scrollbar { display: none; }
+}
+
+.fm-day {
+  flex: 0 0 auto;
+  scroll-snap-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  width: 50px;
+  padding: 9px 4px 7px;
+  border: 1px solid transparent;
+  border-radius: var(--r-tile, 18px);
+  background: var(--glass);
+  box-shadow: var(--lift-1);
+  color: var(--ink-dim);
+  cursor: pointer;
+  transition: transform var(--ease-spring, .2s), background .2s, border-color .2s, color .2s;
+
+  &:active { transform: scale(.94); }
+
+  &__wd {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: .03em;
+    text-transform: uppercase;
+  }
+
+  &__d {
+    font-size: 18px;
+    font-weight: 800;
+    color: var(--ink);
+    line-height: 1.05;
+  }
+
+  &__dot {
+    height: 6px;
+    display: grid;
+    place-items: center;
+  }
+
+  &__pip {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--accent-b);
+  }
+
+  &.is-today {
+    .fm-day__d { color: var(--accent-b); }
+  }
+
+  &.is-active {
+    background: linear-gradient(135deg, var(--accent-a), var(--accent-b));
+    color: var(--ink-on-accent);
+    box-shadow: var(--lift-2);
+
+    .fm-day__d { color: var(--ink-on-accent); }
+    .fm-day__pip { background: color-mix(in oklab, var(--ink-on-accent) 80%, transparent); }
+  }
+}
+
+// ============================================================================
+// FOCUSED-DAY HEADER
+// ============================================================================
+
+.fm-dayhead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 2px 4px;
+
+  &__when {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    min-width: 0;
+  }
+
+  &__wd {
+    font-size: 18px;
+    font-weight: 800;
+    color: var(--ink);
+  }
+
+  &__date {
+    font-size: 13px;
+    color: var(--ink-faint);
+    white-space: nowrap;
+    b { color: var(--accent-b); }
+  }
+
+  &__kcal {
+    flex: 0 0 auto;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--ink-dim);
+  }
+}
+
+// ============================================================================
+// MEAL LIST
+// ============================================================================
+
+.fm-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.fm-swipe { border-radius: var(--r-tile, 18px); }
+
+.fm-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  border-radius: var(--r-tile, 18px);
+  background: var(--glass);
+  box-shadow: var(--lift-1);
+  min-height: 64px;
+  transition: opacity .2s;
+
+  &.is-busy { opacity: .55; pointer-events: none; }
+
+  &__glyph {
+    flex: 0 0 auto;
+    display: grid;
+    place-items: center;
+    width: 42px;
+    height: 42px;
+    border-radius: var(--r-tile, 14px);
+    background: linear-gradient(135deg,
+      color-mix(in oklab, var(--accent-a) 26%, transparent),
+      color-mix(in oklab, var(--accent-b) 26%, transparent));
+    color: var(--accent-b);
+
+    mat-icon { font-size: 24px; width: 24px; height: 24px; }
+  }
+
+  &__body {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+  }
+
+  &__top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  &__slot {
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: .05em;
+    text-transform: uppercase;
+    color: var(--accent-b);
+  }
+
+  &__macro {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--ink-faint);
+  }
+
+  &__title {
+    font-size: 15.5px;
+    font-weight: 700;
+    color: var(--ink);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  &__meta {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 12px;
+    color: var(--ink-faint);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+
+    mat-icon { font-size: 15px; width: 15px; height: 15px; }
+  }
+
+  &__noing { font-style: italic; }
+  &__by { font-style: normal; }
+
+  &__cart {
+    flex: 0 0 auto;
+    display: grid;
+    place-items: center;
+    width: 40px;
+    height: 40px;
+    border: none;
+    border-radius: var(--r-pill, 999px);
+    background: var(--glass);
+    box-shadow: var(--lift-1);
+    color: var(--accent-b);
+    cursor: pointer;
+    transition: transform var(--ease-spring, .2s);
+
+    &:active { transform: scale(.9); }
+    &:disabled { opacity: .5; }
+    mat-icon { font-size: 22px; width: 22px; height: 22px; }
+  }
+}
+
+.fm-foot {
+  margin: 4px 0 0;
+  text-align: center;
+  font-size: 11.5px;
+  color: var(--ink-faint);
+}
+
+// staggered reveal
+.fm-reveal {
+  animation: fm-rise .42s var(--ease-spring, ease) backwards;
+  animation-delay: calc(var(--ri, 0) * 45ms);
+}
+
+@keyframes fm-rise {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: none; }
+}
+
+// ============================================================================
+// WHOLE-WEEK GROCERY BUTTON
+// ============================================================================
+
+.fm-grocery {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  margin-top: 4px;
+  padding: 14px 16px;
+  border: none;
+  border-radius: var(--r-pill, 999px);
+  background: linear-gradient(135deg, var(--accent-a), var(--accent-b));
+  color: var(--ink-on-accent);
+  font-size: 14.5px;
+  font-weight: 700;
+  box-shadow: var(--lift-2);
+  cursor: pointer;
+  transition: transform var(--ease-spring, .2s), filter .2s;
+
+  &:active { transform: scale(.98); }
+  &:disabled { opacity: .7; }
+  mat-icon { font-size: 21px; width: 21px; height: 21px; }
+}
+
+// ============================================================================
+// STATES — empty / error / spinner
+// ============================================================================
+
+.fm-empty,
+.fm-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 8px;
+  padding: 32px 18px;
+  border-radius: var(--r-card, 24px);
+  background: var(--glass);
+  box-shadow: var(--lift-1);
+
+  &__orb {
+    display: grid;
+    place-items: center;
+    width: 64px;
+    height: 64px;
+    margin-bottom: 4px;
+    border-radius: 50%;
+    background: linear-gradient(135deg,
+      color-mix(in oklab, var(--accent-a) 30%, transparent),
+      color-mix(in oklab, var(--accent-b) 30%, transparent));
+    color: var(--accent-b);
+    mat-icon { font-size: 32px; width: 32px; height: 32px; }
+  }
+
+  &__title {
+    margin: 0;
+    font-size: 17px;
+    font-weight: 800;
+    color: var(--ink);
+  }
+
+  &__body {
+    margin: 0;
+    font-size: 13.5px;
+    line-height: 1.45;
+    color: var(--ink-faint);
+    max-width: 36ch;
+  }
+
+  &__cta {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 8px;
+    padding: 11px 18px;
+    border: none;
+    border-radius: var(--r-pill, 999px);
+    background: linear-gradient(135deg, var(--accent-a), var(--accent-b));
+    color: var(--ink-on-accent);
+    font-size: 14px;
+    font-weight: 700;
+    box-shadow: var(--lift-2);
+    cursor: pointer;
+    transition: transform var(--ease-spring, .2s);
+    &:active { transform: scale(.96); }
+    mat-icon { font-size: 20px; width: 20px; height: 20px; }
+  }
+}
+
+.fm-spin {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 2px solid color-mix(in oklab, currentColor 35%, transparent);
+  border-top-color: currentColor;
+  animation: fm-spin 0.7s linear infinite;
+}
+
+@keyframes fm-spin { to { transform: rotate(360deg); } }
+
+// ============================================================================
+// ADD / EDIT FORM SHEET
+// ============================================================================
+
+.mf {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding-bottom: var(--safe-bottom);
+
+  &__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+  }
+
+  &__title {
+    margin: 0;
+    font-size: 19px;
+    font-weight: 800;
+    color: var(--ink);
+  }
+
+  &__close {
+    display: grid;
+    place-items: center;
+    width: 38px;
+    height: 38px;
+    border: none;
+    border-radius: var(--r-pill, 999px);
+    background: var(--glass);
+    color: var(--ink-dim);
+    cursor: pointer;
+    &:disabled { opacity: .5; }
+    mat-icon { font-size: 22px; width: 22px; height: 22px; }
+  }
+
+  &__when {
+    margin: -8px 0 0;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--accent-b);
+  }
+
+  // slot chooser
+  &__slots {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+  }
+
+  &__slot {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 11px 8px;
+    border: 1px solid var(--hairline, rgba(255, 255, 255, .07));
+    border-radius: var(--r-pill, 999px);
+    background: var(--glass);
+    color: var(--ink-dim);
+    font-size: 13.5px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background .2s, color .2s, border-color .2s, transform var(--ease-spring, .2s);
+
+    &:active { transform: scale(.97); }
+    mat-icon { font-size: 19px; width: 19px; height: 19px; }
+
+    &.is-on {
+      background: linear-gradient(135deg, var(--accent-a), var(--accent-b));
+      border-color: transparent;
+      color: var(--ink-on-accent);
+      box-shadow: var(--lift-1);
+    }
+  }
+
+  &__field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    &--sm { flex: 1 1 0; min-width: 0; }
+  }
+
+  &__label {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 12.5px;
+    font-weight: 700;
+    color: var(--ink-dim);
+    i { font-weight: 500; color: var(--ink-faint); font-style: normal; }
+  }
+
+  &__label-ic { font-size: 17px; width: 17px; height: 17px; color: var(--accent-b); }
+
+  &__input {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 12px 13px;
+    border: 1px solid var(--hairline, rgba(255, 255, 255, .07));
+    border-radius: var(--r-tile, 14px);
+    background: var(--glass);
+    color: var(--ink);
+    font-size: 15px;
+    font-family: inherit;
+    transition: border-color .2s, box-shadow .2s;
+
+    &::placeholder { color: var(--ink-faint); }
+    &:focus {
+      outline: none;
+      border-color: var(--accent-b);
+      box-shadow: 0 0 0 3px color-mix(in oklab, var(--accent-b) 22%, transparent);
+    }
+  }
+
+  &__area { resize: vertical; line-height: 1.5; }
+
+  &__toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    align-self: flex-start;
+    padding: 6px 4px;
+    border: none;
+    background: none;
+    color: var(--ink-dim);
+    font-size: 13.5px;
+    font-weight: 700;
+    cursor: pointer;
+    i { font-weight: 500; color: var(--ink-faint); font-style: normal; }
+    mat-icon { font-size: 20px; width: 20px; height: 20px; }
+    &.is-on { color: var(--accent-b); }
+  }
+
+  &__macros {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 12px;
+    border-radius: var(--r-tile, 18px);
+    background: var(--glass);
+  }
+
+  &__row { display: flex; gap: 8px; }
+
+  &__hint {
+    margin: 0;
+    font-size: 11.5px;
+    color: var(--ink-faint);
+    line-height: 1.4;
+  }
+
+  &__actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 4px;
+  }
+
+  &__btn {
+    flex: 1 1 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    padding: 13px 14px;
+    border: none;
+    border-radius: var(--r-pill, 999px);
+    font-size: 14.5px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: transform var(--ease-spring, .2s), filter .2s;
+
+    &:active { transform: scale(.97); }
+    &:disabled { opacity: .6; cursor: default; }
+    mat-icon { font-size: 20px; width: 20px; height: 20px; }
+
+    &--ghost {
+      flex: 0 0 auto;
+      padding-inline: 20px;
+      background: var(--glass);
+      color: var(--ink-dim);
+      box-shadow: var(--lift-1);
+    }
+
+    &--save {
+      background: linear-gradient(135deg, var(--accent-a), var(--accent-b));
+      color: var(--ink-on-accent);
+      box-shadow: var(--lift-2);
+    }
+  }
+}

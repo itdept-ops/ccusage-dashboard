@@ -1,0 +1,406 @@
+// ============================================================================
+// AI Usage log — the MOBILE twin of the live /ai-usage page, rebuilt on the shared beta-ui "Strata"
+// foundation. One line adopts the whole Strata token contract (layered bg, glass, ink scale, radii, the
+// lift-1/2/3 depth system, spring/bounce easing, blur cap, env() safe-area, the a11y killswitches); then
+// this page OVERRIDES the per-page accent contract with its OWN signature — a TEAL → CYAN "telemetry"
+// ramp. Every kit component (pull-refresh ring, the segmented outcome filter, stat tiles, the sheet,
+// the toaster) reads --accent-a/--accent-b off this :host cascade, so this single override re-skins the
+// whole screen.
+//
+// ISOLATED + gated by platform.mobile on the SAME /ai-usage route: nothing here touches the global
+// --tech-* tokens or the live page. The kit partial is the only import; we consume it, never modify it.
+// ============================================================================
+
+@use '../beta-ui/beta-kit' as kit;
+
+:host {
+  @include kit.beta-host;          // the whole Strata token contract on :host
+
+  // ---- AI-USAGE's SIGNATURE ACCENT: teal → cyan (the per-page contract override) ----
+  --accent-a: #2dd4bf;             // signature teal (start)
+  --accent-b: #22d3ee;             // signature cyan (end)
+
+  // A faint teal wash behind the whole column (still within the kit's dark contract).
+  background: radial-gradient(120% 80% at 50% -8%, #0c2024 0%, var(--bg-base) 58%);
+
+  height: 100%; // fill the immersive shell frame; the pull-refresh owns the scroll
+}
+
+@include kit.beta-springs;          // @supports linear() spring upgrade (top-level, once)
+@include kit.beta-a11y;             // reduced-motion + reduced-transparency/contrast killswitches (once)
+
+// monospace numerals helper (used across rows/tiles)
+.mono-num { font-variant-numeric: tabular-nums; }
+
+// ============================================================================
+// SHELL — the kit pull-to-refresh wrapper IS the scroll container.
+// ============================================================================
+
+.au-ptr { display: block; height: 100%; }
+
+.au-scroll {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-height: 100%;
+  padding-top: calc(var(--safe-top) + 8px);
+  padding-bottom: calc(var(--safe-bottom) + 28px);
+  padding-inline: var(--gutter) var(--gutter-r);
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+// ============================================================================
+// IMMERSIVE HEADER
+// ============================================================================
+
+.au-hero {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 6px 2px 0;
+  isolation: isolate;
+}
+
+.au-hero__bloom {
+  position: absolute;
+  top: -44px; left: -30px; right: 32%;
+  height: 168px; z-index: -1; pointer-events: none;
+  background: radial-gradient(130px 96px at 30% 30%,
+    color-mix(in oklab, var(--accent-a) 42%, transparent), transparent 70%);
+  filter: blur(8px);
+}
+
+.au-hero__kicker {
+  display: inline-flex; align-items: center; gap: 6px;
+  margin: 0;
+  font-family: var(--font-ui); font-size: 12px; font-weight: 700;
+  letter-spacing: .08em; text-transform: uppercase;
+  color: var(--ink-dim);
+
+  mat-icon { font-size: 16px; width: 16px; height: 16px; color: var(--accent-a); }
+}
+
+.au-hero__title {
+  margin: 0;
+  font-family: var(--font-display, var(--font-ui)); font-weight: 800;
+  font-size: clamp(26px, 8vw, 34px); line-height: 1.05;
+  letter-spacing: -.02em; color: var(--ink);
+}
+
+.au-hero__sub {
+  margin: 0;
+  font-family: var(--font-ui); font-size: 13px; line-height: 1.4;
+  color: var(--ink-dim);
+}
+
+// ============================================================================
+// SUMMARY TILES
+// ============================================================================
+
+.au-tiles {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+// top user / feature glance rows
+.au-tops { display: flex; flex-direction: column; gap: 8px; }
+
+.au-top {
+  display: flex; align-items: center; gap: 11px;
+  padding: 11px 14px;
+  background: var(--bg-rise);
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-tile);
+  box-shadow: var(--lift-1);
+}
+
+.au-top__ic {
+  flex: 0 0 auto; font-size: 20px; width: 20px; height: 20px;
+  color: var(--accent-a);
+}
+
+.au-top__body { display: flex; flex-direction: column; gap: 1px; min-width: 0; flex: 1 1 auto; }
+
+.au-top__l {
+  font-family: var(--font-ui); font-size: 11px; font-weight: 700;
+  letter-spacing: .04em; text-transform: uppercase; color: var(--ink-dim);
+}
+
+.au-top__v {
+  font-family: var(--font-ui); font-size: 14px; font-weight: 700; color: var(--ink);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+
+.au-top__n {
+  flex: 0 0 auto;
+  font-family: var(--font-display, var(--font-ui)); font-size: 18px; font-weight: 700;
+  color: var(--ink);
+}
+
+.au-note {
+  display: flex; align-items: flex-start; gap: 7px;
+  margin: 0; padding: 10px 12px;
+  background: color-mix(in oklab, var(--accent-a) 8%, var(--bg-rise));
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-tile);
+  font-family: var(--font-ui); font-size: 12px; line-height: 1.4; color: var(--ink-dim);
+
+  mat-icon { flex: 0 0 auto; font-size: 16px; width: 16px; height: 16px; color: var(--accent-a); margin-top: 1px; }
+}
+
+// ============================================================================
+// OUTCOME FILTER + SECTION HEADER
+// ============================================================================
+
+.au-seg-wrap { display: block; }
+.au-seg { display: block; }
+.au-sechead { display: block; margin-top: 2px; }
+
+// ============================================================================
+// PER-CALL LIST
+// ============================================================================
+
+.au-list { display: flex; flex-direction: column; gap: 9px; }
+
+.au-row {
+  position: relative;
+  display: flex; align-items: center; gap: 10px;
+  width: 100%; text-align: left;
+  padding: 11px 12px 11px 15px;
+  background: var(--bg-rise);
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-tile);
+  box-shadow: var(--lift-1);
+  cursor: pointer; touch-action: manipulation; -webkit-tap-highlight-color: transparent;
+  overflow: hidden;
+  transition: transform 120ms var(--ease-out), box-shadow 120ms var(--ease-out);
+
+  &:active { transform: scale(.985); box-shadow: var(--press); }
+  &:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+}
+
+// staggered reveal on first paint
+.au-reveal {
+  animation: au-rise 360ms var(--ease-out) backwards;
+  animation-delay: calc(var(--ri, 0) * 26ms);
+}
+@keyframes au-rise {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+
+// left status band, colored by outcome tone
+.au-row__band {
+  position: absolute; left: 0; top: 0; bottom: 0; width: 4px;
+  background: var(--ink-faint);
+}
+.au-row.oc-ok .au-row__band { background: var(--signal, #34d399); }
+.au-row.oc-warn .au-row__band { background: var(--warn, #fbbf24); }
+.au-row.oc-danger .au-row__band { background: #f87171; }
+
+.au-row__body { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+
+.au-row__top { display: flex; align-items: baseline; gap: 8px; }
+
+.au-row__feature {
+  flex: 1 1 auto; min-width: 0;
+  font-family: var(--font-ui); font-weight: 700; font-size: 15px; color: var(--ink);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+
+.au-row__cost {
+  flex: 0 0 auto;
+  font-family: var(--font-display, var(--font-ui)); font-weight: 700; font-size: 15px;
+  color: var(--ink);
+}
+
+.au-row__meta {
+  display: flex; align-items: center; gap: 7px; flex-wrap: wrap;
+  font-family: var(--font-ui); font-size: 12px; color: var(--ink-dim);
+}
+
+.au-row__pill {
+  display: inline-flex; align-items: center;
+  padding: 2px 8px; border-radius: var(--r-pill);
+  font-size: 11px; font-weight: 700; letter-spacing: .01em;
+  border: 1px solid transparent;
+}
+.ocp-ok { color: var(--signal, #34d399); background: color-mix(in oklab, var(--signal, #34d399) 14%, transparent); }
+.ocp-warn { color: var(--warn, #fbbf24); background: color-mix(in oklab, var(--warn, #fbbf24) 16%, transparent); }
+.ocp-danger { color: #fca5a5; background: color-mix(in oklab, #f87171 18%, transparent); }
+
+.au-row__model {
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 46%;
+}
+
+.au-row__tok { flex: 0 0 auto; color: var(--ink-dim); }
+
+.au-row__sub {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-family: var(--font-ui); font-size: 11.5px; color: var(--ink-faint, #8b98a5);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+
+.au-row__sub-ic { font-size: 14px; width: 14px; height: 14px; }
+
+.au-row__go { flex: 0 0 auto; color: var(--ink-faint, #8b98a5); }
+
+// ============================================================================
+// KEYSET PAGER
+// ============================================================================
+
+.au-pager {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  margin-top: 4px;
+}
+
+.au-pager__btn {
+  display: inline-flex; align-items: center; gap: 3px;
+  padding: 9px 14px;
+  background: var(--bg-rise);
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-pill);
+  color: var(--ink); font-family: var(--font-ui); font-size: 13px; font-weight: 700;
+  cursor: pointer; touch-action: manipulation;
+  transition: opacity 120ms var(--ease-out), transform 120ms var(--ease-out);
+
+  mat-icon { font-size: 18px; width: 18px; height: 18px; }
+  &:active:not(:disabled) { transform: scale(.97); }
+  &:disabled { opacity: .4; cursor: default; }
+  &:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+}
+
+.au-pager__label {
+  font-family: var(--font-ui); font-size: 12px; font-weight: 700; color: var(--ink-dim);
+}
+
+// ============================================================================
+// EMPTY + ERROR STATES
+// ============================================================================
+
+.au-state, .au-empty {
+  display: flex; flex-direction: column; align-items: center; text-align: center;
+  gap: 8px; padding: 40px 24px;
+}
+
+.au-state__orb, .au-empty__orb {
+  display: grid; place-items: center;
+  width: 64px; height: 64px; border-radius: 50%; margin-bottom: 4px;
+  background: color-mix(in oklab, var(--accent-a) 14%, var(--bg-rise));
+  border: 1px solid var(--hairline);
+  box-shadow: var(--lift-1);
+
+  mat-icon { font-size: 30px; width: 30px; height: 30px; color: var(--accent-a); }
+}
+
+.au-state__title, .au-empty__title {
+  margin: 0;
+  font-family: var(--font-ui); font-weight: 800; font-size: 18px; color: var(--ink);
+}
+
+.au-state__body, .au-empty__body {
+  margin: 0; max-width: 30ch;
+  font-family: var(--font-ui); font-size: 13.5px; line-height: 1.5; color: var(--ink-dim);
+}
+
+.au-state__cta, .au-empty__cta {
+  display: inline-flex; align-items: center; gap: 6px;
+  margin-top: 8px; padding: 10px 18px;
+  background: linear-gradient(135deg, var(--accent-a), var(--accent-b));
+  color: var(--ink-on-accent, #07120f);
+  border: none; border-radius: var(--r-pill);
+  font-family: var(--font-ui); font-size: 14px; font-weight: 700;
+  cursor: pointer; touch-action: manipulation; box-shadow: var(--lift-1);
+
+  mat-icon { font-size: 18px; width: 18px; height: 18px; }
+  &:active { transform: scale(.97); }
+  &:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+}
+
+// ============================================================================
+// DETAIL SHEET BODY
+// ============================================================================
+
+.ad { display: flex; flex-direction: column; gap: 16px; padding-bottom: 8px; }
+
+.ad__head { display: flex; align-items: center; gap: 12px; }
+
+.ad__glyph {
+  flex: 0 0 auto;
+  display: grid; place-items: center;
+  width: 46px; height: 46px; border-radius: 14px;
+  background: color-mix(in oklab, var(--accent-a) 14%, var(--bg-rise));
+  border: 1px solid var(--hairline);
+
+  mat-icon { font-size: 24px; width: 24px; height: 24px; color: var(--accent-a); }
+
+  &.oc-ok mat-icon { color: var(--signal, #34d399); }
+  &.oc-warn mat-icon { color: var(--warn, #fbbf24); }
+  &.oc-danger mat-icon { color: #f87171; }
+}
+
+.ad__titles { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+
+.ad__title {
+  margin: 0;
+  font-family: var(--font-ui); font-weight: 800; font-size: 19px; color: var(--ink);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+
+.ad__sub {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-family: var(--font-ui); font-size: 12.5px; color: var(--ink-dim);
+}
+
+// token / cost breakdown grid
+.ad__macros {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px;
+}
+
+.ad__macro {
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+  padding: 12px 6px;
+  background: var(--bg-rise);
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-tile);
+}
+
+.ad__macro-n {
+  font-family: var(--font-display, var(--font-ui)); font-weight: 700; font-size: 16px;
+  color: var(--ink); line-height: 1;
+}
+
+.ad__macro-l {
+  font-family: var(--font-ui); font-size: 10.5px; font-weight: 700;
+  letter-spacing: .03em; text-transform: uppercase; color: var(--ink-dim);
+  text-align: center;
+}
+
+// key/value detail rows
+.ad__rows {
+  margin: 0; display: flex; flex-direction: column; gap: 0;
+  background: var(--bg-rise);
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-card);
+  overflow: hidden;
+}
+
+.ad__kv {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 12px 14px;
+
+  & + & { border-top: 1px solid var(--hairline); }
+
+  dt {
+    flex: 0 0 auto;
+    font-family: var(--font-ui); font-size: 12.5px; font-weight: 600; color: var(--ink-dim);
+  }
+  dd {
+    margin: 0; min-width: 0; text-align: right;
+    font-family: var(--font-ui); font-size: 13px; font-weight: 600; color: var(--ink);
+    word-break: break-word;
+  }
+}

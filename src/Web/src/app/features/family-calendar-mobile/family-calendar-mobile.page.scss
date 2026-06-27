@@ -1,0 +1,585 @@
+// ============================================================================
+// Family Calendar "Agenda" — the mobile-first twin of the live /family/calendar page, rebuilt on the shared
+// beta-ui "Strata" foundation. One line adopts the whole Strata token contract (layered bg, glass, ink
+// scale, radii, the lift-1/2/3 depth system, spring/out easing, blur cap, env() safe-area, the a11y
+// killswitches); then CALENDAR OVERRIDES the per-page accent contract with its OWN signature: a cool
+// INDIGO → SKY ramp (an "event / planner" hue). Every kit component reads --accent-a/--accent-b off this
+// :host cascade, so this single override re-skins the screen.
+//
+// ISOLATED + gated by platform.mobile + family.use: nothing here touches the global --tech-* tokens or the
+// live /family/calendar page. The kit partial is the only import.
+// ============================================================================
+
+@use '../beta-ui/beta-kit' as kit;
+
+:host {
+  @include kit.beta-host;            // the whole Strata token contract on :host
+
+  // ---- CALENDAR'S SIGNATURE ACCENT: INDIGO → SKY (the per-page contract override) ----
+  --accent-a: #6366f1;               // indigo (start)
+  --accent-b: #38bdf8;               // sky (end)
+
+  display: block;
+  position: relative;
+  height: 100%;
+}
+
+@include kit.beta-springs;            // @supports linear() spring upgrade (top-level, once)
+@include kit.beta-a11y;               // reduced-motion + reduced-transparency/contrast killswitches (once)
+
+// ============================================================================
+// SHELL — the kit pull-to-refresh wrapper IS the scroll container.
+// ============================================================================
+
+.fc-ptr { display: block; height: 100%; }
+
+.fc-scroll {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-height: 100%;
+  max-width: 720px;            // centers on desktop; full-bleed within 390px
+  margin-inline: auto;
+  width: 100%;
+  box-sizing: border-box;
+  padding: calc(var(--safe-top) + 8px) var(--gutter)
+           calc(var(--safe-bottom) + 96px);   // clear the fixed FAB + tab bar
+}
+
+// ============================================================================
+// IMMERSIVE HEADER
+// ============================================================================
+
+.fc-hero {
+  position: relative;
+  isolation: isolate;
+  padding: 6px 2px 2px;
+}
+
+.fc-hero__bloom {
+  position: absolute;
+  top: -30px; left: -20px; right: 40%;
+  height: 130px; z-index: -1; pointer-events: none;
+  background: radial-gradient(120px 80px at 26% 30%,
+    color-mix(in oklab, var(--accent-a) 38%, transparent), transparent 70%);
+  filter: blur(8px);
+}
+
+.fc-hero__kicker {
+  display: inline-flex; align-items: center; gap: 6px;
+  margin: 0;
+  font-family: var(--font-ui); font-size: 12px; font-weight: 700;
+  letter-spacing: .08em; text-transform: uppercase;
+  color: var(--ink-dim);
+
+  mat-icon { font-size: 16px; width: 16px; height: 16px; color: var(--accent-a); }
+}
+
+.fc-hero__title {
+  margin: 2px 0 0;
+  font-family: var(--font-display, var(--font-ui)); font-weight: 800;
+  font-size: clamp(26px, 8vw, 34px); line-height: 1.05;
+  letter-spacing: -.02em; color: var(--ink);
+}
+
+.fc-hero__sub {
+  margin: 4px 0 0;
+  font-family: var(--font-ui); font-size: 13px; color: var(--ink-dim); line-height: 1.4;
+}
+
+// ============================================================================
+// WEEK NAV
+// ============================================================================
+
+.fc-nav {
+  display: flex; align-items: center; gap: 8px;
+}
+
+.fc-nav__btn {
+  flex: none;
+  display: grid; place-items: center;
+  width: 42px; height: 42px;
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-card);
+  background: var(--bg-rise);
+  color: var(--ink);
+  cursor: pointer;
+  transition: background var(--ease-out, 160ms), border-color var(--ease-out, 160ms);
+
+  mat-icon { font-size: 24px; width: 24px; height: 24px; }
+  &:active { transform: scale(.95); }
+}
+
+.fc-nav__range {
+  flex: 1;
+  display: flex; flex-direction: column; align-items: center; gap: 1px;
+  min-height: 42px;
+  padding: 4px 10px;
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-card);
+  background: var(--bg-rise);
+  color: var(--ink);
+  cursor: pointer;
+  transition: border-color var(--ease-out, 160ms);
+
+  &.is-today { border-color: color-mix(in oklab, var(--accent-a) 50%, transparent); }
+}
+
+.fc-nav__range-label {
+  font-family: var(--font-ui); font-size: 14px; font-weight: 700; color: var(--ink);
+}
+
+.fc-nav__today-hint {
+  font-family: var(--font-ui); font-size: 10.5px; font-weight: 700;
+  letter-spacing: .04em; text-transform: uppercase;
+  color: var(--accent-a);
+}
+
+// ---- scope warning ----
+.fc-scopewarn {
+  display: flex; align-items: center; gap: 6px;
+  margin: 0;
+  padding: 8px 12px;
+  border: 1px solid color-mix(in oklab, var(--warn) 36%, transparent);
+  border-radius: var(--r-tile);
+  background: color-mix(in oklab, var(--warn) 12%, transparent);
+  color: var(--warn);
+  font-family: var(--font-ui); font-size: 12.5px; line-height: 1.35;
+
+  mat-icon { flex: none; font-size: 18px; width: 18px; height: 18px; }
+}
+
+// ============================================================================
+// OVERLAY LEGEND
+// ============================================================================
+
+.fc-legend {
+  display: flex; align-items: center; gap: 10px;
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-tile);
+  background: var(--bg-rise);
+  text-align: left;
+  cursor: pointer;
+  transition: opacity var(--ease-out, 160ms);
+
+  > mat-icon { flex: none; font-size: 20px; width: 20px; height: 20px; color: var(--ink-dim); }
+  &.is-off { opacity: .55; }
+}
+
+.fc-legend__chips {
+  display: flex; flex-wrap: wrap; gap: 6px 12px;
+  flex: 1; min-width: 0;
+}
+
+.fc-legend__chip {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-family: var(--font-ui); font-size: 12px; font-weight: 600; color: var(--ink-dim);
+}
+
+.fc-legend__dot {
+  flex: none;
+  width: 10px; height: 10px; border-radius: 50%;
+  box-shadow: 0 0 0 2px color-mix(in oklab, var(--bg-rise) 60%, transparent);
+}
+
+// ============================================================================
+// AGENDA — day sections
+// ============================================================================
+
+.fc-agenda {
+  display: flex; flex-direction: column; gap: 16px;
+}
+
+.fc-day { display: flex; flex-direction: column; gap: 8px; }
+
+.fc-day__head {
+  display: flex; align-items: center; gap: 8px;
+  padding: 0 2px;
+
+  &.is-today .fc-day__heading { color: var(--accent-a); }
+}
+
+.fc-day__heading {
+  font-family: var(--font-ui); font-size: 13px; font-weight: 800;
+  letter-spacing: .01em; color: var(--ink);
+}
+
+.fc-day__badge {
+  padding: 2px 8px;
+  border-radius: var(--r-pill);
+  background: linear-gradient(90deg, var(--accent-a), var(--accent-b));
+  color: var(--ink-on-accent, #fff);
+  font-family: var(--font-ui); font-size: 10px; font-weight: 800;
+  letter-spacing: .04em; text-transform: uppercase;
+}
+
+.fc-day__phase {
+  margin-left: auto;
+  display: grid; place-items: center;
+  width: 24px; height: 24px;
+  border-radius: 50%;
+  background: color-mix(in oklab, var(--accent-b) 16%, transparent);
+  color: var(--accent-b);
+
+  &.is-period {
+    background: color-mix(in oklab, #ec4899 18%, transparent);
+    color: #ec4899;
+  }
+  mat-icon { font-size: 15px; width: 15px; height: 15px; }
+}
+
+.fc-day__events { display: flex; flex-direction: column; gap: 6px; }
+
+// ---- event row ----
+.fc-swipe { display: block; }
+
+.fc-ev {
+  position: relative;
+  display: flex; align-items: center; gap: 10px;
+  width: 100%;
+  padding: 11px 12px;
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-tile);
+  background: var(--bg-rise);
+  box-shadow: var(--lift-1);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color var(--ease-out, 160ms), background var(--ease-out, 160ms);
+
+  &:active { transform: scale(.99); }
+  &.is-busy { opacity: .55; pointer-events: none; }
+}
+
+.fc-ev--overlay {
+  cursor: default;
+  background: color-mix(in oklab, var(--bg-rise) 80%, transparent);
+  &:active { transform: none; }
+}
+
+.fc-ev__rail {
+  flex: none;
+  width: 4px; align-self: stretch;
+  min-height: 30px;
+  border-radius: 99px;
+  background: linear-gradient(180deg, var(--accent-a), var(--accent-b));
+}
+
+.fc-ev__body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+
+.fc-ev__title {
+  font-family: var(--font-ui); font-size: 14px; font-weight: 700; color: var(--ink);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+
+.fc-ev__meta {
+  display: flex; align-items: center; gap: 4px; flex-wrap: wrap;
+  font-family: var(--font-ui); font-size: 12px; color: var(--ink-dim);
+
+  mat-icon { font-size: 14px; width: 14px; height: 14px; color: var(--ink-faint); }
+}
+
+.fc-ev__rep { color: var(--accent-a) !important; }
+.fc-ev__owner-ic { color: var(--ink-faint); }
+
+.fc-ev__go {
+  flex: none;
+  font-size: 20px; width: 20px; height: 20px;
+  color: var(--ink-faint);
+}
+
+.fc-ev__lock {
+  flex: none;
+  font-size: 16px; width: 16px; height: 16px;
+  color: var(--ink-faint);
+}
+
+.fc-foot {
+  margin: 4px 0 0;
+  text-align: center;
+  font-family: var(--font-ui); font-size: 11px; color: var(--ink-faint);
+}
+
+// ============================================================================
+// STATES — loading / error / not-configured / connect / empty
+// ============================================================================
+
+.fc-list { display: flex; flex-direction: column; gap: 10px; }
+
+.fc-state,
+.fc-empty,
+.fc-connect {
+  display: flex; flex-direction: column; align-items: center; text-align: center;
+  gap: 8px;
+  padding: 30px 18px;
+}
+
+.fc-state__orb,
+.fc-empty__orb,
+.fc-connect__orb {
+  display: grid; place-items: center;
+  width: 60px; height: 60px;
+  border-radius: 50%;
+  background: color-mix(in oklab, var(--accent-a) 14%, transparent);
+  color: var(--accent-a);
+  mat-icon { font-size: 30px; width: 30px; height: 30px; }
+}
+
+.fc-state__title,
+.fc-empty__title,
+.fc-connect__title {
+  margin: 4px 0 0;
+  font-family: var(--font-display, var(--font-ui)); font-weight: 800; font-size: 18px; color: var(--ink);
+}
+
+.fc-state__body,
+.fc-empty__body,
+.fc-connect__body {
+  margin: 0; max-width: 34ch;
+  font-family: var(--font-ui); font-size: 13px; color: var(--ink-dim); line-height: 1.45;
+}
+
+.fc-state__cta,
+.fc-empty__cta,
+.fc-connect__cta {
+  display: inline-flex; align-items: center; gap: 7px;
+  margin-top: 8px;
+  padding: 11px 18px;
+  border: 0;
+  border-radius: var(--r-pill);
+  background: linear-gradient(135deg, var(--accent-a), var(--accent-b));
+  color: var(--ink-on-accent, #fff);
+  font-family: var(--font-ui); font-size: 14px; font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 8px 22px color-mix(in oklab, var(--accent-b) 35%, transparent);
+
+  mat-icon { font-size: 19px; width: 19px; height: 19px; }
+  &:active { transform: scale(.97); }
+  &:disabled { opacity: .65; cursor: default; }
+}
+
+// inline spinner (connect / save / ai)
+.fc-spin {
+  display: inline-block;
+  width: 16px; height: 16px;
+  border-radius: 50%;
+  border: 2px solid color-mix(in oklab, currentColor 35%, transparent);
+  border-top-color: currentColor;
+  animation: fc-spin .8s linear infinite;
+}
+@keyframes fc-spin { to { transform: rotate(360deg); } }
+
+// ============================================================================
+// EVENT FORM (projected into the kit bottom sheet)
+// ============================================================================
+
+.ef {
+  display: flex; flex-direction: column; gap: 12px;
+  padding-bottom: 8px;
+}
+
+.ef__head {
+  display: flex; align-items: center; gap: 10px;
+}
+
+.ef__title {
+  flex: 1; margin: 0;
+  font-family: var(--font-display, var(--font-ui)); font-weight: 800; font-size: 20px; color: var(--ink);
+}
+
+.ef__close {
+  flex: none;
+  display: grid; place-items: center;
+  width: 38px; height: 38px;
+  border: 1px solid var(--hairline);
+  border-radius: 50%;
+  background: var(--bg-rise);
+  color: var(--ink-dim);
+  cursor: pointer;
+  mat-icon { font-size: 20px; width: 20px; height: 20px; }
+  &:disabled { opacity: .5; cursor: default; }
+}
+
+// ---- AI quick-add ----
+.ef__ai {
+  display: flex; flex-direction: column; gap: 8px;
+  padding: 12px;
+  border: 1px solid color-mix(in oklab, var(--accent-a) 30%, transparent);
+  border-radius: var(--r-card);
+  background: color-mix(in oklab, var(--accent-a) 7%, var(--bg-rise));
+}
+
+.ef__ai-row { display: flex; gap: 8px; }
+
+.ef__ai-go {
+  flex: none;
+  display: grid; place-items: center;
+  width: 44px; height: 44px;
+  border: 0;
+  border-radius: var(--r-tile);
+  background: linear-gradient(135deg, var(--accent-a), var(--accent-b));
+  color: var(--ink-on-accent, #fff);
+  cursor: pointer;
+  mat-icon { font-size: 20px; width: 20px; height: 20px; }
+  &:disabled { opacity: .5; cursor: default; }
+}
+
+.ef__ai-status {
+  margin: 0;
+  font-family: var(--font-ui); font-size: 12px; color: var(--ink-dim); line-height: 1.4;
+}
+
+.ef__prop {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-tile);
+  background: var(--bg-base);
+}
+
+.ef__prop-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.ef__prop-title {
+  font-family: var(--font-ui); font-size: 13px; font-weight: 700; color: var(--ink);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.ef__prop-when { font-family: var(--font-ui); font-size: 11.5px; color: var(--ink-dim); }
+
+.ef__prop-add,
+.ef__prop-x {
+  flex: none;
+  display: grid; place-items: center;
+  width: 34px; height: 34px;
+  border: 1px solid var(--hairline);
+  border-radius: 50%;
+  background: var(--bg-rise);
+  color: var(--ink);
+  cursor: pointer;
+  mat-icon { font-size: 18px; width: 18px; height: 18px; }
+  &:disabled { opacity: .5; cursor: default; }
+}
+.ef__prop-add {
+  border-color: color-mix(in oklab, var(--accent-a) 40%, transparent);
+  color: var(--accent-a);
+}
+
+.ef__or {
+  display: flex; align-items: center; gap: 10px;
+  margin-top: 2px;
+  font-family: var(--font-ui); font-size: 11px; color: var(--ink-faint);
+
+  &::before, &::after {
+    content: ''; flex: 1; height: 1px; background: var(--hairline);
+  }
+}
+
+// ---- form fields ----
+.ef__field { display: flex; flex-direction: column; gap: 4px; }
+.ef__row { display: flex; gap: 8px; }
+.ef__field--sm { flex: 1; min-width: 0; }
+
+.ef__label {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-family: var(--font-ui); font-size: 12px; font-weight: 700; color: var(--ink-dim);
+}
+.ef__label-ic { font-size: 16px; width: 16px; height: 16px; color: var(--accent-a); }
+
+.ef__input {
+  width: 100%; box-sizing: border-box;
+  padding: 11px 12px;
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-tile);
+  background: var(--bg-base);
+  color: var(--ink);
+  font-family: var(--font-ui); font-size: 14px;
+  transition: border-color var(--ease-out, 160ms);
+
+  &:focus {
+    outline: none;
+    border-color: color-mix(in oklab, var(--accent-a) 55%, transparent);
+  }
+  &::placeholder { color: var(--ink-faint); }
+}
+
+.ef__area { resize: vertical; min-height: 56px; }
+
+// ---- all-day toggle ----
+.ef__toggle {
+  display: flex; align-items: center; gap: 10px;
+  width: 100%;
+  padding: 11px 12px;
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-card);
+  background: var(--bg-rise);
+  text-align: left;
+  cursor: pointer;
+
+  > mat-icon { flex: none; font-size: 20px; width: 20px; height: 20px; color: var(--accent-a); }
+  &.is-on { border-color: color-mix(in oklab, var(--accent-a) 45%, transparent); }
+}
+
+.ef__toggle-txt {
+  flex: 1;
+  font-family: var(--font-ui); font-size: 14px; font-weight: 600; color: var(--ink);
+}
+
+.ef__switch {
+  flex: none;
+  position: relative;
+  width: 44px; height: 26px;
+  border-radius: 999px;
+  background: color-mix(in oklab, var(--ink) 18%, transparent);
+  transition: background var(--ease-out, 160ms);
+
+  &.is-on { background: linear-gradient(90deg, var(--accent-a), var(--accent-b)); }
+}
+.ef__switch-knob {
+  position: absolute; top: 3px; left: 3px;
+  width: 20px; height: 20px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, .35);
+  transition: transform var(--ease-spring, 220ms);
+
+  .ef__switch.is-on & { transform: translateX(18px); }
+}
+
+// ---- actions ----
+.ef__actions {
+  display: flex; gap: 10px;
+  margin-top: 4px;
+}
+
+.ef__btn {
+  flex: 1;
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  min-height: 46px;
+  padding: 0 16px;
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-pill);
+  background: var(--bg-rise);
+  color: var(--ink);
+  font-family: var(--font-ui); font-size: 14px; font-weight: 700;
+  cursor: pointer;
+  transition: transform var(--ease-out, 160ms);
+
+  mat-icon { font-size: 19px; width: 19px; height: 19px; }
+  &:active { transform: scale(.98); }
+  &:disabled { opacity: .55; cursor: default; }
+}
+
+.ef__btn--ghost { color: var(--ink-dim); }
+
+.ef__btn--del {
+  flex: 0 0 auto;
+  border-color: color-mix(in oklab, var(--warn) 36%, transparent);
+  background: color-mix(in oklab, var(--warn) 10%, transparent);
+  color: var(--warn);
+}
+
+.ef__btn--save {
+  border: 0;
+  background: linear-gradient(135deg, var(--accent-a), var(--accent-b));
+  color: var(--ink-on-accent, #fff);
+  box-shadow: 0 8px 22px color-mix(in oklab, var(--accent-b) 30%, transparent);
+}
