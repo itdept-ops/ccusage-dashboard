@@ -20,7 +20,7 @@
         <button type="button" class="ft-chip" [class.ft-chip--on]="isSelected(m.userId)"
                 (click)="toggle(m.userId)" [attr.aria-pressed]="isSelected(m.userId)">
           @if (m.picture) {
-            <img class="ft-chip__avatar" [src]="m.picture" [alt]="m.name" referrerpolicy="no-referrer" />
+            <img class="ft-chip__avatar" [src]="m.picture" [alt]="m.name" width="26" height="26" loading="lazy" referrerpolicy="no-referrer" />
           } @else {
             <span class="ft-chip__avatar ft-chip__avatar--init" aria-hidden="true">{{ initials(m.name) }}</span>
           }

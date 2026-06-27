@@ -36,7 +36,7 @@
         <mat-option [value]="m.userId">
           <span class="picker-opt">
             @if (m.picture) {
-              <img class="picker-opt__avatar" [src]="m.picture" [alt]="m.name" referrerpolicy="no-referrer" />
+              <img class="picker-opt__avatar" [src]="m.picture" [alt]="m.name" loading="lazy" referrerpolicy="no-referrer" />
             } @else {
               <span class="picker-opt__avatar picker-opt__avatar--init" aria-hidden="true">{{ initials(m.name) }}</span>
             }

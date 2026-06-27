@@ -149,7 +149,7 @@
               <h3 class="ed-h">Headshot <span class="ed-h-note">used in the “Designed” export</span></h3>
               <div class="ed-headshot">
                 @if (headshotUrl()) {
-                  <img class="ed-headshot__img" [src]="headshotUrl()" alt="Your headshot" />
+                  <img class="ed-headshot__img" [src]="headshotUrl()" alt="Your headshot" width="72" height="72" loading="lazy" />
                 } @else {
                   <span class="ed-headshot__placeholder" aria-hidden="true"><mat-icon>person</mat-icon></span>
                 }
@@ -533,7 +533,7 @@
             <div class="pv" [class.pv--designed]="!!headshotUrl()">
               <header class="pv__head">
                 @if (headshotUrl()) {
-                  <img class="pv__photo" [src]="headshotUrl()" alt="" />
+                  <img class="pv__photo" [src]="headshotUrl()" alt="" width="76" height="76" loading="lazy" />
                 }
                 <div class="pv__id">
                   <h2 class="pv__name">{{ draft().contact.fullName || 'Your Name' }}</h2>

@@ -204,7 +204,7 @@
           <div class="cx-grp" [class.mine]="g.isMine">
             <span class="cx-grp__avatar-wrap">
               @if (g.senderPicture) {
-                <img class="cx-grp__avatar" [src]="g.senderPicture" alt="" referrerpolicy="no-referrer" />
+                <img class="cx-grp__avatar" [src]="g.senderPicture" alt="" loading="lazy" referrerpolicy="no-referrer" />
               } @else {
                 <span class="cx-grp__avatar cx-grp__avatar--init">{{ groupInitials(g) }}</span>
               }
@@ -307,7 +307,7 @@
                         [attr.aria-selected]="i === mentionIndex()"
                         (mousedown)="$event.preventDefault()" (click)="applyMention(c)">
                   @if (c.picture) {
-                    <img class="cx-mention__avatar" [src]="c.picture" alt="" referrerpolicy="no-referrer" />
+                    <img class="cx-mention__avatar" [src]="c.picture" alt="" loading="lazy" referrerpolicy="no-referrer" />
                   } @else {
                     <span class="cx-mention__avatar cx-mention__avatar--init">{{ c.initials }}</span>
                   }

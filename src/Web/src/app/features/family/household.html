@@ -49,7 +49,7 @@
         @for (m of members(); track m.userId) {
           <li class="member-row" [class.member-row--self]="m.isSelf">
             @if (m.picture) {
-              <img class="member-row__avatar" [src]="m.picture" [alt]="m.name" referrerpolicy="no-referrer" />
+              <img class="member-row__avatar" [src]="m.picture" [alt]="m.name" loading="lazy" referrerpolicy="no-referrer" />
             } @else {
               <span class="member-row__avatar member-row__avatar--init" aria-hidden="true">{{ initials(m.name) }}</span>
             }
@@ -89,7 +89,7 @@
                   <mat-option [value]="c.userId">
                     <span class="picker-opt">
                       @if (c.picture) {
-                        <img class="picker-opt__avatar" [src]="c.picture" [alt]="c.name" referrerpolicy="no-referrer" />
+                        <img class="picker-opt__avatar" [src]="c.picture" [alt]="c.name" loading="lazy" referrerpolicy="no-referrer" />
                       } @else {
                         <span class="picker-opt__avatar picker-opt__avatar--init" aria-hidden="true">{{ initials(c.name) }}</span>
                       }

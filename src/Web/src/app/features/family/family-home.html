@@ -244,7 +244,7 @@
         @for (m of members(); track m.userId) {
           <li class="member" [class.member--self]="m.isSelf">
             @if (m.picture) {
-              <img class="member__avatar" [src]="m.picture" [alt]="m.name" referrerpolicy="no-referrer" />
+              <img class="member__avatar" [src]="m.picture" [alt]="m.name" width="32" height="32" loading="lazy" referrerpolicy="no-referrer" />
             } @else {
               <span class="member__avatar member__avatar--init" aria-hidden="true">{{ initials(m.name) }}</span>
             }

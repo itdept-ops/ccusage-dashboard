@@ -174,7 +174,7 @@
 
           <button type="button" class="row-main" (click)="select(u, true)">
             @if (u.picture) {
-              <img class="avatar" [src]="u.picture" alt="" referrerpolicy="no-referrer" />
+              <img class="avatar" [src]="u.picture" alt="" width="34" height="34" loading="lazy" referrerpolicy="no-referrer" />
             } @else {
               <span class="avatar avatar--init">{{ userInitial(u) }}</span>
             }
@@ -225,7 +225,7 @@
 
         <div class="detail-who">
           @if (u.picture) {
-            <img class="avatar avatar--lg" [src]="u.picture" alt="" referrerpolicy="no-referrer" />
+            <img class="avatar avatar--lg" [src]="u.picture" alt="" width="48" height="48" loading="lazy" referrerpolicy="no-referrer" />
           } @else {
             <span class="avatar avatar--lg avatar--init">{{ userInitial(u) }}</span>
           }
@@ -458,7 +458,7 @@
                   @for (c of cs.contacts; track c.userId) {
                     <li class="contact-chip">
                       @if (c.picture) {
-                        <img class="contact-chip-avatar" [src]="c.picture" alt="" referrerpolicy="no-referrer" />
+                        <img class="contact-chip-avatar" [src]="c.picture" alt="" width="26" height="26" loading="lazy" referrerpolicy="no-referrer" />
                       } @else {
                         <span class="contact-chip-avatar contact-chip-avatar--init">{{ contactInitials(c) }}</span>
                       }
@@ -487,7 +487,7 @@
                       <button type="button" class="contact-result" role="listitem"
                               [disabled]="cs.busyUserId === cand.userId" (click)="addContact(u, cand.userId)">
                         @if (cand.picture) {
-                          <img class="contact-chip-avatar" [src]="cand.picture" alt="" referrerpolicy="no-referrer" />
+                          <img class="contact-chip-avatar" [src]="cand.picture" alt="" width="26" height="26" loading="lazy" referrerpolicy="no-referrer" />
                         } @else {
                           <span class="contact-chip-avatar contact-chip-avatar--init">{{ contactInitials(cand) }}</span>
                         }

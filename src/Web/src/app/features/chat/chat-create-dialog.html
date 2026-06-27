@@ -57,7 +57,7 @@
                 (click)="toggle(p.userId)">
           <span class="cc-person__avatar-wrap">
             @if (p.picture) {
-              <img class="cc-person__avatar" [src]="p.picture" alt="" referrerpolicy="no-referrer" />
+              <img class="cc-person__avatar" [src]="p.picture" alt="" loading="lazy" referrerpolicy="no-referrer" />
             } @else {
               <span class="cc-person__avatar cc-person__avatar--init">{{ initials(p) }}</span>
             }

@@ -27,7 +27,6 @@ export class MarketingFooter {
       title: 'Account',
       links: [
         { label: 'Sign in', path: '/signin' },
-        { label: 'Dashboard', path: '/' },
       ],
     },
   ];

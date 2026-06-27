@@ -27,7 +27,7 @@
     <div class="mfoot-cols">
       @for (c of cols; track c.title) {
         <nav class="mfoot-col">
-          <h4>{{ c.title }}</h4>
+          <h3>{{ c.title }}</h3>
           @for (l of c.links; track l.path) {
             <a [routerLink]="l.path">{{ l.label }}</a>
           }

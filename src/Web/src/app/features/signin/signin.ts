@@ -1,6 +1,5 @@
 import {
   Component,
-  DestroyRef,
   ElementRef,
   NgZone,
   afterNextRender,
@@ -15,6 +14,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { normalizeHome } from '../../core/nav-model';
 import { firstValueFrom } from 'rxjs';
 import { AuthService } from '../../core/auth';
+import { ensureGis } from '../../core/gis-loader';
 import { MarketingNav } from '../marketing/marketing-nav';
 import { MarketingFooter } from '../marketing/marketing-footer';
 
@@ -33,11 +33,7 @@ export class SignIn {
   private router = inject(Router);
   private route = inject(ActivatedRoute);
   private zone = inject(NgZone);
-  private destroyRef = inject(DestroyRef);
   private btn = viewChild.required<ElementRef<HTMLDivElement>>('gbtn');
-
-  /** GIS poll handle, cleared on destroy if the user leaves /signin mid-load. */
-  private gisTimer?: ReturnType<typeof setInterval>;
 
   readonly error = signal<string | null>(null);
   readonly busy = signal(false);
@@ -48,9 +44,6 @@ export class SignIn {
       return;
     }
     afterNextRender(() => void this.initGoogle());
-    this.destroyRef.onDestroy(() => {
-      if (this.gisTimer !== undefined) clearInterval(this.gisTimer);
-    });
   }
 
   private returnUrl(): string {
@@ -66,7 +59,7 @@ export class SignIn {
         this.error.set('Google sign-in is not configured on the server.');
         return;
       }
-      await this.waitForGis();
+      await ensureGis();
 
       google.accounts.id.initialize({
         client_id: cfg.googleClientId,
@@ -94,22 +87,6 @@ export class SignIn {
     } catch {
       this.error.set('Could not load Google sign-in. Check your connection and try again.');
     }
-  }
-
-  private waitForGis(): Promise<void> {
-    return new Promise<void>((resolve, reject) => {
-      let tries = 0;
-      const timer = setInterval(() => {
-        if ((window as unknown as { google?: any }).google?.accounts?.id) {
-          clearInterval(timer);
-          resolve();
-        } else if (++tries > 60) {
-          clearInterval(timer);
-          reject(new Error('Google Identity Services failed to load'));
-        }
-      }, 100);
-      this.gisTimer = timer;
-    });
   }
 
   private handleCredential(idToken: string): void {

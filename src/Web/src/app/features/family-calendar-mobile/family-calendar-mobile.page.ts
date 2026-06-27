@@ -7,6 +7,7 @@ import { MatIconModule } from '@angular/material/icon';
 
 import { Api } from '../../core/api';
 import { AuthService } from '../../core/auth';
+import { ensureGis } from '../../core/gis-loader';
 import {
   CalendarEvent,
   CalendarEventInput,
@@ -406,7 +407,7 @@ export class FamilyCalendarMobilePage implements OnDestroy {
   private auth = inject(AuthService);
   private toast = inject(ToastController);
 
-  /** The OAuth code client lives on window via the GIS script in index.html. */
+  /** The OAuth code client lives on window via GIS, loaded on demand by ensureGis() before connect(). */
   private get gis(): any {
     return (window as unknown as { google?: any }).google;
   }
@@ -684,7 +685,7 @@ export class FamilyCalendarMobilePage implements OnDestroy {
         this.toast.show('Google sign-in isn’t configured on this server.', { tone: 'warn' });
         return;
       }
-      await this.waitForGis();
+      await ensureGis();
       const code = await this.requestAuthCode(cfg.googleClientId);
       await firstValueFrom(this.api.connectCalendar(code, 'postmessage'));
       await this.loadStatus();
@@ -715,16 +716,6 @@ export class FamilyCalendarMobilePage implements OnDestroy {
         },
       });
       client.requestCode();
-    });
-  }
-
-  private waitForGis(): Promise<void> {
-    return new Promise<void>((resolve, reject) => {
-      let tries = 0;
-      const timer = setInterval(() => {
-        if (this.gis?.accounts?.oauth2) { clearInterval(timer); resolve(); }
-        else if (++tries > 60) { clearInterval(timer); reject(new Error('Google Identity Services failed to load')); }
-      }, 100);
     });
   }
 

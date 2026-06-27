@@ -59,7 +59,7 @@
         <div class="card__top">
           <span class="avatar-wrap">
             @if (p.picture) {
-              <img class="avatar" [src]="p.picture" alt="" referrerpolicy="no-referrer" />
+              <img class="avatar" [src]="p.picture" alt="" width="44" height="44" loading="lazy" referrerpolicy="no-referrer" />
             } @else {
               <span class="avatar avatar--init" aria-hidden="true">{{ p.initials }}</span>
             }
@@ -149,7 +149,7 @@
             <div class="pp" role="presentation" (click)="$event.stopPropagation()">
               <div class="pp__head">
                 @if (p.picture) {
-                  <img class="pp__avatar" [src]="p.picture" alt="" referrerpolicy="no-referrer" />
+                  <img class="pp__avatar" [src]="p.picture" alt="" width="40" height="40" loading="lazy" referrerpolicy="no-referrer" />
                 } @else {
                   <span class="pp__avatar pp__avatar--init" aria-hidden="true">{{ p.initials }}</span>
                 }

@@ -50,7 +50,9 @@
     <link rel="preload" href="/fonts/inter.woff2" as="font" type="font/woff2" crossorigin />
     <link rel="preload" href="/fonts/jetbrains-mono.woff2" as="font" type="font/woff2" crossorigin />
     <link rel="preload" href="/fonts/material-icons.woff2" as="font" type="font/woff2" crossorigin />
-    <script src="https://accounts.google.com/gsi/client" async></script>
+    <!-- Google Identity Services (accounts.google.com/gsi/client) is NOT loaded here — it would download on
+         every route. It's injected on demand by core/gis-loader.ts (ensureGis) only on the surfaces that
+         use Google sign-in / OAuth: /signin and the family calendar's "connect Google Calendar" flow. -->
     <!-- No-flash theme bootstrap: applied synchronously BEFORE the Angular bundle paints, so the very
          first frame already carries the saved theme (no dark→light flash on a light-theme reload). Reads
          the persisted mode from localStorage ('system' | 'light' | 'dark'; default 'system'), resolves

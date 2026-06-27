@@ -31,7 +31,11 @@ import { UnitService } from '../../core/unit.service';
   template: `
     @if (points().length > 0) {
       <div class="wt-chart-host" role="img" [attr.aria-label]="ariaLabel()">
-        <app-chart class="wt-chart" [option]="option()" />
+        @defer (on viewport) {
+          <app-chart class="wt-chart" [option]="option()" />
+        } @placeholder {
+          <div class="chart-skeleton" style="height:240px"></div>
+        }
       </div>
 
       <!-- ✨ AI weight insight — hidden unless the user holds tracker.ai. -->

@@ -53,7 +53,7 @@
           <div class="db-photo-chips" role="group" aria-label="Chosen meal photos">
             @for (p of photos(); track $index) {
               <div class="db-photo-chip">
-                <img [src]="photoUrl(p)" alt="Chosen meal photo {{ $index + 1 }}" />
+                <img [src]="photoUrl(p)" alt="Chosen meal photo {{ $index + 1 }}" loading="lazy" />
                 <button mat-icon-button type="button" class="db-photo-del" (click)="removePhoto($index)"
                         [attr.aria-label]="'Remove photo ' + ($index + 1)">
                   <mat-icon>close</mat-icon>

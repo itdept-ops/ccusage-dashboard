@@ -22,6 +22,7 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 
 import { Api } from '../../core/api';
 import { AuthService } from '../../core/auth';
+import { ensureGis } from '../../core/gis-loader';
 import {
   CalendarEvent,
   CalendarEventInput,
@@ -585,7 +586,7 @@ export class FamilyCalendar implements OnDestroy {
         });
         return;
       }
-      await this.waitForGis();
+      await ensureGis();
       const code = await this.requestAuthCode(cfg.googleClientId);
       await firstValueFrom(this.api.connectCalendar(code, 'postmessage'));
       // Re-read status rather than hard-setting it, so we keep the server's scopeOk (a connection that
@@ -653,21 +654,6 @@ export class FamilyCalendar implements OnDestroy {
     } catch {
       this.snack.open("Couldn't disconnect just now. Please try again.", 'OK', { duration: 4000 });
     }
-  }
-
-  private waitForGis(): Promise<void> {
-    return new Promise<void>((resolve, reject) => {
-      let tries = 0;
-      const timer = setInterval(() => {
-        if ((window as unknown as { google?: any }).google?.accounts?.oauth2) {
-          clearInterval(timer);
-          resolve();
-        } else if (++tries > 60) {
-          clearInterval(timer);
-          reject(new Error('Google Identity Services failed to load'));
-        }
-      }, 100);
-    });
   }
 
   // ---- Events ----
