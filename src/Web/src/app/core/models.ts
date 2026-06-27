@@ -5184,8 +5184,6 @@ export const PERM = {
   chatContactsManage: 'chat.contacts.manage',
   trackerSelf: 'tracker.self',
   trackerViewAll: 'tracker.viewall',
-  /** Tracker Beta: the new mobile-first "Strata" tracker experience (beta). */
-  trackerBeta: 'tracker.beta',
   familyUse: 'family.use',
   familyFinance: 'family.finance',
   /** Bill Splitter: create bills, AI receipt breakdown, assign items to contacts, public claim link. */
@@ -5211,8 +5209,8 @@ export const PERM = {
   mealsUse: 'meals.use',
   /** Resume Builder (group "Tools"; page-gate): build/parse/tailor resumes + cover letters with AI. Private, never default. */
   resumeUse: 'resume.use',
-  // ---- Beta (group "Beta"; page-gate for the experimental Beta section) ----
-  betaAccess: 'beta.access',
+  // ---- Platform (the mobile-app gate; group "Platform"; never default) ----
+  platformMobile: 'platform.mobile',
   // ---- AI (group "AI"; token-spending; never default) ----
   trackerAi: 'tracker.ai',
   familyAi: 'family.ai',
@@ -5229,7 +5227,7 @@ export const PERM = {
  * fallback/ordering hint. Any catalog group not listed here is appended after, so nothing is ever dropped.
  */
 export const PERM_GROUP_ORDER: readonly string[] = [
-  'Usage', 'Fitness', 'Tools', 'Social', 'Family', 'Beta', 'Admin', 'Location', 'AI',
+  'Platform', 'Usage', 'Fitness', 'Tools', 'Social', 'Family', 'Admin', 'Location', 'AI',
 ];
 
 /** Maps each permission key to its UI group (mirror of the backend catalog grouping). */
@@ -5259,9 +5257,8 @@ export const PERM_GROUP_OF: Readonly<Record<string, string>> = {
   [PERM.recipesUse]: 'Tools',
   [PERM.mealsUse]: 'Tools',
   [PERM.resumeUse]: 'Tools',
-  // ---- Beta ----
-  [PERM.trackerBeta]: 'Beta',
-  [PERM.betaAccess]: 'Beta',
+  // ---- Platform (the mobile-app gate) ----
+  [PERM.platformMobile]: 'Platform',
   // ---- Family ----
   [PERM.familyUse]: 'Family',
   [PERM.familyFinance]: 'Family',

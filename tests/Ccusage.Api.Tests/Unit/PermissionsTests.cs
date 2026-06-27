@@ -16,13 +16,13 @@ public class PermissionsTests
         "reporter.view", "reporter.manage", "reporter.self", "fleet.view",
         "notifications.view", "notifications.manage",
         "chat.read", "chat.send", "chat.moderate", "chat.contacts.manage",
-        "tracker.self", "tracker.viewall", "tracker.beta",
+        "tracker.self", "tracker.viewall",
         "shares.view", "shares.manage",
-        "bills.use", "recipes.use", "grocery.use", "meals.use",
+        "bills.use", "recipes.use", "grocery.use", "meals.use", "resume.use",
         "family.use", "family.finance", "cycle.track", "chore.claim", "allowance.manage", "identity.map",
         "location.self", "location.share", "location.view-all",
         "automations.use",
-        "beta.access",
+        "platform.mobile",
         "users.view", "users.manage", "activity.view", "ai.usage.view",
         "tracker.ai", "family.ai", "family.ai.assistant", "finance.ai", "chat.ai", "ai.vision",
     };
@@ -49,7 +49,6 @@ public class PermissionsTests
     [InlineData("chat.contacts.manage")]
     [InlineData("tracker.self")]
     [InlineData("tracker.viewall")]
-    [InlineData("tracker.beta")]
     [InlineData("shares.view")]
     [InlineData("shares.manage")]
     [InlineData("bills.use")]
@@ -64,7 +63,7 @@ public class PermissionsTests
     [InlineData("location.share")]
     [InlineData("location.view-all")]
     [InlineData("automations.use")]
-    [InlineData("beta.access")]
+    [InlineData("platform.mobile")]
     [InlineData("users.view")]
     [InlineData("users.manage")]
     [InlineData("activity.view")]
@@ -114,13 +113,13 @@ public class PermissionsTests
         Permissions.ChatContactsManage.Should().Be("chat.contacts.manage");
         Permissions.TrackerSelf.Should().Be("tracker.self");
         Permissions.TrackerViewAll.Should().Be("tracker.viewall");
-        Permissions.TrackerBeta.Should().Be("tracker.beta");
         Permissions.SharesView.Should().Be("shares.view");
         Permissions.SharesManage.Should().Be("shares.manage");
         Permissions.BillsUse.Should().Be("bills.use");
         Permissions.RecipesUse.Should().Be("recipes.use");
         Permissions.GroceryUse.Should().Be("grocery.use");
         Permissions.MealsUse.Should().Be("meals.use");
+        Permissions.ResumeUse.Should().Be("resume.use");
         Permissions.FamilyUse.Should().Be("family.use");
         Permissions.FamilyFinance.Should().Be("family.finance");
         Permissions.CycleTrack.Should().Be("cycle.track");
@@ -131,7 +130,7 @@ public class PermissionsTests
         Permissions.LocationShare.Should().Be("location.share");
         Permissions.LocationViewAll.Should().Be("location.view-all");
         Permissions.AutomationsUse.Should().Be("automations.use");
-        Permissions.BetaAccess.Should().Be("beta.access");
+        Permissions.PlatformMobile.Should().Be("platform.mobile");
         Permissions.UsersView.Should().Be("users.view");
         Permissions.UsersManage.Should().Be("users.manage");
         Permissions.ActivityView.Should().Be("activity.view");
@@ -187,7 +186,7 @@ public class PermissionsTests
     {
         // automations.use gates the Automations builder + /api/automations. A rule may carry the owner's OWN
         // Discord webhook, so it is a DELIBERATE grant: the "Tools" group, NOT an AI key, never
-        // defaultable, and a PAGE gate (not a *.view) so it is absent from Views — mirroring beta.access.
+        // defaultable, and a PAGE gate (not a *.view) so it is absent from Views — mirroring platform.mobile.
         Permissions.Catalog.Single(p => p.Key == Permissions.AutomationsUse).Group.Should().Be("Tools");
         Permissions.Catalog.Single(p => p.Key == Permissions.AutomationsUse).IsAi.Should().BeFalse();
         Permissions.IsAi(Permissions.AutomationsUse).Should().BeFalse();
@@ -199,17 +198,19 @@ public class PermissionsTests
     }
 
     [Fact]
-    public void BetaAccess_is_in_the_Beta_group_non_ai_a_page_gate_and_in_the_administrator_preset()
+    public void PlatformMobile_is_in_the_Platform_group_non_ai_a_page_gate_not_defaultable_and_in_the_administrator_preset()
     {
-        // beta.access gates the experimental Beta section. It lives in its own "Beta" group, is NOT an AI
-        // key, and is a PAGE gate (not a *.view), so it is absent from Views — mirroring tracker.beta.
-        Permissions.Catalog.Single(p => p.Key == Permissions.BetaAccess).Group.Should().Be("Beta");
-        Permissions.Catalog.Single(p => p.Key == Permissions.BetaAccess).IsAi.Should().BeFalse();
-        Permissions.IsAi(Permissions.BetaAccess).Should().BeFalse();
-        Permissions.Views.Should().NotContain(Permissions.BetaAccess);
+        // platform.mobile is the mobile-app gate (renamed from beta.access, absorbs the old tracker.beta). It
+        // lives in its own "Platform" group, is NOT an AI key, is a PAGE gate (absent from Views), and is never
+        // defaultable — every account starts on the desktop UI.
+        Permissions.Catalog.Single(p => p.Key == Permissions.PlatformMobile).Group.Should().Be("Platform");
+        Permissions.Catalog.Single(p => p.Key == Permissions.PlatformMobile).IsAi.Should().BeFalse();
+        Permissions.IsAi(Permissions.PlatformMobile).Should().BeFalse();
+        Permissions.IsDefaultable(Permissions.PlatformMobile).Should().BeFalse();
+        Permissions.Views.Should().NotContain(Permissions.PlatformMobile);
         // It is part of the administrator preset (the full catalog).
         Permissions.Presets.Single(p => p.Key == "administrator")
-            .Permissions.Should().Contain(Permissions.BetaAccess);
+            .Permissions.Should().Contain(Permissions.PlatformMobile);
     }
 
     [Fact]
@@ -221,7 +222,7 @@ public class PermissionsTests
         Permissions.Catalog.Single(p => p.Key == Permissions.BillsUse).IsAi.Should().BeFalse();
         Permissions.IsAi(Permissions.BillsUse).Should().BeFalse();
         Permissions.IsDefaultable(Permissions.BillsUse).Should().BeFalse();
-        Permissions.IsDefaultable(Permissions.BetaAccess).Should().BeFalse();
+        Permissions.IsDefaultable(Permissions.PlatformMobile).Should().BeFalse();
         // It is part of the administrator preset (the full catalog) and is not a page-view gate.
         Permissions.Presets.Single(p => p.Key == "administrator")
             .Permissions.Should().Contain(Permissions.BillsUse);

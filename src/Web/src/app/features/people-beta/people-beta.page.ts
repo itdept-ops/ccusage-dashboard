@@ -41,7 +41,7 @@ type SortMode = 'online' | 'az';
  * templates). The server owns all aggregation + the DM/circle/cooldown gates; this page only reads them
  * (canDm/sharesLocation/isContact/isHousehold) so it never offers an action that 403s/404s.
  *
- * ISOLATION: gated by `beta.access` + any-of `chat.read | family.use` (mirrors GET /api/people exactly,
+ * ISOLATION: gated by `platform.mobile` + any-of `chat.read | family.use` (mirrors GET /api/people exactly,
  * plus the Beta section gate). It consumes the kit + the SAME read/light-write Api as the live page; no
  * live page is imported or modified, and it defines its OWN rose accent on `:host`. State lives in this
  * page's signals; the only route-level provider is its own ToastController. A light presence poll (~25s)

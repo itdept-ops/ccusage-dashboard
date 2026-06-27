@@ -30,7 +30,7 @@ import { ActivityWidget } from './widgets/activity-widget';
  * refresh is in flight). An immersive page header (greeting + date + quick actions) replaces reliance on
  * the global app bar, respecting safe-area.
  *
- * HARD ISOLATION: this is additive + gated by `beta.access`. It reuses root stores
+ * HARD ISOLATION: this is additive + gated by `platform.mobile`. It reuses root stores
  * ({@link TrackerStore}/{@link ChallengeStore}) and {@link Api} READ-ONLY (+ the one existing
  * `addHydration` action). No live page or component is modified; the flagship tracker-beta is untouched.
  *

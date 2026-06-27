@@ -9,7 +9,7 @@ import { PERM } from '../../core/models';
  * stays out of the initial bundle.
  *
  * GATE — mirrors the live `/trophies` route VERBATIM plus the Beta-section gate:
- *   - `beta.access`  → the Beta section (the hub link + the dropdown + a direct nav all re-check it),
+ *   - `platform.mobile`  → the Beta section (the hub link + the dropdown + a direct nav all re-check it),
  *   - `tracker.self` → the SAME permission the live `/trophies` route carries (and the `GET /api/trophies`
  *     endpoint enforces server-side). Stacked so a direct nav to `/beta/trophies` re-checks both.
  *
@@ -19,7 +19,7 @@ import { PERM } from '../../core/models';
 export const TROPHIES_BETA_ROUTES: Routes = [
   {
     path: '',
-    canActivate: [permissionGuard(PERM.betaAccess), permissionGuard(PERM.trackerSelf)],
+    canActivate: [permissionGuard(PERM.platformMobile), permissionGuard(PERM.trackerSelf)],
     loadComponent: () => import('./trophies-beta.page').then(m => m.TrophiesBetaPage),
     title: 'Usage IQ · Trophies',
   },

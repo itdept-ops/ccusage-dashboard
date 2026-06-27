@@ -15,7 +15,7 @@
 // (with progress dots) is the spine; a vertical fallback scroll holds the full
 // summary card. Reduced-motion collapses every reveal via the kit a11y killswitch.
 //
-// ISOLATED + gated by beta.access: nothing here touches the global --tech-* tokens
+// ISOLATED + gated by platform.mobile: nothing here touches the global --tech-* tokens
 // or the flagship tracker-beta. The kit partial is the only style import; we
 // consume the kit, never modify it.
 // ============================================================================

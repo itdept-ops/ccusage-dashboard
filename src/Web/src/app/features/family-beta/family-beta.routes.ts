@@ -9,7 +9,7 @@ import { OptimisticFamily } from './state/optimistic-family';
  * "13-tile nav grid first" into "glanceable today first, navigation last" for 390px. Lazy `loadComponent`
  * keeps the page and its cards out of the initial bundle.
  *
- * Guarded by BOTH `beta.access` (the Beta section) AND `family.use` (the feature) — both guards run and
+ * Guarded by BOTH `platform.mobile` (the Beta section) AND `family.use` (the feature) — both guards run and
  * either failing blocks, so a direct nav to `/beta/family` is never less strict than the live `/family`
  * page it mirrors. This is the "stack both, like /beta/bills" pattern.
  *
@@ -24,7 +24,7 @@ import { OptimisticFamily } from './state/optimistic-family';
 export const FAMILY_BETA_ROUTES: Routes = [
   {
     path: '',
-    canActivate: [permissionGuard(PERM.betaAccess), permissionGuard(PERM.familyUse)],
+    canActivate: [permissionGuard(PERM.platformMobile), permissionGuard(PERM.familyUse)],
     providers: [OptimisticFamily],
     loadComponent: () => import('./family-beta.page').then(m => m.FamilyBetaPage),
     title: 'Usage IQ · Family Hearth',

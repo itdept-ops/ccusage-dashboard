@@ -46,7 +46,6 @@ public static class Permissions
     // ---- Tracker ----
     public const string TrackerSelf = "tracker.self";
     public const string TrackerViewAll = "tracker.viewall";
-    public const string TrackerBeta = "tracker.beta";
 
     // ---- Shares ----
     public const string SharesView = "shares.view";
@@ -124,11 +123,13 @@ public static class Permissions
     /// Not a *.view (a page gate, like <see cref="TrackerSelf"/>).</summary>
     public const string AutomationsUse = "automations.use";
 
-    // ---- Beta ----
-    /// <summary>Page-gate for the experimental Beta section and its hub. Not a *.view (a page gate, like
-    /// <see cref="TrackerSelf"/>); auto-included in the administrator preset (preset = the full catalog).
-    /// Never default — granted deliberately to opted-in users.</summary>
-    public const string BetaAccess = "beta.access";
+    // ---- Platform (the mobile-app gate) ----
+    /// <summary>The MOBILE PLATFORM gate: use the mobile app — the Strata mobile-first UI of every page on a phone
+    /// (kept under the "beta" framing for now). A platform-level capability, not a feature *.view; auto-included in
+    /// the administrator preset (the full catalog). Never default — every account starts on the desktop UI and
+    /// only gets the mobile app when granted. (Renamed from the legacy <c>beta.access</c> + absorbs the old
+    /// <c>tracker.beta</c>.)</summary>
+    public const string PlatformMobile = "platform.mobile";
 
     // ---- Administration ----
     public const string UsersView = "users.view";
@@ -166,7 +167,6 @@ public static class Permissions
         // ---- Fitness ----
         new PermissionInfo(TrackerSelf, "Fitness", "Track food & fitness", "Log and view your own food intake and exercises."),
         new PermissionInfo(TrackerViewAll, "Fitness", "View all trackers", "View every user’s food & fitness log (coach/admin)."),
-        new PermissionInfo(TrackerBeta, "Beta", "Tracker Beta", "Access the new mobile-first \"Strata\" tracker experience (beta)."),
 
         // ---- Tools ----
         new PermissionInfo(BillsUse, "Tools", "Use Bill Splitter", "Create bills, break a receipt photo down with AI, assign items to your contacts, and share a public claim link so people can claim what they owe."),
@@ -197,8 +197,8 @@ public static class Permissions
         // ---- Tools (continued) ----
         new PermissionInfo(AutomationsUse, "Tools", "Use Automations", "Create rules that react to your own activity and notify you in-app or to your own Discord webhook."),
 
-        // ---- Beta ----
-        new PermissionInfo(BetaAccess, "Beta", "Beta access", "Access the experimental Beta section and its pages."),
+        // ---- Platform (the mobile-app gate) ----
+        new PermissionInfo(PlatformMobile, "Platform", "Mobile app (beta)", "Use the mobile app — the mobile-first UI of every page on a phone. Off by default; the desktop UI needs no grant."),
 
         // ---- Administration ----
         new PermissionInfo(UsersView, "Admin", "View users", "View the user list, permission catalog, and audit log."),
@@ -320,7 +320,7 @@ public static class Permissions
         IsValid(key) && key != UsersManage && key != ChatModerate && key != ChatContactsManage
         && key != TrackerViewAll && key != FamilyUse && key != FamilyFinance && key != CycleTrack
         && key != ChoreClaim && key != AllowanceManage && key != IdentityMap
-        && key != AiUsageView && key != BillsUse && key != BetaAccess && key != AutomationsUse
+        && key != AiUsageView && key != BillsUse && key != PlatformMobile && key != AutomationsUse
         && key != RecipesUse && key != GroceryUse && key != MealsUse && key != ResumeUse
         && !AiKeys.Contains(key) && !LocationKeys.Contains(key);
 }

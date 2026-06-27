@@ -8,7 +8,7 @@ import { PERM } from '../../core/models';
  * `/meal-planner`'s warm 7-day grid into a native-app "one day at a time, swipe the week" experience for
  * 390px. Lazy `loadComponent` keeps the page + its subcomponents out of the initial bundle.
  *
- * Guarded by BOTH `beta.access` (the Beta section) AND `meals.use` (the feature) — both guards run and
+ * Guarded by BOTH `platform.mobile` (the Beta section) AND `meals.use` (the feature) — both guards run and
  * either failing blocks, so a direct nav to `/beta/meals` is never less strict than the live `/meal-planner`
  * page it mirrors. This is the "stack both, like /beta/family" pattern.
  *
@@ -21,7 +21,7 @@ import { PERM } from '../../core/models';
 export const MEALS_BETA_ROUTES: Routes = [
   {
     path: '',
-    canActivate: [permissionGuard(PERM.betaAccess), permissionGuard(PERM.mealsUse)],
+    canActivate: [permissionGuard(PERM.platformMobile), permissionGuard(PERM.mealsUse)],
     loadComponent: () => import('./meals-beta.page').then(m => m.MealsBetaPage),
     title: 'Usage IQ · Meals Forage',
   },

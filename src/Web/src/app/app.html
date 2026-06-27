@@ -248,8 +248,8 @@
       }
 
       <!-- Beta ▾ : "Beta home" (/beta) then the shared BETA_EXPERIMENTS list (each may add its own perm
-           on top of beta.access). Replaces the old standalone /tracker-beta link. -->
-      @if (auth.hasPermission('beta.access')) {
+           on top of platform.mobile). Replaces the old standalone /tracker-beta link. -->
+      @if (auth.hasPermission('platform.mobile')) {
         <button type="button" mat-button class="nav__item nav__group"
                 [matMenuTriggerFor]="betaMenu" #betaTrigger="matMenuTrigger"
                 [class.nav__group--open]="betaTrigger.menuOpen"
@@ -557,7 +557,7 @@
          (click)="closeMobileNav()">Family</a>
     }
 
-    @if (auth.hasPermission('beta.access')) {
+    @if (auth.hasPermission('platform.mobile')) {
       <div class="mobile-nav__head" role="presentation">Beta</div>
       <a class="mobile-nav__item" routerLink="/beta" routerLinkActive="active"
          [routerLinkActiveOptions]="{ exact: true }" (click)="closeMobileNav()">Beta home</a>

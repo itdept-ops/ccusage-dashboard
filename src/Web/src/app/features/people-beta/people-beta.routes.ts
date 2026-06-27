@@ -9,7 +9,7 @@ import { PERM } from '../../core/models';
  * subcomponents out of the initial bundle.
  *
  * Gating MIRRORS the live `/people` route exactly, but additionally stacks the Beta section gate:
- *   - `beta.access`            — the Beta section page-gate (a hard `permissionGuard`, must hold)
+ *   - `platform.mobile`            — the Beta section page-gate (a hard `permissionGuard`, must hold)
  *   - any-of `chat.read | family.use` — the SAME aggregation gate as GET /api/people / the live `/people`
  *     route (`anyPermissionGuard(PERM.chatRead, PERM.familyUse)`), so a chat-only caller still sees just
  *     their contacts and a family-only caller still sees just their household.
@@ -27,7 +27,7 @@ export const PEOPLE_BETA_ROUTES: Routes = [
   {
     path: '',
     canActivate: [
-      permissionGuard(PERM.betaAccess),
+      permissionGuard(PERM.platformMobile),
       anyPermissionGuard(PERM.chatRead, PERM.familyUse),
     ],
     loadComponent: () => import('./people-beta.page').then(m => m.PeopleBetaPage),

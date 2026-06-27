@@ -5,7 +5,7 @@ import { PERM } from '../../core/models';
 
 /**
  * Dashboard Beta — the new mobile-first "Pulse" usage-analytics experience. Lazy `loadComponent`
- * so neither the page nor echarts land in the initial bundle. Guarded by the `beta.access`
+ * so neither the page nor echarts land in the initial bundle. Guarded by the `platform.mobile`
  * permission (same gate as the hub; the brief specifies no extra per-feature perm for Pulse).
  *
  * Purely ADDITIVE: this surface re-uses the SAME `Api.summary`/`records`/`cacheEfficiency`
@@ -17,7 +17,7 @@ import { PERM } from '../../core/models';
 export const DASHBOARD_BETA_ROUTES: Routes = [
   {
     path: '',
-    canActivate: [permissionGuard(PERM.betaAccess)],
+    canActivate: [permissionGuard(PERM.platformMobile)],
     loadComponent: () => import('./dashboard-beta.page').then(m => m.DashboardBetaPage),
     title: 'Usage IQ · Dashboard Beta',
   },

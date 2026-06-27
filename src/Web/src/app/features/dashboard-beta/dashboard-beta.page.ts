@@ -37,7 +37,7 @@ const PAGE_SIZE = 25;
  * re-aggregates client-side. The deep-link query scheme (`from/to/p/m/s/mc/sc/g/preset`) mirrors the
  * live page so shared links interoperate.
  *
- * ISOLATION: gated by `beta.access`; consumes the kit + the SAME read-only Api as /dashboard. No live
+ * ISOLATION: gated by `platform.mobile`; consumes the kit + the SAME read-only Api as /dashboard. No live
  * page is imported or modified; the flagship tracker-beta + the kit are consumed, never changed.
  */
 @Component({

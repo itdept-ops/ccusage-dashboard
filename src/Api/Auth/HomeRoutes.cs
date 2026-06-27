@@ -39,25 +39,25 @@ public static class HomeRoutes
         ["/meal-planner"] = new[] { Permissions.MealsUse },
         ["/people"] = new[] { Permissions.ChatRead, Permissions.FamilyUse },
 
-        // Beta surfaces (the mobile-first redesigns) — mirror the route guards in app.routes.ts so a beta
-        // page can be set as the landing page. The /beta section is gated by beta.access; tracker-beta has
-        // its own tracker.beta guard. (Routes that ALSO require a feature perm, e.g. /beta/family needs
-        // family.use, are filtered in the SPA picker; beta.access is the section gate here.)
-        ["/tracker-beta"] = new[] { Permissions.TrackerBeta },
-        ["/beta"] = new[] { Permissions.BetaAccess },
-        ["/beta/home"] = new[] { Permissions.BetaAccess },
-        ["/beta/dashboard"] = new[] { Permissions.BetaAccess },
-        ["/beta/family"] = new[] { Permissions.BetaAccess },
-        ["/beta/bills"] = new[] { Permissions.BetaAccess },
-        ["/beta/wrapped"] = new[] { Permissions.BetaAccess },
-        ["/beta/settings"] = new[] { Permissions.BetaAccess },
-        ["/beta/chat"] = new[] { Permissions.BetaAccess },
-        ["/beta/ask"] = new[] { Permissions.BetaAccess },
-        ["/beta/meals"] = new[] { Permissions.BetaAccess },
-        ["/beta/people"] = new[] { Permissions.BetaAccess },
-        ["/beta/fleet"] = new[] { Permissions.BetaAccess },
-        ["/beta/trophies"] = new[] { Permissions.BetaAccess },
-        ["/beta/automations"] = new[] { Permissions.BetaAccess },
+        // Mobile surfaces (the mobile-first redesigns) — mirror the route guards in app.routes.ts so a mobile
+        // page can be set as the landing page. The /beta section + tracker-beta are gated by the mobile-platform
+        // permission (platform.mobile). (Routes that ALSO require a feature perm, e.g. /beta/family needs
+        // family.use, are filtered in the SPA picker; platform.mobile is the section gate here.)
+        ["/tracker-beta"] = new[] { Permissions.PlatformMobile },
+        ["/beta"] = new[] { Permissions.PlatformMobile },
+        ["/beta/home"] = new[] { Permissions.PlatformMobile },
+        ["/beta/dashboard"] = new[] { Permissions.PlatformMobile },
+        ["/beta/family"] = new[] { Permissions.PlatformMobile },
+        ["/beta/bills"] = new[] { Permissions.PlatformMobile },
+        ["/beta/wrapped"] = new[] { Permissions.PlatformMobile },
+        ["/beta/settings"] = new[] { Permissions.PlatformMobile },
+        ["/beta/chat"] = new[] { Permissions.PlatformMobile },
+        ["/beta/ask"] = new[] { Permissions.PlatformMobile },
+        ["/beta/meals"] = new[] { Permissions.PlatformMobile },
+        ["/beta/people"] = new[] { Permissions.PlatformMobile },
+        ["/beta/fleet"] = new[] { Permissions.PlatformMobile },
+        ["/beta/trophies"] = new[] { Permissions.PlatformMobile },
+        ["/beta/automations"] = new[] { Permissions.PlatformMobile },
     };
 
     public static bool IsKnown(string route) => Map.ContainsKey(route);

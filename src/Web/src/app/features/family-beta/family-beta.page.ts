@@ -38,7 +38,7 @@ import { WeatherCard } from './cards/weather-card';
  * Family-Hearth owns its SIGNATURE ACCENT — a warm AMBER → ROSE gradient — overriding the kit default on
  * its `:host`, so every kit component + every card reads it off the cascade and the whole screen re-skins.
  *
- * HARD ISOLATION: purely additive + gated by `beta.access` (+ `family.use`). It reuses the family
+ * HARD ISOLATION: purely additive + gated by `platform.mobile` (+ `family.use`). It reuses the family
  * {@link Api} READ-mostly (the Today snapshot + briefing here; chores/household/presence inside their
  * cards) and the existing fast-action WRITE endpoints (quick-add, add list item, chore tick) only — it
  * NEVER modifies any live family page, imports NO `FamilyHome` internals (the `nextEvent`/`dateLabel`/

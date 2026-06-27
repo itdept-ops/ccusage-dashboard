@@ -49,7 +49,7 @@ const REACTIONS = ['❤️', '👍', '😂', '🔥', '😮', '🙏', '😢', '�
  * SIGNATURE ACCENT: a TEAL → SKY gradient (#2dd4bf → #0ea5e9), overriding the kit default on :host, so
  * every kit component + bubble + chip reads it off the cascade and the whole screen re-skins.
  *
- * HARD ISOLATION: purely additive + gated by `beta.access` (+ `chat.read`). It consumes the EXISTING
+ * HARD ISOLATION: purely additive + gated by `platform.mobile` (+ `chat.read`). It consumes the EXISTING
  * {@link ChatRealtime} root service + the chat `Api` it wraps (channels / history / send / typing /
  * reactions / mark-read), imports NO live /chat internals, does NOT touch the flagship tracker-beta or
  * the kit itself, and adds no npm deps. The hub is started best-effort here (idempotent) so live

@@ -60,7 +60,7 @@ interface RecapCell { readonly num: string; readonly label: string; readonly acc
  * client-side. Cards arrive pre-filtered (0-valued cards dropped server-side) so the reel only tells the
  * parts of the story that actually happened.
  *
- * ISOLATION: gated by `beta.access`; consumes the kit + the SAME read-only Api as the live counterpart. No
+ * ISOLATION: gated by `platform.mobile`; consumes the kit + the SAME read-only Api as the live counterpart. No
  * live page is imported or modified; the flagship tracker-beta + the kit are consumed, never changed.
  * Reduced-motion collapses the reveals/count-ups via the kit a11y killswitch; layout is mobile-first
  * (44px targets, safe-area insets, no 390px overflow) and centers on desktop.

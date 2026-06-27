@@ -30,7 +30,7 @@ import { HomeOption, HOME_OPTIONS } from '../../core/home-options';
  * activity + location, PLUS the display-preference segmented controls the live hub exposes (units, theme,
  * display-name mode) and a self-service HOME-PAGE picker (PATCH /api/auth/home). The webhook BUILDER and the
  * admin Sync section stay on the full /preferences hub. Every change saves OPTIMISTICALLY (flip immediately,
- * revert + toast on error). ISOLATED + gated by beta.access (route guard); touches no live page, consumes
+ * revert + toast on error). ISOLATED + gated by platform.mobile (route guard); touches no live page, consumes
  * the kit (never modifies it), adds no npm deps.
  */
 @Component({

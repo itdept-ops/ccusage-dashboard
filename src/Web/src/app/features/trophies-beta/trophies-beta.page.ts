@@ -67,7 +67,7 @@ interface BadgeGroup {
  * carries the caller's display NAME + userId only — never an email, never a secret. This page renders only
  * the caller's own data, performs NO writes, and re-derives nothing client-side.
  *
- * ISOLATION: gated by `beta.access` + the SAME `tracker.self` the live `/trophies` route carries; it
+ * ISOLATION: gated by `platform.mobile` + the SAME `tracker.self` the live `/trophies` route carries; it
  * consumes the kit + the SAME read-only Api as the live counterpart. No live page is imported or modified.
  * Reduced-motion collapses the reveals/sheen via the kit a11y killswitch; layout is mobile-first (44px
  * targets, safe-area insets, no 390px overflow) and centers on desktop.

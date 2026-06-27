@@ -7,7 +7,7 @@
 // :host cascade, so this single override re-skins the screen (the hero ring, the pull-refresh ring,
 // the segmented pill, the focus ring all follow).
 //
-// ISOLATED + gated by beta.access + tracker.self: nothing here touches the global --tech-* tokens or
+// ISOLATED + gated by platform.mobile + tracker.self: nothing here touches the global --tech-* tokens or
 // the live /trophies page. The kit partial is the only import. Per-tier medal hues (bronze / silver /
 // gold / complete) are LOCAL tokens layered ON TOP of the gold page accent.
 // ============================================================================

@@ -29,7 +29,7 @@ import { AutomationTemplate, TEMPLATES } from './automations-beta.model';
  * left untouched), `Api.deleteAutomation` (remove), and `Api.createAutomation` (the sheet). The server
  * owns all self-scoping + validation; this page never re-derives or relaxes anything.
  *
- * ISOLATION: gated by `beta.access` + `automations.use`; reuses the kit + the SAME read/write Api as the
+ * ISOLATION: gated by `platform.mobile` + `automations.use`; reuses the kit + the SAME read/write Api as the
  * live page. No live page is imported or modified; the kit is consumed, never changed. State lives in this
  * page's signals; the only route-level provider is its own ToastController.
  */

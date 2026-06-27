@@ -7,7 +7,7 @@
 // kit component + every Atrium widget reads --accent-a/--accent-b off this :host cascade, so this single
 // override re-skins the screen (the page chrome, the pull-refresh ring, the focus ring all follow).
 //
-// ISOLATED + gated by beta.access: nothing here touches the global --tech-* tokens or the flagship
+// ISOLATED + gated by platform.mobile: nothing here touches the global --tech-* tokens or the flagship
 // tracker-beta. The kit partial is the only import.
 // ============================================================================
 

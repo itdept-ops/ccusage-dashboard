@@ -6,7 +6,7 @@ import { PERM } from '../../core/models';
 /**
  * Bills Beta — the mobile-first "Tally" split-the-check experience, rebuilt on the shared beta-ui kit.
  * Lazy `loadComponent` so the page (and the kit primitives it consumes) stay out of the initial bundle.
- * Guarded by BOTH `beta.access` (the Beta section) AND `bills.use` (the feature) — matching the live /bills
+ * Guarded by BOTH `platform.mobile` (the Beta section) AND `bills.use` (the feature) — matching the live /bills
  * gate, so the beta twin is never less strict than the page it mirrors. This is purely additive — it reuses
  * the existing bills `Api` methods + DTOs and never touches the live /bills page.
  *
@@ -19,7 +19,7 @@ import { PERM } from '../../core/models';
 export const BILLS_BETA_ROUTES: Routes = [
   {
     path: '',
-    canActivate: [permissionGuard(PERM.betaAccess), permissionGuard(PERM.billsUse)],
+    canActivate: [permissionGuard(PERM.platformMobile), permissionGuard(PERM.billsUse)],
     loadComponent: () => import('./bills-beta.page').then(m => m.BillsBetaPage),
     title: 'Usage IQ · Bills Tally',
   },

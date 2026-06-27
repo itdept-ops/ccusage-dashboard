@@ -15,7 +15,7 @@ import { PERM } from './models';
  * selectable in the UI AND persistable by `PATCH /api/auth/home`. Keeping ONE list here is what stops the
  * pickers + the access check from drifting apart. `icon` is a text glyph (the mobile picker renders it; the
  * desktop dropdown ignores it). For routes that ALSO need a feature perm beyond the section gate (e.g. the
- * /beta surfaces need beta.access here + the feature perm at the route guard), the guard re-checks on nav.
+ * /beta surfaces need platform.mobile here + the feature perm at the route guard), the guard re-checks on nav.
  */
 export interface HomeOption {
   readonly route: string;
@@ -48,22 +48,22 @@ export const HOME_OPTIONS: readonly HomeOption[] = [
   { route: '/users', label: 'Users', icon: '☰', perms: [PERM.usersView] },
   { route: '/activity', label: 'Activity', icon: '✦', perms: [PERM.activityView] },
   { route: '/settings', label: 'Settings', icon: '⚙', perms: [PERM.settingsView] },
-  // ── Beta surfaces (mobile-first redesigns; section gate = beta.access) ─────
-  { route: '/tracker-beta', label: 'Tracker Beta', icon: '◆', perms: [PERM.trackerBeta] },
-  { route: '/beta', label: 'Beta', icon: '✦', perms: [PERM.betaAccess] },
-  { route: '/beta/home', label: 'Beta · Home', icon: '⌂', perms: [PERM.betaAccess] },
-  { route: '/beta/dashboard', label: 'Beta · Dashboard', icon: '◧', perms: [PERM.betaAccess] },
-  { route: '/beta/family', label: 'Beta · Family', icon: '⌂', perms: [PERM.betaAccess] },
-  { route: '/beta/bills', label: 'Beta · Bills', icon: '⊟', perms: [PERM.betaAccess] },
-  { route: '/beta/wrapped', label: 'Beta · Wrapped', icon: '✷', perms: [PERM.betaAccess] },
-  { route: '/beta/settings', label: 'Beta · Settings', icon: '⚙', perms: [PERM.betaAccess] },
-  { route: '/beta/chat', label: 'Beta · Chat', icon: '◌', perms: [PERM.betaAccess] },
-  { route: '/beta/ask', label: 'Beta · Ask', icon: '✶', perms: [PERM.betaAccess] },
-  { route: '/beta/meals', label: 'Beta · Meals', icon: '◔', perms: [PERM.betaAccess] },
-  { route: '/beta/people', label: 'Beta · People', icon: '☺', perms: [PERM.betaAccess] },
-  { route: '/beta/fleet', label: 'Beta · Fleet', icon: '☷', perms: [PERM.betaAccess] },
-  { route: '/beta/trophies', label: 'Beta · Trophies', icon: '♛', perms: [PERM.betaAccess] },
-  { route: '/beta/automations', label: 'Beta · Automations', icon: '⚡', perms: [PERM.betaAccess] },
+  // ── Beta surfaces (mobile-first redesigns; section gate = platform.mobile) ─────
+  { route: '/tracker-beta', label: 'Tracker Beta', icon: '◆', perms: [PERM.platformMobile] },
+  { route: '/beta', label: 'Beta', icon: '✦', perms: [PERM.platformMobile] },
+  { route: '/beta/home', label: 'Beta · Home', icon: '⌂', perms: [PERM.platformMobile] },
+  { route: '/beta/dashboard', label: 'Beta · Dashboard', icon: '◧', perms: [PERM.platformMobile] },
+  { route: '/beta/family', label: 'Beta · Family', icon: '⌂', perms: [PERM.platformMobile] },
+  { route: '/beta/bills', label: 'Beta · Bills', icon: '⊟', perms: [PERM.platformMobile] },
+  { route: '/beta/wrapped', label: 'Beta · Wrapped', icon: '✷', perms: [PERM.platformMobile] },
+  { route: '/beta/settings', label: 'Beta · Settings', icon: '⚙', perms: [PERM.platformMobile] },
+  { route: '/beta/chat', label: 'Beta · Chat', icon: '◌', perms: [PERM.platformMobile] },
+  { route: '/beta/ask', label: 'Beta · Ask', icon: '✶', perms: [PERM.platformMobile] },
+  { route: '/beta/meals', label: 'Beta · Meals', icon: '◔', perms: [PERM.platformMobile] },
+  { route: '/beta/people', label: 'Beta · People', icon: '☺', perms: [PERM.platformMobile] },
+  { route: '/beta/fleet', label: 'Beta · Fleet', icon: '☷', perms: [PERM.platformMobile] },
+  { route: '/beta/trophies', label: 'Beta · Trophies', icon: '♛', perms: [PERM.platformMobile] },
+  { route: '/beta/automations', label: 'Beta · Automations', icon: '⚡', perms: [PERM.platformMobile] },
 ];
 
 /**

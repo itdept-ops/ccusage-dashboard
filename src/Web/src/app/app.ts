@@ -239,7 +239,7 @@ export class App implements AfterViewInit {
   /**
    * The Beta dropdown's page list (the SAME registry the Beta hub grid uses, so nav + hub never drift).
    * The template prepends a "Beta home" (/beta) link, then iterates these; each entry's optional `perm`
-   * is an ADDITIONAL gate layered on the beta.access trigger gate. Exposed for the nav template.
+   * is an ADDITIONAL gate layered on the platform.mobile trigger gate. Exposed for the nav template.
    */
   readonly betaExperiments = BETA_EXPERIMENTS;
   /** Nav-template predicate: may the caller SEE this beta entry (its `perm` + any-of `anyPerm` gate). */
@@ -262,7 +262,7 @@ export class App implements AfterViewInit {
     '/settings': 'settings.view',
     '/chat': 'chat.read',
     '/tracker': 'tracker.self',
-    '/tracker-beta': 'tracker.beta',
+    '/tracker-beta': 'platform.mobile',
     '/challenge': 'tracker.self',
     '/feed': 'tracker.self',
     '/automations': 'automations.use',
@@ -271,7 +271,7 @@ export class App implements AfterViewInit {
     '/recipes': 'recipes.use',
     '/meal-planner': 'meals.use',
     '/resume': 'resume.use',
-    '/beta': 'beta.access',
+    '/beta': 'platform.mobile',
     '/family': 'family.use',
     '/locations': 'location.self',
     '/admin/locations': 'location.view-all',

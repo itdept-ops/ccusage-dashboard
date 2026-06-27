@@ -43,7 +43,7 @@ import { ForageMoveMealSheet } from './components/move-meal-sheet';
  * `Api.planMeals`/`planMealsToPlan`/`whatToEat` endpoints. The server owns all the macro math; this page
  * never re-aggregates. It writes nothing the live page can't already write.
  *
- * ISOLATION: gated by `beta.access` + `meals.use`; consumes the kit + the SAME read/write Api as the live
+ * ISOLATION: gated by `platform.mobile` + `meals.use`; consumes the kit + the SAME read/write Api as the live
  * planner. No live page is imported or modified; the flagship tracker-beta + the kit are consumed, never
  * changed. State lives in this page's signals; the only route-level provider is its own ToastController.
  */

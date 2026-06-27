@@ -39,7 +39,7 @@ const EMPTY_FILTER: UsageFilter = {
  * `FleetUser` DTOs the live page uses — the server owns all per-machine/per-user aggregation; this page
  * never re-aggregates. The range presets reuse the live page's exact local-date formatter so ranges match.
  *
- * ISOLATION: gated by `beta.access` + any-of [`fleet.view`, `reporter.manage`] (mirrors the live /fleet
+ * ISOLATION: gated by `platform.mobile` + any-of [`fleet.view`, `reporter.manage`] (mirrors the live /fleet
  * gate). Consumes the kit + the SAME read-only fleet endpoint. No live page is imported or modified; the
  * flagship tracker-beta + the kit are consumed, never changed. State lives in this page's signals; the
  * only route-level provider is its own ToastController.

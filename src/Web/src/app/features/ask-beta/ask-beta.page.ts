@@ -71,7 +71,7 @@ const DOMAIN_LABEL: Record<string, string> = {
  * summary (`aiUsed:false`) when AI is off; we badge that plainly. A real network failure shows a gentle
  * inline error with retry — never a dead-end.
  *
- * ISOLATION: gated by `beta.access` + `tracker.ai`; consumes the kit + the SAME read-only ask endpoint.
+ * ISOLATION: gated by `platform.mobile` + `tracker.ai`; consumes the kit + the SAME read-only ask endpoint.
  * No live page is imported or modified; the flagship tracker-beta + the kit are consumed, never changed.
  */
 @Component({

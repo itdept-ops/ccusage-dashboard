@@ -9,7 +9,7 @@ import { PERM } from '../../core/models';
  * card with a native enable switch, swipe-to-toggle/delete, and a create bottom-sheet. Lazy
  * `loadComponent` keeps the page + its subcomponents out of the initial bundle.
  *
- * Guarded by BOTH `beta.access` (the Beta section) AND `automations.use` (the feature) — both guards run
+ * Guarded by BOTH `platform.mobile` (the Beta section) AND `automations.use` (the feature) — both guards run
  * and either failing blocks, so a direct nav to `/beta/automations` is never less strict than the live
  * `/automations` page it mirrors. This is the "stack both, like /beta/meals" pattern.
  *
@@ -21,7 +21,7 @@ import { PERM } from '../../core/models';
 export const AUTOMATIONS_BETA_ROUTES: Routes = [
   {
     path: '',
-    canActivate: [permissionGuard(PERM.betaAccess), permissionGuard(PERM.automationsUse)],
+    canActivate: [permissionGuard(PERM.platformMobile), permissionGuard(PERM.automationsUse)],
     loadComponent: () => import('./automations-beta.page').then(m => m.AutomationsBetaPage),
     title: 'Usage IQ · Automations Relay',
   },

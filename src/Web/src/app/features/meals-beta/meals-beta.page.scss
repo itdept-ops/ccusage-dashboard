@@ -8,7 +8,7 @@
 // row, bottom sheets, toaster, skeleton) + every subcomponent reads --accent-a/--accent-b off this :host
 // cascade, so this single override re-skins the whole screen.
 //
-// ISOLATED + gated by beta.access + meals.use: nothing here touches the global --tech-* tokens or the
+// ISOLATED + gated by platform.mobile + meals.use: nothing here touches the global --tech-* tokens or the
 // flagship tracker-beta. The kit partial is the only import; we consume the kit, never modify it.
 // ============================================================================
 

@@ -9,7 +9,7 @@
 // :host cascade, so this single override re-skins the whole screen (badges, dots, mine-bubbles,
 // the send button, the focus ring all follow).
 //
-// ISOLATED + gated by beta.access (+ chat.read): nothing here touches the global --tech-* tokens
+// ISOLATED + gated by platform.mobile (+ chat.read): nothing here touches the global --tech-* tokens
 // or the flagship tracker-beta. The kit partial is the only style import; we consume it, never
 // modify it. Two stacked panes (list + thread) share one 390px surface.
 // ============================================================================

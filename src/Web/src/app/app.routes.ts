@@ -162,7 +162,7 @@ export const routes: Routes = [
   {
     // Tracker Beta — the redesigned, mobile-first "Strata" dashboard over the SAME tracker data
     // (reuses the root TrackerStore). The lazy children file keeps echarts AND the OptimisticTracker
-    // route provider out of the initial bundle; the tracker.beta guard lives inside it, so the beta
+    // route provider out of the initial bundle; the platform.mobile guard lives inside it, so the beta
     // surfaces only to opted-in users. OptimisticTracker is provided at that route so every child
     // sheet/card injects the same instance (it itself injects the root TrackerStore).
     path: 'tracker-beta',
@@ -171,14 +171,14 @@ export const routes: Routes = [
   {
     // Bills Beta — the mobile-first "Tally" split-the-check redesign over the SAME bills data (reuses the
     // bills Api methods + DTOs). Purely additive; the lazy children file keeps it out of the initial bundle
-    // and holds the beta.access guard. The live /bills page (below) is untouched.
+    // and holds the platform.mobile guard. The live /bills page (below) is untouched.
     path: 'beta/bills',
     loadChildren: () => import('./features/bills-beta/bills-beta.routes').then(m => m.BILLS_BETA_ROUTES),
   },
   {
     // Home "Atrium" — the mobile-first cross-domain glance surface (rings / 75-Hard / next event /
     // who's online / spend / activity) over EXISTING root stores + Api (read-only). Purely additive; the
-    // lazy children file keeps it out of the initial bundle and holds the beta.access guard. Placed
+    // lazy children file keeps it out of the initial bundle and holds the platform.mobile guard. Placed
     // before the `beta` hub route so the more-specific `beta/home` matches first (Angular is first-match,
     // same as `beta/bills` above). No live page is touched.
     path: 'beta/home',
@@ -188,7 +188,7 @@ export const routes: Routes = [
     // Dashboard "Pulse" — the mobile-first usage-analytics redesign over the SAME summary/records/
     // cache-efficiency endpoints + DTOs (read-only) as the live /dashboard, so it shows identical numbers
     // for the same filters. Purely additive; the lazy children file keeps echarts out of the initial bundle
-    // and holds the beta.access guard. Placed before the `beta` hub route so the more-specific
+    // and holds the platform.mobile guard. Placed before the `beta` hub route so the more-specific
     // `beta/dashboard` matches first (Angular is first-match). The live /dashboard page is untouched.
     path: 'beta/dashboard',
     loadChildren: () => import('./features/dashboard-beta/dashboard-beta.routes').then(m => m.DASHBOARD_BETA_ROUTES),
@@ -197,7 +197,7 @@ export const routes: Routes = [
     // Family "Hearth" — the mobile-first family glance surface (today-first, nav-last) over the SAME
     // family Api methods + DTOs (the Today snapshot read-mostly + the existing fast-action write
     // endpoints). Purely additive; the lazy children file keeps it out of the initial bundle and STACKS
-    // both guards (beta.access + family.use), so a direct nav is never less strict than the live /family
+    // both guards (platform.mobile + family.use), so a direct nav is never less strict than the live /family
     // page it mirrors. Placed before the `beta` hub route so the more-specific `beta/family` matches first
     // (Angular is first-match). No live family page is touched.
     path: 'beta/family',
@@ -207,7 +207,7 @@ export const routes: Routes = [
     // Hub Wrapped — the mobile-first "year in the Hub" highlight-reel of the caller's OWN data over a chosen
     // period (month / year / all-time), DERIVED server-side by reusing the existing owner-scoped aggregations
     // (so the numbers agree with the rest of the app). Purely additive + read-only; the lazy children file
-    // keeps it out of the initial bundle and holds the beta.access guard. Placed before the `beta` hub route
+    // keeps it out of the initial bundle and holds the platform.mobile guard. Placed before the `beta` hub route
     // so the more-specific `beta/wrapped` matches first (Angular is first-match). No live page is touched.
     path: 'beta/wrapped',
     loadChildren: () => import('./features/wrapped-beta/wrapped-beta.routes').then(m => m.WRAPPED_BETA_ROUTES),
@@ -215,7 +215,7 @@ export const routes: Routes = [
   {
     // Settings "beta" — a sleek, mobile-first likeness of the live Settings hub's quick toggles over the
     // SAME per-user Api methods (inbox-preferences, my-discord, profile, location). Purely additive +
-    // ISOLATED (imports no live page); the lazy children file holds the beta.access guard. Placed before
+    // ISOLATED (imports no live page); the lazy children file holds the platform.mobile guard. Placed before
     // the `beta` hub route so the more-specific `beta/settings` matches first (Angular is first-match).
     path: 'beta/settings',
     loadChildren: () => import('./features/beta-settings/beta-settings.routes').then(m => m.BETA_SETTINGS_ROUTES),
@@ -223,7 +223,7 @@ export const routes: Routes = [
   {
     // Chat "Messenger" — the mobile-first iMessage-feel chat redesign over the SAME chat Api methods + DTOs +
     // the root ChatRealtime service (read/send/react/typing). Purely additive; the lazy children file keeps it
-    // out of the initial bundle and STACKS both guards (beta.access + chat.read), so a direct nav is never less
+    // out of the initial bundle and STACKS both guards (platform.mobile + chat.read), so a direct nav is never less
     // strict than the live /chat page it mirrors. Placed before the `beta` hub route so the more-specific
     // `beta/chat` matches first (Angular is first-match). No live chat page is touched.
     path: 'beta/chat',
@@ -232,7 +232,7 @@ export const routes: Routes = [
   {
     // Ask "Ask my life" — the mobile-first conversational AI redesign over the SAME Api.askMyLife endpoint +
     // AskResponse DTO as the live /ask page (read-only; proposes/writes nothing). Purely additive; the lazy
-    // children file keeps it out of the initial bundle and STACKS both guards (beta.access + tracker.ai), so a
+    // children file keeps it out of the initial bundle and STACKS both guards (platform.mobile + tracker.ai), so a
     // direct nav is never less strict than the live /ask page it mirrors. Placed before the `beta` hub route so
     // the more-specific `beta/ask` matches first (Angular is first-match). No live page is touched.
     path: 'beta/ask',
@@ -242,7 +242,7 @@ export const routes: Routes = [
     // Meals "Forage" — the mobile-first "one day at a time, swipe the week" meal-planning + grocery redesign
     // over the SAME household FamilyMeals + grocery (FamilyList) + AI plan endpoints + DTOs as the live
     // /meal-planner. Purely additive; the lazy children file keeps it out of the initial bundle and STACKS both
-    // guards (beta.access + meals.use), so a direct nav is never less strict than the live /meal-planner page it
+    // guards (platform.mobile + meals.use), so a direct nav is never less strict than the live /meal-planner page it
     // mirrors. Placed before the `beta` hub route so the more-specific `beta/meals` matches first (Angular is
     // first-match). No live page is touched.
     path: 'beta/meals',
@@ -250,37 +250,37 @@ export const routes: Routes = [
   },
   {
     // People "Circle" — the mobile-first social roster over the SAME GET /api/people aggregation as the live
-    // /people page. Lazy children STACK both guards (beta.access + any-of chat.read|family.use). Placed before
+    // /people page. Lazy children STACK both guards (platform.mobile + any-of chat.read|family.use). Placed before
     // the `beta` hub route so the more-specific `beta/people` matches first. No live page is touched.
     path: 'beta/people',
     loadChildren: () => import('./features/people-beta/people-beta.routes').then(m => m.PEOPLE_BETA_ROUTES),
   },
   {
     // Fleet — the mobile-first machines + reporters view over the SAME Api.fleet rollup as the live /fleet page.
-    // Lazy children STACK both guards (beta.access + any-of fleet.view|reporter.manage). Placed before the `beta`
+    // Lazy children STACK both guards (platform.mobile + any-of fleet.view|reporter.manage). Placed before the `beta`
     // hub route so the more-specific `beta/fleet` matches first. No live page is touched.
     path: 'beta/fleet',
     loadChildren: () => import('./features/fleet-beta/fleet-beta.routes').then(m => m.FLEET_BETA_ROUTES),
   },
   {
     // Trophies — the mobile-first achievements wall over the SAME Api.trophies() data as the live /trophies page.
-    // Lazy children STACK both guards (beta.access + tracker.self). Placed before the `beta` hub route so the
+    // Lazy children STACK both guards (platform.mobile + tracker.self). Placed before the `beta` hub route so the
     // more-specific `beta/trophies` matches first. No live page is touched.
     path: 'beta/trophies',
     loadChildren: () => import('./features/trophies-beta/trophies-beta.routes').then(m => m.TROPHIES_BETA_ROUTES),
   },
   {
     // Automations "Relay" — the mobile-first if-this-then-that rules screen over the SAME rules endpoints as the
-    // live /automations page. Lazy children STACK both guards (beta.access + automations.use). Placed before the
+    // live /automations page. Lazy children STACK both guards (platform.mobile + automations.use). Placed before the
     // `beta` hub route so the more-specific `beta/automations` matches first. No live page is touched.
     path: 'beta/automations',
     loadChildren: () => import('./features/automations-beta/automations-beta.routes').then(m => m.AUTOMATIONS_BETA_ROUTES),
   },
   {
     // Beta hub — a permission-gated index of experimental surfaces. Purely additive: lives in the normal
-    // app shell, gated by beta.access; each experiment card inside is further gated by its own feature perm.
+    // app shell, gated by platform.mobile; each experiment card inside is further gated by its own feature perm.
     path: 'beta',
-    canActivate: [permissionGuard(PERM.betaAccess)],
+    canActivate: [permissionGuard(PERM.platformMobile)],
     loadComponent: () => import('./features/beta/beta-hub.page').then(m => m.BetaHubPage),
     title: 'Usage IQ · Beta',
   },

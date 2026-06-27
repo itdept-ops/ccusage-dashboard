@@ -61,7 +61,7 @@ const SURFACE_ACCENTS: Record<string, { a: string; b: string; desc?: string }> =
  * tailors the hint copy (touch vs pointer) and disables pull-to-refresh while dragging.
  *
  * Gating is UNCHANGED: the visible set is still filtered by per-card permission, so a card only appears if
- * its own feature flag is granted. ISOLATED + gated by `beta.access`: nothing here touches the global
+ * its own feature flag is granted. ISOLATED + gated by `platform.mobile`: nothing here touches the global
  * --tech-* tokens or any live page.
  */
 @Component({

@@ -37,7 +37,7 @@ import { ReceiptReviewSheet, ReceiptReviewResult } from './ui/receipt-review-she
  * ISOLATION: reuses the existing bills `Api` methods + DTOs and the shared beta-ui kit, but touches NO live
  * page/component, NO global `--tech-*` tokens, and does NOT modify the flagship tracker-beta or the kit
  * (consume only). The page owns its own optimistic row/bill patch + reconcile (no shared store). Gated by
- * BOTH `beta.access` and `bills.use`. No new npm deps.
+ * BOTH `platform.mobile` and `bills.use`. No new npm deps.
  */
 @Component({
   selector: 'app-bills-beta',
