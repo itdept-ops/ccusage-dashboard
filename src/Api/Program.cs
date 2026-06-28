@@ -576,6 +576,7 @@ app.MapHardChallengeEndpoints();
 app.MapTrophyEndpoints();
 app.MapWrappedEndpoints();
 app.MapWrappedShareEndpoints();
+app.MapInsightsEndpoints();
 app.MapFeedEndpoints();
 app.MapPactEndpoints();
 app.MapPublicEndpoints();

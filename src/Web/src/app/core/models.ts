@@ -6103,6 +6103,65 @@ export interface UsageFilter {
 
 export type GroupBy = 'day' | 'month' | 'project' | 'model' | 'session' | 'source';
 
+// ---- The Insight Engine (/api/insights) --------------------------------------------------------
+// Cross-domain correlations / trends / streaks / anomalies / best-worst days that NO single page shows,
+// computed DETERMINISTICALLY server-side over the caller's OWN already-derived per-day series, with an
+// OPTIONAL floored Gemini narration. STRICTLY OWNER-SCOPED (only the caller's own rows — no household, no
+// other user). NO migration, NO new permission (reuses tracker.self for the data + tracker.ai for narration).
+//
+// STATISTICAL HONESTY (load-bearing): a correlation card is emitted ONLY at n >= 10 paired days, bucketed
+// weak/moderate/strong, and carries an "Association, not causation … not medical advice." microcopy in its
+// `detail`; any forecast is a BOUNDED estimate, never a prediction. `dataPoints` is the honesty count behind
+// the stat. The deterministic engine is the ALWAYS-200 product floor; the AI only NARRATES these numbers.
+
+/** The closed `kind` set the grid groups by (correlation | trend | streak | anomaly | bestworst). */
+export type InsightKind = 'correlation' | 'trend' | 'streak' | 'anomaly' | 'bestworst';
+
+/**
+ * One deterministic insight card on the wire (mirrors the API's `InsightCardDto`). `stat` is the glanceable
+ * deterministic figure ("r=0.61 · moderate", "+0.4 kg/wk", "Best run: 9 days", "82 on Jun 14"); `magnitude`
+ * is a short qualitative tag; `detail` carries the disclaimer microcopy on correlations; `domain` is the
+ * accent hint; `dataPoints` is the honesty count (paired days / points behind the stat).
+ */
+export interface InsightCard {
+  kind: InsightKind | string;   // closed set above (string-tolerant for forward-compat)
+  title: string;
+  stat: string;
+  magnitude: string;
+  detail: string;
+  /** Accent hint: sleep|coffee|weight|usage|food|activity|cycle|hydration|primary. */
+  domain: string;
+  dataPoints: number;
+}
+
+/**
+ * The deterministic `GET /api/insights?window=30|90|365` response — the product floor (no AI needed). Cards
+ * are grouped client-side by `kind`. `hasData=false` (with empty `cards`) is the keep-logging empty state.
+ * Carries NO email / secret / other-user data (owner-scoped server-side).
+ */
+export interface InsightsResponse {
+  window: number;            // 30 | 90 | 365
+  fromDate: string;          // yyyy-MM-dd
+  toDate: string;            // yyyy-MM-dd
+  generatedUtc: string;      // ISO-8601
+  cards: InsightCard[];
+  hasData: boolean;          // false ⇒ empty/insufficient state
+}
+
+/** The Insight Engine window selector value (days). */
+export type InsightWindow = 30 | 90 | 365;
+
+/**
+ * The optional `GET /api/insights/narrate?window=...` response: the AI narrative + bullets, or
+ * `fellBackToPlain=true` when AI is off/unconfigured/errored (the UI then HIDES the banner). ALWAYS 200;
+ * narrates ONLY the deterministic numbers; writes nothing; gated server-side by tracker.ai.
+ */
+export interface InsightsNarrateResponse {
+  narrative: string;         // "" when fellBackToPlain
+  insights: string[];        // [] when fellBackToPlain
+  fellBackToPlain: boolean;  // true ⇒ hide the AI banner
+}
+
 // ---- Web Push (PWA background notifications) ----------------------------------------------------
 
 /** Public VAPID key for the browser to subscribe with. 404 from the API means web-push is unconfigured. */

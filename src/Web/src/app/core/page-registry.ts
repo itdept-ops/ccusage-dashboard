@@ -237,6 +237,13 @@ export const PAGE_REGISTRY: readonly PageDef[] = [
     home: { label: 'Wrapped', icon: 'auto_awesome' },
   },
   {
+    id: 'insights', path: 'insights', title: 'Usage IQ · Insights', perm: PERM.trackerSelf,
+    desktop: () => import('../features/insights/insights.page').then(m => m.InsightsPage),
+    mobile: () => import('../features/insights-mobile/insights.page').then(m => m.InsightsMobilePage),
+    nav: { group: 'Tools', label: 'Insights', icon: 'insights' },
+    home: { label: 'Insights', icon: 'insights' },
+  },
+  {
     id: 'search', path: 'search', title: 'Usage IQ · Search', perm: PERM.searchUse,
     desktop: () => import('../features/search/search').then(m => m.Search),
     mobile: () => import('../features/search-mobile/search-mobile.page').then(m => m.SearchMobilePage),

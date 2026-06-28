@@ -33,6 +33,7 @@ import {
   WrappedPeriod,
   WrappedResponse,
   WrappedNarrative, CreateWrappedShareRequest, WrappedShareCreated, WrappedShareItem, PublicWrapped,
+  InsightsResponse, InsightsNarrateResponse, InsightWindow,
   BillDto, BillItemRequest, BillShareToggleResult, CreateBillRequest, PaymentHandlesDto,
   PublicBillDto, ReceiptBreakdownDto, UpdateBillRequest,
   ProfilePrefs,
@@ -2915,6 +2916,29 @@ export class Api {
   /** ANONYMOUS read of a public Wrapped link by token. PII-safe (whitelisted cards + frozen narrative; no auth). */
   publicWrapped(token: string): Observable<PublicWrapped> {
     return this.http.get<PublicWrapped>(`${this.base}/share/wrapped/${encodeURIComponent(token)}`);
+  }
+
+  // ---- The Insight Engine (/api/insights) — the caller's OWN cross-domain correlations / trends / streaks /
+  //      anomalies / best-worst days, computed DETERMINISTICALLY server-side, gated by tracker.self ----
+
+  /**
+   * The caller's OWN deterministic cross-domain insights over a window (30 / 90 / 365 days). Computed
+   * server-side over the caller's already-derived per-day series and STRICTLY owner-scoped (no household, no
+   * other user). ALWAYS 200 — the deterministic engine is the product floor, no AI needed. `hasData=false`
+   * (with empty cards) is the keep-logging empty state. Reuses tracker.self; performs no writes.
+   */
+  insights(window: InsightWindow = 30): Observable<InsightsResponse> {
+    return this.http.get<InsightsResponse>(`${this.base}/insights`, { params: { window: String(window) } });
+  }
+
+  /**
+   * The OPTIONAL AI (or deterministic-floor) narration of the caller's OWN insights for a window. Gated
+   * server-side by tracker.self (the 200 floor) AND tracker.ai (token-spend); ALWAYS 200 — a caller without
+   * AI (or AI unconfigured/errored) gets `fellBackToPlain=true` and the UI hides the banner. The AI narrates
+   * ONLY the already-computed numbers (never invents a figure), is 6h-cached, and writes nothing.
+   */
+  insightsNarrate(window: InsightWindow = 30): Observable<InsightsNarrateResponse> {
+    return this.http.get<InsightsNarrateResponse>(`${this.base}/insights/narrate`, { params: { window: String(window) } });
   }
 
   // ---- Family Hub F6: Google Calendar (OAuth code flow; the caller's own primary calendar) ----
