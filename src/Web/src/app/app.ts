@@ -44,6 +44,9 @@ import { MobileTopbar } from './features/shell/mobile-topbar/mobile-topbar';
 import { BottomTabBar } from './features/shell/bottom-tab-bar/bottom-tab-bar';
 import { SnapRouteOrchestrator } from './features/snap-route/snap-route-orchestrator';
 import { SnapRouteService } from './core/snap-route';
+import { GuidedTour } from './features/tour/guided-tour';
+import { TourService } from './core/tour';
+import { tourForPlatform } from './features/tour/tour-config';
 
 /** A teammate online, enriched with the initials + "you" flag the indicator needs to render. */
 interface OnlineUser extends Presence {
@@ -78,6 +81,7 @@ interface QuickLink {
     MobileTopbar,
     BottomTabBar,
     SnapRouteOrchestrator,
+    GuidedTour,
   ],
   templateUrl: './app.html',
   changeDetection: ChangeDetectionStrategy.Eager,
@@ -94,6 +98,8 @@ export class App implements AfterViewInit {
     typeof location !== 'undefined' && new URLSearchParams(location.search).get('source') === 'pwa';
   /** Guard so the PWA-launch home redirect fires at most once per app instance. */
   private pwaHomeApplied = false;
+  /** Guard so the first-run tour auto-start is attempted at most once per app instance. */
+  private tourAutoStartTried = false;
   readonly auth = inject(AuthService);
   private chat = inject(ChatRealtime);
   private locationCapture = inject(LocationCapture);
@@ -107,6 +113,22 @@ export class App implements AfterViewInit {
   readonly theme = inject(ThemeService);
   readonly platform = inject(PlatformService);
   readonly snapRoute = inject(SnapRouteService);
+  private readonly tour = inject(TourService);
+
+  /**
+   * Replay the first-run guided tour from the account menu ("Take the tour"). Clears the seen flag and
+   * starts the platform-appropriate tour. The mobile tour anchors the bottom-tab bar (present on every
+   * in-app route) so it runs anywhere; the desktop tour's first step spotlights the dashboard KPI cards,
+   * so a desktop replay from another route lands on '/' first (after a beat for the anchors to mount).
+   */
+  replayTour(): void {
+    const mobile = this.shellMode() === 'mobile';
+    if (!mobile && this.currentPath() !== '/') {
+      void this.router.navigateByUrl('/').then(() => setTimeout(() => this.tour.replay(tourForPlatform(false)), 600));
+      return;
+    }
+    this.tour.replay(tourForPlatform(mobile));
+  }
 
   /** Whether to show the desktop "+ Snap" top-bar capture entry (ai.vision + ≥1 writable destination; reactive). */
   readonly showSnap = computed(() => !this.bareLayout() && this.snapRoute.canCapture());
@@ -465,6 +487,7 @@ export class App implements AfterViewInit {
         this.currentPath.set(this.router.url.split('?')[0]);
         this.closeMobileNav(); // never leave the drawer open across a route change
         this.maybeApplyPwaHome(); // installed-app launch → saved home (once the router has settled)
+        this.maybeStartTour(); // first dashboard visit → auto-start the guided tour (once)
       });
 
     // Lightweight clock tick (~15s) so the relative "active …" labels AND the derived away/idle states
@@ -608,6 +631,32 @@ export class App implements AfterViewInit {
     if (home && home !== '/' && this.router.url.split('?')[0] === '/') {
       void this.router.navigateByUrl(home);
     }
+  }
+
+  /**
+   * First-run guided tour. Auto-starts ONCE per app instance, the first time an authenticated user lands
+   * on the dashboard ("/"), and only if they haven't seen it before (TourService persists the seen flag).
+   * Anchored on the dashboard + persistent nav, so it never navigates mid-tour. We pick the desktop vs
+   * mobile tour from the resolved shell, and defer one tick so the KPI cards + nav/tab anchors have mounted
+   * (a not-yet-present anchor is skipped gracefully by the overlay, so the delay is just for polish).
+   * Bare/public chrome is excluded (no nav to point at).
+   */
+  private maybeStartTour(): void {
+    if (this.tourAutoStartTried) return;
+    if (!this.auth.isAuthenticated() || this.bareLayout()) return;
+    if (this.router.url.split('?')[0] !== '/') return;
+    const def = tourForPlatform(this.shellMode() === 'mobile');
+    if (this.tour.hasSeen(def.id)) {
+      this.tourAutoStartTried = true; // already seen — don't keep re-checking every navigation
+      return;
+    }
+    this.tourAutoStartTried = true;
+    setTimeout(() => {
+      // Re-guard at fire time: still authed, still on the dashboard, nothing else opened a tour.
+      if (this.auth.isAuthenticated() && this.router.url.split('?')[0] === '/') {
+        this.tour.maybeAutoStart(def);
+      }
+    }, 600);
   }
 
   /**

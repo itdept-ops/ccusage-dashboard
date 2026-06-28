@@ -1,0 +1,235 @@
+// GuidedTour — the first-run coach-mark overlay. App-chrome language only (--tech-* tokens), never the
+// Aurora/Strata scoped vars. The host is a fixed full-viewport layer above the app chrome; the dim panels
+// + ring form the spotlight, the card floats on the best-fitting side.
+
+:host {
+  position: fixed;
+  inset: 0;
+  z-index: 1200; // above the sticky toolbar + bottom-tab bar AND the CDK overlay container (1000)
+  pointer-events: none; // only the card + dim panels opt back in
+}
+
+.gt-backdrop {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+}
+
+// Four dim panels framing the transparent spotlight cut-out. Each is pointer-events:auto so the page
+// behind the dim can't be clicked mid-tour (the highlighted element itself stays clickable through the
+// hole, which is intentional — the user can act on what's being pointed at).
+.gt-dim {
+  position: fixed;
+  background: var(--tech-glass-scrim);
+  pointer-events: auto;
+  animation: gt-fade var(--tech-t-panel) var(--tech-ease) both;
+}
+.gt-dim--top {
+  top: 0;
+  left: 0;
+  right: 0;
+}
+.gt-dim--bottom {
+  left: 0;
+  right: 0;
+  bottom: 0;
+}
+.gt-dim--left {
+  left: 0;
+}
+.gt-dim--right {
+  right: 0;
+}
+
+// The glow ring around the spotlight — a rounded outline + accent glow, no fill (the hole shows through).
+.gt-ring {
+  position: fixed;
+  pointer-events: none;
+  border-radius: var(--tech-r-control);
+  box-shadow:
+    0 0 0 2px var(--tech-accent),
+    var(--tech-glow-blue),
+    0 0 0 9999px transparent;
+  animation: gt-ring-in var(--tech-t-panel) var(--tech-ease) both;
+}
+
+.gt-card {
+  position: fixed;
+  pointer-events: auto;
+  width: 320px;
+  max-width: calc(100vw - 24px);
+  box-sizing: border-box;
+  padding: var(--tech-space-4);
+  border: 1px solid var(--tech-border);
+  border-radius: var(--tech-radius);
+  background: var(--tech-panel-raised);
+  box-shadow: var(--tech-shadow-popover);
+  color: var(--tech-text);
+  font-family: var(--tech-font-ui);
+  animation: gt-card-in var(--tech-t-panel) var(--tech-ease) both;
+}
+
+.gt-card__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--tech-space-2);
+}
+
+.gt-card__step {
+  font-family: var(--tech-font-mono);
+  font-size: var(--tech-fs-label);
+  letter-spacing: 0.04em;
+  color: var(--tech-text-tertiary);
+  text-transform: uppercase;
+}
+
+.gt-card__close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: var(--tech-r-control);
+  background: transparent;
+  color: var(--tech-text-secondary);
+  cursor: pointer;
+  transition: background var(--tech-t-control) var(--tech-ease),
+    color var(--tech-t-control) var(--tech-ease);
+
+  mat-icon {
+    font-size: 18px;
+    width: 18px;
+    height: 18px;
+  }
+  &:hover {
+    background: var(--tech-panel);
+    color: var(--tech-text);
+  }
+}
+
+.gt-card__title {
+  margin: 0 0 var(--tech-space-2);
+  font-size: var(--tech-fs-h1);
+  font-weight: 650;
+  line-height: 1.3;
+  color: var(--tech-text);
+}
+
+.gt-card__blurb {
+  margin: 0 0 var(--tech-space-3);
+  font-size: var(--tech-fs-body);
+  line-height: 1.55;
+  color: var(--tech-text-secondary);
+}
+
+.gt-card__dots {
+  display: flex;
+  gap: 6px;
+  margin-bottom: var(--tech-space-3);
+}
+.gt-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: var(--tech-r-pill);
+  background: var(--tech-border-strong);
+  transition: background var(--tech-t-control) var(--tech-ease),
+    transform var(--tech-t-control) var(--tech-ease);
+  &--on {
+    background: var(--tech-accent);
+    transform: scale(1.25);
+  }
+}
+
+.gt-card__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--tech-space-2);
+}
+.gt-spacer {
+  flex: 1 1 auto;
+}
+
+.gt-btn {
+  appearance: none;
+  min-height: 36px;
+  padding: 0 var(--tech-space-4);
+  border: 1px solid var(--tech-border);
+  border-radius: var(--tech-r-control);
+  background: var(--tech-panel);
+  color: var(--tech-text);
+  font-family: var(--tech-font-ui);
+  font-size: var(--tech-fs-body);
+  font-weight: 600;
+  cursor: pointer;
+  transition: background var(--tech-t-control) var(--tech-ease),
+    border-color var(--tech-t-control) var(--tech-ease),
+    color var(--tech-t-control) var(--tech-ease);
+
+  &:hover {
+    border-color: var(--tech-border-strong);
+    background: var(--tech-panel-raised);
+  }
+
+  &--ghost {
+    border-color: transparent;
+    background: transparent;
+    color: var(--tech-text-tertiary);
+    padding-left: var(--tech-space-2);
+    padding-right: var(--tech-space-2);
+    &:hover {
+      background: transparent;
+      color: var(--tech-text-secondary);
+    }
+  }
+
+  &--primary {
+    border-color: transparent;
+    background: var(--tech-accent);
+    color: var(--tech-text-on-accent);
+    &:hover {
+      background: var(--tech-accent-bright);
+      border-color: transparent;
+    }
+  }
+}
+
+@keyframes gt-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes gt-ring-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes gt-card-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+// Respect the global reduced-motion guard: no entrance animation, no dot pop.
+@media (prefers-reduced-motion: reduce) {
+  .gt-dim,
+  .gt-ring,
+  .gt-card {
+    animation: none;
+  }
+  .gt-dot {
+    transition: none;
+  }
+}

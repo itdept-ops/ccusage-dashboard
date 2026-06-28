@@ -120,7 +120,7 @@
 
       <!-- Fitness ▾ : Tracker, 75 Hard, Trophies, Activity (all tracker.self) -->
       @if (auth.hasPermission('tracker.self')) {
-        <button type="button" mat-button class="nav__item nav__group"
+        <button type="button" mat-button class="nav__item nav__group" data-tour="nav-fitness"
                 [matMenuTriggerFor]="fitnessMenu" #fitnessTrigger="matMenuTrigger"
                 [class.nav__group--open]="fitnessTrigger.menuOpen"
                 [class.active]="fitnessGroupActive()"
@@ -149,7 +149,7 @@
 
       <!-- Tools ▾ : Ask (tracker.ai), Automations (automations.use), Bills (bills.use), Grocery (grocery.use), Recipes (recipes.use), Meal Planner (meals.use), Resume (resume.use) -->
       @if (auth.hasAnyPermission('tracker.ai', 'automations.use', 'bills.use', 'grocery.use', 'recipes.use', 'meals.use', 'resume.use')) {
-        <button type="button" mat-button class="nav__item nav__group"
+        <button type="button" mat-button class="nav__item nav__group" data-tour="nav-tools"
                 [matMenuTriggerFor]="toolsMenu" #toolsTrigger="matMenuTrigger"
                 [class.nav__group--open]="toolsTrigger.menuOpen"
                 [class.active]="toolsGroupActive()"
@@ -204,7 +204,7 @@
 
       <!-- Social ▾ : Chat (chat.read), People (any-of chat.read/family.use) -->
       @if (auth.hasAnyPermission('chat.read', 'family.use')) {
-        <button type="button" mat-button class="nav__item nav__group"
+        <button type="button" mat-button class="nav__item nav__group" data-tour="nav-social"
                 [matMenuTriggerFor]="socialMenu" #socialTrigger="matMenuTrigger"
                 [class.nav__group--open]="socialTrigger.menuOpen"
                 [class.active]="socialGroupActive()"
@@ -227,7 +227,8 @@
 
       <!-- Family : a single link (it has its own internal nav), keeping its cottage icon. -->
       @if (auth.hasPermission('family.use')) {
-        <a mat-button class="nav__item nav__item--family" routerLink="/family" routerLinkActive="active">
+        <a mat-button class="nav__item nav__item--family" data-tour="nav-family"
+           routerLink="/family" routerLinkActive="active">
           <mat-icon class="nav__item-icon" aria-hidden="true">cottage</mat-icon>Family
         </a>
       }
@@ -431,7 +432,7 @@
 
     <!-- Command palette trigger: opens the global search/commands overlay (⌘K / Ctrl-K, or "/").
          A single icon so it survives the mobile nav-burger collapse and stays reachable on phones. -->
-    <button mat-icon-button type="button" class="cmdp-trigger" (click)="palette.show()"
+    <button mat-icon-button type="button" class="cmdp-trigger" data-tour="nav-ask" (click)="palette.show()"
             matTooltip="Search & commands ( ⌘K )" matTooltipClass="axon-tip"
             aria-label="Open command palette" aria-keyshortcuts="Meta+K Control+K">
       <mat-icon>search</mat-icon>
@@ -648,6 +649,13 @@
         </a>
       }
 
+      <!-- Take the tour: replays the first-run guided tour (clears its seen flag + starts it). Reachable
+           by ANY authenticated user; picks the desktop or mobile tour from the active shell. -->
+      <button mat-menu-item class="acct-item" (click)="replayTour()">
+        <mat-icon class="acct-item__icon" aria-hidden="true">explore</mat-icon>
+        <span class="acct-item__label">Take the tour</span>
+      </button>
+
       <!-- Home page picker: a submenu of the pages the caller can reach, plus a "Default (first
            available)" option that clears the preference. Reachable by ANY authenticated user. -->
       <button mat-menu-item class="acct-item" [matMenuTriggerFor]="homeMenu">
@@ -719,3 +727,8 @@
      bottom-tab camera FAB, the desktop top-bar button, or the ⌘K palette action) calls SnapRouteService.
      One capture → classify → route-review flow, reusing the existing per-destination readers + writes. -->
 <app-snap-route />
+
+<!-- First-run guided tour: a single coach-mark overlay mounted at the shell root. Renders nothing unless
+     TourService.active is set (auto-started on the first dashboard visit, or replayed from the account
+     menu). It anchors the persistent nav / bottom-tab data-tour ids, so it never navigates mid-tour. -->
+<app-guided-tour />

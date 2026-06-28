@@ -40,7 +40,7 @@ import { BetaBottomSheet } from '../../beta-ui';
          Snap & Route orchestrator (captureImage → classify → route-review). Shown only when the caller can
          capture (ai.vision + at least one writable destination — see SnapRouteService.canCapture). -->
     @if (canSnap()) {
-      <button type="button" class="snapfab" (click)="snap()" aria-label="Snap a photo and route it">
+      <button type="button" class="snapfab" data-tour="snap-fab" (click)="snap()" aria-label="Snap a photo and route it">
         <mat-icon aria-hidden="true">photo_camera</mat-icon>
       </button>
     }
@@ -48,6 +48,7 @@ import { BetaBottomSheet } from '../../beta-ui';
     <nav class="tabbar" aria-label="Primary">
       @for (t of tabs(); track t.id) {
         <a class="tab" [routerLink]="t.path" routerLinkActive="active"
+           [attr.data-tour]="'tab-' + t.id"
            #rlaTab="routerLinkActive"
            [routerLinkActiveOptions]="t.path === '/' ? exact : nonExact"
            [attr.aria-current]="rlaTab.isActive ? 'page' : null"
@@ -59,7 +60,7 @@ import { BetaBottomSheet } from '../../beta-ui';
 
       <!-- The 5th affordance: "More" opens the full-nav + account sheet. Never a route, so it never
            shows the active tint — it's a neutral utility control. -->
-      <button type="button" class="tab" (click)="openMore()"
+      <button type="button" class="tab" data-tour="tab-more" (click)="openMore()"
               [attr.aria-expanded]="moreOpen()" aria-haspopup="dialog" aria-label="More — all sections">
         <span class="tab__icon"><mat-icon aria-hidden="true">more_horiz</mat-icon></span>
         <span class="tab__label">More</span>
