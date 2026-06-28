@@ -1,13 +1,14 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal, viewChild } from '@angular/core';
-import { ActivatedRoute, Router } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { MatIconModule } from '@angular/material/icon';
 import { forkJoin, of } from 'rxjs';
 import { catchError } from 'rxjs/operators';
 
 import { Api } from '../../core/api';
+import { AuthService } from '../../core/auth';
 import {
   CacheEfficiency, GroupBy, IngestionSource, MachineStat, ModelStat, PagedResult,
-  ProjectDto, SummaryResponse, UsageFilter, UsageRecord,
+  ProjectDto, SummaryResponse, UsageFilter, UsageRecord, PERM,
 } from '../../core/models';
 import { BetaPullRefresh, BetaToaster, ToastController } from '../beta-ui';
 
@@ -46,7 +47,7 @@ const PAGE_SIZE = 25;
   changeDetection: ChangeDetectionStrategy.OnPush,
   providers: [ToastController],
   imports: [
-    MatIconModule, BetaPullRefresh, BetaToaster,
+    MatIconModule, RouterLink, BetaPullRefresh, BetaToaster,
     PulseHeroCard, PulseInsightCard, PulseTrendCard, PulseBreakdownCard, PulseEfficiencyCard, PulseRecentFeed, PulseFilterSheet,
   ],
   template: `
@@ -75,6 +76,18 @@ const PAGE_SIZE = 25;
             }
           </div>
         </header>
+
+        <!-- "Your Day" recap teaser — links to the /today Day-in-the-Life surface (tracker.self only). -->
+        @if (canSeeRecap()) {
+          <a class="pb-recap rise" [style.--i]="0" routerLink="/today" aria-label="Open your Day in the Life recap">
+            <span class="pb-recap__orb" aria-hidden="true"><mat-icon>wb_twilight</mat-icon></span>
+            <span class="pb-recap__text">
+              <span class="pb-recap__kicker">Day in the Life</span>
+              <span class="pb-recap__title">Your day, recapped</span>
+            </span>
+            <mat-icon class="pb-recap__go" aria-hidden="true">arrow_forward</mat-icon>
+          </a>
+        }
 
         <!-- Staggered spring entrance: each block animates in on a per-index delay (--i). -->
         <div class="rise" [style.--i]="0">
@@ -130,7 +143,11 @@ export class DashboardBetaPage {
   private router = inject(Router);
   private route = inject(ActivatedRoute);
   private toast = inject(ToastController);
+  private auth = inject(AuthService);
   private readonly sheet = viewChild.required(PulseFilterSheet);
+
+  /** Show the "Your Day" teaser only when the caller can reach the tracker.self-gated /today surface. */
+  readonly canSeeRecap = computed(() => this.auth.hasPermission(PERM.trackerSelf));
 
   // ---- filter + view state (shapes copied from the live dashboard for parity) ----
   readonly filter = signal<UsageFilter>({ from: null, to: null, projectIds: [], models: [], sources: [], machine: [], includeSidechain: true });

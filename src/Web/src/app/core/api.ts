@@ -15,7 +15,7 @@ import {
   AiUsageFilter, AiUsageResponse,
   NotificationUpdate, DiscordRoute, DiscordRouteUpdate, MyDiscord, MyDiscordUpdate, RecapPreview, PagedResult, ParseExerciseRequest, ParseExerciseResponse, ParseHydrationRequest, ParseHydrationResponse, ParseMealRequest, ParseMealResponse, ParseMealResultDto, PermissionItem, PermissionPreset, Presence, PersonDto, NudgeKind, Pricing, ProjectDto, PublicShare, ReactionGroupDto, ReadLabelResponse, ScanPantryResponse, ClassifyPhotoResponse, PhotoToNoteResponse, RecipeMacrosRequest, RecipeMacrosResponse, RequestLogEntry, SavedView, ScheduleAiResult, ScheduleFromImageRequest, ScheduleImageFile,
   SavedViewUpsertRequest, SessionDetail, Settings, ShareAccessItem, ShareCreated, ShareListItem, SharedUserDto, SuggestGoalResponse, SuggestWorkoutRequest, SuggestWorkoutResponse, SummaryResponse,
-  SyncResult, SyncStatus, TrackerDayDto, TrackerProfileDto, TrackerRecapResult, UpsertActivityRequest, UsageFilter, UsageRecord, UsageStats,
+  SyncResult, SyncStatus, TrackerDayDto, TrackerProfileDto, TrackerRecapResult, DayRecapResponse, UpsertActivityRequest, UsageFilter, UsageRecord, UsageStats,
   WatchActivityDto, WeeklyReviewResponse, WeightInsightResponse, WeightPointDto, WeightStatsDto, WhatToEatRequest, WhatToEatResult, WorkoutXSearchResultDto,
   PlanMealsRequest, PlanMealsResult, PlanMealToWrite, PlanMealsToPlanResult,
   RefineMealRequest, RefineMealResponse,
@@ -1548,6 +1548,21 @@ export class Api {
    */
   trackerRecapAi(): Observable<TrackerRecapResult> {
     return this.http.get<TrackerRecapResult>(`${this.base}/ai/tracker-recap`);
+  }
+
+  /**
+   * "Here's your day" recap (GET /api/ai/day-recap): a warm, grounded read-only narration of the CALLER's
+   * OWN chosen local `date` (default today), built from a deterministic cross-domain TIMELINE + STATS +
+   * HIGHLIGHTS gathered server-side from the domains the caller has permission for (tracker food/exercise/
+   * sleep/water/coffee + journal mood + habit completions + meds adherence + the social ActivityEvents +
+   * family reminders/meals + location places + optional finance spend). Gated by tracker.self alone (the
+   * timeline floor needs no AI) and NEVER 503 — when AI is off/unconfigured/errored the GUARANTEED timeline
+   * comes back with `narrative` = null (the tracker.ai-gated warm narration is the optional upgrade).
+   * Owner-scoped + migration-free; read-only — nothing is mutated; carries NO email / PII.
+   */
+  dayRecap(date?: string): Observable<DayRecapResponse> {
+    const params = date ? { params: { date } } : {};
+    return this.http.get<DayRecapResponse>(`${this.base}/ai/day-recap`, params);
   }
 
   /**

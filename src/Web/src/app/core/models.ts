@@ -6334,6 +6334,68 @@ export interface InsightsNarrateResponse {
   fellBackToPlain: boolean;  // true ⇒ hide the AI banner
 }
 
+// ──────────────────────────────────────────────────────────────────────────────────────────────
+// Day Recap (GET /api/ai/day-recap) — a warm, grounded "here's your day" for the CALLER's OWN chosen
+// local date. The deterministic TIMELINE + STATS + HIGHLIGHTS are the always-200 floor (gated by
+// tracker.self); each domain is included ONLY when the caller holds its permission (journal/habits/meds
+// ride tracker.self; family reminders/meals → family.use; finance spend → family.finance; location
+// places → location.self). The optional `narrative` is the floored tracker.ai upgrade — null when AI is
+// off/unconfigured/errored (the UI shows the timeline with no narration banner). Owner-scoped, migration-
+// free, in-app only (a public PII-safe share is a follow-up). Carries NO email / PII.
+// ──────────────────────────────────────────────────────────────────────────────────────────────
+
+/**
+ * One moment on the day's chronological timeline (mirrors the API's `DayMomentDto`). `time` is a local
+ * "HH:mm" stamp ("" ⇒ an all-day/undated moment that sorts to the end), `domain` is the accent/source hint
+ * (food|exercise|sleep|hydration|coffee|journal|habits|meds|activity|family|location|finance), `icon` is a
+ * short token, and `label` is a SHORT factual label (e.g. "logged a 5k run", "lunch · 620 kcal",
+ * "mood: focused", "2/3 habits done", "meds: all taken").
+ */
+export interface DayMoment {
+  time: string;     // "HH:mm" | "" (all-day ⇒ sorts last)
+  domain: string;   // accent/source hint (closed set above; string-tolerant)
+  icon: string;     // short icon token
+  label: string;    // short factual label
+}
+
+/**
+ * The day's deterministic STATS rollup (mirrors `DayStatsDto`). Every field is nullable — a null/absent
+ * figure simply wasn't logged in a permitted domain. Carries NO email / PII.
+ */
+export interface DayStats {
+  caloriesIn: number | null;
+  calorieGoal: number | null;
+  exerciseCalories: number | null;
+  exerciseCount: number | null;
+  proteinG: number | null;
+  hydrationMl: number | null;
+  caffeineMg: number | null;
+  sleepHours: number | null;
+  recoveryScore: number | null;
+  habitsDone: number | null;
+  habitsExpected: number | null;
+  medsTaken: number | null;
+  medsExpected: number | null;
+  mood: string | null;
+  placesVisited: number | null;
+  spendUsd: number | null;
+}
+
+/**
+ * The `GET /api/ai/day-recap?date=yyyy-MM-dd` response (mirrors `DayRecapResponse`; default date = today).
+ * `timeline` + `stats` + `highlights` are the deterministic always-200 floor; `narrative` is null when AI is
+ * off/unconfigured/errored (show the timeline, hide the narration banner). `domainsIncluded` lists which
+ * permitted domains contributed (for the UI). NEVER a 503; owner-scoped; carries NO email / PII.
+ */
+export interface DayRecapResponse {
+  date: string;                 // yyyy-MM-dd
+  timeline: DayMoment[];
+  stats: DayStats;
+  highlights: string[];
+  narrative: string | null;     // null ⇒ AI off/unavailable (hide the narration banner)
+  domainsIncluded: string[];    // tracker|journal|habits|meds|activity|family|location|finance
+}
+
 // ---- Meds & Vitals (/api/meds, /api/vitals) ----------------------------------------------------
 // A PRIVATE, OWNER-ONLY, NON-MEDICAL health vertical. STRICTLY OWNER-SCOPED (only the caller's own rows —
 // never shared to a coach / family / contact, never in the activity feed, no household path), mirroring the

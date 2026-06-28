@@ -1,0 +1,220 @@
+// ============================================================================
+// YOUR DAY — the mobile-first twin of the live /today "Day in the Life" page,
+// rebuilt on the shared beta-ui "Strata" foundation. One line adopts the whole
+// Strata token contract; then this page OVERRIDES the per-page accent contract
+// with its OWN signature: an INDIGO → VIOLET dusk ramp. Per-DOMAIN accents pin
+// the timeline node + chip washes. ISOLATED + gated by platform.mobile +
+// tracker.self: nothing touches the global tokens or any live page.
+// ============================================================================
+
+@use '../beta-ui/beta-kit' as kit;
+
+:host {
+  @include kit.beta-host;
+
+  // ---- YOUR DAY SIGNATURE ACCENT: INDIGO → VIOLET ----
+  --accent-a: #818cf8;
+  --accent-b: #c084fc;
+  --accent: var(--accent-a);
+
+  // ---- per-DOMAIN accent start/end ----
+  --da-food:      #4ade80; --db-food:      #22c55e;
+  --da-exercise:  #38bdf8; --db-exercise:  #0ea5e9;
+  --da-sleep:     #a5b4fc; --db-sleep:     #818cf8;
+  --da-hydration: #7dd3fc; --db-hydration: #38bdf8;
+  --da-coffee:    #e6b980; --db-coffee:    #c0853f;
+  --da-journal:   #f9a8d4; --db-journal:   #ec4899;
+  --da-habits:    #5eead4; --db-habits:    #2dd4bf;
+  --da-meds:      #fca5a5; --db-meds:      #f87171;
+  --da-activity:  #c4b5fd; --db-activity:  #a78bfa;
+  --da-family:    #fdba74; --db-family:    #fb923c;
+  --da-location:  #67e8f9; --db-location:  #22d3ee;
+  --da-finance:   #bef264; --db-finance:   #a3e635;
+  --da-primary:   #818cf8; --db-primary:   #c084fc;
+}
+
+@include kit.beta-springs;
+@include kit.beta-a11y;
+
+// ───────── shell ─────────
+.td-ptr { display: block; height: 100%; }
+.td-scroll {
+  display: flex; flex-direction: column; gap: 14px;
+  min-height: 100%; max-width: 720px; margin-inline: auto; width: 100%;
+  box-sizing: border-box;
+  padding-top: calc(var(--safe-top) + 8px);
+  padding-bottom: calc(var(--safe-bottom) + 96px);
+  padding-inline: var(--gutter) var(--gutter-r);
+}
+
+// ───────── hero + nav ─────────
+.td-hero {
+  position: relative; display: flex; flex-direction: column; gap: 4px;
+  padding: 8px 4px 4px; overflow: hidden;
+  &__bloom {
+    position: absolute; top: -60px; right: -40px; width: 200px; height: 200px;
+    background: radial-gradient(closest-side,
+      color-mix(in srgb, var(--accent-a) 40%, transparent), transparent 70%);
+    filter: blur(8px); pointer-events: none;
+  }
+  &__kicker {
+    display: inline-flex; align-items: center; gap: 6px; margin: 0;
+    font-size: 13px; font-weight: 700; letter-spacing: .03em; text-transform: uppercase;
+    color: var(--accent-a);
+    mat-icon { font-size: 18px; width: 18px; height: 18px; }
+  }
+  &__title {
+    margin: 2px 0 2px; font-size: 26px; font-weight: 800; letter-spacing: -.01em;
+    color: var(--ink); font-family: var(--font-display);
+  }
+}
+
+.td-nav {
+  display: flex; align-items: center; gap: 8px; margin-top: 6px;
+  padding: 6px; border-radius: var(--r-tile);
+  background: var(--glass); border: 1px solid var(--hairline);
+
+  &__btn {
+    appearance: none; cursor: pointer; display: grid; place-items: center;
+    width: 40px; height: 40px; border-radius: 12px;
+    border: 1px solid var(--hairline); background: var(--card); color: var(--ink);
+    touch-action: manipulation; -webkit-tap-highlight-color: transparent;
+    transition: opacity .12s;
+    &:active:not(:disabled) { opacity: .75; }
+    &:disabled { opacity: .35; }
+    mat-icon { font-size: 24px; width: 24px; height: 24px; }
+  }
+  &__label { flex: 1; display: flex; flex-direction: column; align-items: center; line-height: 1.15; }
+  &__day { font-size: 15px; font-weight: 700; color: var(--ink); }
+  &__date { font-size: 12px; color: var(--ink-2); }
+}
+.td-nav__today {
+  appearance: none; cursor: pointer; align-self: center;
+  display: inline-flex; align-items: center; gap: 5px; margin-top: 2px;
+  min-height: 40px; padding: 0 14px; border-radius: 999px;
+  font: inherit; font-size: 13px; font-weight: 600;
+  color: var(--accent-a);
+  background: color-mix(in srgb, var(--accent-a) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent-a) 32%, transparent);
+  touch-action: manipulation; -webkit-tap-highlight-color: transparent;
+  &:active:not(:disabled) { opacity: .8; }
+  &:disabled { opacity: .5; }
+  mat-icon { font-size: 16px; width: 16px; height: 16px; }
+}
+
+.td-nav__jump {
+  display: flex; align-items: center; justify-content: center; flex-wrap: wrap;
+  gap: 8px; margin-top: 6px;
+}
+.td-nav__pick {
+  appearance: none; cursor: pointer;
+  min-height: 40px; padding: 0 12px; border-radius: 12px;
+  font: inherit; font-size: 13px;
+  color: var(--ink); background: var(--card);
+  border: 1px solid var(--hairline);
+  color-scheme: light dark;
+  touch-action: manipulation; -webkit-tap-highlight-color: transparent;
+  &:active:not(:disabled) { opacity: .8; }
+  &:disabled { opacity: .5; }
+}
+
+// ───────── AI recap ─────────
+.td-ai {
+  border-radius: var(--r-tile); padding: 14px 16px;
+  background: linear-gradient(135deg,
+    color-mix(in srgb, var(--accent-a) 16%, var(--card)),
+    color-mix(in srgb, var(--accent-b) 12%, var(--card)));
+  border: 1px solid color-mix(in srgb, var(--accent-a) 32%, transparent);
+  &__kicker {
+    display: inline-flex; align-items: center; gap: 6px; margin: 0 0 6px;
+    font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--accent-a);
+    mat-icon { font-size: 16px; width: 16px; height: 16px; }
+  }
+  &__text { margin: 0; line-height: 1.55; color: var(--ink); font-size: 15px; }
+  &__foot {
+    display: inline-flex; align-items: center; gap: 5px; margin: 8px 0 0;
+    font-size: 12px; color: var(--ink-2);
+  }
+}
+
+// ───────── stat chips ─────────
+.td-stats { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; }
+.td-stat {
+  position: relative; display: flex; flex-direction: column; gap: 2px;
+  padding: 12px 14px; border-radius: var(--r-tile);
+  background: var(--card); border: 1px solid var(--hairline); overflow: hidden;
+  &::before {
+    content: ''; position: absolute; inset: 0 auto 0 0; width: 3px;
+    background: linear-gradient(180deg, var(--da, #818cf8), var(--db, #c084fc));
+  }
+  &__ico {
+    display: grid; place-items: center; width: 30px; height: 30px; border-radius: 9px;
+    color: var(--db); background: color-mix(in srgb, var(--da) 18%, transparent);
+    mat-icon { font-size: 19px; width: 19px; height: 19px; }
+  }
+  &__val {
+    margin-top: 4px; font-family: var(--font-mono, 'JetBrains Mono', ui-monospace, monospace);
+    font-size: 18px; font-weight: 700; color: var(--ink); font-variant-numeric: tabular-nums;
+  }
+  &__lab { font-size: 11px; font-weight: 600; letter-spacing: .03em; text-transform: uppercase; color: var(--ink-2); }
+}
+
+// ───────── text highlights ─────────
+.td-hl {
+  margin: 0; padding: 0; list-style: none; display: grid; gap: 8px;
+  li {
+    display: flex; align-items: flex-start; gap: 8px;
+    padding: 10px 12px; border-radius: var(--r-tile);
+    background: var(--glass); border: 1px solid var(--hairline);
+    font-size: 14px; line-height: 1.45; color: var(--ink);
+    mat-icon { font-size: 18px; width: 18px; height: 18px; flex: none; margin-top: 1px; color: var(--accent-a); }
+  }
+}
+
+// ───────── timeline ─────────
+.td-line { position: relative; margin: 0; padding: 2px 0; list-style: none; display: flex; flex-direction: column; }
+.td-moment {
+  position: relative; display: grid; grid-template-columns: 3.4rem 38px 1fr;
+  align-items: start; gap: 10px; padding: 4px 0 16px;
+
+  &::before {
+    content: ''; position: absolute; left: calc(3.4rem + 19px - 1px); top: 0; bottom: 0;
+    width: 2px; background: var(--hairline);
+  }
+  &:first-child::before { top: .85rem; }
+  &:last-child { padding-bottom: 2px; }
+  &:last-child::before { bottom: auto; height: .85rem; }
+
+  // Staggered reveal only when motion is allowed — the resting state is always visible.
+  @media (prefers-reduced-motion: no-preference) {
+    opacity: 0; transform: translateY(6px);
+    animation: tdm-rise .4s var(--ease-out, cubic-bezier(.2,.6,.2,1)) forwards;
+    animation-delay: calc(var(--i, 0) * 40ms);
+  }
+
+  &__time {
+    padding-top: 9px; text-align: right; white-space: nowrap;
+    font-family: var(--font-mono, ui-monospace, monospace);
+    font-size: 12.5px; font-weight: 600; color: var(--ink-2);
+  }
+  &__node {
+    position: relative; z-index: 1; display: grid; place-items: center;
+    width: 38px; height: 38px; border-radius: 50%;
+    color: var(--db); background: var(--card);
+    border: 2px solid color-mix(in srgb, var(--da) 60%, var(--hairline));
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--da) 10%, transparent);
+    mat-icon { font-size: 20px; width: 20px; height: 20px; }
+  }
+  &__body { padding-top: 5px; min-width: 0; }
+  &__domain { font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--db); }
+  &__label { margin: 1px 0 0; font-size: 14.5px; line-height: 1.4; color: var(--ink); word-break: break-word; }
+}
+
+.td-foot {
+  display: flex; align-items: center; gap: 6px; margin: 4px 0 0;
+  font-size: 12px; line-height: 1.5; color: var(--ink-2);
+  mat-icon { font-size: 15px; width: 15px; height: 15px; flex: none; }
+}
+
+@keyframes tdm-rise { to { opacity: 1; transform: translateY(0); } }
+// .td-moment is visible by default; the reveal is gated behind no-preference, so reduced-motion is a no-op.

@@ -251,6 +251,13 @@ export const PAGE_REGISTRY: readonly PageDef[] = [
     home: { label: 'Resume Builder', icon: 'description' },
   },
   {
+    id: 'today', path: 'today', title: 'Usage IQ · Your Day', perm: PERM.trackerSelf,
+    desktop: () => import('../features/today/today.page').then(m => m.TodayPage),
+    mobile: () => import('../features/today-mobile/today-mobile.page').then(m => m.TodayMobilePage),
+    nav: { group: 'Tools', label: 'Your Day', icon: 'wb_twilight' },
+    home: { label: 'Your Day', icon: 'wb_twilight' },
+  },
+  {
     id: 'wrapped', path: 'wrapped', title: 'Usage IQ · Wrapped', perm: PERM.trackerSelf,
     desktop: () => import('../features/wrapped/wrapped.page').then(m => m.WrappedPage),
     mobile: () => import('../features/wrapped-beta/wrapped-beta.page').then(m => m.WrappedBetaPage),

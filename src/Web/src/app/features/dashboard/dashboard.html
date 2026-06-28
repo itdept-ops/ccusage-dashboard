@@ -144,6 +144,19 @@
   </button>
 </div>
 
+<!-- ───────────────────────── "Your Day" recap teaser ───────────────────────── -->
+@if (auth.hasPermission(PERM.trackerSelf)) {
+  <a class="recap-cta panel" routerLink="/today" aria-label="Open your Day in the Life recap">
+    <span class="recap-cta__orb" aria-hidden="true"><mat-icon>wb_twilight</mat-icon></span>
+    <span class="recap-cta__text">
+      <span class="recap-cta__kicker">Day in the Life</span>
+      <span class="recap-cta__title">Your day, recapped</span>
+      <span class="recap-cta__sub">A timeline of everything you tracked today — with an AI recap when it's on.</span>
+    </span>
+    <span class="recap-cta__go"><span>Open</span><mat-icon aria-hidden="true">arrow_forward</mat-icon></span>
+  </a>
+}
+
 <!-- ───────────────────────── Summary cards ───────────────────────── -->
 @if (summary(); as s) {
   <div class="cards" data-tour="dash-kpis">
