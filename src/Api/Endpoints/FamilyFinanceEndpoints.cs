@@ -39,6 +39,53 @@ public static class FamilyFinanceEndpoints
     public sealed record ImportResultDto(
         long ImportId, int RowCount, int Imported, int Skipped, IReadOnlyList<AccountSummaryDto> Accounts);
 
+    // ---- staging (parse → review → commit) DTOs ----
+
+    /// <summary>The caller-supplied column map for a GENERIC bank CSV (mirrors
+    /// <see cref="BankImportParsers.ColumnMap"/>): each value is a header NAME in the file (plus the optional
+    /// account-name/institution literals + the negate/debit-credit toggles). Ignored for rocketmoney/ofx.</summary>
+    public sealed record ColumnMapDto(
+        string? Date, string? Amount, string? Debit, string? Credit, bool Negate,
+        string? Description, string? Category, string? Account, string? AccountName, string? Institution);
+
+    /// <summary>POST /import/parse body: the file + an optional explicit format ("auto" detects) + the column
+    /// map for a generic CSV. Parse + categorize + dedup into a STAGED batch — the live ledger is untouched.</summary>
+    public sealed record ParseRequest(
+        string? FileName, string? Content, string? Format, ColumnMapDto? ColumnMap);
+
+    /// <summary>One staged (parsed-but-not-committed) row in the review panel.</summary>
+    public sealed record StagedRowDto(
+        long Id, int RowIndex, string Date, string Merchant, string? Description,
+        decimal RawAmount, decimal Magnitude, string Kind,
+        string AccountKey, string AccountName, string? Institution,
+        string? Category, string? SuggestedCategory, string CategorySource,
+        bool IsDuplicate, bool Excluded);
+
+    /// <summary>One account touched by a staged batch (for the review's account grouping).</summary>
+    public sealed record StagedAccountDto(string AccountKey, string Name, string? Institution, string Kind, int RowCount);
+
+    /// <summary>The result of POST /import/parse: the staged batch id + counts + the touched accounts + a capped
+    /// row preview. duplicateCount = rows flagged IsDuplicate (committed-ledger OR within-batch, FITID-preferred);
+    /// skippedCount = unparseable rows the parser dropped.</summary>
+    public sealed record StagedImportDto(
+        long ImportId, string Format, int RowCount, int ParsedCount, int SkippedCount, int DuplicateCount,
+        IReadOnlyList<string> DetectedColumns, IReadOnlyList<StagedAccountDto> Accounts,
+        IReadOnlyList<StagedRowDto> Rows);
+
+    /// <summary>A page of staged review rows (GET /import/{id}/staged).</summary>
+    public sealed record StagedPageDto(int Page, int PageSize, int Total, IReadOnlyList<StagedRowDto> Items);
+
+    /// <summary>PATCH /import/{id}/rows/{stagedId} body: edit one staged row. <see cref="ApplyToFuture"/> upserts
+    /// a household FinanceCategoryRule (equals on the merchant) so the new category sticks for future imports.</summary>
+    public sealed record StagedRowPatch(string? Category, bool? Excluded, string? Kind, bool? ApplyToFuture);
+
+    /// <summary>POST /import/{id}/categorize-ai result: how many rows the AI labeled. <see cref="FellBackToPlain"/>
+    /// is true when AI is off/unconfigured/errored (rows unchanged) — the commit is never blocked.</summary>
+    public sealed record CategorizeAiResultDto(int Classified, int Eligible, bool FellBackToPlain);
+
+    /// <summary>POST /import/{id}/commit body: optional staged-row ids to exclude on top of any already-excluded.</summary>
+    public sealed record CommitRequest(IReadOnlyList<long>? ExcludeIds);
+
     public sealed record AccountDto(
         int Id, string Name, string? Institution, string Owner, string Kind,
         int TxnCount, decimal TotalSpentMagnitude);
@@ -133,6 +180,11 @@ public static class FamilyFinanceEndpoints
 
     private static void MapImport(RouteGroupBuilder g)
     {
+        // -----------------------------------------------------------------------------
+        // POST /import — LEGACY one-shot import. Now routed through the SAME staging flow
+        // (parse → stage → commit) for one consistent, reversible path. The Rocket Money
+        // format is detected; the staged batch is committed atomically in the same request.
+        // -----------------------------------------------------------------------------
         g.MapPost("/import", async (
             ImportRequest req, CurrentUserAccessor me, CurrentHouseholdAccessor households,
             UsageDbContext db, CancellationToken ct) =>
@@ -148,130 +200,606 @@ public static class FamilyFinanceEndpoints
 
             var fileName = Clamp(string.IsNullOrWhiteSpace(req.FileName) ? "import.csv" : req.FileName!, 260);
 
-            var parsed = RocketMoneyCsv.Parse(content);
+            // Parse + categorize + dedup into a staged batch (live ledger untouched), then commit it atomically.
+            var (batch, _) = await StageAsync(db, household.Id, caller.Id, fileName, "rocketmoney", content, null, ct);
+            return await CommitStagedAsync(db, household.Id, batch, excludeIds: null, ct);
+        });
 
-            var now = DateTime.UtcNow;
+        // -----------------------------------------------------------------------------
+        // POST /import/parse — parse + rule-categorize + dedup into a STAGED batch. Does NOT
+        // touch the live ledger. Returns the staged preview the review UI renders.
+        // -----------------------------------------------------------------------------
+        g.MapPost("/import/parse", async (
+            ParseRequest req, CurrentUserAccessor me, CurrentHouseholdAccessor households,
+            UsageDbContext db, CancellationToken ct) =>
+        {
+            var caller = (await me.GetUserAsync(ct))!;
+            var household = (await households.GetOrCreateForCallerAsync(caller, ct))!;
 
-            // Write the import batch first so transactions can carry its id.
-            var batch = new FinanceImport
-            {
-                HouseholdId = household.Id,
-                FileName = fileName,
-                RowCount = parsed.RowCount,
-                ImportedCount = 0,
-                SkippedCount = parsed.SkippedCount,
-                ImportedByUserId = caller.Id,
-                CreatedUtc = now,
-            };
-            db.FinanceImports.Add(batch);
-            await db.SaveChangesAsync(ct);
+            var content = req.Content ?? "";
+            if (string.IsNullOrWhiteSpace(content))
+                return Results.BadRequest(new { message = "Paste or upload a file to import." });
+            if (System.Text.Encoding.UTF8.GetByteCount(content) > MaxContentBytes)
+                return Results.BadRequest(new { message = "That file is too large to import." });
 
-            // Find-or-create an account per distinct (name, institution). Load the household's existing
-            // accounts once and key them the same way the CSV groups (lower-cased name|institution).
-            var existingAccounts = await db.FinanceAccounts
-                .Where(a => a.HouseholdId == household.Id)
+            var fileName = Clamp(string.IsNullOrWhiteSpace(req.FileName) ? "import" : req.FileName!, 260);
+            var format = DetectFormat(req.Format, fileName, content);
+
+            var map = req.ColumnMap is null ? null : new BankImportParsers.ColumnMap(
+                req.ColumnMap.Date, req.ColumnMap.Amount, req.ColumnMap.Debit, req.ColumnMap.Credit,
+                req.ColumnMap.Negate, req.ColumnMap.Description, req.ColumnMap.Category,
+                req.ColumnMap.Account, req.ColumnMap.AccountName, req.ColumnMap.Institution);
+
+            if (format == "csv" && map is null)
+                return Results.BadRequest(new { message = "Map the columns (at least date + amount) to import this CSV." });
+
+            var (batch, parse) = await StageAsync(db, household.Id, caller.Id, fileName, format, content, map, ct);
+
+            // Build the preview DTO from the just-written staged rows.
+            var staged = await db.FinanceStagedTransactions.AsNoTracking()
+                .Where(s => s.HouseholdId == household.Id && s.ImportId == batch.Id)
+                .OrderBy(s => s.RowIndex).ThenBy(s => s.Id)
                 .ToListAsync(ct);
-            var byKey = existingAccounts.ToDictionary(
-                a => RocketMoneyCsv.AccountKey(a.Name, a.Institution ?? ""), a => a);
 
-            // The set of account keys touched by this import (for the response).
-            var touched = new HashSet<string>(StringComparer.Ordinal);
+            var accounts = staged
+                .GroupBy(s => s.AccountKey)
+                .Select(grp =>
+                {
+                    var first = grp.First();
+                    return new StagedAccountDto(grp.Key, first.AccountName, first.Institution,
+                        RocketMoneyCsv.AccountKind(first.AccountTypeRaw), grp.Count());
+                })
+                .OrderBy(a => a.Name, StringComparer.OrdinalIgnoreCase).ToList();
 
-            // Pre-load this household's existing dedup hashes so we can skip in-memory and also guard the
-            // unique index (a concurrent or overlapping import). We additionally de-dup WITHIN this file.
-            var existingHashes = await db.FinanceTransactions
-                .Where(t => t.HouseholdId == household.Id)
-                .Select(t => t.DedupHash)
+            var dupCount = staged.Count(s => s.IsDuplicate);
+            var preview = staged.Take(StagedPreviewCap).Select(ToStagedRowDto).ToList();
+
+            return Results.Ok(new StagedImportDto(
+                batch.Id, format, parse.RowCount, staged.Count, parse.SkippedCount, dupCount,
+                parse.DetectedColumns, accounts, preview));
+        });
+
+        // -----------------------------------------------------------------------------
+        // GET /import/{importId}/staged?page= — paged review rows for a staged batch.
+        // -----------------------------------------------------------------------------
+        g.MapGet("/import/{importId:long}/staged", async (
+            long importId, int? page, CurrentUserAccessor me, CurrentHouseholdAccessor households,
+            UsageDbContext db, CancellationToken ct) =>
+        {
+            var caller = (await me.GetUserAsync(ct))!;
+            var household = (await households.GetOrCreateForCallerAsync(caller, ct))!;
+
+            var batch = await db.FinanceImports.AsNoTracking()
+                .FirstOrDefaultAsync(i => i.Id == importId, ct);
+            if (batch is null || batch.HouseholdId != household.Id) return ImportNotFound();
+
+            var q = db.FinanceStagedTransactions.AsNoTracking()
+                .Where(s => s.HouseholdId == household.Id && s.ImportId == importId);
+            var total = await q.CountAsync(ct);
+
+            var pageNum = page is int p && p > 0 ? p : 1;
+            var items = await q
+                .OrderBy(s => s.RowIndex).ThenBy(s => s.Id)
+                .Skip((pageNum - 1) * MaxPageSize).Take(MaxPageSize)
                 .ToListAsync(ct);
-            var seenHashes = new HashSet<string>(existingHashes, StringComparer.Ordinal);
 
-            var imported = 0;
-            // Track a running skip count seeded from unparseable rows; dedup hits add to it.
-            var skipped = parsed.SkippedCount;
+            return Results.Ok(new StagedPageDto(pageNum, MaxPageSize, total,
+                items.Select(ToStagedRowDto).ToList()));
+        });
 
-            foreach (var row in parsed.Rows)
-            {
-                var key = RocketMoneyCsv.AccountKey(row.AccountName, row.Institution);
-                touched.Add(key);
+        // -----------------------------------------------------------------------------
+        // POST /import/{importId}/categorize-ai — OPTIONAL Gemini classify of still-Uncategorized,
+        // non-excluded staged rows, CONSTRAINED to a fixed category enum. Floors to rows-unchanged
+        // when AI is off/unconfigured/errors; NEVER 503, NEVER blocks the commit. Extra finance.ai gate.
+        // -----------------------------------------------------------------------------
+        g.MapPost("/import/{importId:long}/categorize-ai", async (
+            long importId, CurrentUserAccessor me, CurrentHouseholdAccessor households,
+            GeminiService gemini, UsageDbContext db, CancellationToken ct) =>
+        {
+            var caller = (await me.GetUserAsync(ct))!;
+            var household = (await households.GetOrCreateForCallerAsync(caller, ct))!;
 
-                if (!byKey.TryGetValue(key, out var account))
-                {
-                    account = new FinanceAccount
-                    {
-                        HouseholdId = household.Id,
-                        Name = Clamp(string.IsNullOrWhiteSpace(row.AccountName) ? "Unnamed account" : row.AccountName, 200),
-                        // Normalize a missing institution to null on the entity, but key on "" so two rows
-                        // with no institution collapse to one account.
-                        Institution = string.IsNullOrWhiteSpace(row.Institution) ? null : Clamp(row.Institution, 200),
-                        Owner = "unassigned",
-                        Kind = RocketMoneyCsv.AccountKind(row.AccountTypeRaw),
-                        CreatedUtc = now,
-                    };
-                    db.FinanceAccounts.Add(account);
-                    // Persist immediately so the account gets an Id we can FK the transactions to, and so a
-                    // later row for the same account reuses it.
-                    try
-                    {
-                        await db.SaveChangesAsync(ct);
-                    }
-                    catch (DbUpdateException ex) when (IsUniqueViolation(ex))
-                    {
-                        // A concurrent/overlapping import already created this (HouseholdId, Name, Institution)
-                        // account between our check and save — return a clean retryable 409.
-                        return ImportConflict();
-                    }
-                    byKey[key] = account;
-                }
+            var batch = await db.FinanceImports.FirstOrDefaultAsync(i => i.Id == importId, ct);
+            if (batch is null || batch.HouseholdId != household.Id) return ImportNotFound();
+            if (batch.Status != "staged")
+                return Results.BadRequest(new { message = "This batch is no longer staged." });
 
-                var hash = RocketMoneyCsv.DedupHash(key, row.Date, row.RawAmount, row.Merchant, row.Description);
-                if (!seenHashes.Add(hash))
-                {
-                    skipped++; // already present (prior import) or a duplicate within this file
-                    continue;
-                }
+            // Eligible = still Uncategorized AND not excluded.
+            var eligible = await db.FinanceStagedTransactions
+                .Where(s => s.HouseholdId == household.Id && s.ImportId == importId
+                    && !s.Excluded && (s.Category == null || s.Category == ""))
+                .OrderBy(s => s.RowIndex)
+                .ToListAsync(ct);
 
-                db.FinanceTransactions.Add(new FinanceTransaction
-                {
-                    HouseholdId = household.Id,
-                    AccountId = account.Id,
-                    Date = row.Date,
-                    Merchant = row.Merchant,
-                    Description = row.Description,
-                    Magnitude = row.Magnitude,
-                    RawAmount = row.RawAmount,
-                    Kind = KindString(row.Kind),
-                    Category = row.Category,
-                    Note = row.Note,
-                    DedupHash = hash,
-                    ImportId = batch.Id,
-                    CreatedUtc = now,
-                });
-                imported++;
-            }
+            // FLOOR: no eligible rows, or no finance.ai, or Gemini unconfigured → rows unchanged.
+            if (eligible.Count == 0
+                || !caller.Permissions.Contains(Permissions.FinanceAi) || !gemini.IsConfigured)
+                return Results.Ok(new CategorizeAiResultDto(0, eligible.Count, true));
 
-            // Update the batch's final counts, then persist the transactions.
-            batch.ImportedCount = imported;
-            batch.SkippedCount = skipped;
+            var allowed = await AllowedCategoriesAsync(db, household.Id, ct);
+
+            IReadOnlyDictionary<int, string>? labels;
             try
             {
-                await db.SaveChangesAsync(ct);
+                labels = await gemini.ClassifyTransactionsAsync(
+                    eligible.Select(s => (s.RowIndex, s.Merchant, (string?)s.Description, s.RawAmount)).ToList(),
+                    allowed, ct);
             }
-            catch (DbUpdateException ex) when (IsUniqueViolation(ex))
+            catch
             {
-                // A concurrent/overlapping import inserted an overlapping transaction (DedupHash unique index)
-                // between our in-memory de-dup and save — return a clean retryable 409.
-                return ImportConflict();
+                labels = null;
             }
 
-            var accounts = byKey.Values
-                .Where(a => touched.Contains(RocketMoneyCsv.AccountKey(a.Name, a.Institution ?? "")))
-                .OrderBy(a => a.Name, StringComparer.OrdinalIgnoreCase).ThenBy(a => a.Id)
-                .Select(a => new AccountSummaryDto(a.Id, a.Name, a.Institution, a.Owner, a.Kind))
-                .ToList();
+            if (labels is null || labels.Count == 0)
+                return Results.Ok(new CategorizeAiResultDto(0, eligible.Count, true)); // floor: rows unchanged
 
-            return Results.Ok(new ImportResultDto(batch.Id, parsed.RowCount, imported, skipped, accounts));
+            // The fixed enum, validated again here so an off-list category can never be written.
+            var allowedSet = new HashSet<string>(allowed, StringComparer.OrdinalIgnoreCase);
+            var byIndex = eligible.ToDictionary(s => s.RowIndex);
+            var classified = 0;
+            foreach (var (idx, cat) in labels)
+            {
+                if (!byIndex.TryGetValue(idx, out var row)) continue;
+                if (string.IsNullOrWhiteSpace(cat) || !allowedSet.Contains(cat)) continue; // reject off-list
+                row.SuggestedCategory = Clamp(cat, 120);
+                row.Category = row.SuggestedCategory;
+                row.CategorySource = "ai";
+                classified++;
+            }
+
+            await db.SaveChangesAsync(ct);
+            return Results.Ok(new CategorizeAiResultDto(classified, eligible.Count, false));
+        }).RequireRateLimiting(AiEndpoints.RateLimitPolicy);
+
+        // -----------------------------------------------------------------------------
+        // PATCH /import/{importId}/rows/{stagedId} — edit one staged row. Optionally upsert a
+        // household FinanceCategoryRule ("apply to future") so the new category sticks.
+        // -----------------------------------------------------------------------------
+        g.MapPatch("/import/{importId:long}/rows/{stagedId:long}", async (
+            long importId, long stagedId, StagedRowPatch req,
+            CurrentUserAccessor me, CurrentHouseholdAccessor households, UsageDbContext db, CancellationToken ct) =>
+        {
+            var caller = (await me.GetUserAsync(ct))!;
+            var household = (await households.GetOrCreateForCallerAsync(caller, ct))!;
+
+            var batch = await db.FinanceImports.AsNoTracking().FirstOrDefaultAsync(i => i.Id == importId, ct);
+            if (batch is null || batch.HouseholdId != household.Id) return ImportNotFound();
+            if (batch.Status != "staged")
+                return Results.BadRequest(new { message = "This batch is no longer staged." });
+
+            var row = await db.FinanceStagedTransactions
+                .FirstOrDefaultAsync(s => s.Id == stagedId && s.ImportId == importId, ct);
+            if (row is null || row.HouseholdId != household.Id) return ImportNotFound();
+
+            if (req.Category is not null)
+            {
+                var cat = req.Category.Trim();
+                row.Category = cat.Length == 0 ? null : Clamp(cat, 120);
+                row.CategorySource = row.Category is null ? "none" : "file"; // a user edit is authoritative
+            }
+            if (req.Excluded is bool ex) row.Excluded = ex;
+            if (req.Kind is not null)
+            {
+                var k = req.Kind.Trim().ToLowerInvariant();
+                if (k is "expense" or "income" or "transfer") row.Kind = k;
+                else return Results.BadRequest(new { message = "Kind must be expense, income, or transfer." });
+            }
+
+            // "Apply to future": learn an equals rule on the (lower-cased) merchant for this category.
+            if (req.ApplyToFuture == true && !string.IsNullOrWhiteSpace(row.Category)
+                && !string.IsNullOrWhiteSpace(row.Merchant))
+                await UpsertRuleAsync(db, household.Id, row.Merchant, row.Category!, ct);
+
+            await db.SaveChangesAsync(ct);
+            return Results.Ok(ToStagedRowDto(row));
+        });
+
+        // -----------------------------------------------------------------------------
+        // POST /import/{importId}/commit — atomically materialize a staged batch into the ledger.
+        // -----------------------------------------------------------------------------
+        g.MapPost("/import/{importId:long}/commit", async (
+            long importId, CommitRequest? req, CurrentUserAccessor me, CurrentHouseholdAccessor households,
+            UsageDbContext db, CancellationToken ct) =>
+        {
+            var caller = (await me.GetUserAsync(ct))!;
+            var household = (await households.GetOrCreateForCallerAsync(caller, ct))!;
+
+            var batch = await db.FinanceImports.FirstOrDefaultAsync(i => i.Id == importId, ct);
+            if (batch is null || batch.HouseholdId != household.Id) return ImportNotFound();
+            if (batch.Status == "committed")
+                return Results.BadRequest(new { message = "This batch was already committed." });
+            if (batch.Status != "staged")
+                return Results.BadRequest(new { message = "This batch can no longer be committed." });
+
+            return await CommitStagedAsync(db, household.Id, batch, req?.ExcludeIds, ct);
+        });
+
+        // -----------------------------------------------------------------------------
+        // DELETE /import/{importId} — discard a STAGED batch (committed batches are immutable).
+        // -----------------------------------------------------------------------------
+        g.MapDelete("/import/{importId:long}", async (
+            long importId, CurrentUserAccessor me, CurrentHouseholdAccessor households,
+            UsageDbContext db, CancellationToken ct) =>
+        {
+            var caller = (await me.GetUserAsync(ct))!;
+            var household = (await households.GetOrCreateForCallerAsync(caller, ct))!;
+
+            var batch = await db.FinanceImports.FirstOrDefaultAsync(i => i.Id == importId, ct);
+            if (batch is null || batch.HouseholdId != household.Id) return ImportNotFound();
+            if (batch.Status == "committed")
+                return Results.BadRequest(new { message = "A committed import can't be discarded." });
+
+            // Cascade deletes the staged rows; mark the batch discarded (kept as an audit row).
+            var staged = await db.FinanceStagedTransactions
+                .Where(s => s.HouseholdId == household.Id && s.ImportId == importId)
+                .ToListAsync(ct);
+            db.FinanceStagedTransactions.RemoveRange(staged);
+            batch.Status = "discarded";
+            await db.SaveChangesAsync(ct);
+
+            return Results.NoContent();
         });
     }
+
+    /// <summary>Max staged rows returned inline in the parse preview (the rest are paged via /staged).</summary>
+    private const int StagedPreviewCap = 200;
+
+    // =====================================================================================
+    // STAGING + COMMIT — shared bodies (the legacy /import and /import/parse+/commit reuse these)
+    // =====================================================================================
+
+    /// <summary>
+    /// Parse a file (by <paramref name="format"/>), DETERMINISTICALLY categorize each row (file → household
+    /// rule/default map), flag duplicates (against the committed ledger AND within the batch, FITID-preferred),
+    /// and write a FinanceImport(Status='staged') + its staged rows. Does NOT touch the live ledger. Returns the
+    /// batch + the raw parse counts.
+    /// </summary>
+    private static async Task<(FinanceImport Batch, ParseCounts Parse)> StageAsync(
+        UsageDbContext db, int householdId, int callerId, string fileName, string format,
+        string content, BankImportParsers.ColumnMap? map, CancellationToken ct)
+    {
+        // Normalize all formats to the common ParsedTxn shape.
+        var (rows, rowCount, skippedCount, detected) = ParseToCommon(format, content, map);
+
+        var now = DateTime.UtcNow;
+        var batch = new FinanceImport
+        {
+            HouseholdId = householdId,
+            FileName = fileName,
+            Format = format,
+            Status = "staged",
+            RowCount = rowCount,
+            ImportedCount = 0,
+            SkippedCount = skippedCount,
+            ImportedByUserId = callerId,
+            CreatedUtc = now,
+        };
+        db.FinanceImports.Add(batch);
+        await db.SaveChangesAsync(ct);
+
+        // The household's deterministic categorizer rules (learned + seeded).
+        var rules = await db.FinanceCategoryRules.AsNoTracking()
+            .Where(r => r.HouseholdId == householdId).ToListAsync(ct);
+
+        // Dedup context: every committed CONTENT HASH + every committed FITID for this household. FITID is now
+        // PERSISTED on the ledger, so a re-imported OFX file dedups by its stable bank id (not by content) — this
+        // is what lets two genuinely-distinct same-day/amount/merchant txns (different FITIDs) BOTH import while
+        // re-importing the same file still adds nothing.
+        var committedHashes = await db.FinanceTransactions
+            .Where(t => t.HouseholdId == householdId)
+            .Select(t => t.DedupHash).ToListAsync(ct);
+        var ledgerHashes = new HashSet<string>(committedHashes, StringComparer.Ordinal);
+        var committedFitids = await db.FinanceTransactions
+            .Where(t => t.HouseholdId == householdId && t.Fitid != null)
+            .Select(t => t.Fitid!).ToListAsync(ct);
+        var ledgerFitids = new HashSet<string>(committedFitids, StringComparer.Ordinal);
+
+        var batchHashes = new HashSet<string>(StringComparer.Ordinal);
+        var batchFitids = new HashSet<string>(StringComparer.Ordinal);
+
+        foreach (var row in rows)
+        {
+            var key = RocketMoneyCsv.AccountKey(row.AccountName, row.Institution);
+            var hash = RocketMoneyCsv.DedupHash(key, row.Date, row.RawAmount, row.Merchant, row.Description);
+
+            // Dedup verdict, FITID-authoritative:
+            //  - A row WITH a FITID is a duplicate if that FITID is already committed OR collides within this
+            //    batch, OR its content hash is already in the COMMITTED ledger (the cross-format bridge: the same
+            //    txn came in earlier via a non-FITID format that committed a null FITID). It is NEVER content-
+            //    deduped WITHIN this batch — a distinct FITID is a distinct txn even when (date|amount|merchant|
+            //    memo) match exactly (e.g. two $4.50 coffees the same day, the HIGH under-count bug).
+            //  - A row with NO FITID falls back to the content hash (committed ledger OR within-batch).
+            bool isDup;
+            if (!string.IsNullOrWhiteSpace(row.Fitid))
+            {
+                var fitid = row.Fitid!;
+                isDup = ledgerFitids.Contains(fitid)       // same FITID already in the committed ledger
+                    || ledgerHashes.Contains(hash);        // same content already committed (cross-format bridge)
+                if (!batchFitids.Add(fitid)) isDup = true; // same FITID twice in this file
+            }
+            else
+            {
+                isDup = ledgerHashes.Contains(hash);       // already in the committed ledger (content)
+                if (!batchHashes.Add(hash)) isDup = true;  // duplicate within this batch (content)
+            }
+
+            var cat = FinanceCategorizer.Categorize(row.Category, row.Merchant, rules);
+
+            db.FinanceStagedTransactions.Add(new FinanceStagedTransaction
+            {
+                HouseholdId = householdId,
+                ImportId = batch.Id,
+                RowIndex = row.RowIndex,
+                Date = row.Date,
+                Merchant = row.Merchant,
+                Description = row.Description,
+                RawAmount = row.RawAmount,
+                Magnitude = row.Magnitude,
+                Kind = KindString(row.Kind),
+                AccountKey = Clamp(key, 420),
+                AccountName = Clamp(string.IsNullOrWhiteSpace(row.AccountName) ? "Unnamed account" : row.AccountName, 200),
+                Institution = string.IsNullOrWhiteSpace(row.Institution) ? null : Clamp(row.Institution, 200),
+                AccountTypeRaw = Clamp(row.AccountTypeRaw, 120),
+                Category = cat.Category is null ? null : Clamp(cat.Category, 120),
+                SuggestedCategory = null,
+                CategorySource = cat.Source,
+                Fitid = string.IsNullOrWhiteSpace(row.Fitid) ? null : Clamp(row.Fitid!, 255),
+                DedupHash = hash,
+                IsDuplicate = isDup,
+                Excluded = false,
+                CreatedUtc = now,
+            });
+        }
+
+        await db.SaveChangesAsync(ct);
+        return (batch, new ParseCounts(rowCount, skippedCount, detected));
+    }
+
+    /// <summary>The shared, ATOMIC commit body. Find-or-creates a FinanceAccount per AccountKey, inserts deduped
+    /// FinanceTransaction rows from the non-excluded, non-duplicate staged rows (carrying the reviewed Category +
+    /// Kind), flips the batch to 'committed' with final counts + CommittedUtc, and deletes the staged rows — all
+    /// in ONE SaveChanges so a unique-index race rolls the whole thing back (retryable 409). Returns the existing
+    /// <see cref="ImportResultDto"/>.</summary>
+    private static async Task<IResult> CommitStagedAsync(
+        UsageDbContext db, int householdId, FinanceImport batch, IReadOnlyList<long>? excludeIds, CancellationToken ct)
+    {
+        var excluded = excludeIds is { Count: > 0 }
+            ? new HashSet<long>(excludeIds) : new HashSet<long>();
+
+        var staged = await db.FinanceStagedTransactions
+            .Where(s => s.HouseholdId == householdId && s.ImportId == batch.Id)
+            .OrderBy(s => s.RowIndex).ThenBy(s => s.Id)
+            .ToListAsync(ct);
+
+        var now = DateTime.UtcNow;
+
+        // Find-or-create accounts (in-memory; persisted with the transactions in one atomic save).
+        var existingAccounts = await db.FinanceAccounts
+            .Where(a => a.HouseholdId == householdId).ToListAsync(ct);
+        var byKey = existingAccounts.ToDictionary(
+            a => RocketMoneyCsv.AccountKey(a.Name, a.Institution ?? ""), a => a);
+
+        // Existing committed hashes + FITIDs guard against an overlapping commit landing between stage + commit.
+        // The guard is FITID-aware to match the stage verdict: a FITID row is guarded by its (persisted) bank id,
+        // a no-FITID row by its content hash. (A FITID row must NOT be dropped by the content guard — two
+        // distinct same-content txns with different FITIDs legitimately share a DedupHash.)
+        var existingHashes = await db.FinanceTransactions
+            .Where(t => t.HouseholdId == householdId)
+            .Select(t => t.DedupHash).ToListAsync(ct);
+        var seenHashes = new HashSet<string>(existingHashes, StringComparer.Ordinal);
+        var existingFitids = await db.FinanceTransactions
+            .Where(t => t.HouseholdId == householdId && t.Fitid != null)
+            .Select(t => t.Fitid!).ToListAsync(ct);
+        var seenFitids = new HashSet<string>(existingFitids, StringComparer.Ordinal);
+
+        var touched = new HashSet<string>(StringComparer.Ordinal);
+        var imported = 0;
+        var skipped = batch.SkippedCount; // seed from the unparseable rows recorded at parse time
+
+        foreach (var s in staged)
+        {
+            // Skip excluded + already-flagged duplicates so nothing double-counts into the ledger.
+            if (s.Excluded || excluded.Contains(s.Id) || s.IsDuplicate) { skipped++; continue; }
+
+            var key = s.AccountKey;
+            touched.Add(key);
+
+            if (!byKey.TryGetValue(key, out var account))
+            {
+                account = new FinanceAccount
+                {
+                    HouseholdId = householdId,
+                    Name = Clamp(string.IsNullOrWhiteSpace(s.AccountName) ? "Unnamed account" : s.AccountName, 200),
+                    Institution = string.IsNullOrWhiteSpace(s.Institution) ? null : Clamp(s.Institution, 200),
+                    Owner = "unassigned",
+                    Kind = RocketMoneyCsv.AccountKind(s.AccountTypeRaw),
+                    CreatedUtc = now,
+                };
+                db.FinanceAccounts.Add(account);
+                byKey[key] = account;
+            }
+
+            // Final in-memory dedup guard (a row the flagger missed — e.g. a concurrent commit landed between
+            // stage + commit). FITID-aware to mirror the stage verdict:
+            //  - A FITID row is dropped if its bank id is already seen, OR (cross-format bridge) its content hash
+            //    is already in the COMMITTED ledger — but two distinct FITIDs that collide on content WITHIN this
+            //    batch both commit (the content guard never sinks a fresh FITID). seenFitids + the filtered unique
+            //    index on (HouseholdId, Fitid) are the DB backstop.
+            //  - A no-FITID row is guarded by its content hash (seenHashes + the (HouseholdId, DedupHash) index).
+            if (!string.IsNullOrWhiteSpace(s.Fitid))
+            {
+                if (!seenFitids.Add(s.Fitid!) || seenHashes.Contains(s.DedupHash)) { skipped++; continue; }
+            }
+            else
+            {
+                if (!seenHashes.Add(s.DedupHash)) { skipped++; continue; }
+            }
+
+            db.FinanceTransactions.Add(new FinanceTransaction
+            {
+                HouseholdId = householdId,
+                Account = account, // EF fixes up the FK after the account gets its Id in the same save
+                Date = s.Date,
+                Merchant = s.Merchant,
+                Description = s.Description,
+                Magnitude = s.Magnitude,
+                RawAmount = s.RawAmount,
+                Kind = s.Kind,
+                Category = s.Category,
+                Note = null,
+                DedupHash = s.DedupHash,
+                Fitid = s.Fitid,
+                ImportId = batch.Id,
+                CreatedUtc = now,
+            });
+            imported++;
+        }
+
+        // Flip the batch + remove the staged rows in the SAME atomic save as the inserts.
+        batch.Status = "committed";
+        batch.ImportedCount = imported;
+        batch.SkippedCount = skipped;
+        batch.CommittedUtc = now;
+        db.FinanceStagedTransactions.RemoveRange(staged);
+
+        try
+        {
+            await db.SaveChangesAsync(ct);
+        }
+        catch (DbUpdateException ex) when (IsUniqueViolation(ex))
+        {
+            // A concurrent/overlapping commit won an insert race on a unique index (account, DedupHash, or the
+            // filtered (HouseholdId, Fitid) index) — the whole transaction rolled back. Clean retryable 409
+            // (the batch stays 'staged').
+            return ImportConflict();
+        }
+
+        var accounts = byKey.Values
+            .Where(a => touched.Contains(RocketMoneyCsv.AccountKey(a.Name, a.Institution ?? "")))
+            .OrderBy(a => a.Name, StringComparer.OrdinalIgnoreCase).ThenBy(a => a.Id)
+            .Select(a => new AccountSummaryDto(a.Id, a.Name, a.Institution, a.Owner, a.Kind))
+            .ToList();
+
+        return Results.Ok(new ImportResultDto(batch.Id, batch.RowCount, imported, skipped, accounts));
+    }
+
+    /// <summary>The raw parse counts surfaced from <see cref="StageAsync"/> (the detected columns drive the
+    /// review's column hints).</summary>
+    private readonly record struct ParseCounts(int RowCount, int SkippedCount, IReadOnlyList<string> DetectedColumns);
+
+    /// <summary>Normalize any supported format to the common <see cref="BankImportParsers.ParsedTxn"/> shape.</summary>
+    private static (IReadOnlyList<BankImportParsers.ParsedTxn> Rows, int RowCount, int SkippedCount, IReadOnlyList<string> Detected)
+        ParseToCommon(string format, string content, BankImportParsers.ColumnMap? map)
+    {
+        switch (format)
+        {
+            case "ofx":
+            {
+                var r = BankImportParsers.ParseOfx(content);
+                return (r.Rows, r.RowCount, r.SkippedCount, r.DetectedColumns);
+            }
+            case "csv":
+            {
+                var r = BankImportParsers.ParseGenericCsv(content, map ?? new BankImportParsers.ColumnMap());
+                return (r.Rows, r.RowCount, r.SkippedCount, r.DetectedColumns);
+            }
+            default: // rocketmoney
+            {
+                var rm = RocketMoneyCsv.Parse(content);
+                var detected = RocketMoneyCsv.ReadRecordsShared(content) is { Count: > 0 } recs
+                    ? recs[0].Select(h => h.Trim()).Where(h => h.Length > 0).ToList()
+                    : new List<string>();
+                var idx = 0;
+                var rows = rm.Rows.Select(p => new BankImportParsers.ParsedTxn(
+                    idx++, p.AccountName, p.Institution, p.AccountTypeRaw, p.Date, p.Merchant, p.Description,
+                    p.RawAmount, p.Magnitude, p.Kind, p.Category, Fitid: null)).ToList();
+                return (rows, rm.RowCount, rm.SkippedCount, detected);
+            }
+        }
+    }
+
+    /// <summary>Pick the import format: an explicit "rocketmoney"/"csv"/"ofx" honored; otherwise AUTO-detect from
+    /// the extension + content (OFX markers → ofx; a Rocket-Money header → rocketmoney; else a generic csv).</summary>
+    private static string DetectFormat(string? requested, string fileName, string content)
+    {
+        var r = (requested ?? "auto").Trim().ToLowerInvariant();
+        if (r is "rocketmoney" or "csv" or "ofx") return r;
+
+        var lowerName = fileName.ToLowerInvariant();
+        if (lowerName.EndsWith(".ofx") || lowerName.EndsWith(".qfx")) return "ofx";
+
+        // Content sniff: OFX statements carry these markers.
+        if (content.Contains("<OFX>", StringComparison.OrdinalIgnoreCase)
+            || content.Contains("<STMTTRN>", StringComparison.OrdinalIgnoreCase)
+            || content.Contains("OFXHEADER", StringComparison.OrdinalIgnoreCase))
+            return "ofx";
+
+        // A Rocket Money export has this signature header (Account Name + Institution Name columns).
+        var firstLine = content.Split('\n', 2)[0];
+        if (firstLine.Contains("Institution Name", StringComparison.OrdinalIgnoreCase)
+            && firstLine.Contains("Account Name", StringComparison.OrdinalIgnoreCase)
+            && firstLine.Contains("Amount", StringComparison.OrdinalIgnoreCase))
+            return "rocketmoney";
+
+        return "csv"; // a generic CSV needs a column map (the parse endpoint enforces this)
+    }
+
+    /// <summary>The FIXED category enum the AI classifier is constrained to: the deterministic defaults PLUS any
+    /// category already present on the household's committed ledger (so the household's own vocabulary is kept).
+    /// </summary>
+    private static async Task<IReadOnlyList<string>> AllowedCategoriesAsync(
+        UsageDbContext db, int householdId, CancellationToken ct)
+    {
+        var ledgerCats = await db.FinanceTransactions.AsNoTracking()
+            .Where(t => t.HouseholdId == householdId && t.Category != null && t.Category != "")
+            .Select(t => t.Category!)
+            .Distinct()
+            .ToListAsync(ct);
+
+        return FinanceCategorizer.DefaultCategories
+            .Concat(ledgerCats)
+            .Select(c => c.Trim())
+            .Where(c => c.Length > 0)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
+
+    /// <summary>Upsert an "equals" household category rule on the (lower-cased) merchant — auto-learned when a
+    /// user fixes a category at review with "apply to future". Idempotent: an existing equals rule for the same
+    /// merchant has its category updated.</summary>
+    private static async Task UpsertRuleAsync(
+        UsageDbContext db, int householdId, string merchant, string category, CancellationToken ct)
+    {
+        var pattern = merchant.Trim().ToLowerInvariant();
+        if (pattern.Length == 0) return;
+        if (pattern.Length > 200) pattern = pattern[..200];
+
+        var existing = await db.FinanceCategoryRules
+            .FirstOrDefaultAsync(r => r.HouseholdId == householdId
+                && r.MatchType == "equals" && r.Pattern == pattern, ct);
+        if (existing is not null)
+        {
+            existing.Category = Clamp(category, 120);
+            return;
+        }
+        db.FinanceCategoryRules.Add(new FinanceCategoryRule
+        {
+            HouseholdId = householdId,
+            MatchType = "equals",
+            Pattern = pattern,
+            Category = Clamp(category, 120),
+            CreatedUtc = DateTime.UtcNow,
+        });
+    }
+
+    private static StagedRowDto ToStagedRowDto(FinanceStagedTransaction s) => new(
+        s.Id, s.RowIndex, s.Date.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
+        s.Merchant, s.Description, s.RawAmount, s.Magnitude, s.Kind,
+        s.AccountKey, s.AccountName, s.Institution,
+        s.Category, s.SuggestedCategory, s.CategorySource, s.IsDuplicate, s.Excluded);
+
+    private static IResult ImportNotFound() =>
+        Results.NotFound(new { message = "That import doesn't exist." });
 
     // =====================================================================================
     // ACCOUNTS — list + relabel (his/hers/joint, kind, name)

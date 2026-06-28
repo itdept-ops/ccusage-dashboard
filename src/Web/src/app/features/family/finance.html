@@ -29,32 +29,201 @@
     </div>
   } @else {
 
-    <!-- ══ IMPORT dropzone ══════════════════════════════════════════════ -->
-    <section class="fin-card fin-import"
-             [class.fin-import--over]="dragOver()"
-             (dragover)="onDragOver($event)" (dragleave)="onDragLeave($event)" (drop)="onDrop($event)">
-      <div class="fin-import__icon" aria-hidden="true">
-        @if (importing()) { <mat-spinner [diameter]="32" /> }
-        @else { <mat-icon>cloud_upload</mat-icon> }
-      </div>
-      <div class="fin-import__body">
-        <h2 class="fin-import__title">Import a Rocket Money CSV</h2>
-        <p class="fin-import__hint">
-          Export your transactions from Rocket Money and drop the <code>.csv</code> here (or pick a file).
-          Re-imports are de-duped, so it's safe to drop overlapping exports.
-        </p>
-        <div class="fin-import__actions">
-          <label class="fin-import__pick" [class.is-busy]="importing()">
-            <input type="file" accept=".csv,text/csv" (change)="onPick($event)" [disabled]="importing()" hidden />
-            <mat-icon aria-hidden="true">attach_file</mat-icon>
-            {{ importing() ? 'Importing…' : 'Choose CSV' }}
-          </label>
+    <!-- ══ IMPORT — dropzone → [column-map] → review → commit/discard ════ -->
+    @if (importStep() === 'idle') {
+      <!-- ── Dropzone (accepts .csv / .ofx / .qfx; parses into a STAGED batch first) ── -->
+      <section class="fin-card fin-import"
+               [class.fin-import--over]="dragOver()"
+               (dragover)="onDragOver($event)" (dragleave)="onDragLeave($event)" (drop)="onDrop($event)">
+        <div class="fin-import__icon" aria-hidden="true">
+          @if (importing()) { <mat-spinner [diameter]="32" /> }
+          @else { <mat-icon>cloud_upload</mat-icon> }
         </div>
-      </div>
-    </section>
+        <div class="fin-import__body">
+          <h2 class="fin-import__title">Import transactions</h2>
+          <p class="fin-import__hint">
+            Drop a Rocket Money export, a bank <code>.csv</code>, or an <code>.ofx</code>/<code>.qfx</code> file
+            here (or pick one). You'll <strong>review and categorize</strong> every row before anything is added —
+            re-imports are de-duped, so overlapping exports are safe.
+          </p>
+          <div class="fin-import__actions">
+            <label class="fin-import__pick" [class.is-busy]="importing()">
+              <input type="file" accept=".csv,.ofx,.qfx,text/csv" (change)="onPick($event)" [disabled]="importing()" hidden />
+              <mat-icon aria-hidden="true">attach_file</mat-icon>
+              {{ importing() ? 'Reading…' : 'Choose a file' }}
+            </label>
+          </div>
+        </div>
+      </section>
+    }
 
-    <!-- First-run nudge when nothing has been imported yet. -->
-    @if (!hasData()) {
+    <!-- ── COLUMN-MAP step (a generic / ambiguous CSV) ── -->
+    @if (importStep() === 'map') {
+      <section class="fin-card fin-map">
+        <div class="fin-card__head">
+          <h2 class="fin-card__title"><mat-icon class="fin-map__icon" aria-hidden="true">table_chart</mat-icon> Map your columns</h2>
+          <p class="fin-card__sub">
+            We couldn't recognize this file's layout. Tell us which column holds each value — at minimum a
+            <strong>Date</strong> and an <strong>Amount</strong> (or a <strong>Debit + Credit</strong> pair).
+          </p>
+        </div>
+
+        <div class="fin-map__grid">
+          @for (f of columnMapFields; track f.key) {
+            <label class="fin-field fin-map__field">
+              <span class="fin-field__lbl">
+                {{ f.label }} @if (f.hint) { <span class="fin-map__hint">· {{ f.hint }}</span> }
+              </span>
+              <select class="fin-select" [value]="$any(columnMap()[f.key]) ?? ''"
+                      (change)="setColumnMap(f.key, $any($event.target).value)">
+                <option value="">— none —</option>
+                @for (c of detectedColumns(); track c) { <option [value]="c">{{ c }}</option> }
+              </select>
+            </label>
+          }
+        </div>
+
+        <label class="fin-map__negate">
+          <input type="checkbox" [checked]="columnMap().negate" (change)="setNegate($any($event.target).checked)" />
+          <span>Flip the sign of the Amount column (use if expenses import as positive / income as negative)</span>
+        </label>
+
+        <div class="fin-map__actions">
+          <button mat-stroked-button (click)="cancelColumnMap()">Cancel</button>
+          <button mat-flat-button color="primary" [disabled]="importing()" (click)="submitColumnMap()">
+            @if (importing()) { <mat-spinner [diameter]="18" /> Parsing… }
+            @else { <ng-container><mat-icon aria-hidden="true">arrow_forward</mat-icon> Preview</ng-container> }
+          </button>
+        </div>
+      </section>
+    }
+
+    <!-- ── REVIEW panel (account-grouped staged rows → commit / discard) ── -->
+    @if (importStep() === 'review' && staged(); as s) {
+      <section class="fin-card fin-review">
+        <div class="fin-card__head fin-review__head">
+          <div>
+            <h2 class="fin-card__title">
+              <mat-icon class="fin-review__icon" aria-hidden="true">fact_check</mat-icon> Review import
+              <span class="fin-review__badge">{{ formatLabel(s.format) }}</span>
+            </h2>
+            <p class="fin-card__sub">
+              Nothing has been added yet. Check categories, drop any rows you don't want, then commit.
+            </p>
+          </div>
+          <div class="fin-review__counts">
+            <span class="fin-review__stat"><strong>{{ committableCount() }}</strong> to import</span>
+            @if (s.duplicateCount > 0) { <span class="fin-review__stat fin-review__stat--dup">{{ s.duplicateCount }} duplicate</span> }
+            @if (s.skippedCount > 0) { <span class="fin-review__stat">{{ s.skippedCount }} skipped</span> }
+          </div>
+        </div>
+
+        <!-- ✨ Optional AI category suggestions for still-Uncategorized rows (never blocks commit). -->
+        @if (uncategorizedCount() > 0) {
+          <div class="fin-review__aibar">
+            <span class="fin-review__aihint">
+              <mat-icon aria-hidden="true">label_off</mat-icon>
+              {{ uncategorizedCount() }} row(s) still uncategorized
+            </span>
+            <button mat-stroked-button class="fin-review__aibtn" [disabled]="aiCategorizing()" (click)="suggestCategoriesAi()">
+              @if (aiCategorizing()) { <mat-spinner [diameter]="16" /> Thinking… }
+              @else { <ng-container><mat-icon aria-hidden="true">auto_awesome</mat-icon> Suggest categories with AI</ng-container> }
+            </button>
+          </div>
+        }
+
+        @for (grp of stagedByAccount(); track grp.name) {
+          <div class="fin-review__acct">
+            <div class="fin-review__acctname">
+              <mat-icon aria-hidden="true">account_balance</mat-icon>
+              {{ grp.name }}
+              @if (grp.institution) { <span class="fin-review__inst">· {{ grp.institution }}</span> }
+              <span class="fin-review__acctcount">{{ grp.rows.length }} rows</span>
+            </div>
+
+            <div class="fin-table-wrap">
+              <table class="fin-table fin-review__table">
+                <thead>
+                  <tr>
+                    <th class="fin-review__keep">Keep</th>
+                    <th class="fin-table__date">Date</th>
+                    <th>Merchant</th>
+                    <th class="fin-review__catcol">Category</th>
+                    <th class="fin-review__kindcol">Type</th>
+                    <th class="fin-table__amt">Amount</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (r of grp.rows; track r.id) {
+                    <tr [class.fin-review__row--dup]="r.isDuplicate"
+                        [class.fin-review__row--excluded]="isRowExcluded(r)">
+                      <td class="fin-review__keep">
+                        <input type="checkbox" [checked]="!isRowExcluded(r)" [disabled]="r.isDuplicate"
+                               (change)="toggleExclude(r)"
+                               [attr.aria-label]="'Keep ' + r.merchant" />
+                      </td>
+                      <td class="fin-table__date">{{ txnDate(r.date) }}</td>
+                      <td class="fin-table__merchant">
+                        <span class="fin-merchant">{{ r.merchant }}</span>
+                        @if (r.isDuplicate) { <span class="fin-review__dupflag" matTooltip="Already in your ledger or earlier in this file — skipped on commit">Duplicate</span> }
+                      </td>
+                      <td class="fin-review__catcol">
+                        <div class="fin-review__catcell">
+                          <select class="fin-select fin-review__catsel" [value]="r.category ?? ''"
+                                  (change)="setRowCategory(r, $any($event.target).value, true)">
+                            <option value="">Uncategorized</option>
+                            @for (c of categoryOptions; track c) { <option [value]="c">{{ c }}</option> }
+                          </select>
+                          @if (r.category && r.categorySource !== 'none') {
+                            <span class="fin-review__src" [attr.data-src]="r.categorySource">{{ sourceLabel(r.categorySource) }}</span>
+                          }
+                          @if (!r.category && r.suggestedCategory) {
+                            <button class="fin-review__suggest" matTooltip="Accept the AI suggestion"
+                                    (click)="acceptSuggestion(r)">
+                              <mat-icon aria-hidden="true">auto_awesome</mat-icon> {{ r.suggestedCategory }}
+                            </button>
+                          }
+                        </div>
+                      </td>
+                      <td class="fin-review__kindcol">
+                        <select class="fin-select fin-review__kindsel" [value]="r.kind"
+                                (change)="setRowKind(r, $any($event.target).value)">
+                          @for (k of txnKindEditOptions; track k) { <option [value]="k">{{ txnKindLabel(k) }}</option> }
+                        </select>
+                      </td>
+                      <td class="fin-table__amt"
+                          [class.fin-amt--income]="r.kind === 'income'"
+                          [class.fin-amt--expense]="r.kind === 'expense'"
+                          [class.fin-amt--transfer]="r.kind === 'transfer'">
+                        {{ signedStaged(r) }}
+                      </td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          </div>
+        }
+
+        <!-- Commit / discard footer with counts. -->
+        <div class="fin-review__footer">
+          <button mat-stroked-button class="fin-review__discard" [disabled]="committing()" (click)="discardStaged()">
+            <mat-icon aria-hidden="true">delete_outline</mat-icon> Discard
+          </button>
+          <span class="fin-review__footnote">
+            {{ committableCount() }} transaction(s) will be added to your ledger.
+          </span>
+          <button mat-flat-button color="primary" class="fin-review__commit"
+                  [disabled]="committing() || committableCount() === 0" (click)="commitStaged()">
+            @if (committing()) { <mat-spinner [diameter]="18" /> Committing… }
+            @else { <ng-container><mat-icon aria-hidden="true">check</mat-icon> Commit {{ committableCount() }}</ng-container> }
+          </button>
+        </div>
+      </section>
+    }
+
+    <!-- First-run nudge when nothing has been imported yet (hidden while reviewing a staged batch). -->
+    @if (!hasData() && importStep() === 'idle') {
       <div class="family__empty fin-empty">
         <mat-icon aria-hidden="true">account_balance_wallet</mat-icon>
         <h2>No transactions yet</h2>

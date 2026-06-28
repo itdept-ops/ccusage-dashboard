@@ -5,7 +5,7 @@ import { concatMap, last } from 'rxjs/operators';
 import {
   AccessPolicy, AddCoffeeRequest, AddExerciseRequest, AddFoodRequest, UpdateFoodRequest, AddHydrationRequest, AuditEntry, BuildDayRequest, BuildDayResponse, CacheEfficiency, CalendarDay, CalendarEvent, CalendarEventInput, CalendarMemberBusy, CalendarStatus, ChatChannelDto, ChatCatchUpResult, ChatComposeAction, ChatComposeResult, ChatContactDto, ChatLocationShareDto, ChatMessageDto, ChatRepliesResult, StartLocationShareRequest, UpdateLocationShareRequest, ExtendLocationShareRequest, CommitDayRequest, CommitDayResponse, CreateChannelRequest, DaySummaryRequest, DaySummaryResponse,
   CreateShareRequest, CustomExerciseDto, CustomFoodDto, DailyCoachResponse, EstimateExerciseRequest, EstimateExerciseResponse, EstimateMacrosRequest, EstimateMacrosResponse, ExerciseEntryDto, ExerciseLibraryDto, Fleet, FleetDeleteRequest,
-  FamilyAssistantResult, FamilyBriefing, FamilyChore, FamilyChoreRecurrence, FamilyChoreSource, FamilyChores, FamilyMemberEvents, ChoreSuggestAiRequest, ChoreSuggestAiResult, ChoreBalanceAiResult, ChoreValuesAiResult, ChoreSummaryAiResult, Allowance, AllowanceMe, AllowanceMoveRequest, FamilyList, FamilyListKind, FamilyMeal, FamilyMealDay, FamilyMealMacroProposal, FamilyMealMacroSource, FamilyMealSlot, FamilyNote, FamilyPoll, FamilyPollCreate, FamilyRecurrence, FamilyReminder, FamilySettings, FamilySettingsUpdate, FamilyTimer, FamilyPollKind, FamilyToday, FindTimeRequest, FindTimeAiResult, PollOptionsAiResult, PollSummaryAiResult, ReminderAiResult, ListItemsAiResult, ListSuggestAiResult, NoteDraftAiResult, NoteSummaryAiResult, AskNotesAiResult, NoteTransformAction, NoteTransformAiResult, PlanWeekAiRequest, PlanWeekAiResult, RecipeAiResult, RecipeBreakdownResult, Recipe, RecipeUpsertRequest, RecipeFromBreakdownRequest, WhatCanIMakeAiResult, TimerAiResult, FindTimeResult, QuickAddKind, QuickAddRequest, QuickAddResult, FinanceAccount, FinanceAccountPatch, FinanceAccountSummary, FinanceImportBatch, FinanceImportResult, FinanceMoneyCoachResult, FinanceSummary, FinanceSummaryAiResult, FinanceTransactionsPage, FinanceTxnKind, FinanceOwner, FleetDeleteResult, FleetReassignRequest, FleetReassignResult, FleetRevokeKeysRequest, FleetRevokeKeysResult, FoodEntryDto, FoodSearchItemDto, GroupBy, Household, HouseholdCandidate, FamilyMemberLocation,
+  FamilyAssistantResult, FamilyBriefing, FamilyChore, FamilyChoreRecurrence, FamilyChoreSource, FamilyChores, FamilyMemberEvents, ChoreSuggestAiRequest, ChoreSuggestAiResult, ChoreBalanceAiResult, ChoreValuesAiResult, ChoreSummaryAiResult, Allowance, AllowanceMe, AllowanceMoveRequest, FamilyList, FamilyListKind, FamilyMeal, FamilyMealDay, FamilyMealMacroProposal, FamilyMealMacroSource, FamilyMealSlot, FamilyNote, FamilyPoll, FamilyPollCreate, FamilyRecurrence, FamilyReminder, FamilySettings, FamilySettingsUpdate, FamilyTimer, FamilyPollKind, FamilyToday, FindTimeRequest, FindTimeAiResult, PollOptionsAiResult, PollSummaryAiResult, ReminderAiResult, ListItemsAiResult, ListSuggestAiResult, NoteDraftAiResult, NoteSummaryAiResult, AskNotesAiResult, NoteTransformAction, NoteTransformAiResult, PlanWeekAiRequest, PlanWeekAiResult, RecipeAiResult, RecipeBreakdownResult, Recipe, RecipeUpsertRequest, RecipeFromBreakdownRequest, WhatCanIMakeAiResult, TimerAiResult, FindTimeResult, QuickAddKind, QuickAddRequest, QuickAddResult, FinanceAccount, FinanceAccountPatch, FinanceAccountSummary, FinanceImportBatch, FinanceImportResult, FinanceMoneyCoachResult, FinanceSummary, FinanceSummaryAiResult, FinanceTransactionsPage, FinanceTxnKind, FinanceOwner, FinanceParseRequest, FinanceStagedImport, FinanceStagedPage, FinanceStagedRow, FinanceStagedRowPatch, FinanceCategorizeAiResult, FinanceCommitRequest, FleetDeleteResult, FleetReassignRequest, FleetReassignResult, FleetRevokeKeysRequest, FleetRevokeKeysResult, FoodEntryDto, FoodSearchItemDto, GroupBy, Household, HouseholdCandidate, FamilyMemberLocation,
   AddSupplementRequest, SupplementEntryDto, SupplementMacrosRequest, SupplementMacrosResponse,
   AddSleepRequest, SleepEntryDto, SleepInsightResponse, ClientInfoRequest,
   CoffeeEntryDto, GoalPlanDto, HeatmapCell, HydrationEntryDto, HydrationSuggestResponse, ImageRequest, IngestionSource, IngestKey, IngestKeyCreated, LocationFix, LocationSettings, LocationSettingsUpdate, AdminUserLocation, RecordLocationRequest, LogWeightRequest, LoginEvent, MachineStat, ManagedUser, MealFeedbackRequest, MealFeedbackResponse, ModelStat, MoveDayRequest, MoveDayResult, NaturalGoalRequest, NaturalGoalResponse, NotificationDto, NotificationPreferenceDto, NotificationSettings,
@@ -2429,6 +2429,65 @@ export class Api {
   /** Recent import batches (file, counts, who-by-name, when) for the import-history strip. */
   financeImports(): Observable<FinanceImportBatch[]> {
     return this.http.get<FinanceImportBatch[]>(`${this.base}/family/finance/imports`);
+  }
+
+  // ---- Bank / transaction import: parse → review → commit STAGING flow ----
+  // Every format (Rocket Money, generic bank CSV, OFX/QFX) routes through staging. /parse writes a 'staged'
+  // batch + staged rows and NEVER touches the live ledger; /commit atomically materializes the kept rows.
+  // All household-scoped + double-gated server-side (family.use + family.finance); cross-household → 404.
+
+  /**
+   * Parse a file into a STAGED, reviewable batch (does NOT touch the live ledger). `format` defaults to
+   * 'auto' (detect by extension/shape); a generic/ambiguous CSV must carry a `columnMap` (date + amount, or
+   * a debit/credit pair). The server parses, rule-categorizes, and dedups (vs the committed ledger AND
+   * within-batch, FITID-preferred), then returns the batch id + counts + touched accounts + a capped preview.
+   */
+  financeParse(req: FinanceParseRequest): Observable<FinanceStagedImport> {
+    return this.http.post<FinanceStagedImport>(`${this.base}/family/finance/import/parse`, req);
+  }
+
+  /** A page of staged review rows for a batch (1-based; the server fixes the page size). */
+  financeStaged(importId: number, page?: number | null): Observable<FinanceStagedPage> {
+    let p = new HttpParams();
+    if (page != null) p = p.set('page', page);
+    return this.http.get<FinanceStagedPage>(`${this.base}/family/finance/import/${importId}/staged`, { params: p });
+  }
+
+  /**
+   * OPTIONAL: ask Gemini to classify the still-Uncategorized, non-excluded staged rows, CONSTRAINED to the
+   * fixed category set. Writes `suggestedCategory` + categorySource='ai'. NEVER 503 — floors to rows-unchanged
+   * + `fellBackToPlain` when AI is off/unconfigured/errors, and never blocks commit. Extra finance.ai gate.
+   */
+  financeCategorizeAi(importId: number): Observable<FinanceCategorizeAiResult> {
+    return this.http.post<FinanceCategorizeAiResult>(
+      `${this.base}/family/finance/import/${importId}/categorize-ai`, {});
+  }
+
+  /**
+   * Edit one staged row — set its `category`, `excluded`, and/or `kind`. `applyToFuture` additionally upserts
+   * a household category rule (equals on the merchant) so the category sticks for future imports. Returns the
+   * updated staged row.
+   */
+  financePatchStagedRow(
+    importId: number, stagedId: number, patch: FinanceStagedRowPatch,
+  ): Observable<FinanceStagedRow> {
+    return this.http.patch<FinanceStagedRow>(
+      `${this.base}/family/finance/import/${importId}/rows/${stagedId}`, patch);
+  }
+
+  /**
+   * Commit a staged batch into the ledger: atomically find-or-create accounts, insert the deduped, non-excluded
+   * rows (skipping duplicates), and flip the batch to 'committed'. `excludeIds` excludes extra rows on top of
+   * any already toggled off. Returns the standard import result (counts + touched accounts).
+   */
+  financeCommit(importId: number, req: FinanceCommitRequest = {}): Observable<FinanceImportResult> {
+    return this.http.post<FinanceImportResult>(
+      `${this.base}/family/finance/import/${importId}/commit`, req);
+  }
+
+  /** Discard a STAGED batch (committed batches are immutable → 400). Returns 204. */
+  financeDiscard(importId: number): Observable<void> {
+    return this.http.delete<void>(`${this.base}/family/finance/import/${importId}`);
   }
 
   /**

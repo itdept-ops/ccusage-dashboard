@@ -65,6 +65,8 @@ public class UsageDbContext(DbContextOptions<UsageDbContext> options) : DbContex
     public DbSet<FinanceAccount> FinanceAccounts => Set<FinanceAccount>();
     public DbSet<FinanceTransaction> FinanceTransactions => Set<FinanceTransaction>();
     public DbSet<FinanceImport> FinanceImports => Set<FinanceImport>();
+    public DbSet<FinanceStagedTransaction> FinanceStagedTransactions => Set<FinanceStagedTransaction>();
+    public DbSet<FinanceCategoryRule> FinanceCategoryRules => Set<FinanceCategoryRule>();
     public DbSet<GoogleCalendarConnection> GoogleCalendarConnections => Set<GoogleCalendarConnection>();
     public DbSet<HealthConnection> HealthConnections => Set<HealthConnection>();
     public DbSet<HealthImportLog> HealthImportLogs => Set<HealthImportLog>();
@@ -995,12 +997,21 @@ public class UsageDbContext(DbContextOptions<UsageDbContext> options) : DbContex
             e.Property(x => x.Category).HasMaxLength(120);
             e.Property(x => x.Note).HasMaxLength(1000);
             e.Property(x => x.DedupHash).HasMaxLength(64);
+            e.Property(x => x.Fitid).HasMaxLength(255);
             e.Property(x => x.CreatedUtc).HasColumnType("timestamp with time zone");
             // The transactions/summary reads filter one household by date (month window) then account/etc.
             e.HasIndex(x => new { x.HouseholdId, x.Date });
             e.HasIndex(x => x.AccountId);
-            // Re-importing the same export is a no-op: a duplicate (household, dedupHash) is skipped.
-            e.HasIndex(x => new { x.HouseholdId, x.DedupHash }).IsUnique();
+            // Content dedup is the DB backstop ONLY for rows WITHOUT a bank id: re-importing the same export is a
+            // no-op via (household, dedupHash). It is FILTERED to Fitid IS NULL so two genuinely-distinct txns
+            // that share content but carry different FITIDs (e.g. two same-day coffees) are NOT collapsed by the
+            // content hash — those are governed by the FITID index below instead.
+            e.HasIndex(x => new { x.HouseholdId, x.DedupHash }).IsUnique().HasFilter("\"Fitid\" IS NULL");
+            // FITID (the bank's stable txn id) is authoritative when present: a FILTERED unique index over the
+            // non-null FITIDs is the DB backstop so re-committing the same OFX file dedups by FITID even when two
+            // genuinely-distinct same-day/amount/merchant txns collide on content. Mirrors the GoogleSubject /
+            // ShareTokenHash filtered-unique pattern — many rows can have a null Fitid (CSV/Rocket-Money imports).
+            e.HasIndex(x => new { x.HouseholdId, x.Fitid }).IsUnique().HasFilter("\"Fitid\" IS NOT NULL");
             // Deleting an account deletes its transactions (the account owns its ledger).
             e.HasOne(x => x.Account).WithMany()
                 .HasForeignKey(x => x.AccountId).OnDelete(DeleteBehavior.Cascade);
@@ -1009,9 +1020,46 @@ public class UsageDbContext(DbContextOptions<UsageDbContext> options) : DbContex
         b.Entity<FinanceImport>(e =>
         {
             e.Property(x => x.FileName).HasMaxLength(260);
+            e.Property(x => x.Status).HasMaxLength(16).HasDefaultValue("staged");
+            e.Property(x => x.Format).HasMaxLength(16).HasDefaultValue("rocketmoney");
             e.Property(x => x.CreatedUtc).HasColumnType("timestamp with time zone");
+            e.Property(x => x.CommittedUtc).HasColumnType("timestamp with time zone");
             // The imports list reads one household's recent batches newest-first.
             e.HasIndex(x => new { x.HouseholdId, x.CreatedUtc });
+        });
+
+        b.Entity<FinanceStagedTransaction>(e =>
+        {
+            e.Property(x => x.Merchant).HasMaxLength(300);
+            e.Property(x => x.Description).HasMaxLength(500);
+            e.Property(x => x.Magnitude).HasPrecision(18, 2);
+            e.Property(x => x.RawAmount).HasPrecision(18, 2);
+            e.Property(x => x.Kind).HasMaxLength(16).HasDefaultValue("expense");
+            e.Property(x => x.AccountKey).HasMaxLength(420);
+            e.Property(x => x.AccountName).HasMaxLength(200);
+            e.Property(x => x.Institution).HasMaxLength(200);
+            e.Property(x => x.AccountTypeRaw).HasMaxLength(120);
+            e.Property(x => x.Category).HasMaxLength(120);
+            e.Property(x => x.SuggestedCategory).HasMaxLength(120);
+            e.Property(x => x.CategorySource).HasMaxLength(8).HasDefaultValue("none");
+            e.Property(x => x.Fitid).HasMaxLength(255);
+            e.Property(x => x.DedupHash).HasMaxLength(64);
+            e.Property(x => x.CreatedUtc).HasColumnType("timestamp with time zone");
+            // The review reads one batch's rows (household-scoped) in row order.
+            e.HasIndex(x => new { x.HouseholdId, x.ImportId });
+            // Staged rows cascade-delete with their import batch.
+            e.HasOne(x => x.Import).WithMany()
+                .HasForeignKey(x => x.ImportId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        b.Entity<FinanceCategoryRule>(e =>
+        {
+            e.Property(x => x.MatchType).HasMaxLength(8).HasDefaultValue("equals");
+            e.Property(x => x.Pattern).HasMaxLength(200);
+            e.Property(x => x.Category).HasMaxLength(120);
+            e.Property(x => x.CreatedUtc).HasColumnType("timestamp with time zone");
+            // The categorizer loads one household's rules.
+            e.HasIndex(x => x.HouseholdId);
         });
 
         b.Entity<GoogleCalendarConnection>(e =>

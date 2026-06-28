@@ -21,9 +21,14 @@ import { Api } from '../../core/api';
 import {
   FinanceAccount,
   FinanceAccountKind,
+  FinanceCategorySource,
+  FinanceColumnMap,
   FinanceImportBatch,
+  FinanceImportFormat,
   FinanceMoneyCoachResult,
   FinanceOwner,
+  FinanceStagedImport,
+  FinanceStagedRow,
   FinanceSummary,
   FinanceSummaryAiResult,
   FinanceTransaction,
@@ -31,6 +36,20 @@ import {
   FinanceTxnKind,
 } from '../../core/models';
 import { ChartComponent } from '../../shared/chart';
+
+/** The closed category set the review dropdown offers (the AI's enum + the household's ledger categories). */
+export const FINANCE_DEFAULT_CATEGORIES: readonly string[] = [
+  'Groceries', 'Dining', 'Gas', 'Shopping', 'Entertainment', 'Travel',
+  'Utilities', 'Rent', 'Mortgage', 'Insurance', 'Health', 'Fitness',
+  'Subscriptions', 'Transportation', 'Education', 'Kids', 'Pets',
+  'Personal Care', 'Home', 'Gifts', 'Charity', 'Fees', 'Taxes',
+  'Income', 'Transfer',
+];
+
+/** The editable column-map fields the generic-CSV step collects (header-name picks + a sign toggle). */
+type ColumnMapField =
+  | 'date' | 'amount' | 'debit' | 'credit'
+  | 'description' | 'category' | 'account' | 'accountName' | 'institution';
 
 /** Friendly labels for the owner tag (his/hers/joint/unassigned). */
 const OWNER_LABEL: Record<FinanceOwner, string> = {
@@ -126,9 +145,77 @@ export class FamilyFinance {
   readonly coach = signal<FinanceMoneyCoachResult | null>(null);
   readonly coachLoading = signal(false);
 
-  // ---- import dropzone ----
+  // ---- import dropzone + staging flow (parse → [column-map] → review → commit/discard) ----
   readonly importing = signal(false);
   readonly dragOver = signal(false);
+
+  /**
+   * The wizard step. `idle` = the plain dropzone; `map` = a generic CSV awaiting a column mapping;
+   * `review` = a staged batch shown for review before commit. The live dashboard underneath is never
+   * mutated until the user commits.
+   */
+  readonly importStep = signal<'idle' | 'map' | 'review'>('idle');
+
+  /** The raw file held while we walk the column-map step (a generic/ambiguous CSV). */
+  private pendingFile: { name: string; content: string } | null = null;
+  /** The CSV's detected header names (drive the column-map selects). */
+  readonly detectedColumns = signal<string[]>([]);
+  /** The in-progress column map for a generic CSV. */
+  readonly columnMap = signal<FinanceColumnMap>(this.emptyColumnMap());
+
+  /** The staged batch under review (parse result + the rows the review panel renders). */
+  readonly staged = signal<FinanceStagedImport | null>(null);
+  /** Row-level ids the user has excluded from the commit (on top of the parser's IsDuplicate flags). */
+  readonly excludedIds = signal<Set<number>>(new Set());
+  readonly committing = signal(false);
+  /** True while the optional "✨ Suggest categories" call is in flight. */
+  readonly aiCategorizing = signal(false);
+
+  readonly categoryOptions = FINANCE_DEFAULT_CATEGORIES;
+  readonly txnKindEditOptions: FinanceTxnKind[] = ['expense', 'income', 'transfer'];
+  readonly columnMapFields: { key: ColumnMapField; label: string; hint?: string }[] = [
+    { key: 'date', label: 'Date', hint: 'required' },
+    { key: 'amount', label: 'Amount', hint: 'signed — or map Debit + Credit' },
+    { key: 'debit', label: 'Debit' },
+    { key: 'credit', label: 'Credit' },
+    { key: 'description', label: 'Description / Merchant' },
+    { key: 'category', label: 'Category' },
+    { key: 'account', label: 'Account key' },
+    { key: 'accountName', label: 'Account name' },
+    { key: 'institution', label: 'Institution' },
+  ];
+
+  /** Whether the staged review has at least one committable (kept, non-duplicate) row. */
+  readonly committableCount = computed(() => {
+    const s = this.staged();
+    if (!s) return 0;
+    const excl = this.excludedIds();
+    return s.rows.filter((r) => !r.isDuplicate && !this.isRowExcluded(r, excl)).length;
+  });
+
+  /** Count of rows still Uncategorized (drives the "Suggest with AI" affordance + commit hint). */
+  readonly uncategorizedCount = computed(() => {
+    const s = this.staged();
+    if (!s) return 0;
+    const excl = this.excludedIds();
+    return s.rows.filter((r) => !r.category && !this.isRowExcluded(r, excl)).length;
+  });
+
+  /** The staged rows grouped by account (for the account-grouped review). */
+  readonly stagedByAccount = computed(() => {
+    const s = this.staged();
+    if (!s) return [];
+    const groups = new Map<string, { name: string; institution?: string | null; rows: FinanceStagedRow[] }>();
+    for (const r of s.rows) {
+      let g = groups.get(r.accountKey);
+      if (!g) {
+        g = { name: r.accountName, institution: r.institution, rows: [] };
+        groups.set(r.accountKey, g);
+      }
+      g.rows.push(r);
+    }
+    return [...groups.values()].sort((a, b) => a.name.localeCompare(b.name));
+  });
 
   // ---- transactions table ----
   readonly txns = signal<FinanceTransaction[]>([]);
@@ -335,42 +422,336 @@ export class FamilyFinance {
     e.preventDefault();
     this.dragOver.set(false);
     const file = e.dataTransfer?.files?.[0];
-    if (file) void this.readAndImport(file);
+    if (file) void this.readAndStage(file);
   }
 
   onPick(e: Event): void {
     const input = e.target as HTMLInputElement;
     const file = input.files?.[0];
-    if (file) void this.readAndImport(file);
+    if (file) void this.readAndStage(file);
     input.value = ''; // allow re-picking the same file
   }
 
-  /** Read the chosen CSV as text in the browser, POST it, toast the de-duped result, and refresh. */
-  private async readAndImport(file: File): Promise<void> {
+  /** Whether a filename is one we can import (.csv / .ofx / .qfx). */
+  private acceptable(name: string): boolean {
+    return /\.(csv|ofx|qfx)$/i.test(name);
+  }
+
+  /**
+   * Read the chosen file as text in the browser and parse it into a STAGED batch (the live ledger is NOT
+   * touched). The server auto-detects the format; an OFX/QFX or a recognized Rocket-Money CSV goes straight
+   * to the review panel, while a generic/ambiguous CSV bounces to the column-map step first (the server
+   * answers 400 "Map the columns…" and hands back the detected headers).
+   */
+  private async readAndStage(file: File): Promise<void> {
     if (this.importing()) return;
-    if (!/\.csv$/i.test(file.name)) {
-      this.snack.open('Please choose a .csv file exported from Rocket Money.', 'OK', {
-        duration: 4000,
-      });
+    if (!this.acceptable(file.name)) {
+      this.snack.open('Choose a .csv, .ofx, or .qfx file to import.', 'OK', { duration: 4000 });
       return;
     }
     this.importing.set(true);
     try {
       const content = await file.text();
-      const res = await firstValueFrom(this.api.importFinanceCsv(file.name, content));
+      this.pendingFile = { name: file.name, content };
+      await this.parseStage('auto', null);
+    } catch (e) {
+      this.snack.open(this.messageOf(e, "Couldn't read that file. Please try again."), 'OK', {
+        duration: 5000,
+      });
+      this.resetImport();
+    } finally {
+      this.importing.set(false);
+    }
+  }
+
+  /**
+   * Parse the pending file into a staged batch with the given format + optional column map. A generic CSV
+   * that arrives without a usable map answers a friendly 400; we read the detected headers off the (failed)
+   * preview path by re-requesting an 'auto' parse and opening the column-map step.
+   */
+  private async parseStage(format: 'auto' | FinanceImportFormat, map: FinanceColumnMap | null): Promise<void> {
+    const file = this.pendingFile;
+    if (!file) return;
+    try {
+      const res = await firstValueFrom(
+        this.api.financeParse({ fileName: file.name, content: file.content, format, columnMap: map }),
+      );
+      this.openReview(res);
+    } catch (e) {
+      // A generic CSV needs a column map: surface the column-map step seeded with its detected headers.
+      const detected = this.detectedFromError(e);
+      if (detected) {
+        this.detectedColumns.set(detected);
+        this.columnMap.set(this.guessColumnMap(detected));
+        this.importStep.set('map');
+        return;
+      }
+      this.snack.open(this.messageOf(e, "Couldn't parse that file. Please try again."), 'OK', {
+        duration: 5000,
+      });
+      this.resetImport();
+    }
+  }
+
+  /** Submit the column-map step → re-parse as a generic CSV → open the review panel. */
+  async submitColumnMap(): Promise<void> {
+    const map = this.columnMap();
+    if (!map.date || (!map.amount && !map.debit && !map.credit)) {
+      this.snack.open('Map at least a Date column and an Amount (or a Debit/Credit pair).', 'OK', {
+        duration: 4500,
+      });
+      return;
+    }
+    this.importing.set(true);
+    try {
+      await this.parseStage('csv', map);
+    } finally {
+      this.importing.set(false);
+    }
+  }
+
+  /** Open the review panel for a freshly-staged batch (seeds the exclude set from any pre-flagged rows). */
+  private openReview(res: FinanceStagedImport): void {
+    this.staged.set(res);
+    this.excludedIds.set(new Set(res.rows.filter((r) => r.excluded).map((r) => r.id)));
+    this.importStep.set('review');
+  }
+
+  /** Toggle a row's excluded flag in the local set (the commit sends excludeIds; duplicates are auto-skipped). */
+  toggleExclude(row: FinanceStagedRow): void {
+    this.excludedIds.update((set) => {
+      const next = new Set(set);
+      if (next.has(row.id)) next.delete(row.id);
+      else next.add(row.id);
+      return next;
+    });
+  }
+
+  isRowExcluded(row: FinanceStagedRow, set = this.excludedIds()): boolean {
+    return row.excluded || set.has(row.id);
+  }
+
+  /** Edit a staged row's category inline (optionally persisting an "apply to future" household rule). */
+  async setRowCategory(row: FinanceStagedRow, category: string, applyToFuture = false): Promise<void> {
+    const s = this.staged();
+    if (!s) return;
+    const value = category || null;
+    try {
+      const updated = await firstValueFrom(
+        this.api.financePatchStagedRow(s.importId, row.id, { category: value, applyToFuture }),
+      );
+      this.replaceStagedRow(updated);
+    } catch (e) {
+      this.snack.open(this.messageOf(e, "Couldn't update that row."), 'OK', { duration: 4000 });
+    }
+  }
+
+  /** Edit a staged row's kind (expense/income/transfer) inline. */
+  async setRowKind(row: FinanceStagedRow, kind: FinanceTxnKind): Promise<void> {
+    const s = this.staged();
+    if (!s || row.kind === kind) return;
+    try {
+      const updated = await firstValueFrom(
+        this.api.financePatchStagedRow(s.importId, row.id, { kind }),
+      );
+      this.replaceStagedRow(updated);
+    } catch (e) {
+      this.snack.open(this.messageOf(e, "Couldn't update that row."), 'OK', { duration: 4000 });
+    }
+  }
+
+  /** Accept a row's AI suggestion as its category (and learn it for future imports). */
+  acceptSuggestion(row: FinanceStagedRow): void {
+    if (!row.suggestedCategory) return;
+    void this.setRowCategory(row, row.suggestedCategory, true);
+  }
+
+  private replaceStagedRow(updated: FinanceStagedRow): void {
+    this.staged.update((s) =>
+      s ? { ...s, rows: s.rows.map((r) => (r.id === updated.id ? updated : r)) } : s,
+    );
+  }
+
+  /**
+   * OPTIONAL "✨ Suggest categories": ask Gemini to label the still-Uncategorized rows (constrained to the
+   * fixed set). NEVER blocks commit — when AI is off/unconfigured/errors it floors to rows-unchanged and we
+   * say so. On success we re-pull the staged preview so the new suggestions/badges render.
+   */
+  async suggestCategoriesAi(): Promise<void> {
+    const s = this.staged();
+    if (!s || this.aiCategorizing()) return;
+    this.aiCategorizing.set(true);
+    try {
+      const res = await firstValueFrom(this.api.financeCategorizeAi(s.importId));
+      if (res.fellBackToPlain) {
+        this.snack.open('AI categorization is unavailable right now — your rows are unchanged.', 'OK', {
+          duration: 4000,
+        });
+      } else {
+        await this.refreshStagedPreview();
+        this.snack.open(
+          res.classified === 0
+            ? 'No new suggestions — everything was already categorized.'
+            : `Suggested categories for ${res.classified} of ${res.eligible} rows.`,
+          undefined,
+          { duration: 3500 },
+        );
+      }
+    } catch (e) {
+      this.snack.open(this.messageOf(e, "Couldn't suggest categories just now."), 'OK', {
+        duration: 4000,
+      });
+    } finally {
+      this.aiCategorizing.set(false);
+    }
+  }
+
+  /** Re-pull the first page of staged rows after a server-side change (AI suggest), keeping the exclude set. */
+  private async refreshStagedPreview(): Promise<void> {
+    const s = this.staged();
+    if (!s) return;
+    try {
+      const page = await firstValueFrom(this.api.financeStaged(s.importId, 1));
+      this.staged.update((cur) => (cur ? { ...cur, rows: page.items } : cur));
+    } catch {
+      /* best-effort: a refresh blip leaves the current rows in place */
+    }
+  }
+
+  /** Commit the staged batch into the ledger (atomic, dedup-safe), then refresh the dashboard. */
+  async commitStaged(): Promise<void> {
+    const s = this.staged();
+    if (!s || this.committing()) return;
+    this.committing.set(true);
+    try {
+      const excludeIds = [...this.excludedIds()];
+      const res = await firstValueFrom(this.api.financeCommit(s.importId, { excludeIds }));
       const dup = res.skipped === 1 ? 'duplicate' : 'duplicates';
       this.snack.open(`Imported ${res.imported}, skipped ${res.skipped} ${dup}`, undefined, {
         duration: 4000,
       });
+      this.resetImport();
       this.txnPage.set(1);
       this.reloadAll();
     } catch (e) {
-      this.snack.open(this.messageOf(e, "Couldn't import that file. Please try again."), 'OK', {
+      this.snack.open(this.messageOf(e, "Couldn't commit those transactions. Please try again."), 'OK', {
         duration: 5000,
       });
     } finally {
-      this.importing.set(false);
+      this.committing.set(false);
     }
+  }
+
+  /** Discard the staged batch (deletes it server-side) and return to the dropzone. The ledger is untouched. */
+  async discardStaged(): Promise<void> {
+    const s = this.staged();
+    if (s) {
+      try {
+        await firstValueFrom(this.api.financeDiscard(s.importId));
+      } catch {
+        /* best-effort: a stale staged batch is harmless and never reaches the ledger */
+      }
+    }
+    this.resetImport();
+  }
+
+  /** Back out of the column-map step without staging anything. */
+  cancelColumnMap(): void {
+    this.resetImport();
+  }
+
+  /** Clear all import-wizard state back to the idle dropzone. */
+  private resetImport(): void {
+    this.importStep.set('idle');
+    this.staged.set(null);
+    this.excludedIds.set(new Set());
+    this.detectedColumns.set([]);
+    this.columnMap.set(this.emptyColumnMap());
+    this.pendingFile = null;
+  }
+
+  /** Patch one field of the in-progress column map (a header pick or the negate toggle). */
+  setColumnMap(field: ColumnMapField, value: string): void {
+    this.columnMap.update((m) => ({ ...m, [field]: value || null }));
+  }
+
+  setNegate(negate: boolean): void {
+    this.columnMap.update((m) => ({ ...m, negate }));
+  }
+
+  private emptyColumnMap(): FinanceColumnMap {
+    return { date: null, amount: null, debit: null, credit: null, negate: false,
+      description: null, category: null, account: null, accountName: null, institution: null };
+  }
+
+  /** Best-effort: guess a sensible default column map from the file's header names. */
+  private guessColumnMap(headers: string[]): FinanceColumnMap {
+    const find = (...needles: string[]): string | null => {
+      for (const h of headers) {
+        const lower = h.toLowerCase();
+        if (needles.some((n) => lower.includes(n))) return h;
+      }
+      return null;
+    };
+    const debit = find('debit', 'withdrawal', 'money out');
+    const credit = find('credit', 'deposit', 'money in');
+    return {
+      date: find('date', 'posted', 'transaction date'),
+      amount: debit && credit ? null : find('amount', 'value'),
+      debit,
+      credit,
+      negate: false,
+      description: find('description', 'merchant', 'name', 'memo', 'payee'),
+      category: find('category'),
+      account: find('account'),
+      accountName: find('account name', 'account'),
+      institution: find('institution', 'bank'),
+    };
+  }
+
+  /**
+   * Pull the detected CSV header names out of a parse error. The server answers a generic CSV with a 400
+   * carrying `{ message, detectedColumns }`; if it omits them we re-derive the headers from the file's first
+   * line so the column-map step can still render.
+   */
+  private detectedFromError(e: unknown): string[] | null {
+    const body = (e as { error?: { detectedColumns?: unknown; message?: string } })?.error;
+    const cols = body?.detectedColumns;
+    if (Array.isArray(cols) && cols.length) return cols.map(String);
+    // Only treat it as a "needs a column map" case when the message says so.
+    if (typeof body?.message === 'string' && /map the columns/i.test(body.message)) {
+      const headers = this.parseHeaderLine();
+      if (headers?.length) return headers;
+    }
+    return null;
+  }
+
+  /** Parse the first non-empty CSV line of the pending file into header names (simple RFC4180-ish split). */
+  private parseHeaderLine(): string[] | null {
+    const content = this.pendingFile?.content;
+    if (!content) return null;
+    const line = content.split(/\r?\n/).find((l) => l.trim().length > 0);
+    if (!line) return null;
+    const out: string[] = [];
+    let cur = '';
+    let inQuotes = false;
+    for (let i = 0; i < line.length; i++) {
+      const ch = line[i];
+      if (inQuotes) {
+        if (ch === '"') {
+          if (line[i + 1] === '"') { cur += '"'; i++; } else inQuotes = false;
+        } else cur += ch;
+      } else if (ch === '"') inQuotes = true;
+      else if (ch === ',') { out.push(cur.trim()); cur = ''; }
+      else cur += ch;
+    }
+    out.push(cur.trim());
+    return out.filter((h) => h.length > 0);
+  }
+
+  /** Friendly label for a staged row's category-source badge. */
+  sourceLabel(src: FinanceCategorySource): string {
+    return src === 'file' ? 'File' : src === 'rule' ? 'Rule' : src === 'ai' ? 'AI' : '';
   }
 
   // ============================================================== accounts (tag owner/kind/name)
@@ -571,6 +952,17 @@ export class FamilyFinance {
   /** A signed currency string, e.g. "$1,234.56". */
   money(n: number): string {
     return n.toLocaleString(undefined, { style: 'currency', currency: 'USD' });
+  }
+
+  /** A signed currency string for a staged row (income +, expense −, transfer unsigned). */
+  signedStaged(row: FinanceStagedRow): string {
+    const sign = row.kind === 'income' ? '+' : row.kind === 'expense' ? '−' : '';
+    return `${sign}${this.money(row.magnitude)}`;
+  }
+
+  /** A friendly label for the detected import format (Rocket Money / CSV / OFX). */
+  formatLabel(f: FinanceImportFormat): string {
+    return f === 'rocketmoney' ? 'Rocket Money' : f === 'ofx' ? 'OFX / QFX' : 'Bank CSV';
   }
 
   /** A compact currency string for axes/labels, e.g. "$1.2k". */

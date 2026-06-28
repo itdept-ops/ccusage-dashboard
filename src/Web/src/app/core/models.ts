@@ -4637,6 +4637,133 @@ export interface FinanceImportBatch {
   createdUtc: string;
 }
 
+// ---- Bank / transaction import (parse → review → commit STAGING flow) --------------------------------
+// All formats (Rocket Money, generic bank CSV, OFX/QFX) route through staging: POST /import/parse writes a
+// 'staged' FinanceImport + staged rows and NEVER touches the live ledger; the review panel edits rows; POST
+// /import/{id}/commit atomically materializes the non-excluded, non-duplicate rows into the ledger. Every
+// endpoint is household-scoped + double-gated (family.use + family.finance); cross-household importId → 404.
+
+/** The import file format, auto-detected by extension/shape or forced via ParseRequest.format. */
+export type FinanceImportFormat = 'rocketmoney' | 'csv' | 'ofx';
+
+/** Where a staged row's category came from: the file's own column, a household/default rule, AI, or none. */
+export type FinanceCategorySource = 'file' | 'rule' | 'ai' | 'none';
+
+/**
+ * The user's column mapping for a GENERIC bank CSV (ParseRequest.columnMap). Each value is a HEADER NAME from
+ * the file. Either `amount` (a single signed column, optionally negated) OR the `debit`/`credit` pair must be
+ * mapped, plus `date`. `negate` flips the sign of a single-amount column (banks disagree on the convention).
+ */
+export interface FinanceColumnMap {
+  date?: string | null;
+  amount?: string | null;
+  debit?: string | null;
+  credit?: string | null;
+  negate: boolean;
+  description?: string | null;
+  category?: string | null;
+  account?: string | null;
+  accountName?: string | null;
+  institution?: string | null;
+}
+
+/** Body of POST /import/parse. `format` defaults to 'auto' (detect); `columnMap` is required for a generic csv. */
+export interface FinanceParseRequest {
+  fileName: string;
+  content: string;
+  format?: 'auto' | FinanceImportFormat;
+  columnMap?: FinanceColumnMap | null;
+}
+
+/**
+ * One staged (parsed-but-not-committed) row in the review panel (mirrors StagedRowDto). `rawAmount` is the
+ * signed value; `magnitude` is its non-negative size. `category` is the resolved/edited category (file or
+ * rule); `suggestedCategory` is an AI suggestion the user can accept. `categorySource` badges the origin.
+ * `isDuplicate` flags a row already in the committed ledger OR earlier in this batch (FITID-preferred);
+ * commit skips it so the ledger never double-counts. `excluded` rows are not committed.
+ */
+export interface FinanceStagedRow {
+  id: number;
+  rowIndex: number;
+  date: string;
+  merchant: string;
+  description?: string | null;
+  rawAmount: number;
+  magnitude: number;
+  kind: FinanceTxnKind;
+  accountKey: string;
+  accountName: string;
+  institution?: string | null;
+  category?: string | null;
+  suggestedCategory?: string | null;
+  categorySource: FinanceCategorySource;
+  isDuplicate: boolean;
+  excluded: boolean;
+}
+
+/** One account touched by a staged batch (mirrors StagedAccountDto) — for grouping the review rows. */
+export interface FinanceStagedAccount {
+  accountKey: string;
+  name: string;
+  institution?: string | null;
+  kind: FinanceAccountKind;
+  rowCount: number;
+}
+
+/**
+ * The result of POST /import/parse (mirrors StagedImportDto): the staged batch id + format + counts + the
+ * touched accounts + a capped preview of rows. `detectedColumns` are the CSV's header names (drive the
+ * column-map step for a generic/ambiguous CSV). `duplicateCount` = rows flagged IsDuplicate; `skippedCount`
+ * = unparseable rows the parser dropped. The live ledger is NOT touched.
+ */
+export interface FinanceStagedImport {
+  importId: number;
+  format: FinanceImportFormat;
+  rowCount: number;
+  parsedCount: number;
+  skippedCount: number;
+  duplicateCount: number;
+  detectedColumns: string[];
+  accounts: FinanceStagedAccount[];
+  rows: FinanceStagedRow[];
+}
+
+/** A page of staged review rows (GET /import/{id}/staged?page=; mirrors StagedPageDto). */
+export interface FinanceStagedPage {
+  page: number;
+  pageSize: number;
+  total: number;
+  items: FinanceStagedRow[];
+}
+
+/**
+ * Body of PATCH /import/{id}/rows/{stagedId} (mirrors StagedRowPatch): edit one staged row. Send only the
+ * fields you're changing. `applyToFuture` additionally upserts a household FinanceCategoryRule (equals on
+ * the merchant) so the chosen category sticks for future imports.
+ */
+export interface FinanceStagedRowPatch {
+  category?: string | null;
+  excluded?: boolean;
+  kind?: FinanceTxnKind;
+  applyToFuture?: boolean;
+}
+
+/**
+ * The result of POST /import/{id}/categorize-ai (mirrors CategorizeAiResultDto): how many still-Uncategorized
+ * eligible rows the AI labeled. `fellBackToPlain` is true when AI is off/unconfigured/errored (rows
+ * unchanged) — the affordance just steps aside; commit is NEVER blocked.
+ */
+export interface FinanceCategorizeAiResult {
+  classified: number;
+  eligible: number;
+  fellBackToPlain: boolean;
+}
+
+/** Body of POST /import/{id}/commit (mirrors CommitRequest): staged-row ids to exclude on top of already-excluded. */
+export interface FinanceCommitRequest {
+  excludeIds?: number[];
+}
+
 /**
  * The "✨ Explain this month" finance summary (GET /api/family/finance/ai/summary?month=; mirrors
  * FinanceAiSummaryDto): a warm, calm read-only `narrative` of where the money went plus up to 5 short

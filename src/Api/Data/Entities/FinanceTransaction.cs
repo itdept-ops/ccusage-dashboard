@@ -51,6 +51,15 @@ public class FinanceTransaction
     /// </summary>
     public string DedupHash { get; set; } = "";
 
+    /// <summary>
+    /// The bank's stable transaction id when the source provided one (OFX <c>&lt;FITID&gt;</c>) — the BEST
+    /// dedup key, PERSISTED so a re-imported OFX file dedups by FITID rather than by content hash. A FILTERED
+    /// UNIQUE index on (HouseholdId, Fitid) WHERE Fitid IS NOT NULL is the DB backstop: re-committing the same
+    /// FITID is a no-op even when two genuinely-distinct same-day/same-amount/same-merchant txns share content.
+    /// Null for formats without a bank id (then <see cref="DedupHash"/> is the dedup key).
+    /// </summary>
+    public string? Fitid { get; set; }
+
     /// <summary>The import batch this row came in on (a <see cref="FinanceImport"/>).</summary>
     public long ImportId { get; set; }
 

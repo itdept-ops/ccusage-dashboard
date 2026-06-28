@@ -559,4 +559,370 @@ public class FamilyFinanceTests(WebAppFactory factory)
         dto.GetProperty("monthlyRecurringTotal").GetDecimal().Should().Be(0m);
         dto.GetProperty("tips").GetArrayLength().Should().Be(0);
     }
+
+    // =====================================================================================
+    // STAGING — parse → review → commit (parse never touches the live ledger)
+    // =====================================================================================
+
+    /// <summary>A generic (non-Rocket-Money) bank CSV with its own column names + a Debit/Credit pair —
+    /// requires a column map. Two expense rows (debit) and one income row (credit).</summary>
+    private const string GenericCsv =
+        "Posted,Payee,Memo,Money Out,Money In,Bucket\n" +
+        "2026-05-03,Trader Joes,groceries,54.20,,Groceries\n" +
+        "2026-05-05,Mystery Shop,unknown,30.00,,\n" +
+        "2026-05-15,Paycheck,wages,,2000.00,Income\n";
+
+    private static object GenericMap() => new
+    {
+        date = "Posted",
+        debit = "Money Out",
+        credit = "Money In",
+        negate = false,
+        description = "Payee",
+        category = "Bucket",
+        accountName = "Chase Checking",
+        institution = "Chase",
+    };
+
+    /// <summary>A tiny OFX statement: one bank STMTTRN with a FITID, plus a second distinct one.</summary>
+    private const string SampleOfx =
+        "OFXHEADER:100\n<OFX><BANKMSGSRSV1><STMTTRNRS><STMTRS>" +
+        "<BANKACCTFROM><BANKID>123456789</BANKID><ACCTID>000111222</ACCTID><ACCTTYPE>CHECKING</ACCTTYPE></BANKACCTFROM>" +
+        "<BANKTRANLIST>" +
+        "<STMTTRN><TRNTYPE>DEBIT<DTPOSTED>20260503120000<TRNAMT>-54.20<FITID>FIT-AAA<NAME>Trader Joes</STMTTRN>" +
+        "<STMTTRN><TRNTYPE>CREDIT<DTPOSTED>20260501<TRNAMT>2500.00<FITID>FIT-BBB<NAME>ACME Payroll</STMTTRN>" +
+        "</BANKTRANLIST></STMTRS></STMTTRNRS></BANKMSGSRSV1></OFX>";
+
+    private async Task<long> ParseStaged(HttpClient c, object body)
+    {
+        var res = await c.PostAsJsonAsync("/api/family/finance/import/parse", body);
+        res.StatusCode.Should().Be(HttpStatusCode.OK);
+        return (await Json(res)).GetProperty("importId").GetInt64();
+    }
+
+    [Fact]
+    public async Task Parse_stages_rows_without_touching_the_live_ledger_then_commit_materializes_them()
+    {
+        var owner = await FinanceUser();
+
+        // PARSE a Rocket Money file -> a STAGED batch. The live ledger stays empty.
+        var parseRes = await owner.PostAsJsonAsync("/api/family/finance/import/parse",
+            new { fileName = "rm.csv", content = SampleCsv });
+        parseRes.StatusCode.Should().Be(HttpStatusCode.OK);
+        var staged = await Json(parseRes);
+        staged.GetProperty("format").GetString().Should().Be("rocketmoney");
+        staged.GetProperty("parsedCount").GetInt32().Should().Be(8);
+        staged.GetProperty("duplicateCount").GetInt32().Should().Be(0);
+        staged.GetProperty("accounts").GetArrayLength().Should().Be(4);
+        staged.GetRawText().Should().NotContain("@");
+        var importId = staged.GetProperty("importId").GetInt64();
+
+        // The live ledger is UNTOUCHED before commit.
+        (await Json(await owner.GetAsync("/api/family/finance/accounts"))).GetArrayLength().Should().Be(0);
+        (await Json(await owner.GetAsync("/api/family/finance/transactions?month=2026-05")))
+            .GetProperty("total").GetInt32().Should().Be(0);
+
+        // The deterministic categorizer ran (file categories preserved, source "file").
+        var rows = staged.GetProperty("rows").EnumerateArray().ToList();
+        var tj = rows.Single(r => r.GetProperty("merchant").GetString() == "Trader Joes");
+        tj.GetProperty("category").GetString().Should().Be("Groceries");
+        tj.GetProperty("categorySource").GetString().Should().Be("file");
+
+        // COMMIT -> the ledger is materialized.
+        var commit = await owner.PostAsJsonAsync($"/api/family/finance/import/{importId}/commit", new { });
+        commit.StatusCode.Should().Be(HttpStatusCode.OK);
+        (await Json(commit)).GetProperty("imported").GetInt32().Should().Be(8);
+
+        (await Json(await owner.GetAsync("/api/family/finance/accounts"))).GetArrayLength().Should().Be(4);
+        (await Json(await owner.GetAsync("/api/family/finance/transactions?month=2026-05")))
+            .GetProperty("total").GetInt32().Should().Be(8);
+
+        // The batch is now committed; the staged rows are gone.
+        (await owner.GetAsync($"/api/family/finance/import/{importId}/staged"))
+            .StatusCode.Should().Be(HttpStatusCode.OK);
+        var stagedAfter = await Json(await owner.GetAsync($"/api/family/finance/import/{importId}/staged"));
+        stagedAfter.GetProperty("total").GetInt32().Should().Be(0);
+    }
+
+    [Fact]
+    public async Task Generic_csv_with_a_column_map_and_debit_credit_pair_parses_and_categorizes()
+    {
+        var owner = await FinanceUser();
+
+        var res = await owner.PostAsJsonAsync("/api/family/finance/import/parse",
+            new { fileName = "bank.csv", content = GenericCsv, format = "csv", columnMap = GenericMap() });
+        res.StatusCode.Should().Be(HttpStatusCode.OK);
+        var staged = await Json(res);
+        staged.GetProperty("format").GetString().Should().Be("csv");
+        staged.GetProperty("parsedCount").GetInt32().Should().Be(3);
+        staged.GetProperty("detectedColumns").EnumerateArray().Select(c => c.GetString())
+            .Should().Contain("Money Out").And.Contain("Money In");
+
+        var rows = staged.GetProperty("rows").EnumerateArray().ToList();
+        // Debit row -> expense, negative raw; the default map categorizes Trader Joes -> Groceries when no file cat,
+        // but here the file's Bucket=Groceries wins (source file).
+        var tj = rows.Single(r => r.GetProperty("merchant").GetString() == "Trader Joes");
+        tj.GetProperty("kind").GetString().Should().Be("expense");
+        tj.GetProperty("rawAmount").GetDecimal().Should().Be(-54.20m);
+        tj.GetProperty("category").GetString().Should().Be("Groceries");
+
+        // The row with no file category but a known merchant... "Mystery Shop" is unknown -> Uncategorized.
+        var mystery = rows.Single(r => r.GetProperty("merchant").GetString() == "Mystery Shop");
+        mystery.GetProperty("category").ValueKind.Should().Be(JsonValueKind.Null);
+        mystery.GetProperty("categorySource").GetString().Should().Be("none");
+
+        // Credit row -> positive raw (money in).
+        var pay = rows.Single(r => r.GetProperty("merchant").GetString() == "Paycheck");
+        pay.GetProperty("rawAmount").GetDecimal().Should().Be(2000.00m);
+
+        // A generic CSV with NO column map is a 400.
+        (await owner.PostAsJsonAsync("/api/family/finance/import/parse",
+            new { fileName = "bank.csv", content = GenericCsv, format = "csv" }))
+            .StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task Default_merchant_map_categorizes_an_uncategorized_row()
+    {
+        var owner = await FinanceUser();
+        // A generic CSV row with NO category column value but a known merchant -> default map assigns it (source rule).
+        var csv = "Posted,Payee,Money Out,Money In\n2026-05-03,NETFLIX #4471,15.99,\n";
+        var map = new { date = "Posted", debit = "Money Out", credit = "Money In", description = "Payee", accountName = "Chk" };
+
+        var staged = await Json(await owner.PostAsJsonAsync("/api/family/finance/import/parse",
+            new { fileName = "b.csv", content = csv, format = "csv", columnMap = map }));
+        var row = staged.GetProperty("rows").EnumerateArray().Single();
+        row.GetProperty("category").GetString().Should().Be("Subscriptions");
+        row.GetProperty("categorySource").GetString().Should().Be("rule");
+    }
+
+    [Fact]
+    public async Task Ofx_parses_with_fitid_and_dedups_a_cross_format_reimport_so_no_double_count()
+    {
+        var owner = await FinanceUser();
+
+        // First import the SAME two transactions via Rocket Money (committed), then re-import via OFX.
+        // Institution must match the OFX BANKID (123456789) so the content dedup hash lines up cross-format.
+        var rmCsv =
+            "Date,Account Type,Account Name,Institution Name,Name,Amount,Category\n" +
+            "2026-05-03,Checking,Account 1222,123456789,Trader Joes,-54.20,Groceries\n" +
+            "2026-05-01,Checking,Account 1222,123456789,ACME Payroll,2500.00,Paycheck\n";
+        // Match the OFX account/institution so the content dedup hash lines up (cross-format bridge).
+        var rmId = await ParseStaged(owner, new { fileName = "rm.csv", content = rmCsv, format = "rocketmoney" });
+        (await owner.PostAsJsonAsync($"/api/family/finance/import/{rmId}/commit", new { }))
+            .StatusCode.Should().Be(HttpStatusCode.OK);
+        var before = await Json(await owner.GetAsync("/api/family/finance/transactions?month=2026-05"));
+        before.GetProperty("total").GetInt32().Should().Be(2);
+
+        // Now parse the OFX of the same statement. ORG isn't set so institution comes from BANKID; the OFX
+        // account name "Account 1222" matches (ACCTID last4) -> same account key -> same content hash -> dups.
+        var staged = await Json(await owner.PostAsJsonAsync("/api/family/finance/import/parse",
+            new { fileName = "statement.ofx", content = SampleOfx }));
+        staged.GetProperty("format").GetString().Should().Be("ofx");
+        staged.GetProperty("parsedCount").GetInt32().Should().Be(2);
+        // The two OFX rows carry FITIDs; both already exist in the committed ledger by content hash -> duplicates.
+        staged.GetProperty("duplicateCount").GetInt32().Should().Be(2);
+
+        // Commit the OFX batch: the duplicates are SKIPPED -> the ledger still has 2 (no double-count).
+        var ofxId = staged.GetProperty("importId").GetInt64();
+        var commit = await Json(await owner.PostAsJsonAsync($"/api/family/finance/import/{ofxId}/commit", new { }));
+        commit.GetProperty("imported").GetInt32().Should().Be(0);
+        var after = await Json(await owner.GetAsync("/api/family/finance/transactions?month=2026-05"));
+        after.GetProperty("total").GetInt32().Should().Be(2);
+    }
+
+    [Fact]
+    public async Task Within_batch_fitid_duplicate_is_flagged_and_skipped_on_commit()
+    {
+        var owner = await FinanceUser();
+        // Two STMTTRN with the SAME FITID (and same content) -> the second is a within-batch duplicate.
+        var ofx =
+            "<OFX><STMTTRN><DTPOSTED>20260503<TRNAMT>-12.00<FITID>DUP1<NAME>Coffee</STMTTRN>" +
+            "<STMTTRN><DTPOSTED>20260503<TRNAMT>-12.00<FITID>DUP1<NAME>Coffee</STMTTRN></OFX>";
+
+        var staged = await Json(await owner.PostAsJsonAsync("/api/family/finance/import/parse",
+            new { fileName = "s.ofx", content = ofx }));
+        staged.GetProperty("parsedCount").GetInt32().Should().Be(2);
+        staged.GetProperty("duplicateCount").GetInt32().Should().Be(1);
+
+        var id = staged.GetProperty("importId").GetInt64();
+        var commit = await Json(await owner.PostAsJsonAsync($"/api/family/finance/import/{id}/commit", new { }));
+        commit.GetProperty("imported").GetInt32().Should().Be(1); // only the first; the duplicate is skipped
+    }
+
+    /// <summary>Two genuinely-DISTINCT OFX transactions with identical (date|amount|NAME|empty MEMO) content but
+    /// DIFFERENT FITIDs — e.g. two $4.50 coffees the same day. FITID is authoritative, so neither is a duplicate
+    /// and BOTH commit. (Before the fix, the content DedupHash was treated as authoritative even for FITID rows,
+    /// so the second was wrongly dropped → under-count.)</summary>
+    [Fact]
+    public async Task Two_distinct_fitids_with_identical_content_both_import_no_under_count()
+    {
+        var owner = await FinanceUser();
+        // Same date, same -4.50, same NAME "Coffee Shop", empty MEMO — only the FITID differs.
+        var ofx =
+            "<OFX><BANKMSGSRSV1><STMTTRNRS><STMTRS>" +
+            "<BANKACCTFROM><BANKID>999</BANKID><ACCTID>000000123</ACCTID><ACCTTYPE>CHECKING</ACCTTYPE></BANKACCTFROM>" +
+            "<BANKTRANLIST>" +
+            "<STMTTRN><TRNTYPE>DEBIT<DTPOSTED>20260503<TRNAMT>-4.50<FITID>COFFEE-1<NAME>Coffee Shop</STMTTRN>" +
+            "<STMTTRN><TRNTYPE>DEBIT<DTPOSTED>20260503<TRNAMT>-4.50<FITID>COFFEE-2<NAME>Coffee Shop</STMTTRN>" +
+            "</BANKTRANLIST></STMTRS></STMTTRNRS></BANKMSGSRSV1></OFX>";
+
+        var staged = await Json(await owner.PostAsJsonAsync("/api/family/finance/import/parse",
+            new { fileName = "coffee.ofx", content = ofx }));
+        staged.GetProperty("format").GetString().Should().Be("ofx");
+        staged.GetProperty("parsedCount").GetInt32().Should().Be(2);
+        // Distinct FITIDs => NEITHER is a duplicate even though the content hash matches.
+        staged.GetProperty("duplicateCount").GetInt32().Should().Be(0);
+
+        var id = staged.GetProperty("importId").GetInt64();
+        var commit = await Json(await owner.PostAsJsonAsync($"/api/family/finance/import/{id}/commit", new { }));
+        commit.GetProperty("imported").GetInt32().Should().Be(2); // BOTH coffees land in the ledger
+
+        var ledger = await Json(await owner.GetAsync("/api/family/finance/transactions?month=2026-05"));
+        ledger.GetProperty("total").GetInt32().Should().Be(2);
+    }
+
+    /// <summary>Re-importing the SAME OFX file (same FITIDs) in a SECOND batch flags every row a duplicate against
+    /// the committed (now FITID-persisted) ledger, so the commit adds 0 — no double-count.</summary>
+    [Fact]
+    public async Task Reimporting_the_same_ofx_dedups_by_committed_fitid_no_double_count()
+    {
+        var owner = await FinanceUser();
+        var ofx =
+            "<OFX><BANKMSGSRSV1><STMTTRNRS><STMTRS>" +
+            "<BANKACCTFROM><BANKID>999</BANKID><ACCTID>000000123</ACCTID><ACCTTYPE>CHECKING</ACCTTYPE></BANKACCTFROM>" +
+            "<BANKTRANLIST>" +
+            "<STMTTRN><TRNTYPE>DEBIT<DTPOSTED>20260503<TRNAMT>-4.50<FITID>COFFEE-1<NAME>Coffee Shop</STMTTRN>" +
+            "<STMTTRN><TRNTYPE>DEBIT<DTPOSTED>20260503<TRNAMT>-4.50<FITID>COFFEE-2<NAME>Coffee Shop</STMTTRN>" +
+            "</BANKTRANLIST></STMTRS></STMTTRNRS></BANKMSGSRSV1></OFX>";
+
+        // First import: both distinct FITIDs commit.
+        var firstId = await ParseStaged(owner, new { fileName = "coffee.ofx", content = ofx });
+        (await Json(await owner.PostAsJsonAsync($"/api/family/finance/import/{firstId}/commit", new { })))
+            .GetProperty("imported").GetInt32().Should().Be(2);
+
+        // Re-import the SAME file: both FITIDs are now committed => both flagged duplicate.
+        var staged = await Json(await owner.PostAsJsonAsync("/api/family/finance/import/parse",
+            new { fileName = "coffee-again.ofx", content = ofx }));
+        staged.GetProperty("parsedCount").GetInt32().Should().Be(2);
+        staged.GetProperty("duplicateCount").GetInt32().Should().Be(2);
+
+        var secondId = staged.GetProperty("importId").GetInt64();
+        var commit = await Json(await owner.PostAsJsonAsync($"/api/family/finance/import/{secondId}/commit", new { }));
+        commit.GetProperty("imported").GetInt32().Should().Be(0); // nothing re-added
+
+        // The ledger still has exactly the original 2 (no double-count).
+        var ledger = await Json(await owner.GetAsync("/api/family/finance/transactions?month=2026-05"));
+        ledger.GetProperty("total").GetInt32().Should().Be(2);
+    }
+
+    [Fact]
+    public async Task Commit_excludes_rows_and_a_patched_exclude_is_honored()
+    {
+        var owner = await FinanceUser();
+        var staged = await Json(await owner.PostAsJsonAsync("/api/family/finance/import/parse",
+            new { fileName = "rm.csv", content = SampleCsv }));
+        var importId = staged.GetProperty("importId").GetInt64();
+        var firstRow = staged.GetProperty("rows").EnumerateArray().First();
+        var rowId = firstRow.GetProperty("id").GetInt64();
+
+        // PATCH the row to excluded + change its category with apply-to-future.
+        var patch = await owner.PatchAsync($"/api/family/finance/import/{importId}/rows/{rowId}",
+            JsonContent.Create(new { excluded = true, category = "Dining", applyToFuture = true }));
+        patch.StatusCode.Should().Be(HttpStatusCode.OK);
+        (await Json(patch)).GetProperty("excluded").GetBoolean().Should().BeTrue();
+
+        // Commit -> the excluded row is NOT in the ledger (7 of 8).
+        var commit = await Json(await owner.PostAsJsonAsync($"/api/family/finance/import/{importId}/commit", new { }));
+        commit.GetProperty("imported").GetInt32().Should().Be(7);
+    }
+
+    [Fact]
+    public async Task Discard_removes_a_staged_batch_and_a_committed_batch_cannot_be_discarded_or_recommitted()
+    {
+        var owner = await FinanceUser();
+        var stagedId = await ParseStaged(owner, new { fileName = "rm.csv", content = SampleCsv });
+
+        // DISCARD a staged batch -> staged rows gone, ledger untouched.
+        (await owner.DeleteAsync($"/api/family/finance/import/{stagedId}"))
+            .StatusCode.Should().Be(HttpStatusCode.NoContent);
+        (await Json(await owner.GetAsync("/api/family/finance/transactions?month=2026-05")))
+            .GetProperty("total").GetInt32().Should().Be(0);
+
+        // Commit a fresh batch, then re-committing or discarding it is rejected (committed is immutable).
+        var id = await ParseStaged(owner, new { fileName = "rm2.csv", content = SampleCsv });
+        (await owner.PostAsJsonAsync($"/api/family/finance/import/{id}/commit", new { }))
+            .StatusCode.Should().Be(HttpStatusCode.OK);
+        (await owner.PostAsJsonAsync($"/api/family/finance/import/{id}/commit", new { }))
+            .StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        (await owner.DeleteAsync($"/api/family/finance/import/{id}"))
+            .StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task Staged_batch_is_household_isolated_cross_household_importId_is_404()
+    {
+        var alice = await FinanceUser();
+        var bob = await FinanceUser();
+
+        var aliceImport = await ParseStaged(alice, new { fileName = "a.csv", content = SampleCsv });
+
+        // Bob can't see, review, categorize, patch, commit, or discard Alice's staged batch — all 404
+        // (existence is never leaked).
+        (await bob.GetAsync($"/api/family/finance/import/{aliceImport}/staged"))
+            .StatusCode.Should().Be(HttpStatusCode.NotFound);
+        (await bob.PostAsJsonAsync($"/api/family/finance/import/{aliceImport}/categorize-ai", new { }))
+            .StatusCode.Should().Be(HttpStatusCode.NotFound);
+        (await bob.PatchAsync($"/api/family/finance/import/{aliceImport}/rows/1",
+            JsonContent.Create(new { category = "Dining" }))).StatusCode.Should().Be(HttpStatusCode.NotFound);
+        (await bob.PostAsJsonAsync($"/api/family/finance/import/{aliceImport}/commit", new { }))
+            .StatusCode.Should().Be(HttpStatusCode.NotFound);
+        (await bob.DeleteAsync($"/api/family/finance/import/{aliceImport}"))
+            .StatusCode.Should().Be(HttpStatusCode.NotFound);
+
+        // Alice's staged batch is intact + uncommitted; Bob's ledger is empty.
+        (await Json(await alice.GetAsync($"/api/family/finance/import/{aliceImport}/staged")))
+            .GetProperty("total").GetInt32().Should().Be(8);
+        (await Json(await bob.GetAsync("/api/family/finance/transactions?month=2026-05")))
+            .GetProperty("total").GetInt32().Should().Be(0);
+    }
+
+    [Fact]
+    public async Task Categorize_ai_floors_to_rows_unchanged_when_ai_is_off_and_never_blocks_commit()
+    {
+        var owner = await FinanceUser(); // family.use + family.finance, NO finance.ai, Gemini OFF in tests
+        // A generic CSV with an Uncategorized unknown merchant (no file cat, not in the default map).
+        var csv = "Posted,Payee,Money Out,Money In\n2026-05-03,Zzyzx Widgets LLC,40.00,\n";
+        var map = new { date = "Posted", debit = "Money Out", credit = "Money In", description = "Payee", accountName = "Chk" };
+        var staged = await Json(await owner.PostAsJsonAsync("/api/family/finance/import/parse",
+            new { fileName = "b.csv", content = csv, format = "csv", columnMap = map }));
+        var importId = staged.GetProperty("importId").GetInt64();
+        staged.GetProperty("rows").EnumerateArray().Single()
+            .GetProperty("category").ValueKind.Should().Be(JsonValueKind.Null);
+
+        // categorize-ai -> floored (no finance.ai + Gemini off): 0 classified, fellBackToPlain true, NEVER 503.
+        var ai = await owner.PostAsJsonAsync($"/api/family/finance/import/{importId}/categorize-ai", new { });
+        ai.StatusCode.Should().Be(HttpStatusCode.OK);
+        var aiDto = await Json(ai);
+        aiDto.GetProperty("fellBackToPlain").GetBoolean().Should().BeTrue();
+        aiDto.GetProperty("classified").GetInt32().Should().Be(0);
+
+        // The row stayed Uncategorized, and the commit still works (AI never blocks it).
+        var review = await Json(await owner.GetAsync($"/api/family/finance/import/{importId}/staged"));
+        review.GetProperty("items").EnumerateArray().Single()
+            .GetProperty("category").ValueKind.Should().Be(JsonValueKind.Null);
+        (await owner.PostAsJsonAsync($"/api/family/finance/import/{importId}/commit", new { }))
+            .StatusCode.Should().Be(HttpStatusCode.OK);
+    }
+
+    [Fact]
+    public async Task Parse_route_requires_family_finance()
+    {
+        var (_, useOnly, _) = await ProvisionUser("family.use");
+        await useOnly.GetAsync("/api/family/household");
+        (await useOnly.PostAsJsonAsync("/api/family/finance/import/parse",
+            new { fileName = "x.csv", content = SampleCsv })).StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        (await useOnly.GetAsync("/api/family/finance/import/1/staged"))
+            .StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
 }

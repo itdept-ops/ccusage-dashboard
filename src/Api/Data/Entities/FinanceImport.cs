@@ -28,5 +28,20 @@ public class FinanceImport
     /// <summary>AppUser id of whoever ran the import (identity is by id, never email).</summary>
     public int ImportedByUserId { get; set; }
 
+    /// <summary>
+    /// The lifecycle state of this batch in the parse→review→commit flow:
+    /// <c>"staged"</c> (parsed + held for review, nothing in the live ledger yet — the default),
+    /// <c>"committed"</c> (its transactions were inserted into the ledger; immutable thereafter),
+    /// <c>"discarded"</c> (a staged batch the user threw away). Committed batches are never re-edited.
+    /// </summary>
+    public string Status { get; set; } = "staged";
+
+    /// <summary>The source format this batch was parsed from: <c>"rocketmoney"</c> | <c>"csv"</c> (a
+    /// generic, column-mapped bank CSV) | <c>"ofx"</c> (an OFX/QFX statement). Display/diagnostics only.</summary>
+    public string Format { get; set; } = "rocketmoney";
+
+    /// <summary>When this batch was committed to the live ledger (null while still staged/discarded).</summary>
+    public DateTime? CommittedUtc { get; set; }
+
     public DateTime CreatedUtc { get; set; }
 }

@@ -10,19 +10,29 @@ import { MatIconModule } from '@angular/material/icon';
 import { Api } from '../../core/api';
 import {
   FinanceAccount,
+  FinanceColumnMap,
   FinanceImportBatch,
+  FinanceImportFormat,
   FinanceMoneyCoachResult,
   FinanceOwner,
+  FinanceStagedImport,
+  FinanceStagedRow,
   FinanceSummary,
   FinanceSummaryAiResult,
   FinanceTransaction,
   FinanceTransactionsPage,
   FinanceTxnKind,
 } from '../../core/models';
+import { FINANCE_DEFAULT_CATEGORIES } from '../family/finance';
 import {
   BetaPullRefresh, BetaSegmentedControl, BetaBottomSheet, BetaStatTile, BetaSkeleton,
   BetaFab, BetaToaster, ToastController, type Segment,
 } from '../beta-ui';
+
+/** The editable column-map fields the generic-CSV step collects on mobile (header picks + a sign toggle). */
+type ColumnMapField =
+  | 'date' | 'amount' | 'debit' | 'credit'
+  | 'description' | 'category' | 'account' | 'accountName' | 'institution';
 
 /** Friendly His/Hers/Joint labels for the owner tags (display only — never an email). */
 const OWNER_LABEL: Record<FinanceOwner, string> = {
@@ -128,10 +138,11 @@ type DetailTab = 'spending' | 'recurring';
             <span class="ff-empty__orb"><mat-icon aria-hidden="true">request_quote</mat-icon></span>
             <h2 class="ff-empty__title">No finances yet</h2>
             <p class="ff-empty__body">
-              Import a Rocket Money CSV to see your spending, income and recurring bills — all private to your household.
+              Import a Rocket Money, bank CSV, or OFX/QFX file to see your spending, income and recurring bills.
+              You'll review every row before anything is added — all private to your household.
             </p>
             <button type="button" class="ff-empty__cta" (click)="pickFile()">
-              <mat-icon aria-hidden="true">upload_file</mat-icon> Import a CSV
+              <mat-icon aria-hidden="true">upload_file</mat-icon> Import transactions
             </button>
           </div>
 
@@ -320,12 +331,114 @@ type DetailTab = 'spending' | 'recurring';
 
     <!-- ─── IMPORT FAB (the only "add" path — a Rocket Money CSV) ─── -->
     @if (!loading() && !errored() && hasData()) {
-      <app-bs-fab icon="upload_file" label="Import CSV" [extended]="true" [fixed]="true"
+      <app-bs-fab icon="upload_file" label="Import" [extended]="true" [fixed]="true"
                   [disabled]="importing()" (action)="pickFile()" />
     }
 
-    <!-- a hidden file input the FAB / empty-state CTA trigger -->
-    <input #fileInput type="file" accept=".csv,text/csv" hidden (change)="onPick($event)" aria-hidden="true" />
+    <!-- a hidden file input the FAB / empty-state CTA trigger (.csv / .ofx / .qfx) -->
+    <input #fileInput type="file" accept=".csv,.ofx,.qfx,text/csv" hidden (change)="onPick($event)" aria-hidden="true" />
+
+    <!-- ─────────────── COLUMN-MAP SHEET (a generic / ambiguous CSV) ─────────────── -->
+    <app-bs-sheet [(open)]="mapOpen" detent="full" label="Map your columns" [dismissable]="false">
+      <div class="cm">
+        <h3 class="cm__title">Map your columns</h3>
+        <p class="cm__sub">
+          We couldn't recognize this file. Pick which column holds each value — at least a
+          <strong>Date</strong> and an <strong>Amount</strong> (or a <strong>Debit + Credit</strong> pair).
+        </p>
+        <div class="cm__fields">
+          @for (f of columnMapFields; track f.key) {
+            <label class="cm__field">
+              <span class="cm__lbl">{{ f.label }}</span>
+              <select class="cm__select" [value]="$any(columnMap()[f.key]) ?? ''"
+                      (change)="setColumnMap(f.key, $any($event.target).value)">
+                <option value="">— none —</option>
+                @for (c of detectedColumns(); track c) { <option [value]="c">{{ c }}</option> }
+              </select>
+            </label>
+          }
+        </div>
+        <label class="cm__negate">
+          <input type="checkbox" [checked]="columnMap().negate" (change)="setNegate($any($event.target).checked)" />
+          <span>Flip the sign of the Amount column</span>
+        </label>
+        <div class="cm__actions">
+          <button type="button" class="cm__btn cm__btn--ghost" (click)="cancelColumnMap()">Cancel</button>
+          <button type="button" class="cm__btn cm__btn--primary" [disabled]="importing()" (click)="submitColumnMap()">
+            {{ importing() ? 'Parsing…' : 'Preview' }}
+          </button>
+        </div>
+      </div>
+    </app-bs-sheet>
+
+    <!-- ─────────────── REVIEW SHEET (stacked staged rows → commit / discard) ─────────────── -->
+    <app-bs-sheet [(open)]="reviewOpen" detent="full" label="Review import" [dismissable]="false">
+      @if (staged(); as s) {
+        <div class="rv">
+          <div class="rv__head">
+            <h3 class="rv__title">Review import <span class="rv__badge">{{ formatLabel(s.format) }}</span></h3>
+            <p class="rv__sub">Nothing's been added yet. Check categories, drop rows you don't want, then commit.</p>
+            <div class="rv__counts">
+              <span class="rv__stat"><strong class="mono-num">{{ committableCount() }}</strong> to import</span>
+              @if (s.duplicateCount > 0) { <span class="rv__stat is-dup">{{ s.duplicateCount }} dup</span> }
+              @if (s.skippedCount > 0) { <span class="rv__stat">{{ s.skippedCount }} skipped</span> }
+            </div>
+          </div>
+
+          @if (uncategorizedCount() > 0) {
+            <button type="button" class="rv__ai" [disabled]="aiCategorizing()" (click)="suggestCategoriesAi()">
+              <mat-icon aria-hidden="true">auto_awesome</mat-icon>
+              {{ aiCategorizing() ? 'Thinking…' : 'Suggest ' + uncategorizedCount() + ' categories with AI' }}
+            </button>
+          }
+
+          <div class="rv__list">
+            @for (r of s.rows; track r.id) {
+              <div class="rv__row" [class.is-dup]="r.isDuplicate" [class.is-excluded]="isRowExcluded(r)">
+                <label class="rv__keep">
+                  <input type="checkbox" [checked]="!isRowExcluded(r)" [disabled]="r.isDuplicate"
+                         (change)="toggleExclude(r)" [attr.aria-label]="'Keep ' + r.merchant" />
+                </label>
+                <div class="rv__main">
+                  <div class="rv__top">
+                    <span class="rv__merchant">{{ r.merchant }}</span>
+                    <span class="rv__amt mono-num" [class.is-in]="r.kind === 'income'">{{ signedStaged(r) }}</span>
+                  </div>
+                  <div class="rv__meta">
+                    {{ txnDate(r.date) }} · {{ r.accountName }}
+                    @if (r.isDuplicate) { <span class="rv__dupflag">Duplicate</span> }
+                  </div>
+                  <div class="rv__controls">
+                    <select class="rv__select" [value]="r.category ?? ''"
+                            (change)="setRowCategory(r, $any($event.target).value)">
+                      <option value="">Uncategorized</option>
+                      @for (c of categoryOptions; track c) { <option [value]="c">{{ c }}</option> }
+                    </select>
+                    @if (r.category && r.categorySource !== 'none') {
+                      <span class="rv__src" [attr.data-src]="r.categorySource">{{ r.categorySource }}</span>
+                    } @else if (r.suggestedCategory) {
+                      <button type="button" class="rv__suggest" (click)="acceptSuggestion(r)">
+                        <mat-icon aria-hidden="true">auto_awesome</mat-icon> {{ r.suggestedCategory }}
+                      </button>
+                    }
+                  </div>
+                </div>
+              </div>
+            }
+          </div>
+
+          <div class="rv__footer">
+            <button type="button" class="rv__btn rv__btn--ghost" [disabled]="committing()" (click)="discardStaged()">
+              Discard
+            </button>
+            <button type="button" class="rv__btn rv__btn--primary"
+                    [disabled]="committing() || committableCount() === 0" (click)="commitStaged()">
+              {{ committing() ? 'Committing…' : 'Commit ' + committableCount() }}
+            </button>
+          </div>
+        </div>
+      }
+    </app-bs-sheet>
 
     <!-- ─────────────── TRANSACTION DETAIL SHEET ─────────────── -->
     <app-bs-sheet [(open)]="txnOpen" detent="peek" [label]="selected()?.merchant || 'Transaction'">
@@ -399,9 +512,54 @@ export class FamilyFinanceMobilePage {
   readonly txnOpen = signal(false);
   readonly selected = signal<FinanceTransaction | null>(null);
 
-  // ---- import ----
+  // ---- import (parse → [column-map] → review → commit/discard STAGING flow) ----
   readonly importing = signal(false);
   private readonly fileInput = viewChild<ElementRef<HTMLInputElement>>('fileInput');
+
+  /** The raw file held while we walk the column-map step. */
+  private pendingFile: { name: string; content: string } | null = null;
+
+  // column-map sheet
+  readonly mapOpen = signal(false);
+  readonly detectedColumns = signal<string[]>([]);
+  readonly columnMap = signal<FinanceColumnMap>(this.emptyColumnMap());
+
+  // review sheet
+  readonly reviewOpen = signal(false);
+  readonly staged = signal<FinanceStagedImport | null>(null);
+  readonly excludedIds = signal<Set<number>>(new Set());
+  readonly committing = signal(false);
+  readonly aiCategorizing = signal(false);
+
+  readonly categoryOptions = FINANCE_DEFAULT_CATEGORIES;
+  readonly txnKindEditOptions: FinanceTxnKind[] = ['expense', 'income', 'transfer'];
+  readonly columnMapFields: { key: ColumnMapField; label: string }[] = [
+    { key: 'date', label: 'Date' },
+    { key: 'amount', label: 'Amount (signed)' },
+    { key: 'debit', label: 'Debit' },
+    { key: 'credit', label: 'Credit' },
+    { key: 'description', label: 'Merchant / description' },
+    { key: 'category', label: 'Category' },
+    { key: 'account', label: 'Account key' },
+    { key: 'accountName', label: 'Account name' },
+    { key: 'institution', label: 'Institution' },
+  ];
+
+  /** Count of kept (non-duplicate, non-excluded) rows in the staged batch. */
+  readonly committableCount = computed(() => {
+    const s = this.staged();
+    if (!s) return 0;
+    const excl = this.excludedIds();
+    return s.rows.filter((r) => !r.isDuplicate && !this.isRowExcluded(r, excl)).length;
+  });
+
+  /** Count of still-Uncategorized, non-excluded staged rows (drives the AI-suggest affordance). */
+  readonly uncategorizedCount = computed(() => {
+    const s = this.staged();
+    if (!s) return 0;
+    const excl = this.excludedIds();
+    return s.rows.filter((r) => !r.category && !this.isRowExcluded(r, excl)).length;
+  });
 
   /** Which detail list the segmented control shows. */
   readonly tab = signal<DetailTab>('spending');
@@ -588,30 +746,265 @@ export class FamilyFinanceMobilePage {
   onPick(e: Event): void {
     const input = e.target as HTMLInputElement;
     const file = input.files?.[0];
-    if (file) void this.readAndImport(file);
+    if (file) void this.readAndStage(file);
     input.value = ''; // allow re-picking the same file
   }
 
-  /** Read the chosen CSV as text in the browser, POST it, toast the de-duped result, and refresh. */
-  private async readAndImport(file: File): Promise<void> {
+  /**
+   * Read the chosen file as text and parse it into a STAGED batch (the live ledger is NOT touched). An
+   * OFX/QFX or recognized Rocket-Money CSV opens the review sheet; a generic CSV opens the column-map sheet.
+   */
+  private async readAndStage(file: File): Promise<void> {
     if (this.importing()) return;
-    if (!/\.csv$/i.test(file.name)) {
-      this.toast.show('Please choose a .csv exported from Rocket Money.', { tone: 'warn' });
+    if (!/\.(csv|ofx|qfx)$/i.test(file.name)) {
+      this.toast.show('Choose a .csv, .ofx, or .qfx file.', { tone: 'warn' });
       return;
     }
     this.importing.set(true);
     try {
       const content = await file.text();
-      const res = await firstValueFrom(this.api.importFinanceCsv(file.name, content));
-      const dup = res.skipped === 1 ? 'duplicate' : 'duplicates';
-      this.toast.show(`Imported ${res.imported}, skipped ${res.skipped} ${dup}`,
-        { tone: 'success', durationMs: 2600 });
-      await this.reload();
+      this.pendingFile = { name: file.name, content };
+      await this.parseStage('auto', null);
     } catch {
-      this.toast.show("Couldn't import that file — try again", { tone: 'warn' });
+      this.toast.show("Couldn't read that file — try again", { tone: 'warn' });
+      this.resetImport();
     } finally {
       this.importing.set(false);
     }
+  }
+
+  /** Parse the pending file with the given format + optional map; open review, or the column-map sheet on a 400. */
+  private async parseStage(format: 'auto' | FinanceImportFormat, map: FinanceColumnMap | null): Promise<void> {
+    const file = this.pendingFile;
+    if (!file) return;
+    try {
+      const res = await firstValueFrom(
+        this.api.financeParse({ fileName: file.name, content: file.content, format, columnMap: map }),
+      );
+      this.openReview(res);
+    } catch (e) {
+      const detected = this.detectedFromError(e);
+      if (detected) {
+        this.detectedColumns.set(detected);
+        this.columnMap.set(this.guessColumnMap(detected));
+        this.mapOpen.set(true);
+        return;
+      }
+      this.toast.show("Couldn't parse that file — try again", { tone: 'warn' });
+      this.resetImport();
+    }
+  }
+
+  /** Submit the column-map sheet → re-parse as a generic CSV → open review. */
+  async submitColumnMap(): Promise<void> {
+    const map = this.columnMap();
+    if (!map.date || (!map.amount && !map.debit && !map.credit)) {
+      this.toast.show('Map a Date and an Amount (or Debit + Credit).', { tone: 'warn' });
+      return;
+    }
+    this.importing.set(true);
+    try {
+      this.mapOpen.set(false);
+      await this.parseStage('csv', map);
+    } finally {
+      this.importing.set(false);
+    }
+  }
+
+  private openReview(res: FinanceStagedImport): void {
+    this.staged.set(res);
+    this.excludedIds.set(new Set(res.rows.filter((r) => r.excluded).map((r) => r.id)));
+    this.reviewOpen.set(true);
+  }
+
+  toggleExclude(row: FinanceStagedRow): void {
+    this.excludedIds.update((set) => {
+      const next = new Set(set);
+      if (next.has(row.id)) next.delete(row.id);
+      else next.add(row.id);
+      return next;
+    });
+  }
+
+  isRowExcluded(row: FinanceStagedRow, set = this.excludedIds()): boolean {
+    return row.excluded || set.has(row.id);
+  }
+
+  /** Edit a staged row's category inline (persisting an "apply to future" household rule). */
+  async setRowCategory(row: FinanceStagedRow, category: string): Promise<void> {
+    const s = this.staged();
+    if (!s) return;
+    try {
+      const updated = await firstValueFrom(
+        this.api.financePatchStagedRow(s.importId, row.id, { category: category || null, applyToFuture: true }),
+      );
+      this.replaceStagedRow(updated);
+    } catch {
+      this.toast.show("Couldn't update that row", { tone: 'warn' });
+    }
+  }
+
+  acceptSuggestion(row: FinanceStagedRow): void {
+    if (row.suggestedCategory) void this.setRowCategory(row, row.suggestedCategory);
+  }
+
+  private replaceStagedRow(updated: FinanceStagedRow): void {
+    this.staged.update((s) =>
+      s ? { ...s, rows: s.rows.map((r) => (r.id === updated.id ? updated : r)) } : s,
+    );
+  }
+
+  /** Optional "✨ Suggest categories" for the still-Uncategorized rows; never blocks commit. */
+  async suggestCategoriesAi(): Promise<void> {
+    const s = this.staged();
+    if (!s || this.aiCategorizing()) return;
+    this.aiCategorizing.set(true);
+    try {
+      const res = await firstValueFrom(this.api.financeCategorizeAi(s.importId));
+      if (res.fellBackToPlain) {
+        this.toast.show('AI categorization is unavailable — rows unchanged.', { tone: 'warn' });
+      } else {
+        await this.refreshStagedPreview();
+        this.toast.show(
+          res.classified === 0 ? 'Everything was already categorized.'
+            : `Suggested categories for ${res.classified} rows.`,
+          { tone: 'success', durationMs: 2400 },
+        );
+      }
+    } catch {
+      this.toast.show("Couldn't suggest categories", { tone: 'warn' });
+    } finally {
+      this.aiCategorizing.set(false);
+    }
+  }
+
+  private async refreshStagedPreview(): Promise<void> {
+    const s = this.staged();
+    if (!s) return;
+    try {
+      const page = await firstValueFrom(this.api.financeStaged(s.importId, 1));
+      this.staged.update((cur) => (cur ? { ...cur, rows: page.items } : cur));
+    } catch { /* best-effort */ }
+  }
+
+  /** Commit the staged batch into the ledger, then refresh. */
+  async commitStaged(): Promise<void> {
+    const s = this.staged();
+    if (!s || this.committing()) return;
+    this.committing.set(true);
+    try {
+      const res = await firstValueFrom(this.api.financeCommit(s.importId, { excludeIds: [...this.excludedIds()] }));
+      const dup = res.skipped === 1 ? 'duplicate' : 'duplicates';
+      this.toast.show(`Imported ${res.imported}, skipped ${res.skipped} ${dup}`,
+        { tone: 'success', durationMs: 2600 });
+      this.reviewOpen.set(false);
+      this.resetImport();
+      await this.reload();
+    } catch {
+      this.toast.show("Couldn't commit — try again", { tone: 'warn' });
+    } finally {
+      this.committing.set(false);
+    }
+  }
+
+  /** Discard the staged batch (deletes it server-side) and close the review. The ledger is untouched. */
+  async discardStaged(): Promise<void> {
+    const s = this.staged();
+    if (s) {
+      try { await firstValueFrom(this.api.financeDiscard(s.importId)); } catch { /* harmless */ }
+    }
+    this.reviewOpen.set(false);
+    this.resetImport();
+  }
+
+  cancelColumnMap(): void {
+    this.mapOpen.set(false);
+    this.resetImport();
+  }
+
+  private resetImport(): void {
+    this.staged.set(null);
+    this.excludedIds.set(new Set());
+    this.detectedColumns.set([]);
+    this.columnMap.set(this.emptyColumnMap());
+    this.pendingFile = null;
+  }
+
+  setColumnMap(field: ColumnMapField, value: string): void {
+    this.columnMap.update((m) => ({ ...m, [field]: value || null }));
+  }
+
+  setNegate(negate: boolean): void {
+    this.columnMap.update((m) => ({ ...m, negate }));
+  }
+
+  private emptyColumnMap(): FinanceColumnMap {
+    return { date: null, amount: null, debit: null, credit: null, negate: false,
+      description: null, category: null, account: null, accountName: null, institution: null };
+  }
+
+  private guessColumnMap(headers: string[]): FinanceColumnMap {
+    const find = (...needles: string[]): string | null => {
+      for (const h of headers) {
+        const lower = h.toLowerCase();
+        if (needles.some((n) => lower.includes(n))) return h;
+      }
+      return null;
+    };
+    const debit = find('debit', 'withdrawal', 'money out');
+    const credit = find('credit', 'deposit', 'money in');
+    return {
+      date: find('date', 'posted'),
+      amount: debit && credit ? null : find('amount', 'value'),
+      debit, credit, negate: false,
+      description: find('description', 'merchant', 'name', 'memo', 'payee'),
+      category: find('category'),
+      account: find('account'),
+      accountName: find('account name', 'account'),
+      institution: find('institution', 'bank'),
+    };
+  }
+
+  private detectedFromError(e: unknown): string[] | null {
+    const body = (e as { error?: { detectedColumns?: unknown; message?: string } })?.error;
+    const cols = body?.detectedColumns;
+    if (Array.isArray(cols) && cols.length) return cols.map(String);
+    if (typeof body?.message === 'string' && /map the columns/i.test(body.message)) {
+      const headers = this.parseHeaderLine();
+      if (headers?.length) return headers;
+    }
+    return null;
+  }
+
+  private parseHeaderLine(): string[] | null {
+    const content = this.pendingFile?.content;
+    if (!content) return null;
+    const line = content.split(/\r?\n/).find((l) => l.trim().length > 0);
+    if (!line) return null;
+    const out: string[] = [];
+    let cur = '';
+    let inQuotes = false;
+    for (let i = 0; i < line.length; i++) {
+      const ch = line[i];
+      if (inQuotes) {
+        if (ch === '"') { if (line[i + 1] === '"') { cur += '"'; i++; } else inQuotes = false; }
+        else cur += ch;
+      } else if (ch === '"') inQuotes = true;
+      else if (ch === ',') { out.push(cur.trim()); cur = ''; }
+      else cur += ch;
+    }
+    out.push(cur.trim());
+    return out.filter((h) => h.length > 0);
+  }
+
+  formatLabel(f: FinanceImportFormat): string {
+    return f === 'rocketmoney' ? 'Rocket Money' : f === 'ofx' ? 'OFX / QFX' : 'Bank CSV';
+  }
+
+  /** A signed currency string for a staged row (income +, expense −, transfer unsigned). */
+  signedStaged(row: FinanceStagedRow): string {
+    const sign = row.kind === 'income' ? '+' : row.kind === 'expense' ? '−' : '';
+    return `${sign}${this.money(row.magnitude)}`;
   }
 
   // ─────────────── formatting + helpers ───────────────

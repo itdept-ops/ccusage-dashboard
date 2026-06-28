@@ -155,7 +155,13 @@ public static class RocketMoneyCsv
     public static string AccountKey(string accountName, string institution) =>
         $"{(accountName ?? "").Trim().ToLowerInvariant()}|{(institution ?? "").Trim().ToLowerInvariant()}";
 
-    // ---- classification ----
+    // ---- classification (shared with the generic/OFX parsers) ----
+
+    /// <summary>Classify a row into expense/income/transfer using the same rules the Rocket Money path uses:
+    /// an explicit income/transfer CATEGORY wins; otherwise the amount sign + account kind decide. Shared by
+    /// the generic-CSV and OFX parsers so all formats classify consistently.</summary>
+    public static ParsedKind ClassifyRow(string? category, decimal raw, string accountType) =>
+        Classify(category, raw, accountType);
 
     private static ParsedKind Classify(string? category, decimal raw, string accountType)
     {
@@ -180,7 +186,24 @@ public static class RocketMoneyCsv
         return ParsedKind.Expense;
     }
 
-    // ---- field parsing ----
+    // ---- field parsing (shared with the generic/OFX parsers) ----
+
+    /// <summary>Parse a date in any of the tolerated formats (yyyy-MM-dd, M/d/yyyy, …). Shared by all parsers.</summary>
+    public static bool TryParseDateShared(string? s, out DateOnly date) => TryParseDate(s, out date);
+
+    /// <summary>Parse an amount, honoring a leading "$", thousands commas, a leading minus, and parentheses-as-
+    /// negative. Shared by all parsers.</summary>
+    public static bool TryParseAmountShared(string? s, out decimal amount) => TryParseAmount(s, out amount);
+
+    /// <summary>Split CSV text into records (RFC4180-ish: quoted fields with commas/newlines + "" escape).
+    /// Shared so the generic-CSV parser reuses the exact same reader the Rocket Money path uses.</summary>
+    public static List<List<string>> ReadRecordsShared(string content) => ReadRecords(content);
+
+    /// <summary>Trim + length-cap a string (null/blank → ""). Shared field hygiene.</summary>
+    public static string ClampShared(string? s, int max) => Clamp(s ?? "", max);
+
+    /// <summary>Null when the trimmed string is blank, else the trimmed string. Shared field hygiene.</summary>
+    public static string? NullIfBlankShared(string? s) => NullIfBlank(s);
 
     private static bool TryParseDate(string? s, out DateOnly date)
     {
