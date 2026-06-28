@@ -175,7 +175,7 @@ const BUDGET_STATUS_LABEL: Record<FinanceBudgetStatus, string> = {
               <span class="ff-ai__spark" aria-hidden="true"><mat-icon>auto_awesome</mat-icon></span>
               <div class="ff-ai__body">
                 <p class="ff-ai__narr">{{ ai.narrative }}</p>
-                @if (ai.insights.length) {
+                @if (ai.insights?.length) {
                   <ul class="ff-ai__insights">
                     @for (ins of ai.insights; track $index) { <li>{{ ins }}</li> }
                   </ul>
@@ -277,7 +277,7 @@ const BUDGET_STATUS_LABEL: Record<FinanceBudgetStatus, string> = {
                 @for (n of [0,1,2]; track n) { <app-bs-skeleton height="68px" radius="var(--r-tile)" /> }
               </div>
             } @else if (budgets(); as bg) {
-              @if (bg.budgets.length) {
+              @if (bg.budgets?.length) {
                 <div class="ff-budgets">
                   @for (b of bg.budgets; track b.id; let i = $index) {
                     <div class="ff-budget ff-reveal" [style.--ri]="i" [attr.data-status]="b.status">
@@ -326,7 +326,7 @@ const BUDGET_STATUS_LABEL: Record<FinanceBudgetStatus, string> = {
                   [accentA]="nw.netWorth >= 0 ? '#34d399' : '#fb7185'" [accentB]="nw.netWorth >= 0 ? '#059669' : '#e11d48'" />
               </div>
               <p class="ff-nw-hint"><mat-icon aria-hidden="true">edit_note</mat-icon> Balances are entered by hand — there's no live bank link.</p>
-              @if (nw.accounts.length) {
+              @if (nw.accounts?.length) {
                 <div class="ff-list">
                   @for (a of nw.accounts; track a.accountId; let i = $index) {
                     <button type="button" class="ff-nw-acct ff-reveal" [style.--ri]="i" (click)="openBalance(a)">
@@ -359,7 +359,7 @@ const BUDGET_STATUS_LABEL: Record<FinanceBudgetStatus, string> = {
                 @for (n of [0,1,2]; track n) { <app-bs-skeleton height="84px" radius="var(--r-tile)" /> }
               </div>
             } @else if (savings(); as sv) {
-              @if (sv.goals.length) {
+              @if (sv.goals?.length) {
                 <div class="ff-goals">
                   @for (g of sv.goals; track g.id; let i = $index) {
                     <div class="ff-goal ff-reveal" [style.--ri]="i" [class.is-archived]="g.archived">
@@ -406,7 +406,7 @@ const BUDGET_STATUS_LABEL: Record<FinanceBudgetStatus, string> = {
                   <span class="ff-ai__spark" aria-hidden="true"><mat-icon>auto_awesome</mat-icon></span>
                   <div class="ff-ai__body">
                     <p class="ff-ai__narr">{{ c.narrative }}</p>
-                    @if (c.tips.length) {
+                    @if (c.tips?.length) {
                       <ul class="ff-ai__insights">
                         @for (tip of c.tips; track $index) { <li>{{ tip }}</li> }
                       </ul>
@@ -414,7 +414,7 @@ const BUDGET_STATUS_LABEL: Record<FinanceBudgetStatus, string> = {
                   </div>
                 </section>
               }
-              @if (c.recurring.length) {
+              @if (c.recurring?.length) {
                 <div class="ff-list">
                   @for (r of c.recurring; track r.merchant; let i = $index) {
                     <div class="ff-recur ff-reveal" [style.--ri]="i">
@@ -736,10 +736,10 @@ export class FamilyFinanceMobilePage {
 
   readonly tabSegments = computed<Segment[]>(() => [
     { key: 'spending', label: 'Spending' },
-    { key: 'budgets', label: `Budgets${this.budgets()?.budgets.length ? ' · ' + this.budgets()!.budgets.length : ''}` },
+    { key: 'budgets', label: `Budgets${this.budgets()?.budgets?.length ? ' · ' + this.budgets()!.budgets!.length : ''}` },
     { key: 'networth', label: 'Net worth' },
-    { key: 'goals', label: `Goals${this.savings()?.goals.length ? ' · ' + this.savings()!.goals.length : ''}` },
-    { key: 'recurring', label: `Recurring${this.coach()?.recurring.length ? ' · ' + this.coach()!.recurring.length : ''}` },
+    { key: 'goals', label: `Goals${this.savings()?.goals?.length ? ' · ' + this.savings()!.goals!.length : ''}` },
+    { key: 'recurring', label: `Recurring${this.coach()?.recurring?.length ? ' · ' + this.coach()!.recurring!.length : ''}` },
   ]);
 
   /** A friendly "June 2026" label for the month stepper. */
