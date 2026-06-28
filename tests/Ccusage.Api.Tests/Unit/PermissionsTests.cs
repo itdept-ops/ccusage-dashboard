@@ -16,7 +16,7 @@ public class PermissionsTests
         "reporter.view", "reporter.manage", "reporter.self", "fleet.view",
         "notifications.view", "notifications.manage",
         "chat.read", "chat.send", "chat.moderate", "chat.contacts.manage",
-        "tracker.self", "tracker.viewall",
+        "tracker.self", "tracker.viewall", "health.sync",
         "shares.view", "shares.manage",
         "bills.use", "recipes.use", "grocery.use", "meals.use", "resume.use",
         "family.use", "family.finance", "cycle.track", "chore.claim", "allowance.manage", "identity.map",
@@ -49,6 +49,7 @@ public class PermissionsTests
     [InlineData("chat.contacts.manage")]
     [InlineData("tracker.self")]
     [InlineData("tracker.viewall")]
+    [InlineData("health.sync")]
     [InlineData("shares.view")]
     [InlineData("shares.manage")]
     [InlineData("bills.use")]
@@ -116,6 +117,7 @@ public class PermissionsTests
         Permissions.ChatContactsManage.Should().Be("chat.contacts.manage");
         Permissions.TrackerSelf.Should().Be("tracker.self");
         Permissions.TrackerViewAll.Should().Be("tracker.viewall");
+        Permissions.HealthSync.Should().Be("health.sync");
         Permissions.SharesView.Should().Be("shares.view");
         Permissions.SharesManage.Should().Be("shares.manage");
         Permissions.BillsUse.Should().Be("bills.use");
@@ -150,9 +152,9 @@ public class PermissionsTests
     }
 
     [Fact]
-    public void All_contains_exactly_the_fifty_two_known_keys()
+    public void All_contains_exactly_the_fifty_three_known_keys()
     {
-        Permissions.All.Should().HaveCount(52);
+        Permissions.All.Should().HaveCount(53);
         Permissions.All.Should().BeEquivalentTo(AllKeys);
     }
 
@@ -163,9 +165,25 @@ public class PermissionsTests
     }
 
     [Fact]
-    public void Catalog_has_fifty_two_entries()
+    public void Catalog_has_fifty_three_entries()
     {
-        Permissions.Catalog.Should().HaveCount(52);
+        Permissions.Catalog.Should().HaveCount(53);
+    }
+
+    [Fact]
+    public void HealthSync_is_in_the_Fitness_group_non_ai_not_defaultable_a_page_gate_and_in_the_administrator_preset()
+    {
+        // health.sync gates the wearable connect + auto-sync of private body data (sleep + resting HR are
+        // sensitive). It lives in the "Fitness" group, is NOT an AI key, is never defaultable (a deliberate
+        // grant), and is a feature gate (absent from Views).
+        Permissions.Catalog.Single(p => p.Key == Permissions.HealthSync).Group.Should().Be("Fitness");
+        Permissions.Catalog.Single(p => p.Key == Permissions.HealthSync).IsAi.Should().BeFalse();
+        Permissions.IsAi(Permissions.HealthSync).Should().BeFalse();
+        Permissions.IsDefaultable(Permissions.HealthSync).Should().BeFalse();
+        Permissions.Views.Should().NotContain(Permissions.HealthSync);
+        // It is part of the administrator preset (the full catalog).
+        Permissions.Presets.Single(p => p.Key == "administrator")
+            .Permissions.Should().Contain(Permissions.HealthSync);
     }
 
     [Fact]

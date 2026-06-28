@@ -1,0 +1,147 @@
+<header class="head">
+  <span class="head-eyebrow mono-num">~/settings/health</span>
+  <h2>Wearable health sync</h2>
+  <p class="sub">Connect a wearable and your steps, sleep, resting heart rate and workouts flow into your
+    tracker automatically — so you stop typing them. We only ever read and write your own data; sleep and
+    resting heart rate stay private to you.</p>
+</header>
+
+@if (loading()) {
+  <div class="state" role="status" aria-live="polite">
+    <mat-progress-spinner mode="indeterminate" diameter="36" />
+    <p>@if (connecting()) { Finishing the Fitbit connection… } @else { Loading your wearable… }</p>
+  </div>
+
+} @else if (errored()) {
+  <div class="state state--error" role="alert">
+    <mat-icon aria-hidden="true">cloud_off</mat-icon>
+    <p>We couldn't load your wearable settings just now.</p>
+    <button mat-stroked-button type="button" (click)="reload()">
+      <mat-icon aria-hidden="true">refresh</mat-icon> Try again
+    </button>
+  </div>
+
+} @else if (status(); as s) {
+
+  <!-- ── NOT CONFIGURED on this server ── -->
+  @if (!s.configured) {
+    <div class="card notice">
+      <mat-icon aria-hidden="true">build_circle</mat-icon>
+      <div>
+        <h3 class="notice__title">Not configured on this server</h3>
+        <p class="notice__body">Wearable sync hasn't been set up here yet. Once an administrator adds the
+          Fitbit credentials, you'll be able to connect your device and sync automatically.</p>
+      </div>
+    </div>
+
+  <!-- ── CONFIGURED, NOT CONNECTED — connect a wearable ── -->
+  } @else if (!s.connected) {
+    <div class="card connect">
+      <span class="connect__badge" aria-hidden="true"><mat-icon>watch</mat-icon></span>
+      <h3 class="connect__title">Connect a wearable</h3>
+      <p class="connect__body">Link your Fitbit to pull steps &amp; active calories, sleep, resting heart
+        rate and workouts into your tracker — automatically, every day.</p>
+      <button mat-flat-button color="primary" type="button" (click)="connect()">
+        <mat-icon aria-hidden="true">link</mat-icon> Connect with Fitbit
+      </button>
+      <p class="connect__scopes">Requests access to: {{ s.scopes }}</p>
+    </div>
+
+  <!-- ── CONNECTED ── -->
+  } @else {
+    <!-- status banner -->
+    <div class="card statusbar statusbar--{{ statusTone() }}">
+      <span class="statusbar__ic" aria-hidden="true">
+        <mat-icon>{{ statusTone() === 'warn' ? 'sync_problem' : 'check_circle' }}</mat-icon>
+      </span>
+      <div class="statusbar__body">
+        <p class="statusbar__line"><strong>{{ s.provider }}</strong> connected</p>
+        <p class="statusbar__sub">Last sync: {{ lastSyncLabel() }} · status {{ s.lastSyncStatus }}</p>
+      </div>
+      <button mat-stroked-button type="button" class="statusbar__sync" [disabled]="syncing()" (click)="syncNow()">
+        <mat-icon aria-hidden="true">sync</mat-icon>
+        @if (syncing()) { Syncing… } @else { Sync now }
+      </button>
+    </div>
+
+    @if (authExpired()) {
+      <div class="card reconnect" role="alert">
+        <mat-icon aria-hidden="true">error_outline</mat-icon>
+        <div>
+          <p class="reconnect__line">Your Fitbit access expired.</p>
+          <p class="reconnect__sub">Reconnect to resume automatic syncing.</p>
+        </div>
+        <button mat-flat-button color="primary" type="button" (click)="connect()">
+          <mat-icon aria-hidden="true">link</mat-icon> Reconnect
+        </button>
+      </div>
+    }
+
+    <!-- sync-now summary -->
+    @if (result(); as r) {
+      <div class="card summary" aria-live="polite">
+        <p class="summary__head">
+          <mat-icon aria-hidden="true">task_alt</mat-icon>
+          @if (r.fromDate && r.toDate) {
+            Synced {{ r.fromDate }} → {{ r.toDate }} — {{ summaryTotal(r) }} entr{{ summaryTotal(r) === 1 ? 'y' : 'ies' }} written
+          } @else {
+            Sync complete
+          }
+        </p>
+        <div class="summary__grid">
+          @for (row of summaryRows(r); track row.label) {
+            <div class="summary__cell">
+              <span class="summary__label">{{ row.label }}</span>
+              <span class="summary__nums">
+                <span class="summary__num">+{{ row.imported }}</span> new ·
+                <span class="summary__num">{{ row.updated }}</span> updated ·
+                <span class="summary__num summary__num--muted">{{ row.skipped }}</span> skipped
+              </span>
+            </div>
+          }
+        </div>
+      </div>
+    }
+
+    <!-- toggles -->
+    <div class="card toggles">
+      <label class="toggle toggle--master">
+        <span class="toggle__body">
+          <span class="toggle__ic" aria-hidden="true"><mat-icon>autorenew</mat-icon></span>
+          <span class="toggle__text">
+            <span class="toggle__label">Automatic sync</span>
+            <span class="toggle__hint">Pull new data on a schedule. Turn off to sync only on demand.</span>
+          </span>
+        </span>
+        <mat-slide-toggle [checked]="s.autoSyncEnabled" [disabled]="savingKey() === 'autoSyncEnabled'"
+                          (change)="toggle('autoSyncEnabled')" aria-label="Automatic sync" />
+      </label>
+
+      <div class="toggle__divider" role="separator"></div>
+
+      @for (t of signalToggles; track t.key) {
+        <label class="toggle">
+          <span class="toggle__body">
+            <span class="toggle__ic" aria-hidden="true"><mat-icon>{{ t.icon }}</mat-icon></span>
+            <span class="toggle__text">
+              <span class="toggle__label">{{ t.label }}</span>
+              <span class="toggle__hint">{{ t.hint }}</span>
+            </span>
+          </span>
+          <mat-slide-toggle [checked]="s[t.key]" [disabled]="savingKey() === t.key"
+                            (change)="toggle(t.key)" [attr.aria-label]="t.label" />
+        </label>
+      }
+    </div>
+
+    <!-- disconnect -->
+    <div class="danger">
+      <button mat-stroked-button type="button" class="danger__btn" [disabled]="disconnecting()"
+              (click)="disconnect()">
+        <mat-icon aria-hidden="true">link_off</mat-icon>
+        @if (disconnecting()) { Disconnecting… } @else { Disconnect wearable }
+      </button>
+      <p class="danger__hint">Stops syncing and forgets your token. Already-synced entries stay in your tracker.</p>
+    </div>
+  }
+}

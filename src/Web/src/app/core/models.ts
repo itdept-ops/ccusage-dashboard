@@ -1735,6 +1735,67 @@ export interface AddSleepRequest {
   note?: string;
 }
 
+// ────────────────────────────────────────────────────────────────────────────
+// Wearable / Health sync (Fitbit v1) — GET /api/health/status + the sync-now summary.
+// ────────────────────────────────────────────────────────────────────────────
+
+/** The last automated/manual sync outcome. "AuthExpired" ⇒ prompt the user to reconnect. */
+export type HealthSyncStatus = 'Ok' | 'AuthExpired' | 'RateLimited' | 'Error';
+
+/**
+ * The wearable connection status (GET /api/health/status — never 500). `configured` false ⇒ the provider
+ * isn't set up on this server (show the "not configured" state); `connected` false ⇒ no wearable linked
+ * yet (show the "connect a wearable" empty state). `clientId` + `scopes` let the frontend build the Fitbit
+ * authorize URL (PKCE) when not connected. The toggles + last-sync are only meaningful when connected.
+ * Mirrors HealthEndpoints.HealthStatus.
+ */
+export interface HealthStatus {
+  configured: boolean;
+  connected: boolean;
+  provider: string;
+  clientId: string | null;
+  scopes: string;
+  autoSyncEnabled: boolean;
+  syncSteps: boolean;
+  syncSleep: boolean;
+  syncHeartRate: boolean;
+  syncWorkouts: boolean;
+  lastSyncUtc: string | null;
+  lastSyncStatus: HealthSyncStatus;
+  lastSyncCursorDate: string | null;
+}
+
+/** The settings PATCH body — each toggle is optional (omit/null = leave unchanged). Mirrors SettingsRequest. */
+export interface HealthSettingsPatch {
+  autoSyncEnabled?: boolean;
+  syncSteps?: boolean;
+  syncSleep?: boolean;
+  syncHeartRate?: boolean;
+  syncWorkouts?: boolean;
+}
+
+/** One signal's import counts for the sync-now summary. Mirrors SignalSummary. */
+export interface HealthSignalSummary {
+  imported: number;
+  updated: number;
+  skipped: number;
+}
+
+/**
+ * The manual sync-now result: per-signal {imported, updated, skipped} + the local-date window covered.
+ * `status` mirrors {@link HealthSyncStatus} plus "NotConnected". Mirrors HealthEndpoints.SyncNowResult.
+ */
+export interface HealthSyncNowResult {
+  connected: boolean;
+  fromDate: string | null;
+  toDate: string | null;
+  status: HealthSyncStatus | 'NotConnected' | string;
+  steps: HealthSignalSummary;
+  sleep: HealthSignalSummary;
+  heartRate: HealthSignalSummary;
+  workouts: HealthSignalSummary;
+}
+
 /** How a day's watch active-calories combine with the logged-exercise sum. Mirrors ActivityCalorieMode. */
 export type ActivityCalorieMode = 'add' | 'override';
 
@@ -5559,6 +5620,9 @@ export const PERM = {
   chatContactsManage: 'chat.contacts.manage',
   trackerSelf: 'tracker.self',
   trackerViewAll: 'tracker.viewall',
+  /** Wearable / Health sync (group "Fitness"; never default): connect a wearable (Fitbit v1) so steps,
+   *  sleep, resting-HR and workouts auto-flow into the tracker. Owner-scoped end to end. */
+  healthSync: 'health.sync',
   familyUse: 'family.use',
   familyFinance: 'family.finance',
   /** Bill Splitter: create bills, AI receipt breakdown, assign items to contacts, public claim link. */
@@ -5635,6 +5699,7 @@ export const PERM_GROUP_OF: Readonly<Record<string, string>> = {
   // ---- Fitness ----
   [PERM.trackerSelf]: 'Fitness',
   [PERM.trackerViewAll]: 'Fitness',
+  [PERM.healthSync]: 'Fitness',
   // ---- Tools ----
   [PERM.billsUse]: 'Tools',
   [PERM.automationsUse]: 'Tools',

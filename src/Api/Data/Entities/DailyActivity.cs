@@ -28,8 +28,17 @@ public class DailyActivity
     /// <summary>Active calories burned per the watch, or null when not recorded.</summary>
     public int? ActiveCalories { get; set; }
 
+    /// <summary>Resting heart rate (bpm) per the watch, or null when not recorded. SENSITIVE: owner-only —
+    /// auto-imported by the wearable sync and never surfaced to coach/family overlays.</summary>
+    public int? RestingHeartRate { get; set; }
+
     /// <summary>How <see cref="ActiveCalories"/> combines with the logged-exercise sum (Add | Override).</summary>
     public ActivityCalorieMode CalorieMode { get; set; } = ActivityCalorieMode.Add;
+
+    /// <summary>Whether this row was typed by the user (<see cref="SourceKind.Manual"/>, default) or auto-
+    /// imported from a connected wearable (<see cref="SourceKind.Watch"/>). A wearable re-sync only ever
+    /// overwrites a Watch row — never a Manual one.</summary>
+    public SourceKind Source { get; set; } = SourceKind.Manual;
 
     public DateTime CreatedUtc { get; set; }
     public DateTime UpdatedUtc { get; set; }

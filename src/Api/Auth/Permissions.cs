@@ -47,6 +47,13 @@ public static class Permissions
     public const string TrackerSelf = "tracker.self";
     public const string TrackerViewAll = "tracker.viewall";
 
+    /// <summary>Wearable / Health sync (Fitbit v1): connect a wearable and auto-pull steps/distance/active
+    /// calories, sleep, resting-HR and workouts into the EXISTING tracker entities. Group "Fitness", never
+    /// default — connecting a wearable grants the app offline access to private body data (resting HR + sleep
+    /// are sensitive), so it must be granted deliberately per user. Auto-included in the administrator preset
+    /// (the full catalog). Not a *.view (a page/feature gate, like <see cref="TrackerSelf"/>).</summary>
+    public const string HealthSync = "health.sync";
+
     // ---- Shares ----
     public const string SharesView = "shares.view";
     public const string SharesManage = "shares.manage";
@@ -190,6 +197,7 @@ public static class Permissions
         // ---- Fitness ----
         new PermissionInfo(TrackerSelf, "Fitness", "Track food & fitness", "Log and view your own food intake and exercises."),
         new PermissionInfo(TrackerViewAll, "Fitness", "View all trackers", "View every user’s food & fitness log (coach/admin)."),
+        new PermissionInfo(HealthSync, "Fitness", "Sync a wearable", "Connect a wearable (Fitbit) and auto-pull your steps, distance, active calories, sleep, resting heart rate, and workouts straight into your tracker — only your own data, never anyone else's."),
 
         // ---- Tools ----
         new PermissionInfo(BillsUse, "Tools", "Use Bill Splitter", "Create bills, break a receipt photo down with AI, assign items to your contacts, and share a public claim link so people can claim what they owe."),
@@ -349,7 +357,7 @@ public static class Permissions
         && key != TrackerViewAll && key != FamilyUse && key != FamilyFinance && key != CycleTrack
         && key != ChoreClaim && key != AllowanceManage && key != IdentityMap
         && key != AiUsageView && key != BillsUse && key != PlatformMobile && key != AutomationsUse
-        && key != AgentsUse
+        && key != AgentsUse && key != HealthSync
         && key != RecipesUse && key != GroceryUse && key != MealsUse && key != ResumeUse
         && !AiKeys.Contains(key) && !LocationKeys.Contains(key);
 }

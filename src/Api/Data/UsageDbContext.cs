@@ -66,6 +66,8 @@ public class UsageDbContext(DbContextOptions<UsageDbContext> options) : DbContex
     public DbSet<FinanceTransaction> FinanceTransactions => Set<FinanceTransaction>();
     public DbSet<FinanceImport> FinanceImports => Set<FinanceImport>();
     public DbSet<GoogleCalendarConnection> GoogleCalendarConnections => Set<GoogleCalendarConnection>();
+    public DbSet<HealthConnection> HealthConnections => Set<HealthConnection>();
+    public DbSet<HealthImportLog> HealthImportLogs => Set<HealthImportLog>();
     public DbSet<FamilyPlanPoll> FamilyPlanPolls => Set<FamilyPlanPoll>();
     public DbSet<FamilyPlanPollOption> FamilyPlanPollOptions => Set<FamilyPlanPollOption>();
     public DbSet<FamilyPlanPollVote> FamilyPlanPollVotes => Set<FamilyPlanPollVote>();
@@ -698,6 +700,8 @@ public class UsageDbContext(DbContextOptions<UsageDbContext> options) : DbContex
         {
             e.Property(x => x.UserEmail).HasMaxLength(256);
             e.Property(x => x.Name).HasMaxLength(128);
+            // Manual (typed) vs Watch (wearable-synced). Default Manual so every existing/typed row stays owner-authored.
+            e.Property(x => x.Source).HasConversion<int>().HasDefaultValue(SourceKind.Manual);
             e.Property(x => x.CreatedUtc).HasColumnType("timestamp with time zone");
             // The day view reads one user's entries for one local date.
             e.HasIndex(x => new { x.UserEmail, x.LocalDate });
@@ -757,6 +761,8 @@ public class UsageDbContext(DbContextOptions<UsageDbContext> options) : DbContex
         {
             e.Property(x => x.UserEmail).HasMaxLength(256);
             e.Property(x => x.Note).HasMaxLength(200);
+            // Manual (typed) vs Watch (wearable-synced). Default Manual so every existing/typed row stays owner-authored.
+            e.Property(x => x.Source).HasConversion<int>().HasDefaultValue(SourceKind.Manual);
             e.Property(x => x.CreatedUtc).HasColumnType("timestamp with time zone");
             // The day view reads one user's sleep for one local date; the same prefix serves the rolling
             // 7-day average window read (no unique — naps / split sleep allowed).
@@ -766,6 +772,8 @@ public class UsageDbContext(DbContextOptions<UsageDbContext> options) : DbContex
         b.Entity<DailyActivity>(e =>
         {
             e.Property(x => x.UserEmail).HasMaxLength(256);
+            // Manual (typed) vs Watch (wearable-synced). Default Manual so every existing/typed row stays owner-authored.
+            e.Property(x => x.Source).HasConversion<int>().HasDefaultValue(SourceKind.Manual);
             e.Property(x => x.CreatedUtc).HasColumnType("timestamp with time zone");
             e.Property(x => x.UpdatedUtc).HasColumnType("timestamp with time zone");
             // One watch-stats row per user per local date (recording again that day upserts); also the
@@ -1016,6 +1024,45 @@ public class UsageDbContext(DbContextOptions<UsageDbContext> options) : DbContex
             e.Property(x => x.LastUsedUtc).HasColumnType("timestamp with time zone");
             // One calendar connection per user; also the lookup for "is this caller connected".
             e.HasIndex(x => x.UserId).IsUnique();
+        });
+
+        b.Entity<HealthConnection>(e =>
+        {
+            e.Property(x => x.UserEmail).HasMaxLength(256);
+            e.Property(x => x.Provider).HasConversion<int>();
+            // The encrypted refresh token is a base64 AES-GCM blob (nonce|tag|ciphertext) — generous cap
+            // (mirrors GoogleCalendarConnection.EncryptedRefreshToken). RE-STORED on every refresh (Fitbit rotates).
+            e.Property(x => x.EncryptedRefreshToken).HasMaxLength(2048);
+            e.Property(x => x.Scope).HasMaxLength(512);
+            e.Property(x => x.ProviderUserId).HasMaxLength(64);
+            e.Property(x => x.AutoSyncEnabled).HasDefaultValue(true);
+            e.Property(x => x.SyncSteps).HasDefaultValue(true);
+            e.Property(x => x.SyncSleep).HasDefaultValue(true);
+            e.Property(x => x.SyncHeartRate).HasDefaultValue(true);
+            e.Property(x => x.SyncWorkouts).HasDefaultValue(true);
+            e.Property(x => x.LastSyncStatus).HasConversion<int>();
+            e.Property(x => x.LastSyncUtc).HasColumnType("timestamp with time zone");
+            e.Property(x => x.ConnectedUtc).HasColumnType("timestamp with time zone");
+            e.Property(x => x.LastUsedUtc).HasColumnType("timestamp with time zone");
+            // One connection per (user, provider); also the lookup for "is this caller connected".
+            e.HasIndex(x => new { x.UserId, x.Provider }).IsUnique();
+            // The scheduler's bounded due-query scans auto-sync-enabled connections by last-sync time.
+            e.HasIndex(x => new { x.AutoSyncEnabled, x.LastSyncUtc });
+        });
+
+        b.Entity<HealthImportLog>(e =>
+        {
+            e.Property(x => x.UserEmail).HasMaxLength(256);
+            e.Property(x => x.Provider).HasConversion<int>();
+            e.Property(x => x.SignalKind).HasConversion<int>();
+            e.Property(x => x.SourceRef).HasMaxLength(128);
+            e.Property(x => x.CreatedUtc).HasColumnType("timestamp with time zone");
+            // FILTERED UNIQUE de-dup guard: one import per (owner, provider, signal, vendor record). Filtered
+            // to non-null SourceRef so a stray null can never trip the unique index.
+            e.HasIndex(x => new { x.UserEmail, x.Provider, x.SignalKind, x.SourceRef })
+                .IsUnique().HasFilter("\"SourceRef\" IS NOT NULL");
+            // The re-sync probe also looks up the rows already imported for a (user, provider, local date).
+            e.HasIndex(x => new { x.UserEmail, x.Provider, x.LocalDate });
         });
 
         b.Entity<FamilyPlanPoll>(e =>

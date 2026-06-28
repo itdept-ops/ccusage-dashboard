@@ -36,5 +36,10 @@ public class SleepEntry
     /// <summary>Optional free-text note (e.g. "woke up twice"); trimmed, &lt;= 200 chars.</summary>
     public string? Note { get; set; }
 
+    /// <summary>Whether this row was typed by the user (<see cref="SourceKind.Manual"/>, default) or auto-
+    /// imported from a connected wearable (<see cref="SourceKind.Watch"/>). A wearable re-sync only ever
+    /// overwrites a Watch row — never a Manual one.</summary>
+    public SourceKind Source { get; set; } = SourceKind.Manual;
+
     public DateTime CreatedUtc { get; set; }
 }

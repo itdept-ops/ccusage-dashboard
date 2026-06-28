@@ -25,5 +25,10 @@ public class ExerciseEntry
     public int? DurationMin { get; set; }
     public int CaloriesBurned { get; set; }
 
+    /// <summary>Whether this row was typed by the user (<see cref="SourceKind.Manual"/>, default) or auto-
+    /// imported from a connected wearable (<see cref="SourceKind.Watch"/>). A wearable re-sync only ever
+    /// overwrites a Watch row — never a Manual one.</summary>
+    public SourceKind Source { get; set; } = SourceKind.Manual;
+
     public DateTime CreatedUtc { get; set; }
 }

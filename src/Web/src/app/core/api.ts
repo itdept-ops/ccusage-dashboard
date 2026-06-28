@@ -43,6 +43,7 @@ import {
   HeadshotRequest, NewApplicationRequest, ApplicationSaveRequest, TailorRequest, CoverLetterRequest,
   RefineRequest, ResumeChatRequest,
   SearchResponse,
+  HealthStatus, HealthSettingsPatch, HealthSyncNowResult,
 } from './models';
 
 @Injectable({ providedIn: 'root' })
@@ -2946,6 +2947,43 @@ export class Api {
     if (domains && domains.length) params = params.set('domains', domains.join(','));
     if (limit != null) params = params.set('limit', String(limit));
     return this.http.get<SearchResponse>(`${this.base}/search`, { params });
+  }
+
+  // ---- Wearable / Health sync (Fitbit v1; gated health.sync, owner-scoped) ----
+
+  /**
+   * The caller's wearable connection status (never 500). `configured` false ⇒ the provider isn't set up on
+   * this server; `connected` false ⇒ no wearable linked yet. `clientId` + `scopes` let the SPA build the
+   * Fitbit authorize URL (PKCE).
+   */
+  healthStatus(): Observable<HealthStatus> {
+    return this.http.get<HealthStatus>(`${this.base}/health/status`);
+  }
+
+  /**
+   * Complete the Fitbit PKCE auth-code exchange. `code` is the one-time code from the OAuth callback,
+   * `redirectUri` MUST match the one used to build the authorize URL, and `codeVerifier` is the raw PKCE
+   * verifier whose SHA-256 challenge was sent to authorize. 503 when the provider isn't configured.
+   */
+  healthConnect(code: string, redirectUri: string, codeVerifier: string): Observable<{ connected: boolean }> {
+    return this.http.post<{ connected: boolean }>(`${this.base}/health/connect`, {
+      code, redirectUri, codeVerifier,
+    });
+  }
+
+  /** Remove the caller's wearable connection (idempotent — 200 even when nothing is linked). */
+  healthDisconnect(): Observable<{ connected: boolean }> {
+    return this.http.delete<{ connected: boolean }>(`${this.base}/health/disconnect`);
+  }
+
+  /** Patch the per-signal + auto-sync toggles (each field omitted = unchanged). Returns the fresh status. */
+  healthSettings(patch: HealthSettingsPatch): Observable<HealthStatus> {
+    return this.http.patch<HealthStatus>(`${this.base}/health/settings`, patch);
+  }
+
+  /** Run a manual bounded backfill now; returns the per-signal {imported, updated, skipped} summary. */
+  healthSyncNow(): Observable<HealthSyncNowResult> {
+    return this.http.post<HealthSyncNowResult>(`${this.base}/health/sync-now`, {});
   }
 
   // ---- Web Push (PWA background notifications) ----

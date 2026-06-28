@@ -197,6 +197,26 @@ builder.Services.AddHttpClient(GoogleCalendarService.HttpClientName, c =>
 });
 builder.Services.AddScoped<GoogleCalendarService>();
 
+// PROGRAM-2 #1 — Wearable / Health sync (Fitbit v1) via the OAuth 2.0 authorization-code + PKCE flow
+// (offline access). The Fitbit CLIENT SECRET (Fitbit:ClientSecret, blank in dev → "not configured") and the
+// per-user (ROTATING) REFRESH TOKEN are secrets that never appear in any response/log; the refresh token is
+// stored AES-GCM-encrypted via TokenProtector and RE-STORED on every refresh (Fitbit rotates it). All HTTP
+// targets are FIXED Fitbit endpoints (api.fitbit.com), never user-controlled — no SSRF. When the secret is
+// unset everything degrades gracefully (status configured:false), exactly like GoogleCalendarService.
+builder.Services.Configure<Ccusage.Api.Services.Health.FitbitOptions>(
+    builder.Configuration.GetSection(Ccusage.Api.Services.Health.FitbitOptions.SectionName));
+builder.Services.AddHttpClient(Ccusage.Api.Services.Health.FitbitHealthProvider.HttpClientName, c =>
+{
+    c.BaseAddress = new Uri("https://api.fitbit.com");
+    c.Timeout = TimeSpan.FromSeconds(20);
+});
+builder.Services.AddScoped<Ccusage.Api.Services.Health.FitbitHealthProvider>();
+// Expose the provider behind the provider-agnostic interface too (Oura slots in later).
+builder.Services.AddScoped<Ccusage.Api.Services.Health.IHealthProvider>(
+    sp => sp.GetRequiredService<Ccusage.Api.Services.Health.FitbitHealthProvider>());
+builder.Services.AddScoped<Ccusage.Api.Services.Health.HealthSyncMapper>();
+builder.Services.AddHostedService<Ccusage.Api.Services.Health.HealthSyncScheduler>();
+
 // Web Push (background / "offline" notifications): the always-on surface that fires even with no open tab,
 // alongside the SignalR live path + per-user Discord mirror. The VAPID keypair lives in config — PublicKey is
 // intentionally public (handed to the browser to subscribe), PrivateKey is a SECRET (appsettings.Local.json
@@ -548,6 +568,7 @@ app.MapNudgeEndpoints();
 app.MapInboxEndpoints();
 app.MapPushEndpoints();
 app.MapTrackerEndpoints();
+app.MapHealthEndpoints();
 app.MapRecipeEndpoints();
 app.MapResumeEndpoints();
 app.MapGroceryEndpoints();

@@ -1,0 +1,340 @@
+// ============================================================================
+// Wearable health sync — mobile twin of the live settings-health page, on the shared beta-ui "Strata"
+// foundation. One line adopts the token contract; this page overrides the per-page accent with a ROSE →
+// AMBER "move" ramp (the fitness/steps domain hue). Kit components read --accent-a/--accent-b off :host.
+//
+// ISOLATED + gated by platform.mobile + the health.sync route guard: nothing here touches the global
+// --tech-* tokens or the live page. The kit partial is the only import.
+// ============================================================================
+
+@use '../beta-ui/beta-kit' as kit;
+
+:host {
+  @include kit.beta-host;
+  @include kit.accent('move');     // rose → amber (steps / movement)
+}
+
+@include kit.beta-springs;
+@include kit.beta-a11y;
+
+.hs-ptr { display: block; height: 100%; }
+
+.hs-scroll {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-height: 100%;
+  max-width: 720px;
+  margin-inline: auto;
+  width: 100%;
+  box-sizing: border-box;
+  padding-top: calc(var(--safe-top) + 8px);
+  padding-bottom: calc(var(--safe-bottom) + 28px);
+  padding-inline: var(--gutter) var(--gutter-r);
+}
+
+// ── HERO ──
+.hs-hero {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 4px 4px;
+  isolation: isolate;
+}
+
+.hs-hero__bloom {
+  position: absolute;
+  inset: -40px -30% auto -10%;
+  height: 200px;
+  z-index: -1;
+  background: radial-gradient(60% 80% at 25% 0%, color-mix(in srgb, var(--accent-a) 32%, transparent), transparent 70%);
+  filter: blur(var(--blur-glass));
+  pointer-events: none;
+}
+
+.hs-hero__kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+  mat-icon { font-size: 16px; width: 16px; height: 16px; color: var(--accent-a); }
+}
+
+.hs-hero__title {
+  margin: 0;
+  font-size: clamp(26px, 7vw, 32px);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+}
+
+.hs-hero__sub { margin: 0; font-size: 14px; line-height: 1.45; color: var(--ink-dim); }
+
+// ── CARD ──
+.hs-card {
+  border-radius: var(--r-tile);
+  background: var(--bg-rise);
+  border: 1px solid var(--hairline);
+  box-shadow: var(--lift-1);
+  overflow: hidden;
+}
+
+// ── CONNECT ──
+.hs-connect {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 10px;
+  padding: 30px 22px;
+  border-radius: var(--r-tile);
+  background: var(--bg-rise);
+  border: 1px solid var(--hairline);
+  box-shadow: var(--lift-1);
+
+  &__badge {
+    display: grid; place-items: center;
+    width: 64px; height: 64px; border-radius: 50%;
+    background: color-mix(in srgb, var(--accent-a) 16%, var(--bg-sink));
+    color: var(--accent-a);
+    box-shadow: var(--lift-1);
+    mat-icon { font-size: 32px; width: 32px; height: 32px; }
+  }
+  &__title { margin: 4px 0 0; font-size: 19px; font-weight: 750; color: var(--ink); }
+  &__body { margin: 0; font-size: 14px; line-height: 1.45; color: var(--ink-dim); max-width: 38ch; }
+  &__scopes { margin: 4px 0 0; font-size: 12px; color: var(--ink-faint, var(--ink-dim)); }
+}
+
+// ── primary CTA (connect / sync now) ──
+.hs-cta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 50px;
+  border-radius: var(--r-pill, 999px);
+  border: 0;
+  background: linear-gradient(135deg, var(--accent-a), var(--accent-b));
+  color: #fff;
+  font: inherit;
+  font-size: 15px;
+  font-weight: 750;
+  cursor: pointer;
+  box-shadow: var(--lift-2);
+  appearance: none;
+
+  mat-icon { font-size: 20px; width: 20px; height: 20px; }
+  &:disabled { opacity: 0.6; cursor: default; }
+  &:not(:disabled):active { transform: translateY(1px); }
+  &:focus-visible { outline: 2px solid var(--accent-a); outline-offset: 2px; }
+}
+
+// ── status banner ──
+.hs-status {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px;
+
+  &__ic mat-icon { font-size: 26px; width: 26px; height: 26px; color: var(--accent-a); }
+  &__body { flex: 1 1 auto; min-width: 0; }
+  &__line { margin: 0; font-size: 15px; color: var(--ink); }
+  &__sub { margin: 2px 0 0; font-size: 12.5px; color: var(--ink-dim); }
+
+  &.is-warn { border-color: color-mix(in srgb, #f0a35a 50%, var(--hairline)); }
+  &.is-warn .hs-status__ic mat-icon { color: #f0a35a; }
+}
+
+// ── reconnect ──
+.hs-reconnect {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px;
+  border-color: color-mix(in srgb, #fb7185 45%, var(--hairline));
+
+  > mat-icon { flex: none; color: #fb7185; }
+  &__body { flex: 1 1 auto; min-width: 0; }
+  &__line { margin: 0; font-size: 15px; font-weight: 650; color: var(--ink); }
+  &__sub { margin: 2px 0 0; font-size: 12.5px; color: var(--ink-dim); }
+}
+
+// ── summary ──
+.hs-summary {
+  padding: 14px;
+  &__head {
+    display: flex; align-items: center; gap: 7px;
+    margin: 0 0 10px; font-size: 13px; font-weight: 700; color: var(--ink);
+    mat-icon { font-size: 17px; width: 17px; height: 17px; color: var(--accent-a); }
+  }
+  &__row {
+    display: flex; align-items: baseline; justify-content: space-between; gap: 10px;
+    padding: 6px 0;
+    & + & { border-top: 1px solid var(--hairline); }
+  }
+  &__label { font-size: 14px; color: var(--ink); }
+  &__nums { font-size: 12.5px; color: var(--ink-dim); b { color: var(--ink); } .muted { color: var(--ink-faint, var(--ink-dim)); } }
+}
+
+// ── toggle rows ──
+.hs-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 64px;
+  padding: 12px 14px;
+  text-align: left;
+  background: transparent;
+  border: 0;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  appearance: none;
+
+  & + & { border-top: 1px solid var(--hairline); }
+  &:disabled { cursor: default; }
+  &.hs-row--toggle:not(:disabled):active { background: color-mix(in srgb, var(--accent-a) 8%, transparent); }
+  &:focus-visible { outline: 2px solid var(--accent-a); outline-offset: -2px; }
+}
+
+.hs-row__ic {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--accent-a) 14%, var(--bg-sink));
+  color: var(--accent-a);
+  mat-icon { font-size: 20px; width: 20px; height: 20px; }
+}
+
+.hs-row__body { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.hs-row__label { font-size: 15px; font-weight: 650; color: var(--ink); }
+.hs-row__hint { font-size: 12.5px; line-height: 1.35; color: var(--ink-dim); }
+
+// ── switch ──
+.hs-switch {
+  flex: none;
+  position: relative;
+  width: 50px;
+  height: 30px;
+  border-radius: var(--r-pill, 999px);
+  background: color-mix(in srgb, var(--ink-dim) 28%, transparent);
+  transition: background 240ms var(--ease-out, ease);
+  &.is-on { background: linear-gradient(135deg, var(--accent-a), var(--accent-b)); }
+}
+
+.hs-switch__knob {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: var(--lift-1);
+  transition: transform 240ms var(--ease-spring, ease);
+  .hs-switch.is-on & { transform: translateX(20px); }
+}
+
+.hs-row:disabled .hs-switch { opacity: 0.55; }
+
+// ── small accent button (reconnect) ──
+.hs-btn {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 40px;
+  padding: 0 16px;
+  border-radius: var(--r-pill, 999px);
+  border: 1px solid var(--hairline);
+  background: var(--bg-sink);
+  color: var(--ink);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  appearance: none;
+
+  &--accent { background: linear-gradient(135deg, var(--accent-a), var(--accent-b)); color: #fff; border-color: transparent; }
+  &:focus-visible { outline: 2px solid var(--accent-a); outline-offset: 2px; }
+}
+
+// ── disconnect ──
+.hs-disconnect {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 46px;
+  border-radius: var(--r-pill, 999px);
+  border: 1px solid color-mix(in srgb, #fb7185 40%, var(--hairline));
+  background: transparent;
+  color: #fb7185;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  appearance: none;
+
+  mat-icon { font-size: 19px; width: 19px; height: 19px; }
+  &:disabled { opacity: 0.6; cursor: default; }
+  &:not(:disabled):active { transform: translateY(1px); }
+  &:focus-visible { outline: 2px solid #fb7185; outline-offset: 2px; }
+}
+
+// ── skeleton list + states ──
+.hs-list { display: flex; flex-direction: column; gap: 12px; }
+
+.hs-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 10px;
+  margin: 12px auto;
+  padding: 32px 24px;
+  max-width: 360px;
+}
+
+.hs-state__orb {
+  display: grid;
+  place-items: center;
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--accent-a) 14%, var(--bg-sink));
+  color: var(--accent-a);
+  box-shadow: var(--lift-1);
+  mat-icon { font-size: 32px; width: 32px; height: 32px; }
+}
+
+.hs-state__title { margin: 4px 0 0; font-size: 18px; font-weight: 750; color: var(--ink); }
+.hs-state__body { margin: 0; font-size: 14px; line-height: 1.45; color: var(--ink-dim); }
+
+.hs-state__cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  padding: 11px 20px;
+  border-radius: var(--r-pill, 999px);
+  border: 0;
+  background: linear-gradient(135deg, var(--accent-a), var(--accent-b));
+  color: #fff;
+  font: inherit;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: var(--lift-2);
+  mat-icon { font-size: 20px; width: 20px; height: 20px; }
+}

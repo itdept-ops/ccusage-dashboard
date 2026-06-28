@@ -137,6 +137,13 @@ export const PAGE_REGISTRY: readonly PageDef[] = [
     home: { label: 'My Profile & Goal', icon: 'assignment_ind' },
   },
   {
+    id: 'settings-health', path: 'settings/health', title: 'Usage IQ · Wearable sync', perm: PERM.healthSync,
+    desktop: () => import('../features/settings-health/settings-health').then(m => m.SettingsHealth),
+    mobile: () => import('../features/settings-health-mobile/settings-health-mobile.page').then(m => m.SettingsHealthMobilePage),
+    nav: { group: 'Fitness', label: 'Wearable sync', icon: 'watch' },
+    home: { label: 'Wearable sync', icon: 'watch' },
+  },
+  {
     id: 'challenge', path: 'challenge', title: 'Usage IQ · 75 Hard', perm: PERM.trackerSelf,
     desktop: () => import('../features/challenge/challenge').then(m => m.Challenge),
     mobile: () => import('../features/challenge-mobile/challenge-mobile.page').then(m => m.ChallengeMobilePage),
