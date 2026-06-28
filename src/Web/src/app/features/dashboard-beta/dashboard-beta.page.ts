@@ -19,6 +19,7 @@ import { PulseBreakdownCard, BreakdownDim, BreakdownSlice } from './cards/breakd
 import { PulseEfficiencyCard } from './cards/efficiency-card';
 import { PulseRecentFeed } from './cards/recent-feed';
 import { PulseFilterSheet } from './sheets/filter-sheet';
+import { PulseTickerMobile } from '../pulse-ticker/pulse-ticker-mobile';
 
 const PAGE_SIZE = 25;
 
@@ -49,6 +50,7 @@ const PAGE_SIZE = 25;
   imports: [
     MatIconModule, RouterLink, BetaPullRefresh, BetaToaster,
     PulseHeroCard, PulseInsightCard, PulseTrendCard, PulseBreakdownCard, PulseEfficiencyCard, PulseRecentFeed, PulseFilterSheet,
+    PulseTickerMobile,
   ],
   template: `
     <app-bs-pull-refresh class="pb-ptr" [busy]="refreshing()" (refresh)="refreshAll()">
@@ -94,6 +96,11 @@ const PAGE_SIZE = 25;
           <app-pulse-hero
             [summary]="summary()" [prevSummary]="prevSummary()" [cacheEff]="cacheEff()"
             [loading]="loading()" [rangeLabel]="rangeLabel()" [prevLabel]="prevLabel()" />
+        </div>
+
+        <!-- Activity Pulse ticker — self-gates on feed visibility + ≥1 moment, so it adds no empty card. -->
+        <div class="rise pb-card" [style.--i]="1">
+          <app-pulse-ticker-mobile />
         </div>
 
         @if (showInsights()) {

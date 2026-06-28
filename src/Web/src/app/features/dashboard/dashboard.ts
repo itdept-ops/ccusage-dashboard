@@ -44,6 +44,7 @@ import {
 } from '../../core/models';
 import { ChartComponent } from '../../shared/chart';
 import { CompactPipe } from '../../shared/format';
+import { PulseTicker } from '../pulse-ticker/pulse-ticker';
 
 /**
  * True for Mon–Fri. Parses the calendar's display-local "yyyy-MM-dd" string by its components
@@ -79,6 +80,7 @@ function isWeekday(localDate: string): boolean {
     MatSnackBarModule,
     ChartComponent,
     CompactPipe,
+    PulseTicker,
   ],
   templateUrl: './dashboard.html',
   changeDetection: ChangeDetectionStrategy.Eager,

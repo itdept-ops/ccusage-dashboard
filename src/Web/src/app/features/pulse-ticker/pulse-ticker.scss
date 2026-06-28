@@ -1,0 +1,171 @@
+// DESKTOP Pulse ticker — app-wide --tech-* tokens, to sit with the dashboard panels.
+:host { display: block; }
+
+.pt {
+  margin-bottom: var(--tech-space-4);
+  padding: var(--tech-space-3) var(--tech-space-4);
+  border-radius: var(--tech-radius);
+}
+
+.pt__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--tech-space-3);
+  margin-bottom: var(--tech-space-2);
+}
+
+.pt__title {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--tech-fs-body, 0.95rem);
+  font-weight: 700;
+  color: var(--tech-text, #e6edf6);
+}
+
+.pt__sub {
+  font-weight: 500;
+  font-size: 0.78rem;
+  color: var(--tech-text-tertiary, #7c8aa0);
+}
+
+// Subtle "live" dot — dim when the hub is disconnected, accent + slow pulse when live.
+.pt__live {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--tech-text-tertiary, #7c8aa0);
+  flex: 0 0 auto;
+}
+.pt__live--on {
+  background: var(--tech-accent-cyan, #3fd8d0);
+  box-shadow: 0 0 0 0 color-mix(in srgb, var(--tech-accent-cyan, #3fd8d0) 60%, transparent);
+  animation: pt-pulse 2.4s ease-out infinite;
+}
+@keyframes pt-pulse {
+  0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--tech-accent-cyan, #3fd8d0) 55%, transparent); }
+  70% { box-shadow: 0 0 0 7px color-mix(in srgb, var(--tech-accent-cyan, #3fd8d0) 0%, transparent); }
+  100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--tech-accent-cyan, #3fd8d0) 0%, transparent); }
+}
+
+.pt__all {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  text-decoration: none;
+  color: var(--tech-accent-cyan, #3fd8d0);
+  white-space: nowrap;
+  &:hover { text-decoration: underline; }
+  mat-icon { font-size: 16px; width: 16px; height: 16px; }
+}
+
+.pt__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.pt__row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 0;
+  border-top: 1px solid var(--tech-border-subtle, rgba(255, 255, 255, 0.06));
+  &:first-child { border-top: 0; }
+}
+
+.pt__av {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  flex: 0 0 auto;
+  border-radius: 8px;
+  color: var(--tech-accent-cyan, #3fd8d0);
+  background: color-mix(in srgb, var(--tech-accent-cyan, #3fd8d0) 14%, transparent);
+  mat-icon { font-size: 17px; width: 17px; height: 17px; }
+
+  // Per-kind accent so the strip reads at a glance.
+  &[data-kind='challenge.dayComplete'],
+  &[data-kind='challenge.started'] {
+    color: var(--tech-accent, #f2b340);
+    background: color-mix(in srgb, var(--tech-accent, #f2b340) 14%, transparent);
+  }
+  &[data-kind='hydration.goalHit'] {
+    color: #5fb0ff;
+    background: color-mix(in srgb, #5fb0ff 14%, transparent);
+  }
+}
+
+.pt__body {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.pt__text {
+  font-size: 0.86rem;
+  color: var(--tech-text-secondary, #9ba9bd);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  strong { color: var(--tech-text, #e6edf6); font-weight: 600; }
+}
+
+.pt__when {
+  flex: 0 0 auto;
+  font-size: 0.74rem;
+  color: var(--tech-text-tertiary, #7c8aa0);
+  font-variant-numeric: tabular-nums;
+}
+
+// ---- skeleton + message states ----
+.pt__row--sk { gap: 10px; }
+.pt__sk {
+  display: block;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--tech-text-tertiary, #7c8aa0) 16%, transparent);
+  animation: pt-sheen 1.3s ease-in-out infinite;
+}
+.pt__sk--av { width: 28px; height: 28px; border-radius: 8px; flex: 0 0 auto; }
+.pt__sk--line { height: 12px; flex: 1 1 auto; }
+@keyframes pt-sheen {
+  0%, 100% { opacity: 0.55; }
+  50% { opacity: 1; }
+}
+
+.pt__msg {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 0;
+  font-size: 0.84rem;
+  color: var(--tech-text-secondary, #9ba9bd);
+  mat-icon { font-size: 18px; width: 18px; height: 18px; color: var(--tech-text-tertiary, #7c8aa0); }
+}
+.pt__retry {
+  margin-left: auto;
+  border: 1px solid var(--tech-border-strong, rgba(255, 255, 255, 0.16));
+  background: transparent;
+  color: var(--tech-text, #e6edf6);
+  border-radius: var(--tech-r-control, 8px);
+  padding: 4px 12px;
+  font: inherit;
+  font-size: 0.8rem;
+  cursor: pointer;
+  &:hover { border-color: var(--tech-accent-cyan, #3fd8d0); }
+}
+
+// Respect the user's motion preference: no live pulse, no skeleton sheen.
+@media (prefers-reduced-motion: reduce) {
+  .pt__live--on { animation: none; }
+  .pt__sk { animation: none; }
+}

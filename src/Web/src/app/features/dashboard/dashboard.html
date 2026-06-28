@@ -157,6 +157,10 @@
   </a>
 }
 
+<!-- ───────────────────────── Activity Pulse ticker ───────────────────────── -->
+<!-- Self-gating: renders only when the caller can see the circle feed AND there's ≥1 moment. -->
+<app-pulse-ticker />
+
 <!-- ───────────────────────── Summary cards ───────────────────────── -->
 @if (summary(); as s) {
   <div class="cards" data-tour="dash-kpis">
