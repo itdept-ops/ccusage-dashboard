@@ -271,12 +271,19 @@
 .fm-row {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 12px;
   padding: 11px 13px;
   border-radius: var(--r-tile, 16px);
   background: var(--glass-1);
   border: 1px solid var(--hair);
   box-shadow: var(--lift-1);
+
+  // The comment thread drops onto a full-width second line below the avatar/verb/cheer line.
+  &__comments {
+    flex: 1 0 100%;
+    width: 100%;
+  }
 
   // ---- avatar with a per-kind glyph badge ----
   &__avatar {

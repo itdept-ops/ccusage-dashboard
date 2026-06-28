@@ -41,6 +41,18 @@ public static class FeedEndpoints
     /// <summary>A page of feed items + the keyset cursor for the next page (null when no more).</summary>
     public sealed record FeedPageDto(IReadOnlyList<FeedItemDto> Items, long? NextBefore);
 
+    /// <summary>One comment in an event's thread. The author is an AppUser id + display name — NEVER an email.
+    /// <paramref name="Mine"/> is whether the CALLER authored it (drives the delete affordance).</summary>
+    public sealed record CommentDto(
+        long Id, long EventId, int AuthorUserId, string AuthorName, string Body, bool Mine,
+        DateTime CreatedUtc, DateTime? EditedUtc);
+
+    /// <summary>The POST body for a new comment: the free-text body (validated server-side).</summary>
+    public sealed record CommentRequest(string? Body);
+
+    /// <summary>The max comment length (chars) — mirrors the <see cref="ActivityComment"/> column cap.</summary>
+    public const int MaxCommentLength = 500;
+
     public static void MapFeedEndpoints(this WebApplication app)
     {
         var g = app.MapGroup("/api/feed")
@@ -147,16 +159,8 @@ public static class FeedEndpoints
             // event only when the actor shares AND the caller opted to view. 404 (not 403) if not visible —
             // never reveal that an out-of-circle event exists.
             var isOwn = string.Equals(ev.ActorEmail, callerEmail, StringComparison.Ordinal);
-            if (!isOwn)
-            {
-                if (!caller.ViewActivityFeed) return Results.NotFound();
-                var inCircle = await db.ChatContacts.AsNoTracking()
-                    .Where(c => c.ContactEmail == callerEmail && c.OwnerEmail == ev.ActorEmail)
-                    .AnyAsync(ct);
-                var actorShares = inCircle && await db.Users.AsNoTracking()
-                    .AnyAsync(u => u.Email == ev.ActorEmail && u.IsEnabled && u.ShareActivity, ct);
-                if (!actorShares) return Results.NotFound();
-            }
+            if (!await CanSeeEventAsync(db, caller, callerEmail, ev.ActorEmail, ct))
+                return Results.NotFound();
 
             // Toggle the (reactor, event) row, recovering from a concurrent racer's win on either side
             // (mirrors ToggleReactionAsync): on remove, a concurrent delete leaves the desired end state; on
@@ -191,6 +195,149 @@ public static class FeedEndpoints
                 .CountAsync(r => r.ActivityEventId == id, ct);
             return Results.Ok(new ReactResultDto(clapCount, reacted));
         }).RequireRateLimiting("chat");
+
+        // ---- GET /api/feed/{id}/comments : the visible thread under one feed event (oldest-first) ----
+        // Gated by the SAME visibility check the feed read uses: the caller may only see a thread for an event
+        // they can SEE (own, or a sharing contact's when opted-in). 404 (not 403) otherwise — never reveal the
+        // event exists. Soft-deleted comments are excluded; authors are resolved to id + DisplayName (no email).
+        g.MapGet("/{id:long}/comments", async (
+            long id, CurrentUserAccessor me, UsageDbContext db, CancellationToken ct) =>
+        {
+            var caller = (await me.GetUserAsync(ct))!;
+            var callerEmail = caller.Email.ToLowerInvariant();
+
+            var ev = await db.ActivityEvents.AsNoTracking()
+                .Where(e => e.Id == id).Select(e => new { e.Id, e.ActorEmail }).FirstOrDefaultAsync(ct);
+            if (ev is null) return Results.NotFound();
+            if (!await CanSeeEventAsync(db, caller, callerEmail, ev.ActorEmail, ct)) return Results.NotFound();
+
+            var rows = await db.ActivityComments.AsNoTracking()
+                .Where(c => c.ActivityEventId == id && c.DeletedUtc == null)
+                .OrderBy(c => c.Id)
+                .Select(c => new { c.Id, c.AuthorEmail, c.Body, c.CreatedUtc, c.EditedUtc })
+                .ToListAsync(ct);
+
+            var authors = await ChatNotificationService.ResolveActorsAsync(
+                db, rows.Select(r => r.AuthorEmail).ToArray(), ct);
+
+            var items = rows.Select(r =>
+            {
+                var a = authors.GetValueOrDefault(r.AuthorEmail.ToLowerInvariant());
+                return new CommentDto(
+                    r.Id, id, a.Id, string.IsNullOrEmpty(a.Name) ? DisplayName.Unknown : a.Name,
+                    r.Body,
+                    string.Equals(r.AuthorEmail, callerEmail, StringComparison.Ordinal),
+                    r.CreatedUtc, r.EditedUtc);
+            }).ToList();
+            return Results.Ok(items);
+        });
+
+        // ---- POST /api/feed/{id}/comments : add a comment to a visible feed event ----
+        // Same 404 visibility gate as the thread read. The body is validated (trim, non-empty, cap 500,
+        // control-char strip — mirroring the chat reaction validation). On a comment of SOMEONE ELSE's event,
+        // fire exactly one Comment notification to the actor (DisplayName only). Rate-limited like chat.
+        g.MapPost("/{id:long}/comments", async (
+            long id, CommentRequest req, CurrentUserAccessor me, UsageDbContext db,
+            ChatNotificationService notifier, CancellationToken ct) =>
+        {
+            var caller = (await me.GetUserAsync(ct))!;
+            var callerEmail = caller.Email.ToLowerInvariant();
+
+            if (!TryNormalizeComment(req?.Body, out var body, out var error))
+                return Results.BadRequest(new { message = error });
+
+            var ev = await db.ActivityEvents.AsNoTracking()
+                .Where(e => e.Id == id).Select(e => new { e.Id, e.ActorEmail, e.Kind }).FirstOrDefaultAsync(ct);
+            if (ev is null) return Results.NotFound();
+            if (!await CanSeeEventAsync(db, caller, callerEmail, ev.ActorEmail, ct)) return Results.NotFound();
+
+            var now = DateTime.UtcNow;
+            var comment = new ActivityComment
+            {
+                ActivityEventId = id, AuthorEmail = callerEmail, Body = body, CreatedUtc = now,
+            };
+            db.ActivityComments.Add(comment);
+            await db.SaveChangesAsync(ct);
+
+            // ONE notification to the actor on a comment of SOMEONE ELSE's event (never a self-comment). The
+            // body is NEVER put in the notification text (DisplayName-only "{name} commented on your {thing}").
+            var isOwn = string.Equals(ev.ActorEmail, callerEmail, StringComparison.Ordinal);
+            if (!isOwn)
+                await notifier.NotifyCommentAsync(ev.ActorEmail, callerEmail, ThingFor(ev.Kind), ct);
+
+            var meActor = (await ChatNotificationService.ResolveActorsAsync(db, new[] { callerEmail }, ct))
+                .GetValueOrDefault(callerEmail);
+            var dto = new CommentDto(
+                comment.Id, id, meActor.Id, string.IsNullOrEmpty(meActor.Name) ? DisplayName.Unknown : meActor.Name,
+                comment.Body, true, comment.CreatedUtc, comment.EditedUtc);
+            return Results.Ok(dto);
+        }).RequireRateLimiting("chat");
+
+        // ---- DELETE /api/feed/comments/{cid} : soft-delete a comment (author OR chat.moderate) ----
+        // The author may delete their own comment; a chat.moderate caller may delete anyone's (the same
+        // moderation override the chat world uses). 404 when the comment doesn't exist or is already deleted;
+        // 403 when the caller is neither the author nor a moderator. Soft-delete (DeletedUtc) — never hard-removed.
+        g.MapDelete("/comments/{cid:long}", async (
+            long cid, CurrentUserAccessor me, UsageDbContext db, CancellationToken ct) =>
+        {
+            var caller = (await me.GetUserAsync(ct))!;
+            var callerEmail = caller.Email.ToLowerInvariant();
+
+            var comment = await db.ActivityComments
+                .FirstOrDefaultAsync(c => c.Id == cid && c.DeletedUtc == null, ct);
+            if (comment is null) return Results.NotFound();
+
+            var isAuthor = string.Equals(comment.AuthorEmail, callerEmail, StringComparison.Ordinal);
+            var canModerate = caller.Permissions.Contains(Permissions.ChatModerate);
+            if (!isAuthor && !canModerate)
+                return Results.StatusCode(StatusCodes.Status403Forbidden);
+
+            comment.DeletedUtc = DateTime.UtcNow;
+            await db.SaveChangesAsync(ct);
+            return Results.NoContent();
+        });
+    }
+
+    /// <summary>
+    /// The feed's circle/visibility predicate, shared by the react + comment endpoints so they gate
+    /// IDENTICALLY: an event is visible to the caller when it is the caller's OWN event, OR the actor is a
+    /// sharing contact (a <see cref="ChatContact"/> directed edge actor→caller exists, the actor is enabled +
+    /// has ShareActivity on) AND the caller opted to ViewActivityFeed. Callers translate false ⇒ 404 so an
+    /// out-of-circle event's existence is never revealed.
+    /// </summary>
+    private static async Task<bool> CanSeeEventAsync(
+        UsageDbContext db, CurrentUserAccessor.CurrentUser caller, string callerEmail, string actorEmail,
+        CancellationToken ct)
+    {
+        if (string.Equals(actorEmail, callerEmail, StringComparison.Ordinal)) return true;
+        if (!caller.ViewActivityFeed) return false;
+
+        var inCircle = await db.ChatContacts.AsNoTracking()
+            .AnyAsync(c => c.ContactEmail == callerEmail && c.OwnerEmail == actorEmail, ct);
+        return inCircle && await db.Users.AsNoTracking()
+            .AnyAsync(u => u.Email == actorEmail && u.IsEnabled && u.ShareActivity, ct);
+    }
+
+    /// <summary>
+    /// Validate + normalize a comment body: trim, reject empty, cap at <see cref="MaxCommentLength"/>, and strip
+    /// control characters (newlines/tabs collapse to a single space) — mirroring the chat reaction validation.
+    /// Returns the cleaned body on success, or false with a reason.
+    /// </summary>
+    public static bool TryNormalizeComment(string? raw, out string body, out string error)
+    {
+        body = "";
+        error = "";
+        var trimmed = (raw ?? "").Trim();
+        if (trimmed.Length == 0) { error = "A comment is required."; return false; }
+
+        // Strip control chars (incl. newlines/tabs) — collapse each run to a single space, then re-trim.
+        var cleaned = new string(trimmed.Select(ch => char.IsControl(ch) ? ' ' : ch).ToArray()).Trim();
+        while (cleaned.Contains("  ")) cleaned = cleaned.Replace("  ", " ");
+        if (cleaned.Length == 0) { error = "A comment is required."; return false; }
+        if (cleaned.Length > MaxCommentLength) cleaned = cleaned[..MaxCommentLength];
+
+        body = cleaned;
+        return true;
     }
 
     /// <summary>The human noun the cheer notification reads as ("cheered your <thing>"), per event kind —

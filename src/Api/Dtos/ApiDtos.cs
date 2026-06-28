@@ -1957,3 +1957,47 @@ public sealed class MoveDayReplaced
     /// <summary>True when a target activity row was deleted so the moved one could win.</summary>
     public bool Activity { get; set; }
 }
+
+/// <summary>
+/// The PUBLIC, anonymous "Built With Usage IQ" badge payload (<c>GET /api/public/built-with</c>). It is
+/// AGGREGATE NUMBERS ONLY for the single deterministic OWNER account — no email, name, project, or model list
+/// ever appears, and the figures do not vary by caller (so the endpoint is safely cacheable). All figures are
+/// the owner's all-time totals.
+/// </summary>
+public sealed class PublicBuiltWithDto
+{
+    /// <summary>The owner's all-time total tokens across every tier (input+output+cache).</summary>
+    public long TotalTokens { get; set; }
+
+    /// <summary>The owner's all-time total spend in USD.</summary>
+    public decimal TotalCostUsd { get; set; }
+
+    /// <summary>The number of distinct reporting agents (machines) the owner has reported usage from.</summary>
+    public int AgentCount { get; set; }
+
+    /// <summary>The owner's all-time distinct coding-session count.</summary>
+    public int SessionCount { get; set; }
+
+    /// <summary>The owner's all-time count of distinct active days.</summary>
+    public int ActiveDays { get; set; }
+
+    /// <summary>When this payload was generated (UTC) — also the cache-freshness anchor.</summary>
+    public DateTime GeneratedAtUtc { get; set; }
+
+    /// <summary>A human "as of" label for the figures (e.g. "all time").</summary>
+    public string AsOf { get; set; } = "all time";
+}
+
+/// <summary>
+/// One ranked row in the Family leaderboard (<c>GET /api/family/leaderboard</c>). The member is exposed by
+/// AppUser id + DisplayName ONLY — never an email. <see cref="IntValue"/> is a count of ALREADY-shareable
+/// <see cref="Ccusage.Api.Data.Entities.ActivityEvent"/> rows for the chosen metric — never a private tracker
+/// amount or any health figure.
+/// </summary>
+public sealed class LeaderboardRowDto
+{
+    public int UserId { get; set; }
+    public string Name { get; set; } = "";
+    public int IntValue { get; set; }
+    public int Rank { get; set; }
+}

@@ -34,6 +34,8 @@ import {
   PublicBillDto, ReceiptBreakdownDto, UpdateBillRequest,
   ProfilePrefs,
   FeedPage, ReactResult,
+  CommentDto, PactDto, PactProgressRowDto, CreatePactRequest, UpdatePactRequest,
+  LeaderboardRowDto, LeaderboardMetric, PublicBuiltWithDto,
   AutomationRule, AutomationRuleInput,
   ScheduledAgentDto, ScheduledAgentInput, AgentPreviewResult, AgentTestResult,
   VapidPublicKey, PushSubscribeRequest,
@@ -772,6 +774,111 @@ export class Api {
    */
   reactFeed(eventId: number): Observable<ReactResult> {
     return this.http.post<ReactResult>(`${this.base}/feed/${eventId}/react`, {});
+  }
+
+  // ---- Feed comments (the social thread under a feed event; gated tracker.self, same 404 visibility gate) ----
+
+  /**
+   * The visible comment thread under one feed event (GET /api/feed/{id}/comments, oldest-first). The server
+   * enforces the SAME circle/visibility gate as the feed — 404 (not 403) when the caller can't see the event,
+   * so the existence of a non-visible event is never revealed. Soft-deleted comments are excluded; each author
+   * is resolved to an AppUser id + DisplayName (never an email).
+   */
+  feedComments(eventId: number): Observable<CommentDto[]> {
+    return this.http.get<CommentDto[]>(`${this.base}/feed/${eventId}/comments`);
+  }
+
+  /**
+   * Add a comment to a visible feed event (POST /api/feed/{id}/comments). The body is validated server-side
+   * (trim, non-empty, cap 500, control-char strip). Rate-limited like chat; 404 when the event isn't visible.
+   * On a comment of someone else's event the actor gets ONE in-app notification (DisplayName only, body never
+   * in the text). Returns the created comment (with `mine` = true).
+   */
+  addFeedComment(eventId: number, body: string): Observable<CommentDto> {
+    return this.http.post<CommentDto>(`${this.base}/feed/${eventId}/comments`, { body });
+  }
+
+  /**
+   * Soft-delete a comment (DELETE /api/feed/comments/{cid}). The author may delete their own; a chat.moderate
+   * caller may delete anyone's. 404 when absent/already deleted; 403 when neither author nor moderator.
+   */
+  deleteFeedComment(commentId: number): Observable<unknown> {
+    return this.http.delete(`${this.base}/feed/comments/${commentId}`);
+  }
+
+  // ---- Habit pacts (shared accountability goals; gated tracker.self; mutual-contact membership) ----
+
+  /** The caller's pacts (owned OR a member of), newest-first. Members are ids + DisplayName (never email). */
+  pacts(): Observable<PactDto[]> {
+    return this.http.get<PactDto[]>(`${this.base}/pacts`);
+  }
+
+  /**
+   * Create a pact (POST /api/pacts, rate-limited like chat). `memberUserIds` are AppUser ids of the owner's
+   * MUTUAL chat contacts — a non-contact id is rejected (400) server-side. Returns the created pact.
+   */
+  createPact(body: CreatePactRequest): Observable<PactDto> {
+    return this.http.post<PactDto>(`${this.base}/pacts`, body);
+  }
+
+  /** Edit a pact (PUT /api/pacts/{id}, OWNER only). Returns the updated pact. */
+  updatePact(id: number, body: UpdatePactRequest): Observable<PactDto> {
+    return this.http.put<PactDto>(`${this.base}/pacts/${id}`, body);
+  }
+
+  /** Archive a pact (DELETE /api/pacts/{id}, OWNER only). 204 on success. */
+  archivePact(id: number): Observable<unknown> {
+    return this.http.delete(`${this.base}/pacts/${id}`);
+  }
+
+  /**
+   * Invite more members to a pact (POST /api/pacts/{id}/members, OWNER only, rate-limited). Each id MUST be a
+   * mutual contact of the owner (a non-contact is rejected, 400). Returns the refreshed pact.
+   */
+  addPactMembers(id: number, memberUserIds: number[]): Observable<PactDto> {
+    return this.http.post<PactDto>(`${this.base}/pacts/${id}/members`, { memberUserIds });
+  }
+
+  /** Accept a pact invite (POST /api/pacts/{id}/join). 204 on success; 404 when never invited. */
+  joinPact(id: number): Observable<unknown> {
+    return this.http.post(`${this.base}/pacts/${id}/join`, {});
+  }
+
+  /** Leave a pact (POST /api/pacts/{id}/leave). 204 on success; 404 when not a member. */
+  leavePact(id: number): Observable<unknown> {
+    return this.http.post(`${this.base}/pacts/${id}/leave`, {});
+  }
+
+  /**
+   * Each member's matching-event count in the pact's period (GET /api/pacts/{id}/progress). Only a participant
+   * may read it (404 otherwise). Counts are of ALREADY-shareable ActivityEvents — never a private amount.
+   */
+  pactProgress(id: number): Observable<PactProgressRowDto[]> {
+    return this.http.get<PactProgressRowDto[]>(`${this.base}/pacts/${id}/progress`);
+  }
+
+  // ---- Family leaderboard (household-scoped; gated family.use; ranks shareable activity counts only) ----
+
+  /**
+   * Rank the caller's OWN household members over shareable ActivityEvent counts for one metric
+   * (GET /api/family/leaderboard?metric=). Ties share a rank (competition ranking). Identity is id +
+   * DisplayName — never an email; NEVER a private tracker amount or any health figure.
+   */
+  familyLeaderboard(metric: LeaderboardMetric = 'workout'): Observable<LeaderboardRowDto[]> {
+    return this.http.get<LeaderboardRowDto[]>(`${this.base}/family/leaderboard`, {
+      params: new HttpParams().set('metric', metric),
+    });
+  }
+
+  // ---- "Built With Usage IQ" badge (PUBLIC, anonymous, cached; aggregate numbers only) ----
+
+  /**
+   * The public "Built With Usage IQ" badge figures (GET /api/public/built-with). Anonymous + cacheable —
+   * AGGREGATE NUMBERS ONLY for the deterministic owner account (no email/name/project/model), identical for
+   * every caller. Powers the live counter band on the marketing landing page.
+   */
+  builtWith(): Observable<PublicBuiltWithDto> {
+    return this.http.get<PublicBuiltWithDto>(`${this.base}/public/built-with`);
   }
 
   // ---- Automations (the caller's OWN rules; strictly owner-scoped server-side) ----

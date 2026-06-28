@@ -10,6 +10,7 @@ import { Api } from '../../core/api';
 import { AuthService } from '../../core/auth';
 import { FeedItem } from '../../core/models';
 import { timeAgo } from '../../shared/format';
+import { FeedComments } from './feed-comments';
 
 /** A feed item enriched with the derived bits the row template needs. */
 interface FeedItemVm extends FeedItem {
@@ -44,7 +45,7 @@ interface FeedDayGroup {
  */
 @Component({
   selector: 'app-feed',
-  imports: [RouterModule, MatButtonModule, MatIconModule, MatProgressSpinnerModule],
+  imports: [RouterModule, MatButtonModule, MatIconModule, MatProgressSpinnerModule, FeedComments],
   templateUrl: './feed.html',
   changeDetection: ChangeDetectionStrategy.Eager,
   styleUrl: './feed.scss',

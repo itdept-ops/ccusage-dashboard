@@ -1,0 +1,185 @@
+<header class="head">
+  <span class="head-eyebrow mono-num">~/pacts</span>
+  <h2>Habit pacts</h2>
+  <p class="sub">Shared accountability goals. Pick an activity, set a target over a stretch of days, and invite
+    the people in your circle to race it with you. Only your mutual contacts can be invited — no unsolicited
+    pings.</p>
+  <button mat-flat-button color="primary" type="button" class="head-cta" (click)="toggleCreate()">
+    <mat-icon aria-hidden="true">{{ showCreate() ? 'close' : 'add' }}</mat-icon>
+    {{ showCreate() ? 'Cancel' : 'New pact' }}
+  </button>
+</header>
+
+@if (showCreate()) {
+  <!-- Create form -->
+  <section class="create" aria-label="Create a pact">
+    <label class="field">
+      <span class="field__label">Title</span>
+      <input class="field__input" type="text" [(ngModel)]="draftTitle" maxlength="120"
+             placeholder="e.g. June workout streak" aria-label="Pact title" />
+    </label>
+
+    <div class="field">
+      <span class="field__label">Activity</span>
+      <div class="kind-pills" role="radiogroup" aria-label="Activity kind">
+        @for (k of kinds; track k.key) {
+          <button type="button" class="kind-pill" [class.is-on]="draftKind === k.key"
+                  role="radio" [attr.aria-checked]="draftKind === k.key" (click)="draftKind = k.key">
+            <mat-icon aria-hidden="true">{{ k.icon }}</mat-icon> {{ k.label }}
+          </button>
+        }
+      </div>
+    </div>
+
+    <div class="field-row">
+      <label class="field field--num">
+        <span class="field__label">Target</span>
+        <input class="field__input" type="number" min="1" max="100000" [(ngModel)]="draftTarget"
+               aria-label="Target count" />
+      </label>
+      <label class="field field--num">
+        <span class="field__label">Period (days)</span>
+        <input class="field__input" type="number" min="1" max="366" [(ngModel)]="draftPeriod"
+               aria-label="Period in days" />
+      </label>
+    </div>
+
+    @if (contacts().length) {
+      <div class="field">
+        <span class="field__label">Invite mutual contacts</span>
+        <div class="invitees">
+          @for (c of contacts(); track c.userId) {
+            <button type="button" class="invitee" [class.is-on]="isInvited(c.userId)"
+                    [attr.aria-pressed]="isInvited(c.userId)" (click)="toggleInvitee(c.userId)">
+              <span class="invitee__avatar" aria-hidden="true">{{ initials(c.name) }}</span>
+              <span class="invitee__name">{{ c.name }}</span>
+              @if (isInvited(c.userId)) { <mat-icon class="invitee__check" aria-hidden="true">check</mat-icon> }
+            </button>
+          }
+        </div>
+      </div>
+    } @else {
+      <p class="create__hint">You have no mutual contacts yet — you can still create a solo pact and invite
+        people later.</p>
+    }
+
+    @if (createError()) {
+      <p class="create__err" role="alert">{{ createError() }}</p>
+    }
+
+    <div class="create__actions">
+      <button mat-flat-button color="primary" type="button" [disabled]="!canCreate()" (click)="create()">
+        @if (creating()) {
+          <mat-progress-spinner mode="indeterminate" diameter="18" />
+        } @else {
+          <span><mat-icon aria-hidden="true">handshake</mat-icon> Create pact</span>
+        }
+      </button>
+    </div>
+  </section>
+}
+
+@if (loading()) {
+  <div class="state" role="status" aria-live="polite">
+    <mat-progress-spinner mode="indeterminate" diameter="36" />
+    <p>Loading your pacts…</p>
+  </div>
+} @else if (error()) {
+  <div class="state state--error" role="alert">
+    <mat-icon aria-hidden="true">cloud_off</mat-icon>
+    <p>We couldn't load your pacts just now.</p>
+    <button mat-stroked-button type="button" (click)="load()">
+      <mat-icon aria-hidden="true">refresh</mat-icon> Try again
+    </button>
+  </div>
+} @else if (pacts().length === 0) {
+  <div class="state state--empty">
+    <mat-icon aria-hidden="true">handshake</mat-icon>
+    <p>No pacts yet. Start one to keep yourself — and your circle — honest.</p>
+    @if (!showCreate()) {
+      <button mat-stroked-button type="button" (click)="toggleCreate()">
+        <mat-icon aria-hidden="true">add</mat-icon> New pact
+      </button>
+    }
+  </div>
+} @else {
+  <ul class="pacts">
+    @for (p of pacts(); track p.id) {
+      <li class="pact" [class.is-archived]="p.archived">
+        <div class="pact__head">
+          <span class="pact__icon" aria-hidden="true"><mat-icon>{{ iconFor(p.kind) }}</mat-icon></span>
+          <div class="pact__id">
+            <h3 class="pact__title">{{ p.title }}</h3>
+            <p class="pact__meta">
+              <span>{{ labelFor(p.kind) }}</span>
+              <span class="pact__dot" aria-hidden="true">·</span>
+              <span>{{ p.targetIntValue }} {{ unitFor(p.kind) }} in {{ p.periodDays }}d</span>
+              @if (!p.archived && daysLeft(p) > 0) {
+                <span class="pact__dot" aria-hidden="true">·</span>
+                <span>{{ daysLeft(p) }}d left</span>
+              }
+              @if (p.archived) { <span class="pact__dot" aria-hidden="true">·</span> <span>archived</span> }
+            </p>
+          </div>
+          @if (p.mine && !p.archived) {
+            <button class="pact__archive" type="button" aria-label="Archive pact" (click)="archive(p)">
+              <mat-icon aria-hidden="true">inventory_2</mat-icon>
+            </button>
+          }
+        </div>
+
+        <div class="pact__members" aria-label="Members">
+          @for (m of activeMembers(p); track m.userId) {
+            <span class="mchip" [matTooltip]="m.name">
+              <span class="mchip__avatar" aria-hidden="true">{{ initials(m.name) }}</span>
+              <span class="mchip__name">{{ m.name }}</span>
+            </span>
+          }
+        </div>
+
+        <div class="pact__actions">
+          @if (isInvitedTo(p)) {
+            <button mat-flat-button color="primary" type="button" (click)="join(p)">
+              <mat-icon aria-hidden="true">how_to_reg</mat-icon> Accept invite
+            </button>
+          } @else if (isActiveMember(p)) {
+            <button mat-stroked-button type="button" (click)="leave(p)">
+              <mat-icon aria-hidden="true">logout</mat-icon> Leave
+            </button>
+          }
+          <button mat-button type="button" class="pact__expand" (click)="toggleExpand(p)"
+                  [attr.aria-expanded]="expanded() === p.id">
+            <mat-icon aria-hidden="true">{{ expanded() === p.id ? 'expand_less' : 'leaderboard' }}</mat-icon>
+            {{ expanded() === p.id ? 'Hide standings' : 'Standings' }}
+          </button>
+        </div>
+
+        @if (expanded() === p.id) {
+          <div class="pact__progress">
+            @if (progress()[p.id]; as rows) {
+              @if (rows.length) {
+                <ul class="standings">
+                  @for (r of rows; track r.userId; let i = $index) {
+                    <li class="standing" [class.is-met]="r.metTarget">
+                      <span class="standing__rank">{{ i + 1 }}</span>
+                      <span class="standing__avatar" aria-hidden="true">{{ initials(r.name) }}</span>
+                      <span class="standing__name">{{ r.name }}</span>
+                      <span class="standing__count">{{ r.count }} / {{ p.targetIntValue }}</span>
+                      @if (r.metTarget) {
+                        <mat-icon class="standing__check" aria-hidden="true">verified</mat-icon>
+                      }
+                    </li>
+                  }
+                </ul>
+              } @else {
+                <p class="pact__progress-empty">No progress recorded yet.</p>
+              }
+            } @else {
+              <p class="pact__progress-empty">Loading standings…</p>
+            }
+          </div>
+        }
+      </li>
+    }
+  </ul>
+}

@@ -84,6 +84,9 @@ public class UsageDbContext(DbContextOptions<UsageDbContext> options) : DbContex
     public DbSet<HardChallengeDayTask> HardChallengeDayTasks => Set<HardChallengeDayTask>();
     public DbSet<ActivityEvent> ActivityEvents => Set<ActivityEvent>();
     public DbSet<ActivityReaction> ActivityReactions => Set<ActivityReaction>();
+    public DbSet<ActivityComment> ActivityComments => Set<ActivityComment>();
+    public DbSet<HabitPact> HabitPacts => Set<HabitPact>();
+    public DbSet<HabitPactMember> HabitPactMembers => Set<HabitPactMember>();
     public DbSet<AutomationRule> AutomationRules => Set<AutomationRule>();
     public DbSet<ScheduledAgent> ScheduledAgents => Set<ScheduledAgent>();
     public DbSet<Recipe> Recipes => Set<Recipe>();
@@ -500,6 +503,45 @@ public class UsageDbContext(DbContextOptions<UsageDbContext> options) : DbContex
             e.HasIndex(x => x.ActivityEventId);
             e.HasOne<ActivityEvent>().WithMany()
                 .HasForeignKey(x => x.ActivityEventId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        b.Entity<ActivityComment>(e =>
+        {
+            e.Property(x => x.AuthorEmail).HasMaxLength(256);
+            e.Property(x => x.Body).HasMaxLength(500);
+            e.Property(x => x.CreatedUtc).HasColumnType("timestamp with time zone");
+            e.Property(x => x.EditedUtc).HasColumnType("timestamp with time zone");
+            e.Property(x => x.DeletedUtc).HasColumnType("timestamp with time zone");
+            // The thread read loads one event's comments oldest-first; this composite serves it directly.
+            e.HasIndex(x => new { x.ActivityEventId, x.CreatedUtc });
+            e.HasOne<ActivityEvent>().WithMany()
+                .HasForeignKey(x => x.ActivityEventId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        b.Entity<HabitPact>(e =>
+        {
+            e.Property(x => x.OwnerEmail).HasMaxLength(256);
+            e.Property(x => x.Title).HasMaxLength(120);
+            e.Property(x => x.Kind).HasMaxLength(64);
+            e.Property(x => x.StartUtc).HasColumnType("timestamp with time zone");
+            e.Property(x => x.EndUtc).HasColumnType("timestamp with time zone");
+            e.Property(x => x.CreatedUtc).HasColumnType("timestamp with time zone");
+            e.Property(x => x.ArchivedUtc).HasColumnType("timestamp with time zone");
+            // An owner's pact list reads their own pacts.
+            e.HasIndex(x => x.OwnerEmail);
+        });
+
+        b.Entity<HabitPactMember>(e =>
+        {
+            e.Property(x => x.MemberEmail).HasMaxLength(256);
+            e.Property(x => x.JoinedUtc).HasColumnType("timestamp with time zone");
+            e.Property(x => x.Status).HasConversion<int>();
+            // At most one membership row per (pact, member); also the lookup for "is X a member of this pact".
+            e.HasIndex(x => new { x.HabitPactId, x.MemberEmail }).IsUnique();
+            // The "pacts I'm a member of" read scans by member email.
+            e.HasIndex(x => x.MemberEmail);
+            e.HasOne<HabitPact>().WithMany()
+                .HasForeignKey(x => x.HabitPactId).OnDelete(DeleteBehavior.Cascade);
         });
 
         b.Entity<ChatContact>(e =>

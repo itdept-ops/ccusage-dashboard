@@ -46,6 +46,16 @@ public enum NotificationType
     /// low staples). Self-scoped — it only ever pings its own owner's bell + opt-in web push. Gated, like a
     /// system event, on <see cref="NotificationPreference.NotifySystemEvents"/> at delivery (NotifySystem).</summary>
     AgentNudge = 13,
+
+    /// <summary>Someone in the actor's circle commented on one of their activity-feed events (a peer action,
+    /// like <see cref="Cheer"/> — not gated like a system event; the actor always learns of a comment). Carries
+    /// the commenter as actor (id + DisplayName; never email).</summary>
+    Comment = 14,
+
+    /// <summary>The owner of a <see cref="HabitPact"/> invited the recipient to join it (a peer action, like
+    /// <see cref="Cheer"/> — circle-constrained at the endpoint, never gated like a system event). Carries the
+    /// pact owner as actor (id + DisplayName; never email).</summary>
+    PactInvite = 15,
 }
 
 /// <summary>
@@ -95,6 +105,10 @@ public static class DiscordCategoryMap
         NotificationType.FamilyHeadsUp => DiscordForwardCategory.FamilyAlerts,
 
         NotificationType.Cheer => DiscordForwardCategory.Cheers,
+        // A comment + a pact invite are peer social actions; forward them under the same Cheers bucket the
+        // feed's cheer notification uses (the user's one social-feed toggle).
+        NotificationType.Comment => DiscordForwardCategory.Cheers,
+        NotificationType.PactInvite => DiscordForwardCategory.Cheers,
         NotificationType.SystemNudge => DiscordForwardCategory.Nudges,
 
         // A scheduled agent is a self-scoped automation; forward it under the user-toggleable System bucket.

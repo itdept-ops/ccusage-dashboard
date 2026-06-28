@@ -21,6 +21,7 @@ import { NotesCard } from './cards/notes-card';
 import { HouseholdCard } from './cards/household-card';
 import { RoomsDrawer } from './drawer/rooms-drawer';
 import { WeatherCard } from './cards/weather-card';
+import { LeaderboardCard } from './cards/leaderboard-card';
 
 /**
  * Family "Hearth" — a NEW, beta-only mobile-first glance surface for the household, REBUILT on the shared
@@ -64,6 +65,7 @@ import { WeatherCard } from './cards/weather-card';
     FormsModule, RouterLink, MatIconModule,
     BetaPullRefresh, BetaBottomSheet, BetaFab, BetaToaster,
     NowHero, TodayRail, ChoresCard, ListsCard, NotesCard, HouseholdCard, WeatherCard, RoomsDrawer,
+    LeaderboardCard,
   ],
   template: `
     <!-- The scroll column IS the kit pull-to-refresh (it owns overflow + the live accent spinner). -->
@@ -99,10 +101,11 @@ import { WeatherCard } from './cards/weather-card';
         <div class="rise rise--defer" [style.--i]="3"><fb-lists-card [today]="today()" [loading]="loadingToday()" [failed]="failedToday()" /></div>
         <div class="rise rise--defer" [style.--i]="4"><fb-household-card /></div>
         <div class="rise rise--defer" [style.--i]="5"><fb-notes-card [today]="today()" [loading]="loadingToday()" [failed]="failedToday()" /></div>
+        <div class="rise rise--defer" [style.--i]="6"><fb-leaderboard-card /></div>
         @if (today()?.weather; as w) {
-          <div class="rise rise--defer" [style.--i]="6"><fb-weather-card [weather]="w" /></div>
+          <div class="rise rise--defer" [style.--i]="7"><fb-weather-card [weather]="w" /></div>
         }
-        <div class="rise rise--defer" [style.--i]="7"><fb-rooms-drawer /></div>
+        <div class="rise rise--defer" [style.--i]="8"><fb-rooms-drawer /></div>
 
         <div class="scroll__foot" aria-hidden="true"></div>
       </div>

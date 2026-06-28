@@ -157,6 +157,13 @@ export const PAGE_REGISTRY: readonly PageDef[] = [
     nav: { group: 'Fitness', label: 'Activity', icon: 'dynamic_feed' },
     home: { label: 'Activity feed', icon: 'dynamic_feed' },
   },
+  {
+    id: 'pacts', path: 'pacts', title: 'Usage IQ · Habit pacts', perm: PERM.trackerSelf,
+    desktop: () => import('../features/pacts/pacts').then(m => m.Pacts),
+    mobile: () => import('../features/pacts-mobile/pacts-mobile.page').then(m => m.PactsMobilePage),
+    nav: { group: 'Fitness', label: 'Pacts', icon: 'handshake' },
+    home: { label: 'Habit pacts', icon: 'handshake' },
+  },
 
   // ---- Tools ----
   {

@@ -31,6 +31,8 @@ public sealed class ChatNotificationService(
         NotificationType.Mention => "You were mentioned",
         NotificationType.ChannelMessage => "New message",
         NotificationType.Cheer => "New cheer",
+        NotificationType.Comment => "New comment",
+        NotificationType.PactInvite => "Pact invite",
         NotificationType.SystemNudge => "New nudge",
         NotificationType.FamilyReminder => "Reminder",
         NotificationType.FamilyTimer => "Timer finished",
@@ -369,6 +371,85 @@ public sealed class ChatNotificationService(
     }
 
     /// <summary>
+    /// Notify a single actor that someone COMMENTED on one of their activity-feed events. Mirrors
+    /// <see cref="NotifyCheerAsync"/> exactly: persists ONE inbox <see cref="Notification"/> row carrying the
+    /// commenter as the actor (id + DisplayName-formatted name — the commenter email is NEVER on the wire,
+    /// email-privacy) and pushes <c>ReceiveNotification</c> + <c>InboxUnreadChanged</c> + a Discord mirror. Like
+    /// the cheer, this is a user-initiated peer action, so it is NOT gated on a notification preference. Callers
+    /// MUST skip this on a self-comment (commenter == actor) — it only fires on a comment of someone else's
+    /// event. The notification text NEVER includes the comment body (which could carry an email-shaped string);
+    /// it is the fixed "{name} commented on your {thing}" framing. <paramref name="actorEmail"/> and
+    /// <paramref name="commenterEmail"/> must be lower-cased.
+    /// </summary>
+    public async Task NotifyCommentAsync(
+        string actorEmail, string commenterEmail, string thing, CancellationToken ct = default)
+    {
+        var commenter = (await ResolveActorsAsync(db, new[] { commenterEmail }, ct))
+            .TryGetValue(commenterEmail.ToLowerInvariant(), out var ci) ? ci : (ActorIdentity?)null;
+        var commenterName = string.IsNullOrEmpty(commenter?.Name) ? DisplayName.Unknown : commenter!.Value.Name;
+
+        var text = $"{commenterName} commented on your {thing}";
+        var n = new Notification
+        {
+            RecipientEmail = actorEmail,
+            Type = NotificationType.Comment,
+            Text = text.Length > 512 ? text[..512] : text,
+            Link = "/feed",
+            ActorEmail = commenterEmail,
+            ActorName = commenterName,
+            IsRead = false,
+            CreatedUtc = DateTime.UtcNow,
+        };
+        db.Notifications.Add(n);
+        await db.SaveChangesAsync(ct);
+
+        var inbox = (await UnreadInboxCountsAsync(new[] { actorEmail }, ct)).GetValueOrDefault(actorEmail, 0);
+        await hub.Clients.User(actorEmail).SendAsync("ReceiveNotification", ToDto(n, commenter), ct);
+        await hub.Clients.User(actorEmail).SendAsync("InboxUnreadChanged", inbox, ct);
+        discord.Enqueue(new DiscordForwardItem(actorEmail, NotificationTypeName(n.Type), commenterName, n.Text, n.Link, Category: n.Type));
+        webPush.Enqueue(new WebPushItem(actorEmail, PushTitle(n.Type), n.Text, n.Link));
+    }
+
+    /// <summary>
+    /// Notify a single recipient that the owner of a <see cref="HabitPact"/> INVITED them to join it. Mirrors
+    /// <see cref="NotifyCheerAsync"/>: persists ONE inbox <see cref="Notification"/> row carrying the pact owner
+    /// as the actor (id + DisplayName-formatted name — the owner email is NEVER on the wire, email-privacy) and
+    /// pushes <c>ReceiveNotification</c> + <c>InboxUnreadChanged</c> + a Discord mirror. Like the cheer, this is
+    /// a user-initiated peer action, so it is NOT gated on a notification preference. The endpoint has already
+    /// constrained the invitee to the owner's mutual circle (no unsolicited invites). The text is the fixed
+    /// "{ownerName} invited you to a pact: {pactTitle}" framing. <paramref name="memberEmail"/> and
+    /// <paramref name="ownerEmail"/> must be lower-cased; <paramref name="pactTitle"/> is already validated.
+    /// </summary>
+    public async Task NotifyPactAsync(
+        string memberEmail, string ownerEmail, string pactTitle, CancellationToken ct = default)
+    {
+        var owner = (await ResolveActorsAsync(db, new[] { ownerEmail }, ct))
+            .TryGetValue(ownerEmail.ToLowerInvariant(), out var oi) ? oi : (ActorIdentity?)null;
+        var ownerName = string.IsNullOrEmpty(owner?.Name) ? DisplayName.Unknown : owner!.Value.Name;
+
+        var text = $"{ownerName} invited you to a pact: {pactTitle}";
+        var n = new Notification
+        {
+            RecipientEmail = memberEmail,
+            Type = NotificationType.PactInvite,
+            Text = text.Length > 512 ? text[..512] : text,
+            Link = "/pacts",
+            ActorEmail = ownerEmail,
+            ActorName = ownerName,
+            IsRead = false,
+            CreatedUtc = DateTime.UtcNow,
+        };
+        db.Notifications.Add(n);
+        await db.SaveChangesAsync(ct);
+
+        var inbox = (await UnreadInboxCountsAsync(new[] { memberEmail }, ct)).GetValueOrDefault(memberEmail, 0);
+        await hub.Clients.User(memberEmail).SendAsync("ReceiveNotification", ToDto(n, owner), ct);
+        await hub.Clients.User(memberEmail).SendAsync("InboxUnreadChanged", inbox, ct);
+        discord.Enqueue(new DiscordForwardItem(memberEmail, NotificationTypeName(n.Type), ownerName, n.Text, n.Link, Category: n.Type));
+        webPush.Enqueue(new WebPushItem(memberEmail, PushTitle(n.Type), n.Text, n.Link));
+    }
+
+    /// <summary>
     /// Deliver a peer NUDGE (a canned "log your day" / "close your rings" / "keep the streak" / "check-in"
     /// ping) to a single target, addressed by their AppUser id (email-privacy: the caller never holds the
     /// target's email — it's resolved server-side via <see cref="ResolveEmailsByIdAsync"/>). Persists ONE
@@ -687,6 +768,8 @@ public sealed class ChatNotificationService(
         NotificationType.FamilyHeadsUp => "familyHeadsUp",
         NotificationType.SystemAutomation => "systemAutomation",
         NotificationType.Cheer => "cheer",
+        NotificationType.Comment => "comment",
+        NotificationType.PactInvite => "pactInvite",
         NotificationType.SystemNudge => "systemNudge",
         NotificationType.AgentNudge => "agentNudge",
         _ => "channelMessage",

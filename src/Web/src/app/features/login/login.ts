@@ -12,6 +12,7 @@ import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { MatIconModule } from '@angular/material/icon';
 import { MarketingNav } from '../marketing/marketing-nav';
 import { MarketingFooter } from '../marketing/marketing-footer';
+import { BuiltWithBadge } from './built-with-badge';
 
 /** A life-domain module that boots under the OS kernel. `accent` maps to a
  *  fixed tech token (blue/cyan/violet) reused on every marketing page so a
@@ -46,7 +47,7 @@ interface Stat {
 
 @Component({
   selector: 'app-login',
-  imports: [MatIconModule, RouterLink, MarketingNav, MarketingFooter],
+  imports: [MatIconModule, RouterLink, MarketingNav, MarketingFooter, BuiltWithBadge],
   templateUrl: './login.html',
   changeDetection: ChangeDetectionStrategy.Eager,
   styleUrl: './login.scss',

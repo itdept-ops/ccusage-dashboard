@@ -485,6 +485,121 @@ export interface ReactResult {
   iReacted: boolean;
 }
 
+// ---- Feed comments (the social thread under each /feed event) ---------------------------------------
+// The author is an AppUser id + DisplayName-formatted name — the raw email is NEVER on the wire. The
+// server enforces the SAME circle/visibility gate as the feed (404 when not visible). Bodies are free
+// text validated server-side (trimmed, non-empty, capped 500, control-chars stripped).
+
+/** One comment in a feed event's thread (GET /api/feed/{id}/comments). Mirrors FeedEndpoints.CommentDto. */
+export interface CommentDto {
+  id: number;
+  /** The feed event this comment hangs under. */
+  eventId: number;
+  /** The author's AppUser id (the identity key; never an email). */
+  authorUserId: number;
+  /** DisplayName-formatted author name (never raw name, never email). */
+  authorName: string;
+  /** The comment text (server-validated free text). */
+  body: string;
+  /** Whether the CALLER authored it (drives the delete affordance). */
+  mine: boolean;
+  createdUtc: string;
+  /** Set when the comment was edited; null otherwise. */
+  editedUtc: string | null;
+}
+
+// ---- Habit pacts (shared accountability goals; gated tracker.self) ----------------------------------
+// An owner creates a pact over one shareable ActivityEvent kind and invites their MUTUAL chat contacts.
+// Members cross the wire as AppUser ids + DisplayName only — never an email. Membership is constrained
+// server-side to the owner's mutual contacts (an unsolicited invite is rejected).
+
+/** Membership status of a pact member. Mirrors HabitPactMemberStatus. */
+export type PactMemberStatus = 'Invited' | 'Active' | 'Left';
+
+/** A pact's trackable kind (a shareable ActivityEvent kind). Mirrors the server's IsValidKind set. */
+export type PactKind = 'workout.logged' | 'challenge.dayComplete' | 'hydration.goalHit';
+
+/** One member of a pact — id + display name + status; never an email. Mirrors PactEndpoints.PactMemberDto. */
+export interface PactMemberDto {
+  userId: number;
+  name: string;
+  status: PactMemberStatus | string;
+}
+
+/** A pact with its resolved owner + members (GET/POST/PUT /api/pacts). Mirrors PactEndpoints.PactDto. */
+export interface PactDto {
+  id: number;
+  ownerUserId: number;
+  ownerName: string;
+  /** Whether the CALLER owns this pact (drives the edit/archive/invite affordances). */
+  mine: boolean;
+  title: string;
+  kind: PactKind | string;
+  targetIntValue: number;
+  periodDays: number;
+  startUtc: string;
+  endUtc: string | null;
+  createdUtc: string;
+  archived: boolean;
+  members: PactMemberDto[];
+}
+
+/** One member's progress in a pact (GET /api/pacts/{id}/progress). Mirrors PactEndpoints.PactProgressRowDto. */
+export interface PactProgressRowDto {
+  userId: number;
+  name: string;
+  count: number;
+  metTarget: boolean;
+}
+
+/** Create-a-pact body (POST /api/pacts). Members are sent as AppUser ids (mutual contacts; resolved server-side). */
+export interface CreatePactRequest {
+  title: string;
+  kind: PactKind | string;
+  targetIntValue: number;
+  periodDays: number;
+  memberUserIds: number[];
+}
+
+/** Edit-a-pact body (PUT /api/pacts/{id}). Owner only; each field optional. */
+export interface UpdatePactRequest {
+  title?: string;
+  targetIntValue?: number;
+  periodDays?: number;
+}
+
+// ---- Family leaderboard (household-scoped; gated family.use) ----------------------------------------
+// Ranks the caller's OWN household members over already-shareable ActivityEvent counts ONLY — never a
+// private tracker amount or any health figure. Identity is id + DisplayName, never an email.
+
+/** Which shareable activity metric the leaderboard ranks on. */
+export type LeaderboardMetric = 'workout' | 'challenge' | 'hydration';
+
+/** One ranked row in the Family leaderboard (GET /api/family/leaderboard). Mirrors LeaderboardRowDto. */
+export interface LeaderboardRowDto {
+  userId: number;
+  name: string;
+  intValue: number;
+  rank: number;
+}
+
+// ---- "Built With Usage IQ" badge (PUBLIC, anonymous, aggregate numbers only) ------------------------
+
+/**
+ * The public "Built With Usage IQ" badge payload (GET /api/public/built-with, anonymous + cached). AGGREGATE
+ * NUMBERS ONLY for the single deterministic owner account — no email, name, project, or model list, and the
+ * figures do not vary by caller. Mirrors PublicBuiltWithDto. Powers the live counter band on the landing page.
+ */
+export interface PublicBuiltWithDto {
+  totalTokens: number;
+  totalCostUsd: number;
+  agentCount: number;
+  sessionCount: number;
+  activeDays: number;
+  generatedAtUtc: string;
+  asOf: string;
+}
+
 /** The numeric comparison a rule's optional condition applies to the event's intValue. */
 export type RuleConditionOp = 0 | 1 | 2 | 3; // None | Gte | Lte | Eq
 

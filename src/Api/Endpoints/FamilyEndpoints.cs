@@ -1,6 +1,7 @@
 using Ccusage.Api.Auth;
 using Ccusage.Api.Data;
 using Ccusage.Api.Data.Entities;
+using Ccusage.Api.Dtos;
 using Ccusage.Api.Services;
 using Microsoft.EntityFrameworkCore;
 
@@ -178,7 +179,71 @@ public static class FamilyEndpoints
             var fresh = (await households.GetForCallerAsync(caller, ct))!;
             return Results.Ok(await ToDtoAsync(db, fresh, caller.Id, ct));
         });
+
+        // ---- GET /api/family/leaderboard?metric= : rank household members on shareable ActivityEvent counts ----
+        // HOUSEHOLD-SCOPED: only the caller's OWN household members are ranked (resolved via the membership
+        // graph). The metric maps to ONE ActivityEvent kind; the rank is a COUNT of those already-shareable
+        // events — NEVER a private tracker amount, finance figure, or health detail. Rows carry id + DisplayName
+        // only (never an email). A member with no events still appears (count 0), so the household sees everyone.
+        g.MapGet("/leaderboard", async (
+            string? metric, CurrentUserAccessor me, CurrentHouseholdAccessor households, UsageDbContext db,
+            CancellationToken ct) =>
+        {
+            var caller = (await me.GetUserAsync(ct))!;
+            var household = (await households.GetOrCreateForCallerAsync(caller, ct))!;
+
+            var kind = MetricKind(metric);
+
+            // The caller's OWN household members, resolved to email + display identity (never returned as email).
+            var members = await db.HouseholdMembers.AsNoTracking()
+                .Where(m => m.HouseholdId == household.Id)
+                .Join(db.Users.AsNoTracking(), m => m.UserId, u => u.Id, (m, u) => new
+                {
+                    u.Id, u.Email, u.Name, u.DisplayNameMode, u.Nickname,
+                })
+                .ToListAsync(ct);
+            if (members.Count == 0) return Results.Ok(Array.Empty<LeaderboardRowDto>());
+
+            var memberEmails = members.Select(x => x.Email.ToLowerInvariant()).ToArray();
+
+            // Count matching shareable ActivityEvents per member in ONE grouped query (no N+1, no private data).
+            var counts = (await db.ActivityEvents.AsNoTracking()
+                .Where(e => e.Kind == kind && memberEmails.Contains(e.ActorEmail))
+                .GroupBy(e => e.ActorEmail)
+                .Select(grp => new { Email = grp.Key, Count = grp.Count() })
+                .ToListAsync(ct))
+                .ToDictionary(x => x.Email, x => x.Count, StringComparer.Ordinal);
+
+            var ranked = members
+                .Select(x => new
+                {
+                    x.Id,
+                    Name = DisplayName.Format(x.Name, x.DisplayNameMode, x.Nickname),
+                    Count = counts.GetValueOrDefault(x.Email.ToLowerInvariant(), 0),
+                })
+                .OrderByDescending(x => x.Count).ThenBy(x => x.Name)
+                .ToList();
+
+            var rows = new List<LeaderboardRowDto>(ranked.Count);
+            for (var i = 0; i < ranked.Count; i++)
+            {
+                var r = ranked[i];
+                // Standard competition ranking: equal counts share a rank.
+                var rank = (i > 0 && ranked[i - 1].Count == r.Count) ? rows[i - 1].Rank : i + 1;
+                rows.Add(new LeaderboardRowDto { UserId = r.Id, Name = r.Name, IntValue = r.Count, Rank = rank });
+            }
+            return Results.Ok(rows);
+        });
     }
+
+    /// <summary>Map a leaderboard metric query value to its <see cref="ActivityEmitter.Kinds"/> event kind.
+    /// Defaults to workouts. Only SHAREABLE activity kinds are exposed — never any private tracker metric.</summary>
+    private static string MetricKind(string? metric) => (metric ?? "").Trim().ToLowerInvariant() switch
+    {
+        "challenge" or "challengedaycomplete" or "75hard" => ActivityEmitter.Kinds.ChallengeDayComplete,
+        "hydration" or "water" => ActivityEmitter.Kinds.HydrationGoalHit,
+        _ => ActivityEmitter.Kinds.WorkoutLogged,
+    };
 
     /// <summary>Resolve a household + its members to display identity (id/name/picture via a Users join).
     /// No email is ever read into the DTO (email-privacy).</summary>

@@ -556,6 +556,8 @@ app.MapTrophyEndpoints();
 app.MapWrappedEndpoints();
 app.MapWrappedShareEndpoints();
 app.MapFeedEndpoints();
+app.MapPactEndpoints();
+app.MapPublicEndpoints();
 app.MapRulesEndpoints();
 app.MapAgentsEndpoints();
 app.MapAiEndpoints();

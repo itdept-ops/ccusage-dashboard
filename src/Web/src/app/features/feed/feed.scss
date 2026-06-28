@@ -84,7 +84,7 @@
 
 .row {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: var(--tech-space-3, 16px);
   padding: var(--tech-space-3, 16px);
   border-radius: var(--tech-radius, 12px);

@@ -10,6 +10,7 @@ import { AuthService } from '../../core/auth';
 import { FeedItem } from '../../core/models';
 import { timeAgo } from '../../shared/format';
 import { BetaPullRefresh, BetaSkeleton } from '../beta-ui';
+import { FeedComments } from '../feed/feed-comments';
 
 /** A feed row enriched with the derived bits the mobile template needs. */
 interface FeedItemVm extends FeedItem {
@@ -57,7 +58,7 @@ interface FeedDayGroup {
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
   styleUrl: './feed-mobile.page.scss',
-  imports: [MatIconModule, RouterLink, BetaPullRefresh, BetaSkeleton],
+  imports: [MatIconModule, RouterLink, BetaPullRefresh, BetaSkeleton, FeedComments],
   template: `
     <app-bs-pull-refresh class="fm-ptr" [busy]="refreshing()" (refresh)="reload()">
       <div class="fm-scroll" aria-live="polite">
@@ -162,6 +163,8 @@ interface FeedDayGroup {
                           <span class="fm-cheer__count">{{ item.clapCount }}</span>
                         }
                       </button>
+
+                      <app-feed-comments class="fm-row__comments" [eventId]="item.id" />
                     </li>
                   }
                 </ul>
