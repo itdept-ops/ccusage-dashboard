@@ -67,6 +67,9 @@ public class UsageDbContext(DbContextOptions<UsageDbContext> options) : DbContex
     public DbSet<FinanceImport> FinanceImports => Set<FinanceImport>();
     public DbSet<FinanceStagedTransaction> FinanceStagedTransactions => Set<FinanceStagedTransaction>();
     public DbSet<FinanceCategoryRule> FinanceCategoryRules => Set<FinanceCategoryRule>();
+    public DbSet<FinanceBudget> FinanceBudgets => Set<FinanceBudget>();
+    public DbSet<FinanceSavingsGoal> FinanceSavingsGoals => Set<FinanceSavingsGoal>();
+    public DbSet<FinanceBalanceSnapshot> FinanceBalanceSnapshots => Set<FinanceBalanceSnapshot>();
     public DbSet<GoogleCalendarConnection> GoogleCalendarConnections => Set<GoogleCalendarConnection>();
     public DbSet<HealthConnection> HealthConnections => Set<HealthConnection>();
     public DbSet<HealthImportLog> HealthImportLogs => Set<HealthImportLog>();
@@ -1060,6 +1063,47 @@ public class UsageDbContext(DbContextOptions<UsageDbContext> options) : DbContex
             e.Property(x => x.CreatedUtc).HasColumnType("timestamp with time zone");
             // The categorizer loads one household's rules.
             e.HasIndex(x => x.HouseholdId);
+        });
+
+        b.Entity<FinanceBudget>(e =>
+        {
+            e.Property(x => x.Category).HasMaxLength(120);
+            e.Property(x => x.LimitAmount).HasPrecision(18, 2);
+            e.Property(x => x.Period).HasMaxLength(16).HasDefaultValue("monthly");
+            e.Property(x => x.CreatedUtc).HasColumnType("timestamp with time zone");
+            e.Property(x => x.UpdatedUtc).HasColumnType("timestamp with time zone");
+            // One budget per (household, category); a null Category is the single OVERALL budget (Postgres
+            // treats nulls as distinct, so the importer/endpoint normalizes a missing category to "" — the
+            // overall budget is stored with Category == null and guarded in code, see the budgets endpoint).
+            e.HasIndex(x => new { x.HouseholdId, x.Category }).IsUnique();
+        });
+
+        b.Entity<FinanceSavingsGoal>(e =>
+        {
+            e.Property(x => x.Name).HasMaxLength(200);
+            e.Property(x => x.TargetAmount).HasPrecision(18, 2);
+            e.Property(x => x.SavedAmount).HasPrecision(18, 2);
+            e.Property(x => x.Owner).HasMaxLength(16).HasDefaultValue("unassigned");
+            e.Property(x => x.Color).HasMaxLength(32);
+            e.Property(x => x.Icon).HasMaxLength(64);
+            e.Property(x => x.CreatedUtc).HasColumnType("timestamp with time zone");
+            e.Property(x => x.UpdatedUtc).HasColumnType("timestamp with time zone");
+            // The savings list reads one household's goals.
+            e.HasIndex(x => x.HouseholdId);
+        });
+
+        b.Entity<FinanceBalanceSnapshot>(e =>
+        {
+            e.Property(x => x.Balance).HasPrecision(18, 2);
+            e.Property(x => x.Note).HasMaxLength(500);
+            e.Property(x => x.CreatedUtc).HasColumnType("timestamp with time zone");
+            // One snapshot per (household, account, day) — a same-day re-entry upserts (latest-wins). This
+            // unique index also serves the net-worth read (group one household's snapshots per account, latest
+            // AsOfDate first).
+            e.HasIndex(x => new { x.HouseholdId, x.AccountId, x.AsOfDate }).IsUnique();
+            // Deleting an account deletes its balance history (the account owns its snapshots).
+            e.HasOne(x => x.Account).WithMany()
+                .HasForeignKey(x => x.AccountId).OnDelete(DeleteBehavior.Cascade);
         });
 
         b.Entity<GoogleCalendarConnection>(e =>

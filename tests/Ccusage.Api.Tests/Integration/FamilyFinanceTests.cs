@@ -925,4 +925,276 @@ public class FamilyFinanceTests(WebAppFactory factory)
         (await useOnly.GetAsync("/api/family/finance/import/1/staged"))
             .StatusCode.Should().Be(HttpStatusCode.Forbidden);
     }
+
+    // =====================================================================================
+    // BUDGETS — deterministic spend-vs-budget by PACE (expense-only); unbudgeted rollup
+    // =====================================================================================
+
+    private static JsonElement BudgetFor(JsonElement budgets, string? category) =>
+        budgets.EnumerateArray().Single(b =>
+            (b.GetProperty("category").ValueKind == JsonValueKind.Null ? null : b.GetProperty("category").GetString())
+            == category);
+
+    [Fact]
+    public async Task Budget_spend_is_expense_only_excludes_transfers_and_remaining_is_correct()
+    {
+        var owner = await FinanceUser();
+        await owner.PostAsJsonAsync("/api/family/finance/import", new { fileName = "rm.csv", content = SampleCsv });
+
+        // A Groceries budget of $100 for May 2026 (the month has a single $54.20 Groceries expense).
+        var create = await owner.PostAsJsonAsync("/api/family/finance/budgets",
+            new { category = "Groceries", limitAmount = 100.00m });
+        create.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var res = await Json(await owner.GetAsync("/api/family/finance/budgets?month=2026-05"));
+        res.GetProperty("month").GetString().Should().Be("2026-05");
+        // The month total spent is the SAME expense-only figure /summary computes (transfers excluded).
+        res.GetProperty("totalSpent").GetDecimal().Should().Be(233.36m);
+
+        var groceries = BudgetFor(res.GetProperty("budgets"), "Groceries");
+        groceries.GetProperty("spent").GetDecimal().Should().Be(54.20m);    // expense only
+        groceries.GetProperty("remaining").GetDecimal().Should().Be(45.80m); // 100 - 54.20
+        groceries.GetProperty("status").GetString().Should().Be("under");
+
+        // The unbudgeted rollup = the rest of the month's expenses (everything but Groceries).
+        var unbudgeted = res.GetProperty("unbudgeted");
+        unbudgeted.GetProperty("spent").GetDecimal().Should().Be(233.36m - 54.20m); // 179.16
+        res.GetRawText().Should().NotContain("@");
+    }
+
+    [Fact]
+    public async Task Budget_pace_projection_marks_over_when_projected_exceeds_limit()
+    {
+        var owner = await FinanceUser();
+        // A current-month expense so the pace projection extrapolates: spend $100 on day 1 of THIS month with a
+        // $200 budget. By pace (100 / day1 * daysInMonth) the projection far exceeds 200 -> status "over".
+        var today = DateTime.UtcNow;
+        var monthStr = today.ToString("yyyy-MM");
+        var csv =
+            "Date,Account Type,Account Name,Institution Name,Name,Amount,Category\n" +
+            $"{today:yyyy-MM}-01,Checking,Chk,Bank,Big Spend,-100.00,Shopping\n";
+        await owner.PostAsJsonAsync("/api/family/finance/import", new { fileName = "p.csv", content = csv });
+        await owner.PostAsJsonAsync("/api/family/finance/budgets",
+            new { category = "Shopping", limitAmount = 200.00m });
+
+        var res = await Json(await owner.GetAsync($"/api/family/finance/budgets?month={monthStr}"));
+        var shopping = BudgetFor(res.GetProperty("budgets"), "Shopping");
+        shopping.GetProperty("spent").GetDecimal().Should().Be(100.00m);
+        // Projected = 100 / dayOfMonth * daysInMonth. Only equals 100 on the final day of the month; otherwise
+        // it's strictly greater and, being > the $200 limit by pace whenever we're early enough, marks "over".
+        var projected = shopping.GetProperty("projected").GetDecimal();
+        if (today.Day < DateTime.DaysInMonth(today.Year, today.Month))
+        {
+            projected.Should().BeGreaterThan(100.00m);
+            // For the first ~half of the month the pace doubles past 200 → "over". Assert the math, not the day:
+            var expected = Math.Round(100.00m / today.Day * DateTime.DaysInMonth(today.Year, today.Month), 2);
+            projected.Should().Be(expected);
+            shopping.GetProperty("status").GetString().Should()
+                .Be(expected > 200m ? "over" : (double)(expected / 200m) >= 0.85 ? "near" : "under");
+        }
+    }
+
+    [Fact]
+    public async Task Overall_budget_uses_whole_month_spend_and_pct_is_correct()
+    {
+        var owner = await FinanceUser();
+        await owner.PostAsJsonAsync("/api/family/finance/import", new { fileName = "rm.csv", content = SampleCsv });
+
+        // An OVERALL (null-category) budget of $500 — checked against the whole-month $233.36 spend.
+        await owner.PostAsJsonAsync("/api/family/finance/budgets", new { category = (string?)null, limitAmount = 500.00m });
+
+        var res = await Json(await owner.GetAsync("/api/family/finance/budgets?month=2026-05"));
+        var overall = BudgetFor(res.GetProperty("budgets"), null);
+        overall.GetProperty("spent").GetDecimal().Should().Be(233.36m);
+        overall.GetProperty("pct").GetDouble().Should().BeApproximately(46.7, 0.1); // 233.36 / 500
+    }
+
+    [Fact]
+    public async Task Duplicate_budget_category_is_409_and_cross_household_budget_id_is_404()
+    {
+        var alice = await FinanceUser();
+        var first = await alice.PostAsJsonAsync("/api/family/finance/budgets",
+            new { category = "Dining", limitAmount = 50m });
+        first.StatusCode.Should().Be(HttpStatusCode.OK);
+        var budgetId = (await Json(first)).GetProperty("id").GetInt32();
+
+        // A second budget for the same category collides on the unique (household, category) index → 409.
+        (await alice.PostAsJsonAsync("/api/family/finance/budgets",
+            new { category = "Dining", limitAmount = 75m })).StatusCode.Should().Be(HttpStatusCode.Conflict);
+
+        // Another household can't see/edit/delete Alice's budget — existence never leaked (404, not 403).
+        var bob = await FinanceUser();
+        (await bob.PutAsJsonAsync($"/api/family/finance/budgets/{budgetId}", new { limitAmount = 999m }))
+            .StatusCode.Should().Be(HttpStatusCode.NotFound);
+        (await bob.DeleteAsync($"/api/family/finance/budgets/{budgetId}"))
+            .StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    // =====================================================================================
+    // NET WORTH — signed snapshots; liabilities negative; latest snapshot per account
+    // =====================================================================================
+
+    [Fact]
+    public async Task Net_worth_signs_liabilities_negative_and_uses_latest_snapshot_per_account()
+    {
+        var owner = await FinanceUser();
+        await owner.PostAsJsonAsync("/api/family/finance/import", new { fileName = "rm.csv", content = SampleCsv });
+        var accounts = await Json(await owner.GetAsync("/api/family/finance/accounts"));
+        var bankId = Account(accounts, "SoFi Checking 1").GetProperty("id").GetInt32();   // bank → asset (positive)
+        var cardId = Account(accounts, "Mission Lane Card").GetProperty("id").GetInt32(); // credit → liability (negative)
+
+        // Enter a bank balance (+5000 asset) and a credit balance (-1200 liability). The credit is entered as a
+        // NEGATIVE signed number per the kind convention.
+        (await owner.PostAsJsonAsync($"/api/family/finance/accounts/{bankId}/balance",
+            new { asOfDate = "2026-05-01", balance = 5000.00m })).StatusCode.Should().Be(HttpStatusCode.OK);
+        await owner.PostAsJsonAsync($"/api/family/finance/accounts/{cardId}/balance",
+            new { asOfDate = "2026-05-01", balance = -1200.00m });
+
+        // A LATER snapshot for the bank account supersedes the earlier one (latest-wins).
+        await owner.PostAsJsonAsync($"/api/family/finance/accounts/{bankId}/balance",
+            new { asOfDate = "2026-06-01", balance = 5500.00m });
+
+        var nw = await Json(await owner.GetAsync("/api/family/finance/net-worth"));
+        nw.GetProperty("assets").GetDecimal().Should().Be(5500.00m);        // the LATEST bank snapshot
+        nw.GetProperty("liabilities").GetDecimal().Should().Be(-1200.00m);  // negative (a liability)
+        nw.GetProperty("netWorth").GetDecimal().Should().Be(4300.00m);      // 5500 + (-1200)
+
+        // The per-account row carries the latest signed balance + as-of date; accounts w/o a snapshot show hasBalance=false.
+        var bankRow = nw.GetProperty("accounts").EnumerateArray()
+            .Single(a => a.GetProperty("accountId").GetInt32() == bankId);
+        bankRow.GetProperty("latestBalance").GetDecimal().Should().Be(5500.00m);
+        bankRow.GetProperty("asOfDate").GetString().Should().Be("2026-06-01");
+        bankRow.GetProperty("hasBalance").GetBoolean().Should().BeTrue();
+        nw.GetProperty("accounts").EnumerateArray()
+            .Single(a => a.GetProperty("name").GetString() == "USAA Card")
+            .GetProperty("hasBalance").GetBoolean().Should().BeFalse(); // never entered
+
+        nw.GetRawText().Should().NotContain("@");
+    }
+
+    [Fact]
+    public async Task Balance_entry_upserts_on_same_day_and_cross_household_account_is_404()
+    {
+        var owner = await FinanceUser();
+        await owner.PostAsJsonAsync("/api/family/finance/import", new { fileName = "rm.csv", content = SampleCsv });
+        var accounts = await Json(await owner.GetAsync("/api/family/finance/accounts"));
+        var bankId = Account(accounts, "SoFi Checking 1").GetProperty("id").GetInt32();
+
+        await owner.PostAsJsonAsync($"/api/family/finance/accounts/{bankId}/balance",
+            new { asOfDate = "2026-05-01", balance = 1000.00m });
+        // Same day, new value → upsert (latest-wins), NOT a second row.
+        await owner.PostAsJsonAsync($"/api/family/finance/accounts/{bankId}/balance",
+            new { asOfDate = "2026-05-01", balance = 1234.00m });
+
+        var nw = await Json(await owner.GetAsync("/api/family/finance/net-worth"));
+        nw.GetProperty("assets").GetDecimal().Should().Be(1234.00m); // the upserted value, not 1000+1234
+
+        // Another household can't post a balance to Alice's account — 404 (existence never leaked).
+        var bob = await FinanceUser();
+        (await bob.PostAsJsonAsync($"/api/family/finance/accounts/{bankId}/balance",
+            new { asOfDate = "2026-05-01", balance = 9.99m })).StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    // =====================================================================================
+    // SAVINGS GOALS — saved/target/pct; a contribution updates pct; cross-household → 404
+    // =====================================================================================
+
+    [Fact]
+    public async Task Savings_contribution_updates_saved_and_pct()
+    {
+        var owner = await FinanceUser();
+
+        var create = await owner.PostAsJsonAsync("/api/family/finance/savings",
+            new { name = "Emergency fund", targetAmount = 1000.00m, owner = "joint" });
+        create.StatusCode.Should().Be(HttpStatusCode.OK);
+        var goal = await Json(create);
+        var goalId = goal.GetProperty("id").GetInt32();
+        goal.GetProperty("savedAmount").GetDecimal().Should().Be(0m);
+        goal.GetProperty("pct").GetDouble().Should().Be(0.0);
+        goal.GetProperty("owner").GetString().Should().Be("joint"); // reuses his/hers/joint/unassigned vocab
+
+        // Contribute $250 → saved 250, pct 25.
+        var contributed = await Json(await owner.PostAsJsonAsync(
+            $"/api/family/finance/savings/{goalId}/contribute", new { amount = 250.00m }));
+        contributed.GetProperty("savedAmount").GetDecimal().Should().Be(250.00m);
+        contributed.GetProperty("pct").GetDouble().Should().Be(25.0);
+
+        // A withdrawal floors saved at 0 (never negative).
+        var withdrawn = await Json(await owner.PostAsJsonAsync(
+            $"/api/family/finance/savings/{goalId}/contribute", new { amount = -9999.00m }));
+        withdrawn.GetProperty("savedAmount").GetDecimal().Should().Be(0m);
+        withdrawn.GetProperty("pct").GetDouble().Should().Be(0.0);
+
+        // The list reports combined saved/target.
+        var list = await Json(await owner.GetAsync("/api/family/finance/savings"));
+        list.GetProperty("totalTarget").GetDecimal().Should().Be(1000.00m);
+        list.GetRawText().Should().NotContain("@");
+    }
+
+    [Fact]
+    public async Task Savings_goal_is_household_isolated_cross_household_id_is_404()
+    {
+        var alice = await FinanceUser();
+        var goalId = (await Json(await alice.PostAsJsonAsync("/api/family/finance/savings",
+            new { name = "Trip", targetAmount = 500m }))).GetProperty("id").GetInt32();
+
+        var bob = await FinanceUser();
+        (await bob.PutAsJsonAsync($"/api/family/finance/savings/{goalId}", new { name = "Hijack" }))
+            .StatusCode.Should().Be(HttpStatusCode.NotFound);
+        (await bob.PostAsJsonAsync($"/api/family/finance/savings/{goalId}/contribute", new { amount = 100m }))
+            .StatusCode.Should().Be(HttpStatusCode.NotFound);
+        (await bob.DeleteAsync($"/api/family/finance/savings/{goalId}"))
+            .StatusCode.Should().Be(HttpStatusCode.NotFound);
+
+        // Bob's own savings list is empty (Alice's goal never leaks).
+        (await Json(await bob.GetAsync("/api/family/finance/savings")))
+            .GetProperty("goals").GetArrayLength().Should().Be(0);
+    }
+
+    // =====================================================================================
+    // AI "BUDGET CHECK-IN" — deterministic over/near/under floor; never 503; writes nothing
+    // =====================================================================================
+
+    [Fact]
+    public async Task Budget_check_floors_to_deterministic_status_when_ai_off_never_503_and_writes_nothing()
+    {
+        var owner = await FinanceUser(); // no finance.ai, Gemini OFF in tests
+        await owner.PostAsJsonAsync("/api/family/finance/import", new { fileName = "rm.csv", content = SampleCsv });
+        // A Groceries budget of $40 vs the month's $54.20 Groceries expense → over (the month is fully elapsed).
+        await owner.PostAsJsonAsync("/api/family/finance/budgets", new { category = "Groceries", limitAmount = 40m });
+
+        var res = await owner.GetAsync("/api/family/finance/ai/budget-check?month=2026-05");
+        res.StatusCode.Should().Be(HttpStatusCode.OK); // ALWAYS 200, never 503
+        var dto = await Json(res);
+
+        dto.GetProperty("fellBackToPlain").GetBoolean().Should().BeTrue();
+        dto.GetProperty("month").GetString().Should().Be("2026-05");
+        // The deterministic over/near/under list is the floor.
+        var groceries = dto.GetProperty("budgets").EnumerateArray()
+            .Single(b => b.GetProperty("category").GetString() == "Groceries");
+        groceries.GetProperty("status").GetString().Should().Be("over"); // 54.20 projected over a 40 limit
+        dto.GetProperty("overCount").GetInt32().Should().Be(1);
+        // No narration when falling back (the floor drops it); no email anywhere.
+        dto.GetProperty("narrative").ValueKind.Should().Be(JsonValueKind.Null);
+        dto.GetProperty("tips").GetArrayLength().Should().Be(0);
+        dto.GetRawText().Should().NotContain("@");
+
+        // The read wrote nothing: still exactly one budget, one import batch.
+        (await Json(await owner.GetAsync("/api/family/finance/budgets?month=2026-05")))
+            .GetProperty("budgets").GetArrayLength().Should().Be(1);
+        (await Json(await owner.GetAsync("/api/family/finance/imports"))).GetArrayLength().Should().Be(1);
+    }
+
+    [Fact]
+    public async Task Budget_routes_require_family_finance_on_top_of_family_use()
+    {
+        var (_, useOnly, _) = await ProvisionUser("family.use");
+        await useOnly.GetAsync("/api/family/household");
+        (await useOnly.GetAsync("/api/family/finance/budgets?month=2026-05"))
+            .StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        (await useOnly.GetAsync("/api/family/finance/net-worth")).StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        (await useOnly.GetAsync("/api/family/finance/savings")).StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        (await useOnly.GetAsync("/api/family/finance/ai/budget-check"))
+            .StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
 }

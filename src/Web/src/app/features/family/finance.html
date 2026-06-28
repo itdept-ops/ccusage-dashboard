@@ -424,6 +424,293 @@
         </div>
       }
 
+      <!-- ══ ✨ BUDGET CHECK-IN — deterministic over/near floor + optional AI narration ══════════════
+           Mirrors the "Explain this month" card: the floor (over/near counts + net-worth direction) always
+           renders once there's a budget; the warm narrative + tips appear only when the model narrated. -->
+      @if (budgetCheck(); as bc) {
+        @if (bc.budgets.length > 0) {
+          <article class="briefing fin-ai__card fin-budgetcheck" [class.briefing--plain]="bc.fellBackToPlain"
+                   aria-label="Budget check-in">
+            <mat-icon class="briefing__spark" aria-hidden="true">{{ bc.fellBackToPlain ? 'fact_check' : 'auto_awesome' }}</mat-icon>
+            <div class="briefing__body">
+              <p class="fin-ai__eyebrow">Budget check-in</p>
+              <p class="fin-budgetcheck__floor">
+                @if (bc.overCount > 0) { <strong class="fin-budgetcheck__over">{{ bc.overCount }} over pace</strong> }
+                @if (bc.overCount > 0 && bc.nearCount > 0) { · }
+                @if (bc.nearCount > 0) { <strong class="fin-budgetcheck__near">{{ bc.nearCount }} close to limit</strong> }
+                @if (bc.overCount === 0 && bc.nearCount === 0) { <span>All budgets on track</span> }
+                · net worth {{ netWorthDirectionLabel(bc.netWorthDirection) }}
+              </p>
+              @if (!bc.fellBackToPlain && bc.narrative) {
+                <p class="briefing__text">{{ bc.narrative }}</p>
+                @if (bc.tips?.length) {
+                  <ul class="fin-ai__insights">
+                    @for (tip of bc.tips; track $index) { <li>{{ tip }}</li> }
+                  </ul>
+                }
+              }
+            </div>
+          </article>
+        }
+      }
+
+      <!-- ══ BUDGETS — per-category spend/limit progress (green→amber→red BY PACE) ═══════════════════ -->
+      <section class="fin-card fin-budgets">
+        <div class="fin-card__head">
+          <div>
+            <h2 class="fin-card__title">Budgets</h2>
+            <p class="fin-card__sub">A monthly limit per category — the bar fills green → amber → red by your spending pace. Transfers never count.</p>
+          </div>
+          @if (budgets()?.totalSpent != null) {
+            <span class="fin-card__count">{{ money(budgets()!.totalSpent) }} spent in {{ monthLabel() }}</span>
+          }
+        </div>
+
+        @if (budgets(); as bg) {
+          @if (bg.budgets.length > 0) {
+            <ul class="fin-budget-list">
+              @for (b of bg.budgets; track b.id) {
+                <li class="fin-budget" [attr.data-status]="b.status">
+                  <div class="fin-budget__top">
+                    <span class="fin-budget__name">{{ budgetLabel(b) }}</span>
+                    <span class="fin-budget__status" [attr.data-status]="b.status">{{ budgetStatusLabel(b.status) }}</span>
+                    <span class="fin-budget__nums">
+                      <strong>{{ money(b.spent) }}</strong> / {{ money(b.limitAmount) }}
+                    </span>
+                  </div>
+                  <div class="fin-budget__track" aria-hidden="true">
+                    <span class="fin-budget__fill" [attr.data-status]="b.status" [style.width.%]="budgetFillPct(b)"></span>
+                  </div>
+                  <div class="fin-budget__foot">
+                    <span class="fin-budget__remain" [class.is-over]="b.remaining < 0">
+                      {{ b.remaining >= 0 ? money(b.remaining) + ' left' : money(-b.remaining) + ' over' }}
+                    </span>
+                    <span class="fin-budget__pace">Projected {{ money(b.projected) }}</span>
+                    <span class="fin-budget__actions">
+                      <button type="button" class="fin-linkbtn" (click)="editBudgetLimit(b)" matTooltip="Edit limit">
+                        <mat-icon aria-hidden="true">edit</mat-icon>
+                      </button>
+                      <button type="button" class="fin-linkbtn" (click)="deleteBudget(b)" matTooltip="Remove budget">
+                        <mat-icon aria-hidden="true">delete_outline</mat-icon>
+                      </button>
+                    </span>
+                  </div>
+                </li>
+              }
+            </ul>
+          } @else {
+            <p class="fin-card__empty">No budgets yet — add one below to track a category against a monthly limit.</p>
+          }
+
+          <!-- unbudgeted rollup -->
+          @if (bg.unbudgeted.spent > 0) {
+            <div class="fin-unbudgeted">
+              <mat-icon aria-hidden="true">help_outline</mat-icon>
+              <span class="fin-unbudgeted__txt">
+                <strong>{{ money(bg.unbudgeted.spent) }}</strong> unbudgeted
+                across {{ bg.unbudgeted.categoryCount }} categor{{ bg.unbudgeted.categoryCount === 1 ? 'y' : 'ies' }}
+              </span>
+            </div>
+          }
+        }
+
+        <!-- add a budget (inline) -->
+        <div class="fin-budget-add">
+          @if (budgetDraftCategory() === null) {
+            <label class="fin-field fin-budget-add__pick">
+              <span class="fin-field__lbl">Add a budget</span>
+              <select class="fin-select" [value]="''"
+                      (change)="startBudget($any($event.target).value); $any($event.target).value = ''">
+                <option value="" disabled selected>Choose a category…</option>
+                @if (!hasOverallBudget()) { <option value="__overall__">Overall (whole month)</option> }
+                @for (c of budgetCategoryOptions(); track c) { <option [value]="c">{{ c }}</option> }
+              </select>
+            </label>
+          } @else {
+            <div class="fin-budget-add__draft">
+              <span class="fin-budget-add__for">
+                {{ budgetDraftCategory() === '' ? 'Overall (whole month)' : budgetDraftCategory() }}
+              </span>
+              <input class="fin-input" type="number" inputmode="decimal" min="0" step="1"
+                     placeholder="Monthly limit ($)" [value]="budgetDraftLimit()"
+                     (input)="budgetDraftLimit.set($any($event.target).value)" aria-label="Monthly limit" />
+              <button mat-flat-button color="primary" [disabled]="budgetSaving()" (click)="saveBudgetDraft()">
+                @if (budgetSaving()) { <mat-spinner [diameter]="16" /> } @else { Add }
+              </button>
+              <button mat-stroked-button (click)="cancelBudgetDraft()">Cancel</button>
+            </div>
+          }
+        </div>
+      </section>
+
+      <!-- ══ NET WORTH — manual signed balances → assets / liabilities / net + a trend ══════════════ -->
+      <section class="fin-card fin-networth">
+        <div class="fin-card__head">
+          <div>
+            <h2 class="fin-card__title">Net worth</h2>
+            <p class="fin-card__sub">Enter each account's current balance by hand — there's no live bank link. Credit cards and loans are liabilities (negative).</p>
+          </div>
+        </div>
+
+        @if (netWorth(); as nw) {
+          <div class="fin-nw-cards">
+            <div class="fin-stat fin-stat--asset">
+              <span class="fin-stat__label">Assets</span>
+              <span class="fin-stat__value">{{ money(nw.assets) }}</span>
+            </div>
+            <div class="fin-stat fin-stat--liab">
+              <span class="fin-stat__label">Liabilities</span>
+              <span class="fin-stat__value">{{ money(nw.liabilities) }}</span>
+            </div>
+            <div class="fin-stat" [class.fin-stat--pos]="nw.netWorth >= 0" [class.fin-stat--neg]="nw.netWorth < 0">
+              <span class="fin-stat__label">Net worth</span>
+              <span class="fin-stat__value">{{ money(nw.netWorth) }}</span>
+            </div>
+          </div>
+
+          @if (nw.trend?.length > 1) {
+            <div class="fin-chart fin-chart--trend">
+              @defer (on viewport) {
+                <app-chart [option]="netWorthTrendOption()" />
+              } @placeholder {
+                <div class="chart-skeleton" style="height:240px"></div>
+              }
+            </div>
+          }
+
+          <!-- per-account balance editor -->
+          @if (nw.accounts.length > 0) {
+            <ul class="fin-nw-accts">
+              @for (a of nw.accounts; track a.accountId) {
+                <li class="fin-nw-acct">
+                  <span class="fin-owner-dot" [attr.data-owner]="a.owner" aria-hidden="true"></span>
+                  <div class="fin-nw-acct__id">
+                    <span class="fin-nw-acct__name">{{ a.name }}</span>
+                    <span class="fin-nw-acct__meta">
+                      {{ ownerLabel(a.owner) }} · {{ kindLabel(a.kind) }}
+                      @if (a.hasBalance) { · as of {{ txnDate(a.asOfDate!) }} }
+                    </span>
+                  </div>
+
+                  @if (balanceDraftAccount()?.accountId === a.accountId) {
+                    <div class="fin-nw-acct__edit">
+                      <input class="fin-input" type="number" inputmode="decimal" step="0.01"
+                             [placeholder]="balanceHint(a)" [value]="balanceDraftValue()"
+                             (input)="balanceDraftValue.set($any($event.target).value)" aria-label="Current balance" />
+                      <button mat-flat-button color="primary" [disabled]="balanceSaving()" (click)="saveBalanceDraft()">
+                        @if (balanceSaving()) { <mat-spinner [diameter]="16" /> } @else { Save }
+                      </button>
+                      <button mat-stroked-button (click)="cancelBalanceDraft()">Cancel</button>
+                    </div>
+                  } @else {
+                    <span class="fin-nw-acct__bal" [class.is-neg]="a.latestBalance < 0">
+                      {{ a.hasBalance ? money(a.latestBalance) : '—' }}
+                    </span>
+                    <button mat-stroked-button class="fin-nw-acct__btn" (click)="startBalance(a)">
+                      <mat-icon aria-hidden="true">edit</mat-icon> {{ a.hasBalance ? 'Update' : 'Enter balance' }}
+                    </button>
+                  }
+                </li>
+              }
+            </ul>
+          } @else {
+            <p class="fin-card__empty">Import a CSV to populate accounts, then enter a balance for each.</p>
+          }
+        }
+      </section>
+
+      <!-- ══ SAVINGS GOALS — ring-to-target cards with owner tags + a Contribute button ════════════ -->
+      <section class="fin-card fin-savings">
+        <div class="fin-card__head">
+          <div>
+            <h2 class="fin-card__title">Savings goals</h2>
+            <p class="fin-card__sub">Track what you're putting aside toward a target — tag each goal His, Hers, or Joint.</p>
+          </div>
+          <button mat-flat-button color="primary" class="fin-savings__add" (click)="openNewGoal()">
+            <mat-icon aria-hidden="true">add</mat-icon> New goal
+          </button>
+        </div>
+
+        @if (savings(); as sv) {
+          @if (sv.goals.length > 0) {
+            <div class="fin-goal-grid">
+              @for (g of sv.goals; track g.id) {
+                <div class="fin-goal" [class.is-archived]="g.archived">
+                  <div class="fin-goal__ring" [style.background]="goalRing(g)" aria-hidden="true">
+                    <span class="fin-goal__ring-inner">{{ goalPct(g) }}%</span>
+                  </div>
+                  <div class="fin-goal__body">
+                    <div class="fin-goal__head">
+                      <span class="fin-goal__name">{{ g.name }}</span>
+                      <span class="fin-goal__owner" [attr.data-owner]="g.owner">{{ ownerLabel(g.owner) }}</span>
+                    </div>
+                    <div class="fin-goal__nums">
+                      <strong>{{ money(g.savedAmount) }}</strong> of {{ money(g.targetAmount) }}
+                    </div>
+                    <div class="fin-goal__meta">
+                      @if (g.targetDate) { <span>by {{ txnDate(g.targetDate) }}</span> }
+                      @if (g.projectedFinish) { <span>· on pace for {{ txnDate(g.projectedFinish) }}</span> }
+                    </div>
+                    <div class="fin-goal__actions">
+                      <button mat-flat-button color="primary" class="fin-goal__contribute" (click)="contributeToGoal(g)">
+                        <mat-icon aria-hidden="true">add</mat-icon> Contribute
+                      </button>
+                      <button type="button" class="fin-linkbtn" (click)="openEditGoal(g)" matTooltip="Edit goal">
+                        <mat-icon aria-hidden="true">edit</mat-icon>
+                      </button>
+                      <button type="button" class="fin-linkbtn" (click)="deleteGoal(g)" matTooltip="Delete goal">
+                        <mat-icon aria-hidden="true">delete_outline</mat-icon>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              }
+            </div>
+          } @else {
+            <p class="fin-card__empty">No savings goals yet — add one to track progress toward a target.</p>
+          }
+        }
+      </section>
+
+      <!-- ── Savings goal add/edit dialog (lightweight inline modal) ── -->
+      @if (goalDraft(); as gd) {
+        <div class="fin-modal" role="dialog" aria-modal="true" aria-label="Savings goal">
+          <div class="fin-modal__panel">
+            <h2 class="fin-card__title">{{ gd.id == null ? 'New savings goal' : 'Edit goal' }}</h2>
+            <label class="fin-field">
+              <span class="fin-field__lbl">Name</span>
+              <input class="fin-input" type="text" maxlength="200" [value]="gd.name"
+                     (input)="patchGoalDraft({ name: $any($event.target).value })" placeholder="e.g. Emergency fund" />
+            </label>
+            <label class="fin-field">
+              <span class="fin-field__lbl">Target amount ($)</span>
+              <input class="fin-input" type="number" inputmode="decimal" min="0" step="1" [value]="gd.target"
+                     (input)="patchGoalDraft({ target: $any($event.target).value })" placeholder="0" />
+            </label>
+            <div class="fin-modal__row">
+              <label class="fin-field">
+                <span class="fin-field__lbl">Owner</span>
+                <select class="fin-select" [value]="gd.owner"
+                        (change)="patchGoalDraft({ owner: $any($event.target).value })">
+                  @for (o of ownerOptions; track o) { <option [value]="o">{{ ownerLabel(o) }}</option> }
+                </select>
+              </label>
+              <label class="fin-field">
+                <span class="fin-field__lbl">Target date (optional)</span>
+                <input class="fin-input" type="date" [value]="gd.targetDate"
+                       (input)="patchGoalDraft({ targetDate: $any($event.target).value })" />
+              </label>
+            </div>
+            <div class="fin-modal__actions">
+              <button mat-stroked-button (click)="cancelGoalDraft()">Cancel</button>
+              <button mat-flat-button color="primary" [disabled]="goalSaving()" (click)="saveGoalDraft()">
+                @if (goalSaving()) { <mat-spinner [diameter]="16" /> Saving… } @else { Save goal }
+              </button>
+            </div>
+          </div>
+        </div>
+      }
+
       <!-- ══ ACCOUNTS — tag owner / kind / name ═══════════════════════════ -->
       <section class="fin-card">
         <div class="fin-card__head">

@@ -148,8 +148,102 @@ public static class FamilyFinanceEndpoints
         IReadOnlyList<RecurringChargeDto> Recurring, decimal MonthlyRecurringTotal,
         string? Narrative, IReadOnlyList<string> Tips, bool FellBackToPlain);
 
+    // ---- BUDGETS (deterministic spend-vs-budget by pace) ----
+
+    /// <summary>One budget row for GET /budgets: the budget intent (id/category/limit) PLUS the deterministic
+    /// server math for the requested month — EXPENSE-only <see cref="Spent"/> (transfers excluded),
+    /// <see cref="Remaining"/> (limit − spent), <see cref="Pct"/> spent of limit, the straight-line
+    /// <see cref="Projected"/> month-end pace (<c>spent / dayOfMonth * daysInMonth</c>), and a
+    /// <see cref="Status"/> "under"|"near"|"over" computed BY PACE. <see cref="Category"/> is null for the
+    /// household's OVERALL whole-month budget.</summary>
+    public sealed record BudgetDto(
+        int Id, string? Category, decimal LimitAmount, decimal Spent, decimal Remaining,
+        double Pct, decimal Projected, string Status);
+
+    /// <summary>The unbudgeted-spend rollup: EXPENSE spend this month in categories the household has NO budget
+    /// for (the overall budget, if any, does not absorb a per-category gap). Lets the UI show "you also spent
+    /// $X outside any budget".</summary>
+    public sealed record UnbudgetedDto(decimal Spent, int CategoryCount);
+
+    /// <summary>GET /budgets result: the month, the per-budget rows (overall budget first when present), the
+    /// unbudgeted rollup, and the month's total EXPENSE spend (the same figure GET /summary computes).</summary>
+    public sealed record BudgetsResponseDto(
+        string Month, IReadOnlyList<BudgetDto> Budgets, UnbudgetedDto Unbudgeted, decimal TotalSpent);
+
+    /// <summary>POST/PUT /budgets body: a category (null/blank = the OVERALL budget) + the monthly limit.</summary>
+    public sealed record BudgetUpsertRequest(string? Category, decimal? LimitAmount);
+
+    // ---- NET WORTH (signed snapshots; latest per account) ----
+
+    /// <summary>One account's latest balance for GET /net-worth: the account (id/name/owner/kind) + its
+    /// most-recent SIGNED <see cref="LatestBalance"/> (bank positive asset, credit/loan negative liability) +
+    /// the <see cref="AsOfDate"/> it was entered. <see cref="HasBalance"/> is false when the account has no
+    /// snapshot yet (LatestBalance/AsOfDate are 0/null) so the UI can prompt for a first entry.</summary>
+    public sealed record AccountBalanceDto(
+        int AccountId, string Name, string Owner, string Kind, decimal LatestBalance, string? AsOfDate, bool HasBalance);
+
+    /// <summary>One net-worth-by-month trend point: the month label + the net worth as of that month's end
+    /// (sum of each account's most-recent snapshot AT OR BEFORE that month).</summary>
+    public sealed record NetWorthTrendPointDto(string Month, decimal NetWorth);
+
+    /// <summary>GET /net-worth result: assets total (sum of positive latest balances), liabilities total (sum
+    /// of negative latest balances, returned as a NEGATIVE number), the net worth (assets + liabilities), the
+    /// per-account rows, and a net-worth-by-month trend from the snapshot history. MANUAL entry — there is no
+    /// bank feed.</summary>
+    public sealed record NetWorthDto(
+        decimal Assets, decimal Liabilities, decimal NetWorth,
+        IReadOnlyList<AccountBalanceDto> Accounts, IReadOnlyList<NetWorthTrendPointDto> Trend);
+
+    /// <summary>POST /accounts/{id}/balance body: today's (or a chosen day's) SIGNED balance for one account.</summary>
+    public sealed record BalanceEntryRequest(string? AsOfDate, decimal? Balance, string? Note);
+
+    // ---- SAVINGS GOALS ----
+
+    /// <summary>One savings goal for GET /savings: the goal + its progress (<see cref="Pct"/> saved of target)
+    /// and a <see cref="ProjectedFinish"/> date estimated from the contribution pace (null when there's no pace
+    /// or it's already met). <see cref="Owner"/> reuses the his/hers/joint/unassigned vocab + colors.</summary>
+    public sealed record SavingsGoalDto(
+        int Id, string Name, decimal TargetAmount, decimal SavedAmount, double Pct,
+        string? TargetDate, string Owner, string? Color, string? Icon, bool Archived, string? ProjectedFinish);
+
+    /// <summary>GET /savings result: the active goals (archived hidden unless asked) + their combined saved/target.</summary>
+    public sealed record SavingsResponseDto(
+        IReadOnlyList<SavingsGoalDto> Goals, decimal TotalSaved, decimal TotalTarget);
+
+    /// <summary>POST/PUT /savings body: the goal fields (a PUT leaves SavedAmount alone — use /contribute).</summary>
+    public sealed record SavingsUpsertRequest(
+        string? Name, decimal? TargetAmount, string? TargetDate, string? Owner,
+        string? Color, string? Icon, bool? Archived);
+
+    /// <summary>POST /savings/{id}/contribute body: a signed amount to add to SavedAmount (negative withdraws;
+    /// SavedAmount floors at 0).</summary>
+    public sealed record ContributeRequest(decimal? Amount);
+
+    // ---- AI BUDGET CHECK-IN (floored) ----
+
+    /// <summary>One budget's deterministic status line for the AI budget check floor: category (null = overall),
+    /// the limit, paced projection, and the "under"|"near"|"over" verdict.</summary>
+    public sealed record BudgetCheckItemDto(string? Category, decimal LimitAmount, decimal Projected, string Status);
+
+    /// <summary>
+    /// GET /ai/budget-check result. The deterministic FLOOR is the per-budget over/near/under list
+    /// (<see cref="Budgets"/>), the counts (<see cref="OverCount"/>/<see cref="NearCount"/>), and the
+    /// net-worth <see cref="NetWorthDirection"/> ("up"|"down"|"flat"|"unknown") — all present whether Gemini is
+    /// on or off. When the caller holds finance.ai AND Gemini is configured it ALSO narrates those facts into a
+    /// warm <see cref="Narrative"/> + up to 5 <see cref="Tips"/>; otherwise those are empty/null and
+    /// <see cref="FellBackToPlain"/> is true. ALWAYS 200 (the floor stands), never a 503/500, and writes
+    /// NOTHING.</summary>
+    public sealed record BudgetCheckDto(
+        string Month, IReadOnlyList<BudgetCheckItemDto> Budgets,
+        int OverCount, int NearCount, string NetWorthDirection,
+        string? Narrative, IReadOnlyList<string> Tips, bool FellBackToPlain);
+
     private static readonly string[] Owners = { "his", "hers", "joint", "unassigned" };
     private static readonly string[] Kinds = { "bank", "credit", "other" };
+
+    /// <summary>The "near budget" threshold by PACE: a budget is "near" once its paced projection reaches this
+    /// fraction of the limit (and "over" once it exceeds the limit).</summary>
+    private const double NearBudgetThreshold = 0.85;
 
     // Cap the uploaded CSV at a sane size (a Rocket Money export of many years is well under this).
     private const int MaxContentBytes = 8 * 1024 * 1024; // 8 MiB
@@ -172,6 +266,10 @@ public static class FamilyFinanceEndpoints
         MapImportsList(g);
         MapAiSummary(g);
         MapMoneyCoach(g);
+        MapBudgets(g);
+        MapNetWorth(g);
+        MapSavings(g);
+        MapBudgetCheck(g);
     }
 
     // =====================================================================================
@@ -1456,6 +1554,685 @@ public static class FamilyFinanceEndpoints
             sb.Append("- ").Append(r.Merchant).Append(": ").Append(Money(r.TypicalAmount))
               .Append("/mo, seen ").Append(r.MonthsSeen).Append(" months, last ").Append(r.LastDate).Append('\n');
         return sb.ToString();
+    }
+
+    // =====================================================================================
+    // BUDGETS — deterministic per-category spend-vs-budget by PACE (transfers excluded)
+    // =====================================================================================
+
+    private static void MapBudgets(RouteGroupBuilder g)
+    {
+        // GET /budgets?month=YYYY-MM — each budget with deterministic spent-this-month (EXPENSE-only) + remaining
+        // + pct + a pace projection, plus an unbudgeted rollup. Pure read (writes nothing).
+        g.MapGet("/budgets", async (
+            string? month, CurrentUserAccessor me, CurrentHouseholdAccessor households,
+            UsageDbContext db, CancellationToken ct) =>
+        {
+            var caller = (await me.GetUserAsync(ct))!;
+            var household = (await households.GetOrCreateForCallerAsync(caller, ct))!;
+
+            var result = await ComputeBudgetsAsync(db, household.Id, month, ct);
+            return Results.Ok(result);
+        });
+
+        // POST /budgets — create a budget for a category (null/blank = the overall whole-month budget).
+        g.MapPost("/budgets", async (
+            BudgetUpsertRequest req, CurrentUserAccessor me, CurrentHouseholdAccessor households,
+            UsageDbContext db, CancellationToken ct) =>
+        {
+            var caller = (await me.GetUserAsync(ct))!;
+            var household = (await households.GetOrCreateForCallerAsync(caller, ct))!;
+
+            if (!TryNormalizeLimit(req.LimitAmount, out var limit, out var limitError))
+                return Results.BadRequest(new { message = limitError });
+            var category = NormalizeBudgetCategory(req.Category);
+
+            var now = DateTime.UtcNow;
+            var budget = new FinanceBudget
+            {
+                HouseholdId = household.Id,
+                Category = category,
+                LimitAmount = limit,
+                Period = "monthly",
+                CreatedByUserId = caller.Id,
+                CreatedUtc = now,
+                UpdatedUtc = now,
+            };
+            db.FinanceBudgets.Add(budget);
+
+            try
+            {
+                await db.SaveChangesAsync(ct);
+            }
+            catch (DbUpdateException ex) when (IsUniqueViolation(ex))
+            {
+                return Results.Conflict(new { message = "A budget for that category already exists." });
+            }
+
+            return Results.Ok(new BudgetDto(
+                budget.Id, budget.Category, budget.LimitAmount, 0m, budget.LimitAmount, 0.0, 0m, "under"));
+        });
+
+        // PUT /budgets/{id} — update a budget's limit (and/or move its category). Cross-household id → 404.
+        g.MapPut("/budgets/{id:int}", async (
+            int id, BudgetUpsertRequest req, CurrentUserAccessor me, CurrentHouseholdAccessor households,
+            UsageDbContext db, CancellationToken ct) =>
+        {
+            var caller = (await me.GetUserAsync(ct))!;
+            var household = (await households.GetOrCreateForCallerAsync(caller, ct))!;
+
+            var budget = await db.FinanceBudgets.FirstOrDefaultAsync(b => b.Id == id, ct);
+            if (budget is null || budget.HouseholdId != household.Id) return BudgetNotFound();
+
+            if (req.LimitAmount is not null)
+            {
+                if (!TryNormalizeLimit(req.LimitAmount, out var limit, out var limitError))
+                    return Results.BadRequest(new { message = limitError });
+                budget.LimitAmount = limit;
+            }
+            if (req.Category is not null)
+                budget.Category = NormalizeBudgetCategory(req.Category);
+            budget.UpdatedUtc = DateTime.UtcNow;
+
+            try
+            {
+                await db.SaveChangesAsync(ct);
+            }
+            catch (DbUpdateException ex) when (IsUniqueViolation(ex))
+            {
+                return Results.Conflict(new { message = "A budget for that category already exists." });
+            }
+
+            return Results.Ok(new BudgetDto(
+                budget.Id, budget.Category, budget.LimitAmount, 0m, budget.LimitAmount, 0.0, 0m, "under"));
+        });
+
+        // DELETE /budgets/{id} — remove a budget. Cross-household id → 404.
+        g.MapDelete("/budgets/{id:int}", async (
+            int id, CurrentUserAccessor me, CurrentHouseholdAccessor households,
+            UsageDbContext db, CancellationToken ct) =>
+        {
+            var caller = (await me.GetUserAsync(ct))!;
+            var household = (await households.GetOrCreateForCallerAsync(caller, ct))!;
+
+            var budget = await db.FinanceBudgets.FirstOrDefaultAsync(b => b.Id == id, ct);
+            if (budget is null || budget.HouseholdId != household.Id) return BudgetNotFound();
+
+            db.FinanceBudgets.Remove(budget);
+            await db.SaveChangesAsync(ct);
+            return Results.NoContent();
+        });
+    }
+
+    /// <summary>The deterministic budgets read for a month, shared by GET /budgets and the AI budget check. Loads
+    /// the household's budget rows + the month's EXPENSE-only spend (via the SHARED <see cref="FinanceSpendMath"/>),
+    /// projects each budget's pace, and rolls up unbudgeted spend. The month is resolved like GET /summary (the
+    /// requested YYYY-MM, else the most recent month with data, else now).</summary>
+    private static async Task<BudgetsResponseDto> ComputeBudgetsAsync(
+        UsageDbContext db, int householdId, string? month, CancellationToken ct)
+    {
+        var (from, toExclusive) = await ResolveMonthAsync(db, householdId, month, ct);
+        var monthLabel = from.ToString("yyyy-MM", CultureInfo.InvariantCulture);
+
+        // Pace the month "as of" today when it's the current month, else the full month.
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var dayOfMonth = FinanceSpendMath.ElapsedDayOfMonth(from, today);
+        var daysInMonth = DateTime.DaysInMonth(from.Year, from.Month);
+
+        var rows = await FinanceSpendMath.LoadExpenseRowsAsync(db, householdId, from, toExclusive, ct);
+        var totalSpent = FinanceSpendMath.TotalSpent(rows);
+        var spentByCategory = FinanceSpendMath.SpentByCategory(rows);
+
+        var budgets = await db.FinanceBudgets.AsNoTracking()
+            .Where(b => b.HouseholdId == householdId)
+            .ToListAsync(ct);
+
+        var budgetDtos = new List<BudgetDto>(budgets.Count);
+        var budgetedKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var b in budgets
+            .OrderBy(b => b.Category is null ? 0 : 1) // the overall budget first
+            .ThenBy(b => b.Category, StringComparer.OrdinalIgnoreCase))
+        {
+            decimal spent;
+            if (b.Category is null)
+            {
+                spent = totalSpent; // the OVERALL budget is checked against the whole-month spend
+            }
+            else
+            {
+                var key = FinanceSpendMath.CategoryKey(b.Category);
+                budgetedKeys.Add(key);
+                spent = spentByCategory.TryGetValue(key, out var s) ? s : 0m;
+            }
+
+            var projected = FinanceSpendMath.ProjectPace(spent, dayOfMonth, daysInMonth);
+            var pct = b.LimitAmount > 0 ? Math.Round((double)(spent / b.LimitAmount) * 100.0, 1) : 0.0;
+            budgetDtos.Add(new BudgetDto(
+                b.Id, b.Category, b.LimitAmount, decimal.Round(spent, 2),
+                decimal.Round(b.LimitAmount - spent, 2), pct, projected,
+                BudgetStatus(projected, b.LimitAmount)));
+        }
+
+        // Unbudgeted = spend in categories with NO per-category budget (the overall budget doesn't absorb gaps).
+        var unbudgeted = spentByCategory
+            .Where(kv => !budgetedKeys.Contains(kv.Key))
+            .ToList();
+        var unbudgetedSpent = unbudgeted.Sum(kv => kv.Value);
+
+        return new BudgetsResponseDto(
+            monthLabel, budgetDtos,
+            new UnbudgetedDto(decimal.Round(unbudgetedSpent, 2), unbudgeted.Count),
+            decimal.Round(totalSpent, 2));
+    }
+
+    /// <summary>"under" | "near" | "over" by PACE: over once the projection exceeds the limit, near once it
+    /// reaches <see cref="NearBudgetThreshold"/> of the limit.</summary>
+    private static string BudgetStatus(decimal projected, decimal limit)
+    {
+        if (limit <= 0) return "under";
+        if (projected > limit) return "over";
+        if ((double)(projected / limit) >= NearBudgetThreshold) return "near";
+        return "under";
+    }
+
+    /// <summary>Normalize a budget category: trim; null/blank → null (the overall budget); clamped to 120.</summary>
+    private static string? NormalizeBudgetCategory(string? category)
+    {
+        var c = (category ?? "").Trim();
+        return c.Length == 0 ? null : Clamp(c, 120);
+    }
+
+    /// <summary>Validate + normalize a budget/limit amount: required, non-negative, finite.</summary>
+    private static bool TryNormalizeLimit(decimal? amount, out decimal limit, out string error)
+    {
+        limit = 0m;
+        error = "";
+        if (amount is not decimal a) { error = "A limit amount is required."; return false; }
+        if (a < 0) { error = "A limit can't be negative."; return false; }
+        limit = decimal.Round(a, 2);
+        return true;
+    }
+
+    private static IResult BudgetNotFound() =>
+        Results.NotFound(new { message = "That budget doesn't exist." });
+
+    // =====================================================================================
+    // NET WORTH — signed manual balance snapshots; net worth = latest snapshot per account
+    // =====================================================================================
+
+    private static void MapNetWorth(RouteGroupBuilder g)
+    {
+        // GET /net-worth — newest snapshot per account → assets / liabilities / net worth + per-account rows +
+        // a net-worth-by-month trend from the snapshot history. MANUAL entry (no bank feed). Writes nothing.
+        g.MapGet("/net-worth", async (
+            CurrentUserAccessor me, CurrentHouseholdAccessor households, UsageDbContext db, CancellationToken ct) =>
+        {
+            var caller = (await me.GetUserAsync(ct))!;
+            var household = (await households.GetOrCreateForCallerAsync(caller, ct))!;
+
+            var result = await ComputeNetWorthAsync(db, household.Id, ct);
+            return Results.Ok(result);
+        });
+
+        // POST /accounts/{id}/balance — upsert today's (or a chosen day's) SIGNED balance for one household
+        // account. Cross-household account → 404 (existence never leaked).
+        g.MapPost("/accounts/{id:int}/balance", async (
+            int id, BalanceEntryRequest req, CurrentUserAccessor me, CurrentHouseholdAccessor households,
+            UsageDbContext db, CancellationToken ct) =>
+        {
+            var caller = (await me.GetUserAsync(ct))!;
+            var household = (await households.GetOrCreateForCallerAsync(caller, ct))!;
+
+            var account = await db.FinanceAccounts.FirstOrDefaultAsync(a => a.Id == id, ct);
+            if (account is null || account.HouseholdId != household.Id) return NotFound();
+
+            if (req.Balance is not decimal balance)
+                return Results.BadRequest(new { message = "A balance is required." });
+
+            var asOf = DateOnly.FromDateTime(DateTime.UtcNow);
+            if (!string.IsNullOrWhiteSpace(req.AsOfDate))
+            {
+                if (!DateOnly.TryParseExact(req.AsOfDate!.Trim(), "yyyy-MM-dd",
+                        CultureInfo.InvariantCulture, DateTimeStyles.None, out asOf))
+                    return Results.BadRequest(new { message = "AsOfDate must be YYYY-MM-DD." });
+            }
+
+            var note = string.IsNullOrWhiteSpace(req.Note) ? null : Clamp(req.Note, 500);
+
+            // Upsert (latest-wins) on (household, account, day).
+            var existing = await db.FinanceBalanceSnapshots
+                .FirstOrDefaultAsync(s => s.HouseholdId == household.Id
+                    && s.AccountId == id && s.AsOfDate == asOf, ct);
+            if (existing is not null)
+            {
+                existing.Balance = decimal.Round(balance, 2);
+                existing.Note = note;
+                existing.EnteredByUserId = caller.Id;
+            }
+            else
+            {
+                db.FinanceBalanceSnapshots.Add(new FinanceBalanceSnapshot
+                {
+                    HouseholdId = household.Id,
+                    AccountId = id,
+                    AsOfDate = asOf,
+                    Balance = decimal.Round(balance, 2),
+                    Note = note,
+                    EnteredByUserId = caller.Id,
+                    CreatedUtc = DateTime.UtcNow,
+                });
+            }
+
+            try
+            {
+                await db.SaveChangesAsync(ct);
+            }
+            catch (DbUpdateException ex) when (IsUniqueViolation(ex))
+            {
+                // A concurrent same-day entry won the race — the latest value is in; return the net worth.
+            }
+
+            var result = await ComputeNetWorthAsync(db, household.Id, ct);
+            return Results.Ok(result);
+        });
+    }
+
+    /// <summary>The deterministic net-worth read: each account's MOST-RECENT snapshot summed with the SIGN
+    /// convention (positive = asset, negative = liability), plus the per-account rows and a 12-month trend (net
+    /// worth = sum of each account's latest snapshot AT OR BEFORE each month-end). Writes nothing.</summary>
+    private static async Task<NetWorthDto> ComputeNetWorthAsync(
+        UsageDbContext db, int householdId, CancellationToken ct)
+    {
+        var accounts = await db.FinanceAccounts.AsNoTracking()
+            .Where(a => a.HouseholdId == householdId)
+            .Select(a => new { a.Id, a.Name, a.Owner, a.Kind })
+            .ToListAsync(ct);
+
+        var snapshots = await db.FinanceBalanceSnapshots.AsNoTracking()
+            .Where(s => s.HouseholdId == householdId)
+            .Select(s => new { s.AccountId, s.AsOfDate, s.Balance })
+            .ToListAsync(ct);
+
+        // Latest snapshot per account (newest AsOfDate wins).
+        var latestByAccount = snapshots
+            .GroupBy(s => s.AccountId)
+            .ToDictionary(grp => grp.Key, grp => grp
+                .OrderByDescending(s => s.AsOfDate)
+                .First());
+
+        var accountRows = accounts
+            .OrderBy(a => a.Name, StringComparer.OrdinalIgnoreCase).ThenBy(a => a.Id)
+            .Select(a =>
+            {
+                if (latestByAccount.TryGetValue(a.Id, out var snap))
+                    return new AccountBalanceDto(a.Id, a.Name, a.Owner, a.Kind, snap.Balance,
+                        snap.AsOfDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture), true);
+                return new AccountBalanceDto(a.Id, a.Name, a.Owner, a.Kind, 0m, null, false);
+            })
+            .ToList();
+
+        var assets = latestByAccount.Values.Where(s => s.Balance > 0).Sum(s => s.Balance);
+        var liabilities = latestByAccount.Values.Where(s => s.Balance < 0).Sum(s => s.Balance); // negative
+        var netWorth = assets + liabilities;
+
+        // A 12-month net-worth trend: for each month-end, sum each account's latest snapshot AT OR BEFORE it.
+        var trend = new List<NetWorthTrendPointDto>(12);
+        if (snapshots.Count > 0)
+        {
+            var anchor = snapshots.Max(s => s.AsOfDate);
+            var anchorMonth = new DateOnly(anchor.Year, anchor.Month, 1);
+            var byAccount = snapshots.GroupBy(s => s.AccountId)
+                .ToDictionary(grp => grp.Key, grp => grp.OrderBy(s => s.AsOfDate).ToList());
+
+            for (var i = 11; i >= 0; i--)
+            {
+                var monthStart = anchorMonth.AddMonths(-i);
+                var monthEndExclusive = monthStart.AddMonths(1);
+                decimal nw = 0m;
+                foreach (var rows in byAccount.Values)
+                {
+                    // The newest snapshot strictly before next month (i.e. as of this month-end).
+                    decimal? latest = null;
+                    foreach (var s in rows)
+                    {
+                        if (s.AsOfDate < monthEndExclusive) latest = s.Balance;
+                        else break;
+                    }
+                    if (latest is decimal v) nw += v;
+                }
+                trend.Add(new NetWorthTrendPointDto(
+                    monthStart.ToString("yyyy-MM", CultureInfo.InvariantCulture), decimal.Round(nw, 2)));
+            }
+        }
+
+        return new NetWorthDto(
+            decimal.Round(assets, 2), decimal.Round(liabilities, 2), decimal.Round(netWorth, 2),
+            accountRows, trend);
+    }
+
+    // =====================================================================================
+    // SAVINGS GOALS — manual saved/target with a contribution-pace projected finish
+    // =====================================================================================
+
+    private static void MapSavings(RouteGroupBuilder g)
+    {
+        // GET /savings?includeArchived= — goals with saved/target/pct + a projected finish from pace.
+        g.MapGet("/savings", async (
+            bool? includeArchived, CurrentUserAccessor me, CurrentHouseholdAccessor households,
+            UsageDbContext db, CancellationToken ct) =>
+        {
+            var caller = (await me.GetUserAsync(ct))!;
+            var household = (await households.GetOrCreateForCallerAsync(caller, ct))!;
+
+            var q = db.FinanceSavingsGoals.AsNoTracking()
+                .Where(s => s.HouseholdId == household.Id);
+            if (includeArchived != true)
+                q = q.Where(s => !s.Archived);
+
+            var loaded = await q.ToListAsync(ct);
+            var goals = loaded
+                .OrderBy(s => s.Archived)
+                .ThenBy(s => s.Name, StringComparer.OrdinalIgnoreCase).ThenBy(s => s.Id)
+                .ToList();
+
+            var dtos = goals.Select(ToSavingsDto).ToList();
+            var totalSaved = goals.Where(s => !s.Archived).Sum(s => s.SavedAmount);
+            var totalTarget = goals.Where(s => !s.Archived).Sum(s => s.TargetAmount);
+
+            return Results.Ok(new SavingsResponseDto(
+                dtos, decimal.Round(totalSaved, 2), decimal.Round(totalTarget, 2)));
+        });
+
+        // POST /savings — create a goal.
+        g.MapPost("/savings", async (
+            SavingsUpsertRequest req, CurrentUserAccessor me, CurrentHouseholdAccessor households,
+            UsageDbContext db, CancellationToken ct) =>
+        {
+            var caller = (await me.GetUserAsync(ct))!;
+            var household = (await households.GetOrCreateForCallerAsync(caller, ct))!;
+
+            var name = (req.Name ?? "").Trim();
+            if (name.Length == 0)
+                return Results.BadRequest(new { message = "A goal name is required." });
+            if (!TryNormalizeLimit(req.TargetAmount, out var target, out _))
+                return Results.BadRequest(new { message = "A non-negative target amount is required." });
+            if (!TryParseOptionalDate(req.TargetDate, out var targetDate, out var dateError))
+                return Results.BadRequest(new { message = dateError });
+
+            var now = DateTime.UtcNow;
+            var goal = new FinanceSavingsGoal
+            {
+                HouseholdId = household.Id,
+                Name = Clamp(name, 200),
+                TargetAmount = target,
+                SavedAmount = 0m,
+                TargetDate = targetDate,
+                Owner = NormalizeOwner(req.Owner),
+                Color = string.IsNullOrWhiteSpace(req.Color) ? null : Clamp(req.Color, 32),
+                Icon = string.IsNullOrWhiteSpace(req.Icon) ? null : Clamp(req.Icon, 64),
+                Archived = false,
+                CreatedByUserId = caller.Id,
+                CreatedUtc = now,
+                UpdatedUtc = now,
+            };
+            db.FinanceSavingsGoals.Add(goal);
+            await db.SaveChangesAsync(ct);
+            return Results.Ok(ToSavingsDto(goal));
+        });
+
+        // PUT /savings/{id} — update goal fields (NOT SavedAmount — use /contribute). Cross-household id → 404.
+        g.MapPut("/savings/{id:int}", async (
+            int id, SavingsUpsertRequest req, CurrentUserAccessor me, CurrentHouseholdAccessor households,
+            UsageDbContext db, CancellationToken ct) =>
+        {
+            var caller = (await me.GetUserAsync(ct))!;
+            var household = (await households.GetOrCreateForCallerAsync(caller, ct))!;
+
+            var goal = await db.FinanceSavingsGoals.FirstOrDefaultAsync(s => s.Id == id, ct);
+            if (goal is null || goal.HouseholdId != household.Id) return SavingsNotFound();
+
+            if (req.Name is not null)
+            {
+                var name = req.Name.Trim();
+                if (name.Length == 0)
+                    return Results.BadRequest(new { message = "A goal name is required." });
+                goal.Name = Clamp(name, 200);
+            }
+            if (req.TargetAmount is not null)
+            {
+                if (!TryNormalizeLimit(req.TargetAmount, out var target, out _))
+                    return Results.BadRequest(new { message = "A non-negative target amount is required." });
+                goal.TargetAmount = target;
+            }
+            if (req.TargetDate is not null)
+            {
+                if (req.TargetDate.Trim().Length == 0) goal.TargetDate = null;
+                else if (TryParseOptionalDate(req.TargetDate, out var d, out var dateError)) goal.TargetDate = d;
+                else return Results.BadRequest(new { message = dateError });
+            }
+            if (req.Owner is not null) goal.Owner = NormalizeOwner(req.Owner);
+            if (req.Color is not null) goal.Color = req.Color.Trim().Length == 0 ? null : Clamp(req.Color, 32);
+            if (req.Icon is not null) goal.Icon = req.Icon.Trim().Length == 0 ? null : Clamp(req.Icon, 64);
+            if (req.Archived is bool archived) goal.Archived = archived;
+            goal.UpdatedUtc = DateTime.UtcNow;
+
+            await db.SaveChangesAsync(ct);
+            return Results.Ok(ToSavingsDto(goal));
+        });
+
+        // POST /savings/{id}/contribute — adjust SavedAmount by a signed amount (floors at 0). Cross-household → 404.
+        g.MapPost("/savings/{id:int}/contribute", async (
+            int id, ContributeRequest req, CurrentUserAccessor me, CurrentHouseholdAccessor households,
+            UsageDbContext db, CancellationToken ct) =>
+        {
+            var caller = (await me.GetUserAsync(ct))!;
+            var household = (await households.GetOrCreateForCallerAsync(caller, ct))!;
+
+            var goal = await db.FinanceSavingsGoals.FirstOrDefaultAsync(s => s.Id == id, ct);
+            if (goal is null || goal.HouseholdId != household.Id) return SavingsNotFound();
+
+            if (req.Amount is not decimal amount || amount == 0m)
+                return Results.BadRequest(new { message = "A non-zero contribution amount is required." });
+
+            goal.SavedAmount = Math.Max(0m, decimal.Round(goal.SavedAmount + amount, 2));
+            goal.UpdatedUtc = DateTime.UtcNow;
+            await db.SaveChangesAsync(ct);
+            return Results.Ok(ToSavingsDto(goal));
+        });
+
+        // DELETE /savings/{id} — hard-delete a goal (archive is the soft path via PUT). Cross-household → 404.
+        g.MapDelete("/savings/{id:int}", async (
+            int id, CurrentUserAccessor me, CurrentHouseholdAccessor households,
+            UsageDbContext db, CancellationToken ct) =>
+        {
+            var caller = (await me.GetUserAsync(ct))!;
+            var household = (await households.GetOrCreateForCallerAsync(caller, ct))!;
+
+            var goal = await db.FinanceSavingsGoals.FirstOrDefaultAsync(s => s.Id == id, ct);
+            if (goal is null || goal.HouseholdId != household.Id) return SavingsNotFound();
+
+            db.FinanceSavingsGoals.Remove(goal);
+            await db.SaveChangesAsync(ct);
+            return Results.NoContent();
+        });
+    }
+
+    private static SavingsGoalDto ToSavingsDto(FinanceSavingsGoal g)
+    {
+        var pct = g.TargetAmount > 0
+            ? Math.Round((double)(g.SavedAmount / g.TargetAmount) * 100.0, 1)
+            : (g.SavedAmount > 0 ? 100.0 : 0.0);
+        pct = Math.Min(pct, 100.0);
+
+        // Projected finish from contribution pace: saved since creation / days elapsed → days to reach target.
+        string? projectedFinish = null;
+        var remaining = g.TargetAmount - g.SavedAmount;
+        if (remaining > 0 && g.SavedAmount > 0)
+        {
+            var daysElapsed = Math.Max(1, (DateTime.UtcNow - g.CreatedUtc).TotalDays);
+            var perDay = (double)g.SavedAmount / daysElapsed;
+            if (perDay > 0)
+            {
+                var daysToFinish = (double)remaining / perDay;
+                if (daysToFinish < 365 * 30) // cap at a sane horizon
+                    projectedFinish = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(daysToFinish))
+                        .ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+            }
+        }
+
+        return new SavingsGoalDto(
+            g.Id, g.Name, g.TargetAmount, g.SavedAmount, pct,
+            g.TargetDate?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
+            g.Owner, g.Color, g.Icon, g.Archived, projectedFinish);
+    }
+
+    private static string NormalizeOwner(string? owner)
+    {
+        var o = (owner ?? "").Trim().ToLowerInvariant();
+        return Owners.Contains(o) ? o : "unassigned";
+    }
+
+    private static bool TryParseOptionalDate(string? value, out DateOnly? date, out string error)
+    {
+        date = null;
+        error = "";
+        if (string.IsNullOrWhiteSpace(value)) return true;
+        if (!DateOnly.TryParseExact(value.Trim(), "yyyy-MM-dd",
+                CultureInfo.InvariantCulture, DateTimeStyles.None, out var d))
+        {
+            error = "A date must be YYYY-MM-DD.";
+            return false;
+        }
+        date = d;
+        return true;
+    }
+
+    private static IResult SavingsNotFound() =>
+        Results.NotFound(new { message = "That savings goal doesn't exist." });
+
+    // =====================================================================================
+    // AI — "Budget check-in" (DETERMINISTIC over/near/under floor + read-only narration)
+    // =====================================================================================
+
+    private static void MapBudgetCheck(RouteGroupBuilder g)
+    {
+        // GET /ai/budget-check?month=YYYY-MM — DETERMINISTIC floor (which budgets are over/near/under by pace +
+        // the net-worth direction), ALWAYS 200; the finance.ai-gated Gemini narration is the only token spend;
+        // cached per (household, month); writes nothing. Same floor contract as /ai/summary + /ai/money-coach.
+        g.MapGet("/ai/budget-check", async (
+            string? month, CurrentUserAccessor me, CurrentHouseholdAccessor households,
+            GeminiService gemini, IMemoryCache cache, UsageDbContext db, CancellationToken ct) =>
+        {
+            var caller = (await me.GetUserAsync(ct))!;
+            var household = (await households.GetOrCreateForCallerAsync(caller, ct))!;
+
+            var budgets = await ComputeBudgetsAsync(db, household.Id, month, ct);
+            var netWorthDirection = await NetWorthDirectionAsync(db, household.Id, ct);
+
+            var items = budgets.Budgets
+                .Select(b => new BudgetCheckItemDto(b.Category, b.LimitAmount, b.Projected, b.Status))
+                .ToList();
+            var overCount = items.Count(i => i.Status == "over");
+            var nearCount = items.Count(i => i.Status == "near");
+
+            // FLOOR with no budgets: nothing to narrate — return the deterministic (empty) check.
+            if (items.Count == 0)
+                return Results.Ok(new BudgetCheckDto(
+                    budgets.Month, items, 0, 0, netWorthDirection, null, Array.Empty<string>(), true));
+
+            // The deterministic over/near/under list + net-worth direction are the floor. Prefer the warm AI
+            // narration ONLY when the caller holds finance.ai AND Gemini is configured.
+            if (!caller.Permissions.Contains(Permissions.FinanceAi) || !gemini.IsConfigured)
+                return Results.Ok(new BudgetCheckDto(
+                    budgets.Month, items, overCount, nearCount, netWorthDirection,
+                    null, Array.Empty<string>(), true));
+
+            var cacheKey = $"family:budget-check:{household.Id}:{budgets.Month}";
+            if (cache.TryGetValue(cacheKey, out BudgetCheckDto? cached) && cached is not null)
+                return Results.Ok(cached);
+
+            string? narrative = null;
+            IReadOnlyList<string> tips = Array.Empty<string>();
+            try
+            {
+                var ai = await gemini.BudgetCheckNarrativeAsync(
+                    BudgetCheckFacts(budgets, items, netWorthDirection), ct);
+                if (ai is not null && !string.IsNullOrWhiteSpace(ai.Narrative))
+                {
+                    narrative = ai.Narrative;
+                    tips = ai.Tips;
+                }
+            }
+            catch
+            {
+                narrative = null;
+            }
+
+            if (narrative is null)
+                return Results.Ok(new BudgetCheckDto(
+                    budgets.Month, items, overCount, nearCount, netWorthDirection,
+                    null, Array.Empty<string>(), true)); // floor
+
+            var dto = new BudgetCheckDto(
+                budgets.Month, items, overCount, nearCount, netWorthDirection, narrative, tips, false);
+            cache.Set(cacheKey, dto, TimeSpan.FromHours(6));
+            return Results.Ok(dto);
+        }).RequireRateLimiting(AiEndpoints.RateLimitPolicy);
+    }
+
+    /// <summary>The net-worth direction ("up"|"down"|"flat"|"unknown") from the last two trend points — a
+    /// deterministic signal for the budget-check floor. "unknown" when there aren't two months of snapshots.</summary>
+    private static async Task<string> NetWorthDirectionAsync(UsageDbContext db, int householdId, CancellationToken ct)
+    {
+        var nw = await ComputeNetWorthAsync(db, householdId, ct);
+        var points = nw.Trend.Where(p => p.NetWorth != 0m).ToList();
+        if (points.Count < 2) return "unknown";
+        // Compare the same two points the >=2 guard counted (the filtered list), not the raw trend tail —
+        // otherwise a most-recent month that nets to exactly 0 could be compared against a non-zero and
+        // report a spurious up/down direction.
+        var last = points[^1].NetWorth;
+        var prev = points[^2].NetWorth;
+        if (last > prev) return "up";
+        if (last < prev) return "down";
+        return "flat";
+    }
+
+    /// <summary>Pre-format the deterministic budget-check facts as a tight DATA block the model NARRATES (it
+    /// never recomputes). Amounts + statuses are the authoritative server figures.</summary>
+    private static string BudgetCheckFacts(
+        BudgetsResponseDto budgets, IReadOnlyList<BudgetCheckItemDto> items, string netWorthDirection)
+    {
+        var sb = new System.Text.StringBuilder();
+        sb.Append("month: ").Append(budgets.Month).Append('\n');
+        sb.Append("total_spent: ").Append(Money(budgets.TotalSpent)).Append('\n');
+        sb.Append("net_worth_direction: ").Append(netWorthDirection).Append('\n');
+        sb.Append("budgets:\n");
+        foreach (var i in items)
+        {
+            var label = i.Category ?? "Overall";
+            sb.Append("- ").Append(label).Append(": limit ").Append(Money(i.LimitAmount))
+              .Append(", on pace for ").Append(Money(i.Projected)).Append(" (").Append(i.Status).Append(")\n");
+        }
+        return sb.ToString();
+    }
+
+    /// <summary>Resolve the [from, toExclusive) month window the SAME way GET /summary does (the requested
+    /// YYYY-MM, else the most recent month with data, else now).</summary>
+    private static async Task<(DateOnly From, DateOnly ToExclusive)> ResolveMonthAsync(
+        UsageDbContext db, int householdId, string? month, CancellationToken ct)
+    {
+        if (TryParseMonth(month, out var from, out var toExclusive))
+            return (from, toExclusive);
+
+        var maxDate = await db.FinanceTransactions.AsNoTracking()
+            .Where(t => t.HouseholdId == householdId)
+            .OrderByDescending(t => t.Date)
+            .Select(t => (DateOnly?)t.Date)
+            .FirstOrDefaultAsync(ct);
+        var anchor = maxDate ?? DateOnly.FromDateTime(DateTime.UtcNow);
+        from = new DateOnly(anchor.Year, anchor.Month, 1);
+        return (from, from.AddMonths(1));
     }
 
     // =====================================================================================

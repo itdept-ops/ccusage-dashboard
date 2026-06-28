@@ -5,7 +5,10 @@ import { concatMap, last } from 'rxjs/operators';
 import {
   AccessPolicy, AddCoffeeRequest, AddExerciseRequest, AddFoodRequest, UpdateFoodRequest, AddHydrationRequest, AuditEntry, BuildDayRequest, BuildDayResponse, CacheEfficiency, CalendarDay, CalendarEvent, CalendarEventInput, CalendarMemberBusy, CalendarStatus, ChatChannelDto, ChatCatchUpResult, ChatComposeAction, ChatComposeResult, ChatContactDto, ChatLocationShareDto, ChatMessageDto, ChatRepliesResult, StartLocationShareRequest, UpdateLocationShareRequest, ExtendLocationShareRequest, CommitDayRequest, CommitDayResponse, CreateChannelRequest, DaySummaryRequest, DaySummaryResponse,
   CreateShareRequest, CustomExerciseDto, CustomFoodDto, DailyCoachResponse, EstimateExerciseRequest, EstimateExerciseResponse, EstimateMacrosRequest, EstimateMacrosResponse, ExerciseEntryDto, ExerciseLibraryDto, Fleet, FleetDeleteRequest,
-  FamilyAssistantResult, FamilyBriefing, FamilyChore, FamilyChoreRecurrence, FamilyChoreSource, FamilyChores, FamilyMemberEvents, ChoreSuggestAiRequest, ChoreSuggestAiResult, ChoreBalanceAiResult, ChoreValuesAiResult, ChoreSummaryAiResult, Allowance, AllowanceMe, AllowanceMoveRequest, FamilyList, FamilyListKind, FamilyMeal, FamilyMealDay, FamilyMealMacroProposal, FamilyMealMacroSource, FamilyMealSlot, FamilyNote, FamilyPoll, FamilyPollCreate, FamilyRecurrence, FamilyReminder, FamilySettings, FamilySettingsUpdate, FamilyTimer, FamilyPollKind, FamilyToday, FindTimeRequest, FindTimeAiResult, PollOptionsAiResult, PollSummaryAiResult, ReminderAiResult, ListItemsAiResult, ListSuggestAiResult, NoteDraftAiResult, NoteSummaryAiResult, AskNotesAiResult, NoteTransformAction, NoteTransformAiResult, PlanWeekAiRequest, PlanWeekAiResult, RecipeAiResult, RecipeBreakdownResult, Recipe, RecipeUpsertRequest, RecipeFromBreakdownRequest, WhatCanIMakeAiResult, TimerAiResult, FindTimeResult, QuickAddKind, QuickAddRequest, QuickAddResult, FinanceAccount, FinanceAccountPatch, FinanceAccountSummary, FinanceImportBatch, FinanceImportResult, FinanceMoneyCoachResult, FinanceSummary, FinanceSummaryAiResult, FinanceTransactionsPage, FinanceTxnKind, FinanceOwner, FinanceParseRequest, FinanceStagedImport, FinanceStagedPage, FinanceStagedRow, FinanceStagedRowPatch, FinanceCategorizeAiResult, FinanceCommitRequest, FleetDeleteResult, FleetReassignRequest, FleetReassignResult, FleetRevokeKeysRequest, FleetRevokeKeysResult, FoodEntryDto, FoodSearchItemDto, GroupBy, Household, HouseholdCandidate, FamilyMemberLocation,
+  FamilyAssistantResult, FamilyBriefing, FamilyChore, FamilyChoreRecurrence, FamilyChoreSource, FamilyChores, FamilyMemberEvents, ChoreSuggestAiRequest, ChoreSuggestAiResult, ChoreBalanceAiResult, ChoreValuesAiResult, ChoreSummaryAiResult, Allowance, AllowanceMe, AllowanceMoveRequest, FamilyList, FamilyListKind, FamilyMeal, FamilyMealDay, FamilyMealMacroProposal, FamilyMealMacroSource, FamilyMealSlot, FamilyNote, FamilyPoll, FamilyPollCreate, FamilyRecurrence, FamilyReminder, FamilySettings, FamilySettingsUpdate, FamilyTimer, FamilyPollKind, FamilyToday, FindTimeRequest, FindTimeAiResult, PollOptionsAiResult, PollSummaryAiResult, ReminderAiResult, ListItemsAiResult, ListSuggestAiResult, NoteDraftAiResult, NoteSummaryAiResult, AskNotesAiResult, NoteTransformAction, NoteTransformAiResult, PlanWeekAiRequest, PlanWeekAiResult, RecipeAiResult, RecipeBreakdownResult, Recipe, RecipeUpsertRequest, RecipeFromBreakdownRequest, WhatCanIMakeAiResult, TimerAiResult, FindTimeResult, QuickAddKind, QuickAddRequest, QuickAddResult, FinanceAccount, FinanceAccountPatch, FinanceAccountSummary, FinanceImportBatch, FinanceImportResult, FinanceMoneyCoachResult, FinanceSummary, FinanceSummaryAiResult, FinanceTransactionsPage, FinanceTxnKind, FinanceOwner, FinanceParseRequest, FinanceStagedImport, FinanceStagedPage, FinanceStagedRow, FinanceStagedRowPatch, FinanceCategorizeAiResult, FinanceCommitRequest,
+  FinanceBudgetsResponse, FinanceBudgetDto, FinanceBudgetUpsertRequest, FinanceNetWorthDto,
+  FinanceBalanceEntryRequest, FinanceSavingsResponse, FinanceSavingsGoalDto, FinanceSavingsUpsertRequest,
+  FinanceContributeRequest, FinanceBudgetCheckDto, FleetDeleteResult, FleetReassignRequest, FleetReassignResult, FleetRevokeKeysRequest, FleetRevokeKeysResult, FoodEntryDto, FoodSearchItemDto, GroupBy, Household, HouseholdCandidate, FamilyMemberLocation,
   AddSupplementRequest, SupplementEntryDto, SupplementMacrosRequest, SupplementMacrosResponse,
   AddSleepRequest, SleepEntryDto, SleepInsightResponse, ClientInfoRequest,
   CoffeeEntryDto, GoalPlanDto, HeatmapCell, HydrationEntryDto, HydrationSuggestResponse, ImageRequest, IngestionSource, IngestKey, IngestKeyCreated, LocationFix, LocationSettings, LocationSettingsUpdate, AdminUserLocation, RecordLocationRequest, LogWeightRequest, LoginEvent, MachineStat, ManagedUser, MealFeedbackRequest, MealFeedbackResponse, ModelStat, MoveDayRequest, MoveDayResult, NaturalGoalRequest, NaturalGoalResponse, NotificationDto, NotificationPreferenceDto, NotificationSettings,
@@ -2513,6 +2516,95 @@ export class Api {
    */
   financeMoneyCoachAi(_month?: string | null): Observable<FinanceMoneyCoachResult> {
     return this.http.get<FinanceMoneyCoachResult>(`${this.base}/family/finance/ai/money-coach`);
+  }
+
+  // ---- MONEY, DEEPENED: budgets · net worth · savings (all on the double-gated /family/finance room) ----
+  // Every call is household-scoped server-side; a cross-household {id} answers 404 (existence never leaked).
+  // People are by AppUser id + DisplayName only (never an email); deterministic math is the authoritative floor.
+
+  /**
+   * The household's per-category BUDGETS for a month (`yyyy-MM`; omit to let the server resolve the latest
+   * with data). Each budget carries its deterministic month-to-date spend (EXPENSE-only, transfers excluded),
+   * remaining, pct, a pace projection, and a pace status — plus an 'unbudgeted' rollup + the month's total spend.
+   */
+  financeBudgets(month?: string | null): Observable<FinanceBudgetsResponse> {
+    let p = new HttpParams();
+    if (month) p = p.set('month', month);
+    return this.http.get<FinanceBudgetsResponse>(`${this.base}/family/finance/budgets`, { params: p });
+  }
+
+  /** Create a budget (category null/blank = the OVERALL whole-month budget). 409 when one already exists. */
+  createFinanceBudget(req: FinanceBudgetUpsertRequest): Observable<FinanceBudgetDto> {
+    return this.http.post<FinanceBudgetDto>(`${this.base}/family/finance/budgets`, req);
+  }
+
+  /** Update a budget's limit (and/or move its category). Cross-household id → 404; duplicate category → 409. */
+  updateFinanceBudget(id: number, req: FinanceBudgetUpsertRequest): Observable<FinanceBudgetDto> {
+    return this.http.put<FinanceBudgetDto>(`${this.base}/family/finance/budgets/${id}`, req);
+  }
+
+  /** Delete a budget. Cross-household id → 404. Returns 204. */
+  deleteFinanceBudget(id: number): Observable<void> {
+    return this.http.delete<void>(`${this.base}/family/finance/budgets/${id}`);
+  }
+
+  /**
+   * The household's MANUAL net worth: the newest signed balance per account → assets/liabilities/net totals,
+   * the per-account latest-balance rows (positive = asset, negative = liability), and a net-worth-by-month
+   * trend from the snapshot history. There is NO live bank feed — balances are entered by hand.
+   */
+  financeNetWorth(): Observable<FinanceNetWorthDto> {
+    return this.http.get<FinanceNetWorthDto>(`${this.base}/family/finance/net-worth`);
+  }
+
+  /**
+   * Enter today's (or a chosen day's) SIGNED balance for one household account (positive asset / negative
+   * liability), upserted latest-wins on (account, day). Cross-household account id → 404. Returns 204.
+   */
+  setFinanceBalance(accountId: number, req: FinanceBalanceEntryRequest): Observable<void> {
+    return this.http.post<void>(`${this.base}/family/finance/accounts/${accountId}/balance`, req);
+  }
+
+  /**
+   * The household's SAVINGS goals with saved/target/pct + a deterministic projected-finish from contribution
+   * pace, plus the totals across non-archived goals. Pass `includeArchived` to also return archived goals.
+   */
+  financeSavings(includeArchived = false): Observable<FinanceSavingsResponse> {
+    let p = new HttpParams();
+    if (includeArchived) p = p.set('includeArchived', true);
+    return this.http.get<FinanceSavingsResponse>(`${this.base}/family/finance/savings`, { params: p });
+  }
+
+  /** Create a savings goal. */
+  createFinanceSavingsGoal(req: FinanceSavingsUpsertRequest): Observable<FinanceSavingsGoalDto> {
+    return this.http.post<FinanceSavingsGoalDto>(`${this.base}/family/finance/savings`, req);
+  }
+
+  /** Update a savings goal's fields (NOT savedAmount — use contribute). Cross-household id → 404. */
+  updateFinanceSavingsGoal(id: number, req: FinanceSavingsUpsertRequest): Observable<FinanceSavingsGoalDto> {
+    return this.http.put<FinanceSavingsGoalDto>(`${this.base}/family/finance/savings/${id}`, req);
+  }
+
+  /** Contribute to (or withdraw from, negative amount) a goal's savedAmount. Cross-household id → 404. */
+  contributeFinanceSavingsGoal(id: number, req: FinanceContributeRequest): Observable<FinanceSavingsGoalDto> {
+    return this.http.post<FinanceSavingsGoalDto>(`${this.base}/family/finance/savings/${id}/contribute`, req);
+  }
+
+  /** Delete a savings goal. Cross-household id → 404. Returns 204. */
+  deleteFinanceSavingsGoal(id: number): Observable<void> {
+    return this.http.delete<void>(`${this.base}/family/finance/savings/${id}`);
+  }
+
+  /**
+   * "✨ Budget check-in": the DETERMINISTIC floor (which budgets are over/near/under by pace + the over/near
+   * counts + net-worth direction) ALWAYS renders; the finance.ai-gated Gemini narration (`narrative` + `tips`)
+   * is the only token spend. NEVER 503 — `fellBackToPlain` is true when finance.ai is absent / Gemini is off /
+   * there are no budgets. Cached per (household, month); writes nothing. Pass the dashboard's `month` (yyyy-MM).
+   */
+  financeBudgetCheckAi(month?: string | null): Observable<FinanceBudgetCheckDto> {
+    let p = new HttpParams();
+    if (month) p = p.set('month', month);
+    return this.http.get<FinanceBudgetCheckDto>(`${this.base}/family/finance/ai/budget-check`, { params: p });
   }
 
   // ---- Cycle calendar — PRIVACY-FIRST + NON-MEDICAL ----

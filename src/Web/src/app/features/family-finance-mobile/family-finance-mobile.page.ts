@@ -22,6 +22,13 @@ import {
   FinanceTransaction,
   FinanceTransactionsPage,
   FinanceTxnKind,
+  FinanceBudgetDto,
+  FinanceBudgetsResponse,
+  FinanceBudgetStatus,
+  FinanceNetWorthDto,
+  FinanceAccountBalanceDto,
+  FinanceSavingsGoalDto,
+  FinanceSavingsResponse,
 } from '../../core/models';
 import { FINANCE_DEFAULT_CATEGORIES } from '../family/finance';
 import {
@@ -44,8 +51,13 @@ const OWNER_COLOR: Record<FinanceOwner, string> = {
   his: '#3d8bff', hers: '#ff7eb6', joint: '#3dd68c', unassigned: '#5e6c82',
 };
 
-/** The mobile detail filter tabs over the month's transactions. */
-type DetailTab = 'spending' | 'recurring';
+/** The mobile detail filter tabs: spending, recurring bills, budgets, net worth, savings goals. */
+type DetailTab = 'spending' | 'recurring' | 'budgets' | 'networth' | 'goals';
+
+/** Friendly labels for a budget's pace status. */
+const BUDGET_STATUS_LABEL: Record<FinanceBudgetStatus, string> = {
+  under: 'On track', near: 'Close', over: 'Over pace',
+};
 
 /**
  * Family Finance "Ledger" — the mobile-first twin of the live /family/finance Hub room, rebuilt on the
@@ -256,6 +268,126 @@ type DetailTab = 'spending' | 'recurring';
                 <mat-icon aria-hidden="true">receipt_long</mat-icon>
                 <p>No transactions in {{ monthLabel() }}.</p>
               </div>
+            }
+
+          } @else if (tab() === 'budgets') {
+            <!-- ─── BUDGETS: per-category spend/limit progress bars (green→amber→red BY PACE) ─── -->
+            @if (budgetsLoading() && !budgets()) {
+              <div class="ff-list" aria-hidden="true">
+                @for (n of [0,1,2]; track n) { <app-bs-skeleton height="68px" radius="var(--r-tile)" /> }
+              </div>
+            } @else if (budgets(); as bg) {
+              @if (bg.budgets.length) {
+                <div class="ff-budgets">
+                  @for (b of bg.budgets; track b.id; let i = $index) {
+                    <div class="ff-budget ff-reveal" [style.--ri]="i" [attr.data-status]="b.status">
+                      <div class="ff-budget__top">
+                        <span class="ff-budget__name">{{ budgetLabel(b) }}</span>
+                        <span class="ff-budget__status" [attr.data-status]="b.status">{{ budgetStatusLabel(b.status) }}</span>
+                      </div>
+                      <div class="ff-budget__track" aria-hidden="true">
+                        <span class="ff-budget__fill" [attr.data-status]="b.status" [style.width.%]="budgetFillPct(b)"></span>
+                      </div>
+                      <div class="ff-budget__foot mono-num">
+                        <span class="ff-budget__nums"><strong>{{ money(b.spent) }}</strong> / {{ money(b.limitAmount) }}</span>
+                        <span class="ff-budget__remain" [class.is-over]="b.remaining < 0">
+                          {{ b.remaining >= 0 ? money(b.remaining) + ' left' : money(-b.remaining) + ' over' }}
+                        </span>
+                      </div>
+                    </div>
+                  }
+                </div>
+              } @else {
+                <div class="ff-mini-empty">
+                  <mat-icon aria-hidden="true">savings</mat-icon>
+                  <p>No budgets yet — set per-category limits on the desktop to track them here.</p>
+                </div>
+              }
+              @if (bg.unbudgeted.spent > 0) {
+                <div class="ff-unbudgeted">
+                  <mat-icon aria-hidden="true">help_outline</mat-icon>
+                  <span><strong class="mono-num">{{ money(bg.unbudgeted.spent) }}</strong> unbudgeted
+                    across {{ bg.unbudgeted.categoryCount }} categor{{ bg.unbudgeted.categoryCount === 1 ? 'y' : 'ies' }}</span>
+                </div>
+              }
+            }
+
+          } @else if (tab() === 'networth') {
+            <!-- ─── NET WORTH: 3 stat tiles + a per-account balance editor (manual entry) ─── -->
+            @if (netWorthLoading() && !netWorth()) {
+              <div class="ff-stats" aria-hidden="true">
+                @for (n of [0,1,2]; track n) { <app-bs-skeleton height="84px" radius="var(--r-tile)" /> }
+              </div>
+            } @else if (netWorth(); as nw) {
+              <div class="ff-stats">
+                <app-bs-stat-tile [value]="money(nw.assets)" label="Assets" accentA="#34d399" accentB="#059669" />
+                <app-bs-stat-tile [value]="money(nw.liabilities)" label="Liabilities" accentA="#fb7185" accentB="#e11d48" />
+                <app-bs-stat-tile [value]="money(nw.netWorth)" label="Net worth"
+                  [accentA]="nw.netWorth >= 0 ? '#34d399' : '#fb7185'" [accentB]="nw.netWorth >= 0 ? '#059669' : '#e11d48'" />
+              </div>
+              <p class="ff-nw-hint"><mat-icon aria-hidden="true">edit_note</mat-icon> Balances are entered by hand — there's no live bank link.</p>
+              @if (nw.accounts.length) {
+                <div class="ff-list">
+                  @for (a of nw.accounts; track a.accountId; let i = $index) {
+                    <button type="button" class="ff-nw-acct ff-reveal" [style.--ri]="i" (click)="openBalance(a)">
+                      <span class="ff-nw-acct__dot" [style.background]="ownerColor(a.owner)" aria-hidden="true"></span>
+                      <span class="ff-nw-acct__body">
+                        <span class="ff-nw-acct__name">{{ a.name }}</span>
+                        <span class="ff-nw-acct__meta">
+                          {{ ownerLabel(a.owner) }} · {{ a.kind }}
+                          @if (a.hasBalance) { · {{ txnDate(a.asOfDate!) }} }
+                        </span>
+                      </span>
+                      <span class="ff-nw-acct__bal mono-num" [class.is-neg]="a.latestBalance < 0">
+                        {{ a.hasBalance ? money(a.latestBalance) : 'Set' }}
+                      </span>
+                    </button>
+                  }
+                </div>
+              } @else {
+                <div class="ff-mini-empty">
+                  <mat-icon aria-hidden="true">account_balance</mat-icon>
+                  <p>Import a CSV to populate accounts, then enter a balance for each.</p>
+                </div>
+              }
+            }
+
+          } @else if (tab() === 'goals') {
+            <!-- ─── SAVINGS GOALS: ring-to-target cards with an owner tag ─── -->
+            @if (savingsLoading() && !savings()) {
+              <div class="ff-list" aria-hidden="true">
+                @for (n of [0,1,2]; track n) { <app-bs-skeleton height="84px" radius="var(--r-tile)" /> }
+              </div>
+            } @else if (savings(); as sv) {
+              @if (sv.goals.length) {
+                <div class="ff-goals">
+                  @for (g of sv.goals; track g.id; let i = $index) {
+                    <div class="ff-goal ff-reveal" [style.--ri]="i" [class.is-archived]="g.archived">
+                      <span class="ff-goal__ring" [style.background]="goalRing(g)" aria-hidden="true">
+                        <span class="ff-goal__ring-inner mono-num">{{ goalPct(g) }}%</span>
+                      </span>
+                      <span class="ff-goal__body">
+                        <span class="ff-goal__head">
+                          <span class="ff-goal__name">{{ g.name }}</span>
+                          <span class="ff-goal__owner" [style.color]="ownerColor(g.owner)">{{ ownerLabel(g.owner) }}</span>
+                        </span>
+                        <span class="ff-goal__nums mono-num"><strong>{{ money(g.savedAmount) }}</strong> of {{ money(g.targetAmount) }}</span>
+                        @if (g.targetDate || g.projectedFinish) {
+                          <span class="ff-goal__meta">
+                            @if (g.targetDate) { by {{ txnDate(g.targetDate) }} }
+                            @if (g.projectedFinish) { · on pace {{ txnDate(g.projectedFinish) }} }
+                          </span>
+                        }
+                      </span>
+                    </div>
+                  }
+                </div>
+              } @else {
+                <div class="ff-mini-empty">
+                  <mat-icon aria-hidden="true">flag</mat-icon>
+                  <p>No savings goals yet — add one on the desktop to track progress here.</p>
+                </div>
+              }
             }
 
           } @else {
@@ -476,6 +608,28 @@ type DetailTab = 'spending' | 'recurring';
       }
     </app-bs-sheet>
 
+    <!-- ─────────────── BALANCE-ENTRY SHEET (manual net-worth entry) ─────────────── -->
+    <app-bs-sheet [(open)]="balanceOpen" detent="peek" [label]="balanceAccount()?.name || 'Enter balance'">
+      @if (balanceAccount(); as a) {
+        <div class="be">
+          <p class="be__sub">
+            Enter {{ a.name }}'s current balance.
+            @if (a.kind === 'credit') { Owe a balance? Use a negative number (a liability). }
+            @else { An asset balance — a positive number. }
+          </p>
+          <input class="be__input mono-num" type="number" inputmode="decimal" step="0.01"
+                 [value]="balanceValue()" (input)="balanceValue.set($any($event.target).value)"
+                 placeholder="0.00" aria-label="Current balance" />
+          <div class="be__actions">
+            <button type="button" class="be__btn be__btn--ghost" (click)="balanceOpen.set(false)">Cancel</button>
+            <button type="button" class="be__btn be__btn--primary" [disabled]="balanceSaving()" (click)="saveBalance()">
+              {{ balanceSaving() ? 'Saving…' : 'Save balance' }}
+            </button>
+          </div>
+        </div>
+      }
+    </app-bs-sheet>
+
     <app-bs-toaster />
   `,
   styleUrl: './family-finance-mobile.page.scss',
@@ -502,6 +656,20 @@ export class FamilyFinanceMobilePage {
   private aiSummaryMonth = '';
   readonly coach = signal<FinanceMoneyCoachResult | null>(null);
   readonly coachLoading = signal(false);
+
+  // ---- budgets / net worth / savings ----
+  readonly budgets = signal<FinanceBudgetsResponse | null>(null);
+  readonly budgetsLoading = signal(false);
+  readonly netWorth = signal<FinanceNetWorthDto | null>(null);
+  readonly netWorthLoading = signal(false);
+  readonly savings = signal<FinanceSavingsResponse | null>(null);
+  readonly savingsLoading = signal(false);
+
+  // balance-entry bottom sheet
+  readonly balanceOpen = signal(false);
+  readonly balanceAccount = signal<FinanceAccountBalanceDto | null>(null);
+  readonly balanceValue = signal('');
+  readonly balanceSaving = signal(false);
 
   // ---- transactions (recent strip for the viewed month) ----
   readonly txns = signal<FinanceTransaction[]>([]);
@@ -568,6 +736,9 @@ export class FamilyFinanceMobilePage {
 
   readonly tabSegments = computed<Segment[]>(() => [
     { key: 'spending', label: 'Spending' },
+    { key: 'budgets', label: `Budgets${this.budgets()?.budgets.length ? ' · ' + this.budgets()!.budgets.length : ''}` },
+    { key: 'networth', label: 'Net worth' },
+    { key: 'goals', label: `Goals${this.savings()?.goals.length ? ' · ' + this.savings()!.goals.length : ''}` },
     { key: 'recurring', label: `Recurring${this.coach()?.recurring.length ? ' · ' + this.coach()!.recurring.length : ''}` },
   ]);
 
@@ -635,6 +806,9 @@ export class FamilyFinanceMobilePage {
       this.loadTxns();
       this.loadAiSummary();
       this.loadCoach(!initial);
+      this.loadBudgets();
+      this.loadNetWorth();
+      this.loadSavings();
     } catch {
       this.errored.set(true);
     } finally {
@@ -697,6 +871,51 @@ export class FamilyFinanceMobilePage {
       });
   }
 
+  /** The household's per-category budgets for the viewed month; best-effort. */
+  private loadBudgets(): void {
+    this.budgetsLoading.set(true);
+    this.api
+      .financeBudgets(this.month())
+      .pipe(
+        catchError(() => of<FinanceBudgetsResponse | null>(null)),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe((b) => {
+        if (b) this.budgets.set(b);
+        this.budgetsLoading.set(false);
+      });
+  }
+
+  /** The household's manual net worth (latest signed balance per account + a trend); best-effort. */
+  private loadNetWorth(): void {
+    this.netWorthLoading.set(true);
+    this.api
+      .financeNetWorth()
+      .pipe(
+        catchError(() => of<FinanceNetWorthDto | null>(null)),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe((n) => {
+        if (n) this.netWorth.set(n);
+        this.netWorthLoading.set(false);
+      });
+  }
+
+  /** The household's savings goals (saved/target/pct + projected finish); best-effort, month-independent. */
+  private loadSavings(): void {
+    this.savingsLoading.set(true);
+    this.api
+      .financeSavings()
+      .pipe(
+        catchError(() => of<FinanceSavingsResponse | null>(null)),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe((s) => {
+        if (s) this.savings.set(s);
+        this.savingsLoading.set(false);
+      });
+  }
+
   // ─────────────── MONTH STEPPER ───────────────
 
   stepMonth(delta: number): void {
@@ -722,10 +941,57 @@ export class FamilyFinanceMobilePage {
       });
     this.loadTxns();
     this.loadAiSummary();
+    this.loadBudgets();
   }
 
   setTab(key: string): void {
-    this.tab.set(key === 'recurring' ? 'recurring' : 'spending');
+    const valid: DetailTab[] = ['spending', 'recurring', 'budgets', 'networth', 'goals'];
+    this.tab.set(valid.includes(key as DetailTab) ? (key as DetailTab) : 'spending');
+  }
+
+  // ─────────────── BUDGETS / NET WORTH / SAVINGS helpers ───────────────
+
+  budgetStatusLabel(s: FinanceBudgetStatus): string { return BUDGET_STATUS_LABEL[s] ?? s; }
+  budgetLabel(b: FinanceBudgetDto): string { return b.category ?? 'Overall'; }
+  budgetFillPct(b: FinanceBudgetDto): number { return Math.max(2, Math.min(100, Math.round(b.pct))); }
+
+  /** A ring fill (0..100) for a goal card. */
+  goalPct(g: FinanceSavingsGoalDto): number { return Math.max(0, Math.min(100, Math.round(g.pct))); }
+
+  /** The conic-gradient ring background for a goal card, tinted by owner. */
+  goalRing(g: FinanceSavingsGoalDto): string {
+    const color = OWNER_COLOR[g.owner] ?? OWNER_COLOR.unassigned;
+    return `conic-gradient(${color} ${this.goalPct(g)}%, rgba(255,255,255,0.08) 0)`;
+  }
+
+  // ─────────────── BALANCE-ENTRY SHEET (manual net-worth entry) ───────────────
+
+  openBalance(a: FinanceAccountBalanceDto): void {
+    this.balanceAccount.set(a);
+    this.balanceValue.set(a.hasBalance ? String(a.latestBalance) : '');
+    this.balanceOpen.set(true);
+  }
+
+  /** Save today's signed balance for the open account (positive asset / negative liability). */
+  async saveBalance(): Promise<void> {
+    const a = this.balanceAccount();
+    if (!a || this.balanceSaving()) return;
+    const balance = Number(this.balanceValue());
+    if (!Number.isFinite(balance)) {
+      this.toast.show('Enter a number — negative for a credit card or loan.', { tone: 'warn' });
+      return;
+    }
+    this.balanceSaving.set(true);
+    try {
+      await firstValueFrom(this.api.setFinanceBalance(a.accountId, { balance }));
+      this.balanceOpen.set(false);
+      this.loadNetWorth();
+      this.toast.show('Balance saved', { tone: 'success', durationMs: 1600 });
+    } catch {
+      this.toast.show("Couldn't save that balance", { tone: 'warn' });
+    } finally {
+      this.balanceSaving.set(false);
+    }
   }
 
   // ─────────────── DETAIL SHEET ───────────────

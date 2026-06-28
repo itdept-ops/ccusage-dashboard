@@ -167,9 +167,12 @@ public sealed class AgentComposer(
 
     /// <summary>
     /// Compute the user's household month-to-date EXPENSE spend (transfers excluded) and a simple pace
-    /// projection, plus the top spend categories. Returns null when the user isn't in a household or there's
-    /// no spend yet this month. The AI narrative upgrade is gated on <c>finance.ai</c>; the deterministic line
-    /// is always the floor.
+    /// projection, plus the top spend categories. When the household has REAL <see cref="FinanceBudget"/> rows,
+    /// the nudge additionally calls out the category most over its budget BY PACE — so the agent's notion of
+    /// "over budget" is the SAME deterministic spend/pace math (<see cref="FinanceSpendMath"/>) the
+    /// /budgets endpoint uses, referencing the same budget rows. Returns null when the user isn't in a household
+    /// or there's no spend yet this month. The AI narrative upgrade is gated on <c>finance.ai</c>; the
+    /// deterministic line is always the floor.
     /// </summary>
     private async Task<Nudge?> BudgetAlertAsync(string email, DateOnly localDate, CancellationToken ct)
     {
@@ -183,33 +186,55 @@ public sealed class AgentComposer(
         if (householdId is null) return null;
 
         var monthStart = new DateOnly(localDate.Year, localDate.Month, 1);
-        var rows = await db.FinanceTransactions.AsNoTracking()
-            .Where(t => t.HouseholdId == householdId.Value && t.Kind == "expense"
-                && t.Date >= monthStart && t.Date <= localDate)
-            .Select(t => new { t.Magnitude, t.Category })
-            .ToListAsync(ct);
+        var toExclusive = monthStart.AddMonths(1);
+        // Shared EXPENSE-only spend set (transfers excluded) — the SAME load the /budgets endpoint uses.
+        var rows = await FinanceSpendMath.LoadExpenseRowsAsync(
+            db, householdId.Value, monthStart, toExclusive, ct);
         if (rows.Count == 0) return null;
 
-        var spent = rows.Sum(r => r.Magnitude);
+        var spent = FinanceSpendMath.TotalSpent(rows);
         if (spent <= 0) return null;
 
         var dayOfMonth = localDate.Day;
         var daysInMonth = DateTime.DaysInMonth(localDate.Year, localDate.Month);
-        var projected = dayOfMonth > 0 ? Math.Round(spent / dayOfMonth * daysInMonth, 0) : spent;
+        var projected = Math.Round(FinanceSpendMath.ProjectPace(spent, dayOfMonth, daysInMonth), 0);
 
-        var topCategories = rows
-            .Where(r => !string.IsNullOrWhiteSpace(r.Category))
-            .GroupBy(r => r.Category!)
-            .Select(g => new { Category = g.Key, Total = g.Sum(x => x.Magnitude) })
-            .OrderByDescending(g => g.Total)
+        var spentByCategory = FinanceSpendMath.SpentByCategory(rows);
+        var topCategories = spentByCategory
+            .Where(kv => !string.Equals(kv.Key, "Uncategorized", StringComparison.OrdinalIgnoreCase))
+            .OrderByDescending(kv => kv.Value)
             .Take(3)
+            .Select(kv => new { Category = kv.Key, Total = kv.Value })
             .ToList();
+
+        // REAL household budget rows — the agent and the /budgets endpoint share ONE definition of over-budget.
+        var budgets = await db.FinanceBudgets.AsNoTracking()
+            .Where(b => b.HouseholdId == householdId.Value)
+            .Select(b => new { b.Category, b.LimitAmount })
+            .ToListAsync(ct);
+
+        // The worst category by paced overage: project each budgeted category's pace and compare to its limit.
+        (string Category, decimal Limit, decimal Projected)? worstOver = null;
+        foreach (var bud in budgets)
+        {
+            if (string.IsNullOrWhiteSpace(bud.Category)) continue; // overall budget handled by the spent/pace line
+            var key = FinanceSpendMath.CategoryKey(bud.Category);
+            var catSpent = spentByCategory.TryGetValue(key, out var s) ? s : 0m;
+            var catProjected = FinanceSpendMath.ProjectPace(catSpent, dayOfMonth, daysInMonth);
+            if (catProjected <= bud.LimitAmount) continue; // on pace to stay under
+            if (worstOver is null || catProjected - bud.LimitAmount > worstOver.Value.Projected - worstOver.Value.Limit)
+                worstOver = (key, bud.LimitAmount, catProjected);
+        }
+
+        var budgetBit = worstOver is { } w
+            ? $" {w.Category} is on pace for ${Math.Round(w.Projected, 0):N0} vs a ${Math.Round(w.Limit, 0):N0} budget."
+            : "";
 
         var plain = Clamp(
             $"This month so far you've spent ${Math.Round(spent, 0):N0} over {dayOfMonth} " +
             $"{Plural(dayOfMonth, "day", "days")}" +
             (topCategories.Count > 0 ? $" (top: {topCategories[0].Category})" : "") +
-            $" — on pace for about ${projected:N0} by month-end.");
+            $" — on pace for about ${projected:N0} by month-end.{budgetBit}");
 
         var allowAi = caller.Permissions.Contains(Permissions.FinanceAi);
         if (!allowAi) return new Nudge(plain, "/family/finance", true);

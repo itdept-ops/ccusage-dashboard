@@ -34,6 +34,14 @@ import {
   FinanceTransaction,
   FinanceTransactionsPage,
   FinanceTxnKind,
+  FinanceBudgetDto,
+  FinanceBudgetsResponse,
+  FinanceBudgetStatus,
+  FinanceNetWorthDto,
+  FinanceAccountBalanceDto,
+  FinanceSavingsGoalDto,
+  FinanceSavingsResponse,
+  FinanceBudgetCheckDto,
 } from '../../core/models';
 import { ChartComponent } from '../../shared/chart';
 
@@ -84,6 +92,25 @@ const OWNER_COLOR: Record<FinanceOwner, string> = {
   joint: '#3dd68c',
   unassigned: '#5e6c82',
 };
+
+/** Friendly labels for a budget's pace status. */
+const BUDGET_STATUS_LABEL: Record<FinanceBudgetStatus, string> = {
+  under: 'On track',
+  near: 'Close to limit',
+  over: 'Over by pace',
+};
+
+/** The sentinel category for the OVERALL (null-category) whole-month budget. */
+const OVERALL_BUDGET = '__overall__';
+
+/** An in-progress savings goal (create when id is null, else edit). */
+interface GoalDraft {
+  id: number | null;
+  name: string;
+  target: string;
+  owner: FinanceOwner;
+  targetDate: string;
+}
 
 /**
  * Family Hub F5 — FINANCE. A clean personal-finance dashboard over a Rocket Money CSV import. This is the
@@ -144,6 +171,34 @@ export class FamilyFinance {
    */
   readonly coach = signal<FinanceMoneyCoachResult | null>(null);
   readonly coachLoading = signal(false);
+
+  // ---- BUDGETS (per-category spend-vs-limit by pace + an 'unbudgeted' rollup) ----
+  readonly budgets = signal<FinanceBudgetsResponse | null>(null);
+  readonly budgetsLoading = signal(false);
+  /** The category being added/edited inline; '' = the 'overall' (null-category) budget, null = no draft open. */
+  readonly budgetDraftCategory = signal<string | null>(null);
+  readonly budgetDraftLimit = signal<string>('');
+  readonly budgetSaving = signal(false);
+
+  // ---- NET WORTH (manual signed balances → assets/liabilities/net + a trend) ----
+  readonly netWorth = signal<FinanceNetWorthDto | null>(null);
+  readonly netWorthLoading = signal(false);
+  /** The account whose balance is being entered (null = no editor open). */
+  readonly balanceDraftAccount = signal<FinanceAccountBalanceDto | null>(null);
+  readonly balanceDraftValue = signal<string>('');
+  readonly balanceSaving = signal(false);
+
+  // ---- SAVINGS GOALS (cards with a ring to target + a Contribute button) ----
+  readonly savings = signal<FinanceSavingsResponse | null>(null);
+  readonly savingsLoading = signal(false);
+  /** A goal being created/edited (id null = create), or null when the dialog is closed. */
+  readonly goalDraft = signal<GoalDraft | null>(null);
+  readonly goalSaving = signal(false);
+
+  // ---- ✨ Budget check-in (deterministic over/near floor + optional AI narration) ----
+  readonly budgetCheck = signal<FinanceBudgetCheckDto | null>(null);
+  readonly budgetCheckLoading = signal(false);
+  private budgetCheckMonth = '';
 
   // ---- import dropzone + staging flow (parse → [column-map] → review → commit/discard) ----
   readonly importing = signal(false);
@@ -275,6 +330,79 @@ export class FamilyFinance {
     this.loadAiSummary();
     // A fresh import can change the recurring-charges floor, so force a coach refetch on a non-initial reload.
     this.loadCoach(!initial);
+    this.loadBudgets();
+    this.loadNetWorth();
+    this.loadSavings();
+    this.loadBudgetCheck(!initial);
+  }
+
+  /** The household's per-category budgets for the viewed month (deterministic spend-vs-limit by pace). */
+  private loadBudgets(): void {
+    this.budgetsLoading.set(true);
+    this.api
+      .financeBudgets(this.month())
+      .pipe(
+        catchError(() => of<FinanceBudgetsResponse | null>(null)),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe((b) => {
+        if (b) this.budgets.set(b);
+        this.budgetsLoading.set(false);
+      });
+  }
+
+  /** The household's manual net worth (latest signed balance per account + a trend). */
+  private loadNetWorth(): void {
+    this.netWorthLoading.set(true);
+    this.api
+      .financeNetWorth()
+      .pipe(
+        catchError(() => of<FinanceNetWorthDto | null>(null)),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe((n) => {
+        if (n) this.netWorth.set(n);
+        this.netWorthLoading.set(false);
+      });
+  }
+
+  /** The household's savings goals (saved/target/pct + projected finish). Month-independent. */
+  private loadSavings(): void {
+    this.savingsLoading.set(true);
+    this.api
+      .financeSavings()
+      .pipe(
+        catchError(() => of<FinanceSavingsResponse | null>(null)),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe((s) => {
+        if (s) this.savings.set(s);
+        this.savingsLoading.set(false);
+      });
+  }
+
+  /**
+   * The "✨ Budget check-in" floor (over/near/under by pace + net-worth direction) + optional AI narration
+   * for the viewed month. NEVER 503s; degrades silently on a network blip. Skips a redundant refetch when
+   * the month is unchanged.
+   */
+  private loadBudgetCheck(force = false): void {
+    const month = this.month();
+    if (!force && month === this.budgetCheckMonth && this.budgetCheck()) return;
+    this.budgetCheckMonth = month;
+    this.budgetCheckLoading.set(true);
+    this.api
+      .financeBudgetCheckAi(month)
+      .pipe(
+        catchError(() => of<FinanceBudgetCheckDto | null>(null)),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe((c) => {
+        if (this.month() === month) {
+          this.budgetCheck.set(c);
+          this.budgetCheckLoading.set(false);
+        }
+      });
   }
 
   private loadSummary(): void {
@@ -404,6 +532,233 @@ export class FamilyFinance {
     this.loadSummary();
     this.loadTxns();
     this.loadAiSummary();
+    this.loadBudgets();
+    this.loadBudgetCheck();
+  }
+
+  // ============================================================== budgets / net worth / savings
+
+  /** Distinct imported categories the budget picker offers (the household's ledger ∪ the default set). */
+  readonly budgetCategoryOptions = computed<string[]>(() => {
+    const present = new Set<string>();
+    for (const c of this.summary()?.byCategory ?? []) if (c.category) present.add(c.category);
+    for (const c of FINANCE_DEFAULT_CATEGORIES) present.add(c);
+    // Drop categories already budgeted (and the overall budget) so the picker only offers free ones.
+    const taken = new Set((this.budgets()?.budgets ?? []).map((b) => b.category).filter((x): x is string => !!x));
+    return [...present].filter((c) => !taken.has(c)).sort((a, b) => a.localeCompare(b));
+  });
+
+  /** Whether an overall (null-category) budget already exists (so the picker can hide that option). */
+  readonly hasOverallBudget = computed(() =>
+    (this.budgets()?.budgets ?? []).some((b) => !b.category));
+
+  budgetStatusLabel(s: FinanceBudgetStatus): string {
+    return BUDGET_STATUS_LABEL[s] ?? s;
+  }
+
+  /** The fill width for a budget bar (clamped 0..100; pace can exceed but the bar caps at full). */
+  budgetFillPct(b: FinanceBudgetDto): number {
+    return Math.max(0, Math.min(100, Math.round(b.pct)));
+  }
+
+  budgetLabel(b: FinanceBudgetDto): string {
+    return b.category ?? 'Overall (whole month)';
+  }
+
+  /** Open the inline add-budget draft for a chosen category ('' = overall). */
+  startBudget(category: string): void {
+    this.budgetDraftCategory.set(category === OVERALL_BUDGET ? '' : category);
+    this.budgetDraftLimit.set('');
+  }
+
+  cancelBudgetDraft(): void {
+    this.budgetDraftCategory.set(null);
+    this.budgetDraftLimit.set('');
+  }
+
+  /** Persist the inline add-budget draft (category '' → the overall budget). */
+  async saveBudgetDraft(): Promise<void> {
+    const cat = this.budgetDraftCategory();
+    if (cat === null || this.budgetSaving()) return;
+    const limit = Number(this.budgetDraftLimit());
+    if (!Number.isFinite(limit) || limit <= 0) {
+      this.snack.open('Enter a budget amount greater than zero.', 'OK', { duration: 3500 });
+      return;
+    }
+    this.budgetSaving.set(true);
+    try {
+      await firstValueFrom(this.api.createFinanceBudget({ category: cat || null, limitAmount: limit }));
+      this.cancelBudgetDraft();
+      this.loadBudgets();
+    } catch (e) {
+      this.snack.open(this.messageOf(e, "Couldn't save that budget."), 'OK', { duration: 4000 });
+    } finally {
+      this.budgetSaving.set(false);
+    }
+  }
+
+  /** Edit a budget's limit inline (a quick prompt — keeps the panel lean). */
+  async editBudgetLimit(b: FinanceBudgetDto): Promise<void> {
+    const raw = window.prompt(`New monthly limit for ${this.budgetLabel(b)}`, String(b.limitAmount))?.trim();
+    if (raw == null) return;
+    const limit = Number(raw);
+    if (!Number.isFinite(limit) || limit <= 0) {
+      this.snack.open('Enter a budget amount greater than zero.', 'OK', { duration: 3500 });
+      return;
+    }
+    try {
+      await firstValueFrom(this.api.updateFinanceBudget(b.id, { category: b.category, limitAmount: limit }));
+      this.loadBudgets();
+    } catch (e) {
+      this.snack.open(this.messageOf(e, "Couldn't update that budget."), 'OK', { duration: 4000 });
+    }
+  }
+
+  async deleteBudget(b: FinanceBudgetDto): Promise<void> {
+    if (!window.confirm(`Remove the ${this.budgetLabel(b)} budget?`)) return;
+    try {
+      await firstValueFrom(this.api.deleteFinanceBudget(b.id));
+      this.loadBudgets();
+    } catch (e) {
+      this.snack.open(this.messageOf(e, "Couldn't remove that budget."), 'OK', { duration: 4000 });
+    }
+  }
+
+  // ---- net worth: manual per-account balance entry ----
+
+  /** Open the balance editor for one account, seeded with its latest balance. */
+  startBalance(a: FinanceAccountBalanceDto): void {
+    this.balanceDraftAccount.set(a);
+    this.balanceDraftValue.set(a.hasBalance ? String(a.latestBalance) : '');
+  }
+
+  cancelBalanceDraft(): void {
+    this.balanceDraftAccount.set(null);
+    this.balanceDraftValue.set('');
+  }
+
+  /** Save today's signed balance for the open account (positive asset / negative liability). */
+  async saveBalanceDraft(): Promise<void> {
+    const a = this.balanceDraftAccount();
+    if (!a || this.balanceSaving()) return;
+    const balance = Number(this.balanceDraftValue());
+    if (!Number.isFinite(balance)) {
+      this.snack.open('Enter a balance (a number — negative for a credit card or loan).', 'OK', { duration: 4000 });
+      return;
+    }
+    this.balanceSaving.set(true);
+    try {
+      await firstValueFrom(this.api.setFinanceBalance(a.accountId, { balance }));
+      this.cancelBalanceDraft();
+      this.loadNetWorth();
+    } catch (e) {
+      this.snack.open(this.messageOf(e, "Couldn't save that balance."), 'OK', { duration: 4000 });
+    } finally {
+      this.balanceSaving.set(false);
+    }
+  }
+
+  /** A hint for the kind of value to enter (assets positive, credit/loan negative). */
+  balanceHint(a: FinanceAccountBalanceDto): string {
+    return a.kind === 'credit'
+      ? 'Owe? Enter a negative number (a liability).'
+      : 'Asset balance — a positive number.';
+  }
+
+  // ---- savings goals ----
+
+  /** A ring fill (0..100) for a goal card. */
+  goalPct(g: FinanceSavingsGoalDto): number {
+    return Math.max(0, Math.min(100, Math.round(g.pct)));
+  }
+
+  /** The conic-gradient ring background for a goal card, tinted by owner. */
+  goalRing(g: FinanceSavingsGoalDto): string {
+    const color = OWNER_COLOR[g.owner] ?? OWNER_COLOR.unassigned;
+    return `conic-gradient(${color} ${this.goalPct(g)}%, var(--tech-bg-sunken) 0)`;
+  }
+
+  openNewGoal(): void {
+    this.goalDraft.set({ id: null, name: '', target: '', owner: 'joint', targetDate: '' });
+  }
+
+  openEditGoal(g: FinanceSavingsGoalDto): void {
+    this.goalDraft.set({
+      id: g.id, name: g.name, target: String(g.targetAmount),
+      owner: g.owner, targetDate: g.targetDate ?? '',
+    });
+  }
+
+  cancelGoalDraft(): void {
+    this.goalDraft.set(null);
+  }
+
+  patchGoalDraft(patch: Partial<GoalDraft>): void {
+    this.goalDraft.update((d) => (d ? { ...d, ...patch } : d));
+  }
+
+  /** Create or update the savings goal in the dialog. */
+  async saveGoalDraft(): Promise<void> {
+    const d = this.goalDraft();
+    if (!d || this.goalSaving()) return;
+    const name = d.name.trim();
+    if (!name) {
+      this.snack.open('Give your goal a name.', 'OK', { duration: 3000 });
+      return;
+    }
+    const target = Number(d.target);
+    if (!Number.isFinite(target) || target < 0) {
+      this.snack.open('Enter a target amount.', 'OK', { duration: 3000 });
+      return;
+    }
+    this.goalSaving.set(true);
+    const body = {
+      name, targetAmount: target, owner: d.owner,
+      targetDate: d.targetDate || null,
+    };
+    try {
+      if (d.id == null) await firstValueFrom(this.api.createFinanceSavingsGoal(body));
+      else await firstValueFrom(this.api.updateFinanceSavingsGoal(d.id, body));
+      this.goalDraft.set(null);
+      this.loadSavings();
+    } catch (e) {
+      this.snack.open(this.messageOf(e, "Couldn't save that goal."), 'OK', { duration: 4000 });
+    } finally {
+      this.goalSaving.set(false);
+    }
+  }
+
+  /** Add (or, with a negative amount, withdraw) a contribution to a goal. */
+  async contributeToGoal(g: FinanceSavingsGoalDto): Promise<void> {
+    const raw = window.prompt(`Add to "${g.name}" (a negative number withdraws)`, '')?.trim();
+    if (!raw) return;
+    const amount = Number(raw);
+    if (!Number.isFinite(amount) || amount === 0) {
+      this.snack.open('Enter an amount to contribute.', 'OK', { duration: 3000 });
+      return;
+    }
+    try {
+      await firstValueFrom(this.api.contributeFinanceSavingsGoal(g.id, { amount }));
+      this.loadSavings();
+    } catch (e) {
+      this.snack.open(this.messageOf(e, "Couldn't record that contribution."), 'OK', { duration: 4000 });
+    }
+  }
+
+  async deleteGoal(g: FinanceSavingsGoalDto): Promise<void> {
+    if (!window.confirm(`Delete the "${g.name}" goal?`)) return;
+    try {
+      await firstValueFrom(this.api.deleteFinanceSavingsGoal(g.id));
+      this.loadSavings();
+    } catch (e) {
+      this.snack.open(this.messageOf(e, "Couldn't delete that goal."), 'OK', { duration: 4000 });
+    }
+  }
+
+  /** A friendly direction phrase for the budget-check net-worth line. */
+  netWorthDirectionLabel(dir: string): string {
+    return dir === 'up' ? 'trending up' : dir === 'down' ? 'trending down'
+      : dir === 'flat' ? 'holding steady' : 'not enough history yet';
   }
 
   // ============================================================== import
@@ -932,6 +1287,36 @@ export class FamilyFinance {
           showSymbol: false,
           lineStyle: { width: 2 },
           data: pts.map((p) => Number(p.income.toFixed(2))),
+        },
+      ],
+    };
+  });
+
+  /** The net-worth-over-time line (from the snapshot history). */
+  readonly netWorthTrendOption = computed<EChartsOption>(() => {
+    const pts = this.netWorth()?.trend ?? [];
+    const labels = pts.map((p) => {
+      const [y, m] = p.month.split('-').map(Number);
+      return new Date(y, m - 1, 1).toLocaleDateString(undefined, { month: 'short' });
+    });
+    return {
+      grid: { left: 56, right: 16, top: 16, bottom: 28 },
+      tooltip: {
+        trigger: 'axis',
+        valueFormatter: (v) => (typeof v === 'number' ? this.money(v) : String(v)),
+      },
+      xAxis: { type: 'category', boundaryGap: false, data: labels },
+      yAxis: { type: 'value', axisLabel: { formatter: (v: number) => this.moneyShort(v) } },
+      series: [
+        {
+          name: 'Net worth',
+          type: 'line',
+          smooth: true,
+          showSymbol: false,
+          lineStyle: { width: 2, color: '#3dd68c' },
+          itemStyle: { color: '#3dd68c' },
+          areaStyle: { opacity: 0.12, color: '#3dd68c' },
+          data: pts.map((p) => Number(p.netWorth.toFixed(2))),
         },
       ],
     };

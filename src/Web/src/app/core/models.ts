@@ -4810,6 +4810,169 @@ export interface FinanceMoneyCoachResult {
   fellBackToPlain: boolean;
 }
 
+// ── Family Hub F5: FINANCE — MONEY, DEEPENED (budgets · net worth · savings) ──────────────────────
+// Pure net-new surfaces on the EXISTING /api/family/finance room: per-category BUDGETS (spend-vs-limit by
+// pace), MANUAL net-worth (signed per-account balance snapshots → latest-wins), and SAVINGS goals. Every
+// DTO is household-private + double-gated (family.use + family.finance) and exposes people by AppUser id
+// only (never an email). Deterministic math is the floor; the budget-check AI narration is the only token
+// spend (finance.ai-gated, always 200, FellBackToPlain). Mirrors the FamilyFinanceEndpoints contract.
+
+/** Pace status of a budget: "under" | "near" (≥85% by pace) | "over" (projected > limit). */
+export type FinanceBudgetStatus = 'under' | 'near' | 'over';
+
+/**
+ * One budget row (mirrors BudgetDto): a per-category monthly limit (Category null = the OVERALL whole-month
+ * budget) with its deterministic month-to-date `spent` (EXPENSE-only, transfers excluded), `remaining`,
+ * `pct` of the limit spent so far, the pace `projected` end-of-month spend (spent/dayOfMonth*daysInMonth),
+ * and the pace `status`.
+ */
+export interface FinanceBudgetDto {
+  id: number;
+  category?: string | null;
+  limitAmount: number;
+  spent: number;
+  remaining: number;
+  pct: number;
+  projected: number;
+  status: FinanceBudgetStatus;
+}
+
+/** The "unbudgeted" rollup (mirrors UnbudgetedDto): spend in categories with no per-category budget. */
+export interface FinanceUnbudgetedDto {
+  spent: number;
+  categoryCount: number;
+}
+
+/** GET /budgets result (mirrors BudgetsResponseDto): the resolved month + budget rows + the unbudgeted
+ *  rollup + the month's total EXPENSE spend (the same figure GET /summary computes). */
+export interface FinanceBudgetsResponse {
+  month: string;
+  budgets: FinanceBudgetDto[];
+  unbudgeted: FinanceUnbudgetedDto;
+  totalSpent: number;
+}
+
+/** POST/PUT /budgets body (mirrors BudgetUpsertRequest): a category (null/blank = the OVERALL budget) +
+ *  the monthly limit. */
+export interface FinanceBudgetUpsertRequest {
+  category?: string | null;
+  limitAmount?: number | null;
+}
+
+/**
+ * One account's latest balance (mirrors AccountBalanceDto): its newest SIGNED snapshot — positive = asset
+ * (bank), negative = liability (credit/loan) — plus the `asOfDate` (null until a balance is entered) and a
+ * `hasBalance` flag. Owner/kind are the account's tags. Manual entry: net worth is NOT a live bank feed.
+ */
+export interface FinanceAccountBalanceDto {
+  accountId: number;
+  name: string;
+  owner: FinanceOwner;
+  kind: FinanceAccountKind;
+  latestBalance: number;
+  asOfDate?: string | null;
+  hasBalance: boolean;
+}
+
+/** One net-worth-by-month trend point (mirrors NetWorthTrendPointDto): a `yyyy-MM` + the net worth as of
+ *  that month's end (from the snapshot history). */
+export interface FinanceNetWorthTrendPoint {
+  month: string;
+  netWorth: number;
+}
+
+/**
+ * GET /net-worth result (mirrors NetWorthDto): the assets total (sum of positive latest balances), the
+ * liabilities total (sum of negative latest balances, returned as a NEGATIVE number), the net worth
+ * (assets + liabilities), the per-account latest-balance rows, and a net-worth-by-month trend.
+ */
+export interface FinanceNetWorthDto {
+  assets: number;
+  liabilities: number;
+  netWorth: number;
+  accounts: FinanceAccountBalanceDto[];
+  trend: FinanceNetWorthTrendPoint[];
+}
+
+/** POST /accounts/{id}/balance body (mirrors BalanceEntryRequest): the SIGNED balance (positive asset,
+ *  negative liability), an optional `asOfDate` (YYYY-MM-DD; defaults today), and an optional note. */
+export interface FinanceBalanceEntryRequest {
+  asOfDate?: string | null;
+  balance?: number | null;
+  note?: string | null;
+}
+
+/**
+ * One savings goal (mirrors SavingsGoalDto): a named target with the manually-tracked `savedAmount`, the
+ * `pct` to target, an optional `targetDate`, the `owner` (his/hers/joint/unassigned — reuses the account
+ * owner vocab + colors), optional `color`/`icon`, an `archived` flag, and a deterministic `projectedFinish`
+ * (yyyy-MM-dd) extrapolated from contribution pace (null when there isn't enough history).
+ */
+export interface FinanceSavingsGoalDto {
+  id: number;
+  name: string;
+  targetAmount: number;
+  savedAmount: number;
+  pct: number;
+  targetDate?: string | null;
+  owner: FinanceOwner;
+  color?: string | null;
+  icon?: string | null;
+  archived: boolean;
+  projectedFinish?: string | null;
+}
+
+/** GET /savings result (mirrors SavingsResponseDto): the goals + the totals across non-archived goals. */
+export interface FinanceSavingsResponse {
+  goals: FinanceSavingsGoalDto[];
+  totalSaved: number;
+  totalTarget: number;
+}
+
+/** POST/PUT /savings body (mirrors SavingsUpsertRequest). A PUT leaves SavedAmount alone — use /contribute. */
+export interface FinanceSavingsUpsertRequest {
+  name?: string | null;
+  targetAmount?: number | null;
+  targetDate?: string | null;
+  owner?: FinanceOwner | null;
+  color?: string | null;
+  icon?: string | null;
+  archived?: boolean | null;
+}
+
+/** POST /savings/{id}/contribute body (mirrors ContributeRequest): the signed amount to add to SavedAmount
+ *  (negative withdraws; the server clamps SavedAmount at zero). */
+export interface FinanceContributeRequest {
+  amount?: number | null;
+}
+
+/** One budget-check line (mirrors BudgetCheckItemDto): a budget's category + limit + pace projection + status. */
+export interface FinanceBudgetCheckItemDto {
+  category?: string | null;
+  limitAmount: number;
+  projected: number;
+  status: FinanceBudgetStatus;
+}
+
+/**
+ * The "✨ Budget check-in" result (GET /api/family/finance/ai/budget-check?month=; mirrors BudgetCheckDto).
+ * The deterministic FLOOR — the per-budget over/near/under list + the over/near counts + the net-worth
+ * `direction` ("up"|"down"|"flat"|"unknown") — always renders. When finance.ai is held AND Gemini is
+ * configured it ALSO narrates those facts into a calm `narrative` + up to a few `tips`; otherwise
+ * `narrative` is null, `tips` is empty, and `fellBackToPlain` is true. NEVER a 503; writes nothing; cached
+ * per (household, month). Read-only.
+ */
+export interface FinanceBudgetCheckDto {
+  month: string;
+  budgets: FinanceBudgetCheckItemDto[];
+  overCount: number;
+  nearCount: number;
+  netWorthDirection: string;
+  narrative: string | null;
+  tips: string[];
+  fellBackToPlain: boolean;
+}
+
 /**
  * The tracker "✨ This week" recap (GET /api/ai/tracker-recap; mirrors TrackerRecapDto): a warm, encouraging
  * read-only `narrative` of the caller's OWN last 7 local days plus 0–4 gentle coaching `insights` bullets,
