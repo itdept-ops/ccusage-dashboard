@@ -1,0 +1,174 @@
+/* Journal & Mood — a private daily check-in. Reuses the tracker design tokens (--tech-*). Accent: a calm
+   indigo → teal for the hero/reflection + the selected/active states. */
+
+.journal {
+  --jr-ink: #4f46e5;
+  --jr-ink-soft: rgba(79, 70, 229, 0.12);
+  --jr-warm: #0d9488;
+
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: var(--tech-space-6, 1.5rem);
+  display: flex;
+  flex-direction: column;
+  gap: var(--tech-space-4, 1rem);
+}
+
+.journal__card {
+  padding: var(--tech-space-6, 24px);
+  border: 1px solid var(--tech-border);
+  border-radius: var(--tech-radius, 12px);
+  background: var(--tech-panel);
+}
+.journal__card-title {
+  margin: 0 0 var(--tech-space-3, 12px);
+  font-size: var(--tech-fs-h1, 18px);
+  font-weight: 700;
+  color: var(--tech-text);
+}
+
+/* ── Header ── */
+.journal__head { display: flex; flex-wrap: wrap; gap: 1rem; align-items: flex-start; }
+.journal__title h1 { margin: 0 0 4px; font-size: 1.6rem; font-weight: 800; color: var(--tech-text); }
+.journal__sub { margin: 0; max-width: 60ch; color: var(--tech-text-tertiary); line-height: 1.5; }
+
+/* ── Loading / state ── */
+.journal__loading { display: flex; justify-content: center; padding: 3rem 0; }
+.journal__state {
+  display: flex; flex-direction: column; align-items: center; gap: 10px;
+  text-align: center; padding: 3rem 1rem; color: var(--tech-text-tertiary);
+  border: 1px dashed var(--tech-border); border-radius: var(--tech-radius, 12px);
+  mat-icon { font-size: 40px; width: 40px; height: 40px; color: var(--tech-text-tertiary); }
+  h2 { margin: 0; font-size: 1.05rem; color: var(--tech-text); }
+  p { margin: 0; max-width: 40ch; }
+}
+
+/* ── Weekly reflection card ── */
+.journal__reflect {
+  display: flex; gap: 16px; align-items: flex-start;
+  background: linear-gradient(135deg, var(--jr-ink-soft), rgba(13, 148, 136, 0.08));
+  border-color: color-mix(in srgb, var(--jr-ink) 28%, var(--tech-border));
+}
+.journal__reflect-ic {
+  flex: none; width: 42px; height: 42px; border-radius: 50%;
+  display: grid; place-items: center;
+  background: var(--jr-ink); color: #fff;
+  mat-icon { color: #fff; }
+}
+.journal__reflect-body { display: flex; flex-direction: column; gap: 4px; }
+.journal__reflect-h {
+  font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em;
+  color: var(--jr-ink);
+}
+.journal__reflect-note { margin: 0; color: var(--tech-text); line-height: 1.5; font-size: 1.02rem; }
+.journal__reflect-note.is-muted { color: var(--tech-text-tertiary); }
+.journal__reflect-tag {
+  align-self: flex-start; margin-top: 2px;
+  font-size: 0.68rem; padding: 2px 8px; border-radius: 999px;
+  background: var(--tech-bg); color: var(--tech-text-tertiary); border: 1px solid var(--tech-border);
+}
+
+/* ── Summary strip ── */
+.journal__summary {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px;
+}
+.journal__stat {
+  display: flex; flex-direction: column; gap: 2px;
+  padding: 14px 16px; border: 1px solid var(--tech-border); border-radius: var(--tech-radius, 12px);
+  background: var(--tech-panel);
+}
+.journal__stat-v { font-size: 1.05rem; font-weight: 800; color: var(--tech-text); }
+.journal__stat-l { font-size: 0.74rem; color: var(--tech-text-tertiary); text-transform: uppercase; letter-spacing: 0.04em; }
+
+/* ── Main grid ── */
+.journal__grid { display: grid; grid-template-columns: 280px 1fr; gap: var(--tech-space-4, 1rem); align-items: start; }
+
+/* left rail */
+.journal__rail { max-height: 640px; overflow: auto; }
+.journal__list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.journal__row {
+  width: 100%; display: flex; align-items: center; gap: 10px;
+  padding: 9px 11px; border: 1px solid transparent; border-radius: 10px;
+  background: transparent; color: var(--tech-text); cursor: pointer; text-align: left;
+  &:hover { background: var(--tech-bg); }
+  &.is-sel { background: var(--jr-ink-soft); border-color: color-mix(in srgb, var(--jr-ink) 32%, transparent); }
+}
+.journal__row-emoji { font-size: 1.05rem; width: 1.4em; text-align: center; }
+.journal__row-date { font-weight: 600; flex: 1; }
+.journal__row-mood { font-size: 0.74rem; color: var(--tech-text-tertiary); }
+.journal__empty { margin: 0; color: var(--tech-text-tertiary); font-size: 0.9rem; }
+
+/* editor */
+.journal__editor { display: flex; flex-direction: column; gap: var(--tech-space-4, 16px); }
+.journal__daybar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.journal__daybar-now { display: flex; flex-direction: column; line-height: 1.1; min-width: 130px; }
+.journal__daybar-l { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--tech-text-tertiary); }
+.journal__daybar-v { font-size: 1.05rem; font-weight: 700; color: var(--tech-text); }
+.journal__save { font-size: 0.74rem; font-style: normal; color: var(--tech-text-tertiary); }
+.journal__save.is-ok { color: var(--jr-warm); }
+.journal__date {
+  margin-left: auto; padding: 6px 8px; border: 1px solid var(--tech-border); border-radius: 8px;
+  background: var(--tech-panel); color: var(--tech-text); font: inherit;
+}
+
+.journal__field { display: flex; flex-direction: column; gap: 6px; }
+.journal__field-h {
+  font-size: 0.78rem; font-weight: 700; color: var(--tech-text); text-transform: uppercase; letter-spacing: 0.04em;
+  i { font-weight: 500; text-transform: none; letter-spacing: 0; color: var(--tech-text-tertiary); }
+}
+
+/* moods */
+.journal__moods { display: flex; flex-wrap: wrap; gap: 8px; }
+.journal__mood {
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+  min-width: 64px; padding: 10px 8px; cursor: pointer;
+  border: 1px solid var(--tech-border); border-radius: 12px; background: var(--tech-panel); color: var(--tech-text);
+  &:hover { border-color: var(--jr-ink); }
+  &.is-on { background: var(--jr-ink-soft); border-color: var(--jr-ink); }
+}
+.journal__mood-emoji { font-size: 1.4rem; }
+.journal__mood-l { font-size: 0.74rem; font-weight: 600; }
+
+/* energy */
+.journal__energy { display: flex; align-items: center; gap: 10px; }
+.journal__dot {
+  width: 26px; height: 26px; border-radius: 50%; cursor: pointer;
+  border: 2px solid var(--tech-border); background: var(--tech-panel); padding: 0;
+  &.is-on { background: var(--jr-warm); border-color: var(--jr-warm); }
+}
+.journal__energy-v { font-size: 0.85rem; color: var(--tech-text-tertiary); font-weight: 600; }
+
+/* tags */
+.journal__tags { display: flex; flex-wrap: wrap; gap: 6px; }
+.journal__tag {
+  padding: 6px 12px; cursor: pointer; font-size: 0.85rem;
+  border: 1px solid var(--tech-border); border-radius: 999px; background: var(--tech-panel); color: var(--tech-text);
+  text-transform: capitalize;
+  &:hover { border-color: var(--jr-ink); }
+  &.is-on { background: var(--jr-ink); border-color: var(--jr-ink); color: #fff; }
+}
+
+/* text areas */
+.journal__area {
+  resize: vertical; padding: 10px 12px; font: inherit; line-height: 1.5;
+  border: 1px solid var(--tech-border); border-radius: 10px; background: var(--tech-panel); color: var(--tech-text);
+  &:focus { outline: none; border-color: var(--jr-ink); box-shadow: 0 0 0 3px var(--jr-ink-soft); }
+}
+.journal__area--lg { min-height: 120px; }
+
+.journal__editor-foot {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+  padding-top: 4px;
+}
+.journal__privacy {
+  display: flex; align-items: center; gap: 6px; margin: 0;
+  font-size: 0.8rem; color: var(--tech-text-tertiary);
+  mat-icon { font-size: 18px; width: 18px; height: 18px; }
+}
+.journal__clear { color: var(--tech-text-tertiary) !important; }
+
+@media (max-width: 880px) {
+  .journal__grid { grid-template-columns: 1fr; }
+  .journal__summary { grid-template-columns: repeat(2, 1fr); }
+  .journal__rail { max-height: 280px; }
+}

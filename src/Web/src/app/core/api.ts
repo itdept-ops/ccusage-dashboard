@@ -29,6 +29,9 @@ import {
   IdentityImportResult, IdentityAutoSuggest, IdentityAutoApply,
   HardChallengeDto, HardSharedPersonDto, StartChallengeRequest, UpsertHardDayRequest, HardDayDto, CheatDaysRequest,
   HardTaskDto, CreateHardTaskRequest, UpdateHardTaskRequest, HardLeaderboardRowDto, HardCoachDto,
+  JournalDto, JournalEntryDto, JournalDayRequest, JournalReflectionDto,
+  HabitDto, HabitDayDto, HabitLeaderboardRowDto, HabitCoachDto,
+  CreateHabitRequest, UpdateHabitRequest, UpsertHabitDayRequest,
   TrophiesResponse,
   WrappedPeriod,
   WrappedResponse,
@@ -2860,6 +2863,81 @@ export class Api {
   /** The AI coach recap (gated tracker.ai; ALWAYS 200 with a deterministic plain floor). */
   challengeCoach(): Observable<HardCoachDto> {
     return this.http.get<HardCoachDto>(`${this.base}/challenge/coach`);
+  }
+
+  // ---- Journal & Mood (/api/journal) — a PRIVATE owner day-log, gated by the SAME tracker.self. The
+  // gratitude/reflection free-text is owner-only + NEVER reaches the AI; only mood/energy/tag frequencies do. ----
+
+  /** The caller's OWN recent entries (newest-date-first, cap ~120) + a deterministic aggregate summary. */
+  journal(): Observable<JournalDto> {
+    return this.http.get<JournalDto>(`${this.base}/journal/`);
+  }
+
+  /** PARTIAL upsert of one day's entry (owner). An absent field is PRESERVED; `tags`, when present, REPLACE
+   *  the stored set. Vocab-normalised server-side. Returns the saved entry. To clear a day use deleteJournalDay. */
+  upsertJournalDay(body: JournalDayRequest): Observable<JournalEntryDto> {
+    return this.http.put<JournalEntryDto>(`${this.base}/journal/day`, body);
+  }
+
+  /** Clear one whole day's entry (DELETE /journal/day?date=; 204, or 404 if none; owner-scoped). */
+  deleteJournalDay(date: string): Observable<void> {
+    const params = new HttpParams().set('date', date);
+    return this.http.delete<void>(`${this.base}/journal/day`, { params });
+  }
+
+  /**
+   * The gentle WEEKLY reflection (GET /journal/reflection). Gated tracker.self; ALWAYS 200 — a deterministic
+   * plain floor (`fellBackToPlain=true`) when tracker.ai is absent or Gemini is off. ONLY mood/energy/tag
+   * frequencies + counts ever reach the model — NEVER the raw gratitude/reflection free-text.
+   */
+  journalReflection(): Observable<JournalReflectionDto> {
+    return this.http.get<JournalReflectionDto>(`${this.base}/journal/reflection`);
+  }
+
+  // ---- Habits engine (/api/habits) — the generalised successor to 75-Hard, gated by the SAME tracker.self.
+  // Owner-scoped; NO one-active invariant; OPEN-ENDED window. The day-math delegates to the shared scorer; the
+  // streak is CADENCE-AWARE. A habit.dayComplete feed event carries the STREAK only — never the habit title. ----
+
+  /** The caller's active (+ paused) habits, each with today's progress + current/longest streak + completed count. */
+  habits(): Observable<HabitDto[]> {
+    return this.http.get<HabitDto[]>(`${this.base}/habits/`);
+  }
+
+  /** Create a habit (owner). Returns the created habit card. */
+  createHabit(body: CreateHabitRequest): Observable<HabitDto> {
+    return this.http.post<HabitDto>(`${this.base}/habits/`, body);
+  }
+
+  /** Edit / pause / archive a habit (owner). `status` drives pause/archive. Returns the updated card. */
+  updateHabit(id: number, body: UpdateHabitRequest): Observable<HabitDto> {
+    return this.http.put<HabitDto>(`${this.base}/habits/${id}`, body);
+  }
+
+  /** Soft-archive a habit (owner; 204, or 404 if none). */
+  deleteHabit(id: number): Observable<void> {
+    return this.http.delete<void>(`${this.base}/habits/${id}`);
+  }
+
+  /** Read one day's progress for a habit (owner). `date` defaults to today server-side. */
+  habitDay(id: number, date?: string): Observable<HabitDayDto> {
+    const params = date ? new HttpParams().set('date', date) : undefined;
+    return this.http.get<HabitDayDto>(`${this.base}/habits/${id}/day`, { params });
+  }
+
+  /** Upsert one day's progress for a habit (owner). On CROSSING into complete the server emits
+   *  habit.dayComplete (the STREAK only — never the title). Returns the rebuilt day. */
+  upsertHabitDay(id: number, body: UpsertHabitDayRequest): Observable<HabitDayDto> {
+    return this.http.put<HabitDayDto>(`${this.base}/habits/${id}/day`, body);
+  }
+
+  /** The caller + each sharing mutual contact, ranked by best streak (userId + display NAME only, NEVER email). */
+  habitsLeaderboard(): Observable<HabitLeaderboardRowDto[]> {
+    return this.http.get<HabitLeaderboardRowDto[]>(`${this.base}/habits/leaderboard`);
+  }
+
+  /** The AI coach recap (gated tracker.ai; ALWAYS 200 with a deterministic plain floor). */
+  habitsCoach(): Observable<HabitCoachDto> {
+    return this.http.get<HabitCoachDto>(`${this.base}/habits/coach`);
   }
 
   // ---- Trophy Wall (/api/trophies) — the caller's OWN milestone badges, gated by tracker.self ----

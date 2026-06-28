@@ -5507,6 +5507,176 @@ export interface HardCoachDto {
   fellBackToPlain: boolean;
 }
 
+// =====================================================================================================
+// Journal & Mood (/api/journal) — a PRIVATE owner day-log (a sibling of the cycle day-log). Gated by the
+// SAME tracker.self permission (NO dedicated perm), owner-scoped server-side. FREE-TEXT PRIVACY: the
+// gratitude + reflection text is owner-only and NEVER reaches the AI — only mood/energy/tag FREQUENCIES +
+// counts do. Mirrors the JournalEndpoints contract (DayRequest / EntryDto / SummaryDto / ReflectionDto).
+// =====================================================================================================
+
+/** The accepted MOOD vocabulary (server NormalizeMood maps 1..5 onto it: 1=rough .. 5=great). */
+export type JournalMood = 'rough' | 'low' | 'ok' | 'good' | 'great';
+
+/** The accepted TAG vocabulary (anything outside it is dropped on write, server-side). */
+export type JournalTag =
+  | 'work' | 'family' | 'health' | 'sleep' | 'exercise' | 'social'
+  | 'rest' | 'stress' | 'creative' | 'nature' | 'learning' | 'money';
+
+/** One day's journal entry (mirrors EntryDto) — owner-only; returned only on the owner's own GET. */
+export interface JournalEntryDto {
+  date: string;                  // ISO "YYYY-MM-DD" (DateOnly)
+  mood: string | null;
+  energy: number | null;         // 1..5
+  tags: string[];
+  gratitudeText: string | null;  // PRIVATE — never sent to the AI
+  reflectionText: string | null; // PRIVATE — never sent to the AI
+  updatedUtc: string;
+}
+
+/** A deterministic aggregate summary of the recent window (mirrors SummaryDto) — counts/frequencies only. */
+export interface JournalSummaryDto {
+  daysLogged: number;
+  topMood: string | null;
+  topTag: string | null;
+  avgEnergy: number | null;
+}
+
+/** The main GET payload (mirrors JournalDto): recent entries newest-date-first + a deterministic summary. */
+export interface JournalDto {
+  entries: JournalEntryDto[];
+  summary: JournalSummaryDto;
+}
+
+/** The gentle weekly reflection (mirrors ReflectionDto). `fellBackToPlain` when tracker.ai/Gemini absent. ALWAYS 200. */
+export interface JournalReflectionDto {
+  note: string;
+  fellBackToPlain: boolean;
+}
+
+/** PARTIAL upsert of one day's entry (mirrors DayRequest). `date` required; an absent field is PRESERVED;
+ *  `tags`, when present, REPLACE the stored set. To clear a whole day use deleteJournalDay(date). */
+export interface JournalDayRequest {
+  date: string;                  // ISO "YYYY-MM-DD"
+  mood?: string | null;
+  energy?: number | null;
+  tags?: string[];
+  gratitudeText?: string | null;
+  reflectionText?: string | null;
+}
+
+// =====================================================================================================
+// Habits engine (/api/habits) — the generalised successor to 75-Hard, built net-new on the Habit/HabitDay
+// tables (the live HardChallenge tables are UNTOUCHED). Gated by tracker.self, owner-scoped. NO one-active
+// invariant; OPEN-ENDED window. Day-math delegates to HardChallengeScoring; the streak is CADENCE-AWARE.
+// HABIT-TITLE PRIVACY: habit.dayComplete feed events carry the STREAK only — never the title.
+// Mirrors HabitEndpoints (HabitDto / HabitDayDto / LeaderboardRowDto / CoachDto + the request DTOs).
+// =====================================================================================================
+
+/** How often a habit is expected (mirrors HabitCadence, by name). */
+export type HabitCadence = 'Daily' | 'Weekly' | 'CustomDaysOfWeek' | 'XTimesPerPeriod';
+
+/** Lifecycle of a habit (mirrors HabitStatus, by name). */
+export type HabitStatus = 'Active' | 'Paused' | 'Archived';
+
+/** Where a habit's progress comes from (subset of HardTaskAutoSource — only None/Water/Workout are valid). */
+export type HabitAutoSource = 'None' | 'Water' | 'Workout';
+
+/** One day's progress for a habit (mirrors HabitDayDto). */
+export interface HabitDayDto {
+  date: string;            // ISO "YYYY-MM-DD"
+  value: number | null;    // measurable value (live tracker value for an auto habit, stored value for manual)
+  done: boolean | null;    // binary done
+  skip: boolean;           // the cheat/skip lever (keeps the streak)
+  progress: number;        // 0..1
+  complete: boolean;
+}
+
+/** A habit card (mirrors HabitDto): its config + today's progress + cached streak/longest/completed. */
+export interface HabitDto {
+  id: number;
+  title: string;
+  cadence: HabitCadence;
+  daysOfWeekMask: number;  // bit per weekday (Sun..Sat → 0x01..0x40) for CustomDaysOfWeek
+  timesPerPeriod: number;  // for XTimesPerPeriod
+  periodDays: number;      // the rolling period length for XTimesPerPeriod
+  targetValue: number | null;
+  unit: string;
+  partialCredit: boolean;
+  autoSource: HabitAutoSource;
+  minMinutes: number | null;
+  color: string;
+  icon: string;
+  startDate: string;       // ISO
+  endDate: string | null;  // ISO; null = open-ended
+  status: HabitStatus;
+  currentStreak: number;
+  longestStreak: number;
+  completedCount: number;
+  today: HabitDayDto;
+}
+
+/** One habits-leaderboard row (mirrors LeaderboardRowDto) — userId + display NAME only, NEVER email/title. */
+export interface HabitLeaderboardRowDto {
+  userId: number;
+  name: string;
+  picture?: string | null;
+  bestStreak: number;
+  totalCompletions: number;
+  activeHabits: number;
+  isSelf: boolean;
+}
+
+/** The AI coach recap (mirrors CoachDto). `fellBackToPlain` when tracker.ai/Gemini absent. ALWAYS 200. */
+export interface HabitCoachDto {
+  narrative: string;
+  insights: string[];
+  fellBackToPlain: boolean;
+}
+
+/** Create a habit (mirrors CreateHabitRequest). All fields but the title are optional (server-defaulted). */
+export interface CreateHabitRequest {
+  title: string;
+  cadence?: number;          // HabitCadence as int (Daily=0, Weekly=1, CustomDaysOfWeek=2, XTimesPerPeriod=3)
+  daysOfWeekMask?: number;
+  timesPerPeriod?: number;
+  periodDays?: number;
+  targetValue?: number | null;
+  unit?: string | null;
+  partialCredit?: boolean;
+  autoSource?: number;       // HardTaskAutoSource as int (None=0, Water=2, Workout=3)
+  minMinutes?: number | null;
+  color?: string | null;
+  icon?: string | null;
+  startDate?: string | null; // ISO
+  endDate?: string | null;   // ISO
+}
+
+/** Edit / pause / archive a habit (mirrors UpdateHabitRequest). Every field optional; Status drives pause/archive. */
+export interface UpdateHabitRequest {
+  title?: string;
+  cadence?: number;
+  daysOfWeekMask?: number;
+  timesPerPeriod?: number;
+  periodDays?: number;
+  targetValue?: number | null;
+  unit?: string | null;
+  partialCredit?: boolean;
+  autoSource?: number;
+  minMinutes?: number | null;
+  color?: string | null;
+  icon?: string | null;
+  endDate?: string | null;
+  status?: number;           // HabitStatus as int (Active=0, Paused=1, Archived=2)
+}
+
+/** Upsert one day's habit progress (mirrors UpsertDayRequest). */
+export interface UpsertHabitDayRequest {
+  date: string;              // ISO "YYYY-MM-DD"
+  value?: number | null;
+  done?: boolean | null;
+  skip?: boolean;
+}
+
 // ---- Trophy Wall (/api/trophies) ----
 // The caller's OWN milestone badges, DERIVED at read time from existing tracker/75-Hard/bills data (no new
 // tracking, no migration). Personal-only in V1. userId + display NAME only — NEVER an email.

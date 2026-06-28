@@ -1,0 +1,202 @@
+// ============================================================================
+// Journal & Mood — the mobile-first twin of the live /journal page, rebuilt on the shared beta-ui "Strata"
+// foundation. One line adopts the whole Strata token contract; then this page OVERRIDES the per-page accent
+// contract with its OWN signature: a calm INDIGO → TEAL ramp. Every kit component reads --accent-a/--accent-b
+// off this :host cascade, so the single override re-skins the screen (pull-refresh ring, FAB, focus ring).
+//
+// ISOLATED + gated by platform.mobile + tracker.self: nothing here touches the global --tech-* tokens or the
+// live /journal page. The kit partial is the only import.
+// ============================================================================
+
+@use '../beta-ui/beta-kit' as kit;
+
+:host {
+  @include kit.beta-host;
+
+  // ---- JOURNAL SIGNATURE ACCENT: INDIGO → TEAL ----
+  --accent-a: #6366f1;             // indigo (start)
+  --accent-b: #0d9488;             // teal (end)
+}
+
+@include kit.beta-springs;
+@include kit.beta-a11y;
+
+// ============================================================================
+// SHELL
+// ============================================================================
+
+.jr-ptr { display: block; height: 100%; }
+
+.jr-scroll {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-height: 100%;
+  max-width: 720px;
+  margin-inline: auto;
+  width: 100%;
+  box-sizing: border-box;
+  padding-top: calc(var(--safe-top) + 8px);
+  padding-bottom: calc(var(--safe-bottom) + 96px);
+  padding-inline: var(--gutter) var(--gutter-r);
+}
+
+// ============================================================================
+// HERO
+// ============================================================================
+
+.jr-hero { position: relative; display: flex; flex-direction: column; gap: 4px; padding: 8px 4px 4px; isolation: isolate; }
+.jr-hero__bloom {
+  position: absolute; inset: -40% -30% auto -10%; height: 220px; z-index: -1;
+  background: radial-gradient(60% 60% at 30% 30%, color-mix(in srgb, var(--accent-a) 40%, transparent), transparent 70%);
+  filter: blur(40px); opacity: .6; pointer-events: none;
+}
+.jr-hero__kicker {
+  display: inline-flex; align-items: center; gap: 6px; margin: 0;
+  font-size: .8rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--ink-dim);
+  mat-icon { font-size: 18px; width: 18px; height: 18px; color: var(--accent-a); }
+}
+.jr-hero__title { margin: 2px 0 0; font-size: 1.55rem; font-weight: 800; letter-spacing: -.01em; color: var(--ink); }
+.jr-hero__sub { margin: 0; font-size: .9rem; color: var(--ink-dim); }
+
+// ============================================================================
+// REFLECTION CARD
+// ============================================================================
+
+.jr-reflect {
+  display: flex; gap: 12px; align-items: flex-start; padding: 16px;
+  border-radius: var(--r-tile); border: 1px solid var(--hairline); box-shadow: var(--lift-1);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--accent-a) 14%, var(--glass)), color-mix(in srgb, var(--accent-b) 10%, var(--glass)));
+}
+.jr-reflect__ic {
+  flex: none; width: 38px; height: 38px; border-radius: 50%; display: grid; place-items: center;
+  background: linear-gradient(135deg, var(--accent-a), var(--accent-b)); color: #fff;
+  mat-icon { color: #fff; font-size: 20px; width: 20px; height: 20px; }
+}
+.jr-reflect__body { display: flex; flex-direction: column; gap: 3px; }
+.jr-reflect__h { font-size: .68rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--accent-a); }
+.jr-reflect__note { margin: 0; font-size: .96rem; line-height: 1.45; color: var(--ink); &.is-muted { color: var(--ink-dim); } }
+
+// ============================================================================
+// SUMMARY
+// ============================================================================
+
+.jr-summary { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.jr-stat {
+  display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 12px 6px;
+  border-radius: var(--r-tile); background: var(--glass); border: 1px solid var(--hairline); box-shadow: var(--lift-1);
+}
+.jr-stat__v { font-size: 1.05rem; font-weight: 800; color: var(--ink); }
+.jr-stat__l { font-size: .64rem; font-weight: 700; letter-spacing: .03em; text-transform: uppercase; color: var(--ink-faint); }
+
+// ============================================================================
+// RECENT DAYS
+// ============================================================================
+
+.jr-recent { display: flex; flex-direction: column; gap: 10px; }
+.jr-recent__h {
+  display: flex; align-items: center; gap: 6px; margin: 0;
+  font-size: .95rem; font-weight: 800; color: var(--ink);
+  mat-icon { font-size: 20px; width: 20px; height: 20px; color: var(--accent-a); }
+}
+.jr-recent__list { display: flex; flex-direction: column; gap: 6px; }
+.jr-row {
+  display: flex; align-items: center; gap: 10px; width: 100%; text-align: left;
+  padding: 12px 14px; border-radius: var(--r-tile); background: var(--glass);
+  border: 1px solid var(--hairline); box-shadow: var(--lift-1); color: var(--ink); cursor: pointer;
+  transition: transform .12s ease;
+  &:active { transform: scale(.99); }
+}
+.jr-row__emoji { font-size: 1.2rem; width: 1.4em; text-align: center; }
+.jr-row__date { font-weight: 700; flex: 1; }
+.jr-row__mood { font-size: .78rem; color: var(--ink-dim); }
+.jr-row__tags { font-size: .72rem; color: var(--ink-faint); }
+
+// ============================================================================
+// STATES (empty / error)
+// ============================================================================
+
+.jr-empty, .jr-state {
+  display: flex; flex-direction: column; align-items: center; text-align: center; gap: 10px;
+  padding: 28px 18px; border-radius: var(--r-tile); background: var(--glass);
+  border: 1px solid var(--hairline); box-shadow: var(--lift-1);
+}
+.jr-empty__orb, .jr-state__orb {
+  width: 54px; height: 54px; border-radius: 50%; display: grid; place-items: center;
+  background: color-mix(in srgb, var(--accent-a) 16%, transparent);
+  mat-icon { font-size: 26px; width: 26px; height: 26px; color: var(--accent-a); }
+}
+.jr-empty__body, .jr-state__body { margin: 0; font-size: .9rem; color: var(--ink-dim); max-width: 32ch; }
+.jr-state__title { margin: 0; font-size: 1.05rem; font-weight: 800; color: var(--ink); }
+.jr-state__cta {
+  display: inline-flex; align-items: center; gap: 6px; padding: 10px 18px; margin-top: 4px;
+  border: none; border-radius: var(--r-pill); font-weight: 800; color: #fff; cursor: pointer;
+  background: linear-gradient(135deg, var(--accent-a), var(--accent-b));
+  mat-icon { font-size: 18px; width: 18px; height: 18px; }
+}
+
+// ============================================================================
+// LOG SHEET (cloned from cycle-mobile's .ls system)
+// ============================================================================
+
+.ls { display: flex; flex-direction: column; gap: 16px; padding-bottom: 24px; }
+.ls__head { display: flex; align-items: center; justify-content: space-between; }
+.ls__title { margin: 0; font-size: 1.2rem; font-weight: 800; color: var(--ink); }
+.ls__close {
+  display: inline-flex; align-items: center; justify-content: center; width: 38px; height: 38px;
+  border: none; border-radius: 50%; background: var(--bg-rise); color: var(--ink); cursor: pointer;
+  &:active { transform: scale(.94); }
+}
+.ls__daybar { display: flex; align-items: center; gap: 8px; }
+.ls__day-nav {
+  display: inline-flex; align-items: center; justify-content: center; width: 42px; height: 42px; flex: none;
+  border: none; border-radius: var(--r-pill); background: var(--bg-rise); color: var(--ink); cursor: pointer;
+  mat-icon { font-size: 22px; width: 22px; height: 22px; }
+  &:disabled { opacity: .4; }
+  &:active { transform: scale(.94); }
+}
+.ls__day-now { flex: 1; text-align: center; display: flex; flex-direction: column; line-height: 1.1; }
+.ls__day-l { font-size: .68rem; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--ink-faint); }
+.ls__day-v { font-size: 1.05rem; font-weight: 800; color: var(--ink); }
+.ls__save { font-style: normal; font-size: .72rem; font-weight: 700; color: var(--ink-faint); &.is-ok { color: var(--accent-b); } }
+.ls__today {
+  align-self: center; display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px;
+  border: 1px solid var(--hairline); border-radius: var(--r-pill); background: var(--bg-rise);
+  font-size: .82rem; font-weight: 700; color: var(--accent-b); cursor: pointer;
+  mat-icon { font-size: 18px; width: 18px; height: 18px; }
+}
+.ls__sub { font-size: .72rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--ink-faint); }
+.ls__field { display: flex; flex-direction: column; gap: 5px; }
+.ls__label { font-size: .8rem; font-weight: 700; color: var(--ink-dim); i { font-style: normal; font-weight: 500; color: var(--ink-faint); } }
+.ls__input {
+  width: 100%; box-sizing: border-box; padding: 11px 12px; border: 1px solid var(--hairline);
+  border-radius: var(--r-card); background: var(--bg-base); color: var(--ink); font: inherit; font-size: .92rem;
+  &:focus-visible { outline: none; border-color: var(--accent-a); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent-a) 22%, transparent); }
+}
+.ls__area { resize: vertical; min-height: 56px; }
+.ls__area--lg { min-height: 96px; }
+.ls__chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.ls__chip {
+  display: inline-flex; align-items: center; gap: 5px; padding: 8px 14px; border: 1px solid var(--hairline);
+  border-radius: var(--r-pill); background: var(--bg-base); color: var(--ink); font-size: .85rem; font-weight: 600;
+  text-transform: capitalize; cursor: pointer; transition: transform .12s ease;
+  &.is-on { border-color: transparent; color: #fff; background: linear-gradient(135deg, var(--accent-a), var(--accent-b)); }
+  &:active { transform: scale(.95); }
+}
+.ls__energy { display: flex; gap: 10px; }
+.ls__dot {
+  width: 34px; height: 34px; border-radius: 50%; border: 1px solid var(--hairline); background: var(--bg-base);
+  cursor: pointer; transition: transform .12s ease;
+  &.is-on { border-color: transparent; background: linear-gradient(135deg, var(--accent-a), var(--accent-b)); }
+  &:active { transform: scale(.9); }
+}
+.ls__clear {
+  align-self: flex-start; display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px;
+  border: 1px solid color-mix(in srgb, var(--warn) 40%, transparent); border-radius: var(--r-pill);
+  background: transparent; font-size: .82rem; font-weight: 700; color: var(--warn); cursor: pointer;
+  mat-icon { font-size: 18px; width: 18px; height: 18px; }
+}
+.ls__foot {
+  display: flex; align-items: flex-start; gap: 8px; margin: 0; font-size: .78rem; line-height: 1.4; color: var(--ink-faint);
+  mat-icon { flex: none; font-size: 18px; width: 18px; height: 18px; }
+}

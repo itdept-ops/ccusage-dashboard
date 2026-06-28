@@ -573,6 +573,8 @@ app.MapRecipeEndpoints();
 app.MapResumeEndpoints();
 app.MapGroceryEndpoints();
 app.MapHardChallengeEndpoints();
+app.MapJournalEndpoints();
+app.MapHabitEndpoints();
 app.MapTrophyEndpoints();
 app.MapWrappedEndpoints();
 app.MapWrappedShareEndpoints();

@@ -1,0 +1,175 @@
+<section class="journal">
+  <header class="journal__head">
+    <div class="journal__title">
+      <h1>Journal &amp; Mood</h1>
+      <p class="journal__sub">A private daily check-in — your mood, energy, a few tags, and space to reflect.
+        Only you ever see your notes; they're never sent to the AI.</p>
+    </div>
+  </header>
+
+  @if (loading()) {
+    <div class="journal__loading" aria-busy="true">
+      <mat-spinner diameter="34"></mat-spinner>
+    </div>
+
+  } @else if (errored()) {
+    <div class="journal__state">
+      <mat-icon aria-hidden="true">cloud_off</mat-icon>
+      <h2>Couldn't load your journal</h2>
+      <p>Something went wrong fetching your entries. Give it another go.</p>
+      <button mat-stroked-button type="button" (click)="reload()">
+        <mat-icon>refresh</mat-icon> Try again
+      </button>
+    </div>
+
+  } @else {
+    <!-- ── WEEKLY REFLECTION (floored AI) ── -->
+    <div class="journal__card journal__reflect">
+      <div class="journal__reflect-ic" aria-hidden="true"><mat-icon>auto_awesome</mat-icon></div>
+      <div class="journal__reflect-body">
+        <span class="journal__reflect-h">This week</span>
+        @if (reflectionLoading()) {
+          <p class="journal__reflect-note is-muted">Composing your reflection…</p>
+        } @else if (reflection(); as r) {
+          <p class="journal__reflect-note">{{ r.note }}</p>
+          @if (r.fellBackToPlain && canReflectAi()) {
+            <span class="journal__reflect-tag">Deterministic summary</span>
+          }
+        } @else {
+          <p class="journal__reflect-note is-muted">Log a few days to see a gentle reflection here.</p>
+        }
+      </div>
+    </div>
+
+    <!-- ── SUMMARY STRIP ── -->
+    @if (summary(); as s) {
+      <div class="journal__summary">
+        <div class="journal__stat">
+          <span class="journal__stat-v">{{ s.daysLogged }}</span>
+          <span class="journal__stat-l">days logged</span>
+        </div>
+        <div class="journal__stat">
+          <span class="journal__stat-v">{{ s.topMood ? moodEmoji(s.topMood) + ' ' + moodLabel(s.topMood) : '—' }}</span>
+          <span class="journal__stat-l">top mood</span>
+        </div>
+        <div class="journal__stat">
+          <span class="journal__stat-v">{{ s.avgEnergy != null ? (s.avgEnergy + ' / 5') : '—' }}</span>
+          <span class="journal__stat-l">avg energy</span>
+        </div>
+        <div class="journal__stat">
+          <span class="journal__stat-v">{{ s.topTag || '—' }}</span>
+          <span class="journal__stat-l">top theme</span>
+        </div>
+      </div>
+    }
+
+    <div class="journal__grid">
+      <!-- ── LEFT: recent-entry day picker ── -->
+      <aside class="journal__card journal__rail" aria-label="Recent entries">
+        <h2 class="journal__card-title">Recent days</h2>
+        @if (pickerRows().length) {
+          <ul class="journal__list">
+            @for (row of pickerRows(); track row.raw.date) {
+              <li>
+                <button type="button" class="journal__row"
+                        [class.is-sel]="row.raw.date === logDate()"
+                        (click)="selectDate(row.raw.date)">
+                  <span class="journal__row-emoji" aria-hidden="true">{{ row.emoji || '·' }}</span>
+                  <span class="journal__row-date">{{ row.label }}</span>
+                  @if (row.mood) { <span class="journal__row-mood">{{ moodLabel(row.mood) }}</span> }
+                </button>
+              </li>
+            }
+          </ul>
+        } @else {
+          <p class="journal__empty">No entries yet. Pick a day and write your first one.</p>
+        }
+      </aside>
+
+      <!-- ── RIGHT: the day editor ── -->
+      <div class="journal__card journal__editor">
+        <div class="journal__daybar">
+          <button mat-icon-button type="button" (click)="prevDay()" aria-label="Previous day">
+            <mat-icon>chevron_left</mat-icon>
+          </button>
+          <div class="journal__daybar-now">
+            <span class="journal__daybar-l">Editing</span>
+            <span class="journal__daybar-v">{{ logDateLabel() }}</span>
+            @if (daySaving()) { <em class="journal__save">Saving…</em> }
+            @else if (daySaved()) { <em class="journal__save is-ok">Saved</em> }
+          </div>
+          <button mat-icon-button type="button" (click)="nextDay()" aria-label="Next day"
+                  [disabled]="logDate() >= today">
+            <mat-icon>chevron_right</mat-icon>
+          </button>
+          <input class="journal__date" type="date" [max]="today" [ngModel]="logDate()"
+                 (ngModelChange)="onDateInput($event)" name="jdate" aria-label="Pick a date" />
+          @if (logDate() !== today) {
+            <button mat-stroked-button type="button" class="journal__today" (click)="goToday()">
+              <mat-icon>today</mat-icon> Today
+            </button>
+          }
+        </div>
+
+        <!-- mood -->
+        <span class="journal__field-h">How are you feeling?</span>
+        <div class="journal__moods">
+          @for (m of moodChoices; track m.value) {
+            <button type="button" class="journal__mood" [class.is-on]="editMood() === m.value"
+                    (click)="toggleMood(m.value)" [attr.aria-pressed]="editMood() === m.value">
+              <span class="journal__mood-emoji" aria-hidden="true">{{ m.emoji }}</span>
+              <span class="journal__mood-l">{{ m.label }}</span>
+            </button>
+          }
+        </div>
+
+        <!-- energy -->
+        <span class="journal__field-h">Energy</span>
+        <div class="journal__energy" role="group" aria-label="Energy level">
+          @for (e of energyLevels; track e) {
+            <button type="button" class="journal__dot" [class.is-on]="(editEnergy() ?? 0) >= e"
+                    (click)="selectEnergy(e)" [attr.aria-label]="'Energy ' + e + ' of 5'"></button>
+          }
+          <span class="journal__energy-v">{{ editEnergy() != null ? (editEnergy() + ' / 5') : '—' }}</span>
+        </div>
+
+        <!-- tags -->
+        <span class="journal__field-h">Tags</span>
+        <div class="journal__tags">
+          @for (t of tagChoices; track t) {
+            <button type="button" class="journal__tag" [class.is-on]="isTagOn(t)"
+                    (click)="toggleTag(t)" [attr.aria-pressed]="isTagOn(t)">{{ t }}</button>
+          }
+        </div>
+
+        <!-- gratitude -->
+        <label class="journal__field">
+          <span class="journal__field-h">Grateful for <i>(private)</i></span>
+          <textarea class="journal__area" rows="2" [ngModel]="editGratitude()"
+                    (ngModelChange)="onGratitudeChange($event)" name="jgrat" maxlength="500"
+                    placeholder="One thing you're grateful for today…"></textarea>
+        </label>
+
+        <!-- reflection -->
+        <label class="journal__field">
+          <span class="journal__field-h">Reflection <i>(private)</i></span>
+          <textarea class="journal__area journal__area--lg" rows="5" [ngModel]="editReflection()"
+                    (ngModelChange)="onReflectionChange($event)" name="jrefl" maxlength="2000"
+                    placeholder="What happened, how it felt, what's on your mind…"></textarea>
+        </label>
+
+        <div class="journal__editor-foot">
+          <p class="journal__privacy">
+            <mat-icon aria-hidden="true">lock</mat-icon>
+            Your gratitude &amp; reflection are private to you — never sent to the AI.
+          </p>
+          @if (hasDayEntry()) {
+            <button mat-stroked-button type="button" class="journal__clear" (click)="clearDay()">
+              <mat-icon>delete_outline</mat-icon> Clear this day
+            </button>
+          }
+        </div>
+      </div>
+    </div>
+  }
+</section>

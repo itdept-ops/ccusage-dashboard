@@ -331,6 +331,30 @@ public class SocialLayerTests(WebAppFactory factory)
     }
 
     [Fact]
+    public async Task A_pact_accepts_the_new_habit_dayComplete_kind()
+    {
+        var (ownerEmail, owner) = await ProvisionUser("tracker.self");
+
+        // The pact can now track a habit streak — habit.dayComplete is a valid kind (the only pact-side change).
+        var create = await owner.PostAsJsonAsync("/api/pacts",
+            new { title = "Habit streak", kind = "habit.dayComplete", targetIntValue = 3, periodDays = 7 });
+        create.StatusCode.Should().Be(HttpStatusCode.OK);
+        var pact = await Json(create);
+        pact.GetProperty("kind").GetString().Should().Be("habit.dayComplete");
+        var pactId = pact.GetProperty("id").GetInt64();
+
+        // And matching habit.dayComplete events are counted in the period.
+        await SeedEvent(ownerEmail, "habit.dayComplete", intValue: 1, label: null);
+        await SeedEvent(ownerEmail, "habit.dayComplete", intValue: 2, label: null);
+        await SeedEvent(ownerEmail, "challenge.dayComplete"); // different kind — must NOT count
+
+        var ownerUserId = await UserIdFor(ownerEmail);
+        var progress = await Json(await owner.GetAsync($"/api/pacts/{pactId}/progress"));
+        var ownerRow = progress.EnumerateArray().Single(r => r.GetProperty("userId").GetInt32() == ownerUserId);
+        ownerRow.GetProperty("count").GetInt32().Should().Be(2);
+    }
+
+    [Fact]
     public async Task Pacts_requires_tracker_self_permission()
     {
         var (_, noTracker) = await ProvisionUser("dashboard.view");

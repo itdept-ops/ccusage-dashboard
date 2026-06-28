@@ -1,0 +1,271 @@
+<section class="habits">
+  <header class="habits__head">
+    <div class="habits__title">
+      <h1>Habits</h1>
+      <p class="habits__sub">Build streaks at your own pace — daily, weekly, certain days, or X times a period.
+        Water &amp; workout habits score live from your tracker. The generalised successor to 75 Hard.</p>
+    </div>
+    <button mat-flat-button color="primary" type="button" class="habits__new" (click)="openCreate()">
+      <mat-icon>add</mat-icon> New habit
+    </button>
+  </header>
+
+  @if (loading()) {
+    <div class="habits__loading" aria-busy="true"><mat-spinner diameter="34"></mat-spinner></div>
+
+  } @else if (errored()) {
+    <div class="habits__state">
+      <mat-icon aria-hidden="true">cloud_off</mat-icon>
+      <h2>Couldn't load your habits</h2>
+      <p>Something went wrong. Give it another go.</p>
+      <button mat-stroked-button type="button" (click)="reload()"><mat-icon>refresh</mat-icon> Try again</button>
+    </div>
+
+  } @else {
+    <!-- ── COACH CARD (floored AI) ── -->
+    @if (coach(); as c) {
+      <div class="habits__card habits__coach">
+        <div class="habits__coach-ic" aria-hidden="true"><mat-icon>auto_awesome</mat-icon></div>
+        <div class="habits__coach-body">
+          <span class="habits__coach-h">Your coach</span>
+          <p class="habits__coach-note">{{ c.narrative }}</p>
+          @for (i of c.insights; track i) { <p class="habits__coach-insight">• {{ i }}</p> }
+        </div>
+      </div>
+    }
+
+    <!-- ── HABIT GRID ── -->
+    @if (habits().length) {
+      <div class="habits__grid">
+        @for (h of habits(); track h.id) {
+          <article class="habits__card hcard" [style.--hc-accent]="h.color || '#4f46e5'"
+                   [class.is-paused]="h.status === 'Paused'">
+            <div class="hcard__top">
+              <span class="hcard__ic" aria-hidden="true">
+                <mat-icon>{{ autoIcon[h.autoSource] || 'task_alt' }}</mat-icon>
+              </span>
+              <div class="hcard__id">
+                <h3 class="hcard__title">{{ h.title }}</h3>
+                <span class="hcard__cadence">{{ cadenceLabel(h) }}</span>
+              </div>
+              <button mat-icon-button type="button" class="hcard__menu" (click)="openEdit(h)" aria-label="Edit habit">
+                <mat-icon>edit</mat-icon>
+              </button>
+            </div>
+
+            <div class="hcard__streak">
+              <span class="hcard__flame" aria-hidden="true"><mat-icon>local_fire_department</mat-icon></span>
+              <span class="hcard__streak-n">{{ h.currentStreak }}</span>
+              <span class="hcard__streak-l">day streak</span>
+              <span class="hcard__longest">best {{ h.longestStreak }}</span>
+            </div>
+
+            <!-- today -->
+            <div class="hcard__today">
+              @if (isMeasurable(h)) {
+                <div class="hcard__bar" role="progressbar" [attr.aria-valuenow]="progressPct(h.today)"
+                     aria-valuemin="0" aria-valuemax="100">
+                  <span class="hcard__bar-fill" [style.width.%]="progressPct(h.today)"></span>
+                </div>
+                <span class="hcard__measured">{{ measurableLabel(h) }}</span>
+                @if (isManual(h)) {
+                  <input class="hcard__valinput" type="number" min="0" inputmode="decimal"
+                         [ngModel]="h.today.value" (ngModelChange)="setTodayValue(h, $event)"
+                         [attr.aria-label]="'Set value for ' + h.title" />
+                }
+              } @else {
+                <button type="button" class="hcard__check" [class.is-on]="h.today.done"
+                        (click)="toggleToday(h)" [attr.aria-pressed]="h.today.done">
+                  <mat-icon>{{ h.today.done ? 'check_circle' : 'radio_button_unchecked' }}</mat-icon>
+                  {{ h.today.done ? 'Done today' : 'Mark done' }}
+                </button>
+              }
+            </div>
+
+            <div class="hcard__foot">
+              @if (h.today.complete) { <span class="hcard__done-tag"><mat-icon>check</mat-icon> Complete</span> }
+              @else if (h.today.skip) { <span class="hcard__skip-tag">Skipped (streak kept)</span> }
+              <span class="hcard__spacer"></span>
+              <button mat-button type="button" class="hcard__act" (click)="toggleSkip(h)">
+                {{ h.today.skip ? 'Unskip' : 'Skip' }}
+              </button>
+              <button mat-button type="button" class="hcard__act" (click)="openCalendar(h)">
+                <mat-icon>calendar_month</mat-icon>
+              </button>
+              <button mat-button type="button" class="hcard__act" (click)="pauseHabit(h)">
+                {{ h.status === 'Paused' ? 'Resume' : 'Pause' }}
+              </button>
+              <button mat-button type="button" class="hcard__act hcard__act--danger" (click)="archiveHabit(h)">
+                <mat-icon>archive</mat-icon>
+              </button>
+            </div>
+          </article>
+        }
+      </div>
+    } @else {
+      <div class="habits__card habits__empty">
+        <mat-icon aria-hidden="true">checklist</mat-icon>
+        <h2>No habits yet</h2>
+        <p>Create your first habit to start building a streak.</p>
+        <button mat-flat-button color="primary" type="button" (click)="openCreate()">
+          <mat-icon>add</mat-icon> New habit
+        </button>
+      </div>
+    }
+
+    <!-- ── LEADERBOARD ── -->
+    @if (leaderboard().length > 1) {
+      <div class="habits__card habits__lb">
+        <h2 class="habits__card-title">Leaderboard</h2>
+        <p class="habits__card-sub">You and the contacts who share their tracker, ranked by best streak.</p>
+        <ol class="lb__list">
+          @for (row of leaderboard(); track row.userId; let i = $index) {
+            <li class="lb__row" [class.is-self]="row.isSelf">
+              <span class="lb__rank">{{ i + 1 }}</span>
+              <span class="lb__avatar" aria-hidden="true">
+                @if (row.picture) { <img [src]="row.picture" alt="" /> }
+                @else { {{ initials(row.name) }} }
+              </span>
+              <span class="lb__name">{{ row.name }}@if (row.isSelf) { <em>(you)</em> }</span>
+              <span class="lb__metric"><b>{{ row.bestStreak }}</b> streak</span>
+              <span class="lb__metric lb__metric--soft">{{ row.totalCompletions }} done · {{ row.activeHabits }} habits</span>
+            </li>
+          }
+        </ol>
+      </div>
+    }
+  }
+</section>
+
+<!-- ───────────────── CREATE / EDIT SHEET ───────────────── -->
+@if (sheetOpen()) {
+  <div class="hsheet__scrim" (click)="closeSheet()"></div>
+  <aside class="hsheet" role="dialog" aria-label="Habit editor">
+    <div class="hsheet__head">
+      <h3>{{ draft().id == null ? 'New habit' : 'Edit habit' }}</h3>
+      <button mat-icon-button type="button" (click)="closeSheet()" aria-label="Close"><mat-icon>close</mat-icon></button>
+    </div>
+
+    <label class="hsheet__field">
+      <span class="hsheet__label">Title</span>
+      <input class="hsheet__input" [ngModel]="draft().title" (ngModelChange)="patchDraft({ title: $event })"
+             name="htitle" maxlength="120" placeholder="e.g. Read 20 minutes" />
+    </label>
+
+    <span class="hsheet__label">Cadence</span>
+    <div class="hsheet__seg">
+      @for (c of cadenceOptions; track c.value) {
+        <button type="button" class="hsheet__seg-b" [class.is-on]="draft().cadence === c.value"
+                (click)="patchDraft({ cadence: c.value })">{{ c.label }}</button>
+      }
+    </div>
+
+    @if (draft().cadence === 'CustomDaysOfWeek') {
+      <span class="hsheet__label">On which days?</span>
+      <div class="hsheet__dows">
+        @for (d of weekdayLabels; track $index) {
+          <button type="button" class="hsheet__dow" [class.is-on]="isDraftDayOn($index)"
+                  (click)="toggleDraftDay($index)" [attr.aria-pressed]="isDraftDayOn($index)">{{ d }}</button>
+        }
+      </div>
+    }
+    @if (draft().cadence === 'XTimesPerPeriod') {
+      <div class="hsheet__row">
+        <label class="hsheet__field">
+          <span class="hsheet__label">Times</span>
+          <input class="hsheet__input" type="number" min="1" [ngModel]="draft().timesPerPeriod"
+                 (ngModelChange)="patchDraft({ timesPerPeriod: $event })" name="htimes" />
+        </label>
+        <label class="hsheet__field">
+          <span class="hsheet__label">Per (days)</span>
+          <input class="hsheet__input" type="number" min="1" [ngModel]="draft().periodDays"
+                 (ngModelChange)="patchDraft({ periodDays: $event })" name="hperiod" />
+        </label>
+      </div>
+    }
+
+    <span class="hsheet__label">Track from</span>
+    <div class="hsheet__seg">
+      @for (a of autoOptions; track a.value) {
+        <button type="button" class="hsheet__seg-b" [class.is-on]="draft().autoSource === a.value"
+                (click)="patchDraft({ autoSource: a.value })">{{ a.label }}</button>
+      }
+    </div>
+
+    @if (draft().autoSource === 'None') {
+      <button type="button" class="hsheet__toggle" [class.is-on]="draft().measurable"
+              (click)="patchDraft({ measurable: !draft().measurable })">
+        <mat-icon aria-hidden="true">{{ draft().measurable ? 'check_box' : 'check_box_outline_blank' }}</mat-icon>
+        Measurable (track a number, not just done/not)
+      </button>
+    }
+    @if (draft().measurable || draft().autoSource !== 'None') {
+      <div class="hsheet__row">
+        <label class="hsheet__field">
+          <span class="hsheet__label">Target</span>
+          <input class="hsheet__input" type="number" min="0.01" [ngModel]="draft().targetValue"
+                 (ngModelChange)="patchDraft({ targetValue: $event })" name="htarget" />
+        </label>
+        <label class="hsheet__field">
+          <span class="hsheet__label">Unit</span>
+          <input class="hsheet__input" [ngModel]="draft().unit" (ngModelChange)="patchDraft({ unit: $event })"
+                 name="hunit" maxlength="32" placeholder="min / ml / pages" />
+        </label>
+      </div>
+      @if (draft().autoSource === 'None') {
+        <button type="button" class="hsheet__toggle" [class.is-on]="draft().partialCredit"
+                (click)="patchDraft({ partialCredit: !draft().partialCredit })">
+          <mat-icon aria-hidden="true">{{ draft().partialCredit ? 'check_box' : 'check_box_outline_blank' }}</mat-icon>
+          Give partial credit toward the target
+        </button>
+      }
+    }
+
+    <span class="hsheet__label">Colour</span>
+    <div class="hsheet__colors">
+      @for (col of colorOptions; track col) {
+        <button type="button" class="hsheet__color" [class.is-on]="draft().color === col"
+                [style.background]="col" (click)="patchDraft({ color: col })"
+                [attr.aria-label]="'Colour ' + col"></button>
+      }
+    </div>
+
+    <div class="hsheet__foot">
+      <button mat-stroked-button type="button" (click)="closeSheet()">Cancel</button>
+      <button mat-flat-button color="primary" type="button" [disabled]="saving()" (click)="saveDraft()">
+        {{ draft().id == null ? 'Create habit' : 'Save changes' }}
+      </button>
+    </div>
+  </aside>
+}
+
+<!-- ───────────────── PER-HABIT STREAK CALENDAR ───────────────── -->
+@if (calHabit(); as ch) {
+  <div class="hsheet__scrim" (click)="closeCalendar()"></div>
+  <aside class="hcal" role="dialog" aria-label="Streak calendar">
+    <div class="hsheet__head">
+      <h3>{{ ch.title }} · streak</h3>
+      <button mat-icon-button type="button" (click)="closeCalendar()" aria-label="Close"><mat-icon>close</mat-icon></button>
+    </div>
+    <div class="hcal__bar">
+      <button mat-icon-button type="button" (click)="prevCalMonth()" aria-label="Previous month"><mat-icon>chevron_left</mat-icon></button>
+      <span class="hcal__month">{{ calMonthLabel() }}</span>
+      <button mat-icon-button type="button" (click)="nextCalMonth()" aria-label="Next month"><mat-icon>chevron_right</mat-icon></button>
+    </div>
+    <div class="hcal__dow" aria-hidden="true">
+      @for (d of weekdayLabels; track $index) { <span>{{ d }}</span> }
+    </div>
+    <div class="hcal__grid" [style.--hc-accent]="ch.color || '#4f46e5'">
+      @for (c of calCells(); track c.iso) {
+        <span class="hcal__day" [class.is-out]="!c.inMonth" [class.is-today]="c.isToday"
+              [class.is-done]="c.complete" [class.is-skip]="c.skip">
+          {{ c.dayNum }}
+        </span>
+      }
+    </div>
+    <div class="hcal__legend" aria-hidden="true">
+      <span><i class="is-done"></i> Complete</span>
+      <span><i class="is-skip"></i> Skipped</span>
+    </div>
+  </aside>
+}

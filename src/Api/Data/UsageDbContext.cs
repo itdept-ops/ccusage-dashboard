@@ -80,6 +80,9 @@ public class UsageDbContext(DbContextOptions<UsageDbContext> options) : DbContex
     public DbSet<CycleProfile> CycleProfiles => Set<CycleProfile>();
     public DbSet<CyclePeriod> CyclePeriods => Set<CyclePeriod>();
     public DbSet<CycleDayLog> CycleDayLogs => Set<CycleDayLog>();
+    public DbSet<JournalEntry> JournalEntries => Set<JournalEntry>();
+    public DbSet<Habit> Habits => Set<Habit>();
+    public DbSet<HabitDay> HabitDays => Set<HabitDay>();
     public DbSet<IdentityRole> IdentityRoles => Set<IdentityRole>();
     public DbSet<IdentityTimeEntry> IdentityTimeEntries => Set<IdentityTimeEntry>();
     public DbSet<IdentityRule> IdentityRules => Set<IdentityRule>();
@@ -1227,6 +1230,54 @@ public class UsageDbContext(DbContextOptions<UsageDbContext> options) : DbContex
             e.Property(x => x.UpdatedUtc).HasColumnType("timestamp with time zone");
             // One day-log per (user, local date); also the per-date upsert/lookup + the recent read.
             e.HasIndex(x => new { x.UserEmail, x.LocalDate }).IsUnique();
+        });
+
+        // ---- Journal & Mood (owner-scoped day-log; sibling of CycleDayLog) ----
+        b.Entity<JournalEntry>(e =>
+        {
+            e.Property(x => x.UserEmail).HasMaxLength(256);
+            e.Property(x => x.Mood).HasMaxLength(32);
+            // Tags is a small fixed vocabulary stored as a Postgres text[] (mirrors CycleDayLog.Symptoms).
+            e.Property(x => x.Tags).HasColumnType("text[]");
+            e.Property(x => x.GratitudeText).HasMaxLength(500);
+            e.Property(x => x.ReflectionText).HasMaxLength(2000);
+            e.Property(x => x.CreatedUtc).HasColumnType("timestamp with time zone");
+            e.Property(x => x.UpdatedUtc).HasColumnType("timestamp with time zone");
+            // One entry per (user, local date); also the per-date upsert/lookup + the recent read.
+            e.HasIndex(x => new { x.UserEmail, x.LocalDate }).IsUnique();
+        });
+
+        // ---- Habits engine (owner-scoped; net-new, delegates scoring to HardChallengeScoring) ----
+        b.Entity<Habit>(e =>
+        {
+            e.Property(x => x.UserEmail).HasMaxLength(256);
+            e.Property(x => x.Title).HasMaxLength(120);
+            e.Property(x => x.Unit).HasMaxLength(32);
+            e.Property(x => x.Color).HasMaxLength(32);
+            e.Property(x => x.Icon).HasMaxLength(32);
+            e.Property(x => x.TargetValue).HasColumnType("numeric(12,2)");
+            e.Property(x => x.Cadence).HasConversion<int>();
+            e.Property(x => x.AutoSource).HasConversion<int>();
+            e.Property(x => x.Status).HasConversion<int>();
+            e.Property(x => x.CreatedUtc).HasColumnType("timestamp with time zone");
+            e.Property(x => x.UpdatedUtc).HasColumnType("timestamp with time zone");
+            // The owner's habit list (active-first read) filters by UserEmail + Status.
+            e.HasIndex(x => new { x.UserEmail, x.Status });
+        });
+
+        b.Entity<HabitDay>(e =>
+        {
+            e.Property(x => x.UserEmail).HasMaxLength(256);
+            e.Property(x => x.Value).HasColumnType("numeric(12,2)");
+            e.Property(x => x.CreatedUtc).HasColumnType("timestamp with time zone");
+            e.Property(x => x.UpdatedUtc).HasColumnType("timestamp with time zone");
+            // One day row per (habit, local date); also the calendar read.
+            e.HasIndex(x => new { x.HabitId, x.LocalDate }).IsUnique();
+            // The owner-scoped day read filters by email + date range.
+            e.HasIndex(x => new { x.UserEmail, x.LocalDate });
+            // Cascade the day rows with their owning habit.
+            e.HasOne(x => x.Habit).WithMany(h => h.Days)
+                .HasForeignKey(x => x.HabitId).OnDelete(DeleteBehavior.Cascade);
         });
 
         // ---- Identity Map (owner-scoped: roles + time entries + classification rules) ----

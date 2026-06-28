@@ -263,7 +263,8 @@ public static class PactEndpoints
     private static bool IsValidKind(string kind) => kind is
         ActivityEmitter.Kinds.WorkoutLogged
         or ActivityEmitter.Kinds.ChallengeDayComplete
-        or ActivityEmitter.Kinds.HydrationGoalHit;
+        or ActivityEmitter.Kinds.HydrationGoalHit
+        or ActivityEmitter.Kinds.HabitDayComplete;
 
     /// <summary>
     /// Invite a set of AppUser ids to the pact as <see cref="HabitPactMemberStatus.Invited"/> members. Each id

@@ -37,6 +37,10 @@ public sealed class ActivityEmitter(IServiceScopeFactory scopeFactory, ILogger<A
         public const string ChallengeDayComplete = "challenge.dayComplete";
         public const string ChallengeStarted = "challenge.started";
         public const string HydrationGoalHit = "hydration.goalHit";
+
+        /// <summary>A habit crossed into complete on a day. Carries the current STREAK only (intValue) — NEVER
+        /// the private habit title (mirrors challenge.dayComplete carrying just the day number).</summary>
+        public const string HabitDayComplete = "habit.dayComplete";
     }
 
     private const int MaxLabel = 128;

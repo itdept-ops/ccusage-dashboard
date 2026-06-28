@@ -151,6 +151,20 @@ export const PAGE_REGISTRY: readonly PageDef[] = [
     home: { label: '75 Hard', icon: 'local_fire_department' },
   },
   {
+    id: 'habits', path: 'habits', title: 'Usage IQ · Habits', perm: PERM.trackerSelf,
+    desktop: () => import('../features/habits/habits').then(m => m.Habits),
+    mobile: () => import('../features/habits-mobile/habits-mobile.page').then(m => m.HabitsMobilePage),
+    nav: { group: 'Fitness', label: 'Habits', icon: 'checklist' },
+    home: { label: 'Habits', icon: 'checklist' },
+  },
+  {
+    id: 'journal', path: 'journal', title: 'Usage IQ · Journal', perm: PERM.trackerSelf,
+    desktop: () => import('../features/journal/journal').then(m => m.Journal),
+    mobile: () => import('../features/journal-mobile/journal-mobile.page').then(m => m.JournalMobilePage),
+    nav: { group: 'Fitness', label: 'Journal', icon: 'menu_book' },
+    home: { label: 'Journal', icon: 'auto_stories' },
+  },
+  {
     id: 'trophies', path: 'trophies', title: 'Usage IQ · Trophies', perm: PERM.trackerSelf,
     desktop: () => import('../features/trophies/trophies').then(m => m.Trophies),
     mobile: () => import('../features/trophies-beta/trophies-beta.page').then(m => m.TrophiesBetaPage),
