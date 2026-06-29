@@ -45,6 +45,7 @@ import {
 import { ChartComponent } from '../../shared/chart';
 import { CompactPipe } from '../../shared/format';
 import { PulseTicker } from '../pulse-ticker/pulse-ticker';
+import { BetaEmptyState, BetaSkeleton } from '../beta-ui';
 
 /**
  * True for Mon–Fri. Parses the calendar's display-local "yyyy-MM-dd" string by its components
@@ -81,6 +82,8 @@ function isWeekday(localDate: string): boolean {
     ChartComponent,
     CompactPipe,
     PulseTicker,
+    BetaEmptyState,
+    BetaSkeleton,
   ],
   templateUrl: './dashboard.html',
   changeDetection: ChangeDetectionStrategy.Eager,

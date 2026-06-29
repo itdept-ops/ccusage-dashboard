@@ -85,8 +85,8 @@ mat-progress-bar {
       letter-spacing: 0.01em;
       transition:
         background-color var(--tech-t-control) ease,
-        box-shadow 180ms ease,
-        transform 120ms var(--tech-ease);
+        box-shadow var(--tech-t-slow) ease,
+        transform var(--tech-t-fast) var(--tech-ease);
       mat-icon { margin-right: 2px; }
     }
     button:active { transform: scale(0.98); }
@@ -338,12 +338,12 @@ mat-progress-bar {
 
 .kpi {
   position: relative;
-  padding: 16px 18px;
+  padding: var(--tech-space-4);
   overflow: hidden;
   transition:
     border-color var(--tech-t-control) ease,
-    box-shadow 180ms ease,
-    transform 120ms var(--tech-ease);
+    box-shadow var(--tech-t-slow) ease,
+    transform var(--tech-t-fast) var(--tech-ease);
 
   /* top accent hairline — lights up on hover */
   &::after {
@@ -442,7 +442,7 @@ mat-progress-bar {
   }
 
   .chart-card {
-    padding: 16px 16px 12px;
+    padding: var(--tech-space-4);
     transition: border-color var(--tech-t-control) ease;
     &:hover { border-color: var(--tech-border-strong); }
   }
@@ -465,6 +465,17 @@ mat-progress-bar {
   margin-bottom: 12px;
 
   h3 { margin: 0; }
+}
+
+/* Panel header — title text preceded by a 28px accent icon-orb (the .header-icon utility),
+   matching the KPI cards' icon-orb hierarchy so panel headers read as a peer of the KPI
+   section headers (not a floating bare glyph). */
+.panel-header {
+  display: flex;
+  align-items: center;
+  gap: var(--tech-space-3);
+
+  .header-icon { flex: 0 0 auto; }
 }
 
 /* Group-by toggle group — segmented control look */
@@ -509,21 +520,11 @@ mat-button-toggle-group {
    ═══════════════════════════════════════════════════════════════ */
 .cache-card {
   --accent: var(--tech-accent-cyan);
-  padding: 16px 18px 18px;
+  padding: var(--tech-space-4);
   transition: border-color var(--tech-t-control) ease;
   &:hover { border-color: var(--tech-border-strong); }
 
-  .panel-header {
-    display: flex;
-    align-items: center;
-    gap: 7px;
-    .hd-ico {
-      font-size: 18px;
-      width: 18px;
-      height: 18px;
-      color: var(--accent);
-    }
-  }
+  /* .panel-header inherits the shared flex + .header-icon orb (cyan, via this card's --accent). */
 
   .cache-headline {
     display: flex;
@@ -821,6 +822,10 @@ mat-paginator {
       flex-wrap: wrap;
     }
 
+    /* Once the scope fields are allowed to wrap onto a second line, restore the Material
+       subscript spacing we collapsed for the tight desktop row so wrapped fields don't kiss. */
+    mat-form-field { margin-bottom: 0; }
+
     .grow { display: none; }
 
     /* Actions sit on their own wrapped line, pushed to the right. */
@@ -862,6 +867,9 @@ mat-paginator {
     .f-multi {
       width: 100%;
       flex: 1 1 auto;
+      /* Guarantee a comfortable >=44px tap target for the stacked fields on phones
+         (the dense desktop row collapses the subscript; here each field is its own row). */
+      ::ng-deep .mat-mdc-text-field-wrapper { min-block-size: 44px; }
     }
 
     .f-toggle {
@@ -913,7 +921,7 @@ mat-paginator {
     gap: var(--tech-space-3);
   }
   .kpi {
-    padding: 14px 16px;
+    padding: var(--tech-space-3) var(--tech-space-4);
     .kpi-value { font-size: clamp(22px, 7vw, var(--tech-fs-kpi)); }
   }
 
@@ -922,7 +930,7 @@ mat-paginator {
   .charts {
     gap: var(--tech-space-3);
 
-    .chart-card { padding: 12px 12px 10px; }
+    .chart-card { padding: var(--tech-space-3); }
     app-chart { height: 240px; }
     ::ng-deep .chart-host { min-height: 240px; }
   }
@@ -943,7 +951,7 @@ mat-paginator {
   /* Cache card: 3 tiny stat tiles don't fit at 312px — stack to 1 col,
      and let the headline number scale with the viewport. */
   .cache-card {
-    padding: 14px 16px 16px;
+    padding: var(--tech-space-3) var(--tech-space-4);
 
     .cache-headline .cache-pct { font-size: clamp(22px, 7vw, var(--tech-fs-kpi)); }
     .cache-stats { grid-template-columns: 1fr; }
@@ -1000,20 +1008,10 @@ mat-paginator {
 .chart-card, .cache-card, .table-card { max-width: 100%; }
 .chart-well { min-width: 0; }
 
-/* @defer placeholder for the code-split echarts <app-chart> — reserves the chart's
-   height so layout never jumps while the (lazy) echarts chunk loads on viewport. */
-.chart-skeleton {
-  width: 100%;
-  border-radius: var(--tech-r-control, 10px);
-  background: linear-gradient(100deg,
-    var(--tech-bg-sunken, rgba(255, 255, 255, .03)) 30%,
-    var(--tech-border-subtle, rgba(255, 255, 255, .07)) 50%,
-    var(--tech-bg-sunken, rgba(255, 255, 255, .03)) 70%);
-  background-size: 200% 100%;
-  animation: chart-skeleton-shimmer 1.4s ease-out infinite;
-}
-@keyframes chart-skeleton-shimmer { to { background-position: -200% 0; } }
-@media (prefers-reduced-motion: reduce) { .chart-skeleton { animation: none; } }
+/* The @defer chart placeholder is now the shared <app-bs-skeleton> kit primitive (it owns its
+   own shimmer + reduced-motion killswitch), so the old ad-hoc .chart-skeleton rule is gone.
+   The skeleton sits inside .chart-well, which already reserves the 320px height. */
+app-bs-skeleton { display: block; }
 
 @media (max-width: 960px) {
   /* Scroll the 6-segment group-by control from tablet down (not only ≤640)
@@ -1046,7 +1044,7 @@ mat-paginator {
       color-mix(in srgb, var(--tech-accent, #7c8cff) 12%, var(--tech-panel, #11161f)),
       color-mix(in srgb, #c084fc 9%, var(--tech-panel, #11161f)));
   border: 1px solid color-mix(in srgb, var(--tech-accent, #7c8cff) 24%, var(--tech-border, #26303f));
-  transition: border-color .15s, transform .15s;
+  transition: border-color var(--tech-t-fast), transform var(--tech-t-fast);
 
   &:hover { border-color: color-mix(in srgb, var(--tech-accent, #7c8cff) 50%, transparent); }
   &:active { transform: translateY(1px); }

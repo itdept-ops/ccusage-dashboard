@@ -212,7 +212,7 @@
 <div class="charts">
   <section class="chart-card wide panel">
     <div class="chart-head">
-      <h3 class="panel-header">{{ groupBy() === 'day' || groupBy() === 'month' ? 'Usage over time' : 'Top by ' + groupBy() }}</h3>
+      <h3 class="panel-header"><span class="header-icon" aria-hidden="true"><mat-icon>show_chart</mat-icon></span>{{ groupBy() === 'day' || groupBy() === 'month' ? 'Usage over time' : 'Top by ' + groupBy() }}</h3>
       <mat-button-toggle-group [value]="groupBy()" (change)="setGroupBy($event.value)" hideSingleSelectionIndicator>
         <mat-button-toggle value="day">Day</mat-button-toggle>
         <mat-button-toggle value="month">Month</mat-button-toggle>
@@ -226,19 +226,19 @@
       @defer (on viewport) {
         <app-chart [option]="mainChart()" />
       } @placeholder {
-        <div class="chart-skeleton" style="height:320px"></div>
+        <app-bs-skeleton height="320px" radius="var(--tech-r-control)" />
       }
     </div>
   </section>
 
   <div class="side-stack">
     <section class="chart-card panel">
-      <div class="chart-head"><h3 class="panel-header">Cost by model</h3></div>
+      <div class="chart-head"><h3 class="panel-header"><span class="header-icon" aria-hidden="true"><mat-icon>donut_small</mat-icon></span>Cost by model</h3></div>
       <div class="chart-well">
         @defer (on viewport) {
           <app-chart [option]="modelChart()" />
         } @placeholder {
-          <div class="chart-skeleton" style="height:320px"></div>
+          <app-bs-skeleton height="320px" radius="var(--tech-r-control)" />
         }
       </div>
       @if (modelStats().length && hasPlaceholder()) {
@@ -249,7 +249,7 @@
     <!-- Cache efficiency — how much input was served from the cheap cache, and what that saved. -->
     <section class="cache-card panel" aria-label="Cache efficiency">
       <div class="chart-head">
-        <h3 class="panel-header"><mat-icon class="hd-ico">bolt</mat-icon> Cache efficiency</h3>
+        <h3 class="panel-header"><span class="header-icon" aria-hidden="true"><mat-icon>bolt</mat-icon></span> Cache efficiency</h3>
       </div>
       @if (cacheEmpty()) {
         <div class="cache-empty">
@@ -291,7 +291,7 @@
 
 <!-- ───────────────────────── Records table ───────────────────────── -->
 <section class="table-card panel">
-  <div class="chart-head"><h3 class="panel-header">Messages</h3></div>
+  <div class="chart-head"><h3 class="panel-header"><span class="header-icon" aria-hidden="true"><mat-icon>table_rows</mat-icon></span>Messages</h3></div>
   @if (records(); as r) {
     <div class="table-scroll">
       <table mat-table [dataSource]="r.items" matSort (matSortChange)="onSort($event)" aria-label="Usage messages">
@@ -340,7 +340,8 @@
     </div>
 
     @if (!r.items?.length) {
-      <p class="empty">No messages match these filters yet.</p>
+      <app-bs-empty icon="filter_alt_off" title="No messages match these filters"
+                    body="Try widening the date range or clearing a filter to see usage here." compact />
     }
 
     <mat-paginator [length]="r.total" [pageSize]="pageSize()" [pageIndex]="page() - 1"

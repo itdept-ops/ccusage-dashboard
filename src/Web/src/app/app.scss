@@ -12,7 +12,9 @@
   padding: 0 var(--tech-page-gutter, 24px);
   display: flex;
   align-items: center;
-  gap: 8px;
+  /* Inter-section gap between toolbar clusters (brand · nav · right-cluster items). Unified to 8px
+     across the bar; the compact nav group keeps its own tighter 4px (see .nav below). */
+  gap: var(--tech-space-4, 8px);
 
   /* Floating chrome: glass + blur (the .glass utility already applies
      --tech-glass-chrome + blur + inset highlight). Full-bleed, no radius. */
@@ -51,7 +53,7 @@
   -webkit-backdrop-filter: blur(12px);
   backdrop-filter: blur(12px);
   box-shadow: 0 -8px 24px -12px rgba(0, 0, 0, 0.6);
-  animation: offline-banner-in 200ms var(--tech-ease, cubic-bezier(0.22, 1, 0.36, 1));
+  animation: offline-banner-in var(--tech-t-slow, 200ms) var(--tech-ease, cubic-bezier(0.22, 1, 0.36, 1));
 
   &__icon {
     flex: 0 0 auto;
@@ -147,6 +149,8 @@
 .nav {
   display: inline-flex;
   align-items: center;
+  /* Tighter 4px INSIDE the compact nav group (deliberately not the 8px inter-section gap) so the
+     grouped dropdown triggers read as one cohesive cluster. */
   gap: 4px;
   margin-left: 20px;
 }
@@ -337,7 +341,10 @@
   flex-direction: column;
   align-items: stretch;
   gap: 2px;
-  padding: 10px var(--tech-page-gutter, 24px) 16px;
+  /* Outer gutter is reduced; the rows/headers carry the rest of the page gutter as their OWN inner
+     padding (see __item / __head below), so each row's hover-pill spans the full gutter and the row
+     text lines up flush with the drawer's content edge (no 24-vs-14 mismatch). */
+  padding: 10px 12px 16px;
   max-height: calc(100dvh - 56px);
   overflow-y: auto;
   background: color-mix(in srgb, var(--tech-bg-void, #060910) 96%, transparent);
@@ -361,7 +368,9 @@
   /* Section header (Usage / Tracker / Family / Chat / Admin) — the drawer's answer to the desktop
      dropdown triggers. A small uppercased label that groups the rows beneath it. */
   &__head {
-    padding: 14px 14px 4px;
+    /* 12px inner + the drawer's 12px outer gutter == the 24px page gutter, so the header text aligns
+       with the rows' text below it. */
+    padding: 14px 12px 4px;
     font-family: var(--tech-font-mono);
     font-size: var(--tech-fs-micro, 10.5px);
     font-weight: 600;
@@ -376,7 +385,9 @@
     display: flex;
     align-items: center;
     min-height: 48px;
-    padding: 0 14px;
+    /* 12px inner + the drawer's 12px outer gutter == the 24px page gutter; the hover-pill spans the
+       full gutter and the row text aligns with the section headers. */
+    padding: 0 12px;
     border-radius: var(--tech-r-control, 8px);
     font-family: var(--tech-font-ui);
     font-size: 16px;
@@ -410,7 +421,7 @@
 .status {
   display: inline-flex;
   align-items: center;
-  gap: 7px;
+  gap: var(--tech-space-4, 8px);
   padding: 5px 10px;
   border-radius: var(--tech-r-pill, 999px);
   background: var(--tech-input);
@@ -485,7 +496,7 @@
 .presence {
   display: inline-flex;
   align-items: center;
-  gap: 7px;
+  gap: var(--tech-space-4, 8px);
   height: 34px;
   padding: 0 9px 0 10px;
   border-radius: var(--tech-r-pill, 999px);
