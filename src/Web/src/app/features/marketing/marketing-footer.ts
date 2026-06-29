@@ -20,6 +20,7 @@ export class MarketingFooter {
         { label: 'How it works', path: '/how-it-works' },
         { label: 'Technology', path: '/technology' },
         { label: 'AI', path: '/ai' },
+        { label: 'Inside the OS', path: '/inside' },
         { label: 'About', path: '/about' },
       ],
     },

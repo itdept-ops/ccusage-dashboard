@@ -1,0 +1,132 @@
+<app-marketing-nav />
+
+<main class="mpage">
+  <!-- ───────────── Hero ───────────── -->
+  <header class="mpage-hero inside-hero">
+    <span class="page-eyebrow">Inside the OS</span>
+    <h1>How <span class="grad">The Agentic Life OS</span> is built.</h1>
+    <p>
+      One self-hosted system carries an entire life — work, body, home, people, place, growth — so the
+      engineering has to be real. Here is the stack, the agentic layer, and a live readout from the box
+      itself. Everything below is aggregate and anonymous: no personal data ever leaves the machine.
+    </p>
+
+    <!-- Live "system status" readout from the public built-with aggregate -->
+    <section class="status-card" data-reveal aria-label="Live system status">
+      <div class="status-bar" aria-hidden="true">
+        <span class="status-dot"></span><span class="status-dot"></span><span class="status-dot"></span>
+        <span class="status-title">usage-iq · system status</span>
+        <span class="status-live">
+          <span class="status-pulse"></span>live
+        </span>
+      </div>
+
+      @if (metrics().length) {
+        <ul class="status-grid">
+          @for (m of metrics(); track m.key) {
+            <li class="status-stat">
+              <span class="status-value">{{ render(m) }}</span>
+              <span class="status-label">{{ m.label }}</span>
+            </li>
+          }
+        </ul>
+        <p class="status-foot">
+          Aggregate figures only · {{ asOf() }} · the response is identical for every visitor
+        </p>
+      } @else {
+        <p class="status-foot status-empty">Reading the box… aggregate figures only, no personal data.</p>
+      }
+    </section>
+  </header>
+
+  <!-- ───────────── Architecture + stack ───────────── -->
+  <section class="inside-section" data-reveal>
+    <header class="section-head">
+      <span class="section-eyebrow">The stack</span>
+      <h2>Surface to deploy, <span class="grad">end to end</span>.</h2>
+      <p class="section-sub">Six real layers — what each one is, and the job it does.</p>
+    </header>
+
+    <ol class="stack-flow">
+      @for (layer of stack; track layer.name; let last = $last) {
+        <li class="stack-layer panel" [attr.data-hue]="layer.hue">
+          <span class="stack-icon" aria-hidden="true"><mat-icon>{{ layer.icon }}</mat-icon></span>
+          <div class="stack-body">
+            <h3>{{ layer.name }}</h3>
+            <p>{{ layer.role }}</p>
+          </div>
+        </li>
+        @if (!last) {
+          <li class="stack-link" aria-hidden="true"><mat-icon>swap_vert</mat-icon></li>
+        }
+      }
+    </ol>
+  </section>
+
+  <!-- ───────────── The agentic layer ───────────── -->
+  <section class="inside-section" data-reveal>
+    <header class="section-head">
+      <span class="section-eyebrow">The agentic layer</span>
+      <h2>What makes it an <span class="grad">OS that acts</span>.</h2>
+      <p class="section-sub">A team of agents on a leash you hold — every assist prefills, you confirm.</p>
+    </header>
+
+    <ul class="agentic-grid">
+      @for (a of agentic; track a.title) {
+        <li class="agentic-card panel">
+          <span class="agentic-icon" aria-hidden="true"><mat-icon>{{ a.icon }}</mat-icon></span>
+          <h3>{{ a.title }}</h3>
+          <p>{{ a.text }}</p>
+        </li>
+      }
+    </ul>
+  </section>
+
+  <!-- ───────────── Built honestly (trust spine) ───────────── -->
+  <section class="inside-section" data-reveal>
+    <header class="section-head">
+      <span class="section-eyebrow">Built honestly</span>
+      <h2>The numbers above are <span class="grad">all you get</span>.</h2>
+    </header>
+
+    <ul class="principle-grid">
+      @for (p of principles; track p.title) {
+        <li class="principle-card panel">
+          <span class="principle-icon" aria-hidden="true"><mat-icon>{{ p.icon }}</mat-icon></span>
+          <h3>{{ p.title }}</h3>
+          <p>{{ p.text }}</p>
+        </li>
+      }
+    </ul>
+  </section>
+
+  <!-- ───────────── The builder ───────────── -->
+  <section class="inside-section" data-reveal>
+    <aside class="builder-card panel">
+      <span class="builder-eyebrow">The builder</span>
+      <h2>Built solo, with <span class="grad">agentic AI</span>.</h2>
+      <p>
+        Usage IQ is the work of a single founder and military veteran — an engineer who builds with
+        agentic AI. The whole system, every domain and every layer above, was designed and shipped solo:
+        one person directing a team of AI agents to write, test, and deploy a real, production,
+        self-hosted product. The proof is the live readout — and the fact that it runs on one small box,
+        on your terms.
+      </p>
+    </aside>
+  </section>
+
+  <!-- ───────────── CTA ───────────── -->
+  <section class="mpage-cta" data-reveal>
+    <div class="cta-card panel">
+      <div class="cta-glow" aria-hidden="true"></div>
+      <h2>See the OS running.</h2>
+      <p>This is the engineering floor. Step inside, or tour every domain it carries.</p>
+      <div class="cta-row">
+        <a class="cta-pill" routerLink="/signin">Enter the OS <span>→</span></a>
+        <a class="ghost-link" routerLink="/features">Tour the domains <span>→</span></a>
+      </div>
+    </div>
+  </section>
+</main>
+
+<app-marketing-footer />
