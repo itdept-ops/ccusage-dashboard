@@ -307,7 +307,10 @@ export class NewBillSheet {
   /** You + every contact, as pickable participants. */
   protected readonly participants = computed<Participant[]>(() => {
     const you: Participant = { userId: null, name: 'You', initials: 'You', picture: null, custom: null };
-    const rest = this.contacts().map(c => ({
+    // Defensive: the contacts input can arrive non-array (a partial/unexpected payload) — never let .map() crash
+    // the whole split sheet on the mobile twin.
+    const list = this.contacts();
+    const rest = (Array.isArray(list) ? list : []).map(c => ({
       userId: c.userId, name: c.name, picture: c.picture, initials: this.initials(c.name), custom: null,
     }));
     return [you, ...rest];

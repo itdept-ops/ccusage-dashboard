@@ -145,14 +145,16 @@ import { HomeOption, HOME_OPTIONS } from '../../core/home-options';
                 <app-beta-toggle-row title="Mirror to Discord" subtitle="Send a copy to your webhook"
                                      icon="ios_share" [checked]="d.surfaceDiscord" [busy]="discordBusy()"
                                      (toggle)="surfaceDiscordChange($event)" />
+                @if (d.categories; as cats) {
                 <div class="subgroup" [class.subgroup--off]="!d.surfaceDiscord">
                   @for (c of categoryMeta; track c.key) {
                     <app-beta-toggle-row class="sub-row" [title]="c.label"
-                                         [checked]="d.categories[c.key]"
+                                         [checked]="cats[c.key]"
                                          [disabled]="!d.surfaceDiscord" [busy]="discordBusy()"
                                          (toggle)="setCategory(c.key, $event)" />
                   }
                 </div>
+                }
                 <app-beta-toggle-row title="Weekly recap" subtitle="A Sunday summary digest"
                                      icon="event_repeat" [checked]="d.weeklyRecapEnabled" [busy]="discordBusy()"
                                      (toggle)="weeklyRecapChange($event)" />
