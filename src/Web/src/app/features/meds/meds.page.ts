@@ -136,6 +136,7 @@ interface WindowOpt { value: number; label: string; }
             </div>
           </div>
           @if (repeatMsg()) { <p class="md-repeat-msg" role="status" aria-live="polite">{{ repeatMsg() }}</p> }
+          @if (medMsg()) { <p class="md-repeat-msg" role="alert">{{ medMsg() }}</p> }
 
           <div class="md-meds">
             <!-- adherence ring -->
@@ -265,6 +266,7 @@ interface WindowOpt { value: number; label: string; }
                 @if (logging()) { <span class="md-spin" aria-hidden="true"></span> Logging… }
                 @else { <mat-icon aria-hidden="true">add</mat-icon> Log reading }
               </button>
+              @if (vitalMsg()) { <p class="md-qlog__msg" role="status" aria-live="polite">{{ vitalMsg() }}</p> }
             </div>
 
             <!-- trend mini-chart + stats -->
@@ -411,6 +413,8 @@ export class MedsPage implements OnDestroy {
   /** "Repeat yesterday" in-flight latch + a transient status line. */
   readonly repeating = signal(false);
   readonly repeatMsg = signal<string>('');
+  /** Inline error for med-level actions (deactivate) — this page has no toast surface. */
+  readonly medMsg = signal<string>('');
 
   readonly adherencePct = computed<number>(() => {
     const a = this.adherence();
@@ -429,6 +433,8 @@ export class MedsPage implements OnDestroy {
   readonly logging = signal(false);
   readonly qv1 = signal<string>('');
   readonly qv2 = signal<string>('');
+  /** Inline status/error for the vitals quick-log + reading deletes (no toast surface on this page). */
+  readonly vitalMsg = signal<string>('');
 
   // ---- insight ----
   readonly insight = signal<VitalsInsightResponse | null>(null);
@@ -673,11 +679,14 @@ export class MedsPage implements OnDestroy {
   async deactivate(m: Medication): Promise<void> {
     if (typeof confirm === 'function' &&
         !confirm(`Deactivate ${m.name}? It stops appearing in your daily checklist.`)) return;
+    this.medMsg.set('');
     try {
       await firstValueFrom(this.api.deleteMed(m.id));
       this.meds.update((list) => list.filter((x) => x.id !== m.id));
       void this.refreshAdherence();
-    } catch { /* keep */ }
+    } catch {
+      this.medMsg.set(`Couldn't deactivate ${m.name} — try again.`);
+    }
   }
 
   // ============================================================== vitals
@@ -710,23 +719,29 @@ export class MedsPage implements OnDestroy {
       localDate: this.today(),
     };
     this.logging.set(true);
+    this.vitalMsg.set('');
     try {
       await firstValueFrom(this.api.addVital(input));
       this.qv1.set('');
       this.qv2.set('');
       await this.refreshVitals();
       void this.loadInsight();
-    } catch { /* silent */ } finally {
+    } catch {
+      this.vitalMsg.set("Couldn't log that reading — try again.");
+    } finally {
       this.logging.set(false);
     }
   }
 
   async deleteReading(r: VitalReading): Promise<void> {
+    this.vitalMsg.set('');
     try {
       await firstValueFrom(this.api.deleteVital(r.id));
       await this.refreshVitals();
       void this.loadInsight();
-    } catch { /* keep */ }
+    } catch {
+      this.vitalMsg.set("Couldn't delete that reading — try again.");
+    }
   }
 
   // ============================================================== view helpers

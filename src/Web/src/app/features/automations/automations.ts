@@ -6,6 +6,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
+import { MatSnackBar } from '@angular/material/snack-bar';
 
 import { Api } from '../../core/api';
 import {
@@ -48,6 +49,7 @@ interface TriggerOpt {
 export class Automations {
   private api = inject(Api);
   private fb = inject(FormBuilder);
+  private snack = inject(MatSnackBar);
 
   readonly triggers: readonly TriggerOpt[] = [
     { kind: 'workout.logged', label: 'When I log a workout', unit: 'minutes' },
@@ -220,17 +222,37 @@ export class Automations {
     };
     this.api
       .updateAutomation(r.id, body)
-      .pipe(catchError(() => of(null)))
+      .pipe(
+        catchError(() => {
+          // Re-sync so the slide-toggle snaps back to the rule's real (unchanged) state.
+          this.load();
+          this.snack.open("Couldn't update that automation. Please try again.", 'OK', {
+            duration: 4000,
+          });
+          return of(null);
+        }),
+      )
       .subscribe((saved) => {
         if (saved) this.load();
       });
   }
 
   remove(r: AutomationRule): void {
+    let failed = false;
     this.api
       .deleteAutomation(r.id)
-      .pipe(catchError(() => of(null)))
-      .subscribe(() => this.load());
+      .pipe(
+        catchError(() => {
+          failed = true;
+          this.snack.open("Couldn't delete that automation. Please try again.", 'OK', {
+            duration: 4000,
+          });
+          return of(null);
+        }),
+      )
+      .subscribe(() => {
+        if (!failed) this.load();
+      });
   }
 
   // ---- Display helpers ----
