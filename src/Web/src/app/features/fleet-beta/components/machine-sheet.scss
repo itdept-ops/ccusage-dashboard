@@ -30,6 +30,9 @@
   0% { transform: scale(.7); opacity: .8; }
   100% { transform: scale(1.8); opacity: 0; }
 }
+@media (prefers-reduced-motion: reduce) {
+  .ms__pulse::after { animation: none !important; }
+}
 .ms__id { min-width: 0; }
 .ms__name {
   margin: 0; font-family: var(--font-display); font-weight: 600; font-size: 24px;

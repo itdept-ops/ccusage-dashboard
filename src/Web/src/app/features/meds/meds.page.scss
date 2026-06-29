@@ -288,6 +288,10 @@
 }
 @keyframes md-spin { to { transform: rotate(360deg); } }
 
+@media (prefers-reduced-motion: reduce) {
+  .md-skel, .md-spin { animation: none !important; }
+}
+
 // ─────────── add/edit sheet ───────────
 .md-scrim {
   position: fixed; inset: 0; z-index: 60;

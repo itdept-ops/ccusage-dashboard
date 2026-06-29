@@ -328,9 +328,9 @@ iframe[src*="accounts.google.com"] { color-scheme: normal !important; }
   --tech-vendor-codex: #6d4ddf;
 
   /* ---- Semantic (darkened for text-on-light AA) ---- */
-  --tech-success: #0f9d58;
+  --tech-success: #0b7d3f;          /* darkened for text-on-light AA — ~4.9:1 on canvas, ~5.2:1 on white (still a clear fill for data-viz) */
   --tech-success-tint: rgba(15, 157, 88, 0.12);
-  --tech-warn: #b7791f;
+  --tech-warn: #8b5a0a;             /* darkened for text-on-light AA — ~5.5:1 on canvas, ~5.9:1 on white */
   --tech-warn-tint: rgba(183, 121, 31, 0.14);
   --tech-error: #d83a4b;
   --tech-error-tint: rgba(216, 58, 75, 0.12);
@@ -342,7 +342,7 @@ iframe[src*="accounts.google.com"] { color-scheme: normal !important; }
   /* ---- Text (dark ink on light surfaces) ---- */
   --tech-text: #16202e;             /* primary — ~14:1 on white */
   --tech-text-secondary: #4a5a70;   /* labels, axis text — ~6.5:1 */
-  --tech-text-tertiary: #6b7a8f;    /* hints, units — ~4.6:1 (AA) */
+  --tech-text-tertiary: #5a6978;    /* hints, units — ~5.3:1 on canvas, ~4.9:1 on sunken (AA) */
   --tech-text-accent: #1d4ed8;      /* emphasized/accented links */
   --tech-text-on-accent: #ffffff;   /* text on solid blue/violet/cyan fills */
 

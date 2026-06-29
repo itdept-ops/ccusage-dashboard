@@ -85,6 +85,9 @@
   animation: ch-spin 1.1s linear infinite;
 }
 @keyframes ch-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) {
+  .challenge__refreshspin { animation: none !important; }
+}
 .challenge__exitview { margin-left: auto; font-weight: 600; }
 
 /* ── SR-only status ── */

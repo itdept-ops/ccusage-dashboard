@@ -157,6 +157,12 @@
   50% { opacity: 0.55; }
 }
 
+/* WCAG 2.3.3 — stop the "ending soon" pulse for users who prefer reduced motion.
+   The warn color + border still signal urgency; only the flashing is removed. */
+@media (prefers-reduced-motion: reduce) {
+  .timer-card--ending .timer-card__count { animation: none !important; }
+}
+
 .timer-card__head {
   display: flex;
   align-items: flex-start;
