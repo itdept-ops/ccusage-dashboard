@@ -202,6 +202,12 @@ public static class DayRecapEndpoints
             || hydration.Count > 0 || coffees.Count > 0;
         if (anyTracker) domains.Add("tracker");
 
+        // The local "HH:mm" stamps of the caller's logged ExerciseEntries (the CANONICAL workout rows). A
+        // `workout.logged` ActivityEvent at the SAME minute is the social mirror of one of these — it's dropped
+        // below so the timeline doesn't show two near-identical workout rows. Stats are unaffected.
+        var exerciseStamps = exercises.Select(x => Stamp(x.CreatedUtc))
+            .ToHashSet(StringComparer.Ordinal);
+
         foreach (var f in foods)
             moments.Add(new DayMomentDto(Stamp(f.CreatedUtc), "food", "utensils",
                 $"{Trim(f.Description, 40)} · {f.Calories} kcal"));
@@ -276,10 +282,19 @@ public static class DayRecapEndpoints
             .ToListAsync(ct);
         if (events.Count > 0)
         {
-            domains.Add("activity");
-            foreach (var e in events)
-                moments.Add(new DayMomentDto(Stamp(e.CreatedUtc), "activity", "spark",
-                    ActivityLabel(e.Kind, e.IntValue, e.Label)));
+            // De-dupe: a `workout.logged` activity moment whose local minute matches an ExerciseEntry is the
+            // redundant social mirror of that canonical exercise row — drop it (timeline display only; stats
+            // already exclude activity events). Non-workout events, and workouts without a matching entry, stay.
+            var dedupedEvents = events
+                .Where(e => !(e.Kind == "workout.logged" && exerciseStamps.Contains(Stamp(e.CreatedUtc))))
+                .ToList();
+            if (dedupedEvents.Count > 0)
+            {
+                domains.Add("activity");
+                foreach (var e in dedupedEvents)
+                    moments.Add(new DayMomentDto(Stamp(e.CreatedUtc), "activity", "spark",
+                        ActivityLabel(e.Kind, e.IntValue, e.Label)));
+            }
         }
 
         // ---- FAMILY (family.use): the caller's OWN household reminders due + meals planned for the date ----

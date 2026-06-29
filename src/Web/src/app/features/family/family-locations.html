@@ -151,7 +151,7 @@
       <div class="family-locs__layout">
         <!-- Map (replay): interpolated pins + per-member fading trails; the scrubber owns the viewport -->
         <section class="family__card family-locs__map-card" aria-label="Family replay map">
-          <app-location-map [pins]="mapPins()" [trails]="replay.trails()" [fitOnChange]="false" />
+          <app-location-map #replayMap [pins]="mapPins()" [trails]="replay.trails()" [fitOnChange]="false" />
           <div class="family-locs__osm">
             <mat-icon aria-hidden="true">public</mat-icon>
             <span>Powered by

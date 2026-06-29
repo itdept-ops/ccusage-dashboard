@@ -107,6 +107,8 @@ export class LocationMap implements AfterViewInit, OnDestroy {
   private markerLayer: L.LayerGroup | null = null;
   private trailLayer: L.LayerGroup | null = null;
   private resizeObserver: ResizeObserver | null = null;
+  /** A fit requested via {@link fitTo} before the map finished initialising — flushed once ready. */
+  private pendingFit: [number, number][] | null = null;
 
   /** A stable key for the current pin set so we only refit the view when the markers actually change. */
   private readonly pinKey = computed(() =>
@@ -142,6 +144,13 @@ export class LocationMap implements AfterViewInit, OnDestroy {
     this.ready.set(true);
     this.render();
 
+    // Flush a fit requested before the map was ready (e.g. the replay's first-load fit-to-bounds).
+    if (this.pendingFit) {
+      const pts = this.pendingFit;
+      this.pendingFit = null;
+      this.fitTo(pts);
+    }
+
     // Leaflet caches the container's pixel size at init; it doesn't observe later layout changes. Refresh
     // once after first paint (fonts/grid settle) and on any container resize so tiles never stay gray/
     // mis-centred after a responsive collapse.
@@ -155,6 +164,30 @@ export class LocationMap implements AfterViewInit, OnDestroy {
     this.resizeObserver = null;
     this.map?.remove();
     this.map = null;
+  }
+
+  /**
+   * Imperatively fit the viewport to a set of [lat, lng] points (e.g. all of a replay's trail points).
+   * Used when `fitOnChange` is false but the caller still wants a ONE-TIME fit — the replay opens framed
+   * on the trail extent instead of the world. If called before the map is ready, the fit is deferred and
+   * flushed once init completes. Also primes `lastFitKey` so the subsequent per-frame render doesn't undo
+   * this fit. Safe to call with 0/1 points.
+   */
+  fitTo(points: [number, number][]): void {
+    if (!points.length) return;
+    if (!this.leaflet || !this.map) {
+      this.pendingFit = points;
+      return;
+    }
+    const Lm = this.leaflet;
+    // Don't let the next pinKey-driven auto-fit (if ever re-enabled) immediately re-fit over this.
+    this.lastFitKey = this.pinKey();
+    if (points.length === 1) {
+      this.map.setView(points[0], 12);
+    } else {
+      const bounds = Lm.latLngBounds(points);
+      this.map.fitBounds(bounds, { padding: [40, 40], maxZoom: 14 });
+    }
   }
 
   private render(): void {

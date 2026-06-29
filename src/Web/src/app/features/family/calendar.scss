@@ -869,21 +869,6 @@
   color: var(--tech-text-tertiary);
 }
 
-/* ── Empty state ────────────────────────────────────────────────────── */
-.cal-empty {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  text-align: center;
-  gap: var(--tech-space-3, 12px);
-  padding: var(--tech-space-8, 32px);
-  border: 1px dashed var(--tech-border);
-  border-radius: var(--tech-radius, 12px);
-  color: var(--tech-text-secondary);
-  mat-icon { width: 36px; height: 36px; font-size: 36px; color: var(--tech-accent-cyan); }
-  p { margin: 0; max-width: 36ch; }
-}
-
 /* ── Event editor dialog bits ───────────────────────────────────────── */
 .event-edit__body {
   display: flex;

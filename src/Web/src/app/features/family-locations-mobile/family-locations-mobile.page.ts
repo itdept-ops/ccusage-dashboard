@@ -1,5 +1,5 @@
 import {
-  ChangeDetectionStrategy, Component, OnDestroy, computed, inject, signal,
+  ChangeDetectionStrategy, Component, OnDestroy, computed, inject, signal, viewChild,
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
@@ -50,7 +50,7 @@ import { ReplayEngine } from '../family/replay-engine';
         @if (mode() === 'live' && members().length) {
           <app-location-map [pins]="pins()" (pinClick)="onPinClick($event)" />
         } @else if (mode() === 'replay' && replay.hasData()) {
-          <app-location-map [pins]="replay.pins()" [trails]="replay.trails()" [fitOnChange]="false" />
+          <app-location-map #replayMap [pins]="replay.pins()" [trails]="replay.trails()" [fitOnChange]="false" />
         } @else {
           <!-- No pins to plot yet — a calm placeholder behind the sheet (still themed map chrome). -->
           <div class="fl-map__placeholder" aria-hidden="true">
@@ -337,6 +337,13 @@ export class FamilyLocationsMobilePage implements OnDestroy {
   readonly reducedMotion = signal(
     typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches,
   );
+  /** Live media query + its change listener so the reduced-motion flag tracks an in-session OS toggle. */
+  private readonly motionQuery =
+    typeof matchMedia === 'function' ? matchMedia('(prefers-reduced-motion: reduce)') : null;
+  private readonly onMotionChange = (e: MediaQueryListEvent) => this.reducedMotion.set(e.matches);
+
+  /** The replay map (only present in replay mode) — used for the one-time fit-to-bounds on first load. */
+  private readonly replayMap = viewChild<LocationMap>('replayMap');
 
   /** rAF handle + last frame timestamp for the playback loop (host-owned so cleanup is guaranteed). */
   private rafId: number | null = null;
@@ -348,6 +355,7 @@ export class FamilyLocationsMobilePage implements OnDestroy {
       () => this.now.set(Date.now()),
       FamilyLocationsMobilePage.CLOCK_MS,
     );
+    this.motionQuery?.addEventListener('change', this.onMotionChange);
   }
 
   ngOnDestroy(): void {
@@ -355,6 +363,7 @@ export class FamilyLocationsMobilePage implements OnDestroy {
       clearInterval(this.clockTimer);
       this.clockTimer = null;
     }
+    this.motionQuery?.removeEventListener('change', this.onMotionChange);
     this.stopLoop();
   }
 
@@ -384,12 +393,25 @@ export class FamilyLocationsMobilePage implements OnDestroy {
           this.api.familyLocationHistory(from.toISOString(), to.toISOString()),
         );
         this.replay.setHistory(rows ?? []);
+        this.fitReplayOnce();
       } catch {
         this.replayError.set(true);
       } finally {
         this.replayLoading.set(false);
       }
     })();
+  }
+
+  /**
+   * Fit the map to the replay's full trail extent ONCE per history load (so replay opens framed on the
+   * data, not the world). The map element is @if-gated on hasData(), so defer a task to let Angular create
+   * it before we query the viewChild; LocationMap.fitTo defers further if Leaflet isn't ready yet. We don't
+   * refit on scrub — fitOnChange is false on this map, and this runs only here.
+   */
+  private fitReplayOnce(): void {
+    const points = this.replay.allPoints();
+    if (!points.length) return;
+    setTimeout(() => this.replayMap()?.fitTo(points));
   }
 
   setWindowHours(hours: number): void {

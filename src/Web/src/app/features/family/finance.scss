@@ -1131,11 +1131,19 @@ app-chart { display: block; width: 100%; height: 100%; }
   display: grid;
   place-items: center;
   padding: 16px;
+}
+
+/* Click-outside scrim — mirrors .md-scrim / .hsheet__scrim. The panel stacks above it. */
+.fin-scrim {
+  position: fixed;
+  inset: 0;
   background: rgba(4, 7, 12, 0.6);
   backdrop-filter: blur(2px);
 }
 
 .fin-modal__panel {
+  position: relative;
+  z-index: 1;
   width: min(460px, 100%);
   display: flex;
   flex-direction: column;

@@ -113,29 +113,6 @@
 .jr-row__tags { font-size: .72rem; color: var(--ink-faint); }
 
 // ============================================================================
-// STATES (empty / error)
-// ============================================================================
-
-.jr-empty, .jr-state {
-  display: flex; flex-direction: column; align-items: center; text-align: center; gap: 10px;
-  padding: 28px 18px; border-radius: var(--r-tile); background: var(--glass);
-  border: 1px solid var(--hairline); box-shadow: var(--lift-1);
-}
-.jr-empty__orb, .jr-state__orb {
-  width: 54px; height: 54px; border-radius: 50%; display: grid; place-items: center;
-  background: color-mix(in srgb, var(--accent-a) 16%, transparent);
-  mat-icon { font-size: 26px; width: 26px; height: 26px; color: var(--accent-a); }
-}
-.jr-empty__body, .jr-state__body { margin: 0; font-size: .9rem; color: var(--ink-dim); max-width: 32ch; }
-.jr-state__title { margin: 0; font-size: 1.05rem; font-weight: 800; color: var(--ink); }
-.jr-state__cta {
-  display: inline-flex; align-items: center; gap: 6px; padding: 10px 18px; margin-top: 4px;
-  border: none; border-radius: var(--r-pill); font-weight: 800; color: #fff; cursor: pointer;
-  background: linear-gradient(135deg, var(--accent-a), var(--accent-b));
-  mat-icon { font-size: 18px; width: 18px; height: 18px; }
-}
-
-// ============================================================================
 // LOG SHEET (cloned from cycle-mobile's .ls system)
 // ============================================================================
 

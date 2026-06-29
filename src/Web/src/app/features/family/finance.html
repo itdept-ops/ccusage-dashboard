@@ -676,6 +676,7 @@
       @if (goalDraft(); as gd) {
         <div class="fin-modal" role="dialog" aria-modal="true" aria-label="Savings goal"
              dialogA11y (dismiss)="cancelGoalDraft()">
+          <div class="fin-scrim" aria-hidden="true" (click)="cancelGoalDraft()"></div>
           <div class="fin-modal__panel">
             <h2 class="fin-card__title">{{ gd.id == null ? 'New savings goal' : 'Edit goal' }}</h2>
             <label class="fin-field">

@@ -108,6 +108,65 @@ public class DayRecapTests(WebAppFactory factory)
         root.GetRawText().Should().NotContain("@");
     }
 
+    // ---- Workout de-dupe: an ExerciseEntry + its mirror workout.logged event = ONE timeline row ----
+
+    [Fact]
+    public async Task Workout_logged_activity_is_deduped_against_matching_exercise_entry()
+    {
+        // A logged workout produces BOTH an ExerciseEntry (canonical) and a `workout.logged` ActivityEvent
+        // (the social mirror). When they share the same local minute the timeline must NOT show two rows —
+        // the redundant activity moment is dropped, leaving only the ExerciseEntry's exercise row.
+        var (email, user) = await ProvisionUser("tracker.self");
+        var when = DateTime.SpecifyKind(Today.ToDateTime(new TimeOnly(14, 30)), DateTimeKind.Utc);
+        await Seed(db =>
+        {
+            db.ExerciseEntries.Add(new ExerciseEntry
+            {
+                UserEmail = email, LocalDate = Today, Name = "Running",
+                DurationMin = 30, CaloriesBurned = 300, CreatedUtc = when,
+            });
+            db.ActivityEvents.Add(new ActivityEvent
+            { ActorEmail = email, Kind = "workout.logged", Label = "Running", CreatedUtc = when });
+        });
+
+        var root = await Json(await user.GetAsync($"/api/ai/day-recap?date={Date(Today)}"));
+        var timeline = root.GetProperty("timeline").EnumerateArray().ToList();
+        // Exactly one workout row survives — the canonical exercise row, not the activity mirror.
+        timeline.Count(m => m.GetProperty("domain").GetString() == "exercise").Should().Be(1);
+        // The mirror `workout.logged` activity moment is dropped entirely (its minute matched the entry).
+        timeline.Should().NotContain(m => m.GetProperty("domain").GetString() == "activity");
+        root.GetProperty("domainsIncluded").EnumerateArray()
+            .Select(d => d.GetString()).Should().NotContain("activity");
+    }
+
+    [Fact]
+    public async Task Workout_logged_activity_at_a_different_minute_is_kept()
+    {
+        // A `workout.logged` event at a minute with NO matching ExerciseEntry is a real, distinct moment and
+        // must survive the de-dupe (the matcher is minute-precise, not a blanket drop of all workout events).
+        var (email, user) = await ProvisionUser("tracker.self");
+        var exerciseWhen = DateTime.SpecifyKind(Today.ToDateTime(new TimeOnly(8, 0)), DateTimeKind.Utc);
+        var activityWhen = DateTime.SpecifyKind(Today.ToDateTime(new TimeOnly(17, 45)), DateTimeKind.Utc);
+        await Seed(db =>
+        {
+            db.ExerciseEntries.Add(new ExerciseEntry
+            {
+                UserEmail = email, LocalDate = Today, Name = "Morning lift",
+                DurationMin = 20, CaloriesBurned = 150, CreatedUtc = exerciseWhen,
+            });
+            db.ActivityEvents.Add(new ActivityEvent
+            { ActorEmail = email, Kind = "workout.logged", Label = "Evening run", CreatedUtc = activityWhen });
+        });
+
+        var root = await Json(await user.GetAsync($"/api/ai/day-recap?date={Date(Today)}"));
+        var timeline = root.GetProperty("timeline").EnumerateArray().ToList();
+        // BOTH rows survive: the exercise entry AND the non-matching workout.logged activity moment.
+        timeline.Count(m => m.GetProperty("domain").GetString() == "exercise").Should().Be(1);
+        timeline.Count(m => m.GetProperty("domain").GetString() == "activity").Should().Be(1);
+        root.GetProperty("domainsIncluded").EnumerateArray()
+            .Select(d => d.GetString()).Should().Contain("activity");
+    }
+
     // ---- AI-off degradation: timeline present, narrative null (Gemini unconfigured in the test host) ----
 
     [Fact]

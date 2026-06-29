@@ -399,60 +399,6 @@
   }
 }
 
-// ─────────── STATES ───────────
-.iq-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  text-align: center;
-  gap: .75rem;
-  padding: clamp(40px, 8vw, 80px) 1.5rem;
-  border-radius: var(--tech-radius, 16px);
-  background: var(--tech-panel, #11161f);
-  border: 1px dashed var(--tech-border, #26303f);
-
-  &__orb {
-    display: grid;
-    place-items: center;
-    width: 64px;
-    height: 64px;
-    border-radius: 50%;
-    color: var(--tech-accent, #7c8cff);
-    background: color-mix(in srgb, var(--tech-accent, #7c8cff) 14%, transparent);
-    mat-icon { font-size: 32px; width: 32px; height: 32px; }
-  }
-
-  &__title {
-    margin: 0;
-    font-size: 1.2rem;
-    font-weight: 700;
-    max-width: 32ch;
-    color: var(--tech-text, #e6edf6);
-  }
-  &__body {
-    margin: 0;
-    max-width: 52ch;
-    font-size: .92rem;
-    line-height: 1.55;
-    color: var(--tech-text-secondary, #9ba9bd);
-  }
-  &__cta {
-    display: inline-flex;
-    align-items: center;
-    gap: .4rem;
-    margin-top: .35rem;
-    padding: .6rem 1.1rem;
-    border-radius: var(--tech-radius, 12px);
-    font-weight: 600;
-    text-decoration: none;
-    border: 0;
-    cursor: pointer;
-    color: #fff;
-    background: var(--tech-accent, #7c8cff);
-    mat-icon { font-size: 19px; width: 19px; height: 19px; }
-  }
-}
-
 .iq-foot {
   display: flex;
   align-items: center;

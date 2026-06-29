@@ -5,6 +5,7 @@ import {
   inject,
   OnDestroy,
   signal,
+  viewChild,
   ChangeDetectionStrategy,
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
@@ -114,6 +115,13 @@ export class FamilyLocations implements OnDestroy {
   readonly reducedMotion = signal(
     typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches,
   );
+  /** Live media query + its change listener so the reduced-motion flag tracks an in-session OS toggle. */
+  private readonly motionQuery =
+    typeof matchMedia === 'function' ? matchMedia('(prefers-reduced-motion: reduce)') : null;
+  private readonly onMotionChange = (e: MediaQueryListEvent) => this.reducedMotion.set(e.matches);
+
+  /** The replay map (only present in replay mode) — used for the one-time fit-to-bounds on first load. */
+  private readonly replayMap = viewChild<LocationMap>('replayMap');
 
   /** What the map actually draws: live pins, or the replay's interpolated pins. */
   readonly mapPins = computed<MapPin[]>(() =>
@@ -127,6 +135,7 @@ export class FamilyLocations implements OnDestroy {
   constructor() {
     this.load();
     this.clockTimer = setInterval(() => this.now.set(Date.now()), FamilyLocations.CLOCK_MS);
+    this.motionQuery?.addEventListener('change', this.onMotionChange);
   }
 
   ngOnDestroy(): void {
@@ -134,6 +143,7 @@ export class FamilyLocations implements OnDestroy {
       clearInterval(this.clockTimer);
       this.clockTimer = null;
     }
+    this.motionQuery?.removeEventListener('change', this.onMotionChange);
     this.stopLoop();
   }
 
@@ -161,6 +171,7 @@ export class FamilyLocations implements OnDestroy {
       next: (rows: FamilyMemberHistory[]) => {
         this.replay.setHistory(rows ?? []);
         this.replayLoading.set(false);
+        this.fitReplayOnce();
       },
       error: () => {
         this.replayLoading.set(false);
@@ -168,6 +179,18 @@ export class FamilyLocations implements OnDestroy {
         this.snack.open('Could not load location history', 'Dismiss', { duration: 4000 });
       },
     });
+  }
+
+  /**
+   * Fit the map to the replay's full trail extent ONCE per history load (so replay opens framed on the
+   * data, not the world). The map element is @if-gated on hasData(), so defer a task to let Angular create
+   * it before we query the viewChild; LocationMap.fitTo defers further if Leaflet isn't ready yet. We don't
+   * refit on scrub — fitOnChange is false on this map, and this runs only here.
+   */
+  private fitReplayOnce(): void {
+    const points = this.replay.allPoints();
+    if (!points.length) return;
+    setTimeout(() => this.replayMap()?.fitTo(points));
   }
 
   /** Change the replay window length and refetch. */

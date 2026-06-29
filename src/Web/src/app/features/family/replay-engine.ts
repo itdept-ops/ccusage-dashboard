@@ -70,6 +70,19 @@ export class ReplayEngine {
   /** Whether there's anything to replay (≥1 member with ≥1 fix in the window). */
   readonly hasData = computed(() => this.members().length > 0);
 
+  /**
+   * Every member's every fix in the window as flat [lat, lng] pairs — the whole trail extent. The host
+   * uses this to fit the map to the replay's bounds ONCE on first load (scrub-time-independent, so it
+   * doesn't shift as the user drags).
+   */
+  readonly allPoints = computed<[number, number][]>(() => {
+    const out: [number, number][] = [];
+    for (const m of this._history()) {
+      for (const p of m.points) out.push([p.lat, p.lng]);
+    }
+    return out;
+  });
+
   /** Window start (epoch ms) — the earliest fix across all members; 0 when empty. */
   readonly start = computed(() => this.span().start);
   /** Window end (epoch ms) — the latest fix across all members; 0 when empty. */

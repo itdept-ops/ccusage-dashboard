@@ -270,20 +270,6 @@
   &--trend { padding: 2.5rem 1rem; }
 }
 
-.md-state {
-  display: flex; flex-direction: column; align-items: center; gap: .75rem; text-align: center;
-  padding: 3rem 1rem;
-  &__orb { width: 56px; height: 56px; border-radius: 50%; display: grid; place-content: center;
-    background: color-mix(in srgb, #ff5c6c 14%, transparent); color: #ff5c6c; }
-  &__title { margin: 0; font-size: 1.1rem; }
-  &__body { margin: 0; color: var(--md-sub); }
-  &__cta {
-    display: inline-flex; align-items: center; gap: .4rem; margin-top: .5rem;
-    padding: .55rem 1rem; border-radius: 10px; cursor: pointer;
-    background: var(--md-accent); color: #fff; border: 0; font-weight: 600;
-  }
-}
-
 .md-skel-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1rem; }
 .md-skel {
   height: 160px; border-radius: var(--md-r);
