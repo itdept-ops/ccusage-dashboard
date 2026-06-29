@@ -75,7 +75,17 @@ public class HabitTests(WebAppFactory factory)
     private static async Task<JsonElement> Json(HttpResponseMessage resp) =>
         await resp.Content.ReadFromJsonAsync<JsonElement>();
 
-    private static readonly string Today = DateTime.UtcNow.ToString("yyyy-MM-dd");
+    // The API buckets habit days in the configured DISPLAY timezone (America/New_York in tests), NOT raw UTC.
+    // Late-evening New York is already the next UTC day, so a UTC "today" reads as a FUTURE date to the API and
+    // the freshly-completed day falls outside the streak window (streak 0). Mirror the other suites' helper.
+    private static readonly string Today = DisplayTzToday().ToString("yyyy-MM-dd");
+
+    private static DateOnly DisplayTzToday()
+    {
+        TimeZoneInfo tz;
+        try { tz = TimeZoneInfo.FindSystemTimeZoneById("America/New_York"); } catch { tz = TimeZoneInfo.Utc; }
+        return DateOnly.FromDateTime(TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, tz));
+    }
 
     // ---- Gating ----
 
