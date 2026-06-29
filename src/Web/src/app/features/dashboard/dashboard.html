@@ -1,5 +1,5 @@
 @if (loading()) {
-  <mat-progress-bar mode="indeterminate" />
+  <mat-progress-bar mode="indeterminate" aria-label="Loading usage data" />
 }
 
 <!-- ───────────────────────── Filter bar ───────────────────────── -->
@@ -213,7 +213,7 @@
   <section class="chart-card wide panel">
     <div class="chart-head">
       <h3 class="panel-header"><span class="header-icon" aria-hidden="true"><mat-icon>show_chart</mat-icon></span>{{ groupBy() === 'day' || groupBy() === 'month' ? 'Usage over time' : 'Top by ' + groupBy() }}</h3>
-      <mat-button-toggle-group [value]="groupBy()" (change)="setGroupBy($event.value)" hideSingleSelectionIndicator>
+      <mat-button-toggle-group [value]="groupBy()" (change)="setGroupBy($event.value)" aria-label="Group by" hideSingleSelectionIndicator>
         <mat-button-toggle value="day">Day</mat-button-toggle>
         <mat-button-toggle value="month">Month</mat-button-toggle>
         <mat-button-toggle value="project">Project</mat-button-toggle>
@@ -296,41 +296,41 @@
     <div class="table-scroll">
       <table mat-table [dataSource]="r.items" matSort (matSortChange)="onSort($event)" aria-label="Usage messages">
         <ng-container matColumnDef="localDate">
-          <th mat-header-cell *matHeaderCellDef mat-sort-header>Date</th>
+          <th scope="col" mat-header-cell *matHeaderCellDef mat-sort-header>Date</th>
           <td mat-cell *matCellDef="let r" class="mono">{{ r.localDate }}</td>
         </ng-container>
         <ng-container matColumnDef="source">
-          <th mat-header-cell *matHeaderCellDef>Source</th>
+          <th scope="col" mat-header-cell *matHeaderCellDef>Source</th>
           <td mat-cell *matCellDef="let r"><span class="src-tag" [class.codex]="r.source === 'codex'"><span class="dot"></span>{{ r.source }}</span></td>
         </ng-container>
         <ng-container matColumnDef="model">
-          <th mat-header-cell *matHeaderCellDef mat-sort-header>Model</th>
+          <th scope="col" mat-header-cell *matHeaderCellDef mat-sort-header>Model</th>
           <td mat-cell *matCellDef="let r" class="mono cell-model">{{ r.model }}</td>
         </ng-container>
         <ng-container matColumnDef="projectName">
-          <th mat-header-cell *matHeaderCellDef>Project</th>
+          <th scope="col" mat-header-cell *matHeaderCellDef>Project</th>
           <td mat-cell *matCellDef="let r" class="cell-project">{{ r.projectName }}</td>
         </ng-container>
         <ng-container matColumnDef="sidechain">
-          <th mat-header-cell *matHeaderCellDef>Type</th>
+          <th scope="col" mat-header-cell *matHeaderCellDef>Type</th>
           <td mat-cell *matCellDef="let r">
             @if (r.isSidechain) { <span class="tag sub">subagent</span> } @else { <span class="tag main">main</span> }
           </td>
         </ng-container>
         <ng-container matColumnDef="inputTokens">
-          <th mat-header-cell *matHeaderCellDef mat-sort-header class="num">Input</th>
+          <th scope="col" mat-header-cell *matHeaderCellDef mat-sort-header class="num">Input</th>
           <td mat-cell *matCellDef="let r" class="num numeric">{{ r.inputTokens | number }}</td>
         </ng-container>
         <ng-container matColumnDef="outputTokens">
-          <th mat-header-cell *matHeaderCellDef mat-sort-header class="num">Output</th>
+          <th scope="col" mat-header-cell *matHeaderCellDef mat-sort-header class="num">Output</th>
           <td mat-cell *matCellDef="let r" class="num numeric">{{ r.outputTokens | number }}</td>
         </ng-container>
         <ng-container matColumnDef="totalTokens">
-          <th mat-header-cell *matHeaderCellDef class="num">Total</th>
+          <th scope="col" mat-header-cell *matHeaderCellDef class="num">Total</th>
           <td mat-cell *matCellDef="let r" class="num numeric cell-total">{{ r.totalTokens | compact }}</td>
         </ng-container>
         <ng-container matColumnDef="costUsd">
-          <th mat-header-cell *matHeaderCellDef mat-sort-header class="num">Cost</th>
+          <th scope="col" mat-header-cell *matHeaderCellDef mat-sort-header class="num">Cost</th>
           <td mat-cell *matCellDef="let r" class="num numeric cost">{{ r.costUsd | currency: 'USD' : 'symbol' : '1.2-4' }}</td>
         </ng-container>
 

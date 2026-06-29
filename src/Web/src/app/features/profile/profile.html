@@ -7,7 +7,7 @@
   </div>
 </div>
 
-@if (loading()) { <mat-progress-bar mode="indeterminate" /> }
+@if (loading()) { <mat-progress-bar mode="indeterminate" aria-label="Loading profile" /> }
 
 @if (loadError()) {
   <mat-card appearance="outlined" class="panel load-error">

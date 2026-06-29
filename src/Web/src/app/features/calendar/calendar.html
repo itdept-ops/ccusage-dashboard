@@ -5,14 +5,14 @@
     <p class="sub">Daily spend, volume, and how much time you actually spend working with AI — estimated from
       message timing (gaps over 30&nbsp;min count as idle).</p>
   </div>
-  <mat-button-toggle-group class="metric-toggle" [value]="metric()" (change)="metric.set($event.value)" hideSingleSelectionIndicator>
+  <mat-button-toggle-group class="metric-toggle" [value]="metric()" (change)="metric.set($event.value)" aria-label="Select metric" hideSingleSelectionIndicator>
     <mat-button-toggle value="cost">Cost</mat-button-toggle>
     <mat-button-toggle value="tokens">Tokens</mat-button-toggle>
     <mat-button-toggle value="hours">Active hours</mat-button-toggle>
   </mat-button-toggle-group>
 </div>
 
-@if (loading()) { <mat-progress-bar mode="indeterminate" /> }
+@if (loading()) { <mat-progress-bar mode="indeterminate" aria-label="Loading sessions" /> }
 
 <!-- Summary cards -->
 <div class="stat-grid">

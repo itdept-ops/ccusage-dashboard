@@ -50,13 +50,16 @@
                   matTooltip="Show who viewed this link">
             <mat-icon>{{ expandedId() === s.id ? 'expand_less' : 'expand_more' }}</mat-icon>{{ s.accessCount }}
           </button>
-          <button mat-icon-button (click)="copyExisting(s)" [disabled]="!s.path" matTooltip="Copy link">
+          <button mat-icon-button (click)="copyExisting(s)" [disabled]="!s.path" matTooltip="Copy link"
+                  aria-label="Copy link">
             <mat-icon>content_copy</mat-icon>
           </button>
-          <button mat-icon-button (click)="startEdit(s)" matTooltip="Edit expiry / label">
+          <button mat-icon-button (click)="startEdit(s)" matTooltip="Edit expiry / label"
+                  aria-label="Edit expiry or label">
             <mat-icon>edit</mat-icon>
           </button>
-          <button mat-icon-button class="sd-revoke" (click)="revoke(s)" matTooltip="Revoke link">
+          <button mat-icon-button class="sd-revoke" (click)="revoke(s)" matTooltip="Revoke link"
+                  aria-label="Revoke link">
             <mat-icon>delete_outline</mat-icon>
           </button>
         </div>

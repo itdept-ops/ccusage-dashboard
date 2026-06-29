@@ -82,7 +82,7 @@
                 [matMenuTriggerFor]="usageMenu" #usageTrigger="matMenuTrigger"
                 [class.nav__group--open]="usageTrigger.menuOpen"
                 [class.active]="usageGroupActive()"
-                aria-haspopup="menu">
+                aria-haspopup="menu" [attr.aria-expanded]="usageTrigger.menuOpen">
           Usage<mat-icon class="nav__group-chev" aria-hidden="true">expand_more</mat-icon>
         </button>
         <mat-menu #usageMenu="matMenu" class="nav-menu" overlapTrigger="false">
@@ -126,7 +126,7 @@
                 [matMenuTriggerFor]="fitnessMenu" #fitnessTrigger="matMenuTrigger"
                 [class.nav__group--open]="fitnessTrigger.menuOpen"
                 [class.active]="fitnessGroupActive()"
-                aria-haspopup="menu">
+                aria-haspopup="menu" [attr.aria-expanded]="fitnessTrigger.menuOpen">
           Fitness<mat-icon class="nav__group-chev" aria-hidden="true">expand_more</mat-icon>
         </button>
         <mat-menu #fitnessMenu="matMenu" class="nav-menu" overlapTrigger="false">
@@ -155,7 +155,7 @@
                 [matMenuTriggerFor]="toolsMenu" #toolsTrigger="matMenuTrigger"
                 [class.nav__group--open]="toolsTrigger.menuOpen"
                 [class.active]="toolsGroupActive()"
-                aria-haspopup="menu">
+                aria-haspopup="menu" [attr.aria-expanded]="toolsTrigger.menuOpen">
           Tools<mat-icon class="nav__group-chev" aria-hidden="true">expand_more</mat-icon>
         </button>
         <mat-menu #toolsMenu="matMenu" class="nav-menu" overlapTrigger="false">
@@ -210,7 +210,7 @@
                 [matMenuTriggerFor]="socialMenu" #socialTrigger="matMenuTrigger"
                 [class.nav__group--open]="socialTrigger.menuOpen"
                 [class.active]="socialGroupActive()"
-                aria-haspopup="menu">
+                aria-haspopup="menu" [attr.aria-expanded]="socialTrigger.menuOpen">
           Social<mat-icon class="nav__group-chev" aria-hidden="true">expand_more</mat-icon>
         </button>
         <mat-menu #socialMenu="matMenu" class="nav-menu" overlapTrigger="false">
@@ -242,7 +242,7 @@
                 [matMenuTriggerFor]="betaMenu" #betaTrigger="matMenuTrigger"
                 [class.nav__group--open]="betaTrigger.menuOpen"
                 [class.active]="betaGroupActive()"
-                aria-haspopup="menu">
+                aria-haspopup="menu" [attr.aria-expanded]="betaTrigger.menuOpen">
           Beta<mat-icon class="nav__group-chev" aria-hidden="true">expand_more</mat-icon>
         </button>
         <mat-menu #betaMenu="matMenu" class="nav-menu" overlapTrigger="false">
@@ -268,7 +268,7 @@
                 [matMenuTriggerFor]="adminMenu" #adminTrigger="matMenuTrigger"
                 [class.nav__group--open]="adminTrigger.menuOpen"
                 [class.active]="adminGroupActive()"
-                aria-haspopup="menu">
+                aria-haspopup="menu" [attr.aria-expanded]="adminTrigger.menuOpen">
           Admin<mat-icon class="nav__group-chev" aria-hidden="true">expand_more</mat-icon>
         </button>
         <mat-menu #adminMenu="matMenu" class="nav-menu" overlapTrigger="false">

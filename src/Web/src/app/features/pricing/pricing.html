@@ -12,7 +12,7 @@
   }
 </div>
 
-@if (loading()) { <mat-progress-bar mode="indeterminate" /> }
+@if (loading()) { <mat-progress-bar mode="indeterminate" aria-label="Loading pricing" /> }
 
 <div class="grid">
   @for (row of rows(); track row.id) {

@@ -1,5 +1,5 @@
 @if (loading()) {
-  <mat-progress-bar mode="indeterminate" />
+  <mat-progress-bar mode="indeterminate" aria-label="Loading fleet" />
 }
 
 <!-- ───────────────────────── Header ───────────────────────── -->
@@ -70,7 +70,7 @@
 <section class="board-card panel" [class.has-actions]="canManage()">
   <div class="board-head">
     <h3 class="panel-header">{{ board() === 'machines' ? 'Machines' : 'Users' }} · by cost</h3>
-    <mat-button-toggle-group [value]="board()" (change)="board.set($event.value)" hideSingleSelectionIndicator>
+    <mat-button-toggle-group [value]="board()" (change)="board.set($event.value)" aria-label="Fleet view" hideSingleSelectionIndicator>
       <mat-button-toggle value="machines"><mat-icon aria-hidden="true">dns</mat-icon> Machines</mat-button-toggle>
       <mat-button-toggle value="users"><mat-icon aria-hidden="true">group</mat-icon> Users</mat-button-toggle>
     </mat-button-toggle-group>

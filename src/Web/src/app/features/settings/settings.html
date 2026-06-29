@@ -6,7 +6,7 @@
   </div>
 </div>
 
-@if (loading()) { <mat-progress-bar mode="indeterminate" /> }
+@if (loading()) { <mat-progress-bar mode="indeterminate" aria-label="Loading settings" /> }
 
 @if (model(); as m) {
   <mat-card appearance="outlined" class="panel s-panel">
@@ -174,7 +174,7 @@
         </div>
 
         @if (routesLoading()) {
-          <mat-progress-bar mode="indeterminate" />
+          <mat-progress-bar mode="indeterminate" aria-label="Loading routes" />
         } @else if (routesError()) {
           <div class="route-empty">
             <mat-icon aria-hidden="true">cloud_off</mat-icon>

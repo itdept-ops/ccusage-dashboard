@@ -25,7 +25,7 @@
   </div>
 </div>
 
-@if (loading()) { <mat-progress-bar mode="indeterminate" /> }
+@if (loading()) { <mat-progress-bar mode="indeterminate" aria-label="Loading users" /> }
 
 <!-- Visually-hidden polite live region (selection + contacts announcements). -->
 <span class="sr-status" aria-live="polite" aria-atomic="true">{{ liveStatus() }}</span>
@@ -400,7 +400,7 @@
         <summary><mat-icon aria-hidden="true">login</mat-icon> Sign-in history <span class="micro-label">most recent first · up to 200</span></summary>
         @if (loginHistory(u.id); as h) {
           @if (h.loading) {
-            <div class="block-state"><mat-progress-bar mode="indeterminate" /></div>
+            <div class="block-state"><mat-progress-bar mode="indeterminate" aria-label="Working" /></div>
           } @else if (h.error) {
             <div class="block-state block-empty">Couldn't load sign-in history.</div>
           } @else if (!h.events.length) {
@@ -408,7 +408,7 @@
           } @else {
             <table class="logins-table">
               <thead>
-                <tr><th>When</th><th>IP</th><th>Status</th><th>Reason</th><th class="lc-device">Device</th><th class="lc-agent">User agent</th></tr>
+                <tr><th scope="col">When</th><th scope="col">IP</th><th scope="col">Status</th><th scope="col">Reason</th><th scope="col" class="lc-device">Device</th><th scope="col" class="lc-agent">User agent</th></tr>
               </thead>
               <tbody>
                 @for (e of h.events; track e.id) {
@@ -449,7 +449,7 @@
           <summary><mat-icon aria-hidden="true">group</mat-icon> Chat contacts <span class="micro-label">their circle · the chat picker draws from this</span></summary>
           @if (contactsState(u.id); as cs) {
             @if (cs.loading) {
-              <div class="block-state"><mat-progress-bar mode="indeterminate" /></div>
+              <div class="block-state"><mat-progress-bar mode="indeterminate" aria-label="Working" /></div>
             } @else if (cs.error) {
               <div class="block-state block-empty">Couldn't load chat contacts.</div>
             } @else {

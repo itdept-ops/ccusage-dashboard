@@ -122,7 +122,7 @@
 </mat-card>
 
 @if (loading() && rows().length) {
-  <mat-progress-bar mode="indeterminate" />
+  <mat-progress-bar mode="indeterminate" aria-label="Loading AI usage" />
 }
 
 <!-- ===== Table ===== -->
@@ -134,14 +134,14 @@
     <table class="ai-table">
       <thead>
         <tr>
-          <th class="c-when">When</th>
-          <th class="c-user">User</th>
-          <th class="c-feature">Feature</th>
-          <th class="c-model">Model</th>
-          <th class="c-outcome">Outcome</th>
-          <th class="c-tokens">Tokens</th>
-          <th class="c-cost">Est. cost</th>
-          <th class="c-latency">Latency</th>
+          <th scope="col" class="c-when">When</th>
+          <th scope="col" class="c-user">User</th>
+          <th scope="col" class="c-feature">Feature</th>
+          <th scope="col" class="c-model">Model</th>
+          <th scope="col" class="c-outcome">Outcome</th>
+          <th scope="col" class="c-tokens">Tokens</th>
+          <th scope="col" class="c-cost">Est. cost</th>
+          <th scope="col" class="c-latency">Latency</th>
         </tr>
       </thead>
       <tbody>

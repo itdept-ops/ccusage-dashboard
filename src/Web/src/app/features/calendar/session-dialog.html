@@ -1,6 +1,6 @@
 <h2 mat-dialog-title>Session detail</h2>
 @if (loading()) {
-  <mat-progress-bar mode="indeterminate" />
+  <mat-progress-bar mode="indeterminate" aria-label="Loading session" />
 } @else if (data(); as d) {
   <mat-dialog-content>
     <div class="sx-head">

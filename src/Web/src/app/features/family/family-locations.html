@@ -1,6 +1,6 @@
 <section class="family family-locs">
   @if (loading()) {
-    <mat-progress-bar mode="indeterminate" />
+    <mat-progress-bar mode="indeterminate" aria-label="Loading locations" />
   }
 
   <!-- Hero: warm header consistent with the other family sub-pages -->
@@ -119,7 +119,7 @@
   } @else {
     <!-- ───────────────────────── REPLAY MODE ───────────────────────── -->
     @if (replayLoading()) {
-      <mat-progress-bar mode="indeterminate" />
+      <mat-progress-bar mode="indeterminate" aria-label="Loading locations" />
       <div class="family__card family-locs__empty" role="status">
         <span class="family__crest family-locs__empty-crest" aria-hidden="true">
           <mat-icon>history</mat-icon>

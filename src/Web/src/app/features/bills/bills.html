@@ -9,7 +9,7 @@
     </button>
   </header>
 
-  @if (busy()) { <mat-progress-bar mode="indeterminate" class="bills__bar" /> }
+  @if (busy()) { <mat-progress-bar mode="indeterminate" class="bills__bar" aria-label="Loading bills" /> }
 
   @if (loading()) {
     <div class="bills__loading"><mat-spinner diameter="36" /></div>

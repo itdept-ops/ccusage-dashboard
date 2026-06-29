@@ -129,6 +129,7 @@
           <div class="timer-card__head">
             <span class="timer-card__label">{{ lt.timer.label }}</span>
             <button mat-icon-button class="timer-card__cancel" matTooltip="Cancel timer"
+                    aria-label="Cancel timer"
                     [disabled]="busyId() === lt.timer.id" (click)="cancel(lt.timer)">
               @if (busyId() === lt.timer.id) { <mat-spinner [diameter]="18" /> }
               @else { <mat-icon aria-hidden="true">close</mat-icon> }
