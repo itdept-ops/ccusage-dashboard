@@ -584,6 +584,7 @@ app.MapPactEndpoints();
 app.MapPublicEndpoints();
 app.MapRulesEndpoints();
 app.MapAgentsEndpoints();
+app.MapAgentInboxEndpoints();
 app.MapAiEndpoints();
 app.MapDayRecapEndpoints();
 app.MapFamilyEndpoints();

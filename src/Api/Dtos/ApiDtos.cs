@@ -1071,6 +1071,50 @@ public sealed class NotificationDto
     public DateTime CreatedUtc { get; set; }
 }
 
+/// <summary>One delivery in the AGENT INBOX / "Overnight" surface — a single proactive-agent nudge the OS
+/// produced for the caller. Derived entirely from the caller's own <see cref="NotificationDto"/> row of type
+/// AgentNudge; no email is ever exposed (the only identity is the per-kind agent label).</summary>
+public sealed class AgentInboxItemDto
+{
+    /// <summary>The underlying notification id (used to mark the item handled).</summary>
+    public long Id { get; set; }
+
+    /// <summary>The agent kind that produced this (e.g. "morningBriefing"), recovered from the deep-link.</summary>
+    public string AgentKind { get; set; } = "";
+
+    /// <summary>The friendly agent display name (e.g. "Morning Briefing").</summary>
+    public string AgentLabel { get; set; } = "";
+
+    /// <summary>The nudge text — what the agent had to say.</summary>
+    public string Summary { get; set; } = "";
+
+    /// <summary>The in-app deep-link to act on this nudge (e.g. "/grocery").</summary>
+    public string? DeepLink { get; set; }
+
+    public DateTime CreatedUtc { get; set; }
+
+    /// <summary>Whether the caller has triaged this item (REUSES the notification read flag — no new column).</summary>
+    public bool Handled { get; set; }
+
+    /// <summary>The period bucket, in the caller's local time: "overnight" | "today" | "earlier".</summary>
+    public string Period { get; set; } = "";
+}
+
+/// <summary>One period group ("overnight" / "today" / "earlier") of agent-inbox items, newest-first.</summary>
+public sealed class AgentInboxGroupDto
+{
+    public string Period { get; set; } = "";
+    public List<AgentInboxItemDto> Items { get; set; } = new();
+}
+
+/// <summary>The AGENT INBOX payload: the caller's agent deliveries grouped by period, plus the count still
+/// awaiting triage (for the inbox badge).</summary>
+public sealed class AgentInboxDto
+{
+    public int UnhandledCount { get; set; }
+    public List<AgentInboxGroupDto> Groups { get; set; } = new();
+}
+
 /// <summary>The caller's notification-delivery preferences.</summary>
 public sealed class NotificationPreferenceDto
 {

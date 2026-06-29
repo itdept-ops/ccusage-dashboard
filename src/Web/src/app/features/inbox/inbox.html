@@ -1,0 +1,80 @@
+<header class="head">
+  <span class="head-eyebrow mono-num">~/inbox</span>
+  <div class="head-row">
+    <div>
+      <h2>Agent Inbox</h2>
+      <p class="sub">What your OS did for you while you were away — every nudge your proactive agents
+        delivered, grouped by when it arrived. Tap one to act on it, or mark it handled to clear it.</p>
+    </div>
+    @if (!loading() && !error() && unhandled() > 0) {
+      <button type="button" class="btn-ghost" (click)="handleAll()" [disabled]="busyAll()">
+        <mat-icon aria-hidden="true">done_all</mat-icon>
+        @if (busyAll()) { Clearing… } @else { Mark all handled }
+      </button>
+    }
+  </div>
+</header>
+
+@if (loading()) {
+  <div class="state" role="status" aria-live="polite">
+    <mat-progress-spinner mode="indeterminate" diameter="36" />
+    <p>Loading your agent activity…</p>
+  </div>
+} @else if (error()) {
+  <app-bs-error
+    icon="cloud_off"
+    title="We couldn't load your inbox just now"
+    (retry)="load()" />
+} @else if (isEmpty()) {
+  <app-bs-empty
+    icon="smart_toy"
+    title="Your agents haven't reported in yet"
+    body="When your proactive agents run, what they find shows up here — a morning briefing, a streak rescue, a budget heads-up. Set one up to get started."
+    ctaLabel="Set up agents"
+    ctaIcon="smart_toy"
+    ctaLink="/agents" />
+} @else {
+  @for (sec of sections(); track trackSection($index, sec)) {
+    <section class="period">
+      <h3 class="period__head">
+        <mat-icon aria-hidden="true">{{ sec.icon }}</mat-icon>
+        {{ sec.label }}
+        <span class="period__count">{{ sec.rows.length }}</span>
+      </h3>
+
+      <ul class="items">
+        @for (row of sec.rows; track trackRow($index, row)) {
+          <li class="card item" [class.item--unhandled]="!row.handled"
+              [style.--item-hue]="row.meta.hue">
+            <span class="item__ic" aria-hidden="true"><mat-icon>{{ row.meta.icon }}</mat-icon></span>
+
+            <div class="item__body">
+              <p class="item__meta">
+                <span class="item__agent">{{ row.agentLabel }}</span>
+                <span class="item__dot" aria-hidden="true">·</span>
+                <time class="item__time">{{ relTime(row.createdUtc) }}</time>
+                @if (!row.handled) { <span class="item__new" aria-label="Not yet handled">New</span> }
+              </p>
+              <p class="item__summary">{{ row.summary }}</p>
+
+              <div class="item__actions">
+                @if (row.deepLink) {
+                  <button type="button" class="btn-act" (click)="act(row)">
+                    <mat-icon aria-hidden="true">open_in_new</mat-icon> Open
+                  </button>
+                }
+                @if (!row.handled) {
+                  <button type="button" class="btn-handle" (click)="markHandled(row)">
+                    <mat-icon aria-hidden="true">check</mat-icon> Mark handled
+                  </button>
+                } @else {
+                  <span class="item__handled"><mat-icon aria-hidden="true">check_circle</mat-icon> Handled</span>
+                }
+              </div>
+            </div>
+          </li>
+        }
+      </ul>
+    </section>
+  }
+}

@@ -1,0 +1,313 @@
+// ============================================================================
+// Agent Inbox — the mobile-first twin of the live /inbox page, on the shared beta-ui "Strata" foundation.
+// One line adopts the whole Strata token contract; this page then OVERRIDES the per-page accent with its
+// OWN signature: an INDIGO → VIOLET ramp. Every kit component reads --accent-a/--accent-b off this :host
+// cascade. Per-card hue (derived from the agent kind) tints just the card glyph + un-handled marker.
+//
+// ISOLATED + gated by platform.mobile + the agents.use route guard: nothing here touches the global
+// --tech-* tokens or the live /inbox page. The kit partial is the only import.
+// ============================================================================
+
+@use '../beta-ui/beta-kit' as kit;
+
+:host {
+  @include kit.beta-host;
+
+  // ---- THIS PAGE'S SIGNATURE ACCENT: INDIGO → VIOLET ----
+  --accent-a: #6366f1;             // indigo (start)
+  --accent-b: #a855f7;             // violet (end)
+}
+
+@include kit.beta-springs;
+@include kit.beta-a11y;
+
+// ============================================================================
+// SHELL
+// ============================================================================
+
+.ib-ptr { display: block; height: 100%; }
+
+.ib-scroll {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  min-height: 100%;
+  max-width: 720px;
+  margin-inline: auto;
+  width: 100%;
+  box-sizing: border-box;
+  padding-top: calc(var(--safe-top) + 8px);
+  padding-bottom: calc(var(--safe-bottom) + 28px);
+  padding-inline: var(--gutter) var(--gutter-r);
+}
+
+// ============================================================================
+// IMMERSIVE HERO
+// ============================================================================
+
+.ib-hero {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 4px 4px;
+  isolation: isolate;
+}
+
+.ib-hero__bloom {
+  position: absolute;
+  inset: -40px -30% auto -10%;
+  height: 200px;
+  z-index: -1;
+  background: radial-gradient(60% 80% at 25% 0%, color-mix(in srgb, var(--accent-a) 32%, transparent), transparent 70%);
+  filter: blur(var(--blur-glass));
+  pointer-events: none;
+}
+
+.ib-hero__kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+
+  mat-icon { font-size: 16px; width: 16px; height: 16px; color: var(--accent-a); }
+}
+
+.ib-hero__title {
+  margin: 0;
+  font-size: clamp(26px, 7vw, 32px);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+}
+
+.ib-hero__sub {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--ink-dim);
+}
+
+.ib-hero__bar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 6px;
+}
+
+.ib-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 11px;
+  border-radius: var(--r-pill, 999px);
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--accent-a);
+  background: color-mix(in srgb, var(--accent-a) 14%, var(--bg-rise));
+  border: 1px solid color-mix(in srgb, var(--accent-a) 28%, transparent);
+
+  mat-icon { font-size: 15px; width: 15px; height: 15px; }
+
+  &--done {
+    color: var(--ok, #4ade80);
+    background: color-mix(in srgb, var(--ok, #4ade80) 14%, var(--bg-rise));
+    border-color: color-mix(in srgb, var(--ok, #4ade80) 28%, transparent);
+  }
+}
+
+.ib-allbtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 36px;
+  padding: 0 13px;
+  border-radius: var(--r-pill, 999px);
+  border: 1px solid var(--hairline);
+  background: var(--bg-sink);
+  color: var(--ink);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  appearance: none;
+
+  mat-icon { font-size: 16px; width: 16px; height: 16px; }
+
+  &:disabled { opacity: 0.6; cursor: default; }
+  &:not(:disabled):active { transform: translateY(1px); }
+  &:focus-visible { outline: 2px solid var(--accent-a); outline-offset: 2px; }
+}
+
+// ============================================================================
+// PERIOD SECTION
+// ============================================================================
+
+.ib-sec {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.ib-sec__head {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+
+  mat-icon { font-size: 16px; width: 16px; height: 16px; color: var(--accent-a); }
+}
+
+.ib-sec__count {
+  display: inline-grid;
+  place-items: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0;
+  color: var(--ink-dim);
+  background: var(--bg-sink);
+}
+
+// ============================================================================
+// INBOX CARD
+// ============================================================================
+
+.ib-card {
+  --item-accent: hsl(var(--item-hue, 220), 72%, 66%);
+
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px;
+  border-radius: var(--r-tile);
+  background: var(--bg-rise);
+  border: 1px solid var(--hairline);
+  box-shadow: var(--lift-1);
+  transition: opacity 200ms var(--ease-out, ease);
+
+  &:not(.is-handled) {
+    border-color: color-mix(in srgb, var(--item-accent) 38%, var(--hairline));
+  }
+  &.is-handled { opacity: 0.74; }
+}
+
+.ib-card__ic {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--item-accent) 16%, var(--bg-sink));
+  color: var(--item-accent);
+
+  mat-icon { font-size: 20px; width: 20px; height: 20px; }
+}
+
+.ib-card__body {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ib-card__meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--ink-dim);
+}
+.ib-card__agent { font-weight: 700; color: var(--ink); }
+.ib-card__dot { color: var(--ink-faint); }
+.ib-card__time { color: var(--ink-dim); }
+
+.ib-card__new {
+  margin-left: 2px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--item-accent);
+  background: color-mix(in srgb, var(--item-accent) 16%, transparent);
+  border: 1px solid color-mix(in srgb, var(--item-accent) 34%, transparent);
+}
+
+.ib-card__summary {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--ink);
+}
+
+.ib-card__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 2px;
+}
+
+.ib-card__done {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--ok, #4ade80);
+
+  mat-icon { font-size: 16px; width: 16px; height: 16px; }
+}
+
+// ── action buttons ──
+.ib-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 38px;
+  padding: 0 13px;
+  border-radius: var(--r-pill, 999px);
+  border: 1px solid var(--hairline);
+  background: var(--bg-sink);
+  color: var(--ink);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  appearance: none;
+
+  mat-icon { font-size: 16px; width: 16px; height: 16px; }
+
+  &:not(:disabled):active { transform: translateY(1px); }
+  &:focus-visible { outline: 2px solid var(--accent-a); outline-offset: 2px; }
+
+  &--accent {
+    background: linear-gradient(135deg, var(--accent-a), var(--accent-b));
+    color: #fff;
+    border-color: transparent;
+    box-shadow: var(--lift-1);
+  }
+}
+
+// ============================================================================
+// SKELETON
+// ============================================================================
+
+.ib-list { display: flex; flex-direction: column; gap: 12px; }

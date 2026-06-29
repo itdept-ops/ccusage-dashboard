@@ -691,6 +691,46 @@ export interface AgentTestResult {
   message?: string;
 }
 
+// ---- Agent Inbox / "Overnight" (the caller's OWN agent deliveries, grouped by period; gated agents.use) ----
+// A dedicated, browsable view of "what your OS did for you" — MORE than the transient bell. Every item is the
+// caller's own AgentNudge notification (owner-scoped server-side); `handled` REUSES the notification read flag
+// (no new column). Display names only — an AgentNudge carries no actor, so no email is ever on the wire.
+// Mirrors AgentInboxDto / AgentInboxGroupDto / AgentInboxItemDto.
+
+/** The period bucket an agent delivery falls into, in the caller's display timezone. */
+export type AgentInboxPeriod = 'overnight' | 'today' | 'earlier';
+
+/** One agent delivery in the inbox. `agentKind` is recovered from the deep-link (the row stores only the
+ * AgentNudge type); `agentLabel` is its friendly name; `handled` is the existing read flag re-surfaced. */
+export interface AgentInboxItem {
+  id: number;
+  /** e.g. "morningBriefing" | "streakRescue" | "budgetAlert" | "lowStaples" | "medicationDue" | "agent". */
+  agentKind: string;
+  /** The friendly agent display name, e.g. "Morning Briefing". */
+  agentLabel: string;
+  /** What the agent had to say (the nudge text). */
+  summary: string;
+  /** The in-app deep-link to act on this nudge, e.g. "/grocery". Null if the row carried none. */
+  deepLink: string | null;
+  createdUtc: string;
+  /** Whether the caller has triaged this item (the existing notification read flag). */
+  handled: boolean;
+  period: AgentInboxPeriod;
+}
+
+/** One period group ("overnight" / "today" / "earlier") of agent-inbox items, newest-first. */
+export interface AgentInboxGroup {
+  period: AgentInboxPeriod;
+  items: AgentInboxItem[];
+}
+
+/** GET /api/agents/inbox payload: the caller's agent deliveries grouped by period, plus the count still
+ * awaiting triage (for the inbox badge). Groups are ordered overnight → today → earlier. */
+export interface AgentInbox {
+  unhandledCount: number;
+  groups: AgentInboxGroup[];
+}
+
 // ---- Location / GPS (privacy-sensitive: PRIVATE by default, capture is OPT-IN) ----------------------
 // Mirrors the API's LocationDtos.cs. The precise lat/lng is only ever returned to the SHARER (their own
 // history, GET /api/location/me) or to an admin holding location.view-all (GET /api/location/admin);

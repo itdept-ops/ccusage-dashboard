@@ -216,6 +216,13 @@ export const PAGE_REGISTRY: readonly PageDef[] = [
     home: { label: 'Agents', icon: 'smart_toy' },
   },
   {
+    id: 'inbox', path: 'inbox', title: 'Usage IQ · Agent Inbox', perm: PERM.agentsUse,
+    desktop: () => import('../features/inbox/inbox').then(m => m.Inbox),
+    mobile: () => import('../features/inbox-mobile/inbox-mobile.page').then(m => m.InboxMobilePage),
+    nav: { group: 'Tools', label: 'Agent Inbox', icon: 'inbox' },
+    home: { label: 'Agent Inbox', icon: 'inbox' },
+  },
+  {
     id: 'bills', path: 'bills', title: 'Usage IQ · Bill Splitter', perm: PERM.billsUse,
     desktop: () => import('../features/bills/bills').then(m => m.Bills),
     mobile: () => import('../features/bills-beta/bills-beta.page').then(m => m.BillsBetaPage),

@@ -47,7 +47,7 @@ import {
   CommentDto, PactDto, PactProgressRowDto, CreatePactRequest, UpdatePactRequest,
   LeaderboardRowDto, LeaderboardMetric, PublicBuiltWithDto,
   AutomationRule, AutomationRuleInput,
-  ScheduledAgentDto, ScheduledAgentInput, AgentPreviewResult, AgentTestResult,
+  ScheduledAgentDto, ScheduledAgentInput, AgentPreviewResult, AgentTestResult, AgentInbox,
   VapidPublicKey, PushSubscribeRequest,
   ResumeState, ResumeDto, ResumeApplicationDto, ResumeData, ResumeSaveRequest, ParseResumeRequest,
   HeadshotRequest, NewApplicationRequest, ApplicationSaveRequest, TailorRequest, CoverLetterRequest,
@@ -922,6 +922,25 @@ export class Api {
   /** Deliver a real one-off AgentNudge (does NOT touch the idempotency stamps). */
   testAgent(kind: string): Observable<AgentTestResult> {
     return this.http.post<AgentTestResult>(`${this.base}/agents/${kind}/test`, {});
+  }
+
+  // ---- Agent Inbox / "Overnight" (the caller's OWN agent deliveries, grouped by period; owner-scoped) ----
+  /** The caller's agent deliveries grouped overnight → today → earlier. `handled=false` returns only
+   * un-triaged items. Empty groups for a holder with no agent deliveries (the empty state). */
+  agentInbox(opts?: { handled?: boolean; limit?: number }): Observable<AgentInbox> {
+    let params = new HttpParams();
+    if (opts?.handled !== undefined) params = params.set('handled', String(opts.handled));
+    if (opts?.limit !== undefined) params = params.set('limit', String(opts.limit));
+    return this.http.get<AgentInbox>(`${this.base}/agents/inbox`, { params });
+  }
+  /** Mark specific agent items handled (flips the existing read flag; owner-guarded — a foreign or
+   * non-agent id is a no-op). Returns the remaining un-triaged count. */
+  handleAgentInbox(ids: number[]): Observable<{ unhandledCount: number }> {
+    return this.http.post<{ unhandledCount: number }>(`${this.base}/agents/inbox/handle`, { ids });
+  }
+  /** Mark every un-triaged agent item handled. Returns `{ unhandledCount: 0 }`. */
+  handleAllAgentInbox(): Observable<{ unhandledCount: number }> {
+    return this.http.post<{ unhandledCount: number }>(`${this.base}/agents/inbox/handle-all`, {});
   }
 
   // ---- Access policy (open sign-up + default permissions; requires users.manage to edit) ----
