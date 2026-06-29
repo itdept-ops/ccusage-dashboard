@@ -12,7 +12,7 @@ import {
 } from '../../core/models';
 import {
   BetaPullRefresh, BetaSegmentedControl, BetaBottomSheet, BetaSwipeRow, BetaSkeleton,
-  BetaFab, BetaToaster, ToastController, type Segment,
+  BetaFab, BetaToaster, BetaEmptyState, BetaErrorState, ToastController, type Segment,
 } from '../beta-ui';
 
 /** Friendly labels for the recurrence chip (mirrors the live page's RECURRENCE_LABEL). */
@@ -78,7 +78,7 @@ interface ProposedReminder {
   imports: [
     FormsModule, MatIconModule,
     BetaPullRefresh, BetaSegmentedControl, BetaBottomSheet, BetaSwipeRow, BetaSkeleton,
-    BetaFab, BetaToaster,
+    BetaFab, BetaToaster, BetaEmptyState, BetaErrorState,
   ],
   template: `
     <!-- ─────────────── PULL-TO-REFRESH OWNS THE SCROLL ─────────────── -->
@@ -172,14 +172,11 @@ interface ProposedReminder {
           </div>
 
         } @else if (errored()) {
-          <div class="fr-state">
-            <span class="fr-state__orb"><mat-icon aria-hidden="true">cloud_off</mat-icon></span>
-            <h2 class="fr-state__title">Couldn't load reminders</h2>
-            <p class="fr-state__body">Something went wrong fetching your household's reminders. Give it another go.</p>
-            <button type="button" class="fr-state__cta" (click)="reload()">
-              <mat-icon aria-hidden="true">refresh</mat-icon> Try again
-            </button>
-          </div>
+          <app-bs-error
+            icon="cloud_off"
+            title="Couldn't load reminders"
+            body="Something went wrong fetching your household's reminders. Give it another go."
+            (retry)="reload()" />
 
         } @else {
           <!-- ─── TAB SWITCH: Upcoming | Past ─── -->
@@ -227,21 +224,12 @@ interface ProposedReminder {
               }
 
             } @else {
-              <div class="fr-empty">
-                <span class="fr-empty__orb">
-                  <mat-icon aria-hidden="true">{{ tab() === 'upcoming' ? 'notifications_off' : 'history' }}</mat-icon>
-                </span>
-                @if (tab() === 'upcoming') {
-                  <h2 class="fr-empty__title">No upcoming reminders</h2>
-                  <p class="fr-empty__body">Tap the + or use ✨ above to schedule your first nudge.</p>
-                  <button type="button" class="fr-empty__cta" (click)="openCreate()">
-                    <mat-icon aria-hidden="true">add</mat-icon> New reminder
-                  </button>
-                } @else {
-                  <h2 class="fr-empty__title">Nothing in the past</h2>
-                  <p class="fr-empty__body">Fired one-time reminders live here so you can re-schedule them.</p>
-                }
-              </div>
+              <app-bs-empty
+                [icon]="tab() === 'upcoming' ? 'notifications_off' : 'history'"
+                [title]="tab() === 'upcoming' ? 'No upcoming reminders' : 'Nothing in the past'"
+                [body]="tab() === 'upcoming' ? 'Tap the + or use ✨ above to schedule your first nudge.' : 'Fired one-time reminders live here so you can re-schedule them.'"
+                [ctaLabel]="tab() === 'upcoming' ? 'New reminder' : ''" ctaIcon="add"
+                (action)="openCreate()" />
             }
           }
         }

@@ -54,7 +54,8 @@
 .item-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
 .item {
   display: flex; align-items: center; gap: 8px;
-  padding: 6px var(--tech-space-4, 16px);
+  /* 8px vertical aligns the item baseline with the add-item row below (was 6px → misaligned). */
+  padding: var(--tech-space-2, 8px) var(--tech-space-4, 16px);
   border-top: 1px solid var(--tech-border-subtle);
 
   &__check { flex: 0 0 auto; }

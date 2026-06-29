@@ -5,9 +5,10 @@
 
 .fin {
   // Owner accent tokens used by the dots + chips below.
+  // Joint reads the shared success token (UI chrome) with the original literal as a fallback.
   --fin-his: #3d8bff;
   --fin-hers: #ff7eb6;
-  --fin-joint: #3dd68c;
+  --fin-joint: var(--tech-success, #3dd68c);
   --fin-unassigned: #5e6c82;
 }
 

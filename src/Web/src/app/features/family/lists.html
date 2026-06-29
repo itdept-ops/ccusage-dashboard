@@ -20,10 +20,10 @@
       <span>Gathering your lists…</span>
     </div>
   } @else if (error()) {
-    <div class="family__error">
-      <mat-icon aria-hidden="true">error_outline</mat-icon>
-      <p>We couldn't load your lists just now. Please try again in a moment.</p>
-    </div>
+    <app-bs-error
+      title="We couldn't load your lists just now"
+      body="Please try again in a moment."
+      (retry)="retryLoad()" />
   } @else {
     <mat-tab-group class="lists-tabs" animationDuration="160ms" mat-stretch-tabs="false">
       <!-- ── Shopping ───────────────────────────────────────────────── -->
@@ -62,15 +62,15 @@
     </div>
 
     @if (lists.length === 0) {
-      <div class="family__empty">
-        <mat-icon aria-hidden="true">{{ kind === 'shopping' ? 'shopping_basket' : 'fact_check' }}</mat-icon>
-        <h2>No {{ kind === 'shopping' ? 'shopping' : 'to-do' }} lists yet</h2>
-        <p>
-          {{ kind === 'shopping'
-            ? 'Start a list and add things as you think of them — everyone can check them off.'
-            : 'Create a list and share the load. You can even assign tasks to each other.' }}
-        </p>
-      </div>
+      <app-bs-empty
+        [icon]="kind === 'shopping' ? 'shopping_basket' : 'fact_check'"
+        [title]="kind === 'shopping' ? 'No shopping lists yet' : 'No to-do lists yet'"
+        [body]="kind === 'shopping'
+          ? 'Start a list and add things as you think of them — everyone can check them off.'
+          : 'Create a list and share the load. You can even assign tasks to each other.'"
+        [ctaLabel]="kind === 'shopping' ? 'New shopping list' : 'New to-do list'"
+        ctaIcon="add"
+        (action)="createList(kind)" />
     } @else {
       <div class="list-grid">
         @for (list of lists; track list.id) {

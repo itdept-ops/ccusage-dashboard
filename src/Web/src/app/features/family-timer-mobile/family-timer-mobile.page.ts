@@ -10,7 +10,8 @@ import { Api } from '../../core/api';
 import { FamilyTimer, TimerAiResult } from '../../core/models';
 import { WakeLockService } from '../../core/wake-lock';
 import {
-  BetaPullRefresh, BetaBottomSheet, BetaSkeleton, BetaFab, BetaToaster, ToastController,
+  BetaPullRefresh, BetaBottomSheet, BetaSkeleton, BetaFab, BetaToaster,
+  BetaEmptyState, BetaErrorState, ToastController,
 } from '../beta-ui';
 
 /** A one-tap preset countdown. `seconds` seeds a new timer; `label` is its friendly name. */
@@ -62,6 +63,7 @@ const PRESETS: Preset[] = [
   imports: [
     FormsModule, MatIconModule,
     BetaPullRefresh, BetaBottomSheet, BetaSkeleton, BetaFab, BetaToaster,
+    BetaEmptyState, BetaErrorState,
   ],
   template: `
     <!-- ─────────────── PULL-TO-REFRESH OWNS THE SCROLL ─────────────── -->
@@ -98,14 +100,11 @@ const PRESETS: Preset[] = [
           </div>
 
         } @else if (error()) {
-          <div class="ft-state">
-            <span class="ft-state__orb"><mat-icon aria-hidden="true">cloud_off</mat-icon></span>
-            <h2 class="ft-state__title">Couldn't load timers</h2>
-            <p class="ft-state__body">Something went wrong reaching the household timers. Give it another go.</p>
-            <button type="button" class="ft-state__cta" (click)="reload(true)">
-              <mat-icon aria-hidden="true">refresh</mat-icon> Try again
-            </button>
-          </div>
+          <app-bs-error
+            icon="cloud_off"
+            title="Couldn't load timers"
+            body="Something went wrong reaching the household timers. Give it another go."
+            (retry)="reload(true)" />
 
         } @else if (active().length) {
           <!-- ─── ACTIVE TIMER CARDS ─── -->
@@ -139,14 +138,11 @@ const PRESETS: Preset[] = [
 
         } @else {
           <!-- EMPTY: nothing running -->
-          <div class="ft-empty">
-            <span class="ft-empty__orb"><mat-icon aria-hidden="true">hourglass_empty</mat-icon></span>
-            <h2 class="ft-empty__title">No timers running</h2>
-            <p class="ft-empty__body">Tap the + to start a shared countdown the whole family can watch.</p>
-            <button type="button" class="ft-empty__cta" (click)="openComposer()">
-              <mat-icon aria-hidden="true">add</mat-icon> Start a timer
-            </button>
-          </div>
+          <app-bs-empty
+            icon="hourglass_empty"
+            title="No timers running"
+            body="Tap the + to start a shared countdown the whole family can watch."
+            ctaLabel="Start a timer" ctaIcon="add" (action)="openComposer()" />
         }
       </div>
     </app-bs-pull-refresh>

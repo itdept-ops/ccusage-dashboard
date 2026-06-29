@@ -110,7 +110,7 @@
   padding: var(--tech-space-3, 12px);
   border: 1px solid var(--tech-border); border-radius: var(--tech-r-control, 10px);
   background: var(--tech-bg-sunken); color: var(--tech-text); cursor: pointer; font: inherit;
-  transition: border-color 120ms ease, background 120ms ease;
+  transition: border-color var(--tech-t-fast, 120ms) ease, background var(--tech-t-fast, 120ms) ease;
   &:hover { border-color: var(--tech-accent); background: color-mix(in srgb, var(--tech-accent) 6%, var(--tech-bg-sunken)); }
 }
 .idea-card__head { display: flex; align-items: center; gap: 6px; }

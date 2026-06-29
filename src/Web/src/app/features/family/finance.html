@@ -23,10 +23,10 @@
       <span>Opening your books…</span>
     </div>
   } @else if (error()) {
-    <div class="family__error">
-      <mat-icon aria-hidden="true">error_outline</mat-icon>
-      <p>We couldn't load your finances just now. Please try again in a moment.</p>
-    </div>
+    <app-bs-error
+      title="We couldn't load your finances just now"
+      body="Please try again in a moment."
+      (retry)="retryLoad()" />
   } @else {
 
     <!-- ══ IMPORT — dropzone → [column-map] → review → commit/discard ════ -->
@@ -224,11 +224,11 @@
 
     <!-- First-run nudge when nothing has been imported yet (hidden while reviewing a staged batch). -->
     @if (!hasData() && importStep() === 'idle') {
-      <div class="family__empty fin-empty">
-        <mat-icon aria-hidden="true">account_balance_wallet</mat-icon>
-        <h2>No transactions yet</h2>
-        <p>Import a Rocket Money export above to see your spending, income, and the his/hers split.</p>
-      </div>
+      <app-bs-empty
+        class="fin-empty"
+        icon="account_balance_wallet"
+        title="No transactions yet"
+        body="Import a Rocket Money export above to see your spending, income, and the his/hers split." />
     } @else {
 
       <!-- ══ MONTH stepper ══════════════════════════════════════════════ -->

@@ -17,6 +17,7 @@ import { MatInputModule } from '@angular/material/input';
 import { FormsModule } from '@angular/forms';
 
 import { Api } from '../../core/api';
+import { BetaEmptyState, BetaErrorState } from '../beta-ui';
 import {
   FamilyList,
   FamilyNote,
@@ -82,6 +83,8 @@ interface NoteSummary {
     MatSnackBarModule,
     MatFormFieldModule,
     MatInputModule,
+    BetaEmptyState,
+    BetaErrorState,
   ],
   templateUrl: './notes.html',
   changeDetection: ChangeDetectionStrategy.Eager,
@@ -116,6 +119,8 @@ export class FamilyNotes {
   readonly summarizingId = signal<number | null>(null);
   /** The open summary card per note id (keyed), or absent. */
   readonly summaries = signal<Record<number, NoteSummary>>({});
+  /** Note ids whose body the user has expanded past the collapsed max-height. */
+  readonly expandedNotes = signal<Set<number>>(new Set());
   /** The household's editable lists (the "Add to a list" picker), loaded lazily. */
   readonly lists = signal<FamilyList[]>([]);
 
@@ -162,6 +167,12 @@ export class FamilyNotes {
    */
   canManage(note: FamilyNote): boolean {
     return note.isMine || this.memberIds().has(note.createdByUserId);
+  }
+
+  /** Public retry for the error-state CTA: clear the error flag and re-run the initial load. */
+  retryLoad(): void {
+    this.error.set(false);
+    this.reload(true);
   }
 
   private reload(initial = false): void {
@@ -403,6 +414,21 @@ export class FamilyNotes {
     this.summaries.update((s) => {
       const next = { ...s };
       delete next[noteId];
+      return next;
+    });
+  }
+
+  /** Whether a note's body is currently expanded past the collapsed max-height. */
+  isExpanded(noteId: number): boolean {
+    return this.expandedNotes().has(noteId);
+  }
+
+  /** Toggle a note body between the collapsed (masked) and fully expanded states. */
+  toggleExpanded(noteId: number): void {
+    this.expandedNotes.update((set) => {
+      const next = new Set(set);
+      if (next.has(noteId)) next.delete(noteId);
+      else next.add(noteId);
       return next;
     });
   }

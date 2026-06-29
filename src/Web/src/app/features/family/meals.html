@@ -373,10 +373,10 @@
       <span>Setting the table…</span>
     </div>
   } @else if (error()) {
-    <div class="family__error">
-      <mat-icon aria-hidden="true">error_outline</mat-icon>
-      <p>We couldn't load the meal plan just now. Please try again in a moment.</p>
-    </div>
+    <app-bs-error
+      title="We couldn't load the meal plan just now"
+      body="Please try again in a moment."
+      (retry)="retryLoad()" />
   } @else {
     <div class="week-grid">
       @for (cell of cells(); track cell.localDate) {

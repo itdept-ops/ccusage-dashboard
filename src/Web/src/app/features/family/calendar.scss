@@ -956,7 +956,7 @@
   font-size: var(--tech-fs-label);
   font-weight: 600;
   cursor: pointer;
-  transition: border-color 120ms ease, background-color 120ms ease;
+  transition: border-color var(--tech-t-fast, 120ms) ease, background-color var(--tech-t-fast, 120ms) ease;
 
   &--on {
     border-color: var(--tech-accent);
@@ -1040,7 +1040,7 @@
   font: inherit;
   text-align: left;
   cursor: pointer;
-  transition: border-color 120ms ease, background-color 120ms ease, transform 120ms ease;
+  transition: border-color var(--tech-t-fast, 120ms) ease, background-color var(--tech-t-fast, 120ms) ease, transform var(--tech-t-fast, 120ms) ease;
 
   &:hover { border-color: var(--tech-accent); background: var(--tech-panel-raised); transform: translateY(-1px); }
   &:focus-visible { outline: none; box-shadow: var(--tech-focus-ring); }

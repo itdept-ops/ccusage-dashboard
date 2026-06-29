@@ -78,7 +78,7 @@
   text-align: left;
   cursor: pointer;
   color: inherit;
-  transition: background 120ms ease;
+  transition: background var(--tech-t-fast, 120ms) ease;
 
   &:hover { background: var(--tech-bg-sunken, rgba(255, 255, 255, 0.04)); }
   &:focus-visible { outline: 2px solid var(--tech-text-accent); outline-offset: 1px; }
@@ -170,7 +170,7 @@
   font-weight: 600;
   color: var(--tech-text-secondary);
   cursor: pointer;
-  transition: background 140ms ease, color 140ms ease;
+  transition: background var(--tech-t-fast, 120ms) ease, color var(--tech-t-fast, 120ms) ease;
 
   mat-icon { width: 16px; height: 16px; font-size: 16px; line-height: 16px; }
 
@@ -258,7 +258,7 @@
   background: var(--tech-bg-sunken, rgba(255, 255, 255, 0.05));
   color: var(--tech-text);
   cursor: pointer;
-  transition: background 140ms ease, transform 140ms ease;
+  transition: background var(--tech-t-fast, 120ms) ease, transform var(--tech-t-fast, 120ms) ease;
 
   &:hover { background: var(--tech-bg-elevated, rgba(255, 255, 255, 0.08)); }
   &:active { transform: scale(0.94); }

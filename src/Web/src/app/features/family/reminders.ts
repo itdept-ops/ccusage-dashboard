@@ -16,6 +16,7 @@ import { MatDialog } from '@angular/material/dialog';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 
 import { Api } from '../../core/api';
+import { BetaEmptyState, BetaErrorState } from '../beta-ui';
 import {
   FamilyRecurrence,
   FamilyReminder,
@@ -79,6 +80,8 @@ const SNOOZE_OPTIONS = [
     MatFormFieldModule,
     MatInputModule,
     MatSnackBarModule,
+    BetaEmptyState,
+    BetaErrorState,
   ],
   templateUrl: './reminders.html',
   changeDetection: ChangeDetectionStrategy.Eager,
@@ -134,6 +137,12 @@ export class FamilyReminders {
       .subscribe((h) => {
         if (h) this.members.set(h.members);
       });
+  }
+
+  /** Public retry for the error-state CTA: clear the error flag and re-run the initial load. */
+  retryLoad(): void {
+    this.error.set(false);
+    this.reload(true);
   }
 
   private reload(initial = false): void {

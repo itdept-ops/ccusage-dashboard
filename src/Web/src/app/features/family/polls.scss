@@ -6,23 +6,8 @@
   justify-content: flex-end;
 }
 
-/* ── Empty state ────────────────────────────────────────────────────── */
-.polls-empty {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  text-align: center;
-  gap: var(--tech-space-2, 8px);
-  padding: var(--tech-space-8, 32px) var(--tech-space-5, 20px);
-  border: 1px dashed var(--tech-border);
-  border-radius: var(--tech-radius, 12px);
-  background: var(--tech-bg-sunken);
-  color: var(--tech-text-secondary);
-
-  mat-icon { width: 40px; height: 40px; font-size: 40px; color: var(--tech-text-tertiary); }
-  h2 { margin: 0; font-size: var(--tech-fs-h3); color: var(--tech-text); }
-  p { margin: 0 0 var(--tech-space-2, 8px); max-width: 40ch; }
-}
+/* Empty/error states use the shared beta-ui kit primitive (app-bs-empty); the ad-hoc
+   `.polls-empty` block was removed once the page migrated. */
 
 /* ── Poll list ──────────────────────────────────────────────────────── */
 .polls-list {
@@ -116,7 +101,7 @@
   border-radius: var(--tech-radius, 12px);
   background: var(--tech-bg-sunken);
   padding: var(--tech-space-2, 8px) var(--tech-space-3, 12px);
-  transition: border-color 120ms ease, background-color 120ms ease;
+  transition: border-color var(--tech-t-fast, 120ms) ease, background-color var(--tech-t-fast, 120ms) ease;
 
   &--mine {
     border-color: var(--tech-accent);

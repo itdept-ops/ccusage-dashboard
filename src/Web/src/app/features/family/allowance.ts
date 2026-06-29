@@ -21,6 +21,7 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 
 import { Api } from '../../core/api';
+import { BetaEmptyState, BetaErrorState } from '../beta-ui';
 import {
   Allowance as AllowanceDto,
   AllowanceMoveRequest,
@@ -66,6 +67,8 @@ const SPEND_CATEGORIES: { value: AllowanceSpendCategory; label: string }[] = [
     MatInputModule,
     MatSelectModule,
     MatSnackBarModule,
+    BetaEmptyState,
+    BetaErrorState,
   ],
   templateUrl: './allowance.html',
   changeDetection: ChangeDetectionStrategy.Eager,
@@ -100,6 +103,12 @@ export class FamilyAllowance {
   readonly totalBalance = computed(() => this.children().reduce((n, c) => n + c.balance, 0));
 
   constructor() {
+    this.reload(true);
+  }
+
+  /** Public retry for the error-state CTA: clear the error flag and re-run the initial load. */
+  retryLoad(): void {
+    this.error.set(false);
     this.reload(true);
   }
 

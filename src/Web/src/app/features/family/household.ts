@@ -1,4 +1,4 @@
-import { Component, computed, inject, signal, ChangeDetectionStrategy } from '@angular/core';
+import { Component, computed, DestroyRef, inject, signal, ChangeDetectionStrategy } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { catchError, firstValueFrom, of } from 'rxjs';
@@ -14,6 +14,7 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 
 import { Api } from '../../core/api';
+import { BetaErrorState } from '../beta-ui';
 import { AuthService } from '../../core/auth';
 import { Household, HouseholdCandidate, HouseholdMember } from '../../core/models';
 
@@ -37,6 +38,7 @@ import { Household, HouseholdCandidate, HouseholdMember } from '../../core/model
     MatTooltipModule,
     MatProgressSpinnerModule,
     MatSnackBarModule,
+    BetaErrorState,
   ],
   templateUrl: './household.html',
   changeDetection: ChangeDetectionStrategy.Eager,
@@ -46,6 +48,7 @@ export class HouseholdSettings {
   private api = inject(Api);
   readonly auth = inject(AuthService);
   private snack = inject(MatSnackBar);
+  private destroyRef = inject(DestroyRef);
 
   readonly household = signal<Household | null>(null);
   readonly loading = signal(true);
@@ -79,6 +82,10 @@ export class HouseholdSettings {
   });
 
   constructor() {
+    this.load();
+  }
+
+  private load(): void {
     this.api
       .getHousehold()
       .pipe(
@@ -86,12 +93,19 @@ export class HouseholdSettings {
           this.error.set(true);
           return of(null);
         }),
-        takeUntilDestroyed(),
+        takeUntilDestroyed(this.destroyRef),
       )
       .subscribe((h) => {
         if (h) this.apply(h);
         this.loading.set(false);
       });
+  }
+
+  /** Public retry for the error-state CTA: clear the error flag and re-run the load. */
+  retryLoad(): void {
+    this.error.set(false);
+    this.loading.set(true);
+    this.load();
   }
 
   private apply(h: Household): void {

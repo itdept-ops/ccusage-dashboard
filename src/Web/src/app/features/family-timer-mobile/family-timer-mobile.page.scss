@@ -197,41 +197,7 @@
 // EMPTY + ERROR STATES
 // ============================================================================
 
-.ft-state, .ft-empty {
-  display: flex; flex-direction: column; align-items: center; text-align: center;
-  gap: 8px; padding: 36px 24px;
-  margin: 8px 4px;
-  background: var(--glass);
-  border: 1px solid var(--glass-edge);
-  border-radius: var(--r-glass);
-  box-shadow: var(--lift-1);
-}
-.ft-state__orb, .ft-empty__orb {
-  display: inline-flex; align-items: center; justify-content: center;
-  width: 64px; height: 64px; border-radius: 50%;
-  background: linear-gradient(135deg,
-    color-mix(in srgb, var(--accent-a) 20%, transparent),
-    color-mix(in srgb, var(--accent-b) 20%, transparent));
-  color: var(--accent-a);
-  mat-icon { width: 30px; height: 30px; font-size: 30px; line-height: 30px; }
-}
-.ft-state__title, .ft-empty__title {
-  margin: 4px 0 0; font-size: 18px; font-weight: 800; letter-spacing: -.01em; color: var(--ink);
-}
-.ft-state__body, .ft-empty__body {
-  margin: 0; max-width: 30ch; font-size: 13.5px; font-weight: 500; line-height: 1.45; color: var(--ink-dim);
-}
-.ft-state__cta, .ft-empty__cta {
-  display: inline-flex; align-items: center; gap: 6px; margin-top: 8px;
-  min-height: 44px; padding: 0 20px;
-  border: none; border-radius: var(--r-pill);
-  background: linear-gradient(135deg, var(--accent-a), var(--accent-b));
-  color: var(--ink-on-accent); font-family: var(--font-ui); font-size: 14px; font-weight: 700;
-  cursor: pointer; box-shadow: var(--lift-2);
-  &:active { transform: scale(.97); }
-  &:focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; }
-  mat-icon { width: 20px; height: 20px; font-size: 20px; line-height: 20px; }
-}
+/* Empty/error states now use the shared beta-ui kit primitives (app-bs-empty / app-bs-error). */
 
 // ============================================================================
 // START-A-TIMER COMPOSER SHEET

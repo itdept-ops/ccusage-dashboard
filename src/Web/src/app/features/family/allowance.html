@@ -26,23 +26,18 @@
       <span>Counting the credits…</span>
     </div>
   } @else if (error()) {
-    <div class="family__error">
-      <mat-icon aria-hidden="true">error_outline</mat-icon>
-      <p>We couldn't load the allowance manager just now. Please try again in a moment.</p>
-    </div>
+    <app-bs-error
+      title="We couldn't load the allowance manager just now"
+      body="Please try again in a moment."
+      (retry)="retryLoad()" />
   } @else if (children().length === 0) {
-    <div class="family__empty">
-      <mat-icon aria-hidden="true">child_care</mat-icon>
-      <h2>No children yet</h2>
-      <p>
-        Add a child from the <strong>Users</strong> admin: enter their Google email and apply the
-        <em>Child</em> preset, then add them to your household. Once they sign in with their own Google
-        account, their earned credits will show up here.
-      </p>
-      <a mat-stroked-button routerLink="/users">
-        <mat-icon aria-hidden="true">group_add</mat-icon> Open Users admin
-      </a>
-    </div>
+    <app-bs-empty
+      icon="child_care"
+      title="No children yet"
+      body="Add a child from the Users admin: enter their Google email and apply the Child preset, then add them to your household. Once they sign in with their own Google account, their earned credits will show up here."
+      ctaLabel="Open Users admin"
+      ctaIcon="group_add"
+      ctaLink="/users" />
   } @else {
     <!-- ── Per-child balance cards ───────────────────────────────────────── -->
     <ul class="child-cards">

@@ -23,6 +23,7 @@ import {
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 
 import { Api } from '../../core/api';
+import { BetaEmptyState, BetaErrorState } from '../beta-ui';
 import {
   FamilyList,
   FamilyListItem,
@@ -108,6 +109,8 @@ function emptySuggestPanel(): SuggestPanel {
     MatInputModule,
     MatMenuModule,
     MatSnackBarModule,
+    BetaEmptyState,
+    BetaErrorState,
   ],
   templateUrl: './lists.html',
   changeDetection: ChangeDetectionStrategy.Eager,
@@ -163,6 +166,12 @@ export class FamilyLists {
       .subscribe((h) => {
         if (h) this.members.set(h.members);
       });
+  }
+
+  /** Public retry for the error-state CTA: clear the error flag and re-run the initial load. */
+  retryLoad(): void {
+    this.error.set(false);
+    this.reload(true);
   }
 
   private reload(initial = false): void {

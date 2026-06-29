@@ -113,16 +113,15 @@
       <span>Checking the kitchen timer…</span>
     </div>
   } @else if (error()) {
-    <div class="family__error">
-      <mat-icon aria-hidden="true">error_outline</mat-icon>
-      <p>We couldn't load your timers just now. Please try again in a moment.</p>
-    </div>
+    <app-bs-error
+      title="We couldn't load your timers just now"
+      body="Please try again in a moment."
+      (retry)="retryLoad()" />
   } @else if (!hasActive()) {
-    <div class="family__empty">
-      <mat-icon aria-hidden="true">hourglass_empty</mat-icon>
-      <h2>No timers running</h2>
-      <p>Pick a preset above or set a custom time, and it'll show up here for everyone.</p>
-    </div>
+    <app-bs-empty
+      icon="hourglass_empty"
+      title="No timers running"
+      body="Pick a preset above or set a custom time, and it'll show up here for everyone." />
   } @else {
     <div class="timer-grid">
       @for (lt of active(); track lt.timer.id) {

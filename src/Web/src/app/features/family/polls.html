@@ -27,19 +27,18 @@
       <span>Gathering the polls…</span>
     </div>
   } @else if (error()) {
-    <div class="family__error">
-      <mat-icon aria-hidden="true">error_outline</mat-icon>
-      <p>We couldn't load the polls just now. Please try again in a moment.</p>
-    </div>
+    <app-bs-error
+      title="We couldn't load the polls just now"
+      body="Please try again in a moment."
+      (retry)="retryLoad()" />
   } @else if (!polls().length) {
-    <div class="polls-empty">
-      <mat-icon aria-hidden="true">ballot</mat-icon>
-      <h2>No polls yet</h2>
-      <p>Float a question to the family — a few times to meet, or a list of ideas to choose from.</p>
-      <button mat-stroked-button (click)="create()">
-        <mat-icon aria-hidden="true">add</mat-icon> Start a poll
-      </button>
-    </div>
+    <app-bs-empty
+      icon="ballot"
+      title="No polls yet"
+      body="Float a question to the family — a few times to meet, or a list of ideas to choose from."
+      ctaLabel="Start a poll"
+      ctaIcon="add"
+      (action)="create()" />
   } @else {
     <div class="polls-list">
       @for (poll of polls(); track poll.id) {

@@ -13,7 +13,7 @@ import { FamilyNote, FamilyShareTarget, Household } from '../../core/models';
 import { renderMarkdown } from '../family/markdown';
 import {
   BetaPullRefresh, BetaBottomSheet, BetaSwipeRow, BetaSkeleton, BetaFab,
-  BetaToaster, ToastController,
+  BetaToaster, BetaEmptyState, BetaErrorState, ToastController,
 } from '../beta-ui';
 
 /**
@@ -47,6 +47,7 @@ import {
   imports: [
     FormsModule, MatIconModule,
     BetaPullRefresh, BetaBottomSheet, BetaSwipeRow, BetaSkeleton, BetaFab, BetaToaster,
+    BetaEmptyState, BetaErrorState,
   ],
   template: `
     <!-- ─────────────── PULL-TO-REFRESH OWNS THE SCROLL ─────────────── -->
@@ -87,14 +88,11 @@ import {
           </div>
 
         } @else if (errored()) {
-          <div class="nt-state">
-            <span class="nt-state__orb"><mat-icon aria-hidden="true">cloud_off</mat-icon></span>
-            <h2 class="nt-state__title">Couldn't load your notes</h2>
-            <p class="nt-state__body">Something went wrong fetching the board. Give it another go.</p>
-            <button type="button" class="nt-state__cta" (click)="reload()">
-              <mat-icon aria-hidden="true">refresh</mat-icon> Try again
-            </button>
-          </div>
+          <app-bs-error
+            icon="cloud_off"
+            title="Couldn't load your notes"
+            body="Something went wrong fetching the board. Give it another go."
+            (retry)="reload()" />
 
         } @else if (board().length) {
           <div class="nt-list">
@@ -152,14 +150,11 @@ import {
 
         } @else {
           <!-- EMPTY -->
-          <div class="nt-empty">
-            <span class="nt-empty__orb"><mat-icon aria-hidden="true">edit_note</mat-icon></span>
-            <h2 class="nt-empty__title">No notes yet</h2>
-            <p class="nt-empty__body">Tap the + to jot your first shared note — groceries, plans, anything the household needs.</p>
-            <button type="button" class="nt-empty__cta" (click)="openCreate()">
-              <mat-icon aria-hidden="true">add</mat-icon> New note
-            </button>
-          </div>
+          <app-bs-empty
+            icon="edit_note"
+            title="No notes yet"
+            body="Tap the + to jot your first shared note — groceries, plans, anything the household needs."
+            ctaLabel="New note" ctaIcon="add" (action)="openCreate()" />
         }
       </div>
     </app-bs-pull-refresh>

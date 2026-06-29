@@ -71,19 +71,18 @@
       <span>Gathering your notes…</span>
     </div>
   } @else if (error()) {
-    <div class="family__error">
-      <mat-icon aria-hidden="true">error_outline</mat-icon>
-      <p>We couldn't load your notes just now. Please try again in a moment.</p>
-    </div>
+    <app-bs-error
+      title="We couldn't load your notes just now"
+      body="Please try again in a moment."
+      (retry)="retryLoad()" />
   } @else if (board().length === 0) {
-    <div class="family__empty">
-      <mat-icon aria-hidden="true">edit_note</mat-icon>
-      <h2>No notes yet</h2>
-      <p>Jot down a reminder, a recipe, or a little love note for the family.</p>
-      <button mat-flat-button color="primary" (click)="create()">
-        <mat-icon aria-hidden="true">add</mat-icon> Write the first note
-      </button>
-    </div>
+    <app-bs-empty
+      icon="edit_note"
+      title="No notes yet"
+      body="Jot down a reminder, a recipe, or a little love note for the family."
+      ctaLabel="Write the first note"
+      ctaIcon="add"
+      (action)="create()" />
   } @else {
     <div class="note-board">
       @for (note of board(); track note.id) {
@@ -143,7 +142,17 @@
           </header>
 
           @if (note.body.trim()) {
-            <div class="md note-card__body" [innerHTML]="bodyHtml(note.body)"></div>
+            @let long = note.body.length > 280;
+            <div class="note-card__body" [class.note-card__body--clamped]="long && !isExpanded(note.id)">
+              <div class="md" [innerHTML]="bodyHtml(note.body)"></div>
+            </div>
+            @if (long) {
+              <button type="button" class="note-card__more" (click)="toggleExpanded(note.id)"
+                      [attr.aria-expanded]="isExpanded(note.id)">
+                <mat-icon aria-hidden="true">{{ isExpanded(note.id) ? 'expand_less' : 'expand_more' }}</mat-icon>
+                {{ isExpanded(note.id) ? 'Show less' : 'Show more' }}
+              </button>
+            }
           } @else {
             <p class="note-card__empty-body">No details yet.</p>
           }

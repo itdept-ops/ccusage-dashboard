@@ -204,41 +204,7 @@
 // EMPTY + ERROR STATES (render cleanly with ZERO data — the screenshot harness mocks the API)
 // ============================================================================
 
-.nt-empty, .nt-state {
-  display: flex; flex-direction: column; align-items: center; text-align: center;
-  gap: 8px; padding: 36px 22px;
-  background: var(--glass);
-  border: 1px solid var(--glass-edge);
-  border-radius: var(--r-glass);
-  box-shadow: var(--lift-1);
-}
-.nt-empty__orb, .nt-state__orb {
-  display: inline-flex; align-items: center; justify-content: center;
-  width: 64px; height: 64px; border-radius: 50%;
-  background: linear-gradient(135deg,
-    color-mix(in srgb, var(--accent-a) 24%, transparent),
-    color-mix(in srgb, var(--accent-b) 24%, transparent));
-  color: var(--accent-a);
-  mat-icon { width: 30px; height: 30px; font-size: 30px; line-height: 30px; }
-}
-.nt-empty__title, .nt-state__title {
-  margin: 4px 0 0; font-size: 18px; font-weight: 800; letter-spacing: -.01em; color: var(--ink);
-}
-.nt-empty__body, .nt-state__body {
-  margin: 0; max-width: 30ch; font-size: 13.5px; font-weight: 500; line-height: 1.45; color: var(--ink-dim);
-}
-.nt-empty__cta, .nt-state__cta {
-  display: inline-flex; align-items: center; gap: 6px; margin-top: 8px;
-  padding: 11px 18px; min-height: 44px;
-  border: none; border-radius: var(--r-pill);
-  background: linear-gradient(135deg, var(--accent-a), var(--accent-b));
-  color: #fff; font-family: var(--font-ui); font-size: 14px; font-weight: 700;
-  cursor: pointer; box-shadow: var(--lift-2); -webkit-tap-highlight-color: transparent;
-  transition: transform 120ms var(--ease-out), box-shadow 120ms var(--ease-out);
-  &:active { transform: scale(.96); box-shadow: var(--press); }
-  &:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
-  mat-icon { width: 18px; height: 18px; font-size: 18px; line-height: 18px; }
-}
+/* Empty/error states now use the shared beta-ui kit primitives (app-bs-empty / app-bs-error). */
 
 // ============================================================================
 // DETAIL SHEET

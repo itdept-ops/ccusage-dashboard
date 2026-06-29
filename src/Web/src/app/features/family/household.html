@@ -10,10 +10,10 @@
       <span>Loading the household…</span>
     </div>
   } @else if (error()) {
-    <div class="family__error">
-      <mat-icon aria-hidden="true">error_outline</mat-icon>
-      <p>We couldn't load the household just now. Please try again in a moment.</p>
-    </div>
+    <app-bs-error
+      title="We couldn't load the household just now"
+      body="Please try again in a moment."
+      (retry)="retryLoad()" />
   } @else if (household(); as home) {
     <header class="family__settings-head">
       <h1 class="family__name">Household settings</h1>

@@ -22,6 +22,7 @@ import { MatDialog } from '@angular/material/dialog';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 
 import { Api } from '../../core/api';
+import { BetaErrorState } from '../beta-ui';
 import { AuthService } from '../../core/auth';
 import {
   FamilyMeal,
@@ -118,6 +119,7 @@ const SLOT_META: Record<FamilyMealSlot, { label: string; icon: string }> = {
     MatFormFieldModule,
     MatInputModule,
     MatSnackBarModule,
+    BetaErrorState,
   ],
   templateUrl: './meals.html',
   changeDetection: ChangeDetectionStrategy.Eager,
@@ -351,6 +353,12 @@ export class FamilyMeals {
 
   private round1(n: number): number {
     return Math.round((Number.isFinite(n) ? n : 0) * 10) / 10;
+  }
+
+  /** Public retry for the error-state CTA: clear the error flag and re-run the initial load. */
+  retryLoad(): void {
+    this.error.set(false);
+    this.reload(true);
   }
 
   private reload(initial = false): void {

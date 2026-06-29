@@ -94,19 +94,18 @@
       <span>Gathering your reminders…</span>
     </div>
   } @else if (error()) {
-    <div class="family__error">
-      <mat-icon aria-hidden="true">error_outline</mat-icon>
-      <p>We couldn't load your reminders just now. Please try again in a moment.</p>
-    </div>
+    <app-bs-error
+      title="We couldn't load your reminders just now"
+      body="Please try again in a moment."
+      (retry)="retryLoad()" />
   } @else if (upcoming().length === 0 && past().length === 0) {
-    <div class="family__empty">
-      <mat-icon aria-hidden="true">notifications_none</mat-icon>
-      <h2>No reminders yet</h2>
-      <p>Add a nudge for yourself or anyone in the family — it'll arrive in their notifications when it's time.</p>
-      <button mat-flat-button color="primary" (click)="create()">
-        <mat-icon aria-hidden="true">add</mat-icon> New reminder
-      </button>
-    </div>
+    <app-bs-empty
+      icon="notifications_none"
+      title="No reminders yet"
+      body="Add a nudge for yourself or anyone in the family — it'll arrive in their notifications when it's time."
+      ctaLabel="New reminder"
+      ctaIcon="add"
+      (action)="create()" />
   } @else {
     <!-- ── Upcoming (active), next-due first ───────────────────────────── -->
     @if (upcoming().length > 0) {

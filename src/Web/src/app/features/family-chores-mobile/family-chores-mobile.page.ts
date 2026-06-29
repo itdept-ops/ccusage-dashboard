@@ -12,7 +12,7 @@ import {
 } from '../../core/models';
 import {
   BetaPullRefresh, BetaSegmentedControl, BetaBottomSheet, BetaSkeleton,
-  BetaToaster, ToastController, type Segment,
+  BetaToaster, BetaEmptyState, BetaErrorState, ToastController, type Segment,
 } from '../beta-ui';
 
 /** Friendly labels for the recurrence chip. */
@@ -56,6 +56,7 @@ const RECURRENCE_LABEL: Record<FamilyChoreRecurrence, string> = {
   imports: [
     DecimalPipe, MatIconModule,
     BetaPullRefresh, BetaSegmentedControl, BetaBottomSheet, BetaSkeleton, BetaToaster,
+    BetaEmptyState, BetaErrorState,
   ],
   template: `
     <app-bs-pull-refresh class="cm-ptr" [busy]="refreshing()" (refresh)="reload()">
@@ -108,14 +109,11 @@ const RECURRENCE_LABEL: Record<FamilyChoreRecurrence, string> = {
           </div>
 
         } @else if (errored()) {
-          <div class="cm-state">
-            <span class="cm-state__orb"><mat-icon aria-hidden="true">cloud_off</mat-icon></span>
-            <h2 class="cm-state__title">Couldn't load the chore board</h2>
-            <p class="cm-state__body">Something went wrong fetching the chores. Give it another go.</p>
-            <button type="button" class="cm-state__cta" (click)="reload()">
-              <mat-icon aria-hidden="true">refresh</mat-icon> Try again
-            </button>
-          </div>
+          <app-bs-error
+            icon="cloud_off"
+            title="Couldn't load the chore board"
+            body="Something went wrong fetching the chores. Give it another go."
+            (retry)="reload()" />
 
         } @else {
           <!-- ─── TAB SWITCH: Open | Mine | (Approve / Pending) ─── -->
@@ -172,11 +170,7 @@ const RECURRENCE_LABEL: Record<FamilyChoreRecurrence, string> = {
               </div>
 
             } @else {
-              <div class="cm-empty">
-                <span class="cm-empty__orb"><mat-icon aria-hidden="true">{{ emptyGlyph() }}</mat-icon></span>
-                <h2 class="cm-empty__title">{{ emptyTitle() }}</h2>
-                <p class="cm-empty__body">{{ emptyBody() }}</p>
-              </div>
+              <app-bs-empty [icon]="emptyGlyph()" [title]="emptyTitle()" [body]="emptyBody()" />
             }
           }
 

@@ -13,7 +13,7 @@ import {
 } from '../../core/models';
 import {
   BetaPullRefresh, BetaBottomSheet, BetaSwipeRow, BetaSkeleton, BetaFab,
-  BetaToaster, ToastController,
+  BetaToaster, BetaEmptyState, BetaErrorState, ToastController,
 } from '../beta-ui';
 
 /** A day's rendered cell: the ISO date, friendly labels, today flag, meals + a per-serving macro rollup. */
@@ -74,6 +74,7 @@ const SLOT_ORDER: FamilyMealSlot[] = ['breakfast', 'lunch', 'dinner', 'snack'];
   imports: [
     DecimalPipe, FormsModule, MatIconModule,
     BetaPullRefresh, BetaBottomSheet, BetaSwipeRow, BetaSkeleton, BetaFab, BetaToaster,
+    BetaEmptyState, BetaErrorState,
   ],
   template: `
     <!-- ─────────────── PULL-TO-REFRESH OWNS THE SCROLL ─────────────── -->
@@ -138,14 +139,11 @@ const SLOT_ORDER: FamilyMealSlot[] = ['breakfast', 'lunch', 'dinner', 'snack'];
           </div>
 
         } @else if (errored()) {
-          <div class="fm-state">
-            <span class="fm-state__orb"><mat-icon aria-hidden="true">cloud_off</mat-icon></span>
-            <h2 class="fm-state__title">Couldn't load the meal plan</h2>
-            <p class="fm-state__body">Something went wrong fetching this week's meals. Give it another go.</p>
-            <button type="button" class="fm-state__cta" (click)="reload()">
-              <mat-icon aria-hidden="true">refresh</mat-icon> Try again
-            </button>
-          </div>
+          <app-bs-error
+            icon="cloud_off"
+            title="Couldn't load the meal plan"
+            body="Something went wrong fetching this week's meals. Give it another go."
+            (retry)="reload()" />
 
         } @else {
           <!-- ─── WEEKDAY STRIP: swipe the week, tap a day to focus it ─── -->
@@ -221,14 +219,11 @@ const SLOT_ORDER: FamilyMealSlot[] = ['breakfast', 'lunch', 'dinner', 'snack'];
               <p class="fm-foot" aria-hidden="true">Swipe a meal left to remove · right to edit</p>
             } @else {
               <!-- EMPTY day -->
-              <div class="fm-empty">
-                <span class="fm-empty__orb"><mat-icon aria-hidden="true">restaurant_menu</mat-icon></span>
-                <h2 class="fm-empty__title">Nothing planned for {{ day.weekday }}</h2>
-                <p class="fm-empty__body">Tap the + to plan a meal — its ingredients can flow straight to your grocery list.</p>
-                <button type="button" class="fm-empty__cta" (click)="openCreate()">
-                  <mat-icon aria-hidden="true">add</mat-icon> Plan a meal
-                </button>
-              </div>
+              <app-bs-empty
+                icon="restaurant_menu"
+                [title]="'Nothing planned for ' + day.weekday"
+                body="Tap the + to plan a meal — its ingredients can flow straight to your grocery list."
+                ctaLabel="Plan a meal" ctaIcon="add" (action)="openCreate()" />
             }
           }
 

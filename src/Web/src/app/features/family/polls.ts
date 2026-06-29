@@ -10,6 +10,7 @@ import { MatDialog } from '@angular/material/dialog';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 
 import { Api } from '../../core/api';
+import { BetaEmptyState, BetaErrorState } from '../beta-ui';
 import { AuthService } from '../../core/auth';
 import {
   CalendarStatus,
@@ -39,6 +40,8 @@ import { PollCreateDialog } from './poll-create-dialog';
     MatTooltipModule,
     MatProgressSpinnerModule,
     MatSnackBarModule,
+    BetaEmptyState,
+    BetaErrorState,
   ],
   templateUrl: './polls.html',
   changeDetection: ChangeDetectionStrategy.Eager,
@@ -72,6 +75,11 @@ export class FamilyPolls {
     void this.load();
     // Best-effort: know if the caller can book a closed time poll onto their calendar.
     void this.loadCalendarStatus();
+  }
+
+  /** Public retry for the error-state CTA: re-run the poll load. */
+  retryLoad(): void {
+    void this.load();
   }
 
   private async load(): Promise<void> {

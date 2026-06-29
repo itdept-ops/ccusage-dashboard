@@ -81,7 +81,7 @@
   background: var(--tech-panel);
   cursor: pointer;
   text-align: left;
-  transition: border-color 140ms ease, transform 140ms ease, background-color 140ms ease;
+  transition: border-color var(--tech-t-fast, 120ms) ease, transform var(--tech-t-fast, 120ms) ease, background-color var(--tech-t-fast, 120ms) ease;
 
   &:hover:not(:disabled) {
     border-color: var(--tech-border-strong);

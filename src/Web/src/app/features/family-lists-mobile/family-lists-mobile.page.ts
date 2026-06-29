@@ -11,7 +11,7 @@ import { Api } from '../../core/api';
 import { FamilyList, FamilyListItem, FamilyListKind } from '../../core/models';
 import {
   BetaPullRefresh, BetaSegmentedControl, BetaBottomSheet, BetaSwipeRow, BetaSkeleton,
-  BetaFab, BetaToaster, ToastController, type Segment,
+  BetaFab, BetaToaster, BetaEmptyState, BetaErrorState, ToastController, type Segment,
 } from '../beta-ui';
 
 /**
@@ -44,7 +44,7 @@ import {
   imports: [
     FormsModule, MatIconModule,
     BetaPullRefresh, BetaSegmentedControl, BetaBottomSheet, BetaSwipeRow, BetaSkeleton,
-    BetaFab, BetaToaster,
+    BetaFab, BetaToaster, BetaEmptyState, BetaErrorState,
   ],
   template: `
     <!-- ─────────────── PULL-TO-REFRESH OWNS THE SCROLL ─────────────── -->
@@ -90,14 +90,11 @@ import {
           </div>
 
         } @else if (errored()) {
-          <div class="fl-state">
-            <span class="fl-state__orb"><mat-icon aria-hidden="true">cloud_off</mat-icon></span>
-            <h2 class="fl-state__title">Couldn't load your lists</h2>
-            <p class="fl-state__body">Something went wrong fetching your family lists. Give it another go.</p>
-            <button type="button" class="fl-state__cta" (click)="reload()">
-              <mat-icon aria-hidden="true">refresh</mat-icon> Try again
-            </button>
-          </div>
+          <app-bs-error
+            icon="cloud_off"
+            title="Couldn't load your lists"
+            body="Something went wrong fetching your family lists. Give it another go."
+            (retry)="reload()" />
 
         } @else {
           <!-- ─── TAB SWITCH: Shopping | To-do ─── -->
@@ -179,16 +176,11 @@ import {
 
             } @else {
               <!-- EMPTY for the active tab -->
-              <div class="fl-empty">
-                <span class="fl-empty__orb">
-                  <mat-icon aria-hidden="true">{{ tab() === 'shopping' ? 'shopping_cart' : 'task_alt' }}</mat-icon>
-                </span>
-                <h2 class="fl-empty__title">No {{ tab() === 'shopping' ? 'shopping' : 'to-do' }} lists yet</h2>
-                <p class="fl-empty__body">Tap the + to start your first {{ tab() === 'shopping' ? 'shopping' : 'to-do' }} list.</p>
-                <button type="button" class="fl-empty__cta" (click)="openCreate()">
-                  <mat-icon aria-hidden="true">add</mat-icon> New list
-                </button>
-              </div>
+              <app-bs-empty
+                [icon]="tab() === 'shopping' ? 'shopping_cart' : 'task_alt'"
+                [title]="'No ' + (tab() === 'shopping' ? 'shopping' : 'to-do') + ' lists yet'"
+                [body]="'Tap the + to start your first ' + (tab() === 'shopping' ? 'shopping' : 'to-do') + ' list.'"
+                ctaLabel="New list" ctaIcon="add" (action)="openCreate()" />
             }
           }
         }

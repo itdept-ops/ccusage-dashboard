@@ -17,7 +17,7 @@ import {
 } from '../../core/models';
 import {
   BetaPullRefresh, BetaSegmentedControl, BetaBottomSheet, BetaSkeleton,
-  BetaFab, BetaToaster, ToastController, type Segment,
+  BetaFab, BetaToaster, BetaEmptyState, BetaErrorState, ToastController, type Segment,
 } from '../beta-ui';
 
 /** One editable option row in the create-poll sheet — a stable key keeps @for + inputs stable while typing. */
@@ -59,7 +59,7 @@ interface OptionRow {
   imports: [
     FormsModule, MatIconModule,
     BetaPullRefresh, BetaSegmentedControl, BetaBottomSheet, BetaSkeleton,
-    BetaFab, BetaToaster,
+    BetaFab, BetaToaster, BetaEmptyState, BetaErrorState,
   ],
   template: `
     <!-- ─────────────── PULL-TO-REFRESH OWNS THE SCROLL ─────────────── -->
@@ -99,14 +99,11 @@ interface OptionRow {
           </div>
 
         } @else if (errored()) {
-          <div class="pl-state">
-            <span class="pl-state__orb"><mat-icon aria-hidden="true">cloud_off</mat-icon></span>
-            <h2 class="pl-state__title">Couldn't load your polls</h2>
-            <p class="pl-state__body">Something went wrong fetching the household polls. Give it another go.</p>
-            <button type="button" class="pl-state__cta" (click)="reload()">
-              <mat-icon aria-hidden="true">refresh</mat-icon> Try again
-            </button>
-          </div>
+          <app-bs-error
+            icon="cloud_off"
+            title="Couldn't load your polls"
+            body="Something went wrong fetching the household polls. Give it another go."
+            (retry)="reload()" />
 
         } @else {
           <!-- ─── TAB SWITCH: Open | Decided ─── -->
@@ -216,21 +213,12 @@ interface OptionRow {
 
             } @else {
               <!-- EMPTY for the active tab -->
-              <div class="pl-empty">
-                <span class="pl-empty__orb">
-                  <mat-icon aria-hidden="true">{{ tab() === 'open' ? 'how_to_vote' : 'task_alt' }}</mat-icon>
-                </span>
-                @if (tab() === 'open') {
-                  <h2 class="pl-empty__title">No open polls</h2>
-                  <p class="pl-empty__body">Tap the + to float a time or a choice for the household to vote on.</p>
-                  <button type="button" class="pl-empty__cta" (click)="openCreate()">
-                    <mat-icon aria-hidden="true">add</mat-icon> New poll
-                  </button>
-                } @else {
-                  <h2 class="pl-empty__title">Nothing decided yet</h2>
-                  <p class="pl-empty__body">When you close an open poll, its winner shows up here.</p>
-                }
-              </div>
+              <app-bs-empty
+                [icon]="tab() === 'open' ? 'how_to_vote' : 'task_alt'"
+                [title]="tab() === 'open' ? 'No open polls' : 'Nothing decided yet'"
+                [body]="tab() === 'open' ? 'Tap the + to float a time or a choice for the household to vote on.' : 'When you close an open poll, its winner shows up here.'"
+                [ctaLabel]="tab() === 'open' ? 'New poll' : ''" ctaIcon="add"
+                (action)="openCreate()" />
             }
           }
         }

@@ -33,7 +33,7 @@ import {
 import { FINANCE_DEFAULT_CATEGORIES } from '../family/finance';
 import {
   BetaPullRefresh, BetaSegmentedControl, BetaBottomSheet, BetaStatTile, BetaSkeleton,
-  BetaFab, BetaToaster, ToastController, type Segment,
+  BetaFab, BetaToaster, BetaEmptyState, BetaErrorState, ToastController, type Segment,
 } from '../beta-ui';
 
 /** The editable column-map fields the generic-CSV step collects on mobile (header picks + a sign toggle). */
@@ -46,7 +46,11 @@ const OWNER_LABEL: Record<FinanceOwner, string> = {
   his: 'His', hers: 'Hers', joint: 'Joint', unassigned: 'Unassigned',
 };
 
-/** A per-owner accent so His/Hers/Joint read consistently across the screen. */
+/**
+ * A per-owner accent so His/Hers/Joint read consistently across the screen.
+ * NOTE: `joint` is routed through the `--tech-success` token in ownerColor(); the literal here
+ * is only the never-invisible fallback.
+ */
 const OWNER_COLOR: Record<FinanceOwner, string> = {
   his: '#3d8bff', hers: '#ff7eb6', joint: '#3dd68c', unassigned: '#5e6c82',
 };
@@ -95,7 +99,7 @@ const BUDGET_STATUS_LABEL: Record<FinanceBudgetStatus, string> = {
   imports: [
     DecimalPipe, MatIconModule,
     BetaPullRefresh, BetaSegmentedControl, BetaBottomSheet, BetaStatTile, BetaSkeleton,
-    BetaFab, BetaToaster,
+    BetaFab, BetaToaster, BetaEmptyState, BetaErrorState,
   ],
   template: `
     <!-- ─────────────── PULL-TO-REFRESH OWNS THE SCROLL ─────────────── -->
@@ -135,28 +139,19 @@ const BUDGET_STATUS_LABEL: Record<FinanceBudgetStatus, string> = {
           </div>
 
         } @else if (errored()) {
-          <div class="ff-state">
-            <span class="ff-state__orb"><mat-icon aria-hidden="true">cloud_off</mat-icon></span>
-            <h2 class="ff-state__title">Couldn't load your finances</h2>
-            <p class="ff-state__body">Something went wrong fetching the household ledger. Give it another go.</p>
-            <button type="button" class="ff-state__cta" (click)="reload()">
-              <mat-icon aria-hidden="true">refresh</mat-icon> Try again
-            </button>
-          </div>
+          <app-bs-error
+            icon="cloud_off"
+            title="Couldn't load your finances"
+            body="Something went wrong fetching the household ledger. Give it another go."
+            (retry)="reload()" />
 
         } @else if (!hasData()) {
           <!-- FIRST-RUN: nothing imported yet -->
-          <div class="ff-empty">
-            <span class="ff-empty__orb"><mat-icon aria-hidden="true">request_quote</mat-icon></span>
-            <h2 class="ff-empty__title">No finances yet</h2>
-            <p class="ff-empty__body">
-              Import a Rocket Money, bank CSV, or OFX/QFX file to see your spending, income and recurring bills.
-              You'll review every row before anything is added — all private to your household.
-            </p>
-            <button type="button" class="ff-empty__cta" (click)="pickFile()">
-              <mat-icon aria-hidden="true">upload_file</mat-icon> Import transactions
-            </button>
-          </div>
+          <app-bs-empty
+            icon="request_quote"
+            title="No finances yet"
+            body="Import a Rocket Money, bank CSV, or OFX/QFX file to see your spending, income and recurring bills. You'll review every row before anything is added — all private to your household."
+            ctaLabel="Import transactions" ctaIcon="upload_file" (action)="pickFile()" />
 
         } @else {
           <!-- ─── HEADLINE STAT TILES: Spent · Income · Net ─── -->
@@ -960,8 +955,7 @@ export class FamilyFinanceMobilePage {
 
   /** The conic-gradient ring background for a goal card, tinted by owner. */
   goalRing(g: FinanceSavingsGoalDto): string {
-    const color = OWNER_COLOR[g.owner] ?? OWNER_COLOR.unassigned;
-    return `conic-gradient(${color} ${this.goalPct(g)}%, rgba(255,255,255,0.08) 0)`;
+    return `conic-gradient(${this.ownerColor(g.owner)} ${this.goalPct(g)}%, rgba(255,255,255,0.08) 0)`;
   }
 
   // ─────────────── BALANCE-ENTRY SHEET (manual net-worth entry) ───────────────
@@ -1276,7 +1270,10 @@ export class FamilyFinanceMobilePage {
   // ─────────────── formatting + helpers ───────────────
 
   ownerLabel(o: FinanceOwner): string { return OWNER_LABEL[o] ?? o; }
-  ownerColor(o: FinanceOwner): string { return OWNER_COLOR[o] ?? OWNER_COLOR.unassigned; }
+  /** Owner accent for UI chrome (CSS strings). Joint reads the shared success token; the rest are literals. */
+  ownerColor(o: FinanceOwner): string {
+    return o === 'joint' ? 'var(--tech-success, #3dd68c)' : OWNER_COLOR[o] ?? OWNER_COLOR.unassigned;
+  }
 
   kindLabel(k: FinanceTxnKind): string {
     return k === 'expense' ? 'Expense' : k === 'income' ? 'Income' : 'Transfer';

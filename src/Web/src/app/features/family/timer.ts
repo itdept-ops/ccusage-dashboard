@@ -24,6 +24,7 @@ import { MatInputModule } from '@angular/material/input';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 
 import { Api } from '../../core/api';
+import { BetaEmptyState, BetaErrorState } from '../beta-ui';
 import { FamilyTimer, TimerAiResult } from '../../core/models';
 import { WakeLockService } from '../../core/wake-lock';
 
@@ -70,6 +71,8 @@ const PRESETS: Preset[] = [
     MatFormFieldModule,
     MatInputModule,
     MatSnackBarModule,
+    BetaEmptyState,
+    BetaErrorState,
   ],
   templateUrl: './timer.html',
   changeDetection: ChangeDetectionStrategy.Eager,
@@ -167,6 +170,12 @@ export class FamilyTimerWidget implements OnDestroy {
       this.wakeLock.release();
     }
     this.audioCtx?.close().catch(() => {});
+  }
+
+  /** Public retry for the error-state CTA: clear the error flag and re-run the initial load. */
+  retryLoad(): void {
+    this.error.set(false);
+    this.reload(true);
   }
 
   private reload(initial: boolean): void {

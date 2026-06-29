@@ -1,6 +1,7 @@
 import {
   Component,
   DestroyRef,
+  ElementRef,
   computed,
   inject,
   signal,
@@ -18,6 +19,7 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 
 import { Api } from '../../core/api';
+import { BetaEmptyState, BetaErrorState } from '../beta-ui';
 import {
   FinanceAccount,
   FinanceAccountKind,
@@ -86,7 +88,11 @@ const TXN_KIND_LABEL: Record<FinanceTxnKind, string> = {
 const OWNER_OPTIONS: FinanceOwner[] = ['his', 'hers', 'joint', 'unassigned'];
 const KIND_OPTIONS: FinanceAccountKind[] = ['bank', 'credit', 'other'];
 
-/** A donut/bar accent per owner so His/Hers/Joint read consistently across the page. */
+/**
+ * A donut/bar accent per owner so His/Hers/Joint read consistently across the page.
+ * NOTE: `joint` is routed through the design-system `--tech-success` token at the call sites
+ * (ownerChromeColor / ownerChartColor); the literal here is only the never-invisible fallback.
+ */
 const OWNER_COLOR: Record<FinanceOwner, string> = {
   his: '#3d8bff',
   hers: '#ff7eb6',
@@ -136,6 +142,8 @@ interface GoalDraft {
     MatSnackBarModule,
     ChartComponent,
     DialogA11yDirective,
+    BetaEmptyState,
+    BetaErrorState,
   ],
   templateUrl: './finance.html',
   changeDetection: ChangeDetectionStrategy.Eager,
@@ -145,6 +153,28 @@ export class FamilyFinance {
   private api = inject(Api);
   private snack = inject(MatSnackBar);
   private destroyRef = inject(DestroyRef);
+  private host = inject(ElementRef<HTMLElement>);
+
+  /**
+   * Resolve the design-system `--tech-success` token to a concrete colour for the ECharts joint
+   * series (canvas can't read CSS variables). Mirrors tracker/weight-trend.ts. Falls back to the
+   * dark-theme literal so the series is never invisible; read lazily so it reflects the active theme.
+   */
+  private successColor(): string {
+    if (typeof window === 'undefined' || !this.host?.nativeElement) return '#3dd68c';
+    const v = getComputedStyle(this.host.nativeElement).getPropertyValue('--tech-success').trim();
+    return v || '#3dd68c';
+  }
+
+  /** Owner accent for UI CHROME (CSS strings) — joint reads the success token; the rest are literals. */
+  private ownerChromeColor(owner: FinanceOwner): string {
+    return owner === 'joint' ? 'var(--tech-success, #3dd68c)' : OWNER_COLOR[owner] ?? OWNER_COLOR.unassigned;
+  }
+
+  /** Owner accent for ECharts SERIES (canvas) — joint resolves the computed token; the rest are literals. */
+  private ownerChartColor(owner: FinanceOwner): string {
+    return owner === 'joint' ? this.successColor() : OWNER_COLOR[owner] ?? OWNER_COLOR.unassigned;
+  }
 
   // ---- page state ----
   readonly loading = signal(true);
@@ -322,6 +352,12 @@ export class FamilyFinance {
   }
 
   // ============================================================== loading
+
+  /** Public retry for the error-state CTA: clear the error flag and re-run the initial load. */
+  retryLoad(): void {
+    this.error.set(false);
+    this.reloadAll(true);
+  }
 
   private reloadAll(initial = false): void {
     if (initial) this.loading.set(true);
@@ -676,7 +712,7 @@ export class FamilyFinance {
 
   /** The conic-gradient ring background for a goal card, tinted by owner. */
   goalRing(g: FinanceSavingsGoalDto): string {
-    const color = OWNER_COLOR[g.owner] ?? OWNER_COLOR.unassigned;
+    const color = this.ownerChromeColor(g.owner);
     return `conic-gradient(${color} ${this.goalPct(g)}%, var(--tech-bg-sunken) 0)`;
   }
 
@@ -1242,7 +1278,7 @@ export class FamilyFinance {
           type: 'bar',
           data: rows.map((r) => ({
             value: Number(r.amount.toFixed(2)),
-            itemStyle: { color: OWNER_COLOR[r.owner] },
+            itemStyle: { color: this.ownerChartColor(r.owner) },
           })),
           barWidth: 22,
           label: {
@@ -1297,6 +1333,7 @@ export class FamilyFinance {
   /** The net-worth-over-time line (from the snapshot history). */
   readonly netWorthTrendOption = computed<EChartsOption>(() => {
     const pts = this.netWorth()?.trend ?? [];
+    const accent = this.successColor();
     const labels = pts.map((p) => {
       const [y, m] = p.month.split('-').map(Number);
       return new Date(y, m - 1, 1).toLocaleDateString(undefined, { month: 'short' });
@@ -1315,9 +1352,9 @@ export class FamilyFinance {
           type: 'line',
           smooth: true,
           showSymbol: false,
-          lineStyle: { width: 2, color: '#3dd68c' },
-          itemStyle: { color: '#3dd68c' },
-          areaStyle: { opacity: 0.12, color: '#3dd68c' },
+          lineStyle: { width: 2, color: accent },
+          itemStyle: { color: accent },
+          areaStyle: { opacity: 0.12, color: accent },
           data: pts.map((p) => Number(p.netWorth.toFixed(2))),
         },
       ],

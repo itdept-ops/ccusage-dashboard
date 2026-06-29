@@ -12,7 +12,7 @@ import {
 } from '../../core/models';
 import {
   BetaPullRefresh, BetaBottomSheet, BetaSkeleton, BetaSegmentedControl, BetaToaster,
-  ToastController, type Segment,
+  BetaEmptyState, BetaErrorState, ToastController, type Segment,
 } from '../beta-ui';
 
 /** Which money-move the open sheet records (mirrors the live page's MoveKind). */
@@ -60,6 +60,7 @@ const SPEND_CATEGORIES: { value: AllowanceSpendCategory; label: string; icon: st
   imports: [
     DecimalPipe, FormsModule, MatIconModule,
     BetaPullRefresh, BetaBottomSheet, BetaSkeleton, BetaSegmentedControl, BetaToaster,
+    BetaEmptyState, BetaErrorState,
   ],
   template: `
     <!-- ─────────────── PULL-TO-REFRESH OWNS THE SCROLL ─────────────── -->
@@ -92,25 +93,18 @@ const SPEND_CATEGORIES: { value: AllowanceSpendCategory; label: string; icon: st
           </div>
 
         } @else if (errored()) {
-          <div class="al-state">
-            <span class="al-state__orb"><mat-icon aria-hidden="true">cloud_off</mat-icon></span>
-            <h2 class="al-state__title">Couldn't load allowances</h2>
-            <p class="al-state__body">Something went wrong fetching the manager. Give it another go.</p>
-            <button type="button" class="al-state__cta" (click)="reload()">
-              <mat-icon aria-hidden="true">refresh</mat-icon> Try again
-            </button>
-          </div>
+          <app-bs-error
+            icon="cloud_off"
+            title="Couldn't load allowances"
+            body="Something went wrong fetching the manager. Give it another go."
+            (retry)="reload()" />
 
         } @else if (!children().length) {
           <!-- EMPTY: no children in the household -->
-          <div class="al-empty">
-            <span class="al-empty__orb"><mat-icon aria-hidden="true">family_restroom</mat-icon></span>
-            <h2 class="al-empty__title">No children yet</h2>
-            <p class="al-empty__body">
-              When a child joins your household, their allowance balance shows up here. Earned credits
-              come from approved chores; you record pay-outs and spends against them.
-            </p>
-          </div>
+          <app-bs-empty
+            icon="family_restroom"
+            title="No children yet"
+            body="When a child joins your household, their allowance balance shows up here. Earned credits come from approved chores; you record pay-outs and spends against them." />
 
         } @else {
           <!-- ─── BALANCE CARD PER CHILD ─── -->

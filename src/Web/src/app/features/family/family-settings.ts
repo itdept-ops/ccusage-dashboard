@@ -1,4 +1,4 @@
-import { Component, computed, inject, signal, ChangeDetectionStrategy } from '@angular/core';
+import { Component, computed, DestroyRef, inject, signal, ChangeDetectionStrategy } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { catchError, firstValueFrom, of } from 'rxjs';
@@ -15,6 +15,7 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 
 import { Api } from '../../core/api';
+import { BetaErrorState } from '../beta-ui';
 import { FamilySettings } from '../../core/models';
 
 /** A pickable IANA timezone for the household-timezone select. `label` is a friendly city name. */
@@ -90,6 +91,7 @@ const LEAD_MINUTES: { value: number; label: string }[] = [
     MatTooltipModule,
     MatProgressSpinnerModule,
     MatSnackBarModule,
+    BetaErrorState,
   ],
   templateUrl: './family-settings.html',
   changeDetection: ChangeDetectionStrategy.Eager,
@@ -98,6 +100,7 @@ const LEAD_MINUTES: { value: number; label: string }[] = [
 export class FamilySettingsPanel {
   private api = inject(Api);
   private snack = inject(MatSnackBar);
+  private destroyRef = inject(DestroyRef);
 
   readonly timezones = TIMEZONES;
   readonly hours = HOURS;
@@ -151,6 +154,10 @@ export class FamilySettingsPanel {
   });
 
   constructor() {
+    this.load();
+  }
+
+  private load(): void {
     this.api
       .familySettings()
       .pipe(
@@ -158,12 +165,19 @@ export class FamilySettingsPanel {
           this.error.set(true);
           return of(null);
         }),
-        takeUntilDestroyed(),
+        takeUntilDestroyed(this.destroyRef),
       )
       .subscribe((s) => {
         if (s) this.apply(s);
         this.loading.set(false);
       });
+  }
+
+  /** Public retry for the error-state CTA: clear the error flag and re-run the load. */
+  retryLoad(): void {
+    this.error.set(false);
+    this.loading.set(true);
+    this.load();
   }
 
   private apply(s: FamilySettings): void {
