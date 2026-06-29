@@ -1,11 +1,8 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
-import {
-  HubConnection,
-  HubConnectionBuilder,
-  HubConnectionState,
-  JsonHubProtocol,
-  LogLevel,
-} from '@microsoft/signalr';
+// Type-only imports are erased at build time, so they keep the ~35-40KB @microsoft/signalr library
+// out of the initial bundle. The runtime VALUES (HubConnectionBuilder/JsonHubProtocol/LogLevel) are
+// loaded lazily via a dynamic import() inside start(), so users who never open chat never pay for it.
+import type { HubConnection } from '@microsoft/signalr';
 
 import { Api } from './api';
 import { AuthService } from './auth';
@@ -161,13 +158,21 @@ export class ChatRealtime {
   async start(): Promise<void> {
     if (this.connection || !this.auth.isAuthenticated()) return;
 
-    const connection = new HubConnectionBuilder()
+    // Defer the ~35-40KB @microsoft/signalr library to first-connect: load its runtime values lazily
+    // here instead of a top-level value import, so users who never open chat never download it.
+    const signalr = await import('@microsoft/signalr');
+
+    // Re-check the guard: the dynamic import is async, so a concurrent start() (or a stop() on logout)
+    // could have raced in while it loaded. Bail if a connection now exists or the user signed out.
+    if (this.connection || !this.auth.isAuthenticated()) return;
+
+    const connection = new signalr.HubConnectionBuilder()
       .withUrl(HUB_URL, {
         accessTokenFactory: () => this.auth.token ?? '',
       })
       .withAutomaticReconnect()
-      .withHubProtocol(new JsonHubProtocol())
-      .configureLogging(LogLevel.Warning)
+      .withHubProtocol(new signalr.JsonHubProtocol())
+      .configureLogging(signalr.LogLevel.Warning)
       .build();
 
     this.connection = connection;
@@ -399,7 +404,7 @@ export class ChatRealtime {
    */
   async toggleReaction(messageId: number, emoji: string): Promise<void> {
     const c = this.connection;
-    if (c && c.state === HubConnectionState.Connected) {
+    if (c && c.state === 'Connected') {
       try {
         await c.invoke('ToggleReaction', messageId, emoji);
         return;
@@ -431,7 +436,7 @@ export class ChatRealtime {
   /** Safe invoke: no-ops (does not throw) when the connection isn't live. */
   private async invoke(method: string, ...args: unknown[]): Promise<void> {
     const c = this.connection;
-    if (!c || c.state !== HubConnectionState.Connected) return;
+    if (!c || c.state !== 'Connected') return;
     try {
       await c.invoke(method, ...args);
     } catch {

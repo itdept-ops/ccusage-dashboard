@@ -327,8 +327,8 @@ export class App implements AfterViewInit {
     '/ai-usage': 'ai.usage.view',
   };
 
-  /** Routes whose required permission also gates every child path (e.g. /family/household). */
-  private static readonly routePermSubtrees: readonly string[] = ['/family'];
+  /** Routes whose required permission also gates every child path (e.g. /family/household, /tracker/profile). */
+  private static readonly routePermSubtrees: readonly string[] = ['/family', '/tracker'];
 
   readonly state = computed(() => {
     const s = this.status();

@@ -9,10 +9,61 @@ import {
   viewChild,
   ChangeDetectionStrategy,
 } from '@angular/core';
-import * as echarts from 'echarts';
+import * as echarts from 'echarts/core';
 import type { EChartsOption } from 'echarts';
+import { LineChart, BarChart, PieChart, ScatterChart, HeatmapChart } from 'echarts/charts';
+import {
+  GridComponent,
+  TooltipComponent,
+  LegendComponent,
+  TitleComponent,
+  VisualMapComponent,
+  CalendarComponent,
+  MarkLineComponent,
+  MarkPointComponent,
+  MarkAreaComponent,
+  DatasetComponent,
+  DataZoomComponent,
+  ToolboxComponent,
+  GraphicComponent,
+  AriaComponent,
+} from 'echarts/components';
+import { LabelLayout, UniversalTransition } from 'echarts/features';
+import { CanvasRenderer } from 'echarts/renderers';
 
 import { ThemeService } from '../core/theme';
+
+// Tree-shaken ECharts registration (replaces the whole-library `import * as echarts from 'echarts'`).
+// EXHAUSTIVE list of what the app's chart options actually use, enumerated from a full grep of
+// src/app for every series `type:` and every component-mapping option key. Series: line, bar, pie,
+// scatter, heatmap. Components: grid (xAxis/yAxis), tooltip, legend, title, visualMap, calendar,
+// markLine. The rest (markPoint/markArea/dataset/dataZoom/toolbox/graphic/aria + label/transition
+// features) are included defensively — each costs ~1KB but a MISSING one breaks a chart silently at
+// runtime. If a NEW chart introduces a series/component not listed here, add it or that chart renders blank.
+echarts.use([
+  LineChart,
+  BarChart,
+  PieChart,
+  ScatterChart,
+  HeatmapChart,
+  GridComponent,
+  TooltipComponent,
+  LegendComponent,
+  TitleComponent,
+  VisualMapComponent,
+  CalendarComponent,
+  MarkLineComponent,
+  MarkPointComponent,
+  MarkAreaComponent,
+  DatasetComponent,
+  DataZoomComponent,
+  ToolboxComponent,
+  GraphicComponent,
+  AriaComponent,
+  LabelLayout,
+  UniversalTransition,
+  CanvasRenderer,
+]);
 
 /**
  * The categorical series palette — Claude blue, Codex violet, then data accents (cyan, success, warn,
