@@ -94,7 +94,7 @@ public class MedsVitalsTests(WebAppFactory factory)
     public async Task Add_med_then_list_returns_it_with_todays_dose_slots()
     {
         var (_, owner, _) = await ProvisionUser("tracker.self");
-        var today = DateOnly.FromDateTime(DateTime.UtcNow).ToString("yyyy-MM-dd");
+        var today = (await DisplayTzToday()).ToString("yyyy-MM-dd");
 
         var added = await Json(await owner.PostAsJsonAsync("/api/meds",
             MedBody(name: "Metformin", timesPerDay: 2, startDate: today)));
@@ -107,10 +107,23 @@ public class MedsVitalsTests(WebAppFactory factory)
     }
 
     [Fact]
+    public async Task Meds_get_buckets_today_in_the_display_timezone_not_utc()
+    {
+        // GET /api/meds derives "today" from the DISPLAY timezone (the same helper Tracker/Journal use), NOT raw
+        // UTC — so the checklist day always matches the day the FE renders, even in the evening-NY/next-UTC-day
+        // window that just made HabitTests flaky. Meds rows are keyed by an explicit LocalDate, so this changes
+        // only the DEFAULT "today" — no stored data shifts.
+        var (_, owner, _) = await ProvisionUser("tracker.self");
+        var meds = await Json(await owner.GetAsync("/api/meds"));
+        meds.GetProperty("today").GetString().Should()
+            .Be((await DisplayTzToday()).ToString("yyyy-MM-dd"));
+    }
+
+    [Fact]
     public async Task Log_a_dose_marks_the_slot_taken()
     {
         var (_, owner, _) = await ProvisionUser("tracker.self");
-        var today = DateOnly.FromDateTime(DateTime.UtcNow).ToString("yyyy-MM-dd");
+        var today = (await DisplayTzToday()).ToString("yyyy-MM-dd");
         var med = await Json(await owner.PostAsJsonAsync("/api/meds", MedBody(timesPerDay: 1, startDate: today)));
         var medId = med.GetProperty("id").GetInt64();
 
@@ -157,7 +170,7 @@ public class MedsVitalsTests(WebAppFactory factory)
     public async Task Adherence_is_deterministic_taken_over_scheduled()
     {
         var (email, owner, id) = await ProvisionUser("tracker.self");
-        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var today = await DisplayTzToday();
 
         // A once-daily med starting 7 days ago → 7 scheduled doses over a 7-day window.
         var medId = await SeedMed(id, email, "Vitamin D", timesPerDay: 1, start: today.AddDays(-6));
@@ -285,7 +298,7 @@ public class MedsVitalsTests(WebAppFactory factory)
     public async Task Log_vitals_then_list_returns_trend_avg_min_max()
     {
         var (_, owner, _) = await ProvisionUser("tracker.self");
-        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var today = await DisplayTzToday();
 
         async Task Post(decimal v1, string date) => (await owner.PostAsJsonAsync("/api/vitals",
             new { kind = 1 /* HeartRate */, value1 = v1, value2 = (decimal?)null, unit = "bpm", localDate = date, measuredAt = (string?)null, notes = (string?)null }))
@@ -309,7 +322,7 @@ public class MedsVitalsTests(WebAppFactory factory)
     public async Task Blood_pressure_keeps_both_values()
     {
         var (_, owner, _) = await ProvisionUser("tracker.self");
-        var today = DateOnly.FromDateTime(DateTime.UtcNow).ToString("yyyy-MM-dd");
+        var today = (await DisplayTzToday()).ToString("yyyy-MM-dd");
         var v = await Json(await owner.PostAsJsonAsync("/api/vitals",
             new { kind = 0 /* BloodPressure */, value1 = 120m, value2 = 80m, unit = "mmHg", localDate = today, measuredAt = (string?)null, notes = (string?)null }));
         v.GetProperty("value1").GetDecimal().Should().Be(120m);
@@ -325,7 +338,7 @@ public class MedsVitalsTests(WebAppFactory factory)
     {
         var (aEmail, alice, aId) = await ProvisionUser("tracker.self");
         var (_, bob, bId) = await ProvisionUser("tracker.self");
-        await SeedMed(aId, aEmail, "Alice-secret-med", 1, DateOnly.FromDateTime(DateTime.UtcNow));
+        await SeedMed(aId, aEmail, "Alice-secret-med", 1, await DisplayTzToday());
         await SeedVital(aId, aEmail, VitalKind.HeartRate, 99, "alice-secret-vital");
 
         // Bob's lists never contain Alice's rows.
@@ -345,8 +358,8 @@ public class MedsVitalsTests(WebAppFactory factory)
     {
         var (aEmail, _, aId) = await ProvisionUser("tracker.self");
         var (_, bob, _) = await ProvisionUser("tracker.self");
-        var aliceMedId = await SeedMed(aId, aEmail, "Alice-med", 1, DateOnly.FromDateTime(DateTime.UtcNow));
-        var today = DateOnly.FromDateTime(DateTime.UtcNow).ToString("yyyy-MM-dd");
+        var aliceMedId = await SeedMed(aId, aEmail, "Alice-med", 1, await DisplayTzToday());
+        var today = (await DisplayTzToday()).ToString("yyyy-MM-dd");
 
         // Cross-user {id} → 404 on PUT, DELETE, and POST /log (the owner-scoped WHERE never matches).
         (await bob.PutAsJsonAsync($"/api/meds/{aliceMedId}", MedBody(name: "Hacked")))
@@ -369,7 +382,7 @@ public class MedsVitalsTests(WebAppFactory factory)
         var (aEmail, _, aId) = await ProvisionUser("tracker.self");
         var (_, bob, _) = await ProvisionUser("tracker.self");
         var aliceVitalId = await SeedVital(aId, aEmail, VitalKind.BodyWeight, 150, "alice-weight");
-        var today = DateOnly.FromDateTime(DateTime.UtcNow).ToString("yyyy-MM-dd");
+        var today = (await DisplayTzToday()).ToString("yyyy-MM-dd");
 
         (await bob.PutAsJsonAsync($"/api/vitals/{aliceVitalId}",
             new { kind = 5, value1 = 999m, value2 = (decimal?)null, unit = "lb", localDate = today, measuredAt = (string?)null, notes = "hacked" }))
@@ -397,7 +410,7 @@ public class MedsVitalsTests(WebAppFactory factory)
 
         // The sharer logs private health data.
         await sharer.PostAsJsonAsync("/api/meds", MedBody(name: "Private-med"));
-        var today = DateOnly.FromDateTime(DateTime.UtcNow).ToString("yyyy-MM-dd");
+        var today = (await DisplayTzToday()).ToString("yyyy-MM-dd");
         await sharer.PostAsJsonAsync("/api/vitals",
             new { kind = 0, value1 = 130m, value2 = 85m, unit = "mmHg", localDate = today, measuredAt = (string?)null, notes = "private-bp" });
 
@@ -425,7 +438,7 @@ public class MedsVitalsTests(WebAppFactory factory)
     public async Task Insight_falls_back_to_plain_and_sends_only_aggregates_never_raw_rows()
     {
         var (email, owner, id) = await ProvisionUser("tracker.self", "tracker.ai");
-        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var today = await DisplayTzToday();
 
         // A med with adherence + a vital reading carrying a SECRET note that must NEVER leave the server.
         var medId = await SeedMed(id, email, "Insight-med", 1, today.AddDays(-2));
@@ -575,7 +588,7 @@ public class MedsVitalsTests(WebAppFactory factory)
         var row = new VitalReading
         {
             UserEmail = email.ToLowerInvariant(), UserId = userId, Kind = kind, Value1 = value1,
-            Unit = "x", LocalDate = DateOnly.FromDateTime(DateTime.UtcNow), Notes = note, CreatedUtc = DateTime.UtcNow,
+            Unit = "x", LocalDate = await DisplayTzToday(), Notes = note, CreatedUtc = DateTime.UtcNow,
         };
         db.VitalReadings.Add(row);
         await db.SaveChangesAsync();

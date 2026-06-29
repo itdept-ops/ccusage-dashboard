@@ -704,7 +704,7 @@ export class MedsPage implements OnDestroy {
       value1: v1,
       value2: meta.dual && v2raw ? Number(v2raw) : null,
       unit: meta.unit,
-      localDate: this.todayIso(),
+      localDate: this.today(),
     };
     this.logging.set(true);
     try {
@@ -780,8 +780,10 @@ export class MedsPage implements OnDestroy {
     return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
   }
 
+  /** Yesterday relative to the SERVER's display-tz "today" (this.today()), so the repeat target matches the
+   *  day the meds GET renders — not the browser clock (which can disagree across the UTC/display-tz boundary). */
   private yesterdayIso(): string {
-    const d = new Date();
+    const d = this.parseIso(this.today()) ?? new Date();
     d.setHours(0, 0, 0, 0);
     d.setDate(d.getDate() - 1);
     const pad = (n: number) => String(n).padStart(2, '0');

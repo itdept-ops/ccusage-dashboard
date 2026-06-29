@@ -120,7 +120,7 @@ public static class MedsEndpoints
         g.MapGet("/", async (CurrentUserAccessor me, UsageDbContext db, CancellationToken ct) =>
         {
             var caller = (await me.GetUserAsync(ct))!;
-            var today = DateOnly.FromDateTime(DateTime.UtcNow);
+            var today = await TrackerVisibility.DisplayTzTodayAsync(db, ct);
 
             var meds = await db.Medications.AsNoTracking()
                 .Where(m => m.UserEmail == caller.Email && m.Active)
@@ -145,6 +145,7 @@ public static class MedsEndpoints
             var caller = (await me.GetUserAsync(ct))!;
 
             var now = DateTime.UtcNow;
+            var today = await TrackerVisibility.DisplayTzTodayAsync(db, ct);
             var row = new Medication
             {
                 UserEmail = caller.Email,
@@ -155,7 +156,7 @@ public static class MedsEndpoints
                 Form = req.Form,
                 Notes = Normalize(req.Notes, MaxMedNotesLen),
                 Active = req.Active ?? true,
-                StartDate = req.StartDate ?? DateOnly.FromDateTime(now),
+                StartDate = req.StartDate ?? today,
                 EndDate = req.EndDate,
                 RemindersEnabled = req.RemindersEnabled ?? false,
                 CreatedUtc = now,
@@ -163,7 +164,6 @@ public static class MedsEndpoints
             };
             db.Medications.Add(row);
             await db.SaveChangesAsync(ct);
-            var today = DateOnly.FromDateTime(now);
             return Results.Ok(ToMedDto(row, BuildTodaySlots(row, today, Array.Empty<MedicationLog>())));
         });
 
@@ -191,7 +191,7 @@ public static class MedsEndpoints
             row.UpdatedUtc = DateTime.UtcNow;
             await db.SaveChangesAsync(ct);
 
-            var today = DateOnly.FromDateTime(DateTime.UtcNow);
+            var today = await TrackerVisibility.DisplayTzTodayAsync(db, ct);
             var todayLogs = await db.MedicationLogs.AsNoTracking()
                 .Where(l => l.UserEmail == caller.Email && l.LocalDate == today && l.MedicationId == row.Id)
                 .ToListAsync(ct);
@@ -259,7 +259,7 @@ public static class MedsEndpoints
         {
             var caller = (await me.GetUserAsync(ct))!;
             var days = MedsVitalsMath.ClampWindow(window);
-            var today = DateOnly.FromDateTime(DateTime.UtcNow);
+            var today = await TrackerVisibility.DisplayTzTodayAsync(db, ct);
             var from = today.AddDays(-(days - 1));
 
             var meds = await db.Medications.AsNoTracking()
@@ -354,7 +354,7 @@ public static class MedsEndpoints
         {
             var caller = (await me.GetUserAsync(ct))!;
             var days = MedsVitalsMath.ClampWindow(window);
-            var today = DateOnly.FromDateTime(DateTime.UtcNow);
+            var today = await TrackerVisibility.DisplayTzTodayAsync(db, ct);
             var from = today.AddDays(-(days - 1));
 
             var q = db.VitalReadings.AsNoTracking()
@@ -439,7 +439,7 @@ public static class MedsEndpoints
         {
             var caller = (await me.GetUserAsync(ct))!;
             var days = MedsVitalsMath.ClampWindow(window);
-            var today = DateOnly.FromDateTime(DateTime.UtcNow);
+            var today = await TrackerVisibility.DisplayTzTodayAsync(db, ct);
             var from = today.AddDays(-(days - 1));
 
             // AGGREGATE adherence over active meds.
