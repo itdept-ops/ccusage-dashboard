@@ -380,21 +380,8 @@ mat-progress-bar {
     color: var(--tech-text-secondary);
   }
 
-  .kpi-icon {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 28px;
-    height: 28px;
-    border-radius: var(--tech-r-chip);
-    background: color-mix(in srgb, var(--accent, var(--tech-accent)) 12%, transparent);
-    color: var(--accent, var(--tech-accent));
-    mat-icon {
-      font-size: 18px;
-      width: 18px;
-      height: 18px;
-    }
-  }
+  /* KPI icon-orb is the shared global `.header-icon` utility (styles.scss) —
+     28px accent-tinted tile + 18px glyph, tinted by each card's --accent. */
 
   .kpi-value {
     font-size: var(--tech-fs-kpi);

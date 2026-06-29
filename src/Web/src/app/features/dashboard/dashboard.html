@@ -167,7 +167,7 @@
     <article class="kpi panel kpi-cost">
       <div class="kpi-top">
         <span class="kpi-label">Total cost</span>
-        <span class="kpi-icon"><mat-icon>payments</mat-icon></span>
+        <span class="header-icon"><mat-icon>payments</mat-icon></span>
       </div>
       <div class="kpi-value mono-num cost">{{ s.total.costUsd | currency: 'USD' : 'symbol' : '1.2-2' }}</div>
       <div class="kpi-sub"><span class="mono-num">{{ s.total.records | number }}</span> messages</div>
@@ -176,7 +176,7 @@
     <article class="kpi panel kpi-tokens">
       <div class="kpi-top">
         <span class="kpi-label">Total tokens</span>
-        <span class="kpi-icon"><mat-icon>data_usage</mat-icon></span>
+        <span class="header-icon"><mat-icon>data_usage</mat-icon></span>
       </div>
       <div class="kpi-value mono-num">{{ s.total.totalTokens | compact }}</div>
       <div class="kpi-sub"><span class="mono-num">{{ s.total.totalTokens | number }}</span></div>
@@ -185,7 +185,7 @@
     <article class="kpi panel kpi-io">
       <div class="kpi-top">
         <span class="kpi-label">Input / Output</span>
-        <span class="kpi-icon"><mat-icon>swap_vert</mat-icon></span>
+        <span class="header-icon"><mat-icon>swap_vert</mat-icon></span>
       </div>
       <div class="kpi-value mono-num">{{ s.total.inputTokens | compact }} <span class="dim">/</span> {{ s.total.outputTokens | compact }}</div>
       <div class="kpi-sub">prompt vs completion</div>
@@ -194,7 +194,7 @@
     <article class="kpi panel kpi-active">
       <div class="kpi-top">
         <span class="kpi-label">Active hours</span>
-        <span class="kpi-icon"><mat-icon>schedule</mat-icon></span>
+        <span class="header-icon"><mat-icon>schedule</mat-icon></span>
       </div>
       <div class="kpi-value mono-num">{{ activeHours() | number: '1.0-1' }}<span class="dim">h</span></div>
       @if (activeWeekdays() > 0) {
