@@ -72,30 +72,6 @@
   font-size: var(--tech-fs-label);
 }
 
-.lo-empty {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  text-align: center;
-  gap: 6px;
-  padding: var(--tech-space-4) var(--tech-space-2);
-  color: var(--tech-text-secondary);
-
-  mat-icon {
-    font-size: 36px;
-    width: 36px;
-    height: 36px;
-    color: var(--tech-text-tertiary);
-  }
-  p {
-    margin: 0;
-  }
-  &__hint {
-    font-size: var(--tech-fs-label);
-    color: var(--tech-text-tertiary);
-    max-width: 36ch;
-  }
-}
 
 /* ── Meal pick list ── */
 .lo-search {
@@ -130,7 +106,7 @@
   background: var(--tech-bg-sunken);
   color: var(--tech-text);
   cursor: pointer;
-  transition: border-color 0.12s ease, background 0.12s ease;
+  transition: border-color var(--tech-t-fast) ease, background var(--tech-t-fast) ease;
 
   &:hover:not(.lo-meal--disabled) {
     border-color: color-mix(in srgb, var(--tech-accent) 40%, var(--tech-border));
@@ -253,7 +229,7 @@
   font-weight: 600;
   font-size: var(--tech-fs-label);
   cursor: pointer;
-  transition: border-color 0.12s ease, background 0.12s ease, color 0.12s ease;
+  transition: border-color var(--tech-t-fast) ease, background var(--tech-t-fast) ease, color var(--tech-t-fast) ease;
 
   mat-icon {
     font-size: 16px;

@@ -99,7 +99,7 @@
   color: var(--tech-text-secondary);
   font: inherit; font-size: var(--tech-fs-label); font-weight: 600;
   cursor: pointer;
-  transition: border-color 0.12s ease, color 0.12s ease, background 0.12s ease;
+  transition: border-color var(--tech-t-fast) ease, color var(--tech-t-fast) ease, background var(--tech-t-fast) ease;
   mat-icon { font-size: 16px; width: 16px; height: 16px; }
   &:disabled { opacity: 0.5; cursor: default; }
   &:not(:disabled):hover {

@@ -1,6 +1,7 @@
 import {
   Component,
   computed,
+  ElementRef,
   inject,
   input,
   signal,
@@ -185,7 +186,19 @@ export class WeightTrend {
   private api = inject(Api);
   private auth = inject(AuthService);
   private snack = inject(MatSnackBar);
+  private host = inject(ElementRef<HTMLElement>);
   readonly units = inject(UnitService);
+
+  /**
+   * Resolve the design-system success token to a concrete colour for the ECharts goal line (canvas
+   * can't read CSS variables). Falls back to the dark-theme value if the token is unavailable so the
+   * line is never invisible. Read lazily inside the option computed so it reflects the active theme.
+   */
+  private successColor(): string {
+    if (typeof window === 'undefined' || !this.host?.nativeElement) return '#3dd68c';
+    const v = getComputedStyle(this.host.nativeElement).getPropertyValue('--tech-success').trim();
+    return v || '#3dd68c';
+  }
 
   readonly points = input.required<WeightPointDto[]>();
   /** Goal weight in kg (metric), or null for no reference line. */
@@ -296,6 +309,7 @@ export class WeightTrend {
     const goalDisp = goal != null && goal > 0 ? this.toDisp(goal) : null;
 
     const reduceMotion = this.reduceMotion;
+    const goalColor = this.successColor();
 
     return {
       animation: !reduceMotion,
@@ -335,10 +349,10 @@ export class WeightTrend {
                 markLine: {
                   silent: true,
                   symbol: 'none',
-                  lineStyle: { color: '#3dd68c', type: 'dashed', width: 1.5 },
+                  lineStyle: { color: goalColor, type: 'dashed', width: 1.5 },
                   label: {
                     formatter: `Goal ${goalDisp} ${unit}`,
-                    color: '#3dd68c',
+                    color: goalColor,
                     position: 'insideEndTop',
                   },
                   data: [{ yAxis: goalDisp }],

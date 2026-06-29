@@ -11,6 +11,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 
 import { Api } from '../../core/api';
+import { BetaEmptyState } from '../beta-ui';
 import { FamilyMeal, FamilyMealDay } from '../../core/models';
 
 /** What the dialog opens with: the tracker day the user is viewing (its date seeds "Today"). */
@@ -89,6 +90,7 @@ function toIso(d: Date): string {
     MatButtonModule,
     MatIconModule,
     MatProgressSpinnerModule,
+    BetaEmptyState,
   ],
   templateUrl: './leftovers-dialog.html',
   changeDetection: ChangeDetectionStrategy.Eager,

@@ -117,14 +117,6 @@
   &__check { color: var(--tech-accent); flex: 0 0 auto; font-size: 20px; width: 20px; height: 20px; }
 }
 
-.ax-empty {
-  margin: 0;
-  padding: var(--tech-space-4);
-  text-align: center;
-  font-size: var(--tech-fs-label);
-  color: var(--tech-text-tertiary);
-}
-
 .ax-detail,
 .ax-manual {
   display: flex;

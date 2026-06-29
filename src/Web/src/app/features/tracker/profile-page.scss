@@ -96,7 +96,7 @@
   color: var(--tech-text-tertiary);
   mat-icon { font-size: 15px; width: 15px; height: 15px; }
   &.is-med { color: var(--tech-accent); }
-  &.is-high { color: #3dd68c; }
+  &.is-high { color: var(--tech-success); }
 }
 
 /* ── Plan history ── */

@@ -21,14 +21,8 @@
     </div>
   } @else if (!hasLoggable()) {
     <!-- No meals with macros to log as leftovers. -->
-    <div class="lo-empty" role="status">
-      <mat-icon aria-hidden="true">no_meals</mat-icon>
-      <p>No planned meals with macros yet.</p>
-      <p class="lo-empty__hint">
-        Add macros to a meal on the meal planner (✨ Estimate with AI or the food database), then it can be
-        logged here as leftovers.
-      </p>
-    </div>
+    <app-bs-empty icon="no_meals" title="No planned meals with macros yet"
+      body="Add macros to a meal on the meal planner (✨ Estimate with AI or the food database), then it can be logged here as leftovers." />
   } @else {
     <!-- 1) Pick a meal. -->
     <section class="lo-section" aria-label="Pick a meal">

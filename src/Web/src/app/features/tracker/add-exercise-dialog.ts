@@ -37,6 +37,7 @@ import { MatSnackBar } from '@angular/material/snack-bar';
 
 import { Api } from '../../core/api';
 import { AuthService } from '../../core/auth';
+import { BetaEmptyState } from '../beta-ui';
 import {
   AddExerciseRequest,
   CustomExerciseDto,
@@ -139,6 +140,7 @@ export interface AddExerciseData {
     MatSelectModule,
     MatProgressBarModule,
     MatProgressSpinnerModule,
+    BetaEmptyState,
   ],
   templateUrl: './add-exercise-dialog.html',
   changeDetection: ChangeDetectionStrategy.Eager,

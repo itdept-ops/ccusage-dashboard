@@ -43,7 +43,10 @@
           </button>
         </div>
       } @empty {
-        @if (!loading()) { <p class="ax-empty">No exercises match.</p> }
+        @if (!loading()) {
+          <app-bs-empty compact icon="fitness_center" title="No exercises match"
+                        body="Try a different search." />
+        }
       }
     </div>
 
@@ -154,7 +157,10 @@
                 </button>
               </div>
             } @empty {
-              @if (!wxLoading()) { <p class="ax-empty">No exercises match.</p> }
+              @if (!wxLoading()) {
+                <app-bs-empty compact icon="fitness_center" title="No exercises match"
+                              body="Try a different search or filter." />
+              }
             }
           </div>
 
@@ -490,10 +496,9 @@
           }
         </div>
       } @else if (!savedLoading()) {
-        <p class="ax-empty">
-          @if (savedQuery().trim()) { No saved exercises match. }
-          @else { No saved exercises yet. Exercises you enter manually are saved here. }
-        </p>
+        <app-bs-empty compact icon="bookmark_border"
+          [title]="savedQuery().trim() ? 'No saved exercises match' : 'No saved exercises yet'"
+          [body]="savedQuery().trim() ? 'Try a different search.' : 'Exercises you enter manually are saved here.'" />
       }
     </div>
 
