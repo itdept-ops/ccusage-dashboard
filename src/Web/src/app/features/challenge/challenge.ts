@@ -670,8 +670,10 @@ export class Challenge {
 
   // ---- misc ----
 
-  /** Format a (possibly fractional) points/value number with no trailing zeros. */
-  fmt(n: number): string {
+  /** Format a (possibly fractional) points/value number with no trailing zeros.
+   *  Null-safe: a missing/NaN value (incomplete data) formats to '0' instead of crashing on .toFixed(). */
+  fmt(n: number | null | undefined): string {
+    if (n == null || !Number.isFinite(n)) return '0';
     return Number.isInteger(n) ? String(n) : n.toFixed(1).replace(/\.0$/, '');
   }
 
