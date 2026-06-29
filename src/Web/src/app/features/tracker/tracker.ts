@@ -1742,7 +1742,10 @@ export class Tracker {
     this.daySummaryUnavailable.set(false);
     this.daySummaryAnnounce.set('Summarizing your day…');
     try {
-      const res = await firstValueFrom(this.api.daySummary({ date: this.store.date() }));
+      const raw = await firstValueFrom(this.api.daySummary({ date: this.store.date() }));
+      // AI-supplied: coerce the fields the template + announce read with `.startsWith`/`.length`, so a
+      // model that omits `headline`/`highlights` can't crash (the schema types them non-null).
+      const res: DaySummaryResponse = { ...raw, headline: raw?.headline ?? '', highlights: raw?.highlights ?? [] };
       this.daySummary.set(res);
       this.daySummaryAnnounce.set(
         `${res.headline}` + (res.highlights.length ? ` ${res.highlights.length} highlights.` : ''),
@@ -1777,7 +1780,10 @@ export class Tracker {
     this.recapWeek = week;
     this.recapLoading.set(true);
     try {
-      this.recap.set(await firstValueFrom(this.api.trackerRecapAi()));
+      const recap = await firstValueFrom(this.api.trackerRecapAi());
+      // AI-supplied: coerce `insights` so a model/serializer that omits it can't crash the template's
+      // `r.insights.length` read (the schema types it non-null, but the AI output may not include it).
+      this.recap.set(recap ? { ...recap, insights: recap.insights ?? [] } : recap);
     } catch {
       // Network blip only (the endpoint itself never 503s) — drop the card, allow a later retry.
       this.recap.set(null);

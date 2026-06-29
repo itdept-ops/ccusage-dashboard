@@ -327,7 +327,7 @@ export class BillsBetaPage {
   /** Best-effort contacts for the inline claim strip + split flow — chat.read gated; silently empty if denied. */
   private async loadContacts(): Promise<void> {
     try {
-      this.contacts.set(await firstValueFrom(this.api.myContacts()));
+      this.contacts.set((await firstValueFrom(this.api.myContacts())) ?? []);
     } catch {
       this.contacts.set([]);
     }

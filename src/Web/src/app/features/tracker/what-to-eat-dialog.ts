@@ -144,7 +144,13 @@ export class WhatToEatDialog {
           meal: this.data.meal,
         }),
       );
-      const options = res.options ?? [];
+      // AI-supplied options: coerce the array fields so a model that omits `ingredients`/`steps` can't
+      // crash the template's `.length` reads (the schema types them non-null, but Gemini output may not).
+      const options = (res.options ?? []).map((o) => ({
+        ...o,
+        ingredients: o.ingredients ?? [],
+        steps: o.steps ?? [],
+      }));
       this.options.set(options);
       this.fallback.set(res.aiUsed === false);
       if (options.length === 0) {

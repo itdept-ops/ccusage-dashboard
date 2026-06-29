@@ -468,7 +468,7 @@ export class FamilyIdentityMap {
         return;
       }
       // Build editable rows: matched events default to their suggested role; unmatched start unassigned.
-      const rows: ImportRow[] = [...p.matched, ...p.unmatched].map((item) => ({
+      const rows: ImportRow[] = [...(p.matched ?? []), ...(p.unmatched ?? [])].map((item) => ({
         item,
         roleId: item.suggestedRoleId,
         remember: item.suggestedRoleId == null, // offer "remember" by default only for newly-assigned ones
