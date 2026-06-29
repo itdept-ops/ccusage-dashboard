@@ -11,7 +11,7 @@ import { AuthService } from '../../core/auth';
 import { NudgeKind, PERM, PersonDto } from '../../core/models';
 import {
   BetaPullRefresh, BetaSegmentedControl, BetaSkeleton, BetaSwipeRow, BetaToaster, ToastController,
-  type Segment,
+  BetaEmptyState, BetaErrorState, type Segment,
 } from '../beta-ui';
 
 import { PersonVm, alphaSort, matchesQuery, rosterSort, toVm } from './people-beta.model';
@@ -54,7 +54,7 @@ type SortMode = 'online' | 'az';
   providers: [ToastController],
   imports: [
     MatIconModule, BetaPullRefresh, BetaSegmentedControl, BetaSkeleton, BetaSwipeRow, BetaToaster,
-    CircleRow, CircleSheet,
+    BetaEmptyState, BetaErrorState, CircleRow, CircleSheet,
   ],
   template: `
     <app-bs-pull-refresh class="pl-ptr" [busy]="refreshing()" (refresh)="refreshAll()">
@@ -141,30 +141,34 @@ type SortMode = 'online' | 'az';
             }
           </div>
         } @else if (error()) {
-          <div class="pl-state">
-            <span class="pl-state-ic" aria-hidden="true"><mat-icon>cloud_off</mat-icon></span>
-            <p class="pl-state-msg">We couldn't load your people just now.</p>
-            <button type="button" class="pl-state-btn" (click)="reload(true)">
-              <mat-icon aria-hidden="true">refresh</mat-icon> Try again
-            </button>
-          </div>
+          <app-bs-error
+            icon="cloud_off"
+            title="Couldn't load your people"
+            body="We couldn't load your people just now. Give it another go."
+            (retry)="reload(true)" />
         } @else if (noMatches()) {
-          <div class="pl-state">
-            <span class="pl-state-ic" aria-hidden="true"><mat-icon>person_search</mat-icon></span>
-            <p class="pl-state-msg">No one matches “{{ query().trim() }}”.</p>
-            <button type="button" class="pl-state-btn" (click)="clearQuery()">
-              <mat-icon aria-hidden="true">close</mat-icon> Clear search
-            </button>
-          </div>
+          <app-bs-empty
+            icon="person_search"
+            title="No matches"
+            [body]="'No one matches “' + query().trim() + '”.'"
+            ctaLabel="Clear search"
+            ctaIcon="close"
+            (action)="clearQuery()" />
         } @else if (isEmpty()) {
-          <div class="pl-state">
-            <span class="pl-state-ic" aria-hidden="true"><mat-icon>groups</mat-icon></span>
-            @switch (filter()) {
-              @case ('contacts') { <p class="pl-state-msg">No contacts yet. Once you're connected with someone, they'll show up here.</p> }
-              @case ('family') { <p class="pl-state-msg">No household members yet. Set up your household in the Family hub to see everyone here.</p> }
-              @default { <p class="pl-state-msg">No people yet. Once you have contacts or a household, your circle appears here.</p> }
+          @switch (filter()) {
+            @case ('contacts') {
+              <app-bs-empty icon="groups" title="No contacts yet"
+                body="Once you're connected with someone, they'll show up here." />
             }
-          </div>
+            @case ('family') {
+              <app-bs-empty icon="groups" title="No household members yet"
+                body="Set up your household in the Family hub to see everyone here." />
+            }
+            @default {
+              <app-bs-empty icon="groups" title="No people yet"
+                body="Once you have contacts or a household, your circle appears here." />
+            }
+          }
         } @else {
           <!-- Live "N online now" pulse line — from the already-loaded presence fields, no new endpoint. -->
           @if (sortMode() === 'online' && onlineCount() > 0) {

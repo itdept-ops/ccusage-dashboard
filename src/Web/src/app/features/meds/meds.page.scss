@@ -58,7 +58,7 @@
   padding: .4rem .8rem; border-radius: 999px;
   background: var(--md-panel2); border: 1px solid var(--md-border);
   color: var(--md-sub); font-size: .82rem; font-weight: 600; cursor: pointer;
-  transition: all .15s ease;
+  transition: all var(--tech-t-fast, 120ms) ease;
   mat-icon { font-size: 1rem; width: 1rem; height: 1rem; }
   &:hover:not(:disabled) { color: var(--md-text); }
   &:disabled { opacity: .5; cursor: default; }
@@ -114,7 +114,7 @@
   padding: .5rem .9rem; border-radius: 10px;
   background: var(--md-accent); color: #fff; border: 0;
   font-weight: 600; font-size: .85rem; cursor: pointer;
-  transition: filter .15s ease;
+  transition: filter var(--tech-t-fast, 120ms) ease;
   &:hover { filter: brightness(1.08); }
   &:disabled { opacity: .55; cursor: default; filter: none; }
   mat-icon { font-size: 1.1rem; width: 1.1rem; height: 1.1rem; }
@@ -187,7 +187,7 @@
   display: flex; justify-content: space-between; align-items: center; gap: .75rem;
   padding: .55rem .75rem; border-radius: 10px;
   background: var(--md-panel); border: 1px solid var(--md-border);
-  &[data-status='taken'] { border-color: color-mix(in srgb, #3dd68c 50%, transparent); }
+  &[data-status='taken'] { border-color: color-mix(in srgb, var(--tech-success) 50%, transparent); }
   &[data-status='skipped'] { border-color: color-mix(in srgb, #f2b340 45%, transparent); }
   &__when { font-size: .85rem; font-weight: 600; }
   &__btns { display: flex; gap: .4rem; }
@@ -195,10 +195,10 @@
     display: inline-flex; align-items: center; gap: .3rem;
     padding: .35rem .65rem; border-radius: 8px; cursor: pointer;
     background: transparent; border: 1px solid var(--md-border); color: var(--md-sub);
-    font-size: .78rem; font-weight: 600; transition: all .15s ease;
+    font-size: .78rem; font-weight: 600; transition: all var(--tech-t-fast, 120ms) ease;
     mat-icon { font-size: 1rem; width: 1rem; height: 1rem; }
     &:disabled { opacity: .5; }
-    &.is-take.is-on { background: #1f7a4d; border-color: #3dd68c; color: #fff; }
+    &.is-take.is-on { background: #1f7a4d; border-color: var(--tech-success); color: #fff; }
     &.is-skip.is-on { background: #7a5a18; border-color: #f2b340; color: #fff; }
     &:hover:not(:disabled):not(.is-on) { color: var(--md-text); }
   }
@@ -268,20 +268,9 @@
   display: grid; place-content: center;
   width: 32px; height: 32px; border-radius: 8px; cursor: pointer;
   background: transparent; border: 1px solid var(--md-border); color: var(--md-sub);
-  transition: all .15s ease;
+  transition: all var(--tech-t-fast, 120ms) ease;
   mat-icon { font-size: 1.1rem; width: 1.1rem; height: 1.1rem; }
   &:hover { color: var(--md-text); border-color: var(--md-accent); }
-}
-
-.md-empty {
-  display: flex; flex-direction: column; align-items: center; gap: .65rem; text-align: center;
-  padding: 1.75rem 1rem; color: var(--md-sub);
-  &__orb {
-    width: 48px; height: 48px; border-radius: 50%; display: grid; place-content: center;
-    background: color-mix(in srgb, var(--md-accent) 12%, transparent); color: var(--md-accent);
-  }
-  &__body { margin: 0; max-width: 36ch; font-size: .88rem; }
-  &--trend { padding: 2.5rem 1rem; }
 }
 
 .md-skel-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1rem; }

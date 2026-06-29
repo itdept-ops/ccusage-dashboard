@@ -14,7 +14,7 @@ import {
 } from '../../core/models';
 import { ChartComponent } from '../../shared/chart';
 import { DialogA11yDirective } from '../../core/dialog-a11y.directive';
-import { BetaErrorState } from '../beta-ui';
+import { BetaEmptyState, BetaErrorState } from '../beta-ui';
 
 /** A vital kind's UI descriptor — label, unit, icon, accent, range hint, and whether it carries a 2nd value. */
 interface VitalMeta {
@@ -56,7 +56,7 @@ interface WindowOpt { value: number; label: string; }
   selector: 'app-meds',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, MatIconModule, ChartComponent, BetaErrorState, DialogA11yDirective],
+  imports: [FormsModule, MatIconModule, ChartComponent, BetaEmptyState, BetaErrorState, DialogA11yDirective],
   styleUrl: './meds.page.scss',
   template: `
     <div class="md">
@@ -154,10 +154,13 @@ interface WindowOpt { value: number; label: string; }
             <!-- today's checklist -->
             <div class="md-list">
               @if (medList().length === 0) {
-                <div class="md-empty">
-                  <span class="md-empty__orb"><mat-icon aria-hidden="true">medication</mat-icon></span>
-                  <p class="md-empty__body">No active medications. Add one to start a private dose checklist.</p>
-                </div>
+                <app-bs-empty compact
+                  icon="medication"
+                  title="No active medications"
+                  body="Add one to start a private dose checklist."
+                  ctaLabel="Add medication"
+                  ctaIcon="add"
+                  (action)="openAddMed()" />
               } @else {
                 @for (m of medList(); track m.id) {
                   <article class="md-med">
@@ -289,10 +292,10 @@ interface WindowOpt { value: number; label: string; }
                   <app-chart [option]="chartOption()" />
                 </div>
               } @else {
-                <div class="md-empty md-empty--trend">
-                  <span class="md-empty__orb"><mat-icon aria-hidden="true">{{ activeMeta().icon }}</mat-icon></span>
-                  <p class="md-empty__body">No {{ activeMeta().label.toLowerCase() }} readings yet. Log one above to start a trend.</p>
-                </div>
+                <app-bs-empty compact
+                  [icon]="activeMeta().icon"
+                  title="No readings yet"
+                  [body]="'No ' + activeMeta().label.toLowerCase() + ' readings yet. Log one above to start a trend.'" />
               }
             </div>
 

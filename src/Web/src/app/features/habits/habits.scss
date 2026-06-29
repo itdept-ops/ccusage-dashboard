@@ -24,15 +24,8 @@
 .habits__title h1 { margin: 0 0 4px; font-size: 1.6rem; font-weight: 800; color: var(--tech-text); }
 .habits__sub { margin: 0; max-width: 62ch; color: var(--tech-text-tertiary); line-height: 1.5; }
 
+/* Loading spinner wrapper; empty + error render via the shared app-bs-empty / app-bs-error kit primitives. */
 .habits__loading { display: flex; justify-content: center; padding: 3rem 0; }
-.habits__state, .habits__empty {
-  display: flex; flex-direction: column; align-items: center; gap: 10px; text-align: center;
-  padding: 3rem 1rem; color: var(--tech-text-tertiary);
-  mat-icon { font-size: 40px; width: 40px; height: 40px; color: var(--tech-text-tertiary); }
-  h2 { margin: 0; font-size: 1.05rem; color: var(--tech-text); }
-  p { margin: 0; max-width: 40ch; }
-}
-.habits__state { border: 1px dashed var(--tech-border); border-radius: var(--tech-radius, 12px); }
 
 /* ── Coach ── */
 .habits__coach {

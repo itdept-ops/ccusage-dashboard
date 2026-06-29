@@ -29,28 +29,27 @@
   </div>
 } @else if (error()) {
   <!-- Load error -->
-  <div class="state state--error" role="alert">
-    <mat-icon aria-hidden="true">cloud_off</mat-icon>
-    <p>We couldn't load your people just now.</p>
-    <button mat-stroked-button type="button" (click)="setFilter(filter())">Try again</button>
-  </div>
+  <app-bs-error
+    icon="cloud_off"
+    title="Couldn't load your people"
+    body="We couldn't load your people just now. Give it another go."
+    (retry)="setFilter(filter())" />
 } @else if (isEmpty()) {
   <!-- Empty (context-aware to the active filter) -->
-  <div class="state state--empty">
-    <mat-icon aria-hidden="true">groups</mat-icon>
-    @switch (filter()) {
-      @case ('contacts') {
-        <p>No contacts yet. Contacts are managed by an administrator — once you're connected with someone,
-          they'll show up here.</p>
-      }
-      @case ('family') {
-        <p>No household members yet. Set up your household in the Family hub to see everyone here.</p>
-      }
-      @default {
-        <p>No people yet. Once you have contacts or a household, they'll appear here.</p>
-      }
+  @switch (filter()) {
+    @case ('contacts') {
+      <app-bs-empty icon="groups" title="No contacts yet"
+        body="Contacts are managed by an administrator — once you're connected with someone, they'll show up here." />
     }
-  </div>
+    @case ('family') {
+      <app-bs-empty icon="groups" title="No household members yet"
+        body="Set up your household in the Family hub to see everyone here." />
+    }
+    @default {
+      <app-bs-empty icon="groups" title="No people yet"
+        body="Once you have contacts or a household, they'll appear here." />
+    }
+  }
 } @else {
   <!-- People grid -->
   <ul class="grid" aria-label="People">

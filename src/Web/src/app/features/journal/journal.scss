@@ -32,16 +32,8 @@
 .journal__title h1 { margin: 0 0 4px; font-size: 1.6rem; font-weight: 800; color: var(--tech-text); }
 .journal__sub { margin: 0; max-width: 60ch; color: var(--tech-text-tertiary); line-height: 1.5; }
 
-/* ── Loading / state ── */
+/* ── Loading ── (error renders via the shared app-bs-error kit primitive) */
 .journal__loading { display: flex; justify-content: center; padding: 3rem 0; }
-.journal__state {
-  display: flex; flex-direction: column; align-items: center; gap: 10px;
-  text-align: center; padding: 3rem 1rem; color: var(--tech-text-tertiary);
-  border: 1px dashed var(--tech-border); border-radius: var(--tech-radius, 12px);
-  mat-icon { font-size: 40px; width: 40px; height: 40px; color: var(--tech-text-tertiary); }
-  h2 { margin: 0; font-size: 1.05rem; color: var(--tech-text); }
-  p { margin: 0; max-width: 40ch; }
-}
 
 /* ── Weekly reflection card ── */
 .journal__reflect {
@@ -96,7 +88,6 @@
 .journal__row-emoji { font-size: 1.05rem; width: 1.4em; text-align: center; }
 .journal__row-date { font-weight: 600; flex: 1; }
 .journal__row-mood { font-size: 0.74rem; color: var(--tech-text-tertiary); }
-.journal__empty { margin: 0; color: var(--tech-text-tertiary); font-size: 0.9rem; }
 
 /* editor */
 .journal__editor { display: flex; flex-direction: column; gap: var(--tech-space-4, 16px); }

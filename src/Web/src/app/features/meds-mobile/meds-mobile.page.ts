@@ -15,7 +15,7 @@ import {
 import { ChartComponent } from '../../shared/chart';
 import {
   BetaPullRefresh, BetaBottomSheet, BetaSkeleton, BetaFab, BetaToaster, ToastController,
-  BetaSvgRing, BetaSegmentedControl, BetaErrorState, type Segment,
+  BetaSvgRing, BetaSegmentedControl, BetaEmptyState, BetaErrorState, type Segment,
 } from '../beta-ui';
 
 interface VitalMeta {
@@ -56,7 +56,7 @@ interface VitalMeta {
   imports: [
     FormsModule, MatIconModule, ChartComponent,
     BetaPullRefresh, BetaBottomSheet, BetaSkeleton, BetaFab, BetaToaster, BetaSvgRing, BetaSegmentedControl,
-    BetaErrorState,
+    BetaEmptyState, BetaErrorState,
   ],
   template: `
     <app-bs-pull-refresh class="mv-ptr" [busy]="refreshing()" (refresh)="reload()">
@@ -126,10 +126,10 @@ interface VitalMeta {
             }
           </div>
           @if (medList().length === 0) {
-            <div class="mv-empty">
-              <span class="mv-empty__orb"><mat-icon aria-hidden="true">medication</mat-icon></span>
-              <p>No active meds. Tap + to add one and start a private dose checklist.</p>
-            </div>
+            <app-bs-empty compact
+              icon="medication"
+              title="No active meds"
+              body="Tap + to add one and start a private dose checklist." />
           } @else {
             @for (m of medList(); track m.id) {
               <article class="mv-med">
@@ -218,9 +218,10 @@ interface VitalMeta {
               </div>
               <div class="mv-chart"><app-chart [option]="chartOption()" /></div>
             } @else {
-              <div class="mv-empty mv-empty--sm">
-                <p>No {{ activeMeta().label.toLowerCase() }} readings yet. Log one above.</p>
-              </div>
+              <app-bs-empty compact
+                [icon]="activeMeta().icon"
+                title="No readings yet"
+                [body]="'No ' + activeMeta().label.toLowerCase() + ' readings yet. Log one above.'" />
             }
 
             <!-- readings -->

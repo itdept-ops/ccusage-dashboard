@@ -79,7 +79,10 @@
             }
           </ul>
         } @else {
-          <p class="journal__empty">No entries yet. Pick a day and write your first one.</p>
+          <app-bs-empty compact
+            icon="edit_note"
+            title="No entries yet"
+            body="Pick a day and write your first one." />
         }
       </aside>
 

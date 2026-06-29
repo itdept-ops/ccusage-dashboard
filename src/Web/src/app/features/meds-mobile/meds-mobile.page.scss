@@ -243,18 +243,6 @@
   &:active { background: var(--glass); }
 }
 
-.mv-empty {
-  display: flex; flex-direction: column; align-items: center; gap: 10px; text-align: center;
-  padding: 26px 16px; color: var(--ink-2);
-  border-radius: var(--r-tile); background: var(--card); border: 1px dashed var(--hairline);
-  &__orb {
-    width: 48px; height: 48px; border-radius: 50%; display: grid; place-content: center;
-    background: color-mix(in srgb, var(--accent-a) 14%, transparent); color: var(--accent-a);
-  }
-  p { margin: 0; max-width: 34ch; font-size: 13.5px; }
-  &--sm { padding: 18px 14px; }
-}
-
 .mv-switch {
   flex: none; width: 42px; height: 24px; border-radius: 999px; padding: 2px;
   background: var(--hairline); transition: background .2s ease;

@@ -15,7 +15,7 @@ import { AuthService } from '../../core/auth';
 import {
   JournalDto, JournalEntryDto, JournalReflectionDto, JournalSummaryDto, PERM,
 } from '../../core/models';
-import { BetaErrorState } from '../beta-ui';
+import { BetaEmptyState, BetaErrorState } from '../beta-ui';
 import { CopyJournalDialog, CopyJournalData, CopyJournalResult } from './copy-journal-dialog';
 
 interface MoodChoice { value: string; label: string; emoji: string; }
@@ -39,7 +39,7 @@ interface MoodChoice { value: string; label: string; emoji: string; }
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     FormsModule, MatIconModule, MatButtonModule, MatSnackBarModule, MatProgressSpinnerModule,
-    BetaErrorState,
+    BetaEmptyState, BetaErrorState,
   ],
   templateUrl: './journal.html',
   styleUrl: './journal.scss',

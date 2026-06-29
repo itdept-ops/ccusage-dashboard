@@ -17,6 +17,7 @@ import { Api } from '../../core/api';
 import { AuthService } from '../../core/auth';
 import { PERM, PersonDto, NudgeKind } from '../../core/models';
 import { timeAgo } from '../../shared/format';
+import { BetaEmptyState, BetaErrorState } from '../beta-ui';
 
 /** Which slice of the caller's people the grid shows. */
 type PeopleFilter = 'all' | 'contacts' | 'family';
@@ -51,6 +52,8 @@ interface PersonVm extends PersonDto {
     MatMenuModule,
     MatProgressSpinnerModule,
     MatSnackBarModule,
+    BetaEmptyState,
+    BetaErrorState,
   ],
   templateUrl: './people.html',
   changeDetection: ChangeDetectionStrategy.Eager,

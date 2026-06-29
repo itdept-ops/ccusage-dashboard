@@ -223,32 +223,8 @@ $hues: #fb7185, #f0a35a, #a78bfa, #38bdf8, #34d399, #f472b6;
 }
 .pl-skel-lines { flex: 1 1 auto; display: flex; flex-direction: column; gap: 7px; }
 
-// ============================================================================
-// STATE (empty / error).
-// ============================================================================
-.pl-state {
-  display: flex; flex-direction: column; align-items: center; text-align: center; gap: 13px;
-  padding: 40px 20px; border-radius: var(--r-card);
-  background: var(--bg-rise); border: 1px dashed var(--hairline);
-  margin-top: 4px;
-}
-.pl-state-ic {
-  display: grid; place-items: center; width: 60px; height: 60px; border-radius: 19px;
-  background: color-mix(in srgb, var(--accent-a) 12%, var(--bg-sink)); color: var(--accent-a);
-}
-.pl-state-ic mat-icon { font-size: 30px; width: 30px; height: 30px; }
-.pl-state-msg { margin: 0; font-size: 14.5px; font-weight: 600; color: var(--ink-dim); max-width: 30ch; }
-.pl-state-btn {
-  display: inline-flex; align-items: center; gap: 7px;
-  min-height: 46px; padding: 0 20px; border: none; border-radius: var(--r-pill);
-  background: linear-gradient(135deg, var(--accent-a), var(--accent-b)); color: #fff;
-  font-family: var(--font-ui); font-size: 14px; font-weight: 800; cursor: pointer; box-shadow: var(--lift-2);
-  -webkit-tap-highlight-color: transparent; touch-action: manipulation;
-  transition: transform 120ms var(--ease-out);
-}
-.pl-state-btn:active { transform: scale(.97); }
-.pl-state-btn:focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; }
-.pl-state-btn mat-icon { font-size: 19px; width: 19px; height: 19px; }
+// Empty + error states render via the shared beta-ui kit primitives (app-bs-empty / app-bs-error),
+// which read this page's --accent-a/--accent-b so they inherit the rose signature.
 
 // ============================================================================
 // ROSTER GROUPS (Online now / Everyone) + rows.
