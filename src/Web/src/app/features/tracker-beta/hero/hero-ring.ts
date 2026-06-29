@@ -4,7 +4,7 @@ import {
 } from '@angular/core';
 
 import { TrackerDayDto } from '../../../core/models';
-import { group, remaining } from '../util/units';
+import { group } from '../util/units';
 
 /** Which face the hero is showing. `rings` = the triple-ring glance; `macros` = the macro-detail face. */
 export type HeroFace = 'rings' | 'macros';
@@ -361,14 +361,26 @@ export class HeroRing {
   });
 
   // ── over-goal / abundance (GRAFT Daylight) ──────────────────────────────────
-  protected readonly calOver = computed(() => {
-    const g = this.calGoal();
-    return g != null && this.calCur() > g;
+  // "Remaining" is taken straight off the backend (day.remaining = goal − food + caloriesOut, where
+  // caloriesOut is the day's logged exercise + watch active-burn) — exactly like the desktop calorie ring —
+  // so logging an exercise INCREASES what's left to eat (the eat-more model). Null when no goal is set; goes
+  // negative once the exercise-adjusted budget is exceeded (then we show "X over"). Previously this ring
+  // recomputed goal − food locally, which silently ignored exercise.
+  private readonly calRemaining = computed(() => {
+    const r = this.d()?.remaining;
+    return r == null ? null : Math.round(r);
   });
-  protected readonly calLeft = computed(() => remaining(this.calCur(), this.calGoal()));
+  protected readonly calOver = computed(() => {
+    const r = this.calRemaining();
+    return r != null && r < 0;
+  });
+  protected readonly calLeft = computed(() => {
+    const r = this.calRemaining();
+    return r == null ? null : Math.max(0, r);
+  });
   protected readonly calOverBy = computed(() => {
-    const g = this.calGoal();
-    return g != null ? Math.max(0, this.calCur() - g) : 0;
+    const r = this.calRemaining();
+    return r != null ? Math.max(0, -r) : 0;
   });
 
   // ── animated count-up ticker for the calorie numeral ────────────────────────
