@@ -55,6 +55,10 @@
       <circle cx="10.5" cy="10.5" r="5.5" fill="none" stroke="currentColor" stroke-width="1.8"/>
       <path d="M15 15l4.5 4.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
     </symbol>
+    <symbol id="g-pulse" viewBox="0 0 24 24">
+      <path d="M3 12h3.5l1.8-4.6a1 1 0 0 1 1.9.1L12 17l1.8-5.5a1 1 0 0 1 1.9-.05L17 12h4"
+            fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+    </symbol>
     <symbol id="g-capture" viewBox="0 0 24 24">
       <path d="M4 8.5A1.5 1.5 0 0 1 5.5 7H8l1.2-2h5.6L16 7h2.5A1.5 1.5 0 0 1 20 8.5v8A1.5 1.5 0 0 1 18.5 18h-13A1.5 1.5 0 0 1 4 16.5v-8Z"
             fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/>
@@ -96,7 +100,7 @@
   <section class="hero">
     <div class="hero-copy" #reveal>
       <a class="eyebrow" href="https://github.com/itdept-ops/usage-iq" target="_blank" rel="noopener">
-        <span class="dot"></span> One core. Your whole life in orbit.
+        <span class="dot"></span> The agentic life OS
         <span class="eyebrow-sep" aria-hidden="true">·</span>
         <span class="eyebrow-os">Open source · self-hosted</span>
         <span class="eyebrow-arrow">→</span>
@@ -181,7 +185,7 @@
     <app-built-with-badge />
   </section>
 
-  <!-- ───────────────────────── 2 · Life modules ───────────────────────── -->
+  <!-- ───── 2 · Life modules — ASYMMETRIC BENTO (lit, content) ───── -->
   <section class="domains-section">
     <header class="section-head" #reveal>
       <span class="section-eyebrow"><span class="se-dot"></span> The modules</span>
@@ -196,24 +200,28 @@
           <span class="domain-icon" aria-hidden="true">
             <svg class="dglyph"><use [attr.href]="'#g-' + d.glyph"/></svg>
           </span>
-          <h3>{{ d.title }}</h3>
-          <p>{{ d.text }}</p>
+          <div>
+            <h3>{{ d.title }}</h3>
+            <p>{{ d.text }}</p>
+          </div>
         </article>
       }
     </div>
   </section>
 
-  <!-- ───────────────────────── Metric band ───────────────────────── -->
-  <section class="stats" #reveal aria-label="Key metrics">
-    @for (s of stats; track s.label; let i = $index) {
-      <div class="stat">
-        <span class="stat-value">{{ counts()[i] }}<span class="stat-suffix">{{ s.suffix }}</span></span>
-        <span class="stat-label">{{ s.label }}</span>
-      </div>
-    }
+  <!-- ───── Metric band — FULL-BLEED, RECESSED (the one deliberate break) ───── -->
+  <section class="stats" aria-label="Key metrics">
+    <div class="stats-inner" #reveal>
+      @for (s of stats; track s.label; let i = $index) {
+        <div class="stat">
+          <span class="stat-value">{{ counts()[i] }}<span class="stat-suffix">{{ s.suffix }}</span></span>
+          <span class="stat-label">{{ s.label }}</span>
+        </div>
+      }
+    </div>
   </section>
 
-  <!-- ───────────────────────── 3 · Agents that act ───────────────────────── -->
+  <!-- ───── 3 · Agents that act — NUMBERED ALTERNATING RAIL (lit, content) ───── -->
   <section class="agents-section">
     <header class="section-head" #reveal>
       <span class="section-eyebrow"><span class="se-dot"></span> The agentic layer</span>
@@ -223,45 +231,73 @@
         and read your whole life so you don’t have to.
       </p>
     </header>
-    <div class="agents">
+
+    <div class="agents-rail">
       @for (a of agents; track a.cue; let i = $index) {
-        <article class="agent" #reveal [style.--d]="i">
-          <span class="agent-icon" aria-hidden="true">
+        <article class="agent-row" #reveal [style.--d]="i">
+          <span class="agent-num" aria-hidden="true">{{ '0' + (i + 1) }}</span>
+          <span class="agent-wire" aria-hidden="true"><span class="agent-pulse" [style.--d]="i"></span></span>
+          <span class="agent-node" aria-hidden="true">
             <svg class="aglyph"><use [attr.href]="'#g-' + a.glyph"/></svg>
           </span>
-          <div class="agent-flow" aria-hidden="true">
-            <span class="agent-dot cue"></span>
-            <span class="agent-wire"><span class="agent-pulse"></span></span>
-            <span class="agent-dot act"></span>
+          <div class="agent-card">
+            <p class="agent-cue">{{ a.cue }}</p>
+            <p class="agent-act">{{ a.act }}</p>
           </div>
-          <p class="agent-text"><strong>{{ a.cue }}</strong> {{ a.act }}</p>
         </article>
       }
+
+      <!-- the rail lands on a small core; the footnote resolves the sequence -->
+      <div class="rail-foot" #reveal>
+        <span class="rail-core" aria-hidden="true">
+          <span class="rc-ring"></span><span class="rc-orb"></span>
+        </span>
+        <p class="agents-leash">
+          <mat-icon aria-hidden="true">verified_user</mat-icon>
+          Every agent is off by default, permission-gated, sees only the minimum, and never auto-logs.
+          AI that acts, on a leash you hold.
+        </p>
+      </div>
     </div>
-    <p class="agents-leash" #reveal>
-      <mat-icon aria-hidden="true">verified_user</mat-icon>
-      Every agent is off by default, permission-gated, sees only the minimum, and never auto-logs.
-      AI that acts, on a leash you hold.
-    </p>
   </section>
 
-  <!-- ───────────────────────── 4 · One platform ───────────────────────── -->
+  <!-- ───── 4 · One platform — CHESS 2-up: mid-scale orbit + proof list ───── -->
   <section class="proof-section">
-    <header class="section-head" #reveal>
-      <span class="section-eyebrow"><span class="se-dot"></span> One platform</span>
-      <h2>One login. It’s all <span class="grad">yours</span>.</h2>
-      <p>Breadth this wide only earns trust when every claim has a floor. Here is the floor — and the craft.</p>
-    </header>
-    <div class="proofs">
-      @for (p of proofs; track p.title; let i = $index) {
-        <article class="proof" #reveal [style.--d]="i">
-          <span class="proof-icon" aria-hidden="true">
-            <svg class="pglyph"><use [attr.href]="'#g-' + p.glyph"/></svg>
-          </span>
-          <h3>{{ p.title }}</h3>
-          <p>{{ p.text }}</p>
-        </article>
-      }
+    <div class="platform-grid">
+      <!-- the core motif at mid scale (scale 2 of 3) -->
+      <div class="platform-diagram" #reveal aria-hidden="true">
+        <span class="pd-glow"></span>
+        <span class="pd-ring r1"></span>
+        <span class="pd-ring r2"></span>
+        <span class="pd-spin">
+          <span class="pd-node n1"></span>
+          <span class="pd-node n2"></span>
+          <span class="pd-node n3"></span>
+          <span class="pd-node n4"></span>
+        </span>
+        <span class="pd-core"></span>
+      </div>
+
+      <div>
+        <header class="section-head platform-head" #reveal>
+          <span class="section-eyebrow"><span class="se-dot"></span> One platform</span>
+          <h2>One login. It’s all <span class="grad">yours</span>.</h2>
+          <p>Breadth this wide only earns trust when every claim has a floor. Here is the floor — and the craft.</p>
+        </header>
+        <div class="proofs">
+          @for (p of proofs; track p.title; let i = $index) {
+            <article class="proof" #reveal [style.--d]="i">
+              <span class="proof-icon" aria-hidden="true">
+                <svg class="pglyph"><use [attr.href]="'#g-' + p.glyph"/></svg>
+              </span>
+              <div>
+                <h3>{{ p.title }}</h3>
+                <p>{{ p.text }}</p>
+              </div>
+            </article>
+          }
+        </div>
+      </div>
     </div>
     <p class="proof-foot" #reveal>
       Open source at
@@ -270,7 +306,12 @@
     </p>
   </section>
 
-  <!-- ───────────────────────── 5 · The builder ───────────────────────── -->
+  <!-- ───── Mid-page quote — NARROW DISPLAY LINE (typographic change-of-pace) ───── -->
+  <section class="quote-section is-narrow">
+    <p class="quote-line" #reveal><em>{{ quote }}</em></p>
+  </section>
+
+  <!-- ───── 5 · The builder — INSET CARD with traveling-border specular ───── -->
   <section class="builder-section">
     <div class="builder" #reveal>
       <span class="builder-core" aria-hidden="true">
@@ -283,7 +324,6 @@
           Usage IQ is the proof of its own pitch: a life-sized operating system engineered end to end by one person
           orchestrating a team of AI agents. <strong>Junior Fortunato</strong> — founder, U.S. Army veteran,
           full-stack engineer and agentic-AI builder — architects the intent and lets the machines do the grind.
-          The best résumé is a running product.
         </p>
         <div class="builder-links">
           <a class="ghost-link" routerLink="/about">The story <span>→</span></a>

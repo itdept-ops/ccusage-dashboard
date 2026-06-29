@@ -1,149 +1,277 @@
 @use './aurora' as aur;
 
-/* margin-top:auto sinks the footer to the bottom when its page is a full-height flex column (see the
-   .content--bare sticky-footer rule). A no-op in normal block flow, so it's safe everywhere the footer is used.
-   Aurora-scoped: palette declared on :host so children read var(--aur-*); always-dark, theme-independent. */
+/* ════════════════════════════════════════════════════════════════════════
+   MARKETING FOOTER — the calm last frame.
+   Re-anchored to the orbital art world: the OS-core motif "at rest" anchoring a
+   left-aligned brand block, with the link columns squared off on the right (the
+   Linear/Vercel footer rhythm). One faint horizon arc behind the mark echoes the
+   hero; the same grain film + a top hairline that fades to an aurora tint at
+   centre tie it to the page above. Strict luminance discipline: mark brightest →
+   wordmark/headers → links → meta. Aurora-scoped, always-dark.
+   ════════════════════════════════════════════════════════════════════════ */
 :host {
   display: block;
-  margin-top: auto;
+  margin-top: auto; /* sinks the footer in a full-height flex column page */
   @include aur.aurora-vars;
+
+  /* COHESION: align the inherited Aurora accents to the orbital --lx-* palette
+     so every public frame (nav, body, footer) shares one set of hues. */
+  --aur-a: #6d5bf0;
+  --aur-b: #b06bff;
+  --aur-c: #34e3e8;
+  --aur-grad: linear-gradient(100deg, #6d5bf0 0%, #b06bff 52%, #34e3e8 100%);
+
+  /* orbital identity tokens (mirrors the landing's --lx-* family) */
+  --f-recessed: #050410;
+  --f-ink:      #ede9ff;
+  --f-muted:    #a99fd6;
+  --f-faint:    #7d75a6;
+  --f-violet:   #b06bff;
+  --f-cyan:     #34e3e8;
+  --f-hair:     rgba(176, 107, 255, 0.13);
+  --f-line:     rgba(176, 107, 255, 0.16);
 }
 
 .mfoot {
   position: relative;
+  isolation: isolate;
   overflow: hidden;
-  border-top: 1px solid var(--aur-line);
-  background: linear-gradient(180deg, transparent, color-mix(in srgb, var(--aur-void) 70%, transparent));
-}
-
-// Soft aurora glow rising from the base — washes, not a neon orb.
-.mfoot-glow {
-  position: absolute;
-  left: 50%;
-  bottom: -180px;
-  width: 760px;
-  height: 360px;
-  max-width: 130vw;
-  transform: translateX(-50%);
   background:
-    radial-gradient(ellipse 60% 100% at 38% 50%, rgba(99, 102, 241, 0.22), transparent 70%),
-    radial-gradient(ellipse 50% 100% at 62% 60%, rgba(168, 85, 247, 0.18), transparent 72%),
-    radial-gradient(ellipse 44% 90% at 80% 70%, rgba(45, 212, 191, 0.14), transparent 70%);
-  filter: blur(70px);
-  pointer-events: none;
-  z-index: 0;
+    radial-gradient(140% 120% at 18% 0%, rgba(109, 91, 240, 0.13), transparent 58%),
+    radial-gradient(120% 120% at 92% 8%, rgba(52, 227, 232, 0.06), transparent 56%),
+    var(--f-recessed);
+  padding: clamp(3.5rem, 8vw, 6.5rem) clamp(1.25rem, 4vw, 3rem) 0;
 }
 
-.mfoot-inner {
+/* the top edge: a hairline that brightens to an aurora tint at centre — the
+   page's last divider, matching the landing's section rules */
+.mfoot-topline {
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 1px;
+  pointer-events: none;
+  background: linear-gradient(90deg,
+    transparent 0%, var(--f-hair) 22%,
+    rgba(176, 107, 255, 0.34) 50%, var(--f-hair) 78%, transparent 100%);
+}
+
+/* grain film — same noise, same low opacity, so glows read as light */
+.mfoot-grain {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0.045;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='fn'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.82' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23fn)'/%3E%3C/svg%3E");
+  background-size: 180px 180px;
+}
+
+.mfoot-shell {
   position: relative;
   z-index: 1;
-  max-width: 1280px;
+  max-width: 1140px;
   margin: 0 auto;
-  padding: clamp(48px, 6vw, 80px) clamp(16px, 4vw, 40px) 36px;
+}
+
+/* ── ZONE 1 · BRAND-GRID ──────────────────────────────────────────────────
+   Brand block on the left, three link columns on the right. The grid is the
+   structural fix: the brand is anchored, the columns are squared to it. */
+.mfoot-grid {
   display: grid;
-  grid-template-columns: 1.4fr 1fr;
-  gap: 48px;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1.4fr);
+  gap: clamp(2.5rem, 6vw, 5rem);
+  padding-bottom: clamp(2.6rem, 5vw, 3.6rem);
 }
 
+/* the brand block — the core at rest under a single faint horizon arc */
 .mfoot-brand {
-  .brand {
-    display: inline-flex;
-    align-items: center;
-    gap: 10px;
-    text-decoration: none;
-    span {
-      font-family: 'Inter', system-ui, sans-serif;
-      font-weight: 600;
-      font-size: 17px;
-      letter-spacing: -0.02em;
-      color: var(--aur-ink);
-    }
-    &:focus-visible {
-      outline: 2px solid var(--aur-c);
-      outline-offset: 4px;
-      border-radius: 8px;
-    }
-  }
-  .tag {
-    margin: 18px 0 22px;
-    max-width: 46ch;
-    color: var(--aur-ink-dim);
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.85rem;
+}
+/* one faint orbit arc, behind the mark, top-left — the hero's ring "landed".
+   A single ring (not the old lopsided pair), clipped so only the arc shows. */
+.mfoot-arc {
+  position: absolute;
+  top: -34px;
+  left: -46px;
+  width: 200px;
+  height: 200px;
+  border-radius: 50%;
+  border: 1px solid var(--f-hair);
+  pointer-events: none;
+  z-index: -1;
+  mask: radial-gradient(circle, transparent 60%, #000 61%);
+  -webkit-mask: radial-gradient(circle, transparent 60%, #000 61%);
+}
+.brand {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  text-decoration: none;
+  .brand-mark { filter: drop-shadow(0 0 16px rgba(176, 107, 255, 0.5)); } /* brightest element */
+  .brand-word {
     font-family: 'Inter', system-ui, sans-serif;
-    font-size: 14.5px;
-    line-height: 1.65;
-    letter-spacing: -0.005em;
+    font-weight: 750;
+    font-size: 21px;
+    letter-spacing: -0.025em;
+    color: var(--f-ink);
   }
-  .gh {
-    @include aur.aurora-pill;
-    padding: 8px 16px;
-    font-size: 13px;
-    font-weight: 450;
+  &:focus-visible { outline: 2px solid var(--f-cyan); outline-offset: 4px; border-radius: 10px; }
+}
+.mfoot-tag {
+  margin: 0;
+  color: var(--f-muted);
+  font-family: 'Inter', system-ui, sans-serif;
+  font-size: 15px;
+  letter-spacing: -0.01em;
+}
+/* a quiet (not loud) sign-in pill — the footer's one affordance */
+.mfoot-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin-top: 0.45rem;
+  padding: 0.6rem 1.1rem;
+  border-radius: 999px;
+  border: 1px solid var(--f-line);
+  background: rgba(18, 14, 43, 0.5);
+  color: var(--f-ink);
+  font-family: 'Inter', system-ui, sans-serif;
+  font-weight: 600;
+  font-size: 14px;
+  text-decoration: none;
+  transition: border-color 0.22s var(--aur-ease), background 0.22s var(--aur-ease), transform 0.22s var(--aur-ease);
+  span { transition: transform 0.22s var(--aur-ease); }
+  &:hover {
+    border-color: rgba(176, 107, 255, 0.5);
+    background: rgba(28, 20, 58, 0.65);
+    transform: translateY(-1px);
   }
+  &:hover span { transform: translateX(3px); }
+  &:focus-visible { outline: 2px solid var(--f-cyan); outline-offset: 3px; }
+}
+.mfoot-note {
+  margin: 0.4rem 0 0;
+  color: var(--f-faint);
+  font-family: 'Inter', system-ui, sans-serif;
+  font-size: 12.5px;
+  letter-spacing: -0.005em;
 }
 
+/* the link columns — clean, uniform, three across */
 .mfoot-cols {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 32px;
+  grid-template-columns: repeat(3, 1fr);
+  gap: clamp(1.5rem, 3vw, 2.6rem);
 }
-
 .mfoot-col {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 0.65rem;
+
   h3 {
-    margin: 0 0 6px;
+    margin: 0 0 0.45rem;
     font-family: 'JetBrains Mono', ui-monospace, monospace;
-    font-size: 11.5px;
+    font-size: 11px;
     font-weight: 500;
-    letter-spacing: 0.18em;
+    letter-spacing: 0.2em;
     text-transform: uppercase;
-    color: var(--aur-ink-faint);
+    color: var(--f-violet); /* headers at the saturated tier */
   }
   a {
     font-family: 'Inter', system-ui, sans-serif;
-    font-size: 14px;
-    color: var(--aur-ink-dim);
+    font-size: 14.5px;
+    color: var(--f-muted);
     text-decoration: none;
-    transition: color 180ms var(--aur-ease);
     width: fit-content;
-    &:hover { color: var(--aur-ink); }
-    &:focus-visible {
-      outline: 2px solid var(--aur-c);
-      outline-offset: 2px;
-      border-radius: 4px;
-    }
+    transition: color 180ms var(--aur-ease);
+    &:hover { color: var(--f-ink); }
+    &:focus-visible { outline: 2px solid var(--f-cyan); outline-offset: 2px; border-radius: 4px; }
   }
 }
+/* the "Built with" stack — a tidy chip list, not a column of dead text */
+.mfoot-stack {
+  list-style: none;
+  margin: 0 0 0.2rem;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  li {
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 12px;
+    letter-spacing: -0.01em;
+    color: var(--f-muted);
+    padding: 0.28rem 0.6rem;
+    border-radius: 7px;
+    border: 1px solid var(--f-hair);
+    background: rgba(18, 14, 43, 0.45);
+  }
+}
+.mfoot-repo {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-top: 0.25rem;
+  color: var(--f-cyan); /* the one cyan accent in the columns */
+  font-family: 'Inter', system-ui, sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+  width: fit-content;
+  span { transition: transform 0.22s var(--aur-ease); }
+  &:hover span { transform: translate(2px, -2px); }
+  &:focus-visible { outline: 2px solid var(--f-cyan); outline-offset: 2px; border-radius: 4px; }
+}
 
+/* ── ZONE 2 · BASELINE STRIP ─────────────────────────────────────────────── */
 .mfoot-base {
-  position: relative;
-  z-index: 1;
-  max-width: 1280px;
-  margin: 0 auto;
-  padding: 18px clamp(16px, 4vw, 40px);
-  border-top: 1px solid var(--aur-line);
+  padding: 1.2rem 0 1.5rem;
+  border-top: 1px solid var(--f-hair);
   display: flex;
   justify-content: space-between;
-  gap: 12px;
+  align-items: center;
+  gap: 0.8rem;
   flex-wrap: wrap;
   font-family: 'Inter', system-ui, sans-serif;
   font-size: 12.5px;
-  color: var(--aur-ink-faint);
-  .mfoot-stack {
-    font-family: 'JetBrains Mono', ui-monospace, monospace;
-    letter-spacing: 0.04em;
-  }
+  color: var(--f-faint);
+
+  a { color: inherit; text-decoration: none; transition: color 180ms var(--aur-ease); &:hover { color: var(--f-muted); } }
+  .mfoot-sep { opacity: 0.4; }
+}
+.mfoot-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.mfoot-meta {
+  color: var(--f-muted);
 }
 
-@media (max-width: 720px) {
-  .mfoot-inner { grid-template-columns: 1fr; gap: 36px; }
+/* ── RESPONSIVE ──────────────────────────────────────────────────────────── */
+@media (max-width: 860px) {
+  /* brand stacks above the columns; columns stay 3-across as long as they fit */
+  .mfoot-grid { grid-template-columns: 1fr; gap: 2.8rem; }
 }
-
 @media (max-width: 560px) {
-  /* Roomier tap targets for the footer nav links on phones. */
-  .mfoot-col { gap: 4px; }
-  .mfoot-col a { display: inline-flex; align-items: center; min-height: 40px; }
-  /* Base line wraps onto two centered rows rather than splitting awkwardly. */
-  .mfoot-base { justify-content: center; text-align: center; }
+  .mfoot-cols { grid-template-columns: 1fr 1fr; gap: 1.8rem 1.2rem; }
+  .mfoot-col a { min-height: 32px; display: inline-flex; align-items: center; }
+  .mfoot-base { justify-content: flex-start; }
+}
+@media (max-width: 430px) {
+  /* 390–430px phones (iPhone 12–15, Pixel) get a clean single-column link
+     stack instead of a cramped 2-up. */
+  .mfoot-cols { grid-template-columns: 1fr; }
+}
+
+/* ── REDUCED MOTION ──────────────────────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  .mfoot-cta:hover, .mfoot-cta:hover span,
+  .mfoot-repo:hover span { transform: none; }
 }

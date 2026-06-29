@@ -65,6 +65,10 @@ export class Login {
   /** Forwarded to /signin so a deep-linked guard redirect survives the marketing detour. */
   readonly returnUrl = signal<string | null>(null);
 
+  /** The mid-page display line — a typographic palate-cleanser between the agentic
+   *  and platform grounds. Pulled out of the builder paragraph so it gets its own breath. */
+  readonly quote = 'The best résumé is a running product.';
+
   /** The six life-domains orbiting the OS core — the breadth payload.
    *  Rendered both as the hero orbit satellites and the Life Modules constellation. */
   readonly domains: Domain[] = [

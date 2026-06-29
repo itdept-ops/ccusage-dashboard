@@ -1,24 +1,70 @@
 /* ════════════════════════════════════════════════════════════════════════════
    USAGE IQ — landing ("Your whole life, in orbit")
-   A DESIGNED ART WORLD: a glowing OS core with the user's life-domains orbiting
-   it on a nebula backdrop. Illustrated, glyph-led sections — NOT glass panels.
+   A DESIGNED ART WORLD, elevated to world-class craft: a glowing OS core with
+   the user's life-domains orbiting it on a nebula backdrop. Illustrated,
+   glyph-led, authored rhythm — NOT a stack of glass panels.
+
+   COHESION RULEBOOK (the 7 rules this file encodes):
+     1 · Luminance over weight — a strict glow ladder; the core never out-glowed.
+     2 · One accent per moment — violet is the brand glow; cyan fires ONCE per view.
+     3 · One gradient phrase per heading — `.grad` scarcity is the signature.
+     4 · Depth from hairlines + vignette, never drop-shadow blobs.
+     5 · Grain over everything — a single noise film above every dark ground.
+     6 · The core motif recurs at three scales (hero → diagram → small core).
+     7 · Authored rhythm — alternate width (narrow↔content↔wide↔bleed) and
+         ground (lit↔recessed); never repeat a skeleton adjacently.
 
    SCOPING: every token below is a local `--lx-*` var declared on `:host`. This
-   page NEVER reads or writes the app's `--tech-*` design tokens, so the aurora /
-   nebula art can never leak into the app shell.
+   page NEVER reads or writes the app's `--tech-*` design tokens, so the nebula
+   art can never leak into the app shell.
    ════════════════════════════════════════════════════════════════════════════ */
 
 :host {
-  /* palette */
-  --lx-bg:      #0a0818;
-  --lx-bg-2:    #070512;
-  --lx-panel:   #120e2b;
-  --lx-line:    rgba(176, 107, 255, 0.18);
-  --lx-ink:     #ede9ff;
-  --lx-muted:   #a99fd6;
-  --lx-indigo:  #6d5bf0;
-  --lx-violet:  #b06bff;
-  --lx-cyan:    #34e3e8;
+  /* ── palette ──────────────────────────────────────────────────────────── */
+  --lx-bg:        #0a0818;
+  --lx-bg-2:      #070512;
+  --lx-recessed:  #050410; /* the recessed ground (stats + footer wells) */
+  --lx-panel:     #120e2b;
+  --lx-surface-1: rgba(20, 16, 46, 0.55); /* inset card fill */
+  --lx-line:      rgba(176, 107, 255, 0.16);
+  --lx-hair:      rgba(176, 107, 255, 0.14); /* the 14% rung — rings/dividers */
+  --lx-ink:       #ede9ff;
+  --lx-muted:     #a99fd6;
+  --lx-indigo:    #6d5bf0;
+  --lx-indigo-2:  #8d79ff; /* lifted indigo for icon ink (AA on dark) */
+  --lx-violet:    #b06bff;
+  --lx-cyan:      #34e3e8;
+
+  /* ── luminance ladder (rule 1) — opacity tiers, not weights ──────────── */
+  --lum-core:  1;
+  --lum-head:  0.92;
+  --lum-sat:   0.60;
+  --lum-body:  0.46;
+  --lum-hair:  0.14;
+
+  /* ── gradients ───────────────────────────────────────────────────────── */
+  --grad-text: linear-gradient(100deg, var(--lx-indigo) 0%, var(--lx-violet) 52%, var(--lx-cyan) 100%);
+  --grad-cta:  linear-gradient(100deg, var(--lx-indigo), var(--lx-violet) 60%, #8a55ff);
+
+  /* ── measure / widths (rule 7) ───────────────────────────────────────── */
+  --w-narrow:  720px;
+  --w-content: 1140px;
+  --w-bleed:   100%;
+
+  /* ── spacing scale ───────────────────────────────────────────────────── */
+  --s-1: 0.5rem;
+  --s-2: 0.85rem;
+  --s-3: 1.2rem;
+  --pad-tight: clamp(2rem, 4vw, 3rem);   /* couple related blocks */
+  --pad-major: clamp(4.5rem, 10vw, 9rem); /* separate archetypes */
+
+  /* ── type scale ──────────────────────────────────────────────────────── */
+  --fs-eyebrow: 0.74rem;
+  --fs-body-sm: 0.85rem;
+  --fs-stat:    clamp(2.6rem, 6vw, 4rem);
+  --fs-numeral: clamp(3.4rem, 8vw, 6rem);
+
+  --radius-lg: 24px;
 
   display: block;
   position: relative;
@@ -28,12 +74,21 @@
   mat-icon { width: 1em; height: 1em; font-size: 1.1em; line-height: 1; }
 }
 
-/* generic helpers ---------------------------------------------------------- */
+/* ── generic helpers ──────────────────────────────────────────────────────── */
 .grad {
-  background: linear-gradient(100deg, var(--lx-indigo) 0%, var(--lx-violet) 52%, var(--lx-cyan) 100%);
+  background: var(--grad-text);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
+}
+
+/* Shared focus-visible ring for every interactive landing element — a single
+   cyan ring at a consistent offset (a11y craft: nothing focuses invisibly). */
+.landing a:focus-visible,
+.landing button:focus-visible {
+  outline: 2px solid var(--lx-cyan);
+  outline-offset: 3px;
+  border-radius: 8px;
 }
 
 .landing {
@@ -44,6 +99,21 @@
     radial-gradient(120% 90% at 82% -8%, rgba(176, 107, 255, 0.14), transparent 60%),
     radial-gradient(110% 80% at 8% 108%, rgba(52, 227, 232, 0.10), transparent 58%),
     linear-gradient(165deg, var(--lx-bg) 0%, var(--lx-bg-2) 100%);
+}
+
+/* ── GRAIN (rule 5): one noise film above the nebula, on every dark ground ──
+   A single fixed SVG feTurbulence layer (~4% opacity, overlay) so every glow
+   reads like real light through atmosphere. pointer-events:none, decorative. */
+.landing::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0.045;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.82' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size: 180px 180px;
 }
 
 /* ── nebula backdrop ──────────────────────────────────────────────────────── */
@@ -97,49 +167,66 @@
 @keyframes drift-b { 50% { transform: translate3d(4%, -3%, 0) scale(1.06); } }
 @keyframes twinkle { 0%, 100% { opacity: 0.45; } 50% { opacity: 0.8; } }
 
-/* ── shared section layout ────────────────────────────────────────────────── */
+/* ── shared section layout (rule 7: width is authored per-section) ──────────── */
 .landing section {
   position: relative;
   z-index: 1;
-  max-width: 1140px;
+  max-width: var(--w-content);
   margin: 0 auto;
-  padding: clamp(3.5rem, 8vw, 7rem) clamp(1.25rem, 5vw, 3rem);
+  padding: var(--pad-major) clamp(1.25rem, 5vw, 3rem);
 }
+/* width modifiers */
+.landing section.is-narrow { max-width: var(--w-narrow); }
+
+/* couple related blocks with the tight pad — the proof strip hugs the hero,
+   the stat band hugs the modules, the quote hugs the builder. */
+.hero-proof   { padding-top: 0; padding-bottom: var(--pad-tight); }
+.domains-section { padding-bottom: var(--pad-tight); }
 
 .section-head {
   max-width: 720px;
-  margin: 0 auto clamp(2rem, 5vw, 3.4rem);
+  margin: 0 auto clamp(2.4rem, 5vw, 3.8rem);
   text-align: center;
 
   h2 {
     margin: 0.7rem 0 0;
-    font-size: clamp(1.8rem, 4.4vw, 2.7rem);
+    font-size: clamp(1.9rem, 4.6vw, 2.9rem);
     font-weight: 800;
-    letter-spacing: -0.02em;
-    line-height: 1.08;
+    letter-spacing: -0.025em;
+    line-height: 1.06;
+    text-wrap: balance;
+    color: color-mix(in srgb, var(--lx-ink) calc(var(--lum-head) * 100%), transparent);
+    .grad { filter: drop-shadow(0 0 18px rgba(176, 107, 255, 0.3)); }
   }
   p {
-    margin: 0.9rem auto 0;
+    margin: 1rem auto 0;
     max-width: 600px;
     color: var(--lx-muted);
     font-size: clamp(1rem, 1.6vw, 1.12rem);
-    line-height: 1.6;
+    line-height: 1.62;
+    text-wrap: pretty;
   }
 }
 
+/* ONE eyebrow archetype across nav, landing sections, and footer: a JetBrains
+   Mono kicker (uppercase, 0.2em tracked) matching the Aurora/footer header
+   language — the agent numerals already speak mono, so the page reads as one
+   kicker voice. The orbital dot is kept but demoted to violet (cyan scarcity:
+   the dot appears on every section head, so cyan there would dilute its focus). */
 .section-eyebrow {
   display: inline-flex;
   align-items: center;
-  gap: 0.5rem;
-  font-size: 0.74rem;
-  font-weight: 600;
-  letter-spacing: 0.14em;
+  gap: 0.55rem;
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: var(--fs-eyebrow);
+  font-weight: 500;
+  letter-spacing: 0.2em;
   text-transform: uppercase;
   color: var(--lx-violet);
   .se-dot {
     width: 6px; height: 6px; border-radius: 50%;
-    background: var(--lx-cyan);
-    box-shadow: 0 0 10px 1px var(--lx-cyan);
+    background: var(--lx-violet);
+    box-shadow: 0 0 10px 1px color-mix(in srgb, var(--lx-violet) 70%, transparent);
   }
 }
 
@@ -151,14 +238,15 @@
   overflow: visible;
 }
 
-/* ════════════════════════════ 1 · HERO ════════════════════════════════════ */
+/* ════════════════════════════ 1 · HERO — orbital stage ════════════════════ */
 .hero {
   display: grid;
   grid-template-columns: 1.05fr 0.95fr;
   align-items: center;
   gap: clamp(2rem, 5vw, 4rem);
-  padding-top: clamp(5rem, 11vw, 8.5rem);
-  min-height: min(86vh, 760px);
+  padding-top: clamp(5.5rem, 12vw, 9rem);
+  padding-bottom: var(--pad-tight);
+  min-height: min(88vh, 800px);
 }
 
 .eyebrow {
@@ -190,15 +278,21 @@
 
 .hero-title {
   margin: 1.4rem 0 0;
-  font-size: clamp(2.6rem, 7vw, 4.6rem);
+  font-size: clamp(2.7rem, 7.2vw, 4.8rem);
   font-weight: 850;
-  line-height: 1.02;
-  letter-spacing: -0.035em;
+  line-height: 1.0;
+  letter-spacing: -0.038em;
+  color: color-mix(in srgb, var(--lx-ink) calc(var(--lum-head) * 100%), transparent);
+  text-wrap: balance;
+
+  /* the brand promise reads as LIGHT — a soft violet bloom under the gradient
+     phrase (rule 1: luminance). Filter glows the clipped text without a halo box. */
+  .grad { filter: drop-shadow(0 0 22px rgba(176, 107, 255, 0.35)); }
 }
 
 .hero-sub {
-  margin: 1.3rem 0 0;
-  max-width: 33ch;
+  margin: 1.4rem 0 0;
+  max-width: 34ch;
   color: var(--lx-muted);
   font-size: clamp(1.05rem, 1.9vw, 1.28rem);
   line-height: 1.55;
@@ -209,7 +303,7 @@
   display: flex;
   flex-wrap: wrap;
   gap: 0.85rem;
-  margin-top: 2rem;
+  margin-top: 2.1rem;
 }
 
 /* primary gradient pill — Google sign-in */
@@ -218,16 +312,19 @@
   display: inline-flex;
   align-items: center;
   gap: 0.6rem;
-  padding: 0.85rem 1.5rem;
+  padding: 0.9rem 1.55rem;
   border-radius: 999px;
   overflow: hidden;
   font-weight: 650;
   font-size: 1rem;
   color: #fff;
   text-decoration: none;
-  background: linear-gradient(100deg, var(--lx-indigo), var(--lx-violet) 60%, #8a55ff);
-  box-shadow: 0 10px 30px -8px rgba(141, 91, 255, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.22);
-  transition: transform 0.22s, box-shadow 0.22s;
+  background: var(--grad-cta);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.24),
+    0 14px 38px -16px rgba(120, 87, 242, 0.7); /* the primary CTA carries the most lift */
+  transition: transform 0.22s, border-color 0.22s, box-shadow 0.22s;
 
   .cta-shine {
     position: absolute; inset: 0;
@@ -238,7 +335,10 @@
   .cta-arrow { transition: transform 0.22s; }
   &:hover {
     transform: translateY(-2px);
-    box-shadow: 0 16px 40px -8px rgba(141, 91, 255, 0.75), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+    border-color: rgba(255, 255, 255, 0.24);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.3),
+      0 20px 46px -16px rgba(168, 85, 247, 0.8);
   }
   &:hover .cta-shine { transform: translateX(120%); }
   &:hover .cta-arrow { transform: translateX(3px); }
@@ -248,7 +348,7 @@
   display: inline-flex;
   align-items: center;
   gap: 0.4rem;
-  padding: 0.85rem 1.35rem;
+  padding: 0.9rem 1.35rem;
   border: 1px solid var(--lx-line);
   border-radius: 999px;
   background: rgba(18, 14, 43, 0.5);
@@ -270,16 +370,16 @@
   display: inline-flex;
   align-items: center;
   gap: 0.4rem;
-  margin: 1.3rem 0 0;
+  margin: 1.4rem 0 0;
   color: var(--lx-muted);
   font-size: 0.85rem;
   &.center { justify-content: center; }
   mat-icon { color: var(--lx-violet); font-size: 1rem; }
 }
 
-/* ── THE ORBITAL STAGE ────────────────────────────────────────────────────── */
+/* ── THE ORBITAL STAGE (motif scale 1 of 3: full stage) ────────────────────── */
 .stage {
-  --stage: 380px;
+  --stage: 400px;
   position: relative;
   width: var(--stage);
   height: var(--stage);
@@ -302,17 +402,17 @@
   background: radial-gradient(circle, rgba(52, 227, 232, 0.28), transparent 64%);
 }
 
-/* concentric orbit rings */
+/* concentric orbit rings — the 14% hairline rung */
 .ring {
   position: absolute;
   top: 50%; left: 50%;
-  border: 1px solid rgba(176, 107, 255, 0.18);
+  border: 1px solid var(--lx-hair);
   border-radius: 50%;
   transform: translate(-50%, -50%);
 }
-.ring-1 { width: 170px; height: 170px; }
-.ring-2 { width: 262px; height: 262px; border-color: rgba(176, 107, 255, 0.14); }
-.ring-3 { width: 356px; height: 356px; border-color: rgba(52, 227, 232, 0.13); }
+.ring-1 { width: 178px; height: 178px; }
+.ring-2 { width: 276px; height: 276px; border-color: rgba(176, 107, 255, 0.11); }
+.ring-3 { width: 376px; height: 376px; border-color: rgba(52, 227, 232, 0.11); }
 
 /* rotating orbit layers, each centered, carrying 2 satellites on opposite sides */
 .orbit {
@@ -321,9 +421,9 @@
   border-radius: 50%;
   will-change: transform;
 }
-.orbit-1 { width: 170px; height: 170px; animation: spin 26s linear infinite; }
-.orbit-2 { width: 262px; height: 262px; animation: spin 40s linear infinite reverse; }
-.orbit-3 { width: 356px; height: 356px; animation: spin 58s linear infinite; }
+.orbit-1 { width: 178px; height: 178px; animation: spin 26s linear infinite; }
+.orbit-2 { width: 276px; height: 276px; animation: spin 40s linear infinite reverse; }
+.orbit-3 { width: 376px; height: 376px; animation: spin 58s linear infinite; }
 
 .sat {
   position: absolute;
@@ -334,9 +434,9 @@
 /* place the 2 satellites at the top + bottom of their orbit */
 .sat-a { transform: translateY(calc(var(--orad) * -1)); }
 .sat-b { transform: translateY(var(--orad)); }
-.orbit-1 .sat { --orad: 85px; }
-.orbit-2 .sat { --orad: 131px; }
-.orbit-3 .sat { --orad: 178px; }
+.orbit-1 .sat { --orad: 89px; }
+.orbit-2 .sat { --orad: 138px; }
+.orbit-3 .sat { --orad: 188px; }
 
 /* counter-rotate so the glyph chip stays upright while the orbit spins */
 .sat-spin {
@@ -346,7 +446,7 @@
   border-radius: 13px;
   background: linear-gradient(160deg, rgba(34, 26, 77, 0.95), rgba(12, 10, 36, 0.95));
   border: 1px solid rgba(176, 107, 255, 0.32);
-  box-shadow: 0 8px 22px -6px rgba(0, 0, 0, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
   will-change: transform;
 }
 .orbit-1 .sat-spin { animation: spin-c 26s linear infinite reverse; }
@@ -355,15 +455,16 @@
 
 .sat-spin .dglyph { width: 22px; height: 22px; }
 
+/* rule 2: only ONE satellite fires cyan; the rest are violet/indigo support */
 .sat[data-accent='cyan']   .sat-spin { color: var(--lx-cyan);   border-color: rgba(52, 227, 232, 0.45); }
 .sat[data-accent='violet'] .sat-spin { color: var(--lx-violet); border-color: rgba(176, 107, 255, 0.5); }
-.sat[data-accent='indigo'] .sat-spin { color: #9d8bff;          border-color: rgba(109, 91, 240, 0.5); }
+.sat[data-accent='indigo'] .sat-spin { color: var(--lx-indigo-2); border-color: rgba(109, 91, 240, 0.5); }
 
-/* the OS core */
+/* the OS core — the single brightest point (rule 1) */
 .core {
   position: absolute;
   top: 50%; left: 50%;
-  width: 84px; height: 84px;
+  width: 88px; height: 88px;
   transform: translate(-50%, -50%);
 }
 .core-orb {
@@ -371,15 +472,15 @@
   border-radius: 50%;
   background: radial-gradient(circle at 50% 38%, #fbf3ff 0%, #c391ff 38%, #7857f2 70%, #3f2bb0 100%);
   box-shadow:
-    0 0 30px 6px rgba(176, 107, 255, 0.55),
-    0 0 70px 18px rgba(120, 87, 242, 0.4),
+    0 0 34px 6px rgba(176, 107, 255, 0.55),
+    0 0 80px 20px rgba(120, 87, 242, 0.4),
     inset 0 2px 6px rgba(255, 255, 255, 0.5);
 }
 .core-pulse {
   position: absolute;
   top: 50%; left: 50%;
-  width: 84px; height: 84px;
-  margin: -42px 0 0 -42px;
+  width: 88px; height: 88px;
+  margin: -44px 0 0 -44px;
   border-radius: 50%;
   border: 1.5px solid rgba(176, 107, 255, 0.5);
   animation: core-pulse 3.6s ease-out infinite;
@@ -387,36 +488,37 @@
 
 /* the orbit layers keep the centering transform; only ROTATE is animated */
 @keyframes spin { from { transform: translate(-50%, -50%) rotate(0); } to { transform: translate(-50%, -50%) rotate(360deg); } }
-/* satellite counter-rotation (no centering offset — sat owns its own transform) */
 @keyframes spin-c { from { transform: rotate(0); } to { transform: rotate(-360deg); } }
 @keyframes core-pulse {
   0%   { transform: scale(0.7); opacity: 0.8; }
   100% { transform: scale(2.1); opacity: 0; }
 }
 
-/* ── live proof strip ─────────────────────────────────────────────────────── */
-.hero-proof {
-  padding-top: 0;
-  padding-bottom: clamp(2rem, 5vw, 3.5rem);
-}
-
-/* ════════════════════════════ 2 · LIFE MODULES ════════════════════════════ */
+/* ════════════════════════════ 2 · LIFE MODULES — bento ════════════════════
+   An asymmetric bento, not an even 3×2. The first module spans wide (the
+   anchor); the rest tile around it. No two adjacent cells share a size. */
 .domains {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: clamp(1.1rem, 2.5vw, 1.8rem);
+  grid-template-columns: repeat(6, 1fr);
+  grid-auto-rows: 1fr;
+  gap: clamp(0.9rem, 2vw, 1.4rem);
 }
 .domain {
   position: relative;
-  padding: 1.7rem 1.5rem 1.6rem;
+  display: flex;
+  flex-direction: column;
+  padding: 1.7rem 1.6rem 1.6rem;
   border-radius: 18px;
   overflow: hidden;
-  /* illustrated, glyph-led — a faint nebula wash, not a glass box */
   background:
     radial-gradient(120% 90% at 18% 0%, rgba(176, 107, 255, 0.07), transparent 60%),
     linear-gradient(170deg, rgba(18, 14, 43, 0.55), rgba(10, 8, 24, 0.35));
   border: 1px solid var(--lx-line);
-  transition: transform 0.3s, border-color 0.3s;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04); /* a fine top-edge highlight */
+  transition: transform 0.3s var(--ease, cubic-bezier(0.2, 0.7, 0.2, 1)), border-color 0.3s, box-shadow 0.3s;
+
+  /* default span: 2 of 6 cols → an even 3-up row */
+  grid-column: span 2;
 
   .domain-glow {
     position: absolute;
@@ -448,120 +550,218 @@
   }
   p { margin: 0; color: var(--lx-muted); font-size: 0.94rem; line-height: 1.55; }
 
-  &:hover { transform: translateY(-4px); border-color: color-mix(in srgb, var(--acc) 55%, transparent); }
+  &:hover {
+    transform: translateY(-4px);
+    border-color: color-mix(in srgb, var(--acc) 55%, transparent);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.06),
+      0 18px 40px -22px color-mix(in srgb, var(--acc) 70%, transparent);
+  }
+  &:hover .domain-glow { opacity: 0.72; }
+  .domain-glow { transition: opacity 0.3s; }
 }
+/* bento weights: the first (Body) and fourth (People) are wide-3, the rest are 3-up.
+   This yields rows of [3,3] [2,2,2] — an asymmetric, authored grid. */
+.domain:nth-child(1) { grid-column: span 3; }
+.domain:nth-child(2) { grid-column: span 3; }
+.domain:nth-child(3) { grid-column: span 2; }
+.domain:nth-child(4) { grid-column: span 2; }
+.domain:nth-child(5) { grid-column: span 2; }
+.domain:nth-child(6) { grid-column: span 6; flex-direction: row; align-items: center; gap: 1.4rem;
+  .domain-icon { flex: 0 0 auto; }
+  h3 { margin: 0 0 0.3rem; }
+  & > div { display: flex; flex-direction: column; }
+}
+
 .domain[data-accent='cyan']   { --acc: var(--lx-cyan); }
 .domain[data-accent='violet'] { --acc: var(--lx-violet); }
-.domain[data-accent='indigo'] { --acc: #8d79ff; }
+.domain[data-accent='indigo'] { --acc: var(--lx-indigo-2); }
 
-/* ── metric band ──────────────────────────────────────────────────────────── */
-.stats {
+/* ════════════════════════ METRIC BAND — full-bleed, recessed ══════════════
+   The page's ONE deliberate full-bleed break (rule 7). Edge-to-edge on a
+   recessed ground, four figures separated by hairlines — no cards. */
+.landing section.stats {
+  max-width: var(--w-bleed);
+  width: 100%;
+  margin: 0;
+  padding: clamp(3rem, 6vw, 4.5rem) clamp(1.25rem, 5vw, 3rem);
+  background:
+    radial-gradient(120% 140% at 50% 50%, rgba(109, 91, 240, 0.12), transparent 70%),
+    var(--lx-recessed);
+  border-top: 1px solid var(--lx-hair);
+  border-bottom: 1px solid var(--lx-hair);
+}
+.stats-inner {
+  max-width: 1000px;
+  margin: 0 auto;
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 1rem;
-  max-width: 980px;
-  padding-top: 0;
-  padding-bottom: clamp(2rem, 5vw, 3.5rem);
 }
 .stat {
   text-align: center;
-  padding: 1.3rem 0.75rem;
-  border-radius: 16px;
-  background: linear-gradient(170deg, rgba(18, 14, 43, 0.5), rgba(10, 8, 24, 0.25));
-  border: 1px solid var(--lx-line);
+  padding: 0.5rem clamp(0.75rem, 2vw, 1.6rem);
+  & + .stat { border-left: 1px solid var(--lx-hair); }
 }
 .stat-value {
   display: block;
-  font-size: clamp(1.8rem, 4vw, 2.6rem);
+  font-size: var(--fs-stat);
   font-weight: 850;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.03em;
   line-height: 1;
+  font-variant-numeric: tabular-nums;
   background: linear-gradient(100deg, var(--lx-violet), var(--lx-cyan));
   -webkit-background-clip: text; background-clip: text; color: transparent;
+  filter: drop-shadow(0 0 20px rgba(120, 87, 242, 0.28));
 }
 .stat-suffix { -webkit-text-fill-color: currentColor; }
 .stat-label {
   display: block;
-  margin-top: 0.5rem;
+  margin-top: 0.7rem;
   color: var(--lx-muted);
-  font-size: 0.82rem;
-  line-height: 1.3;
+  font-size: 0.84rem;
+  line-height: 1.35;
 }
 
-/* ════════════════════════════ 3 · AGENTS ══════════════════════════════════ */
-.agents {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: clamp(1.1rem, 2.5vw, 1.7rem);
-}
-.agent {
+/* ════════════════════════ 3 · AGENTS — numbered alternating rail ══════════
+   An ordered cue→act sequence 01–06, vertical "chess" rail tracing down toward
+   a small core at the foot — dramatizing "act, not track." Oversized mono
+   numerals are the graphic anchors; the wire is the leash between cue and act. */
+.agents-rail {
   position: relative;
-  padding: 1.7rem 1.5rem;
-  border-radius: 18px;
+  max-width: 940px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: clamp(1.6rem, 3.5vw, 2.8rem);
+}
+/* the spine the rail traces down */
+.agents-rail::before {
+  content: '';
+  position: absolute;
+  top: 0; bottom: 64px;
+  left: 50%;
+  width: 1px;
+  transform: translateX(-50%);
+  background: linear-gradient(180deg, transparent, var(--lx-hair) 12%, var(--lx-hair) 88%, transparent);
+}
+.agent-row {
+  position: relative;
+  display: grid;
+  /* [numeral] [wire] [node] [card] — the wire is the leash from numeral to node */
+  grid-template-columns: minmax(0, 1fr) clamp(1rem, 4vw, 3rem) auto minmax(0, 1fr);
+  align-items: center;
+  gap: 0;
+  column-gap: clamp(0.75rem, 2vw, 1.4rem);
+}
+/* alternate sides: even rows mirror the row so the card swaps to the left */
+.agent-row:nth-child(even) { direction: rtl; }
+.agent-row:nth-child(even) > * { direction: ltr; }
+
+/* the big mono numeral — the graphic anchor at --lum-sat */
+.agent-num {
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: var(--fs-numeral);
+  font-weight: 700;
+  line-height: 0.8;
+  letter-spacing: -0.04em;
+  text-align: center;
+  color: color-mix(in srgb, var(--lx-violet) calc(var(--lum-sat) * 100%), transparent);
+  user-select: none;
+}
+/* the node on the spine: glyph chip + the leash */
+.agent-node {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: 56px; height: 56px;
+  border-radius: 15px;
+  /* the six nodes carry the brand VIOLET (not cyan) — cyan is reserved as a
+     scarce focal accent (the one hero satellite, the foot-core spark, the repo
+     link), so six cyan chips at once would flatten the luminance ladder. */
+  color: var(--lx-violet);
+  background: linear-gradient(160deg, rgba(34, 26, 77, 0.95), rgba(10, 8, 24, 0.95));
+  border: 1px solid rgba(176, 107, 255, 0.32);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  .aglyph { width: 26px; height: 26px; }
+}
+.agent-card {
+  padding: 1.2rem 1.4rem;
+  border-radius: 16px;
   background:
     radial-gradient(110% 80% at 80% 0%, rgba(52, 227, 232, 0.06), transparent 60%),
     linear-gradient(170deg, rgba(18, 14, 43, 0.5), rgba(10, 8, 24, 0.3));
   border: 1px solid var(--lx-line);
-  transition: transform 0.3s, border-color 0.3s;
-
-  .agent-icon {
-    display: grid;
-    place-items: center;
-    width: 44px; height: 44px;
-    border-radius: 12px;
-    color: var(--lx-cyan);
-    background: rgba(10, 8, 24, 0.6);
-    border: 1px solid rgba(52, 227, 232, 0.35);
-    box-shadow: 0 0 20px -6px var(--lx-cyan);
-    .aglyph { width: 23px; height: 23px; }
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  transition: transform 0.3s, border-color 0.3s, box-shadow 0.3s;
+  &:hover {
+    transform: translateY(-3px);
+    border-color: rgba(52, 227, 232, 0.38);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 16px 36px -22px rgba(52, 227, 232, 0.4);
   }
-  .agent-text {
-    margin: 1.1rem 0 0;
-    color: var(--lx-muted);
-    font-size: 0.96rem;
-    line-height: 1.55;
-    strong { color: var(--lx-ink); font-weight: 700; }
-  }
-  &:hover { transform: translateY(-4px); border-color: rgba(52, 227, 232, 0.4); }
+  .agent-cue { margin: 0; font-size: 1.02rem; font-weight: 700; color: var(--lx-ink); letter-spacing: -0.01em; }
+  .agent-act { margin: 0.4rem 0 0; color: var(--lx-muted); font-size: 0.94rem; line-height: 1.55; }
 }
-
-/* the cue → act wire */
-.agent-flow {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-  margin-top: 1rem;
-}
-.agent-dot {
-  width: 8px; height: 8px; border-radius: 50%;
-  flex: 0 0 auto;
-  &.cue { background: var(--lx-violet); box-shadow: 0 0 8px var(--lx-violet); }
-  &.act { background: var(--lx-cyan); box-shadow: 0 0 8px var(--lx-cyan); }
-}
+/* the connective leash between numeral side and the node */
 .agent-wire {
   position: relative;
-  flex: 1;
   height: 2px;
   border-radius: 2px;
   background: linear-gradient(90deg, var(--lx-violet), var(--lx-cyan));
-  opacity: 0.55;
+  opacity: 0.5;
   overflow: hidden;
+  align-self: center;
   .agent-pulse {
     position: absolute; top: 0; left: 0;
     width: 28%; height: 100%;
     background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.85), transparent);
-    animation: wire 2.6s ease-in-out infinite;
+    animation: wire 2.8s ease-in-out infinite;
+    animation-delay: calc(var(--d, 0) * 240ms);
   }
 }
 @keyframes wire { 0% { transform: translateX(-120%); } 60%, 100% { transform: translateX(420%); } }
 
+/* the small core at the rail's foot — the descent target (motif scale 3) */
+.rail-foot {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.1rem;
+  margin-top: 0.6rem;
+}
+.rail-core {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 64px; height: 64px;
+  .rc-orb {
+    width: 40px; height: 40px; border-radius: 50%;
+    background: radial-gradient(circle at 50% 38%, #fbf3ff, #c391ff 40%, #7857f2 72%, #3f2bb0);
+    box-shadow: 0 0 24px 5px rgba(176, 107, 255, 0.5);
+  }
+  .rc-ring {
+    position: absolute; inset: 0;
+    border-radius: 50%;
+    border: 1px solid var(--lx-hair);
+    animation: spin-slow 22s linear infinite;
+  }
+  .rc-ring::before {
+    content: ''; position: absolute; top: -3px; left: 50%;
+    width: 6px; height: 6px; margin-left: -3px;
+    border-radius: 50%; background: var(--lx-cyan);
+    box-shadow: 0 0 8px var(--lx-cyan);
+  }
+}
+/* the footnote that resolves the sequence */
 .agents-leash {
   display: flex;
   align-items: center;
   gap: 0.55rem;
   justify-content: center;
-  max-width: 760px;
-  margin: clamp(1.8rem, 4vw, 2.6rem) auto 0;
+  max-width: 700px;
+  margin: 0 auto;
   padding: 0.9rem 1.3rem;
   border: 1px solid var(--lx-line);
   border-radius: 999px;
@@ -573,40 +773,100 @@
   mat-icon { color: var(--lx-cyan); flex: 0 0 auto; font-size: 1.15rem; }
 }
 
-/* ════════════════════════════ 4 · ONE PLATFORM ════════════════════════════ */
-.proofs {
+/* ════════════════════════ 4 · ONE PLATFORM — chess 2-up ══════════════════
+   Alternating: a mid-scale orbit diagram (motif scale 2) on one side, the 4
+   proof points stacked as a compact list on the other; the open-source line
+   anchors beneath. */
+.platform-grid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: clamp(1.1rem, 2.5vw, 1.7rem);
+  grid-template-columns: 0.9fr 1.1fr;
+  align-items: center;
+  gap: clamp(2rem, 6vw, 5rem);
+}
+/* the mid-scale orbit diagram (motif scale 2 of 3) */
+.platform-diagram {
+  --pd: 320px;
+  position: relative;
+  width: var(--pd);
+  height: var(--pd);
+  margin: 0 auto;
+  justify-self: center;
+  .pd-glow {
+    position: absolute; inset: 14%;
+    border-radius: 50%; filter: blur(46px);
+    background: radial-gradient(circle, rgba(176, 107, 255, 0.34), transparent 66%);
+  }
+  .pd-ring {
+    position: absolute; top: 50%; left: 50%;
+    border: 1px solid var(--lx-hair); border-radius: 50%;
+    transform: translate(-50%, -50%);
+  }
+  .pd-ring.r1 { width: 150px; height: 150px; }
+  .pd-ring.r2 { width: 240px; height: 240px; border-color: rgba(52, 227, 232, 0.12); }
+  .pd-spin {
+    position: absolute; top: 50%; left: 50%;
+    width: 240px; height: 240px; border-radius: 50%;
+    transform: translate(-50%, -50%);
+    animation: spin 48s linear infinite;
+  }
+  .pd-node {
+    position: absolute; top: 50%; left: 50%;
+    width: 12px; height: 12px; margin: -6px 0 0 -6px;
+    border-radius: 50%;
+    background: var(--lx-violet);
+    box-shadow: 0 0 12px 1px var(--lx-violet);
+  }
+  .pd-node.n2 { background: var(--lx-cyan); box-shadow: 0 0 12px 1px var(--lx-cyan); } /* the one cyan */
+  .pd-node.n3 { background: var(--lx-indigo-2); box-shadow: 0 0 10px 1px var(--lx-indigo-2); }
+  .pd-node.n4 { background: var(--lx-violet); box-shadow: 0 0 10px 1px var(--lx-violet); }
+  /* place the 4 nodes around the 240px ring (rad 120) */
+  .pd-node.n1 { transform: translateY(-120px); }
+  .pd-node.n2 { transform: translateX(120px); }
+  .pd-node.n3 { transform: translateY(120px); }
+  .pd-node.n4 { transform: translateX(-120px); }
+  .pd-core {
+    position: absolute; top: 50%; left: 50%;
+    width: 70px; height: 70px; margin: -35px 0 0 -35px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 50% 38%, #fbf3ff, #c391ff 40%, #7857f2 72%, #3f2bb0);
+    box-shadow: 0 0 30px 6px rgba(176, 107, 255, 0.5), inset 0 2px 5px rgba(255, 255, 255, 0.45);
+  }
+}
+
+/* the 4 proof points, stacked compactly — not equal cards */
+.proofs {
+  display: flex;
+  flex-direction: column;
 }
 .proof {
   position: relative;
-  padding: 1.8rem 1.7rem;
-  border-radius: 18px;
-  background:
-    radial-gradient(120% 90% at 12% 0%, rgba(109, 91, 240, 0.08), transparent 58%),
-    linear-gradient(170deg, rgba(18, 14, 43, 0.5), rgba(10, 8, 24, 0.3));
-  border: 1px solid var(--lx-line);
-  transition: transform 0.3s, border-color 0.3s;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 1.1rem;
+  padding: 1.3rem 0;
+  & + .proof { border-top: 1px solid var(--lx-hair); }
 
   .proof-icon {
     display: grid;
     place-items: center;
-    width: 46px; height: 46px;
-    border-radius: 13px;
+    width: 44px; height: 44px;
+    border-radius: 12px;
     color: var(--lx-violet);
     background: rgba(10, 8, 24, 0.6);
-    border: 1px solid rgba(176, 107, 255, 0.35);
-    box-shadow: 0 0 22px -6px var(--lx-violet);
-    .pglyph { width: 24px; height: 24px; }
+    border: 1px solid rgba(176, 107, 255, 0.32);
+    box-shadow: 0 0 20px -6px var(--lx-violet);
+    .pglyph { width: 23px; height: 23px; }
   }
-  h3 { margin: 1.05rem 0 0.4rem; font-size: 1.18rem; font-weight: 750; }
-  p { margin: 0; color: var(--lx-muted); font-size: 0.95rem; line-height: 1.55; }
-  &:hover { transform: translateY(-4px); border-color: rgba(176, 107, 255, 0.42); }
+  h3 { margin: 0.1rem 0 0.3rem; font-size: 1.08rem; font-weight: 750; letter-spacing: -0.01em; }
+  p { margin: 0; color: var(--lx-muted); font-size: 0.92rem; line-height: 1.5; }
+}
+.platform-head {
+  margin: 0 0 1.4rem;
+  text-align: left;
 }
 .proof-foot {
   max-width: 720px;
-  margin: clamp(1.8rem, 4vw, 2.4rem) auto 0;
+  margin: clamp(2rem, 4vw, 2.8rem) auto 0;
   text-align: center;
   color: var(--lx-muted);
   font-size: 0.92rem;
@@ -614,21 +874,58 @@
   a { color: var(--lx-cyan); text-decoration: none; &:hover { text-decoration: underline; } }
 }
 
-/* ════════════════════════════ 5 · THE BUILDER ═════════════════════════════ */
+/* ════════════════════════ 5 · MID-PAGE QUOTE — display line ════════════════
+   One very large display line, no eyebrow, generous air on both sides. */
+.quote-section {
+  text-align: center;
+}
+.quote-line {
+  margin: 0 auto;
+  max-width: 18ch;
+  font-size: clamp(1.9rem, 5.2vw, 3.4rem);
+  font-weight: 300;
+  line-height: 1.14;
+  letter-spacing: -0.028em;
+  color: color-mix(in srgb, var(--lx-ink) calc(var(--lum-head) * 100%), transparent);
+  em { font-style: normal; }
+}
+
+/* ════════════════════════ 6 · BUILDER — inset card ════════════════════════
+   A single inset card with the small builder-core (motif scale 3) + a Linear
+   traveling-border specular. */
+.builder-section { padding-top: var(--pad-tight); }
 .builder {
   position: relative;
   display: grid;
   grid-template-columns: auto 1fr;
   align-items: center;
   gap: clamp(1.5rem, 4vw, 3rem);
-  padding: clamp(2rem, 5vw, 3rem);
-  border-radius: 24px;
+  padding: clamp(2rem, 5vw, 3.2rem);
+  border-radius: var(--radius-lg);
   overflow: hidden;
   background:
     radial-gradient(90% 120% at 0% 50%, rgba(176, 107, 255, 0.12), transparent 60%),
-    linear-gradient(150deg, rgba(18, 14, 43, 0.7), rgba(10, 8, 24, 0.45));
+    var(--lx-surface-1);
   border: 1px solid var(--lx-line);
 }
+/* Linear traveling-border specular — a conic sheen rotating behind a 1px inset mask */
+.builder::before {
+  content: '';
+  position: absolute; inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: conic-gradient(from var(--ang, 0deg),
+    transparent 0%, transparent 70%,
+    rgba(176, 107, 255, 0.55) 82%, rgba(52, 227, 232, 0.5) 90%, transparent 100%);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+  animation: border-travel 7s linear infinite;
+}
+@property --ang { syntax: '<angle>'; inherits: false; initial-value: 0deg; }
+@keyframes border-travel { to { --ang: 360deg; } }
+
 .builder-core {
   position: relative;
   display: grid;
@@ -644,7 +941,7 @@
   .bc-ring {
     position: absolute; inset: 0;
     border-radius: 50%;
-    border: 1px solid rgba(176, 107, 255, 0.3);
+    border: 1px solid var(--lx-hair);
     animation: spin-slow 24s linear infinite;
   }
   .bc-ring::before {
@@ -678,37 +975,60 @@
   &:hover span { transform: translateX(3px); }
 }
 
-/* ════════════════════════════ 6 · FINAL CTA ═══════════════════════════════ */
-.final-cta { padding-bottom: clamp(4rem, 9vw, 7rem); }
+/* ════════════════════════ 7 · FINAL CTA — centered core, brighter ground ══ */
+.final-cta {
+  padding-bottom: var(--pad-major);
+}
 .cta-card {
   position: relative;
-  max-width: 740px;
+  max-width: 760px;
   margin: 0 auto;
-  padding: clamp(2.5rem, 6vw, 4rem) clamp(1.5rem, 5vw, 3rem);
+  padding: clamp(2.8rem, 6vw, 4.4rem) clamp(1.5rem, 5vw, 3rem);
   text-align: center;
   border-radius: 28px;
   overflow: hidden;
+  /* the brightest-cored ground on the page — the conversion ground */
   background:
-    radial-gradient(110% 130% at 50% -10%, rgba(176, 107, 255, 0.18), transparent 60%),
-    linear-gradient(170deg, rgba(24, 18, 54, 0.75), rgba(10, 8, 24, 0.55));
-  border: 1px solid rgba(176, 107, 255, 0.28);
+    radial-gradient(120% 140% at 50% -12%, rgba(176, 107, 255, 0.26), transparent 62%),
+    radial-gradient(90% 90% at 50% 120%, rgba(52, 227, 232, 0.12), transparent 60%),
+    linear-gradient(170deg, rgba(28, 21, 64, 0.8), rgba(10, 8, 24, 0.6));
+  border: 1px solid rgba(176, 107, 255, 0.32);
+  box-shadow: 0 40px 90px -50px rgba(120, 87, 242, 0.8); /* the conversion ground floats most */
 
-  h2 { margin: 1.2rem 0 0; font-size: clamp(1.7rem, 4.4vw, 2.6rem); font-weight: 820; letter-spacing: -0.02em; line-height: 1.1; }
-  p { margin: 1rem auto 0; max-width: 480px; color: var(--lx-muted); font-size: 1.05rem; line-height: 1.6; }
+  h2 { margin: 1.3rem 0 0; font-size: clamp(1.8rem, 4.6vw, 2.7rem); font-weight: 820; letter-spacing: -0.025em; line-height: 1.08;
+    text-wrap: balance;
+    color: color-mix(in srgb, var(--lx-ink) calc(var(--lum-head) * 100%), transparent); }
+  p { margin: 1rem auto 0; max-width: 480px; color: var(--lx-muted); font-size: 1.05rem; line-height: 1.6; text-wrap: pretty; }
+}
+/* a slow traveling-border specular, echoing the builder card — ties the two
+   "card" archetypes together and makes the conversion ground feel premium. */
+.cta-card::before {
+  content: '';
+  position: absolute; inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: conic-gradient(from var(--ang, 0deg),
+    transparent 0%, transparent 66%,
+    rgba(176, 107, 255, 0.6) 80%, rgba(52, 227, 232, 0.5) 90%, transparent 100%);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+  animation: border-travel 9s linear infinite;
 }
 .cta-core {
   position: relative;
   display: inline-grid;
   place-items: center;
-  width: 76px; height: 76px;
+  width: 84px; height: 84px;
   .cta-core-orb {
-    width: 56px; height: 56px; border-radius: 50%;
+    width: 60px; height: 60px; border-radius: 50%;
     background: radial-gradient(circle at 50% 38%, #fbf3ff, #c391ff 40%, #7857f2 72%, #3f2bb0);
-    box-shadow: 0 0 28px 6px rgba(176, 107, 255, 0.55);
+    box-shadow: 0 0 34px 7px rgba(176, 107, 255, 0.6), inset 0 2px 6px rgba(255, 255, 255, 0.5);
   }
   .cta-core-pulse {
     position: absolute; top: 50%; left: 50%;
-    width: 76px; height: 76px; margin: -38px 0 0 -38px;
+    width: 84px; height: 84px; margin: -42px 0 0 -42px;
     border-radius: 50%;
     border: 1.5px solid rgba(176, 107, 255, 0.5);
     animation: core-pulse 3.6s ease-out infinite;
@@ -720,22 +1040,23 @@
   justify-content: center;
   align-items: center;
   gap: 1rem;
-  margin-top: 1.8rem;
+  margin-top: 1.9rem;
 }
 .cta-pill {
   display: inline-flex;
   align-items: center;
   gap: 0.6rem;
-  padding: 0.9rem 1.7rem;
+  padding: 0.95rem 1.7rem;
   border-radius: 999px;
   font-weight: 650;
   color: #fff;
   text-decoration: none;
-  background: linear-gradient(100deg, var(--lx-indigo), var(--lx-violet) 60%, #8a55ff);
-  box-shadow: 0 12px 34px -8px rgba(141, 91, 255, 0.65), inset 0 1px 0 rgba(255, 255, 255, 0.22);
-  transition: transform 0.22s, box-shadow 0.22s;
+  background: var(--grad-cta);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.24);
+  transition: transform 0.22s, border-color 0.22s;
   span { transition: transform 0.22s; }
-  &:hover { transform: translateY(-2px); box-shadow: 0 18px 44px -8px rgba(141, 91, 255, 0.8); }
+  &:hover { transform: translateY(-2px); border-color: rgba(255, 255, 255, 0.26); }
   &:hover span { transform: translateX(3px); }
 }
 .cta-link {
@@ -754,18 +1075,18 @@
 .g-mark { flex: 0 0 auto; }
 
 /* ════════════════════════════ SCROLL-REVEAL ═══════════════════════════════ */
-/* Content is visible by default. Only when JS arms `.js-reveal` on the host do
-   the opted-in elements (#reveal template refs map to these classes) start
-   hidden + rise; the IntersectionObserver then adds `.in`. */
 :host(.js-reveal) .hero-copy,
 :host(.js-reveal) .stage,
 :host(.js-reveal) .section-head,
 :host(.js-reveal) .domain,
-:host(.js-reveal) .agent,
+:host(.js-reveal) .agent-row,
 :host(.js-reveal) .proof,
-:host(.js-reveal) .stats,
+:host(.js-reveal) .stats-inner,
+:host(.js-reveal) .platform-diagram,
 :host(.js-reveal) .builder,
+:host(.js-reveal) .quote-line,
 :host(.js-reveal) .cta-card,
+:host(.js-reveal) .rail-foot,
 :host(.js-reveal) .agents-leash,
 :host(.js-reveal) .proof-foot,
 :host(.js-reveal) .hero-proof {
@@ -791,29 +1112,79 @@
   .stage { order: 2; }
   .hero-sub { margin-inline: auto; }
   .hero-cta, .eyebrow { justify-content: center; }
-  .proofs { grid-template-columns: 1fr; }
+  /* chess platform stacks: diagram on top, proofs below */
+  .platform-grid { grid-template-columns: 1fr; gap: 2.5rem; }
+  .platform-head { text-align: center; }
 }
 @media (max-width: 760px) {
-  .domains, .agents { grid-template-columns: 1fr 1fr; }
-  .stats { grid-template-columns: repeat(2, 1fr); }
+  /* bento collapses to a clean 2-up; the wide cells go full. #5 spans the full
+     pair so the sequence reads [1,2][3,4][5][6] — no orphan empty cell. */
+  .domains { grid-template-columns: repeat(2, 1fr); }
+  .domain:nth-child(n) { grid-column: span 1; }
+  .domain:nth-child(5) { grid-column: span 2; }
+  .domain:nth-child(6) { grid-column: span 2; }
+  .stats-inner { grid-template-columns: repeat(2, 1fr); gap: 1.6rem 0; }
+  .stat:nth-child(3) { border-left: 0; }
   .builder { grid-template-columns: 1fr; text-align: center; justify-items: center; }
   .builder-links { justify-content: center; }
+
+  /* tablet hero: step the orbital stage down so the centered single-column hero
+     doesn't feel oversized / push the fold (the 920px rule already stacked it). */
+  .stage { --stage: 340px; }
+
+  /* AGENTS RAIL — collapse to a single left-aligned column across the WHOLE
+     tablet band (was 600px, which left a cramped lopsided 4-col grid from
+     ~620–760px). The node sits in a fixed 56px first column whose centre is at
+     28px; the spine pins to 28px so the leash runs through the node centres.
+     The numeral rides next to the node in row 1; the card spans below. */
+  .agents-rail::before { left: 28px; }
+  .agent-row, .agent-row:nth-child(even) { direction: ltr; }
+  .agent-row {
+    grid-template-columns: 56px 1fr;
+    grid-template-areas: 'node num' 'card card';
+    align-items: center;
+    gap: 0.7rem 1rem;
+    text-align: left;
+  }
+  .agent-node { grid-area: node; justify-self: center; }
+  .agent-num {
+    grid-area: num;
+    justify-self: start;
+    font-size: clamp(2.4rem, 9vw, 3.2rem);
+  }
+  .agent-card { grid-area: card; }
+  .agent-wire { display: none; }
+  .rail-foot { align-items: flex-start; }
+  /* centre the 64px foot core on the 28px spine (28 − 32 = −4px) */
+  .rail-core { margin-left: -4px; }
 }
 @media (max-width: 520px) {
-  .domains, .agents { grid-template-columns: 1fr; }
+  .domains { grid-template-columns: 1fr; }
+  .domain:nth-child(n), .domain:nth-child(6) { grid-column: span 1; }
+  .stats-inner { grid-template-columns: 1fr 1fr; }
   .stage { --stage: 320px; }
+  .platform-diagram { --pd: 280px; }
   .hero-cta { flex-direction: column; align-items: stretch; }
   .cta-primary, .cta-secondary { justify-content: center; }
 }
 
-/* ════════════════════════════ REDUCED MOTION ══════════════════════════════ */
+/* ════════════════════════════ REDUCED MOTION ══════════════════════════════
+   Poster-quality static fallback: freeze every animation in a composed pose. */
 @media (prefers-reduced-motion: reduce) {
   .neb-violet, .neb-cyan, .neb-indigo, .stars,
-  .orbit, .sat-spin, .core-pulse, .cta-core-pulse, .bc-ring,
-  .agent-pulse, .cta-shine {
+  .orbit, .sat-spin, .core-pulse, .cta-core-pulse, .bc-ring, .rc-ring,
+  .pd-spin, .agent-pulse, .cta-shine, .builder::before, .cta-card::before {
     animation: none !important;
   }
-  /* freeze orbits in their starting positions; keep everything legible */
-  .orbit { transform: translate(-50%, -50%); }
+  /* Poster pose: give each ring a distinct static rotation so the six satellites
+     distribute into a balanced constellation instead of stacking into one
+     vertical column through the core (sat-a up + sat-b down on every ring). */
+  .orbit-1 { transform: translate(-50%, -50%) rotate(30deg); }
+  .orbit-2 { transform: translate(-50%, -50%) rotate(150deg); }
+  .orbit-3 { transform: translate(-50%, -50%) rotate(270deg); }
+  /* counter-rotate each satellite chip back upright so glyphs stay level */
+  .orbit-1 .sat-spin { transform: rotate(-30deg); }
+  .orbit-2 .sat-spin { transform: rotate(-150deg); }
+  .orbit-3 .sat-spin { transform: rotate(-270deg); }
   .in { opacity: 1 !important; transform: none !important; }
 }

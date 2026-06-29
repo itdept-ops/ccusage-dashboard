@@ -1,44 +1,78 @@
+<!-- ════════════════════════════════════════════════════════════════════════
+     MARKETING FOOTER — the calm last frame.
+     A deliberate, quiet, WIDE, low-energy counterpart to the loud CTA: the same
+     orbital OS-core motif "at rest" anchoring a brand block on the left, with
+     the link columns squared off on the right. One faint horizon arc behind the
+     mark echoes the hero's orbit; grain + strict luminance discipline hold the
+     cohesion. Three zones: brand-grid → hairline → baseline strip.
+     ════════════════════════════════════════════════════════════════════════ -->
 <footer class="mfoot">
-  <div class="mfoot-glow" aria-hidden="true"></div>
-  <div class="mfoot-inner">
-    <div class="mfoot-brand">
-      <a class="brand" routerLink="/login" aria-label="Usage IQ home">
-        <svg width="28" height="28" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-          <defs>
-            <radialGradient id="mfoot-core" cx="50%" cy="38%" r="65%">
-              <stop offset="0%" stop-color="#f4e9ff" /><stop offset="45%" stop-color="#b06bff" /><stop offset="100%" stop-color="#5b46e8" />
-            </radialGradient>
-            <linearGradient id="mfoot-sq" x1="0" y1="0" x2="1" y2="1">
-              <stop offset="0%" stop-color="#221a4d" /><stop offset="100%" stop-color="#0c0a24" />
-            </linearGradient>
-          </defs>
-          <rect x="5" y="5" width="54" height="54" rx="16" fill="url(#mfoot-sq)" stroke="rgba(176,107,255,.45)" stroke-width="1.5" />
-          <ellipse cx="32" cy="32" rx="19" ry="19" fill="none" stroke="rgba(176,107,255,.30)" stroke-width="1.6" />
-          <circle cx="32" cy="32" r="8.5" fill="url(#mfoot-core)" />
-          <circle cx="51" cy="32" r="3" fill="#34e3e8" />
-        </svg>
-        <span>Usage&nbsp;IQ</span>
-      </a>
-      <p class="tag">The operating system for your life. One self-hosted system — your work, body, home, money, and day — run by a team of AI agents that act.</p>
-      <a class="gh" href="https://github.com/itdept-ops/usage-iq" target="_blank" rel="noopener">
-        View on GitHub
-      </a>
+  <span class="mfoot-grain" aria-hidden="true"></span>
+  <span class="mfoot-topline" aria-hidden="true"></span>
+
+  <div class="mfoot-shell">
+    <!-- ZONE 1 · BRAND-GRID — brand block (left) + link columns (right) -->
+    <div class="mfoot-grid">
+      <!-- brand block: the core at rest under a faint horizon arc -->
+      <div class="mfoot-brand">
+        <span class="mfoot-arc" aria-hidden="true"></span>
+        <a class="brand" routerLink="/login" aria-label="Usage IQ home">
+          <svg class="brand-mark" width="38" height="38" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <defs>
+              <radialGradient id="mfoot-core" cx="50%" cy="36%" r="68%">
+                <stop offset="0%" stop-color="#fbf3ff" /><stop offset="34%" stop-color="#c79bff" /><stop offset="68%" stop-color="#7e63f4" /><stop offset="100%" stop-color="#4a37c4" />
+              </radialGradient>
+              <linearGradient id="mfoot-sq" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0%" stop-color="#241c52" /><stop offset="100%" stop-color="#0a081e" />
+              </linearGradient>
+            </defs>
+            <rect x="4" y="4" width="56" height="56" rx="16" fill="url(#mfoot-sq)" stroke="rgba(176,107,255,.42)" stroke-width="1.2" />
+            <ellipse cx="32" cy="32" rx="19" ry="19" fill="none" stroke="rgba(176,107,255,.28)" stroke-width="1.4" />
+            <ellipse cx="32" cy="32" rx="12.5" ry="12.5" fill="none" stroke="rgba(52,227,232,.20)" stroke-width="1.1" />
+            <circle cx="32" cy="32" r="8.5" fill="url(#mfoot-core)" />
+            <circle cx="45.5" cy="18.5" r="2.7" fill="#34e3e8" />
+          </svg>
+          <span class="brand-word">Usage&nbsp;IQ</span>
+        </a>
+        <p class="mfoot-tag">Your whole life, in orbit.</p>
+        <a class="mfoot-cta" routerLink="/signin">
+          Sign in with Google <span aria-hidden="true">→</span>
+        </a>
+        <p class="mfoot-note">Open source · self-hosted · no telemetry.</p>
+      </div>
+
+      <!-- link columns: clean, uniform, squared to the brand block -->
+      <nav class="mfoot-cols" aria-label="Footer">
+        @for (c of cols; track c.title) {
+          <div class="mfoot-col" [attr.aria-label]="c.title">
+            <h3>{{ c.title }}</h3>
+            @for (l of c.links; track l.label) {
+              <a [routerLink]="l.path">{{ l.label }}</a>
+            }
+          </div>
+        }
+        <div class="mfoot-col">
+          <h3>Built with</h3>
+          <ul class="mfoot-stack" aria-label="Technology stack">
+            @for (s of stack; track s) {
+              <li>{{ s }}</li>
+            }
+          </ul>
+          <a class="mfoot-repo" [href]="repo" target="_blank" rel="noopener">
+            View the source <span aria-hidden="true">↗</span>
+          </a>
+        </div>
+      </nav>
     </div>
 
-    <div class="mfoot-cols">
-      @for (c of cols; track c.title) {
-        <nav class="mfoot-col">
-          <h3>{{ c.title }}</h3>
-          @for (l of c.links; track l.path) {
-            <a [routerLink]="l.path">{{ l.label }}</a>
-          }
-        </nav>
-      }
+    <!-- ZONE 2 · BASELINE STRIP — thin rule, quiet copy line + truthful meta -->
+    <div class="mfoot-base">
+      <span class="mfoot-copy">© {{ year }} Usage IQ</span>
+      <span class="mfoot-status">
+        <a [href]="repo" target="_blank" rel="noopener">Open source</a>
+        <span class="mfoot-sep" aria-hidden="true">·</span>
+        <span class="mfoot-meta">Self-hosted</span>
+      </span>
     </div>
-  </div>
-
-  <div class="mfoot-base">
-    <span>© {{ year }} Usage IQ. Self-hosted, open source — your life, on your servers.</span>
-    <span class="mfoot-stack">Angular · .NET 9 · PostgreSQL</span>
   </div>
 </footer>

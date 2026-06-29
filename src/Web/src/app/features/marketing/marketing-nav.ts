@@ -123,7 +123,10 @@ export class MarketingNav implements OnDestroy {
       this.close();
       return;
     }
-    if (e.key === 'Tab') this.trapTab(e);
+    // Only trap Tab when the drawer is an actual overlay. On desktop the links
+    // render inline (the drawer is never "open"), so Tab must flow normally into
+    // the page; trapping it there would jail keyboard focus inside the nav.
+    if (e.key === 'Tab' && this.menuOpen()) this.trapTab(e);
   }
 
   /** Focusable elements inside the drawer, in DOM order (visible ones only). */

@@ -11,24 +11,29 @@ import { RouterLink } from '@angular/router';
 })
 export class MarketingFooter {
   readonly year = 2026;
+  readonly repo = 'https://github.com/itdept-ops/usage-iq';
+
+  /** Three clean columns with real hierarchy (Product / About / Built with). */
   readonly cols = [
     {
       title: 'Product',
       links: [
-        { label: 'Home', path: '/login' },
+        { label: 'Look inside', path: '/inside' },
         { label: 'Features', path: '/features' },
-        { label: 'How it works', path: '/how-it-works' },
-        { label: 'Technology', path: '/technology' },
         { label: 'AI', path: '/ai' },
-        { label: 'Inside the OS', path: '/inside' },
-        { label: 'About', path: '/about' },
+        { label: 'How it works', path: '/how-it-works' },
       ],
     },
     {
-      title: 'Account',
+      title: 'About',
       links: [
-        { label: 'Sign in', path: '/signin' },
+        { label: 'The story', path: '/about' },
+        { label: "How it's built", path: '/inside' },
+        { label: 'Technology', path: '/technology' },
       ],
     },
   ];
+
+  /** "Built with" — the live stack; the last entry links out to the repo. */
+  readonly stack = ['Angular', '.NET 9', 'PostgreSQL', 'Docker'];
 }

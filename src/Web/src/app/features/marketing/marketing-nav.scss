@@ -6,6 +6,15 @@
 :host {
   display: contents;
   @include aur.aurora-vars;
+
+  /* COHESION: the public surface is ONE palette — the landing's orbital --lx-*
+     hues. Re-point the Aurora accent vars (and the gradient) at the landing's
+     indigo/violet/cyan so the nav's active-underline, CTA pill and focus rings
+     are drawn in the exact same colors as the page body + footer. */
+  --aur-a: #6d5bf0; /* indigo */
+  --aur-b: #b06bff; /* violet */
+  --aur-c: #34e3e8; /* cyan   */
+  --aur-grad: linear-gradient(100deg, #6d5bf0 0%, #b06bff 52%, #34e3e8 100%);
 }
 
 .mnav {
@@ -27,7 +36,9 @@
 }
 
 .mnav-inner {
-  max-width: 1280px;
+  /* share the landing + footer content measure so the nav brand mark, page body
+     and footer brand mark all register to one column (no left/right overshoot). */
+  max-width: 1140px;
   margin: 0 auto;
   height: 64px;
   padding: 0 clamp(16px, 4vw, 40px);
