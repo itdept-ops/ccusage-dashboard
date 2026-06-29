@@ -264,15 +264,31 @@ mat-progress-bar {
     align-items: center;
     gap: 8px;
     padding: 4px 8px 4px 12px;
-    cursor: pointer;
     border-radius: var(--tech-r-control);
-    color: var(--tech-text-secondary);
     transition: background-color var(--tech-t-control) ease, color var(--tech-t-control) ease;
 
     &:hover {
       background: var(--tech-panel-raised);
-      color: var(--tech-text);
+      .view-apply { color: var(--tech-text); }
       .view-ico { color: var(--tech-text-accent); }
+    }
+
+    /* The apply area is a real button — strip native chrome so the row looks unchanged. */
+    .view-apply {
+      flex: 1 1 auto;
+      min-width: 0;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 0;
+      margin: 0;
+      border: 0;
+      background: transparent;
+      font: inherit;
+      text-align: left;
+      cursor: pointer;
+      color: var(--tech-text-secondary);
+      transition: color var(--tech-t-control) ease;
     }
 
     .view-ico { font-size: 17px; width: 17px; height: 17px; color: var(--tech-text-tertiary); flex: 0 0 auto; }

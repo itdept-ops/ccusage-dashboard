@@ -108,9 +108,11 @@
             <button mat-icon-button type="button" class="rn-cancel" aria-label="Cancel rename" matTooltip="Cancel" (click)="cancelRename($event)"><mat-icon aria-hidden="true">close</mat-icon></button>
           </div>
         } @else {
-          <div class="view-item" (click)="applyView(v)">
-            <mat-icon class="view-ico">filter_alt</mat-icon>
-            <span class="view-name" [matTooltip]="'Apply ' + v.name">{{ v.name }}</span>
+          <div class="view-item">
+            <button type="button" class="view-apply" [matTooltip]="'Apply ' + v.name" (click)="applyView(v)">
+              <mat-icon class="view-ico" aria-hidden="true">filter_alt</mat-icon>
+              <span class="view-name">{{ v.name }}</span>
+            </button>
             <button mat-icon-button type="button" class="view-act" aria-label="Rename view" matTooltip="Rename" (click)="startRename(v, $event)"><mat-icon aria-hidden="true">edit</mat-icon></button>
             <button mat-icon-button type="button" class="view-act danger" aria-label="Delete view" matTooltip="Delete" (click)="deleteView(v, $event)"><mat-icon aria-hidden="true">delete</mat-icon></button>
           </div>

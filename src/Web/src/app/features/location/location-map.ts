@@ -11,6 +11,7 @@ import {
   viewChild,
   ChangeDetectionStrategy,
 } from '@angular/core';
+import { DecimalPipe } from '@angular/common';
 import type * as L from 'leaflet';
 
 import { loadLeaflet, OSM_ATTRIBUTION, OSM_TILE_URL } from '../../shared/leaflet-loader';
@@ -52,10 +53,25 @@ export interface MapTrail {
 @Component({
   selector: 'app-location-map',
   standalone: true,
-  template: `<div #host class="leaflet-host"></div>
+  template: `<div #host class="leaflet-host" tabindex="0" role="application" [attr.aria-label]="mapLabel()"></div>
     @if (!ready()) {
       <div class="leaflet-loading">Loading map…</div>
+    }
+    <!-- Text-alternative: a non-visual list of every plotted location so the map's data is NOT
+         pointer-locked. Keyboard/SR users can read all pins (and Enter selects one). -->
+    @if (pins().length) {
+      <ul class="sr-only" aria-label="Plotted locations">
+        @for (p of pins(); track p.id) {
+          <li>
+            <button type="button" (click)="pinClick.emit(p.id)">
+              {{ p.title }}{{ p.subtitle ? ' — ' + p.subtitle : '' }}
+              (latitude {{ p.lat | number: '1.0-4' }}, longitude {{ p.lng | number: '1.0-4' }})
+            </button>
+          </li>
+        }
+      </ul>
     }`,
+  imports: [DecimalPipe],
   changeDetection: ChangeDetectionStrategy.Eager,
   styles: [
     `
@@ -81,6 +97,19 @@ export interface MapTrail {
         font-size: var(--tech-fs-label, 11px);
         color: var(--tech-text-tertiary, #5e6c82);
         pointer-events: none;
+      }
+      /* Visually hidden but available to screen readers / keyboard — the map's text alternative. */
+      .sr-only {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        margin: -1px;
+        padding: 0;
+        overflow: hidden;
+        clip: rect(0 0 0 0);
+        clip-path: inset(50%);
+        white-space: nowrap;
+        border: 0;
       }
     `,
   ],
@@ -110,6 +139,12 @@ export class LocationMap implements AfterViewInit, OnDestroy {
   /** A fit requested via {@link fitTo} before the map finished initialising — flushed once ready. */
   private pendingFit: [number, number][] | null = null;
 
+  /** Accessible name for the focusable map host — also tells keyboard users how to drive it. */
+  readonly mapLabel = computed(() => {
+    const n = this.pins().length;
+    return `Map of ${n} location${n === 1 ? '' : 's'}; use arrow keys to pan, plus and minus to zoom`;
+  });
+
   /** A stable key for the current pin set so we only refit the view when the markers actually change. */
   private readonly pinKey = computed(() =>
     this.pins()
@@ -137,6 +172,9 @@ export class LocationMap implements AfterViewInit, OnDestroy {
       zoom: 2,
       zoomControl: true,
       attributionControl: true,
+      // Container is focusable (tabindex on the host) — enable Leaflet's built-in keyboard pan/zoom
+      // (arrows pan, +/- zoom) so the map is operable without a pointer.
+      keyboard: true,
     });
     Lm.tileLayer(OSM_TILE_URL, { maxZoom: 19, attribution: OSM_ATTRIBUTION }).addTo(this.map);
     this.markerLayer = Lm.layerGroup().addTo(this.map);

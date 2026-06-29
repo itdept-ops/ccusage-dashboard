@@ -90,6 +90,20 @@ mat-progress-bar {
   .c-dur { color: var(--tech-text-secondary); }
   .c-exp { text-align: right; color: var(--tech-text-tertiary); width: 36px; }
   .c-exp mat-icon { font-size: 18px; width: 18px; height: 18px; vertical-align: middle; }
+  /* The expand toggle is a real button — strip native chrome so it reads as the bare chevron it was. */
+  .exp-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    margin: 0;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+    border-radius: var(--tech-r-chip, 6px);
+  }
+  .exp-btn:focus-visible { outline: 2px solid var(--tech-accent); outline-offset: 2px; }
 }
 
 /* method + status pills */
