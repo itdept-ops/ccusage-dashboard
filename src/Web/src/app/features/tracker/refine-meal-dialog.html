@@ -63,11 +63,10 @@
               [disabled]="phase() === 'loading' || !canRefine()" (click)="refine()">
         @if (phase() === 'loading') {
           <mat-progress-spinner mode="indeterminate" diameter="18" aria-hidden="true" />
-          <span>Refining…</span>
         } @else {
           <mat-icon class="wte-spark" aria-hidden="true">auto_awesome</mat-icon>
-          <span>Refine</span>
         }
+        <span>{{ phase() === 'loading' ? 'Refining…' : 'Refine' }}</span>
       </button>
     </div>
   }

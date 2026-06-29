@@ -54,11 +54,10 @@
                     [disabled]="phase() === 'loading' || pantryScanning()" (click)="scanPantry()">
               @if (pantryScanning()) {
                 <mat-progress-spinner mode="indeterminate" diameter="18" aria-hidden="true" />
-                <span>Scanning…</span>
               } @else {
                 <mat-icon aria-hidden="true">photo_camera</mat-icon>
-                <span>Scan pantry</span>
               }
+              <span>{{ pantryScanning() ? 'Scanning…' : 'Scan pantry' }}</span>
             </button>
             <button mat-stroked-button type="button" class="pm-pantry-attach"
                     [disabled]="phase() === 'loading' || pantryScanning()" (click)="attachPantry()">
@@ -104,11 +103,10 @@
               [disabled]="phase() === 'loading' || !hasSlots()" (click)="generate()">
         @if (phase() === 'loading') {
           <mat-progress-spinner mode="indeterminate" diameter="18" aria-hidden="true" />
-          <span>Building your plan…</span>
         } @else {
           <mat-icon class="wte-spark" aria-hidden="true">auto_awesome</mat-icon>
-          <span>Generate plan</span>
         }
+        <span>{{ phase() === 'loading' ? 'Building your plan…' : 'Generate plan' }}</span>
       </button>
     </div>
   }

@@ -1,6 +1,6 @@
 import { Component, computed, inject, signal, ChangeDetectionStrategy } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { Router, RouterLink } from '@angular/router';
+import { Router } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -107,7 +107,6 @@ const CHECKIN_STALE_DAYS = 90;
   selector: 'app-tracker-profile-page',
   imports: [
     FormsModule,
-    RouterLink,
     MatFormFieldModule,
     MatInputModule,
     MatSelectModule,

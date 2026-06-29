@@ -730,8 +730,9 @@
               <button mat-flat-button color="primary" type="button" [disabled]="creatingApp()"
                       (click)="newApplication()">
                 @if (creatingApp()) {
-                  <mat-progress-spinner mode="indeterminate" diameter="18" aria-hidden="true" /> Tailoring…
-                } @else { <mat-icon aria-hidden="true">add</mat-icon> New application }
+                  <mat-progress-spinner mode="indeterminate" diameter="18" aria-hidden="true" />
+                } @else { <mat-icon aria-hidden="true">add</mat-icon> }
+                {{ creatingApp() ? 'Tailoring…' : 'New application' }}
               </button>
             </div>
 

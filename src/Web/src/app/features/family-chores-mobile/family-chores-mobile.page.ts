@@ -1,7 +1,6 @@
 import {
   ChangeDetectionStrategy, Component, computed, inject, signal,
 } from '@angular/core';
-import { DecimalPipe } from '@angular/common';
 import { firstValueFrom } from 'rxjs';
 import { MatIconModule } from '@angular/material/icon';
 
@@ -54,7 +53,7 @@ const RECURRENCE_LABEL: Record<FamilyChoreRecurrence, string> = {
   changeDetection: ChangeDetectionStrategy.OnPush,
   providers: [ToastController],
   imports: [
-    DecimalPipe, MatIconModule,
+    MatIconModule,
     BetaPullRefresh, BetaSegmentedControl, BetaBottomSheet, BetaSkeleton, BetaToaster,
     BetaEmptyState, BetaErrorState,
   ],
