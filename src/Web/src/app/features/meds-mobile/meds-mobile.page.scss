@@ -104,6 +104,29 @@
   mat-icon { color: var(--accent-a); }
 }
 
+// Section header row: title on the left, the "Repeat yesterday" pill on the right.
+.mv-sec-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  flex-wrap: wrap; margin-top: 6px;
+  .mv-sec-h { margin-top: 0; }
+}
+
+// "Repeat yesterday" pill — ghost/outline so it reads as a secondary affordance next to the FAB's Add.
+.mv-repeat {
+  display: inline-flex; align-items: center; gap: 5px; min-height: 38px; padding: 0 13px;
+  margin-right: 4px;
+  border-radius: var(--r-pill, 999px); border: 1px solid color-mix(in srgb, var(--accent-a) 42%, transparent);
+  background: color-mix(in srgb, var(--accent-a) 10%, transparent); color: var(--accent-a);
+  font-size: 13px; font-weight: 700; font-family: var(--font-ui); cursor: pointer;
+  touch-action: manipulation; -webkit-tap-highlight-color: transparent;
+  transition: transform 120ms ease, background 160ms ease;
+  &:active:not(:disabled) { transform: scale(.97); }
+  &:disabled { opacity: .55; cursor: default; }
+  &:focus-visible { outline: 2px solid var(--accent-a); outline-offset: 2px; }
+  mat-icon { font-size: 18px; width: 18px; height: 18px; }
+}
+@media (prefers-reduced-motion: reduce) { .mv-repeat { transition: none; } }
+
 // ───────── meds ─────────
 .mv-med {
   border-radius: var(--r-tile); background: var(--card);

@@ -172,6 +172,112 @@ public class MedsVitalsTests(WebAppFactory factory)
     }
 
     // =====================================================================================
+    // REPEAT YESTERDAY'S DOSES — POST /api/meds/doses/repeat (COPY not MOVE, idempotent, owner-only)
+    // =====================================================================================
+
+    [Fact]
+    public async Task Repeat_doses_copies_yesterdays_logs_onto_today_and_leaves_the_source_untouched()
+    {
+        var (email, owner, id) = await ProvisionUser("tracker.self");
+        var today = await DisplayTzToday();
+        var yesterday = today.AddDays(-1);
+
+        // Two meds, each with a logged dose YESTERDAY (one Taken, one Skipped).
+        var medA = await SeedMed(id, email, "Med-A", 1, yesterday);
+        var medB = await SeedMed(id, email, "Med-B", 1, yesterday);
+        await SeedLog(medA, email, yesterday, 0, MedicationLogStatus.Taken);
+        await SeedLog(medB, email, yesterday, 0, MedicationLogStatus.Skipped);
+
+        var res = await owner.PostAsJsonAsync("/api/meds/doses/repeat",
+            new { fromDate = yesterday.ToString("yyyy-MM-dd"), toDate = today.ToString("yyyy-MM-dd") });
+        res.StatusCode.Should().Be(HttpStatusCode.OK);
+        var body = await Json(res);
+        body.GetProperty("copiedCount").GetInt32().Should().Be(2);
+
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<UsageDbContext>();
+        var lower = email.ToLowerInvariant();
+        // Today now has both doses, with the SAME statuses snapshotted from yesterday.
+        var todayLogs = await db.MedicationLogs.AsNoTracking()
+            .Where(l => l.UserEmail == lower && l.LocalDate == today).ToListAsync();
+        todayLogs.Should().HaveCount(2);
+        todayLogs.Single(l => l.MedicationId == medA).Status.Should().Be(MedicationLogStatus.Taken);
+        todayLogs.Single(l => l.MedicationId == medB).Status.Should().Be(MedicationLogStatus.Skipped);
+        // COPY not MOVE: yesterday's logs are untouched.
+        (await db.MedicationLogs.CountAsync(l => l.UserEmail == lower && l.LocalDate == yesterday)).Should().Be(2);
+    }
+
+    [Fact]
+    public async Task Repeat_doses_is_idempotent_and_never_overwrites_an_existing_target_mark()
+    {
+        var (email, owner, id) = await ProvisionUser("tracker.self");
+        var today = await DisplayTzToday();
+        var yesterday = today.AddDays(-1);
+
+        var med = await SeedMed(id, email, "Idem-med", 1, yesterday);
+        await SeedLog(med, email, yesterday, 0, MedicationLogStatus.Taken);
+        // The owner has ALREADY logged today's slot as Skipped — repeat must NOT clobber it.
+        await SeedLog(med, email, today, 0, MedicationLogStatus.Skipped);
+
+        var first = await Json(await owner.PostAsJsonAsync("/api/meds/doses/repeat",
+            new { fromDate = yesterday.ToString("yyyy-MM-dd"), toDate = today.ToString("yyyy-MM-dd") }));
+        first.GetProperty("copiedCount").GetInt32().Should().Be(0); // the (med, slot) already exists → skipped
+
+        // A second call is also a no-op (idempotent).
+        var second = await Json(await owner.PostAsJsonAsync("/api/meds/doses/repeat",
+            new { fromDate = yesterday.ToString("yyyy-MM-dd"), toDate = today.ToString("yyyy-MM-dd") }));
+        second.GetProperty("copiedCount").GetInt32().Should().Be(0);
+
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<UsageDbContext>();
+        var lower = email.ToLowerInvariant();
+        var todayLogs = await db.MedicationLogs.AsNoTracking()
+            .Where(l => l.UserEmail == lower && l.LocalDate == today).ToListAsync();
+        todayLogs.Should().ContainSingle();                                  // no duplicate slot row
+        todayLogs[0].Status.Should().Be(MedicationLogStatus.Skipped);       // the owner's own mark preserved
+    }
+
+    [Fact]
+    public async Task Repeat_doses_never_copies_another_users_logs_and_writes_only_the_callers_own_day()
+    {
+        // IDOR: Bob calls repeat for the same dates, but he has no logs of his own — Alice's logs (same dates)
+        // must NEVER be read or copied onto Bob's day.
+        var (aEmail, _, aId) = await ProvisionUser("tracker.self");
+        var (bEmail, bob, _) = await ProvisionUser("tracker.self");
+        var today = await DisplayTzToday();
+        var yesterday = today.AddDays(-1);
+
+        var aliceMed = await SeedMed(aId, aEmail, "Alice-med", 1, yesterday);
+        await SeedLog(aliceMed, aEmail, yesterday, 0, MedicationLogStatus.Taken);
+
+        var body = await Json(await bob.PostAsJsonAsync("/api/meds/doses/repeat",
+            new { fromDate = yesterday.ToString("yyyy-MM-dd"), toDate = today.ToString("yyyy-MM-dd") }));
+        body.GetProperty("copiedCount").GetInt32().Should().Be(0); // Bob has no source logs → nothing copied
+
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<UsageDbContext>();
+        // Bob's day has nothing; Alice's referencing her med id was never duplicated under Bob.
+        (await db.MedicationLogs.CountAsync(l => l.UserEmail == bEmail.ToLowerInvariant())).Should().Be(0);
+    }
+
+    [Fact]
+    public async Task Repeat_doses_requires_tracker_self_and_auth_and_rejects_equal_dates()
+    {
+        var (_, plain, _) = await ProvisionUser("dashboard.view");
+        var today = (await DisplayTzToday()).ToString("yyyy-MM-dd");
+        (await plain.PostAsJsonAsync("/api/meds/doses/repeat", new { fromDate = today, toDate = today }))
+            .StatusCode.Should().Be(HttpStatusCode.Forbidden);
+
+        var anon = factory.CreateClient();
+        (await anon.PostAsJsonAsync("/api/meds/doses/repeat", new { fromDate = today, toDate = today }))
+            .StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+
+        var (_, owner, _) = await ProvisionUser("tracker.self");
+        (await owner.PostAsJsonAsync("/api/meds/doses/repeat", new { fromDate = today, toDate = today }))
+            .StatusCode.Should().Be(HttpStatusCode.BadRequest); // source == target
+    }
+
+    // =====================================================================================
     // VITALS — log, list newest-first, trend math; BP keeps both values
     // =====================================================================================
 
@@ -422,6 +528,14 @@ public class MedsVitalsTests(WebAppFactory factory)
     // =====================================================================================
     // Seed + tick helpers
     // =====================================================================================
+
+    /// <summary>Today in the app's display timezone — the SAME "today" the meds endpoints use.</summary>
+    private async Task<DateOnly> DisplayTzToday()
+    {
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<UsageDbContext>();
+        return await TrackerVisibility.DisplayTzTodayAsync(db, CancellationToken.None);
+    }
 
     private async Task<long> SeedMed(
         int userId, string email, string name, int timesPerDay, DateOnly start, bool remindersEnabled = false)

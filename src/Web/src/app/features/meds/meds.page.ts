@@ -9,8 +9,8 @@ import { firstValueFrom } from 'rxjs';
 import { Api } from '../../core/api';
 import {
   AdherenceResponse, DoseSlot, LogDoseInput, Medication, MedicationForm, MedicationInput,
-  MedicationLogStatus, MedsResponse, VitalInput, VitalKind, VitalReading, VitalsInsightResponse,
-  VitalsResponse, VitalTrend,
+  MedicationLogStatus, MedsResponse, RepeatDosesRequest, VitalInput, VitalKind, VitalReading,
+  VitalsInsightResponse, VitalsResponse, VitalTrend,
 } from '../../core/models';
 import { ChartComponent } from '../../shared/chart';
 import { DialogA11yDirective } from '../../core/dialog-a11y.directive';
@@ -121,10 +121,21 @@ interface WindowOpt { value: number; label: string; }
         <section class="md-sec" aria-label="Medications">
           <div class="md-sec__head">
             <h2 class="md-sec__title"><mat-icon aria-hidden="true">pill</mat-icon> Medications</h2>
-            <button type="button" class="md-add" (click)="openAddMed()">
-              <mat-icon aria-hidden="true">add</mat-icon> Add medication
-            </button>
+            <div class="md-sec__actions">
+              @if (medList().length > 0) {
+                <button type="button" class="md-add md-add--ghost" [disabled]="repeating()"
+                        (click)="repeatYesterday()"
+                        aria-label="Repeat yesterday's doses onto today">
+                  @if (repeating()) { <span class="md-spin" aria-hidden="true"></span> Pulling… }
+                  @else { <mat-icon aria-hidden="true">event_repeat</mat-icon> Repeat yesterday }
+                </button>
+              }
+              <button type="button" class="md-add" (click)="openAddMed()">
+                <mat-icon aria-hidden="true">add</mat-icon> Add medication
+              </button>
+            </div>
           </div>
+          @if (repeatMsg()) { <p class="md-repeat-msg" role="status" aria-live="polite">{{ repeatMsg() }}</p> }
 
           <div class="md-meds">
             <!-- adherence ring -->
@@ -394,6 +405,10 @@ export class MedsPage implements OnDestroy {
   readonly adherence = signal<AdherenceResponse | null>(null);
   readonly busyDose = signal<string | null>(null);
 
+  /** "Repeat yesterday" in-flight latch + a transient status line. */
+  readonly repeating = signal(false);
+  readonly repeatMsg = signal<string>('');
+
   readonly adherencePct = computed<number>(() => {
     const a = this.adherence();
     return a && a.scheduled > 0 ? Math.round(a.percent) : 0;
@@ -552,6 +567,37 @@ export class MedsPage implements OnDestroy {
     try {
       this.adherence.set(await firstValueFrom(this.api.medsAdherence(this.window())));
     } catch { /* keep prior */ }
+  }
+
+  /**
+   * "Repeat yesterday": copy the caller's OWN dose logs from yesterday onto today so the daily checklist
+   * arrives pre-filled. COPY not move + idempotent server-side (a (med, slot) already on today is skipped),
+   * so a double-tap never double-creates. Reloads the day's checklist + adherence and surfaces a toast.
+   */
+  async repeatYesterday(): Promise<void> {
+    if (this.repeating()) return;
+    this.repeating.set(true);
+    this.repeatMsg.set('');
+    const body: RepeatDosesRequest = { fromDate: this.yesterdayIso(), toDate: this.today() };
+    try {
+      const out = await firstValueFrom(this.api.repeatDoses(body));
+      // Re-pull the day so the pre-filled marks render (the optimistic slot patch is per-tap only).
+      const [medsRes, adh] = await Promise.all([
+        firstValueFrom(this.api.meds()),
+        firstValueFrom(this.api.medsAdherence(this.window())),
+      ]);
+      this.applyMeds(medsRes);
+      this.adherence.set(adh);
+      this.repeatMsg.set(
+        out.copiedCount > 0
+          ? `Pulled in yesterday's doses (${out.copiedCount} added).`
+          : 'Nothing to pull in — today already matches yesterday.',
+      );
+    } catch {
+      this.repeatMsg.set("Couldn't repeat yesterday — nothing was changed.");
+    } finally {
+      this.repeating.set(false);
+    }
   }
 
   // ============================================================== meds: sheet
@@ -730,6 +776,14 @@ export class MedsPage implements OnDestroy {
 
   private todayIso(): string {
     const d = new Date();
+    const pad = (n: number) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  }
+
+  private yesterdayIso(): string {
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    d.setDate(d.getDate() - 1);
     const pad = (n: number) => String(n).padStart(2, '0');
     return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
   }

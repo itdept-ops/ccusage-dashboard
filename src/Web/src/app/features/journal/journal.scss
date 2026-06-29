@@ -165,6 +165,7 @@
   font-size: 0.8rem; color: var(--tech-text-tertiary);
   mat-icon { font-size: 18px; width: 18px; height: 18px; }
 }
+.journal__day-actions { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .journal__clear { color: var(--tech-text-tertiary) !important; }
 
 @media (max-width: 880px) {

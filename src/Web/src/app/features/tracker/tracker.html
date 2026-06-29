@@ -1276,6 +1276,16 @@
                 mat-icon-button
                 type="button"
                 class="tracker__meal-copy"
+                (click)="repeatMealTomorrow(s.meal)"
+                [attr.aria-label]="'Repeat ' + s.label + ' tomorrow'"
+                matTooltip="Repeat this meal tomorrow"
+              >
+                <mat-icon>event_repeat</mat-icon>
+              </button>
+              <button
+                mat-icon-button
+                type="button"
+                class="tracker__meal-copy"
                 (click)="copyMeal(s.meal)"
                 [attr.aria-label]="'Copy ' + s.label + ' to another day'"
                 matTooltip="Copy this meal to another day"
@@ -1496,6 +1506,16 @@
                       [attr.aria-label]="'Edit ' + f.description"
                     >
                       <mat-icon>edit</mat-icon>
+                    </button>
+                    <button
+                      mat-icon-button
+                      type="button"
+                      class="tracker__entry-copy"
+                      (click)="repeatFoodTomorrow(f)"
+                      [attr.aria-label]="'Repeat ' + f.description + ' tomorrow'"
+                      matTooltip="Repeat tomorrow"
+                    >
+                      <mat-icon>event_repeat</mat-icon>
                     </button>
                     <button
                       mat-icon-button

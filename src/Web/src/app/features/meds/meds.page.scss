@@ -107,6 +107,8 @@
   }
 }
 
+.md-sec__actions { display: inline-flex; align-items: center; gap: .5rem; flex-wrap: wrap; }
+
 .md-add {
   display: inline-flex; align-items: center; gap: .4rem;
   padding: .5rem .9rem; border-radius: 10px;
@@ -114,7 +116,19 @@
   font-weight: 600; font-size: .85rem; cursor: pointer;
   transition: filter .15s ease;
   &:hover { filter: brightness(1.08); }
+  &:disabled { opacity: .55; cursor: default; filter: none; }
   mat-icon { font-size: 1.1rem; width: 1.1rem; height: 1.1rem; }
+}
+
+// Secondary "Repeat yesterday" affordance: ghost/outline so the primary Add stays dominant.
+.md-add--ghost {
+  background: transparent; color: var(--md-accent);
+  border: 1px solid color-mix(in srgb, var(--md-accent) 45%, transparent);
+  &:hover { filter: none; background: color-mix(in srgb, var(--md-accent) 12%, transparent); }
+}
+
+.md-repeat-msg {
+  margin: -.4rem 0 .9rem; font-size: .82rem; color: var(--md-sub);
 }
 
 // ─────────── meds ───────────

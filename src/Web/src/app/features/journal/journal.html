@@ -161,9 +161,20 @@
             Your gratitude &amp; reflection are private to you — never sent to the AI.
           </p>
           @if (hasDayEntry()) {
-            <button mat-stroked-button type="button" class="journal__clear" (click)="clearDay()">
-              <mat-icon>delete_outline</mat-icon> Clear this day
-            </button>
+            <div class="journal__day-actions">
+              <button
+                mat-stroked-button
+                type="button"
+                class="journal__copy"
+                [disabled]="copying()"
+                (click)="copyToDay()"
+              >
+                <mat-icon>content_copy</mat-icon> Copy to day
+              </button>
+              <button mat-stroked-button type="button" class="journal__clear" (click)="clearDay()">
+                <mat-icon>delete_outline</mat-icon> Clear this day
+              </button>
+            </div>
           }
         </div>
       </div>

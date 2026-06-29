@@ -49,6 +49,11 @@ public static class MedsEndpoints
 
     public sealed record LogDoseInput(DateOnly Date, int? Slot, MedicationLogStatus Status, DateTime? TakenAt, string? Notes);
 
+    /// <summary>"Repeat yesterday's doses" — copy the caller's OWN dose logs from <see cref="FromDate"/> onto
+    /// <see cref="ToDate"/> so the day's checklist arrives pre-filled. COPY not MOVE (the source day is untouched)
+    /// and IDEMPOTENT (a (med, slot) already logged on <see cref="ToDate"/> is left exactly as-is).</summary>
+    public sealed record RepeatDosesInput(DateOnly FromDate, DateOnly ToDate);
+
     public sealed record VitalInput(
         VitalKind Kind, decimal Value1, decimal? Value2, string Unit, DateOnly LocalDate,
         DateTime? MeasuredAt, string? Notes);
@@ -77,6 +82,10 @@ public static class MedsEndpoints
         DateTime? TakenAtUtc, string? Notes);
 
     public sealed record AdherenceDto(int WindowDays, int Taken, int Scheduled, double Percent);
+
+    /// <summary>The result of "repeat yesterday": how many dose logs were created on the target day (an
+    /// already-present (med, slot) is skipped, so a re-tap is a safe no-op) + the created rows.</summary>
+    public sealed record RepeatDosesDto(int CopiedCount, IReadOnlyList<LogDto> Logs);
 
     public sealed record VitalDto(
         long Id, VitalKind Kind, decimal Value1, decimal? Value2, string Unit, DateOnly LocalDate,
@@ -265,6 +274,68 @@ public static class MedsEndpoints
             var (taken, scheduled) = AggregateAdherence(meds, logs, from, today);
             var percent = scheduled == 0 ? 0d : Math.Round(taken * 100d / scheduled, 1);
             return Results.Ok(new AdherenceDto(days, taken, scheduled, percent));
+        });
+
+        // ---- POST /api/meds/doses/repeat : "repeat yesterday" — copy the caller's OWN dose logs forward ----
+        // Re-create each of the CALLER'S OWN dose logs from fromDate onto toDate so today's checklist arrives
+        // pre-filled. COPY not MOVE (the source day's logs are left exactly as-is) and IDEMPOTENT: a (med, slot)
+        // already logged on toDate is SKIPPED, never overwritten or duplicated — re-running is a safe no-op.
+        //
+        // OWNER-ONLY / IDOR GUARD: the source logs are loaded with UserEmail == caller, so a log belonging to
+        // ANOTHER user is never read and never copied; every created row is stamped UserEmail = caller.Email, so
+        // a caller can never copy a stranger's marks nor write onto a stranger's day. No new permission (gated by
+        // tracker.self like the rest of the group); no migration (reuses the MedicationLog upsert shape).
+        g.MapPost("/doses/repeat", async (
+            RepeatDosesInput req, CurrentUserAccessor me, UsageDbContext db, CancellationToken ct) =>
+        {
+            if (ValidateLogDate(req.FromDate) is { } badFrom) return badFrom;
+            if (ValidateLogDate(req.ToDate) is { } badTo) return badTo;
+            if (req.FromDate == req.ToDate)
+                return Results.BadRequest(new { message = "The source and target dates must differ." });
+            var caller = (await me.GetUserAsync(ct))!;
+
+            // OWNER-ONLY load: only the caller's own source-day logs (the IDOR guard) — AsNoTracking, we re-create.
+            var sources = await db.MedicationLogs.AsNoTracking()
+                .Where(l => l.UserEmail == caller.Email && l.LocalDate == req.FromDate)
+                .ToListAsync(ct);
+            if (sources.Count == 0)
+                return Results.Ok(new RepeatDosesDto(0, Array.Empty<LogDto>()));
+
+            // IDEMPOTENCY: the (med, slot) pairs ALREADY logged on the target day — never re-created.
+            var existing = await db.MedicationLogs.AsNoTracking()
+                .Where(l => l.UserEmail == caller.Email && l.LocalDate == req.ToDate)
+                .Select(l => new { l.MedicationId, l.ScheduledSlot })
+                .ToListAsync(ct);
+            var present = new HashSet<(long, int?)>(existing.Select(e => (e.MedicationId, e.ScheduledSlot)));
+
+            var now = DateTime.UtcNow;
+            var copies = new List<MedicationLog>();
+            foreach (var src in sources)
+            {
+                if (!present.Add((src.MedicationId, src.ScheduledSlot))) continue; // already on toDate → skip
+                copies.Add(new MedicationLog
+                {
+                    MedicationId = src.MedicationId,
+                    UserEmail = caller.Email, // always the caller's own day
+                    LocalDate = req.ToDate,
+                    ScheduledSlot = src.ScheduledSlot,
+                    Status = src.Status,
+                    TakenAtUtc = src.Status == MedicationLogStatus.Taken ? now : null,
+                    Notes = src.Notes,
+                    CreatedUtc = now,
+                });
+            }
+
+            if (copies.Count > 0)
+            {
+                db.MedicationLogs.AddRange(copies);
+                await db.SaveChangesAsync(ct);
+            }
+
+            return Results.Ok(new RepeatDosesDto(
+                copies.Count,
+                copies.Select(l => new LogDto(
+                    l.Id, l.MedicationId, l.LocalDate, l.ScheduledSlot, l.Status, l.TakenAtUtc, l.Notes)).ToList()));
         });
     }
 

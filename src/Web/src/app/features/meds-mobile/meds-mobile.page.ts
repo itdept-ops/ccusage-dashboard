@@ -9,8 +9,8 @@ import { firstValueFrom } from 'rxjs';
 import { Api } from '../../core/api';
 import {
   AdherenceResponse, DoseSlot, LogDoseInput, Medication, MedicationForm, MedicationInput,
-  MedicationLogStatus, MedsResponse, VitalInput, VitalKind, VitalReading, VitalsInsightResponse,
-  VitalsResponse, VitalTrend,
+  MedicationLogStatus, MedsResponse, RepeatDosesRequest, VitalInput, VitalKind, VitalReading,
+  VitalsInsightResponse, VitalsResponse, VitalTrend,
 } from '../../core/models';
 import { ChartComponent } from '../../shared/chart';
 import {
@@ -115,7 +115,16 @@ interface VitalMeta {
                             label="Window" (change)="onWindow($event)" />
 
           <!-- ─── MEDS: today's checklist ─── -->
-          <h2 class="mv-sec-h"><mat-icon aria-hidden="true">pill</mat-icon> Medications</h2>
+          <div class="mv-sec-row">
+            <h2 class="mv-sec-h"><mat-icon aria-hidden="true">pill</mat-icon> Medications</h2>
+            @if (medList().length > 0) {
+              <button type="button" class="mv-repeat" [disabled]="repeating()"
+                      (click)="repeatYesterday()" aria-label="Repeat yesterday's doses onto today">
+                <mat-icon aria-hidden="true">event_repeat</mat-icon>
+                {{ repeating() ? 'Pulling…' : 'Repeat yesterday' }}
+              </button>
+            }
+          </div>
           @if (medList().length === 0) {
             <div class="mv-empty">
               <span class="mv-empty__orb"><mat-icon aria-hidden="true">medication</mat-icon></span>
@@ -317,6 +326,8 @@ export class MedsMobilePage implements OnDestroy {
   readonly today = signal<string>(this.todayIso());
   readonly adherence = signal<AdherenceResponse | null>(null);
   readonly busyDose = signal<string | null>(null);
+  /** "Repeat yesterday" in-flight latch (blocks a double-tap; the toaster carries the result). */
+  readonly repeating = signal(false);
 
   readonly adherenceFraction = computed<number>(() => {
     const a = this.adherence();
@@ -465,6 +476,34 @@ export class MedsMobilePage implements OnDestroy {
   private async refreshAdherence(): Promise<void> {
     try { this.adherence.set(await firstValueFrom(this.api.medsAdherence(this.window()))); }
     catch { /* keep */ }
+  }
+
+  /**
+   * "Repeat yesterday": copy the caller's OWN dose logs from yesterday onto today so the daily checklist
+   * arrives pre-filled. COPY not move + idempotent server-side (a (med, slot) already on today is skipped).
+   * Re-pulls the day's checklist + adherence and toasts the outcome.
+   */
+  async repeatYesterday(): Promise<void> {
+    if (this.repeating()) return;
+    this.repeating.set(true);
+    const body: RepeatDosesRequest = { fromDate: this.yesterdayIso(), toDate: this.today() };
+    try {
+      const out = await firstValueFrom(this.api.repeatDoses(body));
+      const [medsRes, adh] = await Promise.all([
+        firstValueFrom(this.api.meds()),
+        firstValueFrom(this.api.medsAdherence(this.window())),
+      ]);
+      this.applyMeds(medsRes);
+      this.adherence.set(adh);
+      this.toast.show(
+        out.copiedCount > 0 ? "Pulled in yesterday's doses" : 'Nothing to pull in',
+        { tone: 'success', durationMs: 1800 },
+      );
+    } catch {
+      this.toast.show("Couldn't repeat yesterday — try again.", { tone: 'warn' });
+    } finally {
+      this.repeating.set(false);
+    }
   }
 
   // ---- med sheet ----
@@ -620,6 +659,13 @@ export class MedsMobilePage implements OnDestroy {
   }
   private todayIso(): string {
     const d = new Date();
+    const pad = (n: number) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  }
+  private yesterdayIso(): string {
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    d.setDate(d.getDate() - 1);
     const pad = (n: number) => String(n).padStart(2, '0');
     return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
   }

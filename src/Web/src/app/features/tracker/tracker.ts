@@ -1872,6 +1872,58 @@ export class Tracker {
     }
   }
 
+  // ---- repeat tomorrow (one-tap copy onto tomorrow, same meal; no dialog) ---------------------------
+
+  /** Tomorrow as a local yyyy-MM-dd (no UTC shift — the tracker is local-date keyed). */
+  private tomorrowIso(): string {
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    d.setDate(d.getDate() + 1);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  }
+
+  /**
+   * One-tap "Repeat tomorrow" for a SINGLE food row — copies it onto tomorrow in the same meal via the
+   * existing copyFood endpoint (a COPY: today's row is untouched). No dialog; just a snackbar on success.
+   */
+  repeatFoodTomorrow(f: FoodEntryDto): void {
+    if (this.store.readOnly()) return;
+    void this.runRepeatTomorrow([f.id], f.meal, '1 item');
+  }
+
+  /**
+   * One-tap "Repeat tomorrow" for a WHOLE meal — copies every food currently logged in that meal onto
+   * tomorrow's same slot. No-op for an empty meal.
+   */
+  repeatMealTomorrow(meal: Meal): void {
+    if (this.store.readOnly()) return;
+    const ids = this.foodsFor(meal).map((f) => f.id);
+    if (ids.length === 0) return;
+    const label = this.mealSections.find((s) => s.meal === meal)?.label ?? 'meal';
+    void this.runRepeatTomorrow(ids, meal, `${label} — ${ids.length} item${ids.length === 1 ? '' : 's'}`);
+  }
+
+  /** POST the copy onto tomorrow (same meal) + snackbar. Tomorrow is never the viewed day, so no refresh. */
+  private async runRepeatTomorrow(entryIds: number[], sourceMeal: Meal, label: string): Promise<void> {
+    const targetDate = this.tomorrowIso();
+    const body: CopyFoodRequest = { entryIds, targetDate, targetMeal: sourceMeal };
+    try {
+      const out = await firstValueFrom(this.api.copyFood(body));
+      const n = out.copiedCount;
+      if (n === 0) {
+        this.snack.open('Nothing was copied', 'Dismiss', { duration: 4000 });
+        return;
+      }
+      // A repeat onto tomorrow can land on the viewed day if the user is browsing tomorrow — refresh then.
+      if (targetDate === this.store.date()) await this.store.load();
+      const msg = `Repeated ${label} to tomorrow`;
+      this.statusMsg.set(msg);
+      this.snack.open(msg, 'OK', { duration: 4000 });
+    } catch {
+      this.snack.open('Could not repeat — nothing was changed', 'Dismiss', { duration: 4000 });
+    }
+  }
+
   // ---- inline food editing (owner-only; hidden in read-only views) ----------------------------------
 
   /** The id of the food row currently being edited inline, or null when no row is open. */

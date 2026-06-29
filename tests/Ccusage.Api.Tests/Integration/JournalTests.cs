@@ -178,6 +178,116 @@ public class JournalTests(WebAppFactory factory)
         (await EntryCountFor(aliceEmail)).Should().Be(1);
     }
 
+    // ---- Copy an entry to another day (POST /journal/{id}/copy; COPY not MOVE; owner-only; IDOR-guarded) ----
+
+    /// <summary>Today in the app's display timezone — the SAME "today" the journal endpoints use.</summary>
+    private async Task<DateOnly> DisplayTzToday()
+    {
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<UsageDbContext>();
+        return await Ccusage.Api.Services.TrackerVisibility.DisplayTzTodayAsync(db, CancellationToken.None);
+    }
+
+    [Fact]
+    public async Task Copy_entry_recreates_mood_tags_and_text_on_the_target_day_and_leaves_the_source_untouched()
+    {
+        var (email, owner) = await ProvisionUser("tracker.self");
+        var today = await DisplayTzToday();
+        var from = today.AddDays(-2).ToString("yyyy-MM-dd");
+        var target = today.AddDays(-1).ToString("yyyy-MM-dd");
+
+        var src = await Json(await owner.PutAsJsonAsync("/api/journal/day", new
+        {
+            date = from,
+            mood = "good",
+            energy = 4,
+            tags = new[] { "work", "exercise" },
+            gratitudeText = "grateful-text",
+            reflectionText = "reflection-text",
+        }));
+        var srcId = src.GetProperty("id").GetInt32();
+
+        var res = await owner.PostAsJsonAsync($"/api/journal/{srcId}/copy", new { targetDate = target });
+        res.StatusCode.Should().Be(HttpStatusCode.OK);
+        var copy = await Json(res);
+        copy.GetProperty("date").GetString().Should().Be(target);
+        copy.GetProperty("mood").GetString().Should().Be("good");
+        copy.GetProperty("energy").GetInt32().Should().Be(4);
+        copy.GetProperty("tags").GetArrayLength().Should().Be(2);
+        copy.GetProperty("gratitudeText").GetString().Should().Be("grateful-text");
+        copy.GetProperty("reflectionText").GetString().Should().Be("reflection-text");
+
+        // COPY not MOVE: the source day still exists, unchanged — and there are now TWO rows.
+        (await EntryCountFor(email)).Should().Be(2);
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<UsageDbContext>();
+        var srcRow = await db.JournalEntries.AsNoTracking().FirstAsync(j => j.Id == srcId);
+        srcRow.Mood.Should().Be("good");
+        srcRow.GratitudeText.Should().Be("grateful-text");
+    }
+
+    [Fact]
+    public async Task Copy_entry_with_a_foreign_id_is_a_404_no_op_and_never_writes_to_the_callers_day()
+    {
+        var (aliceEmail, alice) = await ProvisionUser("tracker.self");
+        var (bobEmail, bob) = await ProvisionUser("tracker.self");
+        var today = await DisplayTzToday();
+        var aliceDate = today.AddDays(-3).ToString("yyyy-MM-dd");
+
+        var aliceEntry = await Json(await alice.PutAsJsonAsync("/api/journal/day",
+            new { date = aliceDate, mood = "low", reflectionText = "alice-secret" }));
+        var aliceId = aliceEntry.GetProperty("id").GetInt32();
+
+        // Bob tries to copy Alice's entry onto his own day — the owner-scoped WHERE never matches → 404.
+        var target = today.AddDays(-1).ToString("yyyy-MM-dd");
+        (await bob.PostAsJsonAsync($"/api/journal/{aliceId}/copy", new { targetDate = target }))
+            .StatusCode.Should().Be(HttpStatusCode.NotFound);
+
+        // Bob's day was never written; Alice's entry is untouched.
+        (await EntryCountFor(bobEmail)).Should().Be(0);
+        (await EntryCountFor(aliceEmail)).Should().Be(1);
+        var bobRaw = await (await bob.GetAsync("/api/journal/")).Content.ReadAsStringAsync();
+        bobRaw.Should().NotContain("alice-secret");
+    }
+
+    [Fact]
+    public async Task Copy_entry_onto_an_existing_day_overwrites_in_place_not_duplicates()
+    {
+        var (email, owner) = await ProvisionUser("tracker.self");
+        var today = await DisplayTzToday();
+        var from = today.AddDays(-2).ToString("yyyy-MM-dd");
+        var target = today.AddDays(-1).ToString("yyyy-MM-dd");
+
+        var src = await Json(await owner.PutAsJsonAsync("/api/journal/day",
+            new { date = from, mood = "great", tags = new[] { "rest" } }));
+        var srcId = src.GetProperty("id").GetInt32();
+        await owner.PutAsJsonAsync("/api/journal/day", new { date = target, mood = "rough" }); // pre-existing target
+
+        var copy = await Json(await owner.PostAsJsonAsync($"/api/journal/{srcId}/copy", new { targetDate = target }));
+        copy.GetProperty("mood").GetString().Should().Be("great"); // overwritten from the source
+
+        (await EntryCountFor(email)).Should().Be(2); // source + the one (upserted) target — no duplicate
+    }
+
+    [Fact]
+    public async Task Copy_entry_requires_tracker_self_and_auth_and_rejects_copy_onto_same_day()
+    {
+        var (_, plain) = await ProvisionUser("dashboard.view");
+        (await plain.PostAsJsonAsync("/api/journal/1/copy", new { targetDate = Today }))
+            .StatusCode.Should().Be(HttpStatusCode.Forbidden);
+
+        var anon = factory.CreateClient();
+        (await anon.PostAsJsonAsync("/api/journal/1/copy", new { targetDate = Today }))
+            .StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+
+        // Copying an entry onto its OWN day is a 400 (pick a different day).
+        var (_, owner) = await ProvisionUser("tracker.self");
+        var entry = await Json(await owner.PutAsJsonAsync("/api/journal/day", new { date = Today, mood = "ok" }));
+        var entryId = entry.GetProperty("id").GetInt32();
+        (await owner.PostAsJsonAsync($"/api/journal/{entryId}/copy", new { targetDate = Today }))
+            .StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
     // ---- Free-text privacy: reflection never echoes raw gratitude/reflection text ----
 
     [Fact]

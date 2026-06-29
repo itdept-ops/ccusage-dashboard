@@ -48,6 +48,8 @@ const MEAL_ORDER: ReadonlyArray<{ meal: Meal; title: string }> = [
  *             editFood  (FoodEntryDto) — the user tapped a logged row; the page opens the edit sheet for it
  *             copyFood  (FoodEntryDto) — the user tapped a row's copy affordance; the page opens the copy sheet
  *             copyMeal  (Meal)         — the user tapped a meal's "copy" affordance; the page copies all its rows
+ *             repeatFood(FoodEntryDto) — the user tapped a row's "repeat tomorrow"; the page one-taps a copy onto tomorrow
+ *             repeatMeal(Meal)         — the user tapped a meal's "repeat tomorrow"; the page copies all its rows onto tomorrow
  */
 @Component({
   selector: 'app-fuel-card',
@@ -81,6 +83,11 @@ const MEAL_ORDER: ReadonlyArray<{ meal: Meal; title: string }> = [
                   <span class="fc-group-sub">{{ groupSub(g) }}</span>
                 }
                 @if (g.foods.length && !readOnly()) {
+                  <button type="button" class="fc-group-copy"
+                          [attr.aria-label]="'Repeat ' + g.title + ' tomorrow'"
+                          (click)="repeatMeal.emit(g.meal)">
+                    <mat-icon aria-hidden="true">event_repeat</mat-icon>
+                  </button>
                   <button type="button" class="fc-group-copy"
                           [attr.aria-label]="'Copy ' + g.title + ' to another day'"
                           (click)="copyMeal.emit(g.meal)">
@@ -119,6 +126,11 @@ const MEAL_ORDER: ReadonlyArray<{ meal: Meal; title: string }> = [
                         @if (macroLine(f); as ml) {
                           <span class="fc-macros">{{ ml }}</span>
                         }
+                      </button>
+                      <button type="button" class="fc-row-copy"
+                              [attr.aria-label]="'Repeat ' + f.description + ' tomorrow'"
+                              (click)="repeatFood.emit(f)">
+                        <mat-icon aria-hidden="true">event_repeat</mat-icon>
                       </button>
                       <button type="button" class="fc-row-copy"
                               [attr.aria-label]="'Copy ' + f.description + ' to another day'"
@@ -303,6 +315,12 @@ export class FuelCard {
 
   /** The user tapped a meal's copy affordance — the page opens the copy sheet for all that meal's rows. */
   readonly copyMeal = output<Meal>();
+
+  /** The user tapped a row's "repeat tomorrow" affordance — the page one-taps a copy onto tomorrow, same meal. */
+  readonly repeatFood = output<FoodEntryDto>();
+
+  /** The user tapped a meal's "repeat tomorrow" affordance — the page copies all its rows onto tomorrow. */
+  readonly repeatMeal = output<Meal>();
 
   /** Collapsed state is local UI; the card opens expanded. */
   protected readonly expanded = signal(true);

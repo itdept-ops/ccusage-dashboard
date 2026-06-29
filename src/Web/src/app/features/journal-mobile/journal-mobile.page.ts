@@ -169,7 +169,31 @@ interface MoodChoice { value: string; label: string; emoji: string; }
         </label>
 
         @if (hasDayEntry()) {
-          <button type="button" class="ls__clear" (click)="clearDay()"><mat-icon aria-hidden="true">delete_outline</mat-icon> Clear this day</button>
+          <div class="ls__rowbtns">
+            <button type="button" class="ls__copy" (click)="toggleCopyPicker()"
+                    [attr.aria-expanded]="copyOpen()">
+              <mat-icon aria-hidden="true">content_copy</mat-icon> Copy to day
+            </button>
+            <button type="button" class="ls__clear" (click)="clearDay()"><mat-icon aria-hidden="true">delete_outline</mat-icon> Clear this day</button>
+          </div>
+
+          @if (copyOpen()) {
+            <div class="ls__copybox" role="group" aria-label="Copy this entry to another day">
+              <p class="ls__copyhint">Re-creates this entry's mood, energy, tags and notes on the day you pick. The original stays put.</p>
+              <label class="ls__field">
+                <span class="ls__label">Copy onto</span>
+                <input class="ls__input" type="date" [max]="maxCopyDate" enterkeyhint="done"
+                       [ngModel]="copyTarget()" (ngModelChange)="copyTarget.set($event)"
+                       name="jcopytarget" aria-label="Pick a date to copy onto" />
+              </label>
+              @if (copyIsSameDay()) {
+                <p class="ls__copywarn">Pick a different day — you can't copy a day onto itself.</p>
+              }
+              <button type="button" class="ls__copygo" [disabled]="!canCopy()" (click)="copyToDay()">
+                @if (copying()) { Copying… } @else { <mat-icon aria-hidden="true">content_copy</mat-icon> Copy this entry }
+              </button>
+            </div>
+          }
         }
 
         <p class="ls__foot"><mat-icon aria-hidden="true">lock</mat-icon> Private to you — your notes are never sent to the AI.</p>
@@ -376,6 +400,71 @@ export class JournalMobilePage implements OnDestroy {
     } catch {
       this.toast.show("Couldn't clear that day — try again.", { tone: 'warn' });
     }
+  }
+
+  // ---- copy to another day (owner-only; COPY not move — the source day is untouched) ----
+
+  /** Whether the inline copy date-picker is revealed under the editor. */
+  readonly copyOpen = signal(false);
+  /** The chosen target day (yyyy-MM-dd) for the copy. */
+  readonly copyTarget = signal<string>('');
+  /** True while the copy POST is in flight. */
+  readonly copying = signal(false);
+  /** A reasonable forward cap (today + 1 year) for the native date input. */
+  readonly maxCopyDate = this.computeMaxCopyDate();
+
+  /** True when the chosen target equals the day being edited (copy-onto-self is forbidden). */
+  readonly copyIsSameDay = computed(() => !!this.copyTarget() && this.copyTarget() === this.logDate());
+  /** Copy is enabled with a valid target that isn't the source day + not already saving. */
+  readonly canCopy = computed(() => !this.copying() && !!this.copyTarget() && !this.copyIsSameDay());
+
+  /** Toggle the inline copy picker; seed a sensible default target (today, or tomorrow if editing today). */
+  toggleCopyPicker(): void {
+    const next = !this.copyOpen();
+    this.copyOpen.set(next);
+    if (next) this.copyTarget.set(this.logDate() === this.today ? this.tomorrowIso() : this.today);
+  }
+
+  /**
+   * COPY the currently-edited day's entry onto the picked day via the journal-copy endpoint (the source day
+   * is untouched; the target is upserted in place). Flushes any pending autosave first so the copy reflects
+   * the latest edits, then toasts + merges the saved target entry back into the list.
+   */
+  async copyToDay(): Promise<void> {
+    if (!this.canCopy()) return;
+    const source = this.entryByDate().get(this.logDate());
+    if (!source) return;
+    this.flushPendingSave();
+    const targetDate = this.copyTarget();
+    this.copying.set(true);
+    try {
+      const saved = await firstValueFrom(this.api.copyJournalEntry(source.id, { targetDate }));
+      this.entries.update((prev) => {
+        const without = prev.filter((e) => e.date !== saved.date);
+        return [saved, ...without].sort((a, b) => (a.date < b.date ? 1 : -1));
+      });
+      if (saved.date === this.logDate()) this.loadDayIntoEditor(saved.date);
+      this.copyOpen.set(false);
+      this.toast.show(`Copied to ${this.friendlyDate(targetDate)}`, { tone: 'success', durationMs: 1800 });
+      void this.loadReflection();
+    } catch {
+      this.toast.show("Couldn't copy that day — nothing was changed.", { tone: 'warn' });
+    } finally {
+      this.copying.set(false);
+    }
+  }
+
+  private tomorrowIso(): string {
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    d.setDate(d.getDate() + 1);
+    return this.toLocalDate(d);
+  }
+  private computeMaxCopyDate(): string {
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    d.setFullYear(d.getFullYear() + 1);
+    return this.toLocalDate(d);
   }
 
   moodEmoji(mood: string | null | undefined): string { return this.moodChoices.find((m) => m.value === mood)?.emoji ?? ''; }

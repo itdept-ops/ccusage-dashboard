@@ -6,6 +6,7 @@ import { firstValueFrom } from 'rxjs';
 
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
+import { MatDialog } from '@angular/material/dialog';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 
@@ -15,6 +16,7 @@ import {
   JournalDto, JournalEntryDto, JournalReflectionDto, JournalSummaryDto, PERM,
 } from '../../core/models';
 import { BetaErrorState } from '../beta-ui';
+import { CopyJournalDialog, CopyJournalData, CopyJournalResult } from './copy-journal-dialog';
 
 interface MoodChoice { value: string; label: string; emoji: string; }
 
@@ -46,6 +48,7 @@ export class Journal {
   private api = inject(Api);
   private auth = inject(AuthService);
   private snack = inject(MatSnackBar);
+  private dialog = inject(MatDialog);
   private destroyRef = inject(DestroyRef);
 
   // ---- page state ----
@@ -294,6 +297,62 @@ export class Journal {
       void this.loadReflection();
     } catch (e) {
       this.snack.open(this.messageOf(e, 'Could not clear that day.'), 'OK', { duration: 4000 });
+    }
+  }
+
+  // ============================================================== copy to another day
+
+  /** True while the copy POST is in flight (latches the button against a double-submit). */
+  readonly copying = signal(false);
+
+  /**
+   * Open the "Copy to another day" dialog for the currently-viewed day's entry. On confirm, POST the copy
+   * (a COPY: the source day is untouched; the target day is upserted in place with mood + energy + tags +
+   * free-text). Flushes any pending autosave first so the copy reflects the latest edits.
+   */
+  copyToDay(): void {
+    const sourceDate = this.logDate();
+    const entry = this.entryByDate().get(sourceDate);
+    if (!entry) return;
+    this.flushPendingSave();
+    const data: CopyJournalData = { sourceDate, sourceLabel: this.logDateLabel() };
+    this.dialog
+      .open(CopyJournalDialog, {
+        data,
+        width: '420px',
+        maxWidth: '95vw',
+        panelClass: 'tracker-dialog',
+        autoFocus: false,
+      })
+      .afterClosed()
+      .subscribe((res: CopyJournalResult | undefined) => {
+        if (!res) return;
+        void this.runCopyToDay(entry.id, res.targetDate);
+      });
+  }
+
+  /**
+   * POST the copy, snackbar the result, and merge the saved target entry back into the list (so the picker
+   * shows it). If the copy landed on the day currently on screen, re-hydrate the editor from it.
+   */
+  private async runCopyToDay(entryId: number, targetDate: string): Promise<void> {
+    if (this.copying()) return;
+    this.copying.set(true);
+    try {
+      const saved = await firstValueFrom(this.api.copyJournalEntry(entryId, { targetDate }));
+      this.entries.update((prev) => {
+        const without = prev.filter((e) => e.date !== saved.date);
+        return [saved, ...without].sort((a, b) => (a.date < b.date ? 1 : -1));
+      });
+      // If the copy targeted the viewed day, refresh the editor so the copied values appear.
+      if (saved.date === this.logDate()) this.loadDayIntoEditor(saved.date);
+      const to = this.friendlyDate(targetDate);
+      this.snack.open(`Copied this entry to ${to}.`, 'OK', { duration: 3000 });
+      void this.loadReflection();
+    } catch (e) {
+      this.snack.open(this.messageOf(e, 'Could not copy that day — nothing was changed.'), 'OK', { duration: 4000 });
+    } finally {
+      this.copying.set(false);
     }
   }
 

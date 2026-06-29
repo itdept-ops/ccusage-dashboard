@@ -6,8 +6,11 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { ActivatedRoute, Router } from '@angular/router';
 
+import { firstValueFrom } from 'rxjs';
+
 import { TrackerStore, toLocalDate } from '../../core/tracker-store';
-import { FoodEntryDto, Meal } from '../../core/models';
+import { Api } from '../../core/api';
+import { CopyFoodRequest, FoodEntryDto, Meal } from '../../core/models';
 import { UnitService } from '../../core/unit.service';
 
 import { OptimisticTracker } from './state/optimistic-tracker';
@@ -113,7 +116,8 @@ import { currentStreak, dayHasAnyLog } from './util/streak';
 
         <!-- CARD STACK -->
         <app-fuel-card (addToMeal)="openFood($event)" (editFood)="openEditFood($event)"
-                       (copyFood)="openCopyFood($event)" (copyMeal)="openCopyMeal($event)" />
+                       (copyFood)="openCopyFood($event)" (copyMeal)="openCopyMeal($event)"
+                       (repeatFood)="repeatFoodTomorrow($event)" (repeatMeal)="repeatMealTomorrow($event)" />
         <app-tb-water-card />
         <app-move-card (addExercise)="exerciseOpen.set(true)" (editWatch)="watchOpen.set(true)" />
         <app-tracker-beta-coffee-card />
@@ -223,6 +227,7 @@ export class TrackerBetaPage {
   protected readonly router = inject(Router);
   private readonly activatedRoute = inject(ActivatedRoute);
   protected readonly units = inject(UnitService);
+  private readonly api = inject(Api);
   private readonly snack = inject(MatSnackBar);
 
   // ── read surface (off the shared day() signal) ──
@@ -511,6 +516,53 @@ export class TrackerBetaPage {
     if (diff === 1) return 'tomorrow';
     if (diff === -1) return 'yesterday';
     return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  }
+
+  // ── repeat tomorrow (one-tap copy onto tomorrow, same meal; no sheet) ──
+
+  /** Tomorrow as a local yyyy-MM-dd (no UTC shift — the tracker is local-date keyed). */
+  private tomorrowIso(): string {
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    d.setDate(d.getDate() + 1);
+    return toLocalDate(d);
+  }
+
+  /**
+   * One-tap "Repeat tomorrow" for a SINGLE row — copies it onto tomorrow in the same meal via the existing
+   * copyFood endpoint (a COPY: today's row is untouched). No sheet; just a confirmation toast.
+   */
+  protected repeatFoodTomorrow(f: FoodEntryDto): void {
+    if (this.readOnly()) return;
+    void this.runRepeatTomorrow([f.id], f.meal);
+  }
+
+  /** One-tap "Repeat tomorrow" for a WHOLE meal — copies every row in that meal onto tomorrow's same slot. */
+  protected repeatMealTomorrow(meal: Meal): void {
+    if (this.readOnly()) return;
+    const ids = (this.day()?.foods ?? []).filter((f) => f.meal === meal).map((f) => f.id);
+    if (ids.length === 0) return;
+    void this.runRepeatTomorrow(ids, meal);
+  }
+
+  /** POST the copy onto tomorrow (same meal) + toast. Refreshes only if tomorrow happens to be on screen. */
+  private async runRepeatTomorrow(entryIds: number[], sourceMeal: Meal): Promise<void> {
+    const targetDate = this.tomorrowIso();
+    const body: CopyFoodRequest = { entryIds, targetDate, targetMeal: sourceMeal };
+    try {
+      const out = await firstValueFrom(this.api.copyFood(body));
+      const n = out.copiedCount;
+      if (n === 0) {
+        this.snack.open('Nothing was copied', 'Dismiss', { duration: 4000, politeness: 'polite' });
+        return;
+      }
+      this.snack.open(`Repeated ${n} item${n === 1 ? '' : 's'} to tomorrow`, 'OK',
+        { duration: 3000, politeness: 'polite' });
+      if (targetDate === this.store.date()) void this.store.load();
+    } catch {
+      this.snack.open('Could not repeat — nothing was changed', 'Dismiss',
+        { duration: 4000, politeness: 'polite' });
+    }
   }
 
   // ── weight reconcile ──

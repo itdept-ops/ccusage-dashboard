@@ -167,12 +167,45 @@
   &.is-on { border-color: transparent; background: linear-gradient(135deg, var(--accent-a), var(--accent-b)); }
   &:active { transform: scale(.9); }
 }
+// Day-action row: "Copy to day" (accent) beside "Clear this day" (warn).
+.ls__rowbtns { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .ls__clear {
-  align-self: flex-start; display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px;
+  display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px;
   border: 1px solid color-mix(in srgb, var(--warn) 40%, transparent); border-radius: var(--r-pill);
   background: transparent; font-size: .82rem; font-weight: 700; color: var(--warn); cursor: pointer;
   mat-icon { font-size: 18px; width: 18px; height: 18px; }
 }
+.ls__copy {
+  display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px;
+  border: 1px solid color-mix(in srgb, var(--accent-a) 42%, transparent); border-radius: var(--r-pill);
+  background: color-mix(in srgb, var(--accent-a) 10%, transparent);
+  font-size: .82rem; font-weight: 700; color: var(--accent-b); cursor: pointer;
+  touch-action: manipulation; -webkit-tap-highlight-color: transparent;
+  mat-icon { font-size: 18px; width: 18px; height: 18px; }
+  &:focus-visible { outline: 2px solid var(--accent-a); outline-offset: 2px; }
+}
+
+// Inline copy-to-day picker, revealed under the editor.
+.ls__copybox {
+  display: flex; flex-direction: column; gap: 10px; padding: 12px;
+  border: 1px solid var(--hairline); border-radius: var(--r-card);
+  background: color-mix(in srgb, var(--accent-a) 5%, var(--bg-rise));
+}
+.ls__copyhint { margin: 0; font-size: .8rem; line-height: 1.4; color: var(--ink-dim); }
+.ls__copywarn { margin: 0; font-size: .8rem; color: var(--warn); }
+.ls__copygo {
+  display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 46px;
+  border: 0; border-radius: var(--r-pill);
+  background: linear-gradient(135deg, var(--accent-a), var(--accent-b)); color: #fff;
+  font-size: .92rem; font-weight: 800; cursor: pointer;
+  touch-action: manipulation; -webkit-tap-highlight-color: transparent;
+  transition: opacity 160ms ease, transform 120ms ease;
+  &:active:not(:disabled) { transform: scale(.99); }
+  &:disabled { opacity: .45; cursor: default; }
+  &:focus-visible { outline: 2px solid var(--accent-a); outline-offset: 3px; }
+  mat-icon { font-size: 18px; width: 18px; height: 18px; }
+}
+@media (prefers-reduced-motion: reduce) { .ls__copygo { transition: none; } }
 .ls__foot {
   display: flex; align-items: flex-start; gap: 8px; margin: 0; font-size: .78rem; line-height: 1.4; color: var(--ink-faint);
   mat-icon { flex: none; font-size: 18px; width: 18px; height: 18px; }

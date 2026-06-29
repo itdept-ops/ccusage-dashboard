@@ -29,7 +29,7 @@ import {
   IdentityImportResult, IdentityAutoSuggest, IdentityAutoApply,
   HardChallengeDto, HardSharedPersonDto, StartChallengeRequest, UpsertHardDayRequest, HardDayDto, CheatDaysRequest,
   HardTaskDto, CreateHardTaskRequest, UpdateHardTaskRequest, HardLeaderboardRowDto, HardCoachDto,
-  JournalDto, JournalEntryDto, JournalDayRequest, JournalReflectionDto,
+  JournalDto, JournalEntryDto, JournalDayRequest, JournalCopyRequest, JournalReflectionDto,
   HabitDto, HabitDayDto, HabitLeaderboardRowDto, HabitCoachDto,
   CreateHabitRequest, UpdateHabitRequest, UpsertHabitDayRequest,
   TrophiesResponse,
@@ -38,6 +38,7 @@ import {
   WrappedNarrative, CreateWrappedShareRequest, WrappedShareCreated, WrappedShareItem, PublicWrapped,
   InsightsResponse, InsightsNarrateResponse, InsightWindow,
   MedsResponse, MedicationInput, Medication, LogDoseInput, DoseLog, AdherenceResponse,
+  RepeatDosesRequest, RepeatDosesResponse,
   VitalsResponse, VitalInput, VitalReading, VitalsInsightResponse, VitalKind,
   BillDto, BillItemRequest, BillShareToggleResult, CreateBillRequest, PaymentHandlesDto,
   PublicBillDto, ReceiptBreakdownDto, UpdateBillRequest,
@@ -2922,6 +2923,13 @@ export class Api {
     return this.http.put<JournalEntryDto>(`${this.base}/journal/day`, body);
   }
 
+  /** Copy the caller's OWN entry {id} onto another day (POST /journal/{id}/copy). COPY not MOVE — re-creates
+   *  mood+energy+tags+free-text on `targetDate`; the source day is untouched. Owner-scoped + IDOR-guarded
+   *  server-side (a foreign id → 404). Returns the saved target entry. */
+  copyJournalEntry(id: number, body: JournalCopyRequest): Observable<JournalEntryDto> {
+    return this.http.post<JournalEntryDto>(`${this.base}/journal/${id}/copy`, body);
+  }
+
   /** Clear one whole day's entry (DELETE /journal/day?date=; 204, or 404 if none; owner-scoped). */
   deleteJournalDay(date: string): Observable<void> {
     const params = new HttpParams().set('date', date);
@@ -3367,6 +3375,13 @@ export class Api {
     return this.http.get<AdherenceResponse>(`${this.base}/meds/adherence`, {
       params: { window: String(window) },
     });
+  }
+
+  /** "Repeat yesterday": copy the caller's OWN dose logs from `fromDate` onto `toDate` so the day's checklist
+   *  arrives pre-filled (POST /meds/doses/repeat). COPY not MOVE (the source day is untouched) + IDEMPOTENT (a
+   *  (med, slot) already on `toDate` is skipped). Owner-scoped. Returns the count + the created logs. */
+  repeatDoses(body: RepeatDosesRequest): Observable<RepeatDosesResponse> {
+    return this.http.post<RepeatDosesResponse>(`${this.base}/meds/doses/repeat`, body);
   }
 
   /** Vital readings newest-first + a deterministic trend; optionally filtered by `kind` (owner-scoped). */

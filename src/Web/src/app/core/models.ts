@@ -5577,6 +5577,7 @@ export type JournalTag =
 
 /** One day's journal entry (mirrors EntryDto) — owner-only; returned only on the owner's own GET. */
 export interface JournalEntryDto {
+  id: number;                    // the entry's id (the target of copyJournalEntry)
   date: string;                  // ISO "YYYY-MM-DD" (DateOnly)
   mood: string | null;
   energy: number | null;         // 1..5
@@ -5604,6 +5605,13 @@ export interface JournalDto {
 export interface JournalReflectionDto {
   note: string;
   fellBackToPlain: boolean;
+}
+
+/** Copy one journal entry onto another day (mirrors CopyRequest; body of POST /api/journal/{id}/copy).
+ *  COPY not MOVE — re-creates the caller's OWN entry (mood+energy+tags+free-text) on `targetDate`; the source
+ *  day is untouched. Owner-scoped + IDOR-guarded server-side (a foreign id → 404). */
+export interface JournalCopyRequest {
+  targetDate: string;            // ISO "YYYY-MM-DD"
 }
 
 /** PARTIAL upsert of one day's entry (mirrors DayRequest). `date` required; an absent field is PRESERVED;
@@ -6541,6 +6549,20 @@ export interface AdherenceResponse {
   taken: number;
   scheduled: number;
   percent: number;
+}
+
+/** Body for POST /api/meds/doses/repeat ("repeat yesterday"): copy the caller's OWN dose logs from `fromDate`
+ *  onto `toDate`. COPY not MOVE (the source day is untouched) + IDEMPOTENT (a (med, slot) already on `toDate`
+ *  is skipped). Owner-scoped server-side. */
+export interface RepeatDosesRequest {
+  fromDate: string;          // yyyy-MM-dd
+  toDate: string;            // yyyy-MM-dd
+}
+
+/** Result of POST /api/meds/doses/repeat — how many dose logs were created on the target day + the new rows. */
+export interface RepeatDosesResponse {
+  copiedCount: number;
+  logs: DoseLog[];
 }
 
 /** A single vital reading (owner-scoped). `value2` is kept only for BloodPressure (diastolic). */

@@ -29,12 +29,16 @@ public static class JournalEndpoints
         DateOnly Date, string? Mood, int? Energy, IReadOnlyList<string>? Tags,
         string? GratitudeText, string? ReflectionText);
 
+    /// <summary>"Copy this entry to another day" — re-create the caller's OWN entry (mood + energy + tags + the
+    /// gratitude/reflection free-text) on <see cref="TargetDate"/>. COPY not MOVE (the source day is untouched).</summary>
+    public sealed record CopyRequest(DateOnly TargetDate);
+
     // ---- Response DTOs ----
 
     /// <summary>One day's journal entry (owner-only; mirrors <see cref="JournalEntry"/>). Returned ONLY to the
     /// owner on their own GET — never to any other viewer, never to the AI.</summary>
     public sealed record EntryDto(
-        DateOnly Date, string? Mood, int? Energy, IReadOnlyList<string> Tags,
+        int Id, DateOnly Date, string? Mood, int? Energy, IReadOnlyList<string> Tags,
         string? GratitudeText, string? ReflectionText, DateTime UpdatedUtc);
 
     /// <summary>A deterministic aggregate summary of the recent window (counts/frequencies only — no free-text).</summary>
@@ -141,6 +145,73 @@ public static class JournalEndpoints
             return Results.Ok(ToDto(row));
         });
 
+        // ---- POST /{id}/copy : copy the caller's OWN entry onto another day (COPY not MOVE; owner-scoped) ----
+        // Re-create the caller's OWN entry {id} (mood + energy + tags + gratitude/reflection free-text) on the
+        // target day. COPY not MOVE: the source row is left exactly as-is. Because there is at most one entry per
+        // (owner, date), the target day is upserted in place — an existing target entry's recorded fields are
+        // overwritten from the source (the same fields the manual PUT writes), not duplicated.
+        //
+        // IDOR GUARD: the source is loaded with Id == id AND UserEmail == caller, so a FOREIGN id never matches
+        // (cross-user → 404) and is never read into the copy; the target row is always keyed to the caller's own
+        // email, so a caller can never copy a stranger's entry nor write onto a stranger's day. No new permission
+        // (gated by tracker.self like the group); no migration.
+        g.MapPost("/{id:int}/copy", async (
+            int id, CopyRequest req, CurrentUserAccessor me, UsageDbContext db, CancellationToken ct) =>
+        {
+            if (ValidateDate(req.TargetDate) is { } bad) return bad;
+            var caller = (await me.GetUserAsync(ct))!;
+
+            // OWNER-ONLY load: the WHERE binds the id AND the caller's email — a foreign id never matches → 404.
+            var src = await db.JournalEntries.AsNoTracking()
+                .FirstOrDefaultAsync(j => j.Id == id && j.UserEmail == caller.Email, ct);
+            if (src is null) return Results.NotFound();
+
+            if (src.LocalDate == req.TargetDate)
+                return Results.BadRequest(new { message = "Pick a different day to copy to." });
+
+            var now = DateTime.UtcNow;
+            var row = await db.JournalEntries
+                .FirstOrDefaultAsync(j => j.UserEmail == caller.Email && j.LocalDate == req.TargetDate, ct);
+            if (row is null)
+            {
+                row = new JournalEntry
+                {
+                    UserEmail = caller.Email, // always the caller's own day
+                    UserId = caller.Id,
+                    LocalDate = req.TargetDate,
+                    CreatedUtc = now,
+                };
+                db.JournalEntries.Add(row);
+            }
+
+            // Snapshot the SAME fields the manual write persists (mood + energy + tags + free-text).
+            row.Mood = src.Mood;
+            row.Energy = src.Energy;
+            row.Tags = new List<string>(src.Tags);
+            row.GratitudeText = src.GratitudeText;
+            row.ReflectionText = src.ReflectionText;
+            row.UpdatedUtc = now;
+            try
+            {
+                await db.SaveChangesAsync(ct);
+            }
+            catch (DbUpdateException ex) when (TrackerVisibility.IsUniqueViolation(ex))
+            {
+                // A concurrent insert raced the same (email, target); reload + re-apply onto the winner.
+                db.ChangeTracker.Clear();
+                row = await db.JournalEntries
+                    .FirstAsync(j => j.UserEmail == caller.Email && j.LocalDate == req.TargetDate, ct);
+                row.Mood = src.Mood;
+                row.Energy = src.Energy;
+                row.Tags = new List<string>(src.Tags);
+                row.GratitudeText = src.GratitudeText;
+                row.ReflectionText = src.ReflectionText;
+                row.UpdatedUtc = now;
+                await db.SaveChangesAsync(ct);
+            }
+            return Results.Ok(ToDto(row));
+        });
+
         // ---- DELETE /day?date= : clear one whole day's entry (owner-scoped) ----
         g.MapDelete("/day", async (
             DateOnly? date, CurrentUserAccessor me, UsageDbContext db, CancellationToken ct) =>
@@ -237,7 +308,7 @@ public static class JournalEndpoints
     }
 
     private static EntryDto ToDto(JournalEntry j) => new(
-        j.LocalDate, j.Mood, j.Energy, j.Tags, j.GratitudeText, j.ReflectionText, j.UpdatedUtc);
+        j.Id, j.LocalDate, j.Mood, j.Energy, j.Tags, j.GratitudeText, j.ReflectionText, j.UpdatedUtc);
 
     /// <summary>The deterministic aggregate summary of the recent window — counts/frequencies only (the same
     /// non-free-text aggregates the AI may narrate). Empty-ish when there's little to say.</summary>
