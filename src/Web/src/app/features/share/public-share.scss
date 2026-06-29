@@ -48,7 +48,7 @@
   background: var(--tech-panel, #111722);
   display: flex; flex-direction: column; gap: 6px;
 
-  .k { font-size: var(--tech-fs-micro, 11px); letter-spacing: 0.06em; text-transform: uppercase; color: var(--tech-text-tertiary); }
+  .k { font-size: var(--tech-fs-micro, 10.5px); letter-spacing: 0.06em; text-transform: uppercase; color: var(--tech-text-tertiary); }
   .v { font-family: var(--tech-font-mono); font-size: 26px; font-weight: 700; color: var(--tech-text); }
   .v.cost { color: var(--tech-accent-magenta, #f472b6); }
 }

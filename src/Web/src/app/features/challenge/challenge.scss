@@ -43,7 +43,7 @@
   gap: var(--tech-space-4, 1rem);
 }
 .challenge__title {
-  h1 { margin: 0; font-size: var(--tech-fs-h1, 1.5rem); font-weight: 700; color: var(--tech-text); }
+  h1 { margin: 0; font-size: var(--tech-fs-h1, 18px); font-weight: 700; color: var(--tech-text); }
   .challenge__sub { margin: 0.25rem 0 0; font-size: var(--tech-fs-body); color: var(--tech-text-tertiary); }
 }
 .challenge__head-actions { display: flex; gap: var(--tech-space-2); flex-wrap: wrap; }
@@ -117,7 +117,7 @@
 }
 .challenge__start-copy {
   min-width: 0;
-  h2 { margin: 0 0 var(--tech-space-2, 8px); font-size: var(--tech-fs-h2, 1.2rem); color: var(--tech-text); }
+  h2 { margin: 0 0 var(--tech-space-2, 8px); font-size: var(--tech-fs-h2, 16px); color: var(--tech-text); }
   p { margin: 0 0 var(--tech-space-4, 16px); color: var(--tech-text-secondary); line-height: 1.5; }
 }
 .challenge__start-fields {

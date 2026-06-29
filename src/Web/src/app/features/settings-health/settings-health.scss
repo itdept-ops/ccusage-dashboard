@@ -54,7 +54,7 @@
   align-items: flex-start;
 
   mat-icon { flex: none; color: var(--tech-text-accent); }
-  &__title { margin: 0 0 4px; font-size: var(--tech-fs-h3, 16px); color: var(--tech-text); }
+  &__title { margin: 0 0 4px; font-size: var(--tech-fs-h3, 14px); color: var(--tech-text); }
   &__body { margin: 0; font-size: var(--tech-fs-body); color: var(--tech-text-secondary); max-width: 56ch; }
 }
 
@@ -74,7 +74,7 @@
     background: color-mix(in srgb, var(--tech-text-accent) 14%, transparent);
     mat-icon { font-size: 32px; width: 32px; height: 32px; color: var(--tech-text-accent); }
   }
-  &__title { margin: 0 0 var(--tech-space-1, 8px); font-size: var(--tech-fs-h2, 20px); color: var(--tech-text); }
+  &__title { margin: 0 0 var(--tech-space-1, 8px); font-size: var(--tech-fs-h2, 16px); color: var(--tech-text); }
   &__body { margin: 0 auto var(--tech-space-3, 16px); max-width: 46ch; color: var(--tech-text-secondary); }
   &__scopes {
     margin: var(--tech-space-2, 12px) 0 0;

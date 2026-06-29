@@ -79,7 +79,7 @@ const SLOT_LABELS: { slot: WeightSlot; label: string }[] = [
       color: var(--tech-text-tertiary);
     }
     .ws-slot__v {
-      font-size: var(--tech-fs-h2, var(--tech-fs-body));
+      font-size: var(--tech-fs-h2, 16px);
       font-weight: 700;
       color: var(--tech-text);
     }

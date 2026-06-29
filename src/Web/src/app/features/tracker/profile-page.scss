@@ -27,7 +27,7 @@
   font-family: var(--tech-font-ui);
   font-weight: 800;
   letter-spacing: -0.01em;
-  font-size: var(--tech-fs-h1, 1.6rem);
+  font-size: var(--tech-fs-h1, 18px);
   color: var(--tech-text);
   margin: 0;
 }
@@ -113,7 +113,7 @@
   margin: 0;
   font-family: var(--tech-font-ui);
   font-weight: 700;
-  font-size: var(--tech-fs-h2, 1.25rem);
+  font-size: var(--tech-fs-h2, 16px);
   color: var(--tech-text);
   mat-icon { color: var(--tech-accent); }
 }

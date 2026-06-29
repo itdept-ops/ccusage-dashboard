@@ -67,13 +67,13 @@ mat-progress-bar { margin-bottom: var(--tech-space-3); }
   background: var(--tech-surface-2, rgba(255, 255, 255, 0.03));
 
   &__label {
-    font-size: var(--tech-fs-micro, 0.7rem);
+    font-size: var(--tech-fs-micro, 10.5px);
     text-transform: uppercase;
     letter-spacing: 0.08em;
     color: var(--tech-text-tertiary);
   }
   &__value {
-    font-size: var(--tech-fs-h3, 1.25rem);
+    font-size: var(--tech-fs-h3, 14px);
     font-weight: 650;
     letter-spacing: -0.01em;
     color: var(--tech-text-primary);

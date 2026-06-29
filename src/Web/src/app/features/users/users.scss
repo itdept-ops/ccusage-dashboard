@@ -243,7 +243,7 @@ mat-progress-bar {
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0;
 }
 .row-summary {
-  font-size: var(--tech-fs-micro, 11.5px); color: var(--tech-text-secondary); line-height: 1.35;
+  font-size: var(--tech-fs-micro, 10.5px); color: var(--tech-text-secondary); line-height: 1.35;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .row-badges { display: flex; align-items: center; gap: 6px; margin-top: 1px; }
@@ -252,7 +252,7 @@ mat-progress-bar {
 .role-badge {
   display: inline-block; padding: 1px 8px;
   border-radius: var(--tech-r-pill, 999px);
-  font-size: var(--tech-fs-micro, 10px); font-weight: 700; letter-spacing: 0.03em;
+  font-size: var(--tech-fs-micro, 10.5px); font-weight: 700; letter-spacing: 0.03em;
   color: var(--tech-text-secondary);
   background: color-mix(in srgb, var(--tech-panel-raised) 70%, transparent);
   border: 1px solid var(--tech-border-subtle);
@@ -261,7 +261,7 @@ mat-progress-bar {
   display: inline-flex; align-items: center; gap: 3px;
   padding: 1px 7px;
   border-radius: var(--tech-r-pill, 999px);
-  font-size: var(--tech-fs-micro, 10px); font-weight: 700; letter-spacing: 0.04em;
+  font-size: var(--tech-fs-micro, 10.5px); font-weight: 700; letter-spacing: 0.04em;
   color: color-mix(in srgb, #{$ai} 85%, white);
   background: color-mix(in srgb, #{$ai} 18%, transparent);
   mat-icon { font-size: 11px; width: 11px; height: 11px; }
@@ -269,7 +269,7 @@ mat-progress-bar {
 .pill--off {
   display: inline-block; padding: 0 7px;
   border-radius: var(--tech-r-pill, 999px);
-  font-size: var(--tech-fs-micro, 10px); font-weight: 700;
+  font-size: var(--tech-fs-micro, 10.5px); font-weight: 700;
   color: var(--tech-text-tertiary);
   background: color-mix(in srgb, var(--tech-text-tertiary) 16%, transparent);
 }
@@ -388,7 +388,7 @@ mat-progress-bar {
 .access-pill {
   display: inline-block; padding: 2px 9px;
   border-radius: var(--tech-r-pill, 999px);
-  font-size: var(--tech-fs-micro, 11px); color: var(--tech-text);
+  font-size: var(--tech-fs-micro, 10.5px); color: var(--tech-text);
   background: color-mix(in srgb, var(--tech-panel-raised) 60%, transparent);
   border: 1px solid var(--tech-border-subtle);
 }
@@ -422,7 +422,7 @@ mat-progress-bar {
   .mdc-form-field, .mdc-label { align-items: flex-start; }
 }
 .cap-label { display: block; font-weight: 500; color: var(--tech-text); line-height: 1.3; }
-.cap-desc { display: block; font-size: var(--tech-fs-micro, 11px); color: var(--tech-text-tertiary); line-height: 1.3; white-space: normal; }
+.cap-desc { display: block; font-size: var(--tech-fs-micro, 10.5px); color: var(--tech-text-tertiary); line-height: 1.3; white-space: normal; }
 
 /* ---- AI & sensitive panel (its own tinted, shield-marked section, set apart) ---- */
 .ai-panel {
@@ -469,18 +469,18 @@ mat-progress-bar {
     overflow: hidden; text-overflow: ellipsis;
   }
   thead th {
-    font-size: var(--tech-fs-micro, 11px); font-weight: 600; letter-spacing: 0.05em;
+    font-size: var(--tech-fs-micro, 10.5px); font-weight: 600; letter-spacing: 0.05em;
     text-transform: uppercase; color: var(--tech-text-tertiary); border-bottom-color: var(--tech-border);
   }
   tbody tr:last-child td { border-bottom: none; }
   .lc-device,
-  .lc-agent { color: var(--tech-text-tertiary); font-size: var(--tech-fs-micro, 11px); }
+  .lc-agent { color: var(--tech-text-tertiary); font-size: var(--tech-fs-micro, 10.5px); }
 }
 .logins-cards { display: none; }
 .login-badge {
   display: inline-block; padding: 2px 9px;
   border-radius: var(--tech-r-pill, 999px);
-  font-family: var(--tech-font-mono); font-size: var(--tech-fs-micro, 11px); font-weight: 600;
+  font-family: var(--tech-font-mono); font-size: var(--tech-fs-micro, 10.5px); font-weight: 600;
   &.ok { color: var(--tech-success, #2fd07a); background: color-mix(in srgb, var(--tech-success, #2fd07a) 16%, transparent); }
   &.denied { color: var(--tech-error, #ff5c6c); background: color-mix(in srgb, var(--tech-error, #ff5c6c) 16%, transparent); }
 }
@@ -558,7 +558,7 @@ mat-progress-bar {
 }
 .save-warn {
   display: inline-flex; align-items: center; gap: 4px;
-  font-size: var(--tech-fs-micro, 11px); font-weight: 700;
+  font-size: var(--tech-fs-micro, 10.5px); font-weight: 700;
   color: color-mix(in srgb, #{$ai} 85%, white);
 }
 .save-actions { display: flex; align-items: center; gap: 6px; margin-left: auto; }
@@ -590,12 +590,12 @@ mat-progress-bar {
   }
 }
 .menu-group-label {
-  padding: 8px 16px 4px; font-size: var(--tech-fs-micro, 11px); font-weight: 700;
+  padding: 8px 16px 4px; font-size: var(--tech-fs-micro, 10.5px); font-weight: 700;
   letter-spacing: 0.06em; text-transform: uppercase; color: var(--tech-text-tertiary);
 }
 .menu-label { display: block; font-weight: 600; }
 .menu-desc {
-  display: block; font-size: var(--tech-fs-micro, 11px); color: var(--tech-text-tertiary);
+  display: block; font-size: var(--tech-fs-micro, 10.5px); color: var(--tech-text-tertiary);
   white-space: normal; max-width: 320px; line-height: 1.35;
 }
 .mat-mdc-menu-item:has(.menu-desc) { height: auto; padding-top: 6px; padding-bottom: 6px; line-height: 1.3; }
@@ -637,7 +637,7 @@ mat-slide-toggle {
   &:last-child { border-bottom: none; }
   .audit-when { color: var(--tech-text-tertiary); flex: 0 0 auto; min-width: 96px; }
   .audit-action {
-    flex: 0 0 auto; font-family: var(--tech-font-mono); font-size: var(--tech-fs-micro, 11px);
+    flex: 0 0 auto; font-family: var(--tech-font-mono); font-size: var(--tech-fs-micro, 10.5px);
     padding: 2px 8px; border-radius: var(--tech-r-pill, 999px);
     background: color-mix(in srgb, var(--tech-accent) 16%, transparent); color: var(--tech-accent);
   }
@@ -707,7 +707,7 @@ mat-slide-toggle {
     span:last-child { min-width: 0; word-break: break-word; }
   }
   .login-item-device,
-  .login-item-agent { font-size: var(--tech-fs-micro, 11px); color: var(--tech-text-tertiary); }
+  .login-item-agent { font-size: var(--tech-fs-micro, 10.5px); color: var(--tech-text-tertiary); }
 
   /* Accordions + AI panel: single column on phones. */
   .acc-body, .ai-items { grid-template-columns: 1fr; }

@@ -71,7 +71,7 @@ mat-progress-bar {
     white-space: nowrap;
   }
   thead th {
-    font-size: var(--tech-fs-micro, 11px);
+    font-size: var(--tech-fs-micro, 10.5px);
     font-weight: 600;
     letter-spacing: 0.05em;
     text-transform: uppercase;
@@ -98,7 +98,7 @@ mat-progress-bar {
   min-width: 48px;
   text-align: center;
   font-family: var(--tech-font-mono);
-  font-size: var(--tech-fs-micro, 11px);
+  font-size: var(--tech-fs-micro, 10.5px);
   font-weight: 700;
   letter-spacing: 0.04em;
   padding: 2px 8px;
@@ -134,7 +134,7 @@ mat-progress-bar {
 @media (max-width: 860px) { .bodies { grid-template-columns: 1fr; } }
 
 .body-col .body-label {
-  font-size: var(--tech-fs-micro, 11px);
+  font-size: var(--tech-fs-micro, 10.5px);
   font-weight: 600;
   letter-spacing: 0.05em;
   text-transform: uppercase;
@@ -246,7 +246,7 @@ mat-form-field { --mat-form-field-container-text-size: 13px; }
       color: var(--tech-text-tertiary);
       text-transform: uppercase;
       letter-spacing: 0.04em;
-      font-size: var(--tech-fs-micro, 11px);
+      font-size: var(--tech-fs-micro, 10.5px);
       margin-right: 4px;
     }
 

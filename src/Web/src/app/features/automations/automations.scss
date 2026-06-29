@@ -60,7 +60,7 @@
   gap: var(--tech-space-3, 16px);
   margin-bottom: var(--tech-space-4, 24px);
 
-  &__title { margin: 0; font-size: var(--tech-fs-h3, 16px); color: var(--tech-text); }
+  &__title { margin: 0; font-size: var(--tech-fs-h3, 14px); color: var(--tech-text); }
   &__error { margin: 0; color: var(--tech-danger, #ff5c6c); font-size: var(--tech-fs-small); }
   &__actions { display: flex; justify-content: flex-end; gap: var(--tech-space-2, 12px); }
 }

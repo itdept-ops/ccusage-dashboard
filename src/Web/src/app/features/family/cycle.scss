@@ -38,7 +38,7 @@
   gap: var(--tech-space-2, 8px);
 }
 .cycle__state-crest mat-icon { color: var(--tech-warn); }
-.cycle__state-title { margin: var(--tech-space-2, 8px) 0 0; font-size: var(--tech-fs-h3, 1.05rem); }
+.cycle__state-title { margin: var(--tech-space-2, 8px) 0 0; font-size: var(--tech-fs-h3, 14px); }
 .cycle__state-body { margin: 0; color: var(--tech-text-secondary); }
 
 /* Two-column: calendar | side. Stacks under 860px. */
