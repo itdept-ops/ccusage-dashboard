@@ -44,7 +44,7 @@ const DOMAIN_LABEL: Record<string, string> = {
 /**
  * "Ask my life" — a focused page that answers plain-language questions GROUNDED in the caller's OWN tracked
  * data (POST /api/ai/ask). The page sends only the question; the server assembles a perm-filtered,
- * caller-scoped snapshot (tracker / sleep / 75-Hard / bills / family / usage — only what the caller can see)
+ * caller-scoped snapshot (tracker / sleep / 75 Hard / bills / family / usage — only what the caller can see)
  * and Gemini answers strictly from it. It NEVER proposes or writes anything — answer-only.
  *
  * Gated by the SAME tracker.ai permission as its route guard. The endpoint always returns 200: when AI is

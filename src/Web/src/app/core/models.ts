@@ -460,7 +460,7 @@ export interface FeedItem {
   actorName: string;
   /** The event kind — see {@link ActivityKind}; treat unknown values as a generic activity. */
   kind: string;
-  /** A non-sensitive count: workout duration (min) or 75-Hard day number; null for kinds that carry none. */
+  /** A non-sensitive count: workout duration (min) or 75 Hard day number; null for kinds that carry none. */
   intValue: number | null;
   /** A non-sensitive label (e.g. the exercise name); null for kinds that carry none. */
   label: string | null;
@@ -856,7 +856,7 @@ export interface ProfilePrefs {
   shareAutoContext: boolean;
   /**
    * OPT-IN to SHARE (default OFF): when true, the caller's own non-sensitive actions (logged a workout,
-   * 75-Hard day complete, hit the water goal) become activity events visible to their circle. The real
+   * 75 Hard day complete, hit the water goal) become activity events visible to their circle. The real
    * privacy control — the emitter no-ops when this is off, so nothing about the user is ever emitted.
    */
   shareActivity: boolean;
@@ -5666,7 +5666,7 @@ export interface JournalDayRequest {
 }
 
 // =====================================================================================================
-// Habits engine (/api/habits) — the generalised successor to 75-Hard, built net-new on the Habit/HabitDay
+// Habits engine (/api/habits) — the generalised successor to 75 Hard, built net-new on the Habit/HabitDay
 // tables (the live HardChallenge tables are UNTOUCHED). Gated by tracker.self, owner-scoped. NO one-active
 // invariant; OPEN-ENDED window. Day-math delegates to HardChallengeScoring; the streak is CADENCE-AWARE.
 // HABIT-TITLE PRIVACY: habit.dayComplete feed events carry the STREAK only — never the title.
@@ -5779,7 +5779,7 @@ export interface UpsertHabitDayRequest {
 }
 
 // ---- Trophy Wall (/api/trophies) ----
-// The caller's OWN milestone badges, DERIVED at read time from existing tracker/75-Hard/bills data (no new
+// The caller's OWN milestone badges, DERIVED at read time from existing tracker/75 Hard/bills data (no new
 // tracking, no migration). Personal-only in V1. userId + display NAME only — NEVER an email.
 
 /** One tier on a badge's ladder (mirrors TierDto): name + threshold + whether the value reached it. */
@@ -5830,7 +5830,7 @@ export interface WrappedCard {
   accent?: string | null;
 }
 
-/** The 75-Hard slice of a Wrapped period (null when the caller has no active challenge). */
+/** The 75 Hard slice of a Wrapped period (null when the caller has no active challenge). */
 export interface WrappedHardSlice {
   currentStreak: number;
   totalPoints: number;

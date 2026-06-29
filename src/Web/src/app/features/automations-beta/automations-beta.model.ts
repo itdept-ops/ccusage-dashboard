@@ -43,8 +43,8 @@ export const TEMPLATES: readonly AutomationTemplate[] = [
     name: 'Long-run cheer',
   },
   {
-    key: 'hard-day', title: '75-Hard day done', blurb: 'When I complete a 75-Hard day → notify me.',
-    icon: 'military_tech', triggerKind: 'challenge.dayComplete', action: 0, name: '75-Hard day done',
+    key: 'hard-day', title: '75 Hard day done', blurb: 'When I complete a 75 Hard day → notify me.',
+    icon: 'military_tech', triggerKind: 'challenge.dayComplete', action: 0, name: '75 Hard day done',
   },
   {
     key: 'water-goal', title: 'Water goal hit', blurb: 'When I hit my water goal → send to my Discord.',
@@ -79,8 +79,8 @@ export interface ActionOpt {
  */
 export const TRIGGERS: readonly TriggerOpt[] = [
   { kind: 'workout.logged', label: 'When I log a workout', chip: 'Workout logged', icon: 'fitness_center', unit: 'minutes' },
-  { kind: 'challenge.dayComplete', label: 'When I complete a 75-Hard day', chip: '75-Hard day done', icon: 'military_tech', unit: 'day number' },
-  { kind: 'challenge.started', label: 'When I start the 75-Hard challenge', chip: '75-Hard started', icon: 'flag', unit: null },
+  { kind: 'challenge.dayComplete', label: 'When I complete a 75 Hard day', chip: '75 Hard day done', icon: 'military_tech', unit: 'day number' },
+  { kind: 'challenge.started', label: 'When I start the 75 Hard challenge', chip: '75 Hard started', icon: 'flag', unit: null },
   { kind: 'hydration.goalHit', label: 'When I hit my water goal', chip: 'Water goal hit', icon: 'water_drop', unit: null },
 ];
 

@@ -90,14 +90,14 @@
   <!-- Activity feed (the social circle feed). Both opt-ins default OFF. -->
   <mat-card appearance="outlined" class="panel">
     <div class="panel-head"><span class="panel-title">Activity feed</span></div>
-    <p class="hint">A circle feed of non-sensitive milestones — workouts logged, 75-Hard days completed,
+    <p class="hint">A circle feed of non-sensitive milestones — workouts logged, 75 Hard days completed,
       water goals hit. Nothing about your health detail, amounts, notes, or location is ever shared.</p>
 
     <div class="toggle-row">
       <div class="toggle-row__text">
         <span class="toggle-row__label">Share my activity</span>
         <span class="toggle-row__sub">Let the people in your circle see when you log a workout, complete a
-          75-Hard day, or hit your water goal. Off by default — turn this on to appear in their feed.</span>
+          75 Hard day, or hit your water goal. Off by default — turn this on to appear in their feed.</span>
       </div>
       <mat-slide-toggle [ngModel]="shareActivity()" (ngModelChange)="shareActivity.set($event)"
                         aria-label="Share my activity" />
@@ -130,7 +130,7 @@
     <mat-card appearance="outlined" class="panel">
       <div class="panel-head"><span class="panel-title">Your data</span></div>
       <p class="hint">Download a ZIP of everything you've logged across the app — your usage, food &amp;
-        fitness, hydration, coffee, weight, sleep, supplements, 75-Hard, your own bills, your tracker
+        fitness, hydration, coffee, weight, sleep, supplements, 75 Hard, your own bills, your tracker
         profile, and your contacts. It contains only your own data; no passwords, tokens, or other people's
         email addresses are included.</p>
       <div class="actions">

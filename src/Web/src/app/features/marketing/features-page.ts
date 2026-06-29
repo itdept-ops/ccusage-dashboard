@@ -296,10 +296,10 @@ export class FeaturesPage implements AfterViewInit, OnDestroy {
       group: 'Body · the tracker',
       icon: 'emoji_events',
       kicker: 'Challenge',
-      title: '75-Hard, coffee, and trophies',
-      text: 'Run the 75-Hard challenge, keep a coffee count, and earn trophies as streaks and milestones land — the gamified edge that keeps the daily log a habit.',
+      title: '75 Hard, coffee, and trophies',
+      text: 'Run the 75 Hard challenge, keep a coffee count, and earn trophies as streaks and milestones land — the gamified edge that keeps the daily log a habit.',
       points: [
-        'The 75-Hard challenge, tracked day by day',
+        'The 75 Hard challenge, tracked day by day',
         'A coffee counter for the part of the day that’s honest',
         'Trophies for streaks and milestones hit',
       ],

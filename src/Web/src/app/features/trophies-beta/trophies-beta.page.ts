@@ -62,7 +62,7 @@ interface BadgeGroup {
  * elevated empty/error state round it out.
  *
  * DATA PARITY + PRIVACY: every badge comes straight from {@link Api.trophies} (`GET /api/trophies`), which
- * DERIVES each metric server-side at read time from the existing tracker / 75-Hard / bills data (no new
+ * DERIVES each metric server-side at read time from the existing tracker / 75 Hard / bills data (no new
  * tracking, no migration) — so this wall agrees with the live `/trophies` page exactly. The response
  * carries the caller's display NAME + userId only — never an email, never a secret. This page renders only
  * the caller's own data, performs NO writes, and re-derives nothing client-side.

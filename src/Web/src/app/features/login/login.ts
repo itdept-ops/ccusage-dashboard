@@ -76,7 +76,7 @@ export class Login {
       key: 'body',
       glyph: 'body',
       title: 'Body',
-      text: 'Food + macros, an exercise library, sleep & recovery, meds & vitals, hydration, coffee, weight trend, 75-Hard — and a daily “Day in the Life” recap.',
+      text: 'Food + macros, an exercise library, sleep & recovery, meds & vitals, hydration, coffee, weight trend, 75 Hard — and a daily “Day in the Life” recap.',
       accent: 'cyan',
     },
     {
@@ -104,7 +104,7 @@ export class Login {
       key: 'mind',
       glyph: 'mind',
       title: 'Mind',
-      text: 'Journal and mood, habit streaks and the 75-Hard challenge — the inner-life layer the rest of your life is finally measured against.',
+      text: 'Journal and mood, habit streaks and the 75 Hard challenge — the inner-life layer the rest of your life is finally measured against.',
       accent: 'violet',
     },
     {

@@ -26,7 +26,7 @@ interface TriggerOpt {
 
 /**
  * Automations (/automations) — manage the caller's OWN rules. A rule reacts to ONE of the caller's own
- * activity events (a workout logged, a 75-Hard day completed, the challenge started, the water goal hit),
+ * activity events (a workout logged, a 75 Hard day completed, the challenge started, the water goal hit),
  * optionally gated by a numeric condition on the event's value, and runs ONE safe action against the
  * caller's OWN channels: an in-app notification to themselves and/or their own Discord webhook.
  *
@@ -53,8 +53,8 @@ export class Automations {
 
   readonly triggers: readonly TriggerOpt[] = [
     { kind: 'workout.logged', label: 'When I log a workout', unit: 'minutes' },
-    { kind: 'challenge.dayComplete', label: 'When I complete a 75-Hard day', unit: 'day number' },
-    { kind: 'challenge.started', label: 'When I start the 75-Hard challenge', unit: null },
+    { kind: 'challenge.dayComplete', label: 'When I complete a 75 Hard day', unit: 'day number' },
+    { kind: 'challenge.started', label: 'When I start the 75 Hard challenge', unit: null },
     { kind: 'hydration.goalHit', label: 'When I hit my water goal', unit: null },
   ];
 

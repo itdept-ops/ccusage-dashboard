@@ -27,7 +27,7 @@ const AUTO_ICON: Record<string, string> = {
 
 /**
  * 75 HARD — Streak (mobile twin of the live `/challenge` page) — the mobile-first, native-feel
- * re-presentation of the configurable 75-Hard challenge, rebuilt on the shared beta-ui "Strata" kit
+ * re-presentation of the configurable 75 Hard challenge, rebuilt on the shared beta-ui "Strata" kit
  * (`@use '../beta-ui/beta-kit'`). One signature accent — a FLAME orange → ember red — re-skins the whole
  * screen via the per-page accent contract.
  *

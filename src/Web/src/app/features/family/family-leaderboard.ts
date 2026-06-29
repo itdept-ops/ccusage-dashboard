@@ -10,13 +10,13 @@ import { LeaderboardMetric, LeaderboardRowDto } from '../../core/models';
 /** The three rankable metrics, with the humane label + glyph the segmented switch uses. */
 const METRICS: readonly { key: LeaderboardMetric; label: string; icon: string; unit: string }[] = [
   { key: 'workout', label: 'Workouts', icon: 'fitness_center', unit: 'logged' },
-  { key: 'challenge', label: '75-Hard', icon: 'military_tech', unit: 'days' },
+  { key: 'challenge', label: '75 Hard', icon: 'military_tech', unit: 'days' },
   { key: 'hydration', label: 'Water', icon: 'local_drink', unit: 'goals' },
 ];
 
 /**
  * <app-family-leaderboard> — a household leaderboard panel on the Family Hub. Ranks the caller's OWN household
- * members over a switchable SHAREABLE activity metric (workouts / 75-Hard days / water goals) via
+ * members over a switchable SHAREABLE activity metric (workouts / 75 Hard days / water goals) via
  * {@link Api.familyLeaderboard} (GET /api/family/leaderboard?metric=, gated family.use).
  *
  * PRIVACY: every row is an AppUser id + DisplayName-formatted name (never an email); the ranked figure is a

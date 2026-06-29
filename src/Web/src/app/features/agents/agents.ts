@@ -39,7 +39,7 @@ const AGENT_CATALOG: readonly AgentMeta[] = [
     kind: 'streakRescue',
     label: 'Streak rescue',
     icon: 'local_fire_department',
-    blurb: "A late-day nudge if your 75-Hard tasks or water goal aren't done yet — so a streak never slips.",
+    blurb: "A late-day nudge if your 75 Hard tasks or water goal aren't done yet — so a streak never slips.",
     aiHint: null,
   },
   {

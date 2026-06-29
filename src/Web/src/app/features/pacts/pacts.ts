@@ -19,13 +19,13 @@ import { BetaEmptyState, BetaErrorState } from '../beta-ui';
 /** The three pact kinds, with the humane label + glyph the create form + cards use. */
 const KINDS: readonly { key: PactKind; label: string; icon: string; unit: string }[] = [
   { key: 'workout.logged', label: 'Workouts', icon: 'fitness_center', unit: 'workouts' },
-  { key: 'challenge.dayComplete', label: '75-Hard days', icon: 'military_tech', unit: 'days' },
+  { key: 'challenge.dayComplete', label: '75 Hard days', icon: 'military_tech', unit: 'days' },
   { key: 'hydration.goalHit', label: 'Water goals', icon: 'local_drink', unit: 'days' },
 ];
 
 /**
  * Habit pacts (/pacts) — shared accountability goals. An owner creates a pact over one shareable activity
- * kind (workouts / 75-Hard days / water goals), invites their MUTUAL chat contacts, and everyone races to hit
+ * kind (workouts / 75 Hard days / water goals), invites their MUTUAL chat contacts, and everyone races to hit
  * a target count over a period. Each card shows the live per-member progress (a count of already-shareable
  * ActivityEvents in the window) + whether each member met target.
  *

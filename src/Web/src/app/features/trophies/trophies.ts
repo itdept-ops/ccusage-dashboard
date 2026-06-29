@@ -29,7 +29,7 @@ const ICON: Record<string, string> = {
 
 /**
  * The Trophy Wall — the caller's OWN milestone badges, DERIVED at read time on the server from existing
- * tracker / 75-Hard / bills data (GET /api/trophies). Personal-only in V1 (no sharing). Each badge shows its
+ * tracker / 75 Hard / bills data (GET /api/trophies). Personal-only in V1 (no sharing). Each badge shows its
  * earned tier (bronze/silver/gold or a one-shot "complete"), the measured value, and a progress bar toward the
  * next unearned tier. Read-only + purely additive — gated by the same tracker.self permission as the tracker.
  */

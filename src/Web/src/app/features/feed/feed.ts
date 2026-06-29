@@ -16,7 +16,7 @@ import { BetaEmptyState, BetaErrorState } from '../beta-ui';
 interface FeedItemVm extends FeedItem {
   /** Two-letter avatar initials (from the display name — never an email). */
   initials: string;
-  /** The humane verb phrase ("logged a workout", "completed 75-Hard day 12", "hit their water goal"). */
+  /** The humane verb phrase ("logged a workout", "completed 75 Hard day 12", "hit their water goal"). */
   verb: string;
   /** A Material icon glyph for the kind. */
   icon: string;
@@ -202,9 +202,9 @@ export class Feed {
         return 'logged a workout';
       }
       case 'challenge.dayComplete':
-        return item.intValue ? `completed 75-Hard day ${item.intValue}` : 'completed a 75-Hard day';
+        return item.intValue ? `completed 75 Hard day ${item.intValue}` : 'completed a 75 Hard day';
       case 'challenge.started':
-        return 'started the 75-Hard challenge';
+        return 'started the 75 Hard challenge';
       case 'hydration.goalHit':
         return 'hit their water goal';
       default:

@@ -21,7 +21,7 @@ import { ActivityWidget } from './widgets/activity-widget';
 
 /**
  * Home "Atrium" — a NEW, beta-only cross-domain glance surface, rebuilt onto the shared beta-ui "Strata"
- * foundation (`@use '../beta-ui/beta-kit'`). One widget per domain the user actually has (rings, 75-Hard,
+ * foundation (`@use '../beta-ui/beta-kit'`). One widget per domain the user actually has (rings, 75 Hard,
  * next event, who's online, spend, recent activity) on a single thumb-scroll column, each elevated from a
  * flat card to a DEPTH surface (glass/rise + lift + a gradient hairline edge + accent glow + spring
  * entrance). HOME owns its signature accent — a violet→blue gradient — overriding the kit default.
@@ -88,7 +88,7 @@ import { ActivityWidget } from './widgets/activity-widget';
             }
           }
 
-          <!-- "This week" mini-glance — reuses the 75-Hard data the hard widget already loaded into the
+          <!-- "This week" mini-glance — reuses the 75 Hard data the hard widget already loaded into the
                shared ChallengeStore (no extra fetch). Hidden until a challenge exists. -->
           @if (weekGlance(); as wg) {
             <a class="hh__glance" routerLink="/challenge" aria-label="This week on 75 Hard">
@@ -259,7 +259,7 @@ export class BetaHomePage {
   });
 
   /**
-   * A "this week" mini-glance built from the 75-Hard data the hard widget already loaded into the shared
+   * A "this week" mini-glance built from the 75 Hard data the hard widget already loaded into the shared
    * {@link ChallengeStore} — NO extra fetch. Null (and so hidden) until a challenge is loaded and the
    * caller can see it; otherwise a compact streak + completed-days line.
    */
@@ -283,7 +283,7 @@ export class BetaHomePage {
     // Top-bar greeting/date — best-effort, never blocks the column.
     this.loadToday();
     // Drive the shared ChallengeStore so the header "this week" glance is populated even if the user has
-    // reordered the 75-Hard widget off (the widget would otherwise be the only loader). Same read-only
+    // reordered the 75 Hard widget off (the widget would otherwise be the only loader). Same read-only
     // load() the widget makes; gated on the same perm; best-effort.
     if (this.auth.hasPermission(PERM.trackerSelf)) {
       void this.challenge.load();

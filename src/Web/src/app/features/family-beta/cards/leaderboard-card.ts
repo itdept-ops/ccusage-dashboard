@@ -9,7 +9,7 @@ import { HearthShell, HearthPhase } from './hearth-shell';
 /** The three rankable metrics, with the humane label + glyph the segmented switch uses. */
 const METRICS: readonly { key: LeaderboardMetric; label: string; icon: string; unit: string }[] = [
   { key: 'workout', label: 'Workouts', icon: 'fitness_center', unit: 'logged' },
-  { key: 'challenge', label: '75-Hard', icon: 'military_tech', unit: 'days' },
+  { key: 'challenge', label: '75 Hard', icon: 'military_tech', unit: 'days' },
   { key: 'hydration', label: 'Water', icon: 'local_drink', unit: 'goals' },
 ];
 

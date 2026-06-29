@@ -10,7 +10,7 @@ import { FeedItem, PERM } from '../../core/models';
 export interface PulseTickerItem extends FeedItem {
   /** Two-letter avatar initials, derived from the display name. */
   initials: string;
-  /** A short humane verb phrase ("logged a workout", "completed 75-Hard day 12"). Counts/labels only. */
+  /** A short humane verb phrase ("logged a workout", "completed 75 Hard day 12"). Counts/labels only. */
   verb: string;
   /** A Material icon glyph for the kind. */
   icon: string;
@@ -188,9 +188,9 @@ function verbOf(item: FeedItem): string {
       return 'logged a workout';
     }
     case 'challenge.dayComplete':
-      return item.intValue ? `completed 75-Hard day ${item.intValue}` : 'completed a 75-Hard day';
+      return item.intValue ? `completed 75 Hard day ${item.intValue}` : 'completed a 75 Hard day';
     case 'challenge.started':
-      return 'started the 75-Hard challenge';
+      return 'started the 75 Hard challenge';
     case 'hydration.goalHit':
       return 'hit their water goal';
     default:

@@ -14,7 +14,7 @@ import { BetaPullRefresh, BetaSkeleton } from '../beta-ui';
 
 const KINDS: readonly { key: PactKind; label: string; icon: string; unit: string }[] = [
   { key: 'workout.logged', label: 'Workouts', icon: 'fitness_center', unit: 'workouts' },
-  { key: 'challenge.dayComplete', label: '75-Hard', icon: 'military_tech', unit: 'days' },
+  { key: 'challenge.dayComplete', label: '75 Hard', icon: 'military_tech', unit: 'days' },
   { key: 'hydration.goalHit', label: 'Water', icon: 'local_drink', unit: 'days' },
 ];
 

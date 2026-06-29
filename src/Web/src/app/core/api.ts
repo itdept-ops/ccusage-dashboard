@@ -1277,7 +1277,7 @@ export class Api {
   /**
    * "Ask my life": a grounded, cross-domain Q&A over the CALLER's OWN tracked data. Sends ONLY the free-text
    * `question` (treated as DATA) — NO identity. The server assembles a perm-filtered, caller-scoped snapshot
-   * (tracker/sleep/75-Hard/bills/family/usage — only the domains the caller has permission for) and Gemini
+   * (tracker/sleep/75 Hard/bills/family/usage — only the domains the caller has permission for) and Gemini
    * answers strictly from it. ALWAYS 200: when AI is off/unavailable it floors to a deterministic plain
    * summary (`aiUsed:false`) naming the domains it has data for — never a 503. Gated tracker.ai; rate-limited
    * "ai". A 400 is only returned for an empty question (guarded client-side).
@@ -2964,7 +2964,7 @@ export class Api {
     return this.http.get<JournalReflectionDto>(`${this.base}/journal/reflection`);
   }
 
-  // ---- Habits engine (/api/habits) — the generalised successor to 75-Hard, gated by the SAME tracker.self.
+  // ---- Habits engine (/api/habits) — the generalised successor to 75 Hard, gated by the SAME tracker.self.
   // Owner-scoped; NO one-active invariant; OPEN-ENDED window. The day-math delegates to the shared scorer; the
   // streak is CADENCE-AWARE. A habit.dayComplete feed event carries the STREAK only — never the habit title. ----
 
@@ -3012,7 +3012,7 @@ export class Api {
 
   // ---- Trophy Wall (/api/trophies) — the caller's OWN milestone badges, gated by tracker.self ----
 
-  /** The caller's own trophy wall: badges DERIVED from existing tracker/75-Hard/bills data (no email). */
+  /** The caller's own trophy wall: badges DERIVED from existing tracker/75 Hard/bills data (no email). */
   trophies(): Observable<TrophiesResponse> {
     return this.http.get<TrophiesResponse>(`${this.base}/trophies/`);
   }
