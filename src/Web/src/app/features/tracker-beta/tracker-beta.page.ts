@@ -190,7 +190,7 @@ import { currentStreak, dayHasAnyLog } from './util/streak';
     .tb-avatar {
       flex: 0 0 auto; width: 40px; height: 40px; border-radius: var(--r-pill);
       border: 1px solid var(--glass-edge);
-      background: linear-gradient(135deg, var(--cal-a), var(--cal-b));
+      background: linear-gradient(135deg, var(--tech-accent, var(--cal-a)), var(--tech-accent-2, var(--cal-b)));
       color: #fff; display: flex; align-items: center; justify-content: center;
       cursor: pointer; touch-action: manipulation; -webkit-tap-highlight-color: transparent;
     }
@@ -202,7 +202,7 @@ import { currentStreak, dayHasAnyLog } from './util/streak';
       flex: 1 1 auto; max-width: 280px; min-height: 56px;
       display: flex; align-items: center; justify-content: center; gap: 8px;
       border: none; border-radius: var(--r-pill);
-      background: linear-gradient(135deg, var(--cal-a), var(--cal-b));
+      background: linear-gradient(135deg, var(--tech-accent, var(--cal-a)), var(--tech-accent-2, var(--cal-b)));
       color: #fff; font: 700 17px/1 var(--font-ui); letter-spacing: .04em;
       box-shadow: var(--lift-2); cursor: pointer;
       touch-action: manipulation; -webkit-tap-highlight-color: transparent;

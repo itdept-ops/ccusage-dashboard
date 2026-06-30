@@ -31,7 +31,7 @@
   --spark-c:  #f59e0b;             // a warm third spark for the tri-tone cover wordmark
 
   // ---- PER-ACCENT GRADIENTS (one per card accent key) — the celebration palette ----
-  --grad-primary:   linear-gradient(135deg, #a855f7, #ec4899);
+  --grad-primary:   linear-gradient(135deg, var(--tech-accent), var(--tech-accent-2));
   --grad-exercise:  linear-gradient(135deg, #f43f5e, #fb7185);
   --grad-food:      linear-gradient(135deg, #22c55e, #84cc16);
   --grad-activity:  linear-gradient(135deg, #06b6d4, #3b82f6);
@@ -45,7 +45,7 @@
   --grad-usage:     linear-gradient(135deg, #c084fc, #7c3aed);
 
   // ---- PER-ACCENT SOLID start/end (vivid, high-contrast on the deep stage) ----
-  --pa-primary:   #c084fc; --pb-primary:   #f472b6;
+  --pa-primary:   var(--tech-accent-cyan); --pb-primary:   var(--tech-accent);
   --pa-exercise:  #fb7185; --pb-exercise:  #fda4af;
   --pa-food:      #4ade80; --pb-food:      #a3e635;
   --pa-activity:  #38bdf8; --pb-activity:  #60a5fa;

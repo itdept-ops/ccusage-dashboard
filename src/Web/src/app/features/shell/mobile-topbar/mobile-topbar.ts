@@ -13,6 +13,7 @@ import { filter, map } from 'rxjs';
 import { MatIconModule } from '@angular/material/icon';
 
 import { bottomTabs } from '../../../core/nav-model';
+import { MobileNavService } from '../../../core/mobile-nav';
 
 /**
  * MOBILE TOP BAR — the slim glass strip that REPLACES the full desktop toolbar on mobile, on EVERY
@@ -92,8 +93,11 @@ import { bottomTabs } from '../../../core/nav-model';
           <mat-icon aria-hidden="true">arrow_back_ios_new</mat-icon>
         </button>
       } @else {
-        <!-- Keep the brand optically left-aligned on the tab roots where there's no back arrow. -->
-        <span class="mtb__back-spacer" aria-hidden="true"></span>
+        <!-- On tab-root pages: a hamburger that opens the left offcanvas sidebar (FiMobile menu-btn). -->
+        <button type="button" class="mtb__back" (click)="menu.toggle()" aria-label="Open menu"
+                data-tour="mobile-menu" [attr.aria-expanded]="menu.sidebarOpen()">
+          <mat-icon aria-hidden="true">menu</mat-icon>
+        </button>
       }
 
       <span class="mtb__brand" aria-hidden="true">
@@ -319,6 +323,8 @@ import { bottomTabs } from '../../../core/nav-model';
 })
 export class MobileTopbar {
   private readonly router = inject(Router);
+  /** Shared open-state for the left offcanvas sidebar (toggled by the hamburger on tab roots). */
+  protected readonly menu = inject(MobileNavService);
 
   /** Whether a session is signed in — gates the built-in fallback avatar (option B). */
   readonly authed = input<boolean>(true);

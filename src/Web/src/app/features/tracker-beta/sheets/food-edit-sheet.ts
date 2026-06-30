@@ -170,7 +170,7 @@ function safeNum(n: number | null | undefined): number {
     .fe-sub { font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--ink-dim); }
 
     .fe-form { display: flex; flex-direction: column; gap: 14px; padding-bottom: 8px;
-      --accent-edge: var(--cal-a); }
+      --accent-edge: var(--tech-accent, var(--cal-a)); }
 
     .fe-label {
       display: block; margin: 0 0 6px 2px;
@@ -214,8 +214,8 @@ function safeNum(n: number | null | undefined): number {
     .fe-chip:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
     .fe-chip.on {
       color: var(--ink);
-      background: color-mix(in srgb, var(--cal-a) 18%, var(--bg-sink));
-      border-color: color-mix(in srgb, var(--cal-a) 50%, transparent);
+      background: color-mix(in srgb, var(--tech-accent, var(--cal-a)) 18%, var(--bg-sink));
+      border-color: color-mix(in srgb, var(--tech-accent, var(--cal-a)) 50%, transparent);
     }
 
     /* Quantity stepper: [−] value [+]. */
@@ -279,7 +279,7 @@ function safeNum(n: number | null | undefined): number {
       flex: 1 1 auto; min-height: 52px;
       display: flex; align-items: center; justify-content: center;
       font-family: var(--font-ui); font-size: 16px; font-weight: 700; letter-spacing: -.01em;
-      color: #fff; background: linear-gradient(135deg, var(--cal-a), var(--cal-b));
+      color: #fff; background: linear-gradient(135deg, var(--tech-accent, var(--cal-a)), var(--tech-accent-2, var(--cal-b)));
       border: 0; border-radius: var(--r-pill); box-shadow: var(--lift-2);
       touch-action: manipulation; -webkit-tap-highlight-color: transparent; cursor: pointer;
       transition: transform 120ms var(--ease-out), box-shadow 120ms var(--ease-out), opacity 160ms var(--ease-out);

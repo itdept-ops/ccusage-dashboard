@@ -73,7 +73,7 @@ import { hasIngredients, slotMeta } from '../meals-beta.model';
     .ma-top { display: flex; gap: 12px; align-items: flex-start; }
     .ma-ic {
       flex: 0 0 auto; display: grid; place-items: center; width: 46px; height: 46px; border-radius: 15px;
-      background: linear-gradient(135deg, var(--accent-a), var(--accent-b)); color: #07140d;
+      background: linear-gradient(135deg, var(--accent-a), var(--accent-b)); color: var(--tech-text-on-accent, #07140d);
     }
     .ma-ic mat-icon { font-size: 24px; width: 24px; height: 24px; }
     .ma-txt { min-width: 0; display: flex; flex-direction: column; gap: 1px; }
@@ -112,7 +112,7 @@ import { hasIngredients, slotMeta } from '../meals-beta.model';
     .ma-btn:focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; }
     .ma-btn mat-icon { font-size: 20px; width: 20px; height: 20px; }
     .ma-btn--accent {
-      border: none; background: linear-gradient(135deg, var(--accent-a), var(--accent-b)); color: #07140d;
+      border: none; background: linear-gradient(135deg, var(--accent-a), var(--accent-b)); color: var(--tech-text-on-accent, #07140d);
       box-shadow: var(--lift-2);
     }
     .ma-btn--ghost {

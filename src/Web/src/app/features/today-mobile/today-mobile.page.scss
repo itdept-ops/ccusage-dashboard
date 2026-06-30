@@ -30,7 +30,7 @@
   --da-family:    #fdba74; --db-family:    #fb923c;
   --da-location:  #67e8f9; --db-location:  #22d3ee;
   --da-finance:   #bef264; --db-finance:   #a3e635;
-  --da-primary:   #818cf8; --db-primary:   #c084fc;
+  --da-primary:   var(--tech-accent); --db-primary:   var(--tech-accent-2);
 }
 
 @include kit.beta-springs;
@@ -173,7 +173,7 @@
   }
   &::before {
     content: ''; position: absolute; inset: 0 auto 0 0; width: 3px;
-    background: linear-gradient(180deg, var(--da, #818cf8), var(--db, #c084fc));
+    background: linear-gradient(180deg, var(--da, var(--tech-accent)), var(--db, var(--tech-accent-2)));
   }
   // ── LEADING ICON TILE: accent-tinted bg (FiMobile list-row icon avatar) ──
   &__ico {

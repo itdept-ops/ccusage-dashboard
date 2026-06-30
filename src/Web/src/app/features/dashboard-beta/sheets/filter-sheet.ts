@@ -154,7 +154,7 @@ import { BetaBottomSheet, BetaSegmentedControl, type Segment } from '../../beta-
       flex: 0 0 auto; width: 46px; height: 28px; border-radius: var(--r-pill);
       background: var(--hairline); position: relative; transition: background 200ms var(--ease-out);
     }
-    .switch--on { background: var(--signal); }
+    .switch--on { background: var(--accent-a); }
     .switch__dot {
       position: absolute; top: 3px; left: 3px; width: 22px; height: 22px; border-radius: 50%;
       background: #fff; transition: transform 200ms var(--ease-out);

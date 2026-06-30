@@ -73,7 +73,7 @@ import { DayCell } from '../meals-beta.model';
     }
     .ds-chip.is-sel {
       background: linear-gradient(160deg, var(--accent-a), var(--accent-b));
-      color: #07140d; border-color: transparent;
+      color: var(--tech-text-on-accent, #07140d); border-color: transparent;
       box-shadow: 0 8px 22px color-mix(in srgb, var(--accent-a) 38%, transparent);
     }
 
@@ -86,7 +86,7 @@ import { DayCell } from '../meals-beta.model';
       font-size: 23px; font-weight: 600; line-height: 1; letter-spacing: -.02em;
       color: var(--ink);
     }
-    .ds-chip.is-sel .ds-num { color: #07140d; }
+    .ds-chip.is-sel .ds-num { color: var(--tech-text-on-accent, #07140d); }
 
     .ds-meta { display: grid; place-items: center; height: 10px; }
     .ds-dots { display: inline-flex; gap: 3px; }
@@ -94,7 +94,7 @@ import { DayCell } from '../meals-beta.model';
       width: 4px; height: 4px; border-radius: 50%;
       background: linear-gradient(135deg, var(--accent-a), var(--accent-b));
     }
-    .ds-chip.is-sel .ds-dot { background: #07140d; }
+    .ds-chip.is-sel .ds-dot { background: var(--tech-text-on-accent, #07140d); }
     .ds-empty { color: var(--ink-faint); font-weight: 800; line-height: 1; }
 
     .ds-today-pip {
@@ -102,7 +102,7 @@ import { DayCell } from '../meals-beta.model';
       background: linear-gradient(135deg, var(--accent-a), var(--accent-b));
       box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent-a) 22%, transparent);
     }
-    .ds-chip.is-sel .ds-today-pip { background: #07140d; box-shadow: none; }
+    .ds-chip.is-sel .ds-today-pip { background: var(--tech-text-on-accent, #07140d); box-shadow: none; }
   `],
 })
 export class ForageDayStrip {

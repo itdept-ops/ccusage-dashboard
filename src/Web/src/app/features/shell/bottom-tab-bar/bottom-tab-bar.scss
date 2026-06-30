@@ -1,18 +1,17 @@
 // ============================================================================
-// BOTTOM TAB BAR — the global mobile bottom navigation, on the shared beta-kit
-// "Strata" tokens (glass surface, ink scale, radii, safe-area, a11y killswitches).
-// Fixed to the bottom edge, safe-area-aware, 44px+ touch targets.
+// BOTTOM TAB BAR — FiMobile footer: a rounded-top glass bar of nav tabs with a
+// RAISED CENTER action button (the camera Snap & Route). Built on the shared
+// beta-kit "Strata" tokens; the accent tracks the global color scheme.
 // ============================================================================
 @use '../../beta-ui/beta-kit' as kit;
 
 :host {
   @include kit.beta-host;
-  // The bar's accent (active tab ink/indicator + the Snap FAB) tracks the active FiMobile color scheme.
+  // The bar's accent (active tab ink + center pod) tracks the active FiMobile color scheme.
   --accent-a: var(--tech-accent);
   --accent-b: var(--tech-accent-2);
 
-  // The bar is FIXED chrome, not a page body — undo beta-host's block-fill box so
-  // it only occupies its own footprint and floats above the routed content.
+  // Fixed chrome, not a page body — undo beta-host's block-fill box.
   display: block;
   position: fixed;
   left: 0;
@@ -27,6 +26,7 @@
 @include kit.beta-a11y;
 
 .tabbar {
+  position: relative;
   display: flex;
   align-items: stretch;
   justify-content: space-around;
@@ -42,36 +42,10 @@
   box-shadow: var(--lift-3);
 }
 
-// The global "+ Snap" capture FAB — a raised circular rear-camera button centered above the bar edge.
-// Floats just over the top border so it reads as the primary affordance without stealing a tab slot.
-.snapfab {
-  position: absolute;
-  left: 50%;
-  bottom: calc(100% - 26px); // sit half-over the top edge of the bar
-  transform: translateX(-50%);
-  z-index: 1;
-  width: 56px;
-  height: 56px;
-  display: grid;
-  place-items: center;
-  border: 3px solid var(--bg-base, #0a0e14);
-  border-radius: var(--r-pill);
-  background: linear-gradient(135deg, var(--accent-a), var(--accent-b));
-  color: var(--ink-on-accent, #fff);
-  box-shadow: var(--lift-3);
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-  transition: transform 120ms var(--ease-spring), box-shadow 120ms var(--ease-out);
-}
-.snapfab:active { transform: translateX(-50%) scale(.94); box-shadow: var(--press); }
-.snapfab mat-icon { width: 26px; height: 26px; font-size: 26px; line-height: 26px; }
-.snapfab:focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; }
-
-// One tab — a routerLink anchor (or the "More" button). Flex column: icon over label.
+// One tab — a routerLink anchor. Flex column: icon over label.
 .tab {
   flex: 1 1 0;
   min-width: 0;
-  // 44px+ touch target (the chrome above adds the safe-area inset below this).
   min-height: 48px;
   display: flex;
   flex-direction: column;
@@ -100,7 +74,6 @@
   display: grid;
   place-items: center;
 }
-
 .tab__label {
   font-size: 11px;
   font-weight: 600;
@@ -111,117 +84,50 @@
   white-space: nowrap;
 }
 
-// Active state — the routerLinkActive class ('active') tints the ink to the accent
-// and floats a small pill indicator behind the icon. "More" never gets it (it isn't
-// a route), so the sheet stays a neutral utility affordance.
-.tab.active {
-  color: var(--ink);
-}
+// Active tab — accent ink + accent-clipped icon.
+.tab.active { color: var(--ink); }
 .tab.active .tab__icon {
   color: transparent;
   background: linear-gradient(135deg, var(--accent-a), var(--accent-b));
   -webkit-background-clip: text;
   background-clip: text;
 }
-
-// Own visible focus ring (never bare outline:none).
 .tab:focus-visible {
   outline: 2px solid var(--focus);
   outline-offset: -2px;
   border-radius: var(--r-tile);
 }
 
-// ── The "More" sheet body — a grouped list of every nav item + account rows. ──
-.more {
-  display: flex;
-  flex-direction: column;
-  gap: 18px;
-  padding: 6px 0 8px;
-}
-
-.more__head {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 8px;
-  padding-top: 2px;
-}
-.more__title {
-  margin: 0;
-  font-size: 20px;
-  font-weight: 800;
-  color: var(--ink);
-}
-.more__hint {
-  margin: 0;
-  font-size: 12px;
-  color: var(--ink-dim);
-}
-
-.more__group { display: flex; flex-direction: column; gap: 6px; }
-.more__group-label {
-  margin: 0 0 2px;
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: .04em;
-  text-transform: uppercase;
-  color: var(--ink-dim);
-}
-
-// A row in the sheet — icon + label, full-width, 44px+, sediment background on press.
-.more__row {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  width: 100%;
-  min-height: 52px;
-  padding: 8px 14px;
-  border: 0;
-  border-radius: var(--r-card);
-  background: var(--bg-rise);
-  color: var(--ink);
-  font: inherit;
-  font-family: var(--font-ui);
-  font-size: 15px;
-  font-weight: 600;
-  text-align: left;
-  text-decoration: none;
-  cursor: pointer;
-  transition: background 140ms var(--ease-out), transform 120ms var(--ease-spring);
-}
-.more__row:active { transform: scale(.985); background: color-mix(in srgb, var(--accent-a) 12%, var(--bg-rise)); }
-.more__row.active {
-  background: color-mix(in srgb, var(--accent-a) 18%, var(--bg-rise));
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent-a) 45%, var(--hairline));
-}
-
-.more__row-icon {
+// ── The raised CENTER action button — the FiMobile center pod (camera Snap & Route). ──
+// A flex item like the tabs (so the row stays balanced), but its circular pod is pulled UP so it
+// floats above the bar's top edge as the dominant primary action.
+.centerbtn {
   flex: 0 0 auto;
-  width: 24px;
-  height: 24px;
-  font-size: 24px;
-  line-height: 24px;
+  align-self: center;
+  width: 68px;
   display: grid;
   place-items: center;
-  color: var(--ink-dim);
-}
-.more__row.active .more__row-icon { color: var(--accent-a); }
-.more__row-label { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
-.more__row-chev { flex: 0 0 auto; color: var(--ink-faint); font-size: 20px; }
-
-// A thin divider between the nav groups and the account/session rows.
-.more__rule {
-  height: 1px;
-  margin: 2px 0;
-  background: var(--hairline);
   border: 0;
+  background: none;
+  padding: 0;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
 }
-
-// Sign out reads as the one destructive row (warm amber per the kit, never red).
-.more__row--danger { color: var(--warn); }
-.more__row--danger .more__row-icon { color: var(--warn); }
-
-.more__row:focus-visible {
-  outline: 2px solid var(--focus);
-  outline-offset: 2px;
+.centerbtn__pod {
+  display: grid;
+  place-items: center;
+  width: 58px;
+  height: 58px;
+  border-radius: var(--r-pill);
+  // Raised above the bar so it reads as the center action (template's -30px center button).
+  transform: translateY(-20px);
+  background: linear-gradient(135deg, var(--accent-a), var(--accent-b));
+  color: var(--ink-on-accent, #fff);
+  // A ring matching the page bg punches the pod out of the bar edge.
+  border: 4px solid var(--bg-base, #0a0e14);
+  box-shadow: var(--lift-3);
+  transition: transform 120ms var(--ease-spring), box-shadow 120ms var(--ease-out);
 }
+.centerbtn:active .centerbtn__pod { transform: translateY(-20px) scale(.93); box-shadow: var(--press); }
+.centerbtn__pod mat-icon { width: 26px; height: 26px; font-size: 26px; line-height: 26px; }
+.centerbtn:focus-visible .centerbtn__pod { outline: 2px solid var(--focus); outline-offset: 3px; }

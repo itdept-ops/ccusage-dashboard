@@ -43,6 +43,7 @@ import { BETA_EXPERIMENTS, BetaExperiment, canSeeExperiment } from './features/b
 import { MobileTopbar } from './features/shell/mobile-topbar/mobile-topbar';
 import { BottomTabBar } from './features/shell/bottom-tab-bar/bottom-tab-bar';
 import { ThemePicker } from './features/shell/theme-picker/theme-picker';
+import { MobileSidebar } from './features/shell/mobile-sidebar/mobile-sidebar';
 import { SnapRouteOrchestrator } from './features/snap-route/snap-route-orchestrator';
 import { SnapRouteService } from './core/snap-route';
 import { GuidedTour } from './features/tour/guided-tour';
@@ -82,6 +83,7 @@ interface QuickLink {
     MobileTopbar,
     BottomTabBar,
     ThemePicker,
+    MobileSidebar,
     SnapRouteOrchestrator,
     GuidedTour,
   ],

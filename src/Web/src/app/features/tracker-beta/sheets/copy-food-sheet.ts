@@ -151,7 +151,7 @@ function toIso(d: Date): string {
     .cf-spark {
       flex: 0 0 auto; display: flex; align-items: center; justify-content: center;
       width: 40px; height: 40px; border-radius: var(--r-pill);
-      background: linear-gradient(135deg, var(--cal-a), var(--cal-b)); box-shadow: var(--lift-1);
+      background: linear-gradient(135deg, var(--tech-accent, var(--cal-a)), var(--tech-accent-2, var(--cal-b))); box-shadow: var(--lift-1);
     }
     .cf-spark mat-icon { width: 20px; height: 20px; font-size: 20px; line-height: 20px; color: #fff; }
     .cf-title {
@@ -179,8 +179,8 @@ function toIso(d: Date): string {
     }
     .cf-day:active { transform: scale(.97) translateY(1px); }
     .cf-day:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
-    .cf-day.on { border-color: var(--accent-edge); color: var(--ink); box-shadow: var(--lift-1); }
-    .cf-day mat-icon { width: 16px; height: 16px; font-size: 16px; line-height: 16px; color: var(--accent-edge); }
+    .cf-day.on { border-color: var(--tech-accent, var(--accent-edge, var(--cal-a))); color: var(--ink); box-shadow: var(--lift-1); }
+    .cf-day mat-icon { width: 16px; height: 16px; font-size: 16px; line-height: 16px; color: var(--tech-accent, var(--accent-edge, var(--cal-a))); }
 
     /* Native date fallback. */
     .cf-pick { display: flex; flex-direction: column; gap: 6px; }
@@ -209,8 +209,8 @@ function toIso(d: Date): string {
     .cf-chip:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
     .cf-chip.on {
       color: var(--ink);
-      background: color-mix(in srgb, var(--cal-a) 18%, var(--bg-sink));
-      border-color: color-mix(in srgb, var(--cal-a) 50%, transparent);
+      background: color-mix(in srgb, var(--tech-accent, var(--cal-a)) 18%, var(--bg-sink));
+      border-color: color-mix(in srgb, var(--tech-accent, var(--cal-a)) 50%, transparent);
     }
 
     /* Copy CTA. */
@@ -219,7 +219,7 @@ function toIso(d: Date): string {
       flex: 1 1 auto; min-height: 52px;
       display: flex; align-items: center; justify-content: center; gap: 8px;
       font-family: var(--font-ui); font-size: 16px; font-weight: 700; letter-spacing: -.01em;
-      color: #fff; background: linear-gradient(135deg, var(--cta-a, var(--cal-a)), var(--cta-b, var(--cal-b)));
+      color: #fff; background: linear-gradient(135deg, var(--tech-accent, var(--cal-a)), var(--tech-accent-2, var(--cal-b)));
       border: 0; border-radius: var(--r-pill); box-shadow: var(--lift-2);
       touch-action: manipulation; -webkit-tap-highlight-color: transparent; cursor: pointer;
       transition: transform 120ms var(--ease-out), box-shadow 120ms var(--ease-out), opacity 160ms var(--ease-out);

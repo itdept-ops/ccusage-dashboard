@@ -21,8 +21,8 @@
   --accent-a: var(--tech-accent);             // signature emerald (start)
   --accent-b: var(--tech-accent-2);             // signature lime    (end)
 
-  // A faint green wash behind the whole column (still within the kit's dark contract).
-  background: radial-gradient(120% 80% at 50% -8%, #0e1c16 0%, var(--bg-base) 58%);
+  // A faint accent wash behind the whole column (scheme-aware; resolves to a dark tint of the chosen hue).
+  background: radial-gradient(120% 80% at 50% -8%, color-mix(in srgb, var(--tech-accent) 8%, var(--bg-base)) 0%, var(--bg-base) 58%);
 
   height: 100%; // fill the immersive shell frame; the pull-refresh owns the scroll
 }

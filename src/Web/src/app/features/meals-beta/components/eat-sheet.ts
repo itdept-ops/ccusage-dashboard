@@ -109,7 +109,7 @@ import { BetaBottomSheet, BetaSkeleton } from '../../beta-ui';
     .es-head { display: flex; gap: 12px; align-items: flex-start; }
     .es-spark {
       flex: 0 0 auto; display: grid; place-items: center; width: 42px; height: 42px; border-radius: 14px;
-      background: linear-gradient(135deg, var(--accent-a), var(--accent-b)); color: #07140d;
+      background: linear-gradient(135deg, var(--accent-a), var(--accent-b)); color: var(--tech-text-on-accent, #07140d);
     }
     .es-spark mat-icon { font-size: 22px; width: 22px; height: 22px; }
     .es-head-txt { min-width: 0; }
@@ -127,7 +127,7 @@ import { BetaBottomSheet, BetaSkeleton } from '../../beta-ui';
     .es-go {
       flex: 0 0 auto; display: grid; place-items: center; width: 48px; height: 48px;
       border: none; border-radius: 50%; background: linear-gradient(135deg, var(--accent-a), var(--accent-b));
-      color: #07140d; cursor: pointer; box-shadow: var(--lift-2); -webkit-tap-highlight-color: transparent;
+      color: var(--tech-text-on-accent, #07140d); cursor: pointer; box-shadow: var(--lift-2); -webkit-tap-highlight-color: transparent;
       transition: transform 120ms var(--ease-out);
     }
     .es-go:active { transform: scale(.93); }
@@ -136,7 +136,7 @@ import { BetaBottomSheet, BetaSkeleton } from '../../beta-ui';
     .es-go mat-icon { font-size: 22px; width: 22px; height: 22px; }
     .es-spin {
       width: 18px; height: 18px; border-radius: 50%;
-      border: 2px solid color-mix(in srgb, #07140d 35%, transparent); border-top-color: #07140d;
+      border: 2px solid color-mix(in srgb, var(--tech-text-on-accent, #07140d) 35%, transparent); border-top-color: var(--tech-text-on-accent, #07140d);
       animation: es-spin .7s linear infinite;
     }
     @keyframes es-spin { to { transform: rotate(360deg); } }

@@ -295,8 +295,8 @@ const MEALS: { value: Meal; label: string }[] = [
       transition: background 120ms var(--ease-out), color 120ms var(--ease-out);
     }
     .fs-meal-chip.on {
-      background: color-mix(in srgb, var(--cal-a) 22%, transparent);
-      border-color: color-mix(in srgb, var(--cal-a) 50%, transparent); color: var(--ink);
+      background: color-mix(in srgb, var(--tech-accent, var(--cal-a)) 22%, transparent);
+      border-color: color-mix(in srgb, var(--tech-accent, var(--cal-a)) 50%, transparent); color: var(--ink);
     }
 
     .fs-lanes { display: flex; gap: 8px; }
@@ -343,12 +343,12 @@ const MEALS: { value: Meal; label: string }[] = [
       transition: background 120ms var(--ease-out), border-color 120ms var(--ease-out);
     }
     .fs-row.on {
-      background: color-mix(in srgb, var(--cal-a) 14%, var(--bg-sink));
-      border-color: color-mix(in srgb, var(--cal-a) 45%, transparent);
+      background: color-mix(in srgb, var(--tech-accent, var(--cal-a)) 14%, var(--bg-sink));
+      border-color: color-mix(in srgb, var(--tech-accent, var(--cal-a)) 45%, transparent);
     }
     .fs-row:active { box-shadow: var(--press); }
     .fs-check { display: flex; color: var(--ink-faint); }
-    .fs-row.on .fs-check { color: var(--cal-a); }
+    .fs-row.on .fs-check { color: var(--tech-accent, var(--cal-a)); }
     .fs-check mat-icon { font-size: 24px; width: 24px; height: 24px; }
     .fs-row-main { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
     .fs-row-name {
@@ -380,7 +380,7 @@ const MEALS: { value: Meal; label: string }[] = [
     .fs-go {
       display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 48px;
       border: 0; border-radius: var(--r-tile); cursor: pointer;
-      background: linear-gradient(135deg, var(--cal-a), var(--cal-b)); color: #fff;
+      background: linear-gradient(135deg, var(--tech-accent, var(--cal-a)), var(--tech-accent-2, var(--cal-b))); color: #fff;
       font: 600 15px var(--font-ui);
       transition: transform 120ms var(--ease-out), filter 120ms var(--ease-out);
     }
@@ -402,7 +402,7 @@ const MEALS: { value: Meal; label: string }[] = [
     }
     .fs-add {
       flex: 0 0 auto; min-height: 44px; padding: 0 20px; border: 0; border-radius: var(--r-pill);
-      background: linear-gradient(135deg, var(--cal-a), var(--cal-b)); color: #fff;
+      background: linear-gradient(135deg, var(--tech-accent, var(--cal-a)), var(--tech-accent-2, var(--cal-b))); color: #fff;
       font: 600 15px var(--font-ui); cursor: pointer;
       transition: transform 120ms var(--ease-out), filter 120ms var(--ease-out);
     }

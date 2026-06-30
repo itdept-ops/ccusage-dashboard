@@ -27,7 +27,7 @@
   --da-activity:  #38bdf8; --db-activity:  #60a5fa;
   --da-cycle:     #f9a8d4; --db-cycle:     #ec4899;
   --da-hydration: #7dd3fc; --db-hydration: #38bdf8;
-  --da-primary:   #818cf8; --db-primary:   #c084fc;
+  --da-primary:   var(--tech-accent); --db-primary:   var(--tech-accent-2);
 
   display: block;
   min-height: 100%;

@@ -1,8 +1,8 @@
 // ============================================================================
 // Habits — the mobile-first twin of the live /habits page (the generalised successor to /challenge), rebuilt
 // on the shared beta-ui "Strata" foundation. One line adopts the whole Strata token contract; then this page
-// OVERRIDES the per-page accent contract with its OWN signature: an EMERALD → LIME ramp. Every kit component
-// reads --accent-a/--accent-b off this :host cascade, so the single override re-skins the screen.
+// ROUTES the per-page accent contract to the global color SCHEME tokens so every component follows the user's
+// chosen scheme. Every kit component reads --accent-a/--accent-b off this :host cascade.
 //
 // ISOLATED + gated by platform.mobile + tracker.self: nothing here touches the global --tech-* tokens or the
 // live /habits page. The kit partial is the only import.
@@ -13,9 +13,9 @@
 :host {
   @include kit.beta-host;
 
-  // ---- HABITS SIGNATURE ACCENT: EMERALD → LIME ----
-  --accent-a: var(--tech-accent);             // emerald (start)
-  --accent-b: var(--tech-accent-2);             // lime (end)
+  // ---- SCHEME-AWARE ACCENT: follows the user's chosen color scheme ----
+  --accent-a: var(--tech-accent);             // primary scheme hue
+  --accent-b: var(--tech-accent-2);             // deeper shade of scheme hue
 }
 
 @include kit.beta-springs;

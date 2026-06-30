@@ -86,10 +86,10 @@ const MOBILE_TOUR: TourDef = {
       placement: 'top',
     },
     {
-      anchor: 'tab-more',
+      anchor: 'mobile-menu',
       title: 'Everything else',
-      blurb: 'Tap More for every other section, plus Ask, settings and your account.',
-      placement: 'top',
+      blurb: 'Tap the menu for every other section, plus Ask, settings and your account.',
+      placement: 'bottom',
     },
   ],
 };

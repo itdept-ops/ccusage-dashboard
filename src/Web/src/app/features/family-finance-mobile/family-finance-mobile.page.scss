@@ -2,12 +2,13 @@
 // Family Finance "Ledger" — the mobile-first twin of the live /family/finance Hub room, rebuilt on the
 // shared beta-ui "Strata" foundation. One line adopts the whole Strata token contract (layered bg, glass,
 // ink scale, radii, the lift-1/2/3 depth system, spring/bounce easing, blur cap, env() safe-area, the
-// a11y killswitches); then FINANCE OVERRIDES the per-page accent contract with its OWN signature: a cool
-// MINT → TEAL ramp. Every kit component reads --accent-a/--accent-b off this :host cascade, so this single
-// override re-skins the screen (pull-refresh ring, segmented pill, FAB, focus ring all follow).
+// a11y killswitches); then FINANCE wires the per-page accent contract to the GLOBAL COLOR SCHEME so
+// all UI chrome (FAB, active pill, progress rings, AI card spark, primary buttons) tracks the user's
+// chosen scheme color. Every kit component reads --accent-a/--accent-b off this :host cascade, so this
+// single assignment re-skins the screen (pull-refresh ring, segmented pill, FAB, focus ring all follow).
 //
 // ISOLATED + double-gated by platform.mobile + family.use AND family.finance (server-side): nothing here
-// touches the global --tech-* tokens or the live /family/finance page. The kit partial is the only import.
+// touches the live /family/finance page. The kit partial is the only import.
 // ============================================================================
 
 @use '../beta-ui/beta-kit' as kit;
@@ -15,9 +16,9 @@
 :host {
   @include kit.beta-host;          // the whole Strata token contract on :host
 
-  // ---- FINANCE' SIGNATURE ACCENT: MINT → TEAL (the per-page contract override) ----
-  --accent-a: var(--tech-accent);             // mint (start)
-  --accent-b: var(--tech-accent-2);             // teal (deep, end)
+  // ---- SCHEME-AWARE ACCENT CONTRACT: routes all chrome to the user's chosen color scheme ----
+  --accent-a: var(--tech-accent);             // primary scheme hue (CTA buttons, active states, FAB)
+  --accent-b: var(--tech-accent-2);           // deeper shade (gradient end, hover deepening)
 }
 
 @include kit.beta-springs;          // @supports linear() spring upgrade (top-level, once)

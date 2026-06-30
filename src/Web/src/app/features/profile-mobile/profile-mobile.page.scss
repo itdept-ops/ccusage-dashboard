@@ -2,9 +2,9 @@
 // Profile "How others see me" — the MOBILE twin of the live /profile page, rebuilt on the shared
 // beta-ui "Strata" foundation. One line adopts the whole Strata token contract (layered bg, glass,
 // ink scale, radii, the lift-1/2/3 depth system, spring/bounce easing, blur cap, env() safe-area, the
-// a11y killswitches); then this page OVERRIDES the per-page accent contract with its OWN signature —
-// an INDIGO → VIOLET ramp (a calm "identity / settings" hue). Every kit component (pull-refresh ring,
-// the segmented mode picker, the toaster) reads --accent-a/--accent-b off this :host cascade, so this
+// a11y killswitches); then this page OVERRIDES the per-page accent contract to follow the GLOBAL
+// COLOR SCHEME (--tech-accent / --tech-accent-2). Every kit component (pull-refresh ring, the
+// segmented mode picker, the toaster) reads --accent-a/--accent-b off this :host cascade, so this
 // single override re-skins the whole screen.
 //
 // ISOLATED + gated by platform.mobile on the SAME /profile route: nothing here touches the global
@@ -16,11 +16,11 @@
 :host {
   @include kit.beta-host;          // the whole Strata token contract on :host
 
-  // ---- PROFILE's SIGNATURE ACCENT: indigo → violet (the per-page contract override) ----
-  --accent-a: var(--tech-accent);             // signature indigo (start)
-  --accent-b: var(--tech-accent-2);             // signature violet (end)
-  // Indigo/violet are dark enough that white ink clears WCAG AA; override the kit default near-black.
-  --ink-on-accent: #ffffff;
+  // ---- PROFILE's ACCENT: follows the global color scheme (--tech-accent / --tech-accent-2). ----
+  --accent-a: var(--tech-accent);             // scheme hue (start)
+  --accent-b: var(--tech-accent-2);             // scheme hue deeper (end)
+  // Inherit the scheme-aware text-on-accent token so contrast is correct for every scheme/mode.
+  --ink-on-accent: var(--tech-text-on-accent, #ffffff);
 
   // A faint indigo wash behind the whole column (still within the kit's dark contract).
   background: radial-gradient(120% 80% at 50% -8%, var(--tech-panel, #15132a) 0%, var(--bg-base) 58%);

@@ -17,9 +17,9 @@
   --accent-a: var(--tech-accent);             // indigo (start)
   --accent-b: var(--tech-accent-2);             // teal (end)
 
-  // The indigo → teal ramp is deep enough for white on-accent text (WCAG AA).
-  // Override the kit default (#0c0d12) so all on-accent text/icons render white.
-  --ink-on-accent: #fff;
+  // Route on-accent ink through the scheme token so lighter schemes get the
+  // correct contrast value automatically; fall back to #fff for dark gradients.
+  --ink-on-accent: var(--tech-text-on-accent, #fff);
 }
 
 @include kit.beta-springs;

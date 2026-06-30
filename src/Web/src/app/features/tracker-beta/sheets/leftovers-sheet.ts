@@ -244,7 +244,7 @@ function toIso(d: Date): string {
     .lo-spark {
       flex: 0 0 auto; display: flex; align-items: center; justify-content: center;
       width: 40px; height: 40px; border-radius: var(--r-pill);
-      background: linear-gradient(135deg, var(--cal-a), var(--cal-b));
+      background: linear-gradient(135deg, var(--tech-accent, var(--cal-a)), var(--tech-accent-2, var(--cal-b)));
       box-shadow: var(--lift-1);
     }
     .lo-spark mat-icon { width: 22px; height: 22px; font-size: 22px; line-height: 22px; color: #fff; }
@@ -304,7 +304,7 @@ function toIso(d: Date): string {
       transition: border-color 140ms var(--ease-out), transform 120ms var(--ease-out), box-shadow 120ms var(--ease-out);
     }
     .lo-meal:active:not(:disabled) { transform: scale(.99) translateY(1px); box-shadow: var(--press); }
-    .lo-meal.on { border-color: var(--accent-edge); box-shadow: var(--lift-1); }
+    .lo-meal.on { border-color: var(--tech-accent, var(--accent-edge, var(--cal-a))); box-shadow: var(--lift-1); }
     .lo-meal.off { opacity: .5; cursor: default; }
     .lo-meal-main { display: flex; flex-direction: column; gap: 3px; flex: 1 1 auto; min-width: 0; }
     .lo-meal-title { font-size: 15px; font-weight: 600; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -312,7 +312,7 @@ function toIso(d: Date): string {
     .lo-meal-day { font-size: 11px; text-transform: uppercase; letter-spacing: .03em; color: var(--ink-dim); }
     .lo-meal-macros { font-size: 12px; color: var(--ink-dim); font-variant-numeric: tabular-nums; }
     .lo-meal-nomacros { font-size: 12px; color: var(--ink-faint); font-style: italic; }
-    .lo-meal-check { flex: 0 0 auto; width: 22px; height: 22px; font-size: 22px; line-height: 22px; color: var(--accent-edge); }
+    .lo-meal-check { flex: 0 0 auto; width: 22px; height: 22px; font-size: 22px; line-height: 22px; color: var(--tech-accent, var(--accent-edge, var(--cal-a))); }
     .lo-list-none { margin: 4px 2px; font-size: 13px; color: var(--ink-dim); }
 
     /* Servings stepper */
@@ -348,7 +348,7 @@ function toIso(d: Date): string {
     .lo-preview-label mat-icon { width: 16px; height: 16px; font-size: 16px; line-height: 16px; }
     .lo-macros { display: flex; align-items: baseline; gap: 12px; font-variant-numeric: tabular-nums; }
     .lo-macro { font-size: 14px; font-weight: 600; color: var(--ink); }
-    .lo-macro.cal { color: var(--cal-a); }
+    .lo-macro.cal { color: var(--tech-accent, var(--cal-a)); }
     .lo-macro small { font-size: 10px; font-weight: 500; color: var(--ink-dim); margin-left: 1px; }
 
     /* Day chips (multi-select) */
@@ -362,8 +362,8 @@ function toIso(d: Date): string {
     }
     .lo-day:active { transform: scale(.97) translateY(1px); }
     .lo-day:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
-    .lo-day.on { border-color: var(--accent-edge); color: var(--ink); box-shadow: var(--lift-1); }
-    .lo-day mat-icon { width: 16px; height: 16px; font-size: 16px; line-height: 16px; color: var(--accent-edge); }
+    .lo-day.on { border-color: var(--tech-accent, var(--accent-edge, var(--cal-a))); color: var(--ink); box-shadow: var(--lift-1); }
+    .lo-day mat-icon { width: 16px; height: 16px; font-size: 16px; line-height: 16px; color: var(--tech-accent, var(--accent-edge, var(--cal-a))); }
     .lo-daycount { margin: 0; padding-left: 2px; font-size: 12px; color: var(--ink-dim); }
 
     /* Add CTA */
@@ -372,7 +372,7 @@ function toIso(d: Date): string {
       flex: 1 1 auto; min-height: 52px;
       display: flex; align-items: center; justify-content: center; gap: 8px;
       font-family: var(--font-ui); font-size: 16px; font-weight: 700; letter-spacing: -.01em;
-      color: #fff; background: linear-gradient(135deg, var(--cta-a, var(--cal-a)), var(--cta-b, var(--cal-b)));
+      color: #fff; background: linear-gradient(135deg, var(--tech-accent, var(--cal-a)), var(--tech-accent-2, var(--cal-b)));
       border: 0; border-radius: var(--r-pill); box-shadow: var(--lift-2);
       touch-action: manipulation; -webkit-tap-highlight-color: transparent; cursor: pointer;
       transition: transform 120ms var(--ease-out), box-shadow 120ms var(--ease-out), opacity 160ms var(--ease-out);
@@ -384,7 +384,7 @@ function toIso(d: Date): string {
 
     .lo-spin {
       width: 18px; height: 18px; border-radius: 50%;
-      border: 2px solid var(--hairline); border-top-color: var(--cal-a);
+      border: 2px solid var(--hairline); border-top-color: var(--tech-accent, var(--cal-a));
       animation: lo-spin 700ms linear infinite;
     }
     .lo-spin.light { border-color: rgba(255,255,255,.4); border-top-color: #fff; }

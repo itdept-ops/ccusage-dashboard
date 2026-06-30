@@ -119,7 +119,7 @@ import { BetaBottomSheet, BetaSkeleton } from '../../beta-ui';
 
     .gs-box {
       flex: 0 0 auto; display: grid; place-items: center; width: 24px; height: 24px; border-radius: 8px;
-      border: 2px solid var(--ink-faint); color: #07140d;
+      border: 2px solid var(--ink-faint); color: var(--tech-text-on-accent, #07140d);
       transition: background 160ms var(--ease-out), border-color 160ms var(--ease-out);
     }
     .gs-box.on { background: linear-gradient(135deg, var(--accent-a), var(--accent-b)); border-color: transparent; }

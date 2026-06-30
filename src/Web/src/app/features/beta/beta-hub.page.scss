@@ -3,10 +3,11 @@
 // "Strata" foundation.
 //
 // One line adopts the whole Strata token contract (layered bg, glass, ink scale, radii, the lift-1/2/3
-// depth system, spring/bounce easing, blur cap, env() safe-area, the a11y killswitches). The HUB owns
-// its OWN signature accent — a vivid BLUE — overriding the kit default, while EACH launcher tile carries
-// the destination surface's OWN signature gradient (Strata violet, Bills cream, Home violet, Dashboard
-// pink, Family amber, Wrapped purple, Settings slate) via a per-tile --ta/--tb override.
+// depth system, spring/bounce easing, blur cap, env() safe-area, the a11y killswitches). The HUB routes
+// its page chrome (bloom, count chip, focus rings, FABs, hint banners) to the GLOBAL color scheme so the
+// user's scheme picker drives this page. EACH launcher tile carries the DESTINATION surface's OWN
+// signature gradient (Strata violet, Bills cream, Home violet, Dashboard pink, Family amber, Wrapped
+// purple, Settings slate) via a per-tile --ta/--tb override set in the .ts.
 //
 // ISOLATED + gated by platform.mobile: nothing here touches the global --tech-* tokens or the flagship
 // tracker-beta. The kit partial is the only import.
@@ -17,9 +18,9 @@
 :host {
   @include kit.beta-host;          // the whole Strata token contract on :host
 
-  // ---- THE HUB's SIGNATURE ACCENT: blue (the per-page contract override) ----
-  --accent-a: var(--tech-accent);             // signature blue (start)
-  --accent-b: var(--tech-accent-2);             // signature sky  (end)
+  // ---- ACCENT: route to the global scheme so the color picker drives this page. ----
+  --accent-a: var(--tech-accent);
+  --accent-b: var(--tech-accent-2);
 }
 
 @include kit.beta-springs;          // @supports linear() spring upgrade (top-level, once)

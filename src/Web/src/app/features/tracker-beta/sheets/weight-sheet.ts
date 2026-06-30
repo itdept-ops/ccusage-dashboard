@@ -122,7 +122,7 @@ import { TrackerProfileDto, WeightSlot } from '../../../core/models';
     .ws__slot.is-on {
       color: var(--ink);
       border-color: transparent;
-      background: linear-gradient(135deg, var(--cal-a), var(--cal-b));
+      background: linear-gradient(135deg, var(--tech-accent, var(--cal-a)), var(--tech-accent-2, var(--cal-b)));
       box-shadow: var(--lift-1);
     }
     .ws__slot:active { transform: translateY(1px) scale(.98); }
@@ -204,7 +204,7 @@ import { TrackerProfileDto, WeightSlot } from '../../../core/models';
     .ws__save {
       min-height: 52px; margin-top: 2px;
       border: 0; border-radius: var(--r-pill);
-      background: linear-gradient(135deg, var(--cal-a), var(--cal-b));
+      background: linear-gradient(135deg, var(--tech-accent, var(--cal-a)), var(--tech-accent-2, var(--cal-b)));
       color: #fff; font: inherit; font-size: 16px; font-weight: 600;
       cursor: pointer;
       box-shadow: var(--lift-2);

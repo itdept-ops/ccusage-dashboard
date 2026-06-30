@@ -1,11 +1,12 @@
 // ============================================================================
 // Agent Inbox — the mobile-first twin of the live /inbox page, on the shared beta-ui "Strata" foundation.
-// One line adopts the whole Strata token contract; this page then OVERRIDES the per-page accent with its
-// OWN signature: an INDIGO → VIOLET ramp. Every kit component reads --accent-a/--accent-b off this :host
-// cascade. Per-card hue (derived from the agent kind) tints just the card glyph + un-handled marker.
+// One line adopts the whole Strata token contract; this page then re-affirms the per-page accent from
+// the global scheme tokens (--tech-accent / --tech-accent-2). Every kit component reads --accent-a /
+// --accent-b off this :host cascade, so buttons, active states, and hero bloom all follow the user's
+// chosen color scheme. Per-card hue (derived from the agent kind) tints ONLY the card glyph +
+// un-handled marker — that multi-hue data-coding system is intentionally scheme-independent.
 //
-// ISOLATED + gated by platform.mobile + the agents.use route guard: nothing here touches the global
-// --tech-* tokens or the live /inbox page. The kit partial is the only import.
+// ISOLATED + gated by platform.mobile + the agents.use route guard: the live /inbox page is not touched.
 // ============================================================================
 
 @use '../beta-ui/beta-kit' as kit;
@@ -13,9 +14,10 @@
 :host {
   @include kit.beta-host;
 
-  // ---- THIS PAGE'S SIGNATURE ACCENT: INDIGO → VIOLET ----
-  --accent-a: var(--tech-accent);             // indigo (start)
-  --accent-b: var(--tech-accent-2);             // violet (end)
+  // Route the per-page accent contract to the global scheme tokens — keeps buttons, FAB, active states,
+  // hero bloom, and focus rings all scheme-aware as the user switches color themes.
+  --accent-a: var(--tech-accent);
+  --accent-b: var(--tech-accent-2);
 }
 
 @include kit.beta-springs;

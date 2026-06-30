@@ -43,7 +43,7 @@
   --sleep-b: #a78bfa; // sleep/recovery indigo->violet (night)
   --signal: var(--tech-success, #34d399); // goal-hit success green (theme-aware)
   --warn: var(--tech-warn, #f0a35a); // GRAFT(Daylight): over-goal = warm AMBER, never red (theme-aware)
-  --focus: var(--cal-a, #7c5cff); // own visible focus ring, >=3:1 on bg-base; tracks the hero accent
+  --focus: var(--tech-accent, var(--cal-a, #7c5cff)); // own visible focus ring, >=3:1 on bg-base; scheme-aware
 
   // ---- TYPE (unified with the app — Nunito display + Inter UI; global fallbacks preserved) ----
   --font-display: var(--tech-font-display, "Clash Display", system-ui, sans-serif); // numerals only

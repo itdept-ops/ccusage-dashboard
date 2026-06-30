@@ -118,7 +118,7 @@ import { slotMeta } from '../meals-beta.model';
     .ps-head { display: flex; gap: 12px; align-items: flex-start; }
     .ps-spark {
       flex: 0 0 auto; display: grid; place-items: center; width: 42px; height: 42px; border-radius: 14px;
-      background: linear-gradient(135deg, var(--accent-a), var(--accent-b)); color: #07140d;
+      background: linear-gradient(135deg, var(--accent-a), var(--accent-b)); color: var(--tech-text-on-accent, #07140d);
     }
     .ps-spark mat-icon { font-size: 22px; width: 22px; height: 22px; }
     .ps-head-txt { min-width: 0; }
@@ -137,7 +137,7 @@ import { slotMeta } from '../meals-beta.model';
     .ps-primary {
       display: inline-flex; align-items: center; justify-content: center; gap: 8px;
       min-height: 50px; padding: 0 20px; border: none; border-radius: var(--r-pill);
-      background: linear-gradient(135deg, var(--accent-a), var(--accent-b)); color: #07140d;
+      background: linear-gradient(135deg, var(--accent-a), var(--accent-b)); color: var(--tech-text-on-accent, #07140d);
       font-family: var(--font-ui); font-size: 15px; font-weight: 800; cursor: pointer;
       box-shadow: var(--lift-2); -webkit-tap-highlight-color: transparent; touch-action: manipulation;
       transition: transform 120ms var(--ease-out);
@@ -157,7 +157,7 @@ import { slotMeta } from '../meals-beta.model';
 
     .ps-spin {
       width: 16px; height: 16px; border-radius: 50%;
-      border: 2px solid color-mix(in srgb, #07140d 35%, transparent); border-top-color: #07140d;
+      border: 2px solid color-mix(in srgb, var(--tech-text-on-accent, #07140d) 35%, transparent); border-top-color: var(--tech-text-on-accent, #07140d);
       animation: ps-spin 0.7s linear infinite;
     }
     @keyframes ps-spin { to { transform: rotate(360deg); } }

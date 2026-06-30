@@ -62,7 +62,7 @@ import { DayCell, slotMeta } from '../meals-beta.model';
     .mv-top { display: flex; gap: 12px; align-items: center; }
     .mv-ic {
       flex: 0 0 auto; display: grid; place-items: center; width: 46px; height: 46px; border-radius: 15px;
-      background: linear-gradient(135deg, var(--accent-a), var(--accent-b)); color: #07140d;
+      background: linear-gradient(135deg, var(--accent-a), var(--accent-b)); color: var(--tech-text-on-accent, #07140d);
     }
     .mv-ic mat-icon { font-size: 24px; width: 24px; height: 24px; }
     .mv-txt { min-width: 0; display: flex; flex-direction: column; gap: 1px; }

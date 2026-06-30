@@ -428,7 +428,7 @@
     border: none;
     border-radius: var(--tech-r-control, var(--r-tile));
     background: linear-gradient(135deg, var(--accent-a), var(--accent-b));
-    color: var(--tech-text-on-accent, #06121f);
+    color: var(--tech-text-on-accent, var(--ink-on-accent, #fff));
     font-family: var(--font-ui);
     font-size: 14px;
     font-weight: 700;

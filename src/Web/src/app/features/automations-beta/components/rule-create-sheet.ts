@@ -111,7 +111,7 @@ import { ACTIONS, AutomationTemplate, TRIGGERS, condOpLabel, triggerOpt } from '
     .rc-head { display: flex; gap: 12px; align-items: flex-start; }
     .rc-spark {
       flex: 0 0 auto; display: grid; place-items: center; width: 42px; height: 42px; border-radius: 14px;
-      background: linear-gradient(135deg, var(--accent-a), var(--accent-b)); color: #2a0a00;
+      background: linear-gradient(135deg, var(--accent-a), var(--accent-b)); color: var(--tech-text-on-accent);
       box-shadow: 0 6px 18px color-mix(in srgb, var(--accent-a) 40%, transparent);
     }
     .rc-spark mat-icon { font-size: 24px; width: 24px; height: 24px; }
@@ -144,7 +144,7 @@ import { ACTIONS, AutomationTemplate, TRIGGERS, condOpLabel, triggerOpt } from '
       flex: 0 0 auto; display: grid; place-items: center; width: 34px; height: 34px; border-radius: 11px;
       background: color-mix(in srgb, var(--accent-a) 14%, var(--bg-sink)); color: var(--accent-a);
     }
-    .rc-opt.is-on .rc-opt-ic { background: linear-gradient(135deg, var(--accent-a), var(--accent-b)); color: #2a0a00; }
+    .rc-opt.is-on .rc-opt-ic { background: linear-gradient(135deg, var(--accent-a), var(--accent-b)); color: var(--tech-text-on-accent); }
     .rc-opt-ic mat-icon { font-size: 19px; width: 19px; height: 19px; }
     .rc-opt-lbl { font-size: 13px; font-weight: 700; color: var(--ink); line-height: 1.2; }
 
@@ -182,7 +182,7 @@ import { ACTIONS, AutomationTemplate, TRIGGERS, condOpLabel, triggerOpt } from '
       flex: 0 0 auto; display: grid; place-items: center; width: 36px; height: 36px; border-radius: 12px;
       background: color-mix(in srgb, var(--accent-a) 14%, var(--bg-sink)); color: var(--accent-a);
     }
-    .rc-act.is-on .rc-act-ic { background: linear-gradient(135deg, var(--accent-a), var(--accent-b)); color: #2a0a00; }
+    .rc-act.is-on .rc-act-ic { background: linear-gradient(135deg, var(--accent-a), var(--accent-b)); color: var(--tech-text-on-accent); }
     .rc-act-ic mat-icon { font-size: 20px; width: 20px; height: 20px; }
     .rc-act-lbl { flex: 1 1 auto; font-size: 14.5px; font-weight: 700; color: var(--ink); min-width: 0; }
     .rc-act-tick { flex: 0 0 auto; color: var(--accent-a); opacity: 0; transition: opacity 140ms var(--ease-out); }
@@ -207,7 +207,7 @@ import { ACTIONS, AutomationTemplate, TRIGGERS, condOpLabel, triggerOpt } from '
     .rc-primary {
       display: inline-flex; align-items: center; justify-content: center; gap: 8px;
       min-height: 52px; margin-top: 6px; padding: 0 20px; border: none; border-radius: var(--r-pill);
-      background: linear-gradient(135deg, var(--accent-a), var(--accent-b)); color: #2a0a00;
+      background: linear-gradient(135deg, var(--accent-a), var(--accent-b)); color: var(--tech-text-on-accent);
       font-family: var(--font-ui); font-size: 15px; font-weight: 800; cursor: pointer;
       box-shadow: var(--lift-2); -webkit-tap-highlight-color: transparent; touch-action: manipulation;
       transition: transform 120ms var(--ease-out);
@@ -219,7 +219,7 @@ import { ACTIONS, AutomationTemplate, TRIGGERS, condOpLabel, triggerOpt } from '
 
     .rc-spin {
       width: 16px; height: 16px; border-radius: 50%;
-      border: 2px solid color-mix(in srgb, #2a0a00 35%, transparent); border-top-color: #2a0a00;
+      border: 2px solid color-mix(in srgb, var(--tech-text-on-accent) 35%, transparent); border-top-color: var(--tech-text-on-accent);
       animation: rc-spin 0.7s linear infinite;
     }
     @keyframes rc-spin { to { transform: rotate(360deg); } }

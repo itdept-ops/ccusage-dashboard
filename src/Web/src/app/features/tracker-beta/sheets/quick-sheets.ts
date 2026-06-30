@@ -149,7 +149,7 @@ const SHEET_STYLES = `
   .qs-cta {
     flex: 1 1 auto; min-height: 52px;
     font-family: var(--font-ui); font-size: 16px; font-weight: 700; letter-spacing: -.01em;
-    color: #fff; background: linear-gradient(135deg, var(--cta-a, var(--cal-a)), var(--cta-b, var(--cal-b)));
+    color: #fff; background: linear-gradient(135deg, var(--cta-a, var(--tech-accent, var(--cal-a))), var(--cta-b, var(--tech-accent-2, var(--cal-b))));
     border: 0; border-radius: var(--r-pill); box-shadow: var(--lift-2);
     touch-action: manipulation; -webkit-tap-highlight-color: transparent; cursor: pointer;
     transition: transform 120ms var(--ease-out), box-shadow 120ms var(--ease-out), opacity 160ms var(--ease-out);

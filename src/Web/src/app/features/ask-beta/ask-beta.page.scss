@@ -21,8 +21,8 @@
   --accent-a: var(--tech-accent);             // signature indigo (start)
   --accent-b: var(--tech-accent-2);             // signature indigo (end)
 
-  // A faint indigo wash behind the whole column (still within the kit's dark contract).
-  background: radial-gradient(120% 70% at 50% -6%, #15183a 0%, var(--bg-base) 56%);
+  // A faint accent wash behind the whole column (scheme-aware; follows --tech-accent hue).
+  background: radial-gradient(120% 70% at 50% -6%, color-mix(in srgb, var(--tech-accent) 14%, var(--bg-base)) 0%, var(--bg-base) 56%);
 
   height: 100%;                    // fill the immersive shell frame; the pull-refresh owns the scroll
   display: flex;

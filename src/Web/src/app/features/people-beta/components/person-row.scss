@@ -6,7 +6,13 @@
 
 @use 'sass:list';
 
-:host { display: block; }
+:host {
+  display: block;
+  // Route the beta-ui accent contract to the global FiMobile scheme tokens so
+  // the chosen color-scheme drives every accent on this row — no hardcoded hue.
+  --accent-a: var(--tech-accent);
+  --accent-b: var(--tech-accent-2);
+}
 
 // The six avatar-fallback hues (warm social palette; presence dot is separate).
 $hues: #fb7185, #f0a35a, #a78bfa, #38bdf8, #34d399, #f472b6;
