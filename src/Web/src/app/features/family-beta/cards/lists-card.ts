@@ -45,7 +45,7 @@ import { OptimisticFamily } from '../state/optimistic-family';
                   {{ l.openCount === 0 ? 'clear' : l.openCount + ' open' }}
                 </span>
               </div>
-              @if (l.firstFewOpenItems.length) {
+              @if (l.firstFewOpenItems?.length) {
                 <ul class="lst__peek">
                   @for (it of l.firstFewOpenItems.slice(0, 2); track it) {
                     <li><span class="lst__tick" aria-hidden="true"></span>{{ it }}</li>

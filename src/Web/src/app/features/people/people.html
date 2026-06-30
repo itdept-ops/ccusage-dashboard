@@ -51,7 +51,7 @@
     icon="cloud_off"
     title="Couldn't load your people"
     body="We couldn't load your people just now. Give it another go."
-    (retry)="setFilter(filter())" />
+    (retry)="retry()" />
 } @else if (isEmpty()) {
   <!-- Empty (context-aware to the active filter) -->
   @switch (filter()) {

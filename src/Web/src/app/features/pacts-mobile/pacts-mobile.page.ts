@@ -55,7 +55,7 @@ const KINDS: readonly { key: PactKind; label: string; icon: string; unit: string
           <section class="pm-create" aria-label="Create a pact">
             <label class="pm-field">
               <span class="pm-field__label">Title</span>
-              <input class="pm-field__input" type="text" [(ngModel)]="draftTitle" maxlength="120"
+              <input class="pm-field__input" type="text" [ngModel]="draftTitle()" (ngModelChange)="draftTitle.set($event)" maxlength="120"
                      placeholder="e.g. June workout streak" aria-label="Pact title" />
             </label>
 
@@ -230,7 +230,7 @@ export class PactsMobilePage {
   readonly expanded = signal<number | null>(null);
 
   readonly showCreate = signal(false);
-  draftTitle = '';
+  readonly draftTitle = signal('');
   draftKind: PactKind = 'workout.logged';
   draftTarget = 5;
   draftPeriod = 7;
@@ -239,7 +239,7 @@ export class PactsMobilePage {
   readonly createError = signal<string | null>(null);
 
   readonly myId = computed(() => this.auth.session()?.userId ?? 0);
-  readonly canCreate = computed(() => this.draftTitle.trim().length > 0 && !this.creating());
+  readonly canCreate = computed(() => this.draftTitle().trim().length > 0 && !this.creating());
 
   constructor() {
     this.reload();
@@ -296,7 +296,7 @@ export class PactsMobilePage {
     this.creating.set(true);
     this.createError.set(null);
     const body: CreatePactRequest = {
-      title: this.draftTitle.trim(), kind: this.draftKind,
+      title: this.draftTitle().trim(), kind: this.draftKind,
       targetIntValue: this.draftTarget, periodDays: this.draftPeriod,
       memberUserIds: [...this.draftInvitees()],
     };
@@ -306,7 +306,7 @@ export class PactsMobilePage {
       .subscribe((p) => {
         if (p) {
           this.pacts.update((cur) => [p, ...cur]);
-          this.draftTitle = ''; this.draftInvitees.set(new Set());
+          this.draftTitle.set(''); this.draftInvitees.set(new Set());
           this.showCreate.set(false);
         }
         this.creating.set(false);

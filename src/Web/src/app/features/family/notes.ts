@@ -148,7 +148,7 @@ export class FamilyNotes {
         takeUntilDestroyed(),
       )
       .subscribe((h) => {
-        if (h) this.memberIds.set(new Set(h.members.map((m) => m.userId)));
+        if (h) this.memberIds.set(new Set((h.members ?? []).map((m) => m.userId)));
       });
     // Lists power the "Add to a list" picker on summary cards; failure is non-fatal (picker just stays empty).
     this.api

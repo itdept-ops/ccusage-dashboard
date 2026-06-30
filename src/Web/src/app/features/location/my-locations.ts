@@ -94,7 +94,7 @@ export class MyLocations implements OnDestroy {
     this.now.set(Date.now());
     this.api.myLocations(200).subscribe({
       next: (rows) => {
-        this.history.set(rows);
+        this.history.set(Array.isArray(rows) ? rows : []);
         this.loading.set(false);
       },
       error: () => {

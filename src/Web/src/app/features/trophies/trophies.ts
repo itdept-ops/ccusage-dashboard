@@ -57,7 +57,7 @@ export class Trophies {
   /** Badges grouped by their `group` field, preserving the catalog order within each group. */
   readonly groups = computed(() => {
     const d = this.data();
-    if (!d) return [] as { name: string; badges: TrophyBadgeDto[] }[];
+    if (!d?.badges) return [] as { name: string; badges: TrophyBadgeDto[] }[];
     const order: string[] = [];
     const byGroup = new Map<string, TrophyBadgeDto[]>();
     for (const b of d.badges) {

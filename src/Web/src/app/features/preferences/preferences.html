@@ -118,7 +118,7 @@
               <label class="row row--compact">
                 <span class="row__text"><span class="row__name">{{ c.label }}</span>
                   <span class="row__hint">{{ c.hint }}</span></span>
-                <mat-slide-toggle [ngModel]="d.categories[c.key]" (ngModelChange)="setCategory(c.key, $event)"
+                <mat-slide-toggle [ngModel]="d.categories?.[c.key] ?? false" (ngModelChange)="setCategory(c.key, $event)"
                                   [disabled]="discordBusy() || !d.surfaceDiscord"
                                   [attr.aria-label]="'Forward ' + c.label + ' to Discord'" />
               </label>

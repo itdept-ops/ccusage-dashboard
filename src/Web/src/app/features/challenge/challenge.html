@@ -175,9 +175,9 @@
         </div>
         @if (store.coach(); as coach) {
           <p class="challenge__coach-narrative">{{ coach.narrative }}</p>
-          @if (coach.insights.length) {
+          @if (coach.insights?.length) {
             <ul class="challenge__coach-insights">
-              @for (ins of coach.insights; track ins) {
+              @for (ins of (coach.insights ?? []); track ins) {
                 <li><mat-icon aria-hidden="true">chevron_right</mat-icon>{{ ins }}</li>
               }
             </ul>

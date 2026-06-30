@@ -85,7 +85,7 @@ export class ChallengeStore {
   /** Load the people whose challenges the caller may view (for the shared-view selector). */
   async loadShared(): Promise<void> {
     try {
-      this.shared.set(await firstValueFrom(this.api.challengeShared()));
+      this.shared.set((await firstValueFrom(this.api.challengeShared())) ?? []);
     } catch {
       this.shared.set([]);
     }
@@ -161,7 +161,7 @@ export class ChallengeStore {
   /** Load the points leaderboard (caller + sharing contacts). Silent on failure (empty). */
   async loadLeaderboard(): Promise<void> {
     try {
-      this.leaderboard.set(await firstValueFrom(this.api.challengeLeaderboard()));
+      this.leaderboard.set((await firstValueFrom(this.api.challengeLeaderboard())) ?? []);
     } catch {
       this.leaderboard.set([]);
     }

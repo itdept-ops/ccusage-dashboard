@@ -95,8 +95,8 @@ export class AiUsage {
     return n;
   });
 
-  readonly topUser = computed<AiUsageCount | null>(() => this.summary()?.topUsers[0] ?? null);
-  readonly topFeature = computed<AiUsageCount | null>(() => this.summary()?.topFeatures[0] ?? null);
+  readonly topUser = computed<AiUsageCount | null>(() => (this.summary()?.topUsers ?? [])[0] ?? null);
+  readonly topFeature = computed<AiUsageCount | null>(() => (this.summary()?.topFeatures ?? [])[0] ?? null);
 
   constructor() {
     this.reload();
@@ -125,9 +125,11 @@ export class AiUsage {
       })
       .subscribe({
         next: (r) => {
-          this.rows.set(r.rows);
-          this.summary.set(r.summary);
-          this.hasMore.set(r.rows.length === PAGE_SIZE);
+          const rows = r.rows ?? [];
+          const summary = r.summary ?? null;
+          this.rows.set(rows);
+          this.summary.set(summary);
+          this.hasMore.set(rows.length === PAGE_SIZE);
           this.loading.set(false);
         },
         error: () => {

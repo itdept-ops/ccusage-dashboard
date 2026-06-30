@@ -654,7 +654,7 @@ export class WrappedBetaPage {
     }
 
     try {
-      await nav?.clipboard.writeText(text);
+      await nav?.clipboard?.writeText(text);
       this.toast.show('Wrapped copied — paste it anywhere', { tone: 'success', durationMs: 2200 });
     } catch {
       this.toast.show('Couldn’t share on this device', { tone: 'warn' });

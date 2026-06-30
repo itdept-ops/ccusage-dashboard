@@ -118,6 +118,11 @@ export class People {
       .subscribe(() => this.now.set(Date.now()));
   }
 
+  /** Error-state "Try again" — re-run the full load (with spinner). */
+  retry(): void {
+    this.load();
+  }
+
   /** Initial load (shows the spinner). */
   private load(): void {
     this.loading.set(true);
