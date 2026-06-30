@@ -701,17 +701,29 @@ $fimobile-schemes: (
     --tech-accent-bright: #{map.get($s, tl)};
     --tech-text-accent: #{map.get($s, tl)};
     --tech-vendor-claude: #{map.get($s, l)};
+    /* Secondary accents become harmonious shades of the chosen accent (deeper + lighter), so
+       every page stays in-scheme instead of falling back to the default blue/violet/cyan triad. */
+    --tech-accent-2: color-mix(in srgb, #{map.get($s, l)} 76%, #0a0a14);
+    --tech-accent-2-bright: color-mix(in srgb, #{map.get($s, l)} 86%, #ffffff);
+    --tech-accent-cyan: color-mix(in srgb, #{map.get($s, l)} 55%, #ffffff);
     --tech-gradient-accent: linear-gradient(135deg, #{map.get($s, g1)} 0%, #{map.get($s, g2)} 52%, #{map.get($s, g3)} 100%);
     --mat-sys-primary: #{map.get($s, l)};
     --mat-sys-on-primary: #{map.get($s, ink)};
+    --mat-sys-secondary: var(--tech-accent-2);
+    --mat-sys-tertiary: var(--tech-accent-cyan);
   }
   :root[data-theme='dark'][data-scheme='#{$name}'] {
     --tech-accent: #{map.get($s, d)};
     --tech-accent-bright: #{map.get($s, td)};
     --tech-text-accent: #{map.get($s, td)};
     --tech-vendor-claude: #{map.get($s, d)};
+    --tech-accent-2: color-mix(in srgb, #{map.get($s, d)} 80%, #06070e);
+    --tech-accent-2-bright: color-mix(in srgb, #{map.get($s, d)} 80%, #ffffff);
+    --tech-accent-cyan: color-mix(in srgb, #{map.get($s, d)} 60%, #eef4ff);
     --mat-sys-primary: #{map.get($s, d)};
     --mat-sys-on-primary: #{map.get($s, dink)};
+    --mat-sys-secondary: var(--tech-accent-2);
+    --mat-sys-tertiary: var(--tech-accent-cyan);
   }
 }
 
