@@ -226,7 +226,7 @@
     height: 380px;
     max-width: 120%;
     transform: translateX(-50%);
-    background: radial-gradient(ellipse at center, rgba(168, 85, 247, 0.22), transparent 66%);
+    background: radial-gradient(ellipse at center, color-mix(in srgb, var(--aur-b) 22%, transparent), transparent 66%);
     filter: blur(70px);
     pointer-events: none;
   }
@@ -252,6 +252,17 @@
 }
 .cta-pill {
   @include aur.aurora-cta;
+  // Route the button fill to the active scheme.
+  background: linear-gradient(118deg, var(--aur-a) 0%, var(--aur-b) 58%, color-mix(in srgb, var(--aur-b) 80%, #000) 100%);
+  box-shadow:
+    0 1px 0 0 rgba(255, 255, 255, .22) inset,
+    0 14px 34px -14px color-mix(in srgb, var(--aur-a) 55%, transparent);
+  &:hover {
+    background: linear-gradient(118deg, var(--aur-b) 0%, var(--aur-a) 100%);
+    box-shadow:
+      0 1px 0 0 rgba(255, 255, 255, .26) inset,
+      0 18px 42px -14px color-mix(in srgb, var(--aur-b) 60%, transparent);
+  }
   span { transition: transform 200ms var(--aur-ease); }
   &:hover span { transform: translateX(3px); }
   @media (prefers-reduced-motion: reduce) {

@@ -1,5 +1,7 @@
-import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
-import { Router, RouterLink, RouterLinkActive } from '@angular/router';
+import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
+import { NavigationEnd, Router, RouterLink, RouterLinkActive } from '@angular/router';
+import { filter, map } from 'rxjs';
 import { MatIconModule } from '@angular/material/icon';
 
 import { AuthService } from '../../../core/auth';
@@ -49,15 +51,24 @@ import { navGroups, type NavGroupModel } from '../../../core/nav-model';
       <nav class="snav" aria-label="All sections">
         @for (g of groups(); track g.group) {
           <div class="snav__group">
-            <h3 class="snav__label">{{ g.group }}</h3>
-            @for (item of g.items; track item.id) {
-              <a class="srow" [routerLink]="item.path" routerLinkActive="active"
-                 [routerLinkActiveOptions]="item.path === '/' ? exact : nonExact"
-                 (click)="nav.close()">
-                <span class="srow__ic"><mat-icon aria-hidden="true">{{ item.icon }}</mat-icon></span>
-                <span class="srow__label">{{ item.label }}</span>
-                <mat-icon class="srow__chev" aria-hidden="true">chevron_right</mat-icon>
-              </a>
+            <!-- Collapsible section header (FiMobile sidebar dropdown). The section containing the
+                 current route starts expanded; others collapse to keep the list scannable. -->
+            <button type="button" class="snav__head" (click)="toggle(g.group)"
+                    [attr.aria-expanded]="isOpen(g.group)">
+              <span class="snav__label">{{ g.group }}</span>
+              <span class="snav__count">{{ g.items.length }}</span>
+              <mat-icon class="snav__caret" [class.open]="isOpen(g.group)" aria-hidden="true">expand_more</mat-icon>
+            </button>
+            @if (isOpen(g.group)) {
+              @for (item of g.items; track item.id) {
+                <a class="srow" [routerLink]="item.path" routerLinkActive="active"
+                   [routerLinkActiveOptions]="item.path === '/' ? exact : nonExact"
+                   (click)="nav.close()">
+                  <span class="srow__ic"><mat-icon aria-hidden="true">{{ item.icon }}</mat-icon></span>
+                  <span class="srow__label">{{ item.label }}</span>
+                  <mat-icon class="srow__chev" aria-hidden="true">chevron_right</mat-icon>
+                </a>
+              }
             }
           </div>
         }
@@ -210,14 +221,58 @@ import { navGroups, type NavGroupModel } from '../../../core/nav-model';
         flex-direction: column;
         gap: 2px;
       }
+      .snav__head {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        width: 100%;
+        padding: 8px 10px 4px;
+        border: 0;
+        background: transparent;
+        cursor: pointer;
+        text-align: left;
+      }
+      .snav__head:hover .snav__label {
+        color: var(--tech-text-secondary);
+      }
+      .snav__head:focus-visible {
+        outline: none;
+        box-shadow: var(--tech-focus-ring);
+        border-radius: var(--tech-r-control);
+      }
       .snav__label {
-        margin: 6px 8px 2px;
+        flex: 1 1 auto;
         font-family: var(--tech-font-ui);
         font-size: 11px;
         font-weight: 700;
         letter-spacing: 0.07em;
         text-transform: uppercase;
         color: var(--tech-text-tertiary);
+      }
+      .snav__count {
+        flex: 0 0 auto;
+        min-width: 18px;
+        height: 18px;
+        padding: 0 5px;
+        display: grid;
+        place-items: center;
+        border-radius: var(--tech-r-pill);
+        background: color-mix(in srgb, var(--tech-accent) 12%, transparent);
+        color: var(--tech-accent);
+        font-size: 10.5px;
+        font-weight: 700;
+      }
+      .snav__caret {
+        flex: 0 0 auto;
+        font-size: 18px;
+        width: 18px;
+        height: 18px;
+        color: var(--tech-text-tertiary);
+        transition: transform var(--tech-t-control, 140ms) var(--tech-ease, ease);
+      }
+      .snav__caret.open {
+        transform: rotate(180deg);
+        color: var(--tech-accent);
       }
       .snav__rule {
         height: 1px;
@@ -323,6 +378,38 @@ export class MobileSidebar {
     this.auth.permissions();
     return navGroups(this.has);
   });
+
+  /** Current route path (no query), reactive — drives which section is "active"/auto-expanded. */
+  private readonly currentPath = toSignal(
+    this.router.events.pipe(
+      filter((e): e is NavigationEnd => e instanceof NavigationEnd),
+      map((e) => e.urlAfterRedirects.split('?')[0]),
+    ),
+    { initialValue: this.router.url.split('?')[0] },
+  );
+
+  /** The nav group containing the current route (expanded by default; others collapse). */
+  private readonly activeGroup = computed<string | null>(() => {
+    const path = this.currentPath();
+    for (const g of this.groups()) {
+      for (const it of g.items) {
+        const match = it.path === '/' ? path === '/' : path === it.path || path.startsWith(it.path + '/');
+        if (match) return g.group;
+      }
+    }
+    return null;
+  });
+
+  /** Explicit per-group open overrides; absent groups fall back to "open iff it's the active group". */
+  private readonly expanded = signal<Record<string, boolean>>({});
+
+  protected isOpen(group: string): boolean {
+    return this.expanded()[group] ?? group === this.activeGroup();
+  }
+  protected toggle(group: string): void {
+    const open = this.isOpen(group);
+    this.expanded.update((e) => ({ ...e, [group]: !open }));
+  }
 
   /** Initials fallback for the profile avatar. */
   protected readonly initials = computed(() => {

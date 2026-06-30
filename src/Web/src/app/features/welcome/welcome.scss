@@ -1,32 +1,54 @@
+@use '../marketing/aurora' as aur;
+
+// ════════════════════════════════════════════════════════════════════════════
+//  WELCOME — public post-login landing
+//  Aurora dark canvas + scheme-tracked accents (FiMobile color schemes).
+// ════════════════════════════════════════════════════════════════════════════
+
+// ── HOST — obsidian canvas with drifting aurora fields ──────────────────────
 :host {
   display: block;
   max-width: var(--tech-max-width);
+
+  // Declare aurora custom-props so all descendants can read --aur-* tokens.
+  // --aur-a/b/c already track --tech-accent/accent-2/accent-cyan, so the
+  // color scheme the user chose will tint the aurora fields, the glass card
+  // borders, the CTA glow, and the gradient heading — all scheme-aware.
+  @include aur.aurora-vars;
+
+  // Obsidian canvas with slow-drifting radial washes + grain film.
+  @include aur.aurora-surface;
 }
 
+// ── LAYOUT ──────────────────────────────────────────────────────────────────
 .welcome {
   display: flex;
   justify-content: center;
   padding-top: var(--tech-space-8);
 }
 
-/* ── HERO CARD — FiMobile gradient-accent fill ─────────────────────────────── */
+// ── HERO CARD — glass panel on the obsidian surface ─────────────────────────
 .hero {
   width: 100%;
   max-width: 680px;
   padding: var(--tech-space-8) var(--tech-space-8) var(--tech-space-6);
-  border-radius: var(--tech-radius);
-  box-shadow: var(--tech-shadow-panel);
 
-  /* Gradient hero: accent fill, no border (gradient IS the surface boundary). */
-  background: var(--tech-gradient-accent);
-  color: var(--tech-text-on-accent);
-  border: none;
+  // FiMobile shape token for cards/panels.
+  border-radius: var(--tech-radius);
+
+  // Aurora glass: translucent fill, backdrop-blur, hairline, inner highlight.
+  @include aur.aurora-glass(var(--tech-radius));
+
+  // Text on the dark aurora surface uses the ink tokens.
+  color: var(--aur-ink);
+
+  // Subtle scheme-tinted top-border accent to ground the card in the active scheme.
+  border-top: 2px solid var(--aur-a);
 
   .hero-eyebrow {
     display: block;
-    /* Muted label on accent fill — 75% opacity blends with the gradient. */
-    color: color-mix(in srgb, var(--tech-text-on-accent) 75%, transparent);
-    margin-bottom: 8px;
+    @include aur.aurora-eyebrow;
+    margin-bottom: var(--tech-space-3);
   }
 
   h2 {
@@ -35,53 +57,61 @@
     font-size: clamp(22px, 6vw, var(--tech-fs-display));
     font-weight: 700;
     letter-spacing: -0.02em;
-    color: var(--tech-text-on-accent);
+    color: var(--aur-ink);
   }
 
   .sub {
     margin: 0 0 var(--tech-space-6);
     font-size: max(14px, var(--tech-fs-body));
     line-height: 1.55;
-    /* Secondary text on accent — 80% opacity for clear hierarchy. */
-    color: color-mix(in srgb, var(--tech-text-on-accent) 80%, transparent);
+    color: var(--aur-ink-dim);
   }
 }
 
+// ── LIST ROW CARDS — FiMobile roomy rows on the glass surface ───────────────
 .cards {
   display: grid;
   gap: var(--tech-space-3);
   margin-bottom: var(--tech-space-6);
 }
 
-/* ── LIST ROW CARDS — FiMobile roomy rows on the gradient surface ──────────── */
 .card {
   display: flex;
   align-items: center;
   gap: var(--tech-space-4);
-  /* Roomy FiMobile row padding: 12px vertical, 14px horizontal. */
+  // Roomy FiMobile row padding: 12px vertical, 14px horizontal.
   padding: 12px 14px;
-  border-radius: var(--tech-r-control);
-  /* Semi-transparent white panel layered over the accent gradient. */
-  background: color-mix(in srgb, var(--tech-text-on-accent) 15%, transparent);
-  border: 1px solid color-mix(in srgb, var(--tech-text-on-accent) 25%, transparent);
-  color: var(--tech-text-on-accent);
-  text-decoration: none;
-  transition: background var(--tech-t-control) var(--tech-ease),
-    border-color var(--tech-t-control) var(--tech-ease),
-    box-shadow var(--tech-t-control) var(--tech-ease),
-    transform var(--tech-t-control) var(--tech-ease);
 
-  /* FiMobile hover lift: translateY(-1px) + raised shadow. */
+  // FiMobile shape token for controls / rows.
+  border-radius: var(--tech-r-control);
+
+  // Glass row on the aurora canvas: translucent fill + hairline.
+  background: var(--aur-glass-fill);
+  border: 1px solid var(--aur-glass-line);
+
+  color: var(--aur-ink);
+  text-decoration: none;
+  transition:
+    background var(--tech-t-control) var(--aur-ease),
+    border-color var(--tech-t-control) var(--aur-ease),
+    box-shadow var(--tech-t-control) var(--aur-ease),
+    transform var(--tech-t-control) var(--aur-ease);
+
+  // FiMobile hover lift: translateY(-1px) + scheme-tinted glow.
   &:hover {
-    background: color-mix(in srgb, var(--tech-text-on-accent) 22%, transparent);
-    border-color: color-mix(in srgb, var(--tech-text-on-accent) 40%, transparent);
-    box-shadow: var(--tech-shadow-raised);
+    background: rgba(255, 255, 255, .065);
+    // Scheme-tinted hairline on hover to acknowledge the active color scheme.
+    border-color: var(--aur-a);
+    box-shadow: 0 4px 20px -8px var(--aur-a);
     transform: translateY(-1px);
 
-    .card-chev { transform: translateX(2px); }
+    .card-chev {
+      transform: translateX(2px);
+      color: var(--aur-a);
+    }
   }
 
-  /* Leading icon tile — FiMobile accent tile on accent surface: use on-accent tint. */
+  // Leading icon tile — scheme accent tint on aurora glass.
   .card-icon {
     display: inline-flex;
     align-items: center;
@@ -90,70 +120,82 @@
     height: 40px;
     flex: 0 0 auto;
     border-radius: var(--tech-r-control);
-    background: color-mix(in srgb, var(--tech-text-on-accent) 20%, transparent);
-    color: var(--tech-text-on-accent);
+    // Icon tile: scheme-a at ~18% opacity for a soft tinted well.
+    background: color-mix(in srgb, var(--aur-a) 18%, transparent);
+    // Scheme-accent icon color so each scheme stands out.
+    color: var(--aur-a);
 
     mat-icon { font-size: 22px; width: 22px; height: 22px; }
   }
 
   .card-body { display: flex; flex-direction: column; gap: 2px; flex: 1 1 auto; min-width: 0; }
-  /* Title: full on-accent weight. */
-  .card-label { font-weight: 600; font-size: var(--tech-fs-body); color: var(--tech-text-on-accent); }
-  /* Subtitle: muted on-accent — 75% for clear secondary hierarchy. */
-  .card-blurb { font-size: var(--tech-fs-label); color: color-mix(in srgb, var(--tech-text-on-accent) 75%, transparent); }
+  // Title: bright aurora ink.
+  .card-label { font-weight: 600; font-size: var(--tech-fs-body); color: var(--aur-ink); }
+  // Subtitle: dim aurora ink for secondary hierarchy.
+  .card-blurb { font-size: var(--tech-fs-label); color: var(--aur-ink-dim); }
 
   .card-chev {
     flex: 0 0 auto;
-    color: color-mix(in srgb, var(--tech-text-on-accent) 65%, transparent);
-    transition: color var(--tech-t-control) var(--tech-ease), transform var(--tech-t-control) var(--tech-ease);
+    color: var(--aur-ink-faint);
+    transition: color var(--tech-t-control) var(--aur-ease), transform var(--tech-t-control) var(--aur-ease);
   }
 }
 
-/* ── EMPTY STATE — muted on-accent placeholder row ─────────────────────────── */
+// ── EMPTY STATE — faint dashed placeholder on the aurora canvas ──────────────
 .empty {
   display: flex;
   align-items: center;
   gap: var(--tech-space-2);
   padding: var(--tech-space-6);
   margin-bottom: var(--tech-space-6);
-  border: 1px dashed color-mix(in srgb, var(--tech-text-on-accent) 35%, transparent);
+  // Dashed hairline using the aurora line token.
+  border: 1px dashed var(--aur-line);
   border-radius: var(--tech-r-control);
-  color: color-mix(in srgb, var(--tech-text-on-accent) 75%, transparent);
+  color: var(--aur-ink-dim);
   font-size: var(--tech-fs-body);
 
-  mat-icon { color: color-mix(in srgb, var(--tech-text-on-accent) 90%, transparent); }
+  mat-icon { color: var(--aur-ink-faint); }
 }
 
-/* ── ACTIONS — sign-out button adapted for on-accent surface ───────────────── */
+// ── ACTIONS — sign-out button on aurora glass surface ───────────────────────
 .actions {
   display: flex;
   justify-content: flex-start;
   padding-top: var(--tech-space-2);
-  border-top: 1px solid color-mix(in srgb, var(--tech-text-on-accent) 20%, transparent);
+  border-top: 1px solid var(--aur-line);
 
   .signout {
+    // FiMobile shape token for controls.
     border-radius: var(--tech-r-control);
-    color: var(--tech-text-on-accent);
-    --mdc-outlined-button-outline-color: color-mix(in srgb, var(--tech-text-on-accent) 35%, transparent);
+    // Dim ink label so it reads as secondary on the dark canvas.
+    color: var(--aur-ink-dim);
+    // Hairline border in the aurora glass style.
+    --mdc-outlined-button-outline-color: var(--aur-glass-line);
+
+    &:hover {
+      // On hover, nudge text to scheme accent and brighten the border.
+      color: var(--aur-a);
+      --mdc-outlined-button-outline-color: var(--aur-a);
+    }
   }
 }
 
-/* ───────────────────────── Responsive (phones / small tablets) ───────────────────────── */
+// ── RESPONSIVE — phones / small tablets ─────────────────────────────────────
 @media (max-width: 640px) {
   .welcome {
-    /* Center spacing is wasted on a phone — pull the hero to the top. */
+    // Center spacing is wasted on a phone — pull the hero to the top.
     padding-top: var(--tech-space-4);
-    /* Clear the fixed mobile bottom tab bar so the sign-out button is never clipped. */
+    // Clear the fixed mobile bottom tab bar so the sign-out button is never clipped.
     padding-bottom: calc(76px + env(safe-area-inset-bottom, 0px));
   }
 
   .hero {
-    /* Tighter gutters so the inner cards keep their width; never wider than viewport. */
+    // Tighter gutters so the inner cards keep their width; never wider than viewport.
     max-width: 100%;
     padding: var(--tech-space-6) var(--tech-space-4) var(--tech-space-4);
   }
 
-  /* Accessible-pages cards: one column, comfortable height, full bleed inside the hero. */
+  // Accessible-pages cards: one column, comfortable height, full bleed inside the hero.
   .cards {
     grid-template-columns: 1fr;
     gap: var(--tech-space-2);
@@ -162,7 +204,7 @@
   .card {
     gap: var(--tech-space-3);
     padding: 12px var(--tech-space-3);
-    min-height: 56px; /* >=44px tap target */
+    min-height: 56px; // >=44px tap target
 
     .card-icon {
       width: 36px;
@@ -183,12 +225,12 @@
   }
 }
 
-/* Tablet: ease the heavy hero padding a touch. */
+// Tablet: ease the heavy hero padding a touch.
 @media (max-width: 960px) and (min-width: 641px) {
   .hero { padding: var(--tech-space-6); }
 }
 
-/* Respect reduced-motion for the card hover lift. */
+// Respect reduced-motion for the card hover lift.
 @media (prefers-reduced-motion: reduce) {
   .card,
   .card .card-chev {

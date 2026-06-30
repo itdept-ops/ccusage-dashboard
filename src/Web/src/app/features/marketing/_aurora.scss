@@ -123,9 +123,10 @@ $ease: cubic-bezier(.22, 1, .36, 1);
     z-index: -2;
     pointer-events: none;
     background:
-      radial-gradient(42% 38% at 18% 14%,  rgba(99, 102, 241, .16) 0%, transparent 70%),  // indigo TL
-      radial-gradient(46% 42% at 52% 40%,  rgba(168, 85, 247, .13) 0%, transparent 72%),  // violet center
-      radial-gradient(48% 44% at 84% 88%,  rgba(45, 212, 191, .12) 0%, transparent 70%);  // teal BR
+      // Ambient aura tracks the active color scheme (aur-a/b/c follow the scheme).
+      radial-gradient(42% 38% at 18% 14%,  color-mix(in srgb, var(--aur-a) 16%, transparent) 0%, transparent 70%),
+      radial-gradient(46% 42% at 52% 40%,  color-mix(in srgb, var(--aur-b) 14%, transparent) 0%, transparent 72%),
+      radial-gradient(48% 44% at 84% 88%,  color-mix(in srgb, var(--aur-c) 12%, transparent) 0%, transparent 70%);
     filter: blur(90px);
     will-change: transform;
     animation: aur-drift 34s var(--aur-ease, #{$ease}) infinite alternate;
@@ -262,14 +263,15 @@ $ease: cubic-bezier(.22, 1, .36, 1);
   font-weight: 500;
   font-size: .98rem;
   letter-spacing: -.01em;
-  color: #fff;
+  color: var(--tech-text-on-accent, #fff);
   text-decoration: none;
-  background: linear-gradient(118deg, #4F46E5 0%, #7C3AED 58%, #6D28D9 100%);
+  // Scheme-tracking CTA fill (accent → deeper → deepest of the chosen scheme).
+  background: linear-gradient(118deg, var(--aur-a) 0%, var(--aur-b) 60%, color-mix(in srgb, var(--aur-b) 78%, #000) 100%);
   background-size: 160% 160%;
   background-position: 0% 50%;
   box-shadow:
     0 1px 0 0 rgba(255, 255, 255, .22) inset,
-    0 14px 34px -14px rgba(99, 102, 241, .55);
+    0 14px 34px -14px color-mix(in srgb, var(--aur-a) 55%, transparent);
   transition:
     background-position .6s var(--aur-ease, #{$ease}),
     transform .25s var(--aur-ease, #{$ease}),
@@ -280,7 +282,7 @@ $ease: cubic-bezier(.22, 1, .36, 1);
     transform: translateY(-1px);
     box-shadow:
       0 1px 0 0 rgba(255, 255, 255, .26) inset,
-      0 18px 42px -14px rgba(168, 85, 247, .6);
+      0 18px 42px -14px color-mix(in srgb, var(--aur-b) 60%, transparent);
   }
   &:active { transform: translateY(0); }
   &:focus-visible {
@@ -363,7 +365,7 @@ $ease: cubic-bezier(.22, 1, .36, 1);
     90deg,
     transparent 0%,
     var(--aur-line, #{$line}) 18%,
-    rgba(168, 85, 247, .28) 50%,
+    color-mix(in srgb, var(--aur-b) 28%, transparent) 50%,
     var(--aur-line, #{$line}) 82%,
     transparent 100%
   );

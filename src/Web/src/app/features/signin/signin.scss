@@ -18,6 +18,17 @@
   // otherwise the chrome falls on the light app body in light/system theme.
   // Matches login.scss + the other Aurora pages.
   @include aur.aurora-surface;
+
+  // Override the aurora fields (::before) so they track the active color scheme
+  // via --aur-a/b/c (which already map to --tech-accent/accent-2/accent-cyan).
+  // The shared aurora-surface mixin uses hardcoded indigo/violet/teal rgba values;
+  // this override swaps those for scheme-aware color-mix equivalents.
+  &::before {
+    background:
+      radial-gradient(42% 38% at 18% 14%,  color-mix(in srgb, var(--aur-a) 16%, transparent) 0%, transparent 70%),
+      radial-gradient(46% 42% at 52% 40%,  color-mix(in srgb, var(--aur-b) 13%, transparent) 0%, transparent 72%),
+      radial-gradient(48% 44% at 84% 88%,  color-mix(in srgb, var(--aur-c) 12%, transparent) 0%, transparent 70%);
+  }
 }
 
 .signin {
@@ -71,7 +82,8 @@
 
 .auth-card > :not(.card-glow) { position: relative; z-index: 1; }
 
-// brand mark — quiet glass tile holding the gradient logo
+// brand mark — quiet glass tile holding the gradient logo; border tinted by
+// the active scheme accent so it reads on-scheme in any color mode.
 .card-mark {
   display: inline-flex;
   align-items: center;
@@ -81,8 +93,10 @@
   margin: 0 auto 24px;
   border-radius: var(--tech-r-control, 18px);
   background: rgba(255, 255, 255, .05);
-  border: 1px solid var(--aur-line);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .07);
+  border: 1px solid color-mix(in srgb, var(--aur-a) 28%, var(--aur-line));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, .07),
+    0 0 18px -6px color-mix(in srgb, var(--aur-b) 30%, transparent);
 }
 
 .card-title {

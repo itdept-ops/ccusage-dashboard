@@ -63,28 +63,29 @@
     opacity: 1;
     background: linear-gradient(
       180deg,
-      rgba(99, 102, 241, .4) 0%,
-      rgba(168, 85, 247, .28) 50%,
-      rgba(45, 212, 191, .18) 80%,
+      color-mix(in srgb, var(--aur-a) 40%, transparent) 0%,
+      color-mix(in srgb, var(--aur-b) 28%, transparent) 50%,
+      color-mix(in srgb, var(--aur-c) 18%, transparent) 80%,
       transparent 100%
     );
   }
 
   // Per-stage accent (drives the numeral gradient + node tint).
+  // Hardcoded hex replaced with aurora scheme vars so colors track the active scheme.
   .flow-stage {
     --stage-grad: var(--aur-grad);
     --stage-tint: var(--aur-b);
     &[data-accent='blue'] {
-      --stage-grad: linear-gradient(120deg, #6366F1, #818CF8);
-      --stage-tint: #818CF8;
+      --stage-grad: linear-gradient(120deg, var(--aur-a), color-mix(in srgb, var(--aur-a) 70%, #fff));
+      --stage-tint: color-mix(in srgb, var(--aur-a) 70%, #fff);
     }
     &[data-accent='violet'] {
-      --stage-grad: linear-gradient(120deg, #A855F7, #C084FC);
-      --stage-tint: #C084FC;
+      --stage-grad: linear-gradient(120deg, var(--aur-b), color-mix(in srgb, var(--aur-b) 70%, #fff));
+      --stage-tint: color-mix(in srgb, var(--aur-b) 70%, #fff);
     }
     &[data-accent='cyan'] {
-      --stage-grad: linear-gradient(120deg, #2DD4BF, #5EEAD4);
-      --stage-tint: #5EEAD4;
+      --stage-grad: linear-gradient(120deg, var(--aur-c), color-mix(in srgb, var(--aur-c) 70%, #fff));
+      --stage-tint: color-mix(in srgb, var(--aur-c) 70%, #fff);
     }
   }
 
@@ -246,8 +247,8 @@
       transform: translateX(-50%);
       background: radial-gradient(
         ellipse at center,
-        rgba(168, 85, 247, .26) 0%,
-        rgba(99, 102, 241, .14) 45%,
+        color-mix(in srgb, var(--aur-b) 26%, transparent) 0%,
+        color-mix(in srgb, var(--aur-a) 14%, transparent) 45%,
         transparent 70%
       );
       filter: blur(60px);
@@ -268,6 +269,17 @@
   .cta-row { gap: 20px; }
   .cta-pill {
     @include aur.aurora-cta;
+    // Route the button fill to the active scheme.
+    background: linear-gradient(118deg, var(--aur-a) 0%, var(--aur-b) 58%, color-mix(in srgb, var(--aur-b) 80%, #000) 100%);
+    box-shadow:
+      0 1px 0 0 rgba(255, 255, 255, .22) inset,
+      0 14px 34px -14px color-mix(in srgb, var(--aur-a) 55%, transparent);
+    &:hover {
+      background: linear-gradient(118deg, var(--aur-b) 0%, var(--aur-a) 100%);
+      box-shadow:
+        0 1px 0 0 rgba(255, 255, 255, .26) inset,
+        0 18px 42px -14px color-mix(in srgb, var(--aur-b) 60%, transparent);
+    }
     span { transition: transform .2s var(--aur-ease); }
     &:hover span { transform: translateX(3px); }
   }

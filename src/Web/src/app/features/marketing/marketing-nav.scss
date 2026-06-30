@@ -6,15 +6,9 @@
 :host {
   display: contents;
   @include aur.aurora-vars;
-
-  /* COHESION: the public surface is ONE palette — the landing's orbital --lx-*
-     hues. Re-point the Aurora accent vars (and the gradient) at the landing's
-     indigo/violet/cyan so the nav's active-underline, CTA pill and focus rings
-     are drawn in the exact same colors as the page body + footer. */
-  --aur-a: #6d5bf0; /* indigo */
-  --aur-b: #b06bff; /* violet */
-  --aur-c: #34e3e8; /* cyan   */
-  --aur-grad: linear-gradient(100deg, #6d5bf0 0%, #b06bff 52%, #34e3e8 100%);
+  /* aurora-vars already routes --aur-a/b/c to --tech-accent/accent-2/accent-cyan,
+     so the nav accents follow the active FiMobile color scheme automatically.
+     No hardcoded overrides here — let the scheme cascade through. */
 }
 
 .mnav {
@@ -55,7 +49,7 @@
   flex: 0 0 auto;
 
   .brand-logo {
-    filter: drop-shadow(0 0 12px rgba(168, 85, 247, 0.3));
+    filter: drop-shadow(0 0 12px color-mix(in srgb, var(--aur-b) 30%, transparent));
     transition: transform 360ms var(--aur-ease);
   }
   .brand-word {
@@ -69,7 +63,7 @@
   &:focus-visible {
     outline: 2px solid var(--aur-c);
     outline-offset: 4px;
-    border-radius: 8px;
+    border-radius: var(--tech-r-control, 8px);
   }
 }
 
@@ -88,7 +82,7 @@
     letter-spacing: -0.005em;
     color: var(--aur-ink-dim);
     text-decoration: none;
-    border-radius: 8px;
+    border-radius: var(--tech-r-control, 8px);
     transition: color 180ms var(--aur-ease);
 
     &::after {
@@ -126,7 +120,7 @@
   align-items: center;
   justify-content: center;
   width: 44px; height: 44px;
-  border-radius: 10px;
+  border-radius: var(--tech-r-control, 10px);
   color: var(--aur-ink-faint);
   transition: color 180ms var(--aur-ease), background 180ms var(--aur-ease);
   &:hover {
@@ -146,6 +140,17 @@
   padding: 9px 18px;
   font-size: 14px;
   font-weight: 500;
+  // Route the CTA fill to the active scheme so it stays on-scheme.
+  background: linear-gradient(118deg, var(--aur-a) 0%, var(--aur-b) 58%, color-mix(in srgb, var(--aur-b) 80%, #000) 100%);
+  box-shadow:
+    0 1px 0 0 rgba(255, 255, 255, .22) inset,
+    0 14px 34px -14px color-mix(in srgb, var(--aur-a) 55%, transparent);
+  &:hover {
+    background: linear-gradient(118deg, var(--aur-b) 0%, var(--aur-a) 100%);
+    box-shadow:
+      0 1px 0 0 rgba(255, 255, 255, .26) inset,
+      0 18px 42px -14px color-mix(in srgb, var(--aur-b) 60%, transparent);
+  }
 
   .cta-arrow { transition: transform 220ms var(--aur-ease); }
   &:hover .cta-arrow { transform: translateX(3px); }
@@ -161,7 +166,7 @@
   padding: 0 11px;
   background: none;
   border: 1px solid var(--aur-line);
-  border-radius: 10px;
+  border-radius: var(--tech-r-control, 10px);
   cursor: pointer;
   transition: border-color 180ms var(--aur-ease), background 180ms var(--aur-ease);
   span {
