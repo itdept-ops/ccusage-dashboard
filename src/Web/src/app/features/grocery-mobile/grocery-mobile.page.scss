@@ -14,9 +14,9 @@
 :host {
   @include kit.beta-host;            // the whole Strata token contract on :host
 
-  // ---- GROCERY'S SIGNATURE ACCENT: GREEN (the per-page contract override) ----
-  --accent-a: #a3e635;               // lime (start)
-  --accent-b: #22c55e;               // emerald (end)
+  // ---- ACCENT: route to the global color-scheme accent so one app = one accent ----
+  --accent-a: var(--tech-accent);
+  --accent-b: var(--tech-accent-2, var(--tech-accent));
 
   display: block;
   height: 100%;
@@ -58,8 +58,12 @@
   align-items: center;
   text-align: center;
   gap: 8px;
-  padding: 18px 12px 6px;
+  padding: 18px 12px 20px;
   overflow: clip;
+  border-radius: var(--tech-radius);
+  background: var(--tech-panel);
+  border: 1px solid var(--tech-border);
+  box-shadow: var(--tech-shadow-panel);
 }
 
 .gm-hero__bloom {

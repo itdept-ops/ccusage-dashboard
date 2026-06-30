@@ -195,7 +195,7 @@ interface Member {
       width: 30px; height: 30px; margin-left: -8px;
       border-radius: 50%; border: 2px solid var(--bg-rise);
       background: var(--av, var(--accent-a));
-      color: #1a160a; font: 800 11px/1 var(--font-ui);
+      color: var(--tech-text-on-accent, #fff); font: 800 11px/1 var(--font-ui);
       letter-spacing: .02em;
     }
     .bc__av:first-child { margin-left: 0; }
@@ -224,7 +224,7 @@ export class BillCard {
   readonly delete = output<BillDto>();
 
   /** A small rotating palette so each member's avatar/segment reads distinctly over the cream accent. */
-  private static readonly PALETTE = ['#e8d9a8', '#9ad7c2', '#f0b27a', '#a8c5e8', '#d9a8d2', '#c2d99a'];
+  private static readonly PALETTE = ['#9ad7c2', '#a8c5e8', '#d9a8d2', '#c2d99a', '#f0c27a', '#7ec8a8'];
 
   protected readonly settled = computed(() => this.bill().status === 'settled');
 

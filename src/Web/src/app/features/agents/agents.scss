@@ -100,12 +100,14 @@
 
     mat-icon { font-size: 15px; width: 15px; height: 15px; color: var(--tech-accent); }
     code {
-      font-family: var(--tech-font-mono, monospace);
+      font-family: var(--tech-font-ui, inherit);
       font-size: 0.92em;
-      padding: 1px 5px;
-      border-radius: var(--tech-r-control);
+      padding: 2px 8px;
+      border-radius: var(--tech-r-pill);
       background: color-mix(in srgb, var(--tech-accent) 12%, transparent);
+      border: 1px solid color-mix(in srgb, var(--tech-accent) 28%, transparent);
       color: var(--tech-accent);
+      font-weight: 600;
     }
   }
 
@@ -204,8 +206,38 @@
   &--plain { color: var(--tech-accent); border-color: color-mix(in srgb, var(--tech-accent) 50%, transparent); }
 }
 
-// FiMobile button radius override — applies to mat-stroked-button and mat-flat-button inside agents
-button[mat-stroked-button],
+// ── FiMobile button overrides — Preview / Send-a-test become accented ──────────
+// mat-stroked-button (Preview): accent border + accent text + tinted bg on hover.
+// mat-flat-button (Send a test, if used): filled accent.
+button[mat-stroked-button] {
+  border-radius: var(--tech-r-control) !important;
+  border-color: var(--tech-accent) !important;
+  color: var(--tech-accent) !important;
+
+  &:not([disabled]):hover {
+    background: color-mix(in srgb, var(--tech-accent) 10%, transparent) !important;
+  }
+  &:not([disabled]):active {
+    background: color-mix(in srgb, var(--tech-accent) 18%, transparent) !important;
+  }
+}
+
 button[mat-flat-button] {
   border-radius: var(--tech-r-control) !important;
+  background: var(--tech-accent) !important;
+  color: var(--tech-text-on-accent) !important;
+}
+
+// ── mat-slide-toggle: restyle to FiMobile accent ────────────────────────────
+// The checked track becomes the scheme accent; the thumb stays white/on-accent.
+mat-slide-toggle {
+  --mdc-switch-selected-track-color: var(--tech-accent);
+  --mdc-switch-selected-handle-color: var(--tech-text-on-accent, #fff);
+  --mdc-switch-selected-hover-track-color: var(--tech-accent);
+  --mdc-switch-selected-focus-track-color: var(--tech-accent);
+  --mdc-switch-selected-pressed-track-color: var(--tech-accent);
+  --mdc-switch-selected-hover-handle-color: var(--tech-text-on-accent, #fff);
+  --mdc-switch-selected-focus-handle-color: var(--tech-text-on-accent, #fff);
+  --mdc-switch-selected-pressed-handle-color: var(--tech-text-on-accent, #fff);
+  --mdc-switch-selected-icon-color: var(--tech-accent);
 }

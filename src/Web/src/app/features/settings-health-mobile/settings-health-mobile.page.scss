@@ -1,7 +1,7 @@
 // ============================================================================
 // Wearable health sync — mobile twin of the live settings-health page, on the shared beta-ui "Strata"
-// foundation. One line adopts the token contract; this page overrides the per-page accent with a ROSE →
-// AMBER "move" ramp (the fitness/steps domain hue). Kit components read --accent-a/--accent-b off :host.
+// foundation. One line adopts the token contract; accent inherits the global scheme accent
+// (var(--tech-accent) / var(--tech-accent-2) via beta-host defaults) — one app, one accent.
 //
 // ISOLATED + gated by platform.mobile + the health.sync route guard: nothing here touches the global
 // --tech-* tokens or the live page. The kit partial is the only import.
@@ -11,7 +11,8 @@
 
 :host {
   @include kit.beta-host;
-  @include kit.accent('move');     // rose → amber (steps / movement)
+  // accent-a/b intentionally left at beta-host defaults: var(--tech-accent) / var(--tech-accent-2).
+  // One app, one accent — the global scheme (set via data-scheme on <html>) drives every gradient here.
 }
 
 @include kit.beta-springs;

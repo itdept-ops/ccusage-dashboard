@@ -17,9 +17,9 @@
 :host {
   @include kit.beta-host;
 
-  // ---- RESUME'S SIGNATURE ACCENT: TEAL → INDIGO ----
-  --accent-a: #14b8a6;   // teal (start)
-  --accent-b: #6366f1;   // indigo (deep, end)
+  // ---- ACCENT: routed to the global scheme so the color picker drives this page too ----
+  --accent-a: var(--tech-accent);
+  --accent-b: var(--tech-accent-2);
 }
 
 @include kit.beta-springs;
@@ -246,7 +246,7 @@
   width: 100%; box-sizing: border-box;
   min-height: 44px; padding: 11px 13px;
   background: var(--surface-2, color-mix(in srgb, var(--glass) 80%, transparent));
-  border: 1px solid var(--tech-border, var(--glass-edge)); border-radius: var(--tech-r-control, var(--r-card, 12px));
+  border: 1px solid var(--tech-border, var(--glass-edge)); border-radius: var(--tech-radius, 15px);
   color: var(--tech-text, var(--ink)); font-family: var(--font-ui); font-size: 15px; font-weight: 500;
   -webkit-appearance: none; appearance: none;
   transition: border-color 120ms var(--ease-out), box-shadow 120ms var(--ease-out);

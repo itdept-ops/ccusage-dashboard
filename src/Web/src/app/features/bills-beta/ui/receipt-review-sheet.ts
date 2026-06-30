@@ -125,7 +125,7 @@ export interface ReceiptReviewResult {
     .rrs__btn { flex: 1 1 0; min-height: 54px; border-radius: var(--r-pill);
       font: 700 15px/1 var(--font-ui); cursor: pointer; border: 1px solid var(--hairline); }
     .rrs__btn--ghost { background: var(--bg-sink); color: var(--ink); }
-    .rrs__btn--primary { background: linear-gradient(135deg, var(--accent-a), var(--accent-b)); color: var(--on-accent, #2a2410); border: none; }
+    .rrs__btn--primary { background: linear-gradient(135deg, var(--accent-a), var(--accent-b)); color: var(--on-accent, var(--tech-text-on-accent, #fff)); border: none; }
     .rrs__btn--primary:disabled { opacity: .4; cursor: default; }
   `],
 })

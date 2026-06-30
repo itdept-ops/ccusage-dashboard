@@ -150,8 +150,9 @@
   flex-wrap: wrap;
   margin: 2px 2px 0;
   padding: 8px 10px;
-  /* FiMobile chip/info block: tinted accent bg, accent border */
-  border-radius: var(--tech-r-control);
+  /* FiMobile CARD SIGNATURE on stat/info block: full card radius + panel shadow + accent tint */
+  border-radius: var(--tech-radius, 15px);
+  box-shadow: var(--tech-shadow-panel);
   background: color-mix(in srgb, var(--tech-accent) 10%, transparent);
   border: 1px solid color-mix(in srgb, var(--tech-accent) 30%, transparent);
 
@@ -191,6 +192,13 @@
     border-radius: var(--tech-r-control);
     font-weight: 600;
   }
+}
+
+/* FiMobile rounding for the test and clear buttons inside discord-saved blocks */
+.np-discord-test,
+.np-discord-clear {
+  border-radius: var(--tech-r-control) !important;
+  font-weight: 600;
 }
 
 .np-mono { font-family: var(--tech-font-mono, monospace); letter-spacing: -0.01em; }

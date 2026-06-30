@@ -130,7 +130,10 @@
   display: flex;
   flex-direction: column;
   padding-top: calc(var(--bar-top-h) + var(--safe-top));
-  padding-bottom: calc(var(--safe-bottom) + 28px);
+  // 76px clears the fixed bottom tab-bar; the Snap FAB rises 30px above the bar (56px tall, half-overlapping
+  // the 26px top strip), so add 36px of FAB clearance on top of that; 28px is extra breathing room.
+  // Result: ≥140px below the last content item before the tab bar + FAB zone starts.
+  padding-bottom: calc(76px + 36px + env(safe-area-inset-bottom, 0px) + 28px);
 }
 
 // A single sr-only polite announcer (visually hidden; announces "Slide N of M" on change).
@@ -320,6 +323,10 @@
   align-items: center;
   text-align: center;
   justify-content: center;
+  // Extra bottom clearance so the "Swipe to begin" hint and range chip don't sit behind the
+  // centered Snap FAB (56px, half-overlapping the top of the tab bar at ~90px from screen bottom).
+  // The reel can scroll close to the FAB zone on short phones — push the hint up with room to breathe.
+  padding-bottom: max(72px, calc(40px + env(safe-area-inset-bottom, 0px)));
 }
 .wb-cover__kicker {
   margin: 0; font: 700 13px/1 var(--font-ui); letter-spacing: .26em; text-transform: uppercase;
@@ -470,7 +477,12 @@
 }
 .wb-recap__cell-label {
   font: 700 11px/1.2 var(--font-ui); letter-spacing: .04em; text-transform: uppercase; color: var(--ink-dim);
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  // Allow wrapping up to 2 lines before clamping — avoids truncation on narrow 2-col cells.
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  word-break: break-word;
 }
 .wb-recap__foot {
   display: flex; align-items: center; gap: 12px;
@@ -525,7 +537,15 @@
   mat-icon { font-size: 20px; width: 20px; height: 20px; }
 }
 .wb-tail__txt { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
-.wb-tail__label { font: 700 14px/1.2 var(--font-ui); color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wb-tail__label {
+  font: 700 14px/1.2 var(--font-ui); color: var(--ink);
+  // Allow wrapping to 2 lines so longer card names (e.g. "Hydration Days") aren't clipped on narrow rows.
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  word-break: break-word;
+}
 .wb-tail__sub { font: 500 12px/1.3 var(--font-ui); color: var(--ink-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .wb-tail__val {
   flex: 0 0 auto; font-family: var(--font-display); font-variant-numeric: tabular-nums;

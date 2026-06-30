@@ -244,12 +244,19 @@
 .challenge__datelabel { display: flex; flex-direction: column; min-width: 8rem; }
 .challenge__dateheading { font-weight: 700; color: var(--tech-text); font-size: var(--tech-fs-body); }
 .challenge__dateinput {
-  border: none;
-  background: transparent;
+  border: 1px solid var(--tech-border);
+  background: var(--tech-bg-sunken, transparent);
   color: var(--tech-text-tertiary);
   font: inherit;
   font-size: var(--tech-fs-caption, 0.82rem);
-  padding: 0;
+  padding: 2px 6px;
+  border-radius: var(--tech-r-control);
+  /* Ensure the native date-picker chrome inherits the rounded container. */
+  -webkit-appearance: none;
+  appearance: none;
+  cursor: pointer;
+  &:hover { border-color: var(--tech-accent); }
+  &:focus { outline: 2px solid var(--tech-accent); outline-offset: 1px; border-color: transparent; }
 }
 .challenge__today { margin-left: var(--tech-space-2, 8px); font-weight: 600; }
 

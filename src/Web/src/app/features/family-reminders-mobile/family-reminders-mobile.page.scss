@@ -15,9 +15,9 @@
 :host {
   @include kit.beta-host;            // the whole Strata token contract on :host
 
-  // ---- REMINDERS' SIGNATURE ACCENT: CORAL → ROSE ----
-  --accent-a: #fb7185;               // coral (start)
-  --accent-b: #e11d48;               // rose (deep, end)
+  // ---- ACCENT: route to global scheme so the color-scheme picker drives this page ----
+  --accent-a: var(--tech-accent);
+  --accent-b: var(--tech-accent-2);
 
   // ---- FiMobile token alignment ----
   // Route --r-pill through the FiMobile pill token (30px in FiMobile; 999px kit default)

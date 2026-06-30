@@ -2,9 +2,8 @@
 // Chore Marketplace — the mobile-first twin of the live /family/chores board, rebuilt on the shared
 // beta-ui "Strata" foundation. One line adopts the whole Strata token contract (layered bg, glass, ink
 // scale, radii, the lift-1/2/3 depth system, spring/bounce easing, blur cap, env() safe-area, the a11y
-// killswitches); then CHORES OVERRIDES the per-page accent contract with its OWN signature: a bright
-// LIME → EMERALD ramp. Every kit component reads --accent-a/--accent-b off this :host cascade, so this
-// single override re-skins the screen (pull-refresh ring, segmented pill, focus ring all follow).
+// killswitches); the accent is routed to the global FiMobile scheme (--tech-accent / --tech-accent-2)
+// so one color drives the whole app — the segmented pill, pull-refresh ring, and focus ring all follow.
 //
 // ISOLATED + gated by platform.mobile + the family route: nothing here touches the global --tech-* tokens
 // or the live /family/chores page. The kit partial is the only import.
@@ -13,7 +12,8 @@
 // var(--tech-r-control); chip radii → var(--tech-r-pill); card shadows supplemented with
 // var(--tech-shadow-panel); card borders reinforced with var(--tech-border); on-accent text uses
 // var(--tech-text-on-accent) in addition to the kit's --ink-on-accent; interactive cards get a gentle
-// hover lift. Bespoke lime→emerald accent contract and layout structure are fully preserved.
+// hover lift. Segmented control: inactive tabs now show a faint pill-shaped tint + hairline border so
+// the whole segment track reads as a pill group, not just the active one.
 // ============================================================================
 
 @use '../beta-ui/beta-kit' as kit;
@@ -21,9 +21,9 @@
 :host {
   @include kit.beta-host;          // the whole Strata token contract on :host
 
-  // ---- CHORES' SIGNATURE ACCENT: LIME → EMERALD (the per-page contract override) ----
-  --accent-a: #65d34a;             // lime (start)
-  --accent-b: #059669;             // emerald (deep, end)
+  // ---- ACCENT: route to the global scheme so one color drives the whole app ----
+  --accent-a: var(--tech-accent);
+  --accent-b: var(--tech-accent-2);
 }
 
 @include kit.beta-springs;          // @supports linear() spring upgrade (top-level, once)
@@ -126,6 +126,23 @@
 
 .cm-seg-wrap { padding: 2px 2px 0; }
 .cm-seg { width: 100%; }
+
+// Give inactive segment buttons a faint pill-shaped tint so every tab reads as
+// a pill within the sunken track — not just the active one. ::ng-deep is needed
+// because BetaSegmentedControl has emulated view-encapsulation and the buttons
+// live inside its shadow-like template, but they are within our :host's subtree.
+:host ::ng-deep .bs-seg-btn:not(.is-active) {
+  background: color-mix(in srgb, var(--accent-a) 8%, transparent);
+  border-radius: var(--r-pill, 999px);
+  border: 1px solid color-mix(in srgb, var(--accent-a) 18%, transparent);
+  // keep the color the kit already provides (--ink-dim); only the shape changes
+  transition: background 200ms var(--ease-out), border-color 200ms var(--ease-out),
+              color 200ms var(--ease-out);
+}
+:host ::ng-deep .bs-seg-btn:not(.is-active):hover {
+  background: color-mix(in srgb, var(--accent-a) 14%, transparent);
+  border-color: color-mix(in srgb, var(--accent-a) 28%, transparent);
+}
 
 // ============================================================================
 // CHORE LIST + CARDS

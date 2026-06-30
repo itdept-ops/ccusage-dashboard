@@ -18,12 +18,12 @@
 :host {
   @include kit.beta-host;          // the whole Strata token contract on :host
 
-  // ---- FLEET'S SIGNATURE ACCENT: cyan (the per-page contract override) ----
-  --accent-a: #22d3ee;             // signature cyan (start)
-  --accent-b: #06b6d4;             // signature cyan (end)
+  // ---- ACCENT: routed to the GLOBAL scheme accent so the chosen color scheme drives the whole page ----
+  --accent-a: var(--tech-accent);
+  --accent-b: var(--tech-accent-2);
 
-  // A faint cyan wash behind the whole column (still within the kit's dark contract).
-  background: radial-gradient(120% 80% at 50% -8%, var(--tech-bg, #08191e) 0%, var(--bg-base) 58%);
+  // Subtle tinted wash behind the whole column — scheme-aware via --tech-bg.
+  background: radial-gradient(120% 80% at 50% -8%, var(--tech-bg) 0%, var(--bg-base) 58%);
 
   height: 100%; // fill the immersive shell frame; the pull-refresh owns the scroll
 }
@@ -111,7 +111,7 @@
 // Glance row — machines + spend + tokens (Clash Display numerals) on a floating glass card.
 .hh__glance {
   display: flex; align-items: center; gap: 14px;
-  padding: 16px; border-radius: var(--r-card);
+  padding: 16px; border-radius: var(--tech-radius);
   background: var(--glass);
   backdrop-filter: blur(var(--blur-glass)) saturate(1.4);
   -webkit-backdrop-filter: blur(var(--blur-glass)) saturate(1.4);

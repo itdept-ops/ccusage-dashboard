@@ -231,7 +231,8 @@
   &__btns { display: flex; gap: .4rem; }
   &__btn {
     display: inline-flex; align-items: center; gap: .3rem;
-    padding: .35rem .65rem; border-radius: var(--tech-r-control, 8px); cursor: pointer;
+    // FiMobile pill button: pill radius so Taken/Skip read as FiMobile action chips
+    padding: .35rem .75rem; border-radius: var(--tech-r-pill, 999px); cursor: pointer;
     background: transparent; border: 1px solid var(--tech-border, #26303f); color: var(--tech-text-secondary, #9ba9bd);
     font-size: .78rem; font-weight: 600; transition: all var(--tech-t-fast, 120ms) ease;
     mat-icon { font-size: 1rem; width: 1rem; height: 1rem; }

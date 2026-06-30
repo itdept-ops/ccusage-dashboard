@@ -47,6 +47,11 @@ mat-progress-bar {
   }
 }
 
+/* Table card: clip the inner table at the card's rounded corners so rows don't bleed past the radius */
+.table-card {
+  overflow: hidden;
+}
+
 /* Table card: hero panel-header — gradient strip as the primary metric */
 .table-card .panel-header {
   display: inline-block;
@@ -82,7 +87,16 @@ mat-progress-bar {
   .f-method { width: 130px; }
   .f-status { width: 170px; }
   .f-search { flex: 1 1 240px; min-width: 200px; }
-  .f-refresh { border-radius: var(--tech-r-control); color: var(--tech-text); }
+  /* Refresh button: FiMobile accent-tinted stroked control — border + icon/label in the scheme accent */
+  .f-refresh {
+    border-radius: var(--tech-r-control);
+    color: var(--tech-accent);
+    border-color: color-mix(in srgb, var(--tech-accent) 55%, transparent);
+    &:hover {
+      background: color-mix(in srgb, var(--tech-accent) 10%, transparent);
+      border-color: var(--tech-accent);
+    }
+  }
 }
 
 /* ---- Log table ---- */

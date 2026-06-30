@@ -18,9 +18,9 @@
 :host {
   @include kit.beta-host;          // the whole Strata token contract on :host
 
-  // ---- HOUSEHOLD'S SIGNATURE ACCENT: HEARTH AMBER → EMBER (the per-page contract override) ----
-  --accent-a: #f59e0b;             // hearth amber (start)
-  --accent-b: #d4530a;             // ember (deep, end)
+  // ---- ACCENT: routed to the global scheme so the chosen color scheme drives the accent ----
+  --accent-a: var(--tech-accent);
+  --accent-b: var(--tech-accent-2);
 }
 
 @include kit.beta-springs;          // @supports linear() spring upgrade (top-level, once)
@@ -55,16 +55,21 @@
   display: flex;
   flex-direction: column;
   gap: 6px;
-  padding: 8px 4px 4px;
+  padding: 18px 18px 14px;
   isolation: isolate;
+  border-radius: var(--tech-radius, var(--r-tile));
+  border: 1px solid var(--tech-border, var(--hairline));
+  background: var(--tech-panel, var(--glass));
+  box-shadow: var(--tech-shadow-panel, var(--lift-1));
+  overflow: hidden;
 }
 
 .hh-hero__bloom {
   position: absolute;
-  inset: -40px -30px auto -30px;
-  height: 200px;
-  background: radial-gradient(60% 80% at 22% 0%,
-              color-mix(in oklab, var(--accent-a) 34%, transparent), transparent 70%);
+  inset: 0 0 auto 0;
+  height: 120%;
+  background: radial-gradient(80% 90% at 22% 0%,
+              color-mix(in oklab, var(--accent-a) 28%, transparent), transparent 70%);
   filter: blur(var(--blur-glass));
   z-index: -1;
   pointer-events: none;

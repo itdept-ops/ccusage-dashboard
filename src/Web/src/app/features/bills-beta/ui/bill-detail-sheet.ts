@@ -311,7 +311,7 @@ interface ClaimLine {
     .bd__share-btn {
       flex: 1 1 auto; min-height: 54px; display: flex; align-items: center; justify-content: center; gap: 8px;
       border: none; border-radius: var(--r-pill);
-      background: linear-gradient(135deg, var(--accent-a), var(--accent-b)); color: var(--on-accent, #2a2410);
+      background: linear-gradient(135deg, var(--accent-a), var(--accent-b)); color: var(--on-accent, var(--tech-text-on-accent, #fff));
       font: 700 15px/1 var(--font-ui); cursor: pointer; box-shadow: var(--lift-1);
     }
     .bd__share-btn.is-active {

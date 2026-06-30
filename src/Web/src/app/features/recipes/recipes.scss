@@ -115,8 +115,15 @@
   gap: 8px;
   padding: 44px 16px;
   text-align: center;
-  border: 1px dashed color-mix(in srgb, var(--tech-accent) 35%, var(--tech-border));
+  border: 1px solid var(--tech-border);
   border-radius: var(--tech-radius, var(--tech-r-control, 10px));
+  background: var(--tech-panel);
+  box-shadow: var(--tech-shadow-panel);
+
+  // CTA button inside the empty state gets pill shape + tinted accent bg
+  button[mat-stroked-button] {
+    border-radius: var(--tech-r-pill, 999px);
+  }
 }
 
 .recipes__empty-title { margin: 0; font-weight: 600; color: var(--tech-text); }

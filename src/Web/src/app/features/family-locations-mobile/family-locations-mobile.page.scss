@@ -2,9 +2,9 @@
 
 :host {
   @include kit.beta-host;
-  // Signature accent for the family-finder — a calm SKY → VIOLET (echoes the live "event" hue).
-  --accent-a: #38bdf8;
-  --accent-b: #7c5cff;
+  // Route through the global color-scheme accent so the owner's chosen scheme drives every CTA/active state.
+  --accent-a: var(--tech-accent);
+  --accent-b: var(--tech-accent-2, var(--tech-accent));
 
   display: block;
   position: relative;
@@ -34,8 +34,45 @@ $tabbar: 62px;
     width: 100%;
     height: 100%;
   }
-  // Round-edge softening is unnecessary full-bleed; let Leaflet own the chrome.
+  // Full-bleed map — keep square corners (no clip needed; the sheet floats above).
   ::ng-deep .leaflet-host { border-radius: 0; }
+
+  // ── Themed Leaflet chrome — zoom controls, attribution, popups ──
+  ::ng-deep .leaflet-control-zoom {
+    // Clear our floating header card (approx top-card-height + gap).
+    margin-top: calc(var(--safe-top, 0px) + 130px);
+    margin-right: 12px;
+    border: 1px solid var(--tech-border, var(--glass-edge));
+    border-radius: var(--tech-r-control, 10px);
+    overflow: hidden;
+    box-shadow: var(--tech-shadow-raised, 0 4px 16px rgba(0,0,0,.45));
+  }
+  ::ng-deep .leaflet-control-zoom a {
+    background: var(--bg-rise, rgba(18,20,32,.9));
+    color: var(--ink);
+    border-bottom-color: var(--tech-border-subtle, var(--hairline));
+    backdrop-filter: blur(8px);
+    transition: background 120ms ease, color 120ms ease;
+    &:hover {
+      background: color-mix(in srgb, var(--accent-a) 14%, var(--bg-rise, rgba(18,20,32,.9)));
+      color: var(--accent-a);
+    }
+    &:last-child { border-bottom: none; }
+  }
+  ::ng-deep .leaflet-control-attribution {
+    // We render our own OSM credit in the sheet footer; suppress the default tile attribution.
+    display: none;
+  }
+  ::ng-deep .leaflet-popup-content-wrapper {
+    background: var(--bg-rise, rgba(18,20,32,.92));
+    color: var(--ink);
+    border-radius: var(--tech-radius, 14px);
+    box-shadow: var(--tech-shadow-panel, 0 8px 28px rgba(0,0,0,.55));
+    border: 1px solid var(--tech-border, var(--glass-edge));
+    backdrop-filter: blur(12px);
+  }
+  ::ng-deep .leaflet-popup-tip { background: var(--bg-rise, rgba(18,20,32,.92)); }
+  ::ng-deep .leaflet-popup-content { font-family: var(--font-ui, inherit); }
 
   &.is-dim::after {
     content: '';
@@ -67,16 +104,21 @@ $tabbar: 62px;
 // ─────────────── FLOATING HEADER ───────────────
 .fl-head {
   position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
+  top: calc(var(--safe-top, 0px) + 10px);
+  left: 14px;
+  right: 14px;
   z-index: 5;
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
   gap: 12px;
-  padding: calc(var(--safe-top, 0px) + 12px) 14px 16px;
-  background: linear-gradient(180deg, color-mix(in srgb, var(--tech-bg, #08090f) 82%, transparent), color-mix(in srgb, var(--tech-bg, #08090f) 42%, transparent) 60%, transparent);
+  padding: 12px 14px 14px;
+  // FiMobile rounded card chrome — glass surface so the map shows through.
+  background: var(--glass, rgba(12, 14, 22, 0.78));
+  backdrop-filter: blur(16px) saturate(1.15);
+  border: 1px solid var(--tech-border, var(--glass-edge));
+  border-radius: var(--tech-radius, 18px);
+  box-shadow: var(--tech-shadow-panel);
   pointer-events: none; // let map drags pass through gaps; children re-enable
 }
 
@@ -463,13 +505,27 @@ $tabbar: 62px;
     color: var(--ink-faint);
   }
   select {
-    padding: 5px 8px;
+    appearance: none;
+    -webkit-appearance: none;
+    padding: 6px 28px 6px 11px;
     border-radius: var(--tech-r-control, 9px);
     border: 1px solid var(--glass-edge);
-    background: var(--bg-sink);
+    background:
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24'%3E%3Cpath fill='%23888' d='M7 10l5 5 5-5z'/%3E%3C/svg%3E")
+      no-repeat right 8px center,
+      var(--bg-sink);
     color: var(--ink);
+    font-family: var(--font-ui, inherit);
     font-size: 12px;
     font-weight: 600;
+    cursor: pointer;
+    transition: border-color 120ms ease, background-color 120ms ease;
+
+    &:hover { border-color: color-mix(in srgb, var(--accent-a) 50%, var(--glass-edge)); }
+    &:focus-visible {
+      outline: 2px solid var(--accent-a);
+      outline-offset: 1px;
+    }
   }
 }
 

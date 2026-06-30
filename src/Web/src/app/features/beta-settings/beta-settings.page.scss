@@ -60,8 +60,12 @@
 
 .hh {
   position: relative;
-  padding: 8px 2px 4px;
+  padding: 14px 16px 16px;
   isolation: isolate;
+  border-radius: var(--tech-radius, var(--r-card));
+  background: var(--bg-rise);
+  border: 1px solid var(--tech-border, var(--hairline));
+  box-shadow: var(--tech-shadow-panel, var(--lift-2));
 }
 .hh__bloom {
   position: absolute;

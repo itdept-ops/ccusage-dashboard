@@ -345,7 +345,9 @@
   position: absolute; left: 0; right: 0;
   bottom: 0; z-index: 20;
   display: flex; align-items: center; gap: 12px;
-  padding: 12px max(var(--gutter), 16px) calc(12px + var(--safe-bottom));
+  // Add 76px clearance for the mobile bottom tab bar + device safe-area so the save
+  // bar is never clipped behind the tab strip on any device.
+  padding: 12px max(var(--gutter), 16px) calc(76px + env(safe-area-inset-bottom, 0px));
   background: linear-gradient(180deg, transparent, var(--bg-base) 36%);
   pointer-events: none; // only the button + hint take pointer events when needed
 }

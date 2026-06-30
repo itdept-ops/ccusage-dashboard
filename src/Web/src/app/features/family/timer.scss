@@ -28,14 +28,14 @@
 .quick-timer__spark { flex: 0 0 auto; width: 20px; height: 20px; font-size: 20px; color: var(--tech-accent); }
 .quick-timer__input {
   flex: 1 1 14rem; min-width: 0; box-sizing: border-box;
-  border: 1px solid var(--tech-border); border-radius: var(--tech-r-control, 10px);
+  border: 1px solid var(--tech-border); border-radius: var(--tech-r-pill, 999px);
   background: var(--tech-panel); color: var(--tech-text);
-  font: inherit; font-size: var(--tech-fs-body); padding: 10px 12px;
+  font: inherit; font-size: var(--tech-fs-body); padding: 10px 16px;
   &::placeholder { color: var(--tech-text-tertiary); }
-  &:focus { outline: none; border-color: var(--tech-accent); }
+  &:focus { outline: none; border-color: var(--tech-accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--tech-accent) 18%, transparent); }
 }
 .quick-timer__go {
-  flex: 0 0 auto; border-radius: var(--tech-r-control); font-weight: 600;
+  flex: 0 0 auto; border-radius: var(--tech-r-pill, 999px); font-weight: 600;
   display: inline-flex; align-items: center; gap: 6px;
   mat-spinner { --mdc-circular-progress-active-indicator-color: currentColor; }
 }
@@ -59,7 +59,7 @@
 }
 .quick-timer__confirm-actions {
   display: inline-flex; align-items: center; gap: 4px;
-  button { border-radius: var(--tech-r-control); font-weight: 600;
+  button { border-radius: var(--tech-r-pill, 999px); font-weight: 600;
     mat-icon { width: 18px; height: 18px; font-size: 18px; }
     mat-spinner { --mdc-circular-progress-active-indicator-color: currentColor; } }
 }
@@ -77,7 +77,7 @@
   gap: 6px;
   padding: var(--tech-space-4, 16px);
   border: 1px solid var(--tech-border);
-  border-radius: var(--tech-radius, 12px);
+  border-radius: var(--tech-radius, 16px);
   background: var(--tech-panel);
   box-shadow: var(--tech-shadow-panel);
   cursor: pointer;
@@ -85,7 +85,7 @@
   transition: border-color var(--tech-t-fast, 120ms) ease, transform var(--tech-t-fast, 120ms) ease, background-color var(--tech-t-fast, 120ms) ease, box-shadow var(--tech-t-fast, 120ms) ease;
 
   &:hover:not(:disabled) {
-    border-color: var(--tech-border-strong);
+    border-color: var(--tech-accent);
     background: var(--tech-panel-raised);
     transform: translateY(-1px);
     box-shadow: var(--tech-shadow-raised);
@@ -114,7 +114,7 @@
   &__field { flex: 1 1 200px; max-width: 260px; }
   &__btn {
     min-height: 56px;
-    border-radius: var(--tech-r-control);
+    border-radius: var(--tech-r-pill, 999px);
     font-weight: 600;
     mat-icon { font-size: 18px; width: 18px; height: 18px; }
     mat-spinner { margin: 0 auto; }
@@ -139,9 +139,9 @@
   gap: var(--tech-space-3, 12px);
   padding: var(--tech-space-5, 20px);
   border: 1px solid var(--tech-border);
-  border-radius: var(--tech-radius, 12px);
+  border-radius: var(--tech-radius, 16px);
   background:
-    radial-gradient(140% 120% at 0% 0%, rgba(63, 216, 208, 0.08), transparent 55%),
+    radial-gradient(140% 120% at 0% 0%, color-mix(in srgb, var(--tech-accent) 8%, transparent), transparent 55%),
     var(--tech-panel);
   box-shadow: var(--tech-shadow-panel);
 

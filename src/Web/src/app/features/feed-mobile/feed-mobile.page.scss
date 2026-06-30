@@ -1,14 +1,13 @@
 // ============================================================================
 // Feed Pulse — the mobile-first activity-feed twin, rebuilt on the shared beta-ui "Strata" foundation.
 // One line adopts the whole Strata token contract (layered bg, glass, ink scale, radii, the lift depth
-// system, spring/bounce easing, blur cap, env() safe-area, the a11y killswitches); then FEED OVERRIDES
-// the per-page accent contract with its OWN signature: a warm CORAL → ORANGE ramp. Every kit component
-// reads --accent-a/--accent-b off this :host cascade, so this single override re-skins the screen (the
-// pull-refresh ring, the focus ring, the cheer glow all follow).
+// system, spring/bounce easing, blur cap, env() safe-area, the a11y killswitches). The page accent
+// is routed to the global --tech-accent / --tech-accent-2 so the user's chosen color SCHEME drives
+// every accent on this screen (pull-refresh ring, focus ring, cheer glow all follow). Per-kind badge
+// hues (workout / challenge / hydration) are LOCAL semantic tokens that are independent of the accent.
 //
-// ISOLATED + gated by platform.mobile + tracker.self: nothing here touches the global --tech-* tokens or
-// the live /feed page. The kit partial is the only import. Per-kind badge hues (workout / challenge /
-// hydration) are LOCAL tokens layered ON TOP of the coral page accent.
+// ISOLATED + gated by platform.mobile + tracker.self: nothing here touches the global --tech-* tokens
+// beyond reading them. The kit partial is the only import.
 // ============================================================================
 
 @use '../beta-ui/beta-kit' as kit;
@@ -16,11 +15,11 @@
 :host {
   @include kit.beta-host;          // the whole Strata token contract on :host
 
-  // ---- FEED'S SIGNATURE ACCENT: CORAL → ORANGE (the per-page contract override) ----
-  --accent-a: #fb7185;             // coral (start)
-  --accent-b: #f97316;             // warm orange (end)
+  // ---- ACCENT: routed to the global scheme so the color scheme picker drives everything ----
+  --accent-a: var(--tech-accent);
+  --accent-b: var(--tech-accent-2, var(--tech-accent));
 
-  // ---- Per-kind badge hues (LOCAL — layered on the coral accent) ----
+  // ---- Per-kind badge hues (LOCAL semantic tints — independent of the page accent) ----
   --k-workout:   #fb7185;          // coral
   --k-challenge: #f59e0b;          // amber/medal
   --k-hydration: #38bdf8;          // sky
@@ -172,9 +171,10 @@
     position: sticky;
     top: calc(var(--safe-top) - 2px);
     z-index: 3;
-    margin: 10px 0 4px;
-    padding: 6px 10px;
+    display: block;
     width: fit-content;
+    margin: 10px auto 4px;
+    padding: 6px 14px;
     border-radius: var(--r-pill);
     font-size: 12px;
     font-weight: 750;

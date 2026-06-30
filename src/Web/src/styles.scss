@@ -1270,5 +1270,48 @@ code, pre, kbd, samp {
 }
 .mat-button-toggle-group .mat-button-toggle-checked .mat-button-toggle-label-content { color: var(--tech-text-on-accent); }
 
+/* ---- Native form controls (NOT Angular Material) — give bare <input>/<select>/<textarea>
+   the FiMobile rounded look so pages using native controls (date pickers, native selects,
+   search boxes) match the Material ones. Scoped to exclude Material's own MDC inputs and any
+   element a component already styles via a mat- / mdc- / bk- / kit class. ---- */
+input[type='text']:not([class*='mat-']):not([class*='mdc-']):not([class*='bk-']):not([class*='cdk-']),
+input[type='search']:not([class*='mat-']):not([class*='mdc-']),
+input[type='date']:not([class*='mat-']):not([class*='mdc-']),
+input[type='time']:not([class*='mat-']):not([class*='mdc-']),
+input[type='datetime-local']:not([class*='mat-']):not([class*='mdc-']),
+input[type='number']:not([class*='mat-']):not([class*='mdc-']),
+input[type='email']:not([class*='mat-']):not([class*='mdc-']),
+input[type='url']:not([class*='mat-']):not([class*='mdc-']),
+select:not([class*='mat-']):not([class*='mdc-']):not([class*='bk-']),
+textarea:not([class*='mat-']):not([class*='mdc-']):not([class*='bk-']) {
+  font: inherit;
+  color: var(--tech-text);
+  background: var(--tech-input);
+  border: 1px solid var(--tech-border);
+  border-radius: var(--tech-r-control);
+  padding: 9px 12px;
+  outline: none;
+  transition: border-color var(--tech-t-control, 140ms) ease, box-shadow var(--tech-t-control, 140ms) ease;
+}
+input[type='text']:not([class*='mat-']):not([class*='mdc-']):not([class*='bk-']):not([class*='cdk-']):focus-visible,
+input[type='search']:not([class*='mat-']):not([class*='mdc-']):focus-visible,
+input[type='date']:not([class*='mat-']):not([class*='mdc-']):focus-visible,
+input[type='time']:not([class*='mat-']):not([class*='mdc-']):focus-visible,
+input[type='number']:not([class*='mat-']):not([class*='mdc-']):focus-visible,
+input[type='email']:not([class*='mat-']):not([class*='mdc-']):focus-visible,
+select:not([class*='mat-']):not([class*='mdc-']):not([class*='bk-']):focus-visible,
+textarea:not([class*='mat-']):not([class*='mdc-']):not([class*='bk-']):focus-visible {
+  border-color: var(--tech-accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--tech-accent) 22%, transparent);
+}
+
+/* Native checkboxes / radios → accent-tinted (FiMobile). accent-color is the safe, modern way. */
+input[type='checkbox']:not([class*='mat-']):not([class*='mdc-']):not([class*='bk-']),
+input[type='radio']:not([class*='mat-']):not([class*='mdc-']):not([class*='bk-']) {
+  accent-color: var(--tech-accent);
+  width: 18px;
+  height: 18px;
+}
+
 /* ---- Slide toggle / progress — keep on the accent (tokens already drive color) ---- */
 .mat-mdc-progress-bar { border-radius: var(--tech-r-pill); overflow: hidden; }

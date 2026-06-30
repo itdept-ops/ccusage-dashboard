@@ -49,11 +49,35 @@
   border-radius: var(--tech-radius, var(--tech-r-panel, 14px));
   border: 1px solid var(--tech-border);
   box-shadow: var(--tech-shadow-panel);
+  background: var(--tech-bg-surface, var(--tech-surface));
+  overflow: hidden;
 
   app-location-map { display: block; height: 540px; }
 
   @media (max-width: 640px) {
     app-location-map { height: 360px; }
+  }
+
+  // ---- Leaflet zoom controls: rounded + themed to match FiMobile card ----
+  ::ng-deep .leaflet-control-zoom {
+    border: 1px solid var(--tech-border) !important;
+    border-radius: var(--tech-r-control, 10px) !important;
+    overflow: hidden;
+    box-shadow: var(--tech-shadow-raised) !important;
+  }
+  ::ng-deep .leaflet-control-zoom a {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--tech-bg-surface, var(--tech-surface)) !important;
+    color: var(--tech-text) !important;
+    border-bottom: 1px solid var(--tech-border-subtle, var(--tech-border)) !important;
+    transition: background var(--tech-t-fast, 120ms) var(--tech-ease, ease);
+    &:hover {
+      background: color-mix(in srgb, var(--tech-accent) 12%, var(--tech-bg-surface, var(--tech-surface))) !important;
+      color: var(--tech-accent) !important;
+    }
+    &:last-child { border-bottom: none !important; }
   }
 
   .osm-note {
@@ -74,6 +98,7 @@
   border-radius: var(--tech-radius, var(--tech-r-panel, 14px));
   border: 1px solid var(--tech-border);
   box-shadow: var(--tech-shadow-panel);
+  background: var(--tech-bg-surface, var(--tech-surface));
   max-height: 560px;
   overflow-y: auto;
 

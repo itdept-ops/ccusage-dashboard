@@ -14,12 +14,12 @@
 :host {
   @include kit.beta-host;          // the whole Strata token contract on :host
 
-  // ---- PRICING's SIGNATURE ACCENT: amber → cyan (the per-page contract override) ----
-  --accent-a: #f6c453;             // signature amber (start)
-  --accent-b: #38bdf8;             // signature cyan (end)
+  // ---- ACCENT: route through the global FiMobile scheme so the chosen color-scheme drives the whole screen ----
+  --accent-a: var(--tech-accent);
+  --accent-b: var(--tech-accent-2, var(--tech-accent));
 
-  // A faint amber wash behind the whole column (still within the kit's dark contract).
-  background: radial-gradient(120% 80% at 50% -8%, #1d1a12 0%, var(--bg-base) 58%);
+  // A faint accent wash behind the whole column (adapts to light/dark + all 9 color schemes).
+  background: radial-gradient(120% 80% at 50% -8%, color-mix(in srgb, var(--tech-accent) 8%, var(--tech-bg)), var(--tech-bg, var(--bg-base)) 58%);
 
   height: 100%; // fill the immersive shell frame; the pull-refresh owns the scroll
 }
@@ -337,35 +337,47 @@
 // STICKY RECOMPUTE BAR — docked above the bottom safe-area (sits over the tab bar).
 // ============================================================================
 
-.pr-actionbar-spacer { height: 4px; }
+// Spacer ensures the last content card clears the elevated action bar (which now clears the 76px tab bar).
+.pr-actionbar-spacer { height: calc(76px + env(safe-area-inset-bottom, 0px) + 24px); }
 
 .pr-actionbar {
+  // Outer shell: sits in the absolute-positioned layer above content
   position: absolute; left: 0; right: 0;
   bottom: 0; z-index: 20;
+  // Bottom clearance: clears the 76px tab bar + device safe area
+  padding: 10px max(var(--gutter), 16px) calc(76px + env(safe-area-inset-bottom, 0px));
+  // Elevated pill/card treatment: FiMobile panel bg + border + shadow + pill radius
+  background: var(--tech-panel, var(--bg-rise));
+  border: 1px solid var(--tech-border, var(--hairline));
+  border-top-left-radius: var(--tech-r-pill, 24px);
+  border-top-right-radius: var(--tech-r-pill, 24px);
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+  box-shadow: var(--tech-shadow-raised, var(--lift-2));
+  // Subtle glass backdrop
+  backdrop-filter: blur(14px) saturate(1.4);
+  -webkit-backdrop-filter: blur(14px) saturate(1.4);
   display: flex; align-items: center; gap: 12px;
-  padding: 12px max(var(--gutter), 16px) calc(12px + var(--safe-bottom));
-  background: linear-gradient(180deg, transparent, var(--bg-base) 36%);
-  pointer-events: none; // only the button takes pointer events
+  pointer-events: auto;
 }
 
 .pr-actionbar__hint {
   flex: 1 1 auto; min-width: 0;
   font-family: var(--font-ui); font-size: 12px; font-weight: 600; line-height: 1.35;
-  color: var(--ink-dim);
+  color: var(--tech-text-secondary, var(--ink-dim));
 }
 
 .pr-actionbar__btn {
-  pointer-events: auto;
   flex: 0 0 auto;
   display: inline-flex; align-items: center; justify-content: center; gap: 7px;
-  min-height: 46px; padding: 12px 22px;
+  min-height: 44px; padding: 11px 22px;
   border: none;
-  // FiMobile CTA: control radius + on-accent text token
-  border-radius: var(--tech-r-control, var(--r-pill));
+  // FiMobile CTA: pill radius + accent gradient
+  border-radius: var(--tech-r-pill, var(--r-pill));
   background: linear-gradient(135deg, var(--accent-a), var(--accent-b));
   color: var(--tech-text-on-accent, var(--ink-on-accent));
   font-family: var(--font-ui); font-weight: 800; font-size: 14px;
-  box-shadow: var(--tech-shadow-raised, var(--lift-2));
+  box-shadow: var(--tech-shadow-panel, var(--lift-1));
   cursor: pointer; touch-action: manipulation; -webkit-tap-highlight-color: transparent;
   transition: transform 160ms var(--ease-spring-up, var(--ease-out)), opacity 160ms var(--ease-out);
 

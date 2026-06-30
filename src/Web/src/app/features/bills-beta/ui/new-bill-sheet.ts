@@ -195,7 +195,7 @@ interface Participant {
     .nb__av-tick {
       position: absolute; inset: 0; display: grid; place-items: center;
       background: color-mix(in srgb, var(--accent-a) 60%, transparent);
-      color: var(--on-accent, #2a2410);
+      color: var(--on-accent, var(--tech-text-on-accent, #fff));
       mat-icon { font-size: 24px; width: 24px; height: 24px; }
     }
     .nb__person-name {
@@ -214,7 +214,7 @@ interface Participant {
     .nb__share--hint { justify-content: center; color: var(--ink-dim); font-size: 13px; font-weight: 600; }
     .nb__share-av {
       flex: 0 0 auto; display: grid; place-items: center; width: 30px; height: 30px;
-      border-radius: 50%; background: var(--av, var(--accent-a)); color: #1a160a; font: 800 11px/1 var(--font-ui);
+      border-radius: 50%; background: var(--av, var(--accent-a)); color: var(--tech-text-on-accent, #fff); font: 800 11px/1 var(--font-ui);
     }
     .nb__share-name {
       flex: 1 1 auto; min-width: 0; font-size: 14px; font-weight: 600; color: var(--ink);
@@ -247,7 +247,7 @@ interface Participant {
     .nb__btn--ghost { background: var(--bg-sink); color: var(--ink); }
     .nb__btn--primary {
       background: linear-gradient(135deg, var(--accent-a), var(--accent-b));
-      color: var(--on-accent, #2a2410); border: none; box-shadow: var(--lift-2);
+      color: var(--on-accent, var(--tech-text-on-accent, #fff)); border: none; box-shadow: var(--lift-2);
     }
     .nb__btn--primary:disabled { opacity: .42; cursor: default; box-shadow: none; }
   `],
@@ -270,7 +270,7 @@ export class NewBillSheet {
   ];
 
   /** Avatar/segment palette mirrors the bill card so the visual identity is consistent. */
-  private static readonly PALETTE = ['#e8d9a8', '#9ad7c2', '#f0b27a', '#a8c5e8', '#d9a8d2', '#c2d99a'];
+  private static readonly PALETTE = ['#9ad7c2', '#a8c5e8', '#d9a8d2', '#c2d99a', '#f0c27a', '#7ec8a8'];
 
   protected readonly name = signal('');
   /** The amount as a raw cents-string the keypad edits (so leading zeros / decimals stay intuitive). */

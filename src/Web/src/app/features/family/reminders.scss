@@ -27,11 +27,16 @@
 
 .rem-ai__go {
   flex: 0 0 auto;
-  border-radius: var(--tech-r-control);
+  border-radius: var(--tech-r-pill);
   font-weight: 600;
   display: inline-flex;
   align-items: center;
   gap: 8px;
+  // Force accent pill: override any Material flat-grey default so the Suggest
+  // button always uses the global scheme accent regardless of MDC theming state.
+  background: var(--tech-accent) !important;
+  color: var(--tech-text-on-accent) !important;
+  &:disabled { opacity: 0.55; }
   mat-spinner { --mdc-circular-progress-active-indicator-color: currentColor; }
 }
 

@@ -19,9 +19,9 @@
 :host {
   @include kit.beta-host;          // the whole Strata token contract on :host
 
-  // ---- TIMER'S SIGNATURE ACCENT: TEAL → INDIGO (the per-page contract override) ----
-  --accent-a: #14b8a6;             // teal (start)
-  --accent-b: #6366f1;             // indigo (deep, end)
+  // ---- UNIFIED SCHEME ACCENT: follows the global color scheme chosen by the user ----
+  --accent-a: var(--tech-accent);
+  --accent-b: var(--tech-accent-2);
 }
 
 @include kit.beta-springs;          // @supports linear() spring upgrade (top-level, once)

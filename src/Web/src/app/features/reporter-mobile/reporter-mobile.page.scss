@@ -16,9 +16,9 @@
 :host {
   @include kit.beta-host;            // the whole Strata token contract on :host
 
-  // ---- REPORTER's SIGNATURE ACCENT: cyan → blue (telemetry / wire) ----
-  --accent-a: #38bdf8;               // signature cyan (start)
-  --accent-b: #4f7cff;               // signature blue (end)
+  // Route to the global scheme accent so the chosen color scheme drives every accent on this page.
+  --accent-a: var(--tech-accent);
+  --accent-b: var(--tech-accent-2);
 
   // A faint cyan wash behind the whole column (still within the kit's dark contract).
   background: radial-gradient(120% 80% at 50% -8%, var(--tech-panel, #0e1b2a) 0%, var(--bg-base) 58%);
@@ -96,34 +96,20 @@
   display: flex; gap: 10px; margin-top: 4px;
 }
 
-// HERO CARD — the "active" stat is the primary metric: accent gradient fill.
-// Secondary stats keep the glass treatment so the hero clearly reads as primary.
+// CHIPS — all stat tiles are consistent FiMobile pills: pill radius + accent tint bg.
 .rp-stat {
   flex: 1 1 0; min-width: 0;
   display: flex; flex-direction: column; align-items: center; gap: 2px;
   padding: 10px 8px;
-  background: var(--glass);
-  backdrop-filter: blur(var(--blur-glass)) saturate(1.3);
-  -webkit-backdrop-filter: blur(var(--blur-glass)) saturate(1.3);
-  border: 1px solid var(--glass-edge);
-  border-radius: var(--r-card);
-  box-shadow: var(--lift-1);
-}
-
-// The first stat tile (active count) is the hero — accent gradient, on-accent ink.
-.rp-stat:first-child {
-  background: linear-gradient(135deg, var(--accent-a), var(--accent-b));
-  border-color: transparent;
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none;
-
-  .rp-stat__n { color: var(--ink-on-accent); }
-  .rp-stat__l { color: color-mix(in oklab, var(--ink-on-accent) 80%, transparent); }
+  background: color-mix(in srgb, var(--tech-accent, var(--accent-a)) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--tech-accent, var(--accent-a)) 28%, transparent);
+  border-radius: var(--tech-r-pill, var(--r-pill));
+  box-shadow: var(--tech-shadow-panel, var(--lift-1));
 }
 
 .rp-stat__n {
   font-family: var(--font-ui); font-weight: 800; font-size: 22px; line-height: 1;
-  color: var(--ink);
+  color: var(--tech-accent, var(--accent-a));
 }
 
 .rp-stat__l {

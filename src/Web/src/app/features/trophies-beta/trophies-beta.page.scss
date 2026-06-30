@@ -17,9 +17,9 @@
 :host {
   @include kit.beta-host;          // the whole Strata token contract on :host
 
-  // ---- TROPHIES' SIGNATURE ACCENT: GOLD (the per-page contract override) ----
-  --accent-a: #fbbf24;             // signature gold (start)
-  --accent-b: #f59e0b;             // signature gold (deep, end)
+  // ---- TROPHIES ACCENT: follow the global scheme (one app, one accent) ----
+  --accent-a: var(--tech-accent);
+  --accent-b: var(--tech-accent-2);
 
   // ---- Per-tier medal hues (LOCAL — layered on the gold accent) ----
   --t-bronze: #c2774a;

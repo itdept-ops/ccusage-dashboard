@@ -2,17 +2,14 @@
 // Bills "Tally" — REBUILT on the shared beta-ui "Strata" foundation.
 //
 // One line adopts the whole Strata token contract (layered bg, glass, ink scale, radii, the lift-1/2/3
-// depth system, spring/bounce easing, blur cap, env() safe-area, the a11y killswitches); then the BILLS
-// page OVERRIDES the per-page accent contract with its OWN signature — a warm CREAM / paper gradient, the
-// Tally receipt-paper identity, sitting as a light cream accent on the dark kit. Every kit component
-// (pull-refresh ring, FAB, toaster, bottom sheet, swipe rows, the ring) + every card reads
-// --accent-a/--accent-b off this :host cascade, so this single override re-skins the whole screen.
+// depth system, spring/bounce easing, blur cap, env() safe-area, the a11y killswitches). The accent
+// contract (--accent-a / --accent-b) is now routed to var(--tech-accent) / var(--tech-accent-2) so the
+// global color-scheme picker drives every tinted surface — FAB, CTA, header bloom, running-totals strip,
+// owed pill — without any per-page off-palette override. Every kit component reads --accent-a/--accent-b
+// off this :host cascade.
 //
-// ISOLATED + gated by platform.mobile (+ bills.use): nothing here touches the global --tech-* tokens or the
-// flagship tracker-beta. The kit partial is the only style import; we consume the kit, never modify it.
-//
-// FiMobile pass: card/panel radii aligned to var(--tech-radius); inner control radii to
-// var(--tech-r-control); focus ring uses var(--tech-r-control); bespoke cream signature preserved.
+// ISOLATED + gated by platform.mobile (+ bills.use): nothing here touches the shared global --tech-*
+// token definitions or the flagship tracker-beta. The kit partial is the only style import.
 // ============================================================================
 
 @use '../beta-ui/beta-kit' as kit;
@@ -20,27 +17,27 @@
 :host {
   @include kit.beta-host;            // the whole Strata token contract on :host
 
-  // ---- BILLS' SIGNATURE ACCENT: warm CREAM → soft butter (the per-page contract override) ----
-  --accent-a: #f4ead2;              // signature cream (start) — the paper highlight
-  --accent-b: #d9c08a;              // signature butter (end)  — the aged-receipt edge
+  // ---- UNIFIED ACCENT: route to the global scheme so one color-scheme picker drives everything ----
+  --accent-a: var(--tech-accent);
+  --accent-b: var(--tech-accent-2);
 
-  // Warm the layered base toward an inked-paper surface (still within the kit's dark contract).
-  --bg-base: var(--tech-bg, #14130e);
-  --bg-rise: var(--tech-panel, #1d1b14);
-  --bg-sink: var(--tech-bg-sunken, #100f0a);
+  // Layered base follows the global tech tokens (theme-aware).
+  --bg-base: var(--tech-bg);
+  --bg-rise: var(--tech-panel);
+  --bg-sink: var(--tech-bg-sunken);
 
-  // A warm radial wash behind the whole column (theme-aware — light in light mode).
+  // Subtle radial wash behind the column — tinted by the scheme accent, not a hardcoded warm hue.
   background:
-    radial-gradient(120% 80% at 50% -12%, var(--tech-panel-raised, #2a2519) 0%, var(--bg-base) 62%);
+    radial-gradient(120% 80% at 50% -12%, var(--tech-panel-raised, var(--tech-panel)) 0%, var(--bg-base) 62%);
 
-  // Status hues stay shared, but tuned to the warm surface: claimed = green, owed = amber (never red).
-  --signal: var(--tech-success, #6fdc9a);   // claimed / settled green (theme-aware)
-  --warn: var(--tech-warn, #f0a35a);        // amount owed / unclaimed = warm amber, NEVER red (theme-aware)
+  // Status hues (theme-aware).
+  --signal: var(--tech-success, #6fdc9a);   // claimed / settled green
+  --warn: var(--tech-warn, #f0a35a);        // amount owed / unclaimed amber
 
   --bar-bottom-h: 78px;
 
-  // Ink on a CREAM gradient pill needs a dark foreground; the FAB/keys use this.
-  --on-accent: #2a2410;
+  // Text on accent fills follows the global contract.
+  --on-accent: var(--tech-text-on-accent);
 }
 
 @include kit.beta-springs;          // @supports linear() spring upgrade (top-level, once)
@@ -223,7 +220,7 @@
   box-shadow: var(--lift-3);
 }
 .actions__new { flex: 1 1 auto; }
-// The cream FAB needs dark ink (kit FAB defaults to #fff); override the label/icon color for contrast.
+// Ensure the FAB label/icon uses the global scheme's on-accent ink (routed via --on-accent on :host).
 .actions__new ::ng-deep .bs-fab { width: 100%; min-height: 56px; color: var(--on-accent); }
 
 // Own visible focus ring (tracks the page accent via --focus).

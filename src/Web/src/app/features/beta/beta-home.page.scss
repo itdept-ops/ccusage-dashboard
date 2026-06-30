@@ -16,9 +16,9 @@
 :host {
   @include kit.beta-host;          // the whole Strata token contract on :host
 
-  // ---- HOME's SIGNATURE ACCENT: violet → blue (the per-page contract override) ----
-  --accent-a: #8b5cff;             // signature violet (start)
-  --accent-b: #4f7bff;             // signature blue   (end)
+  // ---- ACCENT: route to the global scheme so the color picker drives this page. ----
+  --accent-a: var(--tech-accent);
+  --accent-b: var(--tech-accent-2);
 }
 
 @include kit.beta-springs;          // @supports linear() spring upgrade (top-level, once)
@@ -109,16 +109,22 @@
 .hh__chip {
   flex: 0 0 auto; scroll-snap-align: start;
   display: inline-flex; align-items: center; gap: 6px;
-  min-height: 38px; padding: 0 14px; border-radius: var(--r-pill);
-  border: 1px solid var(--hairline);
-  background: color-mix(in srgb, var(--accent-a) 8%, var(--bg-rise));
+  min-height: 38px; padding: 0 16px; border-radius: var(--r-pill);
+  border: 1.5px solid color-mix(in srgb, var(--accent-a) 55%, transparent);
+  background: linear-gradient(135deg,
+    color-mix(in srgb, var(--accent-a) 18%, var(--bg-rise)),
+    color-mix(in srgb, var(--accent-b) 14%, var(--bg-rise)));
   color: var(--ink); text-decoration: none; font-weight: 700; font-size: 13px;
-  transition: transform 120ms var(--ease-spring);
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--accent-a) 18%, transparent);
+  transition: transform 120ms var(--ease-spring), box-shadow 120ms var(--ease-out);
 }
-.hh__chip:active { transform: scale(.95); }
+.hh__chip:active {
+  transform: scale(.95);
+  box-shadow: 0 1px 4px color-mix(in srgb, var(--accent-a) 10%, transparent);
+}
 .hh__chip mat-icon {
   font-size: 18px; width: 18px; height: 18px;
-  color: color-mix(in srgb, var(--accent-a) 70%, var(--ink));
+  color: var(--accent-a);
 }
 
 // "This week" mini-glance — a single tappable streak line, deep-links to /challenge.

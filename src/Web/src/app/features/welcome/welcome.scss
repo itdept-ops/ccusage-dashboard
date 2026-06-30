@@ -143,6 +143,8 @@
   .welcome {
     /* Center spacing is wasted on a phone — pull the hero to the top. */
     padding-top: var(--tech-space-4);
+    /* Clear the fixed mobile bottom tab bar so the sign-out button is never clipped. */
+    padding-bottom: calc(76px + env(safe-area-inset-bottom, 0px));
   }
 
   .hero {

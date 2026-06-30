@@ -5,18 +5,57 @@
   padding: var(--tech-space-4, 24px) var(--tech-space-3, 16px) var(--tech-space-6, 48px);
 }
 
+// ── HERO HEADER — FiMobile icon-badge treatment using existing DOM elements ──
+// Template has: .head > .head-eyebrow + h2 + .sub (no structural changes needed).
+// We fake the icon-badge as an accent ::before pseudo on the eyebrow and add a
+// radial bloom on the .head itself, matching the mobile twin's hero motif.
 .head {
-  margin-bottom: var(--tech-space-4, 24px);
+  position: relative;
+  isolation: isolate;
+  display: flex;
+  flex-direction: column;
+  gap: var(--tech-space-1, 8px);
+  padding: var(--tech-space-3, 16px) 0 var(--tech-space-4, 24px);
 
-  .head-eyebrow { display: block; color: var(--tech-text-accent); margin-bottom: 6px; }
+  // Radial bloom in the upper-left — same soft-glow motif as the mobile hero
+  &::before {
+    content: '';
+    position: absolute;
+    inset: -40px -20% auto -5%;
+    height: 200px;
+    z-index: -1;
+    background: radial-gradient(55% 70% at 20% 0%,
+      color-mix(in srgb, var(--tech-accent) 22%, transparent),
+      transparent 70%);
+    pointer-events: none;
+  }
+
+  // Eyebrow pill — small accent-tinted label above the title (acts as the section kicker)
+  .head-eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    align-self: flex-start;
+    padding: 4px 10px;
+    border-radius: var(--tech-r-pill);
+    background: color-mix(in srgb, var(--tech-accent) 12%, transparent);
+    font-size: var(--tech-fs-small);
+    font-weight: 700;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    color: var(--tech-accent);
+    margin-bottom: 4px;
+  }
 
   h2 {
     margin: 0 0 var(--tech-space-1, 8px);
     font-family: var(--tech-font-display, var(--tech-font-ui));
-    font-size: clamp(20px, 5vw, var(--tech-fs-display));
-    font-weight: 700;
+    font-size: clamp(22px, 5vw, var(--tech-fs-display));
+    font-weight: 800;
+    letter-spacing: -0.02em;
     color: var(--tech-text);
   }
+
   .sub {
     margin: 0;
     max-width: 64ch;

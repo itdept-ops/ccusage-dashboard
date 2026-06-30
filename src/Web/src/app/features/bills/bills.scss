@@ -14,6 +14,13 @@
   flex-wrap: wrap;
   margin-bottom: 16px;
 
+  /* Hero card wrapper: give the title/subtitle area a FiMobile panel treatment */
+  padding: 18px 20px 16px;
+  border-radius: var(--tech-radius, 15px);
+  border: 1px solid var(--tech-border);
+  background: var(--tech-panel);
+  box-shadow: var(--tech-shadow-panel);
+
   h1 {
     margin: 0;
     font-family: var(--tech-font-ui);
@@ -23,9 +30,13 @@
     color: var(--tech-text);
   }
 }
-.bills__sub { margin: 4px 0 0; color: var(--tech-text-dim); font-size: .9rem; max-width: 56ch; }
-.bills__new { border-radius: var(--tech-r-control); font-weight: 600; flex: none;
-  mat-icon { margin-right: 2px; } }
+.bills__sub { margin: 4px 0 0; color: var(--tech-text-secondary); font-size: .9rem; max-width: 56ch; }
+.bills__new {
+  border-radius: var(--tech-r-control);
+  font-weight: 600;
+  flex: none;
+  mat-icon { margin-right: 2px; }
+}
 
 .bills__bar { margin-bottom: 12px; --mat-progress-bar-active-indicator-color: var(--tech-accent, #3fd8d0); }
 .bills__loading { display: flex; justify-content: center; padding: 64px 0; }

@@ -2,10 +2,9 @@
 // Activity "Request log" — the mobile-first twin of the live admin /activity page (logs.ts), rebuilt on
 // the shared beta-ui "Strata" foundation. One line adopts the whole Strata token contract (layered bg,
 // glass, ink scale, radii, the lift-1/2/3 depth system, spring/bounce easing, blur cap, env() safe-area,
-// the a11y killswitches); then ACTIVITY OVERRIDES the per-page accent with its OWN signature: a cool
-// SLATE → CYAN ramp that fits a telemetry/console surface. Every kit component reads --accent-a/--accent-b
-// off this :host cascade, so this single override re-skins the screen (pull-refresh ring, segmented pill,
-// focus ring all follow).
+// the a11y killswitches). Every kit component reads --accent-a/--accent-b off the :host cascade, so the
+// active color scheme (data-scheme on <html>, driven by ThemeService) re-skins pull-refresh ring,
+// segmented pill, focus ring, and all CTAs automatically — one app, one accent.
 //
 // ISOLATED + gated by platform.mobile + the same admin permission as the live route: nothing here touches
 // the global --tech-* tokens or the live /activity page. The kit partial is the only import.
@@ -16,9 +15,9 @@
 :host {
   @include kit.beta-host;            // the whole Strata token contract on :host
 
-  // ---- ACTIVITY'S SIGNATURE ACCENT: SLATE → CYAN (the per-page contract override) ----
-  --accent-a: #38bdf8;               // sky/cyan (start)
-  --accent-b: #6366f1;               // indigo (end)
+  // ---- ACCENT: route to the global scheme so the owner's color-scheme choice drives every accent ----
+  --accent-a: var(--tech-accent);    // follows the active color scheme (data-scheme on <html>)
+  --accent-b: var(--tech-accent-2);  // secondary accent from the same scheme ramp
 
   // status-family colors (mirror the live page's intent)
   --st-2xx: #34d399;

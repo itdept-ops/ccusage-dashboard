@@ -84,7 +84,7 @@ type HeroMode = 'event' | 'timer' | 'narrative' | 'calm';
       border-radius: var(--r-glass);
       padding: 20px;
       background: linear-gradient(150deg, var(--accent-a) -10%, var(--accent-b) 120%);
-      color: #1a0f06;
+      color: var(--tech-text-on-accent, #fff);
       box-shadow: var(--lift-3);
       scroll-snap-align: start;
       overflow: hidden;

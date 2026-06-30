@@ -2,9 +2,9 @@
 // Locations — the MOBILE twin of the live /location "My locations" page, rebuilt on the shared beta-ui
 // "Strata" foundation. One line adopts the whole Strata token contract (layered bg, glass, ink scale,
 // radii, the lift-1/2/3 depth system, spring/bounce easing, blur cap, env() safe-area, the a11y
-// killswitches); then this page OVERRIDES the per-page accent contract with its OWN signature — a
-// TEAL → SKY ramp (a calm "wayfinding / map" hue). Every kit component (the bottom sheet, the FAB, the
-// toaster) reads --accent-a/--accent-b off this :host cascade, so this single override re-skins the screen.
+// killswitches). The accent is routed to the GLOBAL scheme tokens (--tech-accent / --tech-accent-2)
+// so every kit component (the bottom sheet, the FAB, the toaster, active rows, the capture toggle)
+// automatically follows the user's chosen color scheme instead of a per-page override.
 //
 // ISOLATED + gated by platform.mobile on the SAME /location route: nothing here touches the global
 // --tech-* tokens or the live page. The kit partial + the shared LocationMap are the only imports.
@@ -15,9 +15,9 @@
 :host {
   @include kit.beta-host;          // the whole Strata token contract on :host
 
-  // ---- LOCATIONS' SIGNATURE ACCENT: teal → sky (the per-page contract override) ----
-  --accent-a: #2dd4bf;             // signature teal (start)
-  --accent-b: #38bdf8;             // signature sky  (end)
+  // ---- ACCENT: route to the global scheme accent (one app, one accent) ----
+  --accent-a: var(--tech-accent);
+  --accent-b: var(--tech-accent-2);
 
   display: block;
   position: relative;

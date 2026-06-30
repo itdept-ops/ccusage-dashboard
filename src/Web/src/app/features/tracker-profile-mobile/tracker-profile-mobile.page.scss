@@ -1,12 +1,14 @@
 // ============================================================================
 // Tracker Profile "My Plan" — the mobile twin of /tracker/profile, on the shared beta-ui "Strata"
 // foundation. One line adopts the whole token contract (layered bg, glass, ink scale, radii, the
-// lift depth system, spring/bounce easing, env() safe-area, the a11y killswitches); then this page
-// overrides the per-page accent with a fresh-GREEN goal ramp. Every kit component (pull-refresh ring,
-// stat tile, segmented pill, focus ring) reads --accent-a/--accent-b off this :host cascade.
+// lift depth system, spring/bounce easing, env() safe-area, the a11y killswitches). The accent is
+// routed to the GLOBAL FiMobile scheme tokens (--tech-accent / --tech-accent-2) so the owner's
+// chosen color scheme drives every accent on this page — no per-page off-palette override.
+// Every kit component (pull-refresh ring, stat tile, segmented pill, focus ring) reads
+// --accent-a/--accent-b off this :host cascade.
 //
-// ISOLATED + gated by platform.mobile + tracker.self: nothing here touches the global --tech-* tokens
-// or the live /tracker/profile page. The kit partial is the only style import.
+// ISOLATED + gated by platform.mobile + tracker.self: nothing here touches the live /tracker/profile
+// page. The kit partial is the only style import.
 // ============================================================================
 
 @use '../beta-ui/beta-kit' as kit;
@@ -14,9 +16,9 @@
 :host {
   @include kit.beta-host;            // the whole Strata token contract on :host
 
-  // ---- "My Plan" signature accent: fresh green (goal / progress) ----
-  --accent-a: #34d399;               // emerald (start)
-  --accent-b: #10b981;               // emerald (deep, end)
+  // ---- Accent routed to the global FiMobile scheme so the color picker drives every accent here ----
+  --accent-a: var(--tech-accent);
+  --accent-b: var(--tech-accent-2);
 }
 
 @include kit.beta-springs;           // @supports linear() spring upgrade (top-level, once)
@@ -180,6 +182,23 @@
 
 .pm-units { width: auto; min-width: 168px; }
 
+// Units segmented control — pill-segment treatment reinforcement.
+// The BetaSegmentedControl already carries these styles internally via var(--bg-sink) /
+// var(--r-pill), but ::ng-deep from the page host guarantees the sunken track + accent
+// pill render correctly even if the Strata token cascade is partially resolved.
+:host ::ng-deep app-bs-segmented.pm-units {
+  background: var(--bg-sink, var(--tech-bg-sunken));
+  border: 1px solid var(--hairline, var(--tech-border-subtle));
+  border-radius: 999px;
+}
+:host ::ng-deep app-bs-segmented.pm-units .bs-seg-pill {
+  background: linear-gradient(135deg, var(--accent-a), var(--accent-b));
+  border-radius: 999px;
+}
+:host ::ng-deep app-bs-segmented.pm-units .bs-seg-btn.is-active {
+  color: var(--ink-on-accent, var(--tech-text-on-accent, #0c0d12));
+}
+
 .pm-fields { display: flex; flex-direction: column; gap: 12px; }
 
 .pm-field {
@@ -193,7 +212,10 @@
     display: flex; align-items: center; gap: 6px;
     min-height: 48px;
     padding: 0 14px;
-    border-radius: var(--tech-r-control, var(--r-tile));
+    // Explicit rounded corners — avoids square appearance when --tech-r-control resolves
+    // to 0 or a very small value on some browsers/themes. 14px matches the FiMobile
+    // control radius scale (var(--tech-r-control) is typically 12–18px in the schemes).
+    border-radius: var(--tech-r-control, 14px);
     border: 1.5px solid var(--tech-border, var(--glass-edge));
     background: var(--bg-rise);
     transition: border-color .16s var(--ease, ease);

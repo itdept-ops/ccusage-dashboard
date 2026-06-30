@@ -2,9 +2,8 @@
 // Admin Locations — the MOBILE twin of the live /admin/locations oversight map, rebuilt on the shared
 // beta-ui "Strata" foundation. One line adopts the whole Strata token contract (layered bg, glass, ink
 // scale, radii, the lift depth system, spring/bounce easing, blur cap, env() safe-area, the a11y
-// killswitches); then this page OVERRIDES the per-page accent with its OWN signature: a SKY → VIOLET ramp
-// (an "oversight / map" hue, distinct from the warm recipes/profile accents). Every kit component reads
-// --accent-a/--accent-b off this :host cascade, so this single override re-skins the screen.
+// killswitches). The accent follows the global FiMobile color scheme (--tech-accent / --tech-accent-2)
+// so the page stays on-palette whichever scheme the user has chosen.
 //
 // ISOLATED + gated by platform.mobile + location.view-all: nothing here touches the global --tech-* tokens
 // or the live page. The kit partial + the shared LocationMap are the only imports.
@@ -15,9 +14,9 @@
 :host {
   @include kit.beta-host;          // the whole Strata token contract on :host
 
-  // ---- THIS PAGE'S SIGNATURE ACCENT: SKY → VIOLET (the per-page contract override) ----
-  --accent-a: #38bdf8;             // sky (start)
-  --accent-b: #7c5cff;             // violet (end)
+  // ---- ACCENT: follow the global FiMobile color scheme (one app, one accent) ----
+  --accent-a: var(--tech-accent);
+  --accent-b: var(--tech-accent-2);
 
   // The map must own the full surface, so this host is a fixed-size stage (no scroll column).
   overflow: hidden;

@@ -2,15 +2,14 @@
 // People "Circle" — built on the shared beta-ui "Strata" foundation.
 //
 // One line adopts the whole Strata token contract (layered bg, glass, ink scale, radii, the lift-1/2/3
-// depth system, spring/bounce easing, blur cap, env() safe-area, the a11y killswitches); then the
-// CIRCLE page OVERRIDES the per-page accent contract with its OWN signature gradient — a warm ROSE
-// (rose → red), the "social / circle" identity. Every kit component (pull-refresh ring, segmented
-// control, swipe rows, bottom sheet, skeleton, toaster) + every subcomponent reads --accent-a/--accent-b
-// off this :host cascade, so this single override re-skins the whole screen.
+// depth system, spring/bounce easing, blur cap, env() safe-area, the a11y killswitches); the
+// accent contract (--accent-a/--accent-b) is routed to the GLOBAL FiMobile scheme tokens so the
+// chosen color-scheme drives every accent uniformly — no per-page off-palette color. Every kit
+// component (pull-refresh ring, segmented control, swipe rows, bottom sheet, skeleton, toaster)
+// + every subcomponent reads --accent-a/--accent-b off this :host cascade.
 //
-// ISOLATED + gated by platform.mobile + any-of chat.read|family.use: nothing here touches the global
-// --tech-* tokens or the flagship tracker-beta. The kit partial is the only import; we consume the kit,
-// never modify it.
+// ISOLATED + gated by platform.mobile + any-of chat.read|family.use: nothing here touches the
+// flagship tracker-beta. The kit partial is the only import; we consume the kit, never modify it.
 // ============================================================================
 
 @use 'sass:list';
@@ -19,12 +18,12 @@
 :host {
   @include kit.beta-host;          // the whole Strata token contract on :host
 
-  // ---- CIRCLE'S SIGNATURE ACCENT: rose → red (the per-page contract override) ----
-  --accent-a: #fb7185;             // signature rose (start)
-  --accent-b: #f43f5e;             // signature red  (end)
+  // ---- ACCENT: route to the global FiMobile scheme accent so one color-scheme drives everything ----
+  --accent-a: var(--tech-accent);
+  --accent-b: var(--tech-accent-2);
 
-  // A faint rose wash behind the whole column (still within the kit's dark contract).
-  background: radial-gradient(120% 80% at 50% -8%, #1c0e14 0%, var(--bg-base) 58%);
+  // A faint accent wash behind the whole column (still within the kit's dark contract).
+  background: radial-gradient(120% 80% at 50% -8%, color-mix(in srgb, var(--tech-accent) 12%, var(--bg-base)) 0%, var(--bg-base) 58%);
 
   height: 100%; // fill the immersive shell frame; the pull-refresh owns the scroll
 }
@@ -150,11 +149,11 @@ $hues: #fb7185, #f0a35a, #a78bfa, #38bdf8, #34d399, #f472b6;
 @media (prefers-reduced-motion: reduce) { .hh__face { animation: none; } }
 
 .hh__hero-msg {
-  margin: 0; min-width: 0; font-size: 13px; font-weight: 600; color: var(--ink-dim);
+  margin: 0; min-width: 0; font-size: 13px; font-weight: 600; color: var(--tech-text-secondary);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .hh__hero-msg--quiet {
-  display: inline-flex; align-items: center; gap: 7px; color: var(--ink-faint); font-style: italic;
+  display: inline-flex; align-items: center; gap: 7px; color: var(--tech-text-secondary); font-style: italic;
 }
 .hh__hero-msg--quiet mat-icon { font-size: 17px; width: 17px; height: 17px; }
 
@@ -176,9 +175,10 @@ $hues: #fb7185, #f0a35a, #a78bfa, #38bdf8, #34d399, #f472b6;
 
 .hh__search {
   position: relative; display: flex; align-items: center;
-  border-radius: var(--r-pill);
+  border-radius: var(--tech-r-pill, 999px);
   background: var(--bg-sink); border: 1px solid var(--hairline);
   transition: border-color 140ms var(--ease-out), box-shadow 140ms var(--ease-out);
+  overflow: hidden; // clip child corners to the pill shape
 }
 .hh__search--filled,
 .hh__search:focus-within {

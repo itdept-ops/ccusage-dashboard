@@ -23,6 +23,9 @@
 
 .family-locs__map-card {
   padding: var(--tech-space-2, 8px);
+  // Explicit radius so overflow:hidden clips the Leaflet tile cleanly to the FiMobile card corners
+  // (family__card sets the same value, but restating here prevents a specificity surprise).
+  border-radius: var(--tech-radius, 12px);
   overflow: hidden;
   box-shadow: var(--tech-shadow-panel);
 
@@ -39,6 +42,37 @@
     a { color: var(--tech-text-accent); }
     mat-icon { width: 13px; height: 13px; font-size: 13px; line-height: 13px; }
   }
+
+  // ── Themed Leaflet zoom controls + popups to match the FiMobile card ──
+  ::ng-deep .leaflet-control-zoom {
+    border: 1px solid var(--tech-border);
+    border-radius: var(--tech-r-control, 10px);
+    overflow: hidden;
+    box-shadow: var(--tech-shadow-raised);
+  }
+  ::ng-deep .leaflet-control-zoom a {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--tech-bg-surface, var(--tech-panel));
+    color: var(--tech-text);
+    border-bottom: 1px solid var(--tech-border-subtle, var(--tech-border));
+    transition: background var(--tech-t-fast, 120ms) ease, color var(--tech-t-fast, 120ms) ease;
+    &:hover {
+      background: color-mix(in srgb, var(--tech-accent) 12%, var(--tech-bg-surface, var(--tech-panel)));
+      color: var(--tech-accent);
+    }
+    &:last-child { border-bottom: none; }
+  }
+  ::ng-deep .leaflet-popup-content-wrapper {
+    background: var(--tech-panel);
+    color: var(--tech-text);
+    border-radius: var(--tech-radius, 12px);
+    box-shadow: var(--tech-shadow-panel);
+    border: 1px solid var(--tech-border);
+  }
+  ::ng-deep .leaflet-popup-tip { background: var(--tech-panel); }
+  ::ng-deep .leaflet-popup-content { font-family: inherit; }
 }
 
 .family-locs__list-card {
@@ -216,12 +250,27 @@
     color: var(--tech-text-tertiary);
   }
   select {
-    padding: 4px 8px;
+    appearance: none;
+    -webkit-appearance: none;
+    padding: 5px 28px 5px 10px;
     border-radius: var(--tech-r-control, 10px);
     border: 1px solid var(--tech-border);
-    background: var(--tech-bg-sunken, rgba(255, 255, 255, 0.05));
+    background:
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24'%3E%3Cpath fill='%23888' d='M7 10l5 5 5-5z'/%3E%3C/svg%3E")
+      no-repeat right 8px center,
+      var(--tech-bg-sunken, rgba(255, 255, 255, 0.05));
     color: var(--tech-text);
+    font-family: var(--tech-font-ui, inherit);
     font-size: var(--tech-fs-label, 11px);
+    font-weight: 600;
+    cursor: pointer;
+    transition: border-color var(--tech-t-fast, 120ms) ease, background-color var(--tech-t-fast, 120ms) ease;
+
+    &:hover { border-color: color-mix(in srgb, var(--tech-accent) 50%, var(--tech-border)); }
+    &:focus-visible {
+      outline: 2px solid var(--tech-accent);
+      outline-offset: 1px;
+    }
   }
 }
 

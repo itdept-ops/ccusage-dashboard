@@ -15,9 +15,9 @@
 :host {
   @include kit.beta-host;          // the whole Strata token contract on :host
 
-  // ---- RECIPES' SIGNATURE ACCENT: SAFFRON → PAPRIKA (the per-page contract override) ----
-  --accent-a: #f59e0b;             // saffron (start)
-  --accent-b: #ea580c;             // paprika (deep, end)
+  // ---- ACCENT: follow the global scheme so the color picker drives this page ----
+  --accent-a: var(--tech-accent);
+  --accent-b: var(--tech-accent-2);
 }
 
 @include kit.beta-springs;          // @supports linear() spring upgrade (top-level, once)
