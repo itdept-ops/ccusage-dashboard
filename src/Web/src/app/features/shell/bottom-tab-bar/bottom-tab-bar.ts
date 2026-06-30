@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, computed, effect, inject } from '@angular/core';
 import { RouterLink, RouterLinkActive } from '@angular/router';
 import { MatIconModule } from '@angular/material/icon';
 
@@ -66,6 +66,20 @@ export class BottomTabBar {
 
   /** Whether to show the raised center camera (ai.vision + ≥1 writable destination; reactive to /me). */
   protected readonly canSnap = this.snapRoute.canCapture;
+
+  constructor() {
+    // The raised center pod protrudes ~20px above the bar INTO the content frame. Flag <html> while it's
+    // shown so the mobile scrollers reserve bottom clearance (styles.scss) and the last content row isn't
+    // tucked under the camera. Cleared when the bar is torn down (e.g. switching to desktop).
+    effect(() => {
+      if (typeof document !== 'undefined') {
+        document.documentElement.classList.toggle('snap-pod', this.canSnap());
+      }
+    });
+    inject(DestroyRef).onDestroy(() => {
+      if (typeof document !== 'undefined') document.documentElement.classList.remove('snap-pod');
+    });
+  }
 
   /** Open the OS rear camera → classify → route-review via the shared Snap & Route orchestrator. */
   protected snap(): void {

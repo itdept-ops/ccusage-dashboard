@@ -194,6 +194,22 @@ import { MobileNavService } from '../../../core/mobile-nav';
         box-shadow: inset 0 1px 0 var(--tech-glass-inset-hi);
       }
 
+      /* iOS status-bar legibility. apple-mobile-web-app-status-bar-style=black-translucent makes the OS
+         paint the status glyphs (clock/battery/signal) WHITE at all times. In LIGHT theme the bar's glass
+         is near-white, so they'd be invisible — lay a dark scrim over just the status-bar strip (the
+         safe-area-top inset; height 0 in a normal browser tab, so this is inert off-device) to keep the
+         white glyphs readable. Dark theme needs nothing — its glass is already dark. */
+      :host-context([data-theme='light']) .mtb::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: env(safe-area-inset-top, 0px);
+        background: #0b0f14;
+        pointer-events: none;
+      }
+
       /* Back affordance — a quiet icon button pinned light so it reads on the dark bar. */
       .mtb__back {
         flex: 0 0 auto;

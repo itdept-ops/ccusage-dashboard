@@ -1119,6 +1119,14 @@ html.bs-sheet-open app-bottom-tab-bar {
   display: none;
 }
 
+/* When the raised center camera pod is shown (html.snap-pod, set by the bottom tab bar when canCapture),
+   it protrudes ~20px above the tab bar INTO the content frame. Give the mobile immersive scrollers extra
+   bottom clearance so the last content row isn't tucked under the pod. GLOBAL because .ptr-scroll lives
+   inside the pull-refresh component, outside the shell's encapsulation. */
+html.snap-pod .ptr-scroll {
+  padding-bottom: 28px;
+}
+
 /* ── Robust dialog shell (shared) ─────────────────────────────────────────────────────────────────
    Every dialog opts in via one of these panelClasses (set in its open() call). These rules MUST live
    in the GLOBAL sheet: a dialog renders in the body-level CDK overlay, OUTSIDE any component's

@@ -1,13 +1,15 @@
-import { ApplicationConfig, isDevMode, provideBrowserGlobalErrorListeners } from '@angular/core';
-import { provideRouter, withRouterConfig } from '@angular/router';
+import { ApplicationConfig, inject, isDevMode, provideBrowserGlobalErrorListeners } from '@angular/core';
+import { provideRouter, withNavigationErrorHandler, withRouterConfig } from '@angular/router';
 import { provideHttpClient, withFetch, withInterceptors } from '@angular/common/http';
 import { provideAnimations } from '@angular/platform-browser/animations';
 import { provideServiceWorker } from '@angular/service-worker';
+import { MatSnackBar } from '@angular/material/snack-bar';
 
 import { routes } from './app.routes';
 import { authInterceptor } from './core/auth.interceptor';
 import { offlineInterceptor } from './core/offline.interceptor';
 import { OFFLINE_DISABLED_KEY } from './core/sw-update';
+import { PwaService } from './core/pwa';
 
 /**
  * Whether the installable/offline service worker should register. ON in prod builds, OFF in dev (so the
@@ -30,7 +32,23 @@ export const appConfig: ApplicationConfig = {
     // `onSameUrlNavigation: 'reload'` lets the desktop/mobile override re-render the CURRENT url (the platform
     // `canMatch` re-evaluates and swaps in the other variant). Scroll restoration is deliberately left at the
     // default so desktop navigation behavior is unchanged.
-    provideRouter(routes, withRouterConfig({ onSameUrlNavigation: 'reload' })),
+    provideRouter(
+      routes,
+      withRouterConfig({ onSameUrlNavigation: 'reload' }),
+      // A navigation that errors while OFFLINE is almost always an uncached lazy route chunk (a route the
+      // user hasn't visited online yet). The router aborts and leaves the user on the current page with no
+      // feedback, so surface a hint instead of a silent dead tap. Gated on offline so genuine online
+      // navigation errors (guards, etc.) are untouched.
+      withNavigationErrorHandler(() => {
+        if (!inject(PwaService).online()) {
+          inject(MatSnackBar).open(
+            "This page isn't available offline yet — reconnect to load it.",
+            'Dismiss',
+            { duration: 5000 },
+          );
+        }
+      }),
+    ),
     provideHttpClient(withFetch(), withInterceptors([authInterceptor, offlineInterceptor])),
     provideAnimations(),
     // Register our custom worker (it importScripts ngsw-worker.js) so push notifications render from the
