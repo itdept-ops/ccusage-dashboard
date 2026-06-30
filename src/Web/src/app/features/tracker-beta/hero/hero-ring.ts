@@ -180,7 +180,9 @@ export type HeroFace = 'rings' | 'macros';
        near-empty box). Capped so it stays glanceable on big phones / small tablets. */
     .hr-ringbox {
       position: relative;
-      width: min(72vw, 260px);
+      /* A touch under the card's inner width so the outer arc + its glow never graze the card's
+         rounded (backdrop-filter-clipped) edge on small phones — the "smidge cut off". */
+      width: min(66vw, 236px);
       aspect-ratio: 1 / 1;
       display: grid; place-items: center;
     }

@@ -1106,6 +1106,15 @@ code, pre, kbd, samp {
   flex-direction: column;
 }
 
+/* When a beta-ui bottom sheet is open, hide the global bottom tab bar. The sheet's fixed overlay
+   covers it anyway, but on iOS a backdrop-filter stacking context on the page bars can let the tab
+   bar show through the scrim — so we explicitly remove it while any sheet is open (the BetaBottomSheet
+   ref-counts open sheets and toggles this class on <html>). GLOBAL because the tab bar lives in the
+   app shell, outside the sheet component's encapsulation. */
+html.bs-sheet-open app-bottom-tab-bar {
+  display: none;
+}
+
 /* ── Robust dialog shell (shared) ─────────────────────────────────────────────────────────────────
    Every dialog opts in via one of these panelClasses (set in its open() call). These rules MUST live
    in the GLOBAL sheet: a dialog renders in the body-level CDK overlay, OUTSIDE any component's

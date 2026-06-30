@@ -572,13 +572,20 @@ export class ExerciseSheet {
   });
 
   constructor() {
+    // Load the pickers ONCE up front. (Previously this ran inside the open-effect, so its async
+    // resolve could land WHILE the user was typing the exercise name — re-running change detection,
+    // which re-wrote the controlled [ngModel]="name()" input and wiped the in-progress text on iOS
+    // Safari, looking like a spurious "refresh". Loading once removes that mid-typing CD source.)
+    void this.loadPickers();
+    // Reset the form ONLY on the open transition (false → true), never on a re-render while open.
     effect(() => {
-      if (this.open()) {
-        this.reset();
-        void this.loadPickers();
-      }
+      const isOpen = this.open();
+      if (isOpen && !this.wasOpen) this.reset();
+      this.wasOpen = isOpen;
     });
   }
+
+  private wasOpen = false;
 
   private reset(): void {
     this.name.set('');

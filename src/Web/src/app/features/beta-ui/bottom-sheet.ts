@@ -1,5 +1,5 @@
 import {
-  ChangeDetectionStrategy, Component, ElementRef, computed, effect, inject,
+  ChangeDetectionStrategy, Component, DestroyRef, ElementRef, computed, effect, inject,
   input, model, output, signal, viewChild,
 } from '@angular/core';
 import { Haptics } from '../../core/haptics';
@@ -65,6 +65,10 @@ const DETENT_FRACTION: Record<SheetDetent, number> = { peek: 0.32, half: 0.62, f
 
     .bs-scrim {
       position: absolute; inset: 0; pointer-events: auto;
+      /* touch-action:none stops a drag on the scrim from scrolling the page BEHIND the sheet on iOS
+         (which otherwise reads as a second scrollbar). The panel body keeps its own scroll. Tap-to-
+         dismiss still fires (touch-action blocks scroll/zoom gestures, not clicks). */
+      touch-action: none;
       background: rgba(4, 6, 20, .5);
       animation: bs-scrim-in 320ms var(--ease-out) both;
     }
@@ -140,7 +144,21 @@ export class BetaBottomSheet {
   /** The element focused when the sheet opened — focus returns here on close. */
   private opener: HTMLElement | null = null;
 
+  /** How many sheets are currently open (across all instances). When > 0 the document carries
+   *  `bs-sheet-open` so the global bottom tab bar hides — it sits behind the sheet anyway, and on iOS a
+   *  backdrop-filter stacking context can otherwise let it show through the scrim. */
+  private static openCount = 0;
+  private static adjustOpenCount(delta: number): void {
+    BetaBottomSheet.openCount = Math.max(0, BetaBottomSheet.openCount + delta);
+    if (typeof document !== 'undefined') {
+      document.documentElement.classList.toggle('bs-sheet-open', BetaBottomSheet.openCount > 0);
+    }
+  }
+
   constructor() {
+    // If this sheet is torn down (page nav) while still open, release its hold on the tab-bar hide.
+    inject(DestroyRef).onDestroy(() => { if (this.wasOpen) BetaBottomSheet.adjustOpenCount(-1); });
+
     // Mirror open() onto the [hidden] host attr so the fixed overlay never traps taps when closed.
     effect(() => {
       this.host.nativeElement.toggleAttribute('hidden', !this.open());
@@ -148,8 +166,9 @@ export class BetaBottomSheet {
     // Move focus into the panel on open (focus-trap entry); remember the opener to restore later.
     effect(() => {
       const isOpen = this.open();
-      // Faint tick only on the open transition (not on detent changes / re-renders while open).
-      if (isOpen && !this.wasOpen) this.haptics.select();
+      // Faint tick + hide the tab bar only on the open transition (not on detent changes / re-renders).
+      if (isOpen && !this.wasOpen) { this.haptics.select(); BetaBottomSheet.adjustOpenCount(1); }
+      else if (!isOpen && this.wasOpen) BetaBottomSheet.adjustOpenCount(-1);
       this.wasOpen = isOpen;
       if (isOpen) {
         const active = (typeof document !== 'undefined' ? document.activeElement : null) as HTMLElement | null;
