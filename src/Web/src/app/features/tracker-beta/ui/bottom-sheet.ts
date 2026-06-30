@@ -1,5 +1,5 @@
 import {
-  ChangeDetectionStrategy, Component, ElementRef, computed, effect, inject,
+  ChangeDetectionStrategy, Component, DestroyRef, ElementRef, computed, effect, inject,
   input, model, output, signal, viewChild,
 } from '@angular/core';
 
@@ -126,7 +126,22 @@ export class BottomSheet {
   /** Previous open() value, so the lifecycle effect can act on the rising AND falling edge. */
   private wasOpen = false;
 
+  /** How many of THESE tracker sheets are open across all instances. While > 0 the document carries
+   *  `bs-sheet-open` so the GLOBAL bottom tab bar hides — it sits behind the sheet anyway, and on iOS a
+   *  backdrop-filter stacking context otherwise lets it show THROUGH the scrim at the bottom of the sheet
+   *  (the visible defect on the LOG menu + Food sheets). Mirrors BetaBottomSheet's ref-count. */
+  private static openCount = 0;
+  private static adjustOpenCount(delta: number): void {
+    BottomSheet.openCount = Math.max(0, BottomSheet.openCount + delta);
+    if (typeof document !== 'undefined') {
+      document.documentElement.classList.toggle('bs-sheet-open', BottomSheet.openCount > 0);
+    }
+  }
+
   constructor() {
+    // If this sheet is torn down (page nav) while still open, release its hold on the tab-bar hide.
+    inject(DestroyRef).onDestroy(() => { if (this.wasOpen) BottomSheet.adjustOpenCount(-1); });
+
     // Mirror open() onto the [hidden] host attr so the fixed overlay never traps taps when closed.
     effect(() => {
       this.host.nativeElement.toggleAttribute('hidden', !this.open());
@@ -138,12 +153,14 @@ export class BottomSheet {
     effect(() => {
       const isOpen = this.open();
       if (isOpen && !this.wasOpen) {
-        // Opening: remember the opener (focus-trap entry), then move focus into the panel.
+        // Opening: hide the tab bar, remember the opener (focus-trap entry), then move focus into the panel.
+        BottomSheet.adjustOpenCount(1);
         const active = (typeof document !== 'undefined' ? document.activeElement : null) as HTMLElement | null;
         if (active && !this.host.nativeElement.contains(active)) this.opener = active;
         queueMicrotask(() => this.panel()?.nativeElement.focus?.());
       } else if (!isOpen && this.wasOpen) {
-        // Closing (any path): notify the host, then return focus to the opener.
+        // Closing (any path): release the tab-bar hide, notify the host, then return focus to the opener.
+        BottomSheet.adjustOpenCount(-1);
         this.closed.emit();
         const opener = this.opener;
         this.opener = null;
