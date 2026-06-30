@@ -146,8 +146,13 @@
   overscroll-behavior-y: contain;
   scroll-snap-type: y proximity;
   -webkit-overflow-scrolling: touch;
-  // Reserve room for the two fixed chrome bars so content never hides beneath them.
-  padding-top: calc(var(--day-strip-h) + var(--safe-top));
+  // Reserve room for the two fixed chrome bars so content never hides beneath them. The day-strip sits
+  // BELOW the notch-padded top bar, so its clearance is just --day-strip-h (no --safe-top double-count).
+  padding-top: var(--day-strip-h);
+  // CRITICAL with scroll-snap: offset snap + scrollIntoView by the fixed day-strip so the snapping hero
+  // (scroll-snap-align:start) lands BELOW the strip, not behind it. Without this the day-strip clipped the
+  // top of the calorie ring.
+  scroll-padding-top: var(--day-strip-h);
   padding-bottom: calc(var(--action-bar-h) + var(--safe-bottom) + var(--beta-bar-bottom, 0px) + 12px);
   padding-inline: var(--gutter) var(--gutter-r);
   display: flex;
