@@ -20,6 +20,13 @@
    ════════════════════════════════════════════════════════════════════════════ */
 
 :host {
+  /* Define the aurora accent vars from the active color scheme so the whole landing (orb, rings,
+     hero text, CTA, aura, satellites — all read var(--aur-*)) tracks the chosen scheme instead of
+     falling back to the static indigo/violet/cyan. THIS is what makes the landing on-scheme. */
+  --aur-a: var(--tech-accent);
+  --aur-b: var(--tech-accent-2);
+  --aur-c: var(--tech-accent-cyan);
+
   /* ── palette ──────────────────────────────────────────────────────────── */
   --lx-bg:        #0a0818;
   --lx-bg-2:      #070512;
