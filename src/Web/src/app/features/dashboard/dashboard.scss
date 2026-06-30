@@ -440,7 +440,7 @@ mat-progress-bar {
 
     .dim { color: var(--tech-text-tertiary); font-weight: 400; padding: 0 2px; }
   }
-  .kpi-value.cost { color: var(--tech-accent-magenta); }
+  .kpi-value.cost { color: var(--tech-accent); }
 
   .kpi-sub {
     margin-top: 8px;
@@ -451,56 +451,15 @@ mat-progress-bar {
 }
 
 /* Per-card accent assignment (vendor/metric law) */
-.kpi-cost   { --accent: var(--tech-accent-magenta); }
+.kpi-cost   { --accent: var(--tech-accent); }
 .kpi-tokens { --accent: var(--tech-accent); }
 .kpi-io     { --accent: var(--tech-accent-2); }
 .kpi-active { --accent: var(--tech-accent-cyan); }
 
-/* ── FiMobile HERO CARD — Total cost is the dominant primary metric ── */
-/* The gradient fill covers the panel surface; all text must be legible on it. */
-.kpi-cost {
-  background: var(--tech-gradient-accent);
-  border-color: transparent;
-  box-shadow: var(--tech-shadow-raised);
-
-  /* Override the ::after top-accent hairline — not needed on a gradient fill. */
-  &::after { display: none; }
-
-  /* Label and value text switch to on-accent palette for legibility. */
-  .kpi-label {
-    color: color-mix(in srgb, var(--tech-text-on-accent) 72%, transparent);
-    letter-spacing: 0.07em;
-  }
-
-  /* The header-icon orb: muted tint on the gradient fill. */
-  .header-icon {
-    background: color-mix(in srgb, var(--tech-text-on-accent) 18%, transparent);
-    color: var(--tech-text-on-accent);
-  }
-
-  /* Hero number: full on-accent (overrides .kpi-value.cost magenta rule). */
-  .kpi-value,
-  .kpi-value.cost {
-    color: var(--tech-text-on-accent);
-    text-shadow: none;
-
-    .dim { color: color-mix(in srgb, var(--tech-text-on-accent) 65%, transparent); }
-  }
-
-  /* Sub-line stays readable but softer. */
-  .kpi-sub {
-    color: color-mix(in srgb, var(--tech-text-on-accent) 70%, transparent);
-
-    .mono-num { color: color-mix(in srgb, var(--tech-text-on-accent) 88%, transparent); }
-  }
-
-  /* Hover: brighten border slightly; no translateY — hero cards feel anchored. */
-  &:hover {
-    border-color: color-mix(in srgb, var(--tech-text-on-accent) 22%, transparent);
-    transform: none;
-    box-shadow: var(--tech-shadow-raised);
-  }
-}
+/* Total cost is the headline metric but stays a UNIFORM flat FiMobile card like its three
+   siblings — a lone gradient card in a 4-up row read as a "half-baked" mismatch. Its accent
+   now shows only through the shared accent icon-orb (--accent) + the scheme-colored value
+   (.kpi-value.cost), so all four KPI cards share one consistent silhouette. */
 
 /* ═══════════════════════════════════════════════════════════════
    Charts — opaque panels with sunken chart wells
