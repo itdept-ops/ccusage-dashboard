@@ -64,8 +64,8 @@
   --s-1: 0.5rem;
   --s-2: 0.85rem;
   --s-3: 1.2rem;
-  --pad-tight: clamp(2rem, 4vw, 3rem);   /* couple related blocks */
-  --pad-major: clamp(4.5rem, 10vw, 9rem); /* separate archetypes */
+  --pad-tight: clamp(1.75rem, 3.5vw, 2.75rem);   /* couple related blocks */
+  --pad-major: clamp(3.25rem, 6.5vw, 6rem); /* separate archetypes (tightened: the landing ran very tall) */
 
   /* ── type scale ──────────────────────────────────────────────────────── */
   --fs-eyebrow: 0.74rem;
@@ -248,14 +248,16 @@
 }
 
 /* ════════════════════════════ 1 · HERO — orbital stage ════════════════════ */
-.hero {
+/* `.landing .hero` (specificity 0,2,0) beats `.landing section` (0,1,1) so this top
+   padding actually wins — sit the hero just under the nav, not a half-screen down. */
+.landing .hero {
   display: grid;
   grid-template-columns: 1.05fr 0.95fr;
   align-items: center;
   gap: clamp(2rem, 5vw, 4rem);
-  padding-top: clamp(5.5rem, 12vw, 9rem);
+  padding-top: clamp(2.25rem, 4.5vw, 3.75rem);
   padding-bottom: var(--pad-tight);
-  min-height: min(88vh, 800px);
+  min-height: min(72vh, 600px);
 }
 
 .eyebrow {
