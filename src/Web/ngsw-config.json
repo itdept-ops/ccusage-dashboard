@@ -8,6 +8,7 @@
       "updateMode": "prefetch",
       "resources": {
         "files": [
+          "/index.html",
           "/favicon.ico",
           "/favicon.svg",
           "/manifest.webmanifest",
@@ -15,9 +16,21 @@
           "/icon-512.png",
           "/icon-maskable-512.png",
           "/apple-touch-icon.png",
+          "/*.css",
           "/fonts/inter.woff2",
           "/fonts/jetbrains-mono.woff2",
-          "/fonts/material-icons.woff2"
+          "/fonts/material-icons.woff2",
+          "/fonts/nunito.woff2"
+        ]
+      }
+    },
+    {
+      "name": "bundles",
+      "installMode": "lazy",
+      "updateMode": "prefetch",
+      "resources": {
+        "files": [
+          "/*.js"
         ]
       }
     },

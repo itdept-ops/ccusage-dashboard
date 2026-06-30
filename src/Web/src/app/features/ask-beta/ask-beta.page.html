@@ -1,4 +1,4 @@
-<app-bs-pull-refresh class="ab-ptr" [busy]="false" (refresh)="clearThread()">
+<app-bs-pull-refresh class="ab-ptr" [busy]="loading()" [disabled]="loading()" (refresh)="clearThread()">
   <div class="ab-scroll">
 
     <!-- ── Immersive header: accent avatar + title ── -->

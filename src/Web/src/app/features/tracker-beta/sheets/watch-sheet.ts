@@ -1,5 +1,5 @@
 import {
-  ChangeDetectionStrategy, Component, computed, effect, inject, model, output, signal,
+  ChangeDetectionStrategy, Component, computed, effect, inject, model, output, signal, untracked,
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 
@@ -183,16 +183,23 @@ export class WatchSheet {
   /** True when the day already has a watch row (so the Clear affordance is meaningful). */
   protected readonly hasExisting = computed(() => this.tracker.day()?.activity != null);
 
+  /** Last seen open() — so seeding fires only on the false→true open transition. */
+  private wasOpen = false;
+
   constructor() {
-    // Each time the sheet OPENS, pre-fill from the day's current activity so it EDITS existing values.
+    // Pre-fill from the day's current activity ONLY on the open transition. seedFromDay() reads
+    // tracker.day() via untracked so a concurrent same-day log (food/coffee/exercise) mutating the shared
+    // day signal can't re-fire this effect and wipe the steps/distance/calories the user is typing.
     effect(() => {
-      if (this.open()) this.seedFromDay();
+      const isOpen = this.open();
+      if (isOpen && !this.wasOpen) this.seedFromDay();
+      this.wasOpen = isOpen;
     });
   }
 
   /** Pull the day's metric activity into the inputs (distance metres → the user's display unit). */
   private seedFromDay(): void {
-    const a = this.tracker.day()?.activity ?? null;
+    const a = untracked(() => this.tracker.day())?.activity ?? null;
     this.steps.set(a?.steps ?? null);
     this.activeCalories.set(a?.activeCalories ?? null);
     const meters = a?.distanceMeters;

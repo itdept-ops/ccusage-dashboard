@@ -1224,6 +1224,10 @@
      double scrollbar), while a NO-TWIN fallback desktop page scrolls WITHIN this frame between the bars. */
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
+  /* Contain the scroll chain at the frame so a pull past the top/bottom of a NON-immersive page can't
+     rubber-band the document and flash the app-root void behind it on iOS (immersive twins already set
+     this on their own scrollers). */
+  overscroll-behavior: contain;
   /* The beta pages' fixed top bars inherit this to sit flush under the slim bar; their fixed bottom bars
      can read --beta-bar-bottom to clear the tab bar. */
   --beta-bar-top: var(--mobile-bar-h);

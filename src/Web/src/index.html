@@ -55,6 +55,10 @@
     <link rel="preload" href="/fonts/inter.woff2" as="font" type="font/woff2" crossorigin />
     <link rel="preload" href="/fonts/jetbrains-mono.woff2" as="font" type="font/woff2" crossorigin />
     <link rel="preload" href="/fonts/material-icons.woff2" as="font" type="font/woff2" crossorigin />
+    <!-- Nunito is the FiMobile DISPLAY font (--tech-font-display, every heading). Preload + SW-prefetch
+         it like the other three so headings paint in Nunito on the first frame (no fallback→Nunito FOUT)
+         and render offline from the very first launch. -->
+    <link rel="preload" href="/fonts/nunito.woff2" as="font" type="font/woff2" crossorigin />
     <!-- Google Identity Services (accounts.google.com/gsi/client) is NOT loaded here — it would download on
          every route. It's injected on demand by core/gis-loader.ts (ensureGis) only on the surfaces that
          use Google sign-in / OAuth: /signin and the family calendar's "connect Google Calendar" flow. -->
@@ -80,6 +84,28 @@
         } catch (e) {
           document.documentElement.dataset.theme = 'dark';
         }
+      })();
+    </script>
+
+    <!-- Soft-keyboard inset tracker. On iOS the visual viewport shrinks when the keyboard opens but the
+         LAYOUT viewport (what 100dvh / position:fixed resolve against) does not — so fixed bottom sheets and
+         the chat composer would sit UNDER the keyboard. This publishes the keyboard height as the global
+         CSS var --kb-inset (0 when no keyboard / unsupported), which those surfaces consume to lift their
+         input above the keyboard. visualViewport is universally available wherever iOS PWA install is. -->
+    <script>
+      (function () {
+        var vv = window.visualViewport;
+        if (!vv) return;
+        var root = document.documentElement;
+        function update() {
+          // How much of the layout viewport's bottom the keyboard currently covers.
+          var inset = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
+          // Treat a sliver as zero (rounding / URL-bar jitter shouldn't nudge layout).
+          root.style.setProperty('--kb-inset', (inset > 24 ? Math.round(inset) : 0) + 'px');
+        }
+        vv.addEventListener('resize', update);
+        vv.addEventListener('scroll', update);
+        update();
       })();
     </script>
 

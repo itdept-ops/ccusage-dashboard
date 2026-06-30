@@ -91,8 +91,9 @@
   align-items: center;
   justify-content: center;
   gap: 10px;
-  min-height: calc(var(--bar-top-h) + var(--safe-top));
-  padding-top: var(--safe-top);
+  /* top: --beta-bar-top already clears the notch (shell top bar owns safe-area-inset-top); dropping the
+     redundant --safe-top in min-height + padding reclaims a full notch height of dead bar space. */
+  min-height: var(--bar-top-h);
   padding-inline: var(--reel-pad) var(--reel-pad-r);
   background: var(--glass);
   backdrop-filter: blur(var(--blur-glass)) saturate(1.4);

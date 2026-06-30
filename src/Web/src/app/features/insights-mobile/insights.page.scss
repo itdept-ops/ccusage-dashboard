@@ -45,7 +45,9 @@
   display: flex;
   align-items: center;
   gap: .75rem;
-  padding: calc(var(--safe-top) + .65rem) var(--gutter) .65rem var(--gutter);
+  /* sticky top:0 pins to the content frame top, which already sits below the notch (the shell top bar
+     owns safe-area-inset-top) — so --safe-top here was dead space pushing the title down a notch height. */
+  padding: .65rem var(--gutter);
   background: var(--glass);
   backdrop-filter: blur(var(--blur-glass)) saturate(1.4);
   -webkit-backdrop-filter: blur(var(--blur-glass)) saturate(1.4);

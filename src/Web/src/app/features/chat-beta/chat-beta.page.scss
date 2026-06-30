@@ -91,6 +91,10 @@
 // beside it; the :host flex column gives this absolute fill a concrete frame.
 .thread {
   position: absolute; inset: 0;
+  /* Shrink the pane from the bottom by the iOS soft-keyboard height so the bottom-pinned composer rises
+     above the keyboard instead of hiding under it (--kb-inset is 0 when there's no keyboard). */
+  bottom: var(--kb-inset, 0px);
+  transition: bottom 220ms var(--ease-out);
   z-index: 10;
   background: var(--bg-base);
   animation: pane-in 320ms var(--ease-spring) both;
@@ -380,7 +384,9 @@
 .composer {
   flex: 0 0 auto;
   display: flex; align-items: flex-end; gap: 10px;
-  padding: 10px var(--gutter) max(10px, var(--safe-bottom)) var(--gutter);
+  /* When the keyboard is up it hides the home indicator, so collapse the safe-bottom inset (it would
+     otherwise add a dead gap between the composer and the keyboard top). --kb-inset is 0 when none. */
+  padding: 10px var(--gutter) max(10px, calc(var(--safe-bottom) - var(--kb-inset, 0px))) var(--gutter);
   background: var(--glass);
   backdrop-filter: blur(var(--blur-glass)) saturate(1.4);
   -webkit-backdrop-filter: blur(var(--blur-glass)) saturate(1.4);

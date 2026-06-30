@@ -44,7 +44,9 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
-  padding: calc(var(--safe-top) + 8px) 0 12px;
+  /* sticky top:0 pins below the shell top bar (which owns safe-area-inset-top), so --safe-top here was
+     dead space pushing the search field down a notch height. */
+  padding: 8px 0 12px;
   background: linear-gradient(var(--bg-base) 72%, transparent);
 }
 

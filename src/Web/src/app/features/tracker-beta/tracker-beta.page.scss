@@ -162,8 +162,9 @@
   left: 0;
   right: 0;
   z-index: 30;
-  height: calc(var(--day-strip-h) + var(--safe-top));
-  padding-top: var(--safe-top);
+  /* top: --beta-bar-top already clears the notch (the shell top bar owns safe-area-inset-top), so the
+     strip must NOT also pad/grow by --safe-top — that double-counted a full notch height of dead space. */
+  height: var(--day-strip-h);
   padding-inline: var(--gutter) var(--gutter-r);
   display: flex;
   align-items: center;

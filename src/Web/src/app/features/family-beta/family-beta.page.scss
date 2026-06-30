@@ -170,8 +170,10 @@
   left: 0; right: 0; bottom: var(--beta-bar-bottom, 0px);
   z-index: 30;
   display: flex; align-items: center; gap: 12px;
-  min-height: calc(var(--bar-bottom-h) + var(--safe-bottom));
-  padding: 12px var(--gutter-r) max(12px, var(--safe-bottom)) var(--gutter);
+  // bottom: --beta-bar-bottom already lifts this above the tab bar (which owns safe-area-inset-bottom),
+  // so the bar must NOT also pad/grow by --safe-bottom — that double-counted the home-indicator inset.
+  min-height: var(--bar-bottom-h);
+  padding: 12px var(--gutter-r) 12px var(--gutter);
   background: var(--glass);
   backdrop-filter: blur(var(--blur-glass)) saturate(1.4);
   -webkit-backdrop-filter: blur(var(--blur-glass)) saturate(1.4);

@@ -41,7 +41,7 @@ const DETENT_FRACTION: Record<SheetDetent, number> = { peek: 0.32, half: 0.62, f
              (pointercancel)="onGripUp($event)">
           <span class="tb-sheet-handle" aria-hidden="true"></span>
         </div>
-        <div class="tb-sheet-body">
+        <div class="tb-sheet-body" (focusin)="onFocusIn($event)">
           <ng-content></ng-content>
         </div>
       </div>
@@ -59,8 +59,11 @@ const DETENT_FRACTION: Record<SheetDetent, number> = { peek: 0.32, half: 0.62, f
     @keyframes tb-scrim-in { from { opacity: 0; } to { opacity: 1; } }
 
     .tb-sheet-panel {
-      position: absolute; left: 0; right: 0; bottom: 0; pointer-events: auto;
-      height: calc(var(--sheet-frac, .62) * 100dvh);
+      position: absolute; left: 0; right: 0; pointer-events: auto;
+      /* Sit above the iOS soft keyboard: --kb-inset (0 when none) lifts the panel and caps its height to
+         the space above the keyboard, so the food / exercise / supplement inputs are never hidden under it. */
+      bottom: var(--kb-inset, 0px);
+      height: min(calc(var(--sheet-frac, .62) * 100dvh), calc(100dvh - var(--kb-inset, 0px)));
       max-height: 100dvh;
       display: flex; flex-direction: column;
       background: var(--glass);
@@ -69,7 +72,7 @@ const DETENT_FRACTION: Record<SheetDetent, number> = { peek: 0.32, half: 0.62, f
       border-radius: var(--r-glass) var(--r-glass) 0 0;
       box-shadow: var(--lift-3);
       border-top: 1px solid var(--glass-edge);
-      transition: transform 320ms var(--ease-out);
+      transition: transform 320ms var(--ease-out), bottom 240ms var(--ease-out), height 240ms var(--ease-out);
       will-change: transform;
       overscroll-behavior: contain;
     }
@@ -152,6 +155,14 @@ export class BottomSheet {
 
   protected onScrim(): void {
     if (this.dismissable()) this.dismiss();
+  }
+
+  /** Scroll a newly-focused field into the visible area once the keyboard has animated in (the panel is
+   *  already lifted by --kb-inset; this centres the active input within the sheet body). */
+  protected onFocusIn(e: FocusEvent): void {
+    const t = e.target as HTMLElement | null;
+    if (!t || !/^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName)) return;
+    setTimeout(() => t.scrollIntoView({ block: 'center', behavior: 'smooth' }), 80);
   }
 
   /** Escape dismisses the sheet (when dismissable), matching the scrim-tap / swipe-down affordances. */

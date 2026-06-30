@@ -15,6 +15,10 @@
   position: sticky;
   top: 0;
   z-index: 50;
+  /* Marketing pages (/login, /about, …) render OUTSIDE the mobile shell, so in an installed iOS PWA this
+     sticky bar would sit under the notch/Dynamic Island. Pad the top by the safe-area inset (0 in a normal
+     browser tab) so the brand + links clear it; the dropdown + scrim below offset by the same amount. */
+  padding-top: env(safe-area-inset-top, 0px);
   transition:
     background 240ms var(--aur-ease),
     border-color 240ms var(--aur-ease),
@@ -197,7 +201,7 @@
   .mnav-scrim {
     display: block;
     position: fixed;
-    inset: 64px 0 0 0;
+    inset: calc(64px + env(safe-area-inset-top, 0px)) 0 0 0;
     z-index: 40;
     background: color-mix(in srgb, var(--aur-void) 58%, transparent);
     backdrop-filter: blur(3px);
@@ -206,7 +210,7 @@
 
   .mnav-links {
     position: fixed;
-    inset: 64px 0 auto 0;
+    inset: calc(64px + env(safe-area-inset-top, 0px)) 0 auto 0;
     z-index: 45;
     flex-direction: column;
     align-items: stretch;
@@ -218,7 +222,7 @@
     -webkit-backdrop-filter: blur(18px) saturate(130%);
     border-bottom: 1px solid var(--aur-line);
     box-shadow: 0 24px 60px -28px rgba(0, 0, 0, 0.7);
-    max-height: calc(100dvh - 64px);
+    max-height: calc(100dvh - 64px - env(safe-area-inset-top, 0px));
     overflow-y: auto;
     overscroll-behavior: contain;
     transform: translateY(-12px);

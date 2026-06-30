@@ -440,13 +440,20 @@ export class LeftoversSheet {
   /** Visually-hidden aria-live status. */
   protected readonly announce = signal('');
 
+  /** Last seen open() — so seed + load fire only on the false→true open transition. */
+  private wasOpen = false;
+
   constructor() {
-    // Each time the sheet OPENS: rebuild the day chips from the viewed date, then (re)load the planner weeks.
+    // On the OPEN transition only: rebuild the day chips from the viewed date, then (re)load the planner
+    // weeks. Guarding to the rising edge keeps a stray reactive re-fire from re-running load() — whose
+    // synchronous query.set('') would otherwise wipe a search the user is mid-typing.
     effect(() => {
-      if (this.open()) {
+      const isOpen = this.open();
+      if (isOpen && !this.wasOpen) {
         this.seedDays();
         void this.load();
       }
+      this.wasOpen = isOpen;
     });
   }
 
