@@ -33,7 +33,7 @@
   --bg-rise: var(--tech-panel, #161a26);
   --bg-sink: var(--tech-bg-sunken, #0a0c12);
 
-  background: radial-gradient(120% 80% at 50% -10%, var(--tech-panel-raised, #1b2233) 0%, var(--bg-base) 58%);
+  background: var(--bg-base);
 }
 
 @include kit.beta-springs;
@@ -52,7 +52,7 @@
   min-height: 100%;
   max-width: 560px;
   margin: 0 auto;
-  padding-top: calc(var(--safe-top) + 10px);
+  padding-top: calc(var(--safe-top) + 4px);
   padding-bottom: calc(var(--safe-bottom) + 28px);
   padding-inline: var(--gutter) var(--gutter-r);
 }
@@ -62,7 +62,7 @@
 // IMMERSIVE IDENTITY HEADER
 // ============================================================================
 
-.hh { position: relative; padding: 8px 2px 4px; isolation: isolate; }
+.hh { position: relative; padding: 2px 2px 4px; isolation: isolate; }
 .hh__id { display: flex; align-items: center; gap: 14px; }
 .hh__avatar {
   flex: 0 0 auto; position: relative; display: grid; place-items: center;

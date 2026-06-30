@@ -47,7 +47,7 @@
   margin-inline: auto;
   width: 100%;
   box-sizing: border-box;
-  padding-top: calc(var(--safe-top) + 8px);
+  padding-top: calc(var(--safe-top) + 2px);
   padding-bottom: calc(var(--safe-bottom) + 96px);   // clears the fixed FAB
   padding-inline: var(--gutter) var(--gutter-r);
 }
@@ -61,7 +61,7 @@
   display: flex;
   flex-direction: column;
   gap: 4px;
-  padding: 8px 4px 4px;
+  padding: 2px 4px 4px;
   isolation: isolate;
 }
 

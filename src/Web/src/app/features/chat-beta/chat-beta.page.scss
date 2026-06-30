@@ -108,7 +108,7 @@
 .lh {
   position: relative; isolation: isolate;
   flex: 0 0 auto;
-  padding: calc(var(--safe-top) + 12px) var(--gutter) 10px var(--gutter);
+  padding: calc(var(--safe-top) + 4px) var(--gutter) 10px var(--gutter);
 }
 .lh__row { display: flex; align-items: center; gap: 10px; }
 .lh__title {

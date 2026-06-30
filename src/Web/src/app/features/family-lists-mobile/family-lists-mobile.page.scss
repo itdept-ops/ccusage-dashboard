@@ -38,7 +38,7 @@
   margin-inline: auto;
   width: 100%;
   box-sizing: border-box;
-  padding-top: calc(var(--safe-top) + 8px);
+  padding-top: calc(var(--safe-top) + 4px);
   padding-bottom: calc(var(--safe-bottom) + 96px);   // clears the fixed FAB
   padding-inline: var(--gutter) var(--gutter-r);
 }
@@ -50,8 +50,8 @@
 .fl-hero {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  padding: 4px 4px 4px;
+  gap: 2px;
+  padding: 2px 4px 2px;
 }
 
 .fl-hero__kicker {

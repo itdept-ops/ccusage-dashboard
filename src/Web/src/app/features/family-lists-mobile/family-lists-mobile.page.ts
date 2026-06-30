@@ -55,7 +55,7 @@ import {
         <header class="fl-hero">
           <p class="fl-hero__kicker"><mat-icon aria-hidden="true">checklist</mat-icon> Family Lists</p>
           <h1 class="fl-hero__title">Lists</h1>
-          <p class="fl-hero__sub">Your household's shared lists — add, check off, done together.</p>
+          <p class="fl-hero__sub">Your household's shared lists.</p>
 
           @if (!loading() && !errored()) {
             <div class="fl-stats">

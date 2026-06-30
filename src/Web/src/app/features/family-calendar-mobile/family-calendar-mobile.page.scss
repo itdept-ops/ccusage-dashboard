@@ -47,7 +47,7 @@
   margin-inline: auto;
   width: 100%;
   box-sizing: border-box;
-  padding-top: calc(var(--safe-top) + 8px);
+  padding-top: calc(var(--safe-top) + 2px);
   padding-bottom: calc(var(--safe-bottom) + 96px);  // clear the fixed FAB + tab bar
   padding-inline: var(--gutter) var(--gutter-r);     // safe-area aware on both sides
 }
@@ -59,7 +59,7 @@
 .fc-hero {
   position: relative;
   isolation: isolate;
-  padding: 6px 2px 2px;
+  padding: 0 2px 2px;
 }
 
 .fc-hero__kicker {

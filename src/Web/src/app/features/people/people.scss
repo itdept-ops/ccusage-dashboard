@@ -2,12 +2,12 @@
   display: block;
   max-width: var(--tech-max-width);
   margin: 0 auto;
-  padding: 14px var(--tech-space-3, 16px) var(--tech-space-6, 48px);
+  padding: 8px var(--tech-space-3, 16px) var(--tech-space-6, 48px);
 }
 
 /* ───────────────────────── Header ───────────────────────── */
 .head {
-  margin-bottom: 18px;
+  margin-bottom: 12px;
 
   &__row {
     display: flex;

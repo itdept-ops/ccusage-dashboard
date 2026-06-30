@@ -76,7 +76,7 @@ const AUTO_ICON: Record<string, string> = {
             <h1 class="cm-hero__title">Start your 75 Hard</h1>
             <p class="cm-hero__sub">
               @if (errored()) { Couldn't load — pull to retry. }
-              @else { Six tasks, streak &amp; points. Start a run on the full page. }
+              @else { Six tasks, streak &amp; points — start on the full page. }
             </p>
             <a class="cm-hero__cta" routerLink="/challenge">
               Open the challenge <mat-icon aria-hidden="true">arrow_forward</mat-icon>

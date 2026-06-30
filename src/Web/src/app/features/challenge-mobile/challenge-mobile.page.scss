@@ -43,7 +43,7 @@
   margin-inline: auto;
   width: 100%;
   box-sizing: border-box;
-  padding-top: calc(var(--safe-top) + 8px);
+  padding-top: calc(var(--safe-top) + 4px);
   padding-bottom: calc(var(--safe-bottom) + 32px);
   padding-inline: var(--gutter) var(--gutter-r);
 }
@@ -58,7 +58,7 @@
   flex-direction: column;
   align-items: center;
   gap: 8px;
-  padding: 12px 16px 16px;
+  padding: 8px 16px 10px;
   border-radius: var(--r-ring);
   background: var(--glass);
   backdrop-filter: blur(var(--blur-glass)) saturate(1.4);
@@ -92,11 +92,6 @@
 .cm-hero__orb mat-icon { font-size: 34px; width: 34px; height: 34px; }
 
 .cm-hero__ring { position: relative; margin: 4px 0 2px; }
-.cm-hero__ring::before {
-  content: ''; position: absolute; inset: -10px; border-radius: 50%; z-index: -1;
-  background: radial-gradient(circle, color-mix(in srgb, var(--accent-a) 30%, transparent), transparent 68%);
-  filter: blur(8px);
-}
 
 .cm-hero__numeral { display: flex; flex-direction: column; align-items: center; line-height: 1; }
 .cm-hero__n {
