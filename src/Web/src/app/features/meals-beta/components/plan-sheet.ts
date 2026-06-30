@@ -104,7 +104,7 @@ import { slotMeta } from '../meals-beta.model';
 
         @if (phase() === 'error') {
           <div class="ps-empty">
-            <mat-icon aria-hidden="true">cloud_off</mat-icon>
+            <span class="ps-empty-ic" aria-hidden="true"><mat-icon>cloud_off</mat-icon></span>
             <p>Couldn't reach the planner. Please try again.</p>
             <button type="button" class="ps-primary" (click)="phase.set('setup')">Back</button>
           </div>
@@ -164,7 +164,7 @@ import { slotMeta } from '../meals-beta.model';
     @media (prefers-reduced-motion: reduce) { .ps-spin { animation: none; } }
 
     .ps-skel { display: flex; flex-direction: column; gap: 10px; }
-    .ps-note, .ps-empty {
+    .ps-note {
       display: flex; align-items: center; gap: 8px; padding: 10px 12px; border-radius: var(--r-tile);
       background: color-mix(in srgb, var(--warn) 14%, var(--bg-sink)); color: var(--ink);
       font-size: 13px; font-weight: 600;
@@ -181,6 +181,7 @@ import { slotMeta } from '../meals-beta.model';
       display: flex; align-items: stretch; gap: 10px; width: 100%; text-align: left;
       padding: 11px 12px; border-radius: var(--r-tile);
       border: 1px solid var(--hairline); background: var(--bg-rise); color: var(--ink);
+      box-shadow: inset 0 1px 0 color-mix(in srgb, #fff 6%, transparent);
       cursor: pointer; -webkit-tap-highlight-color: transparent;
       transition: border-color 160ms var(--ease-out), background 160ms var(--ease-out), opacity 160ms var(--ease-out);
     }
@@ -205,9 +206,18 @@ import { slotMeta } from '../meals-beta.model';
     .ps-slot-need.ps-have { color: var(--signal); }
 
     .ps-actions { display: flex; gap: 10px; align-items: center; padding-top: 4px; }
-    .ps-empty { flex-direction: column; text-align: center; padding: 24px 16px; gap: 10px; background: transparent; }
-    .ps-empty mat-icon { font-size: 34px; width: 34px; height: 34px; color: var(--ink-faint); }
-    .ps-empty p { margin: 0; color: var(--ink-dim); }
+    .ps-empty {
+      display: flex; flex-direction: column; align-items: center; text-align: center; gap: 12px;
+      padding: 32px 18px; border-radius: var(--r-tile); background: var(--bg-rise); border: 1px dashed var(--hairline);
+    }
+    .ps-empty-ic {
+      display: grid; place-items: center; width: 52px; height: 52px; border-radius: 50%;
+      background: color-mix(in srgb, var(--accent-a) 10%, var(--bg-sink));
+      box-shadow: inset 0 1px 0 color-mix(in srgb, #fff 10%, transparent);
+      color: var(--accent-a);
+    }
+    .ps-empty-ic mat-icon { font-size: 26px; width: 26px; height: 26px; }
+    .ps-empty p { margin: 0; color: var(--ink-dim); font-size: 14px; font-weight: 600; max-width: 26ch; }
   `],
 })
 export class ForagePlanSheet {

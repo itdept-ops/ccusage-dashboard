@@ -139,7 +139,13 @@
   border: 1px solid color-mix(in srgb, var(--accent-a) 30%, var(--tech-border, var(--hairline)));
   background: color-mix(in srgb, var(--accent-a) 12%, var(--tech-bg-sunken, var(--bg-rise)));
   color: var(--tech-text, var(--ink)); text-decoration: none; font-weight: 700; font-size: 13px;
-  transition: transform 120ms var(--ease-spring);
+  transition: transform 120ms var(--ease-spring), background 120ms var(--ease-out), box-shadow 120ms var(--ease-out);
+}
+@media (hover: hover) {
+  .hh__chip:hover {
+    background: color-mix(in srgb, var(--accent-a) 20%, var(--tech-bg-sunken, var(--bg-rise)));
+    box-shadow: 0 2px 8px color-mix(in srgb, var(--accent-a) 22%, transparent);
+  }
 }
 .hh__chip:active { transform: scale(.95); }
 .hh__chip:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
@@ -196,7 +202,13 @@
   border-radius: var(--tech-r-control, var(--r-pill));
   border: 1px solid var(--tech-border, var(--hairline)); background: var(--bg-rise); color: var(--tech-text, var(--ink));
   cursor: pointer; box-shadow: var(--tech-shadow-panel, var(--lift-1));
-  transition: transform 120ms var(--ease-spring);
+  transition: transform 120ms var(--ease-spring), background 120ms var(--ease-out), box-shadow 120ms var(--ease-out);
+}
+@media (hover: hover) {
+  .actions__add:hover {
+    background: color-mix(in srgb, var(--accent-a) 10%, var(--bg-rise));
+    box-shadow: var(--tech-shadow-raised, var(--lift-2));
+  }
 }
 .actions__add:active { transform: scale(.94); }
 .actions__add:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }

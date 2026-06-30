@@ -116,6 +116,18 @@
       </p>
     </div>
 
+    @if (discord() === null) {
+      <!-- Skeleton loading state while the Discord GET resolves -->
+      <div class="np-discord-loading" aria-busy="true" aria-label="Loading Discord settings">
+        <span class="np-skel np-skel--icon"></span>
+        <div class="np-skel-body">
+          <span class="np-skel np-skel--label"></span>
+          <span class="np-skel np-skel--sub"></span>
+        </div>
+        <span class="np-skel np-skel--toggle"></span>
+      </div>
+    }
+
     <div class="np-row">
       <div class="np-row__text">
         <mat-icon class="np-row__icon">forum</mat-icon>

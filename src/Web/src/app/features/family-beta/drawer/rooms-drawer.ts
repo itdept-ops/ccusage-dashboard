@@ -77,7 +77,13 @@ const ROOMS: Room[] = [
       min-height: 56px; padding: 0 14px; border-radius: var(--r-card);
       background: var(--bg-rise); box-shadow: var(--lift-1); border: 1px solid var(--hairline); color: var(--ink);
       font: inherit; font-size: 15px; font-weight: 700; cursor: pointer;
-      transition: transform 120ms var(--ease-out);
+      transition: transform 120ms var(--ease-out), box-shadow 120ms var(--ease-out), background 120ms var(--ease-out);
+    }
+    @media (hover: hover) {
+      .drawer__toggle:hover {
+        background: color-mix(in srgb, var(--accent-a) 6%, var(--bg-rise));
+        box-shadow: var(--lift-2);
+      }
     }
     .drawer__toggle:active { transform: scale(.99); }
     .drawer__toggle:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
@@ -87,7 +93,7 @@ const ROOMS: Room[] = [
     }
     .drawer__ic mat-icon { font-size: 19px; width: 19px; height: 19px; color: color-mix(in srgb, var(--accent-a) 80%, var(--ink)); }
     .drawer__hint { margin-left: auto; font-size: 12px; font-weight: 600; color: var(--ink-dim); }
-    .drawer__chev { flex: 0 0 auto; color: var(--ink-dim); }
+    .drawer__chev { flex: 0 0 auto; color: var(--ink-dim); transition: transform 200ms var(--ease-spring); }
 
     .grid {
       display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 10px;
@@ -100,9 +106,16 @@ const ROOMS: Room[] = [
       min-height: 82px; padding: 12px 8px; border-radius: var(--r-tile);
       background: var(--bg-rise); box-shadow: var(--lift-1); border: 1px solid var(--hairline);
       color: var(--ink); text-decoration: none; text-align: center;
-      transition: transform 120ms var(--ease-out);
+      transition: transform 120ms var(--ease-spring), box-shadow 120ms var(--ease-out), background 120ms var(--ease-out);
     }
-    .tile:active { transform: scale(.96); }
+    @media (hover: hover) {
+      .tile:hover {
+        transform: translateY(-2px);
+        box-shadow: var(--lift-2);
+        background: color-mix(in srgb, var(--accent-a) 8%, var(--bg-rise));
+      }
+    }
+    .tile:active { transform: scale(.95); box-shadow: var(--lift-1); }
     .tile:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
     .tile__icon { color: color-mix(in srgb, var(--accent-a) 75%, var(--ink)); font-size: 24px; width: 24px; height: 24px; }
     .tile__label { font-size: 12px; font-weight: 600; line-height: 1.2; }

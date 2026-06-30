@@ -1,9 +1,18 @@
 @if (loading()) {
-  <mat-progress-bar mode="indeterminate" aria-label="Loading shared stats" />
+  <div class="ps-loading-state" role="status" aria-label="Loading shared stats">
+    <div class="ps-state-orb">
+      <mat-progress-bar mode="indeterminate" aria-hidden="true" />
+    </div>
+    <p class="ps-state-title">Loading shared view…</p>
+    <p class="ps-state-hint">Fetching your usage snapshot</p>
+  </div>
 } @else if (error()) {
-  <div class="ps-error">
-    <h2>Link unavailable</h2>
-    <p>This shared link is invalid or has expired.</p>
+  <div class="ps-error-state" role="alert">
+    <div class="ps-state-orb ps-state-orb--error">
+      <span class="material-icons" aria-hidden="true">link_off</span>
+    </div>
+    <h2 class="ps-state-title">Link unavailable</h2>
+    <p class="ps-state-hint">This shared link is invalid or has expired.</p>
   </div>
 } @else if (data(); as d) {
   <div class="ps-wrap">

@@ -50,22 +50,24 @@
 // ───────── hero + nav ─────────
 .td-hero {
   position: relative; display: flex; flex-direction: column; gap: 4px;
-  padding: 8px 4px 4px; overflow: hidden;
+  padding: 8px 4px 4px; isolation: isolate;
   &__bloom {
-    position: absolute; top: -60px; right: -40px; width: 200px; height: 200px;
-    background: radial-gradient(closest-side,
-      color-mix(in srgb, var(--accent-a) 40%, transparent), transparent 70%);
-    filter: blur(8px); pointer-events: none;
+    position: absolute; inset: -40% -30% auto -10%; height: 220px; z-index: -1;
+    background: radial-gradient(60% 60% at 70% 30%, color-mix(in srgb, var(--accent-a) 40%, transparent), transparent 70%);
+    filter: blur(40px); opacity: .6; pointer-events: none;
   }
   &__kicker {
     display: inline-flex; align-items: center; gap: 6px; margin: 0;
-    font-size: 13px; font-weight: 700; letter-spacing: .03em; text-transform: uppercase;
-    color: var(--accent-a);
-    mat-icon { font-size: 18px; width: 18px; height: 18px; }
+    font-size: .8rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase;
+    color: var(--ink-dim);
+    mat-icon { font-size: 18px; width: 18px; height: 18px; color: var(--accent-a); }
   }
   &__title {
-    margin: 2px 0 2px; font-size: 26px; font-weight: 800; letter-spacing: -.01em;
-    color: var(--ink); font-family: var(--font-display);
+    margin: 2px 0 0; font-size: clamp(26px, 7vw, 34px); font-weight: 800; letter-spacing: -.02em;
+    color: var(--ink); font-family: var(--font-display, var(--tech-font-display, inherit));
+  }
+  &__sub {
+    margin: 0; font-size: .9rem; line-height: 1.45; color: var(--ink-dim);
   }
 }
 
@@ -84,9 +86,11 @@
     border: 1px solid var(--tech-border, var(--hairline));
     background: var(--bg-rise); color: var(--ink);
     touch-action: manipulation; -webkit-tap-highlight-color: transparent;
-    transition: opacity .12s, transform .12s;
+    transition: opacity .12s, transform .12s, box-shadow .12s, background .12s;
+    &:not(:disabled):hover { background: color-mix(in srgb, var(--accent-a) 10%, var(--bg-rise)); }
     &:active:not(:disabled) { opacity: .75; transform: scale(.95); }
-    &:disabled { opacity: .35; }
+    &:disabled { opacity: .35; cursor: default; }
+    &:focus-visible { outline: 2px solid var(--focus, var(--accent-a)); outline-offset: 2px; }
     mat-icon { font-size: 24px; width: 24px; height: 24px; }
   }
   &__label { flex: 1; display: flex; flex-direction: column; align-items: center; line-height: 1.15; }
@@ -105,9 +109,11 @@
   background: color-mix(in srgb, var(--accent-a) 14%, transparent);
   border: 1px solid color-mix(in srgb, var(--accent-a) 30%, transparent);
   touch-action: manipulation; -webkit-tap-highlight-color: transparent;
-  transition: opacity .12s;
+  transition: opacity .12s, background .12s;
+  &:not(:disabled):hover { background: color-mix(in srgb, var(--accent-a) 22%, transparent); }
   &:active:not(:disabled) { opacity: .8; }
-  &:disabled { opacity: .5; }
+  &:disabled { opacity: .5; cursor: default; }
+  &:focus-visible { outline: 2px solid var(--focus, var(--accent-a)); outline-offset: 2px; }
   mat-icon { font-size: 16px; width: 16px; height: 16px; }
 }
 
@@ -124,8 +130,10 @@
   border: 1px solid var(--tech-border, var(--hairline));
   color-scheme: light dark;
   touch-action: manipulation; -webkit-tap-highlight-color: transparent;
+  transition: border-color .12s, box-shadow .12s;
+  &:focus-visible, &:focus { outline: none; border-color: var(--accent-a); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent-a) 22%, transparent); }
   &:active:not(:disabled) { opacity: .8; }
-  &:disabled { opacity: .5; }
+  &:disabled { opacity: .5; cursor: default; }
 }
 
 // ───────── AI recap — HERO CARD (gradient-hero: one primary accent fill) ─────────
@@ -163,13 +171,14 @@
   border-radius: var(--tech-radius, var(--r-tile));
   background: var(--bg-rise);
   border: 1px solid var(--tech-border, var(--hairline));
-  box-shadow: var(--tech-shadow-panel, var(--lift-1));
+  // FiMobile card signature: lift shadow + subtle inset top highlight
+  box-shadow: var(--tech-shadow-panel, var(--lift-1)), inset 0 1px 0 var(--glass-edge, rgba(255,255,255,.10));
   overflow: hidden;
   // Gentle hover lift — stat chips are interactive (they convey status at a glance)
   transition: transform .15s var(--ease-out), box-shadow .15s var(--ease-out);
   &:hover {
     transform: translateY(-1px);
-    box-shadow: var(--tech-shadow-raised, var(--lift-2));
+    box-shadow: var(--tech-shadow-raised, var(--lift-2)), inset 0 1px 0 var(--glass-edge, rgba(255,255,255,.10));
   }
   &::before {
     content: ''; position: absolute; inset: 0 auto 0 0; width: 3px;
@@ -204,14 +213,24 @@
     border-radius: var(--tech-radius, var(--r-tile));
     background: var(--bg-rise);
     border: 1px solid var(--tech-border, var(--hairline));
-    box-shadow: var(--tech-shadow-panel, var(--lift-1));
+    // FiMobile card signature: lift shadow + subtle inset top highlight
+    box-shadow: var(--tech-shadow-panel, var(--lift-1)), inset 0 1px 0 var(--glass-edge, rgba(255,255,255,.10));
     font-size: 14px; line-height: 1.45; color: var(--ink);
-    // ── LEADING ICON TILE: accent avatar (FiMobile list-row pattern) ──
+    // ── LEADING ICON ORB: FiMobile list-row icon tile — tinted bg, control radius ──
     mat-icon {
-      font-size: 18px; width: 18px; height: 18px; flex: none; margin-top: 1px;
+      flex: none; margin-top: 1px;
+      font-size: 18px; width: 18px; height: 18px;
       color: var(--accent-a);
     }
   }
+}
+// FiMobile list-row leading icon orb wrapper — wraps the mat-icon in .td-hl li
+.td-hl__orb {
+  flex: none; display: grid; place-items: center;
+  width: 30px; height: 30px; border-radius: var(--tech-r-control, 9px);
+  background: color-mix(in srgb, var(--accent-a) 12%, transparent);
+  color: var(--accent-a);
+  mat-icon { font-size: 18px; width: 18px; height: 18px; }
 }
 
 // ───────── timeline — LIST ROW pattern ─────────

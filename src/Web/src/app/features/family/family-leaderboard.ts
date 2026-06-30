@@ -45,12 +45,15 @@ const METRICS: readonly { key: LeaderboardMetric; label: string; icon: string; u
       </div>
 
       @if (loading()) {
-        <p class="lb__state" role="status">Tallying the standings…</p>
+        <div class="lb__state" role="status">
+          <mat-icon aria-hidden="true">hourglass_empty</mat-icon>
+          <p>Tallying the standings…</p>
+        </div>
       } @else if (rows().length === 0) {
-        <p class="lb__state lb__empty">
-          No shareable activity yet. As household members log workouts, complete challenge days, or hit water
-          goals (with activity sharing on), the leaderboard fills in.
-        </p>
+        <div class="lb__state lb__empty">
+          <mat-icon class="lb__empty-icon" aria-hidden="true">leaderboard</mat-icon>
+          <p>No shareable activity yet. As household members log workouts, complete challenge days, or hit water goals (with activity sharing on), the leaderboard fills in.</p>
+        </div>
       } @else {
         <ol class="lb__rows">
           @for (r of rows(); track r.userId) {

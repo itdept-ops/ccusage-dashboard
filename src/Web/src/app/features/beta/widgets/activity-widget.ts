@@ -44,22 +44,30 @@ import { ReorderableWidget } from './reorderable';
     </atr-widget-shell>
   `,
   styles: [`
-    .ac { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
-    .ac__row { display: grid; grid-template-columns: 42px 42px 1fr auto; align-items: center; gap: 9px; font-size: 12px; }
+    .ac { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+    .ac__row {
+      display: grid; grid-template-columns: 46px 40px 1fr auto; align-items: center; gap: 9px;
+      font-size: 12px; padding: 8px 0;
+      border-bottom: 1px solid var(--hairline);
+      transition: background 120ms var(--ease-out);
+    }
+    .ac__row:last-child { border-bottom: none; padding-bottom: 2px; }
+    .ac__row:first-child { padding-top: 2px; }
     .ac__status {
-      justify-self: start; min-width: 38px; text-align: center;
-      padding: 2px 6px; border-radius: var(--r-pill);
+      justify-self: start; min-width: 40px; text-align: center;
+      padding: 2px 7px; border-radius: var(--r-pill);
       font-variant-numeric: tabular-nums; font-weight: 700; font-size: 11px;
     }
-    .ac__status--ok { color: var(--signal); background: color-mix(in srgb, var(--signal) 13%, transparent); }
-    .ac__status--err { color: var(--warn); background: color-mix(in srgb, var(--warn) 14%, transparent); }
-    .ac__method { color: var(--ink-dim); font-weight: 700; letter-spacing: .02em; }
+    .ac__status--ok  { color: var(--signal); background: color-mix(in srgb, var(--signal) 13%, transparent); }
+    .ac__status--err { color: var(--warn);   background: color-mix(in srgb, var(--warn)   14%, transparent); }
+    .ac__method { color: var(--ink-dim); font-weight: 700; letter-spacing: .03em; text-transform: uppercase; font-size: 11px; }
     .ac__path {
-      color: var(--ink); font-weight: 600;
+      color: var(--ink); font-weight: 600; font-size: 12px;
       overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
     }
     .ac__who {
-      color: var(--ink-faint); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 90px;
+      color: var(--ink-faint); font-size: 11px; font-weight: 600;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 80px; text-align: right;
     }
   `],
 })

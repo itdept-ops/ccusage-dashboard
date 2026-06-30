@@ -33,18 +33,23 @@
 // SHELL — the kit pull-to-refresh wrapper IS the scroll container.
 // ============================================================================
 
-.au-ptr { display: block; height: 100%; }
+.au-ptr { display: block; height: 100%; overflow-x: hidden; }
 
 .au-scroll {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: var(--stack-gap, 16px);
   min-height: 100%;
   padding-top: calc(var(--safe-top) + 8px);
   padding-bottom: calc(var(--safe-bottom) + 28px);
   padding-inline: var(--gutter) var(--gutter-r);
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
+
+  // comfortable max-width on desktop so the list doesn't sprawl edge-to-edge
+  max-width: var(--content-max, 640px);
+  margin-inline: auto;
+  width: 100%;
 }
 
 // ============================================================================
@@ -56,7 +61,7 @@
   display: flex;
   flex-direction: column;
   gap: 6px;
-  padding: 6px 2px 0;
+  padding: 6px 2px 4px;   // 4px bottom pad adds a breath before the next section's flex gap
   isolation: isolate;
 }
 
@@ -81,8 +86,8 @@
 
 .au-hero__title {
   margin: 0;
-  font-family: var(--font-display, var(--font-ui)); font-weight: 800;
-  font-size: clamp(26px, 8vw, 34px); line-height: 1.05;
+  font-family: var(--tech-font-display, var(--font-display, var(--font-ui))); font-weight: 800;
+  font-size: clamp(28px, 8vw, 36px); line-height: 1.05;
   letter-spacing: -.02em; color: var(--ink);
 }
 
@@ -111,10 +116,10 @@
   background: var(--bg-rise);
   border: 1px solid var(--tech-border, var(--hairline));
   border-radius: var(--tech-radius, var(--r-tile));
-  box-shadow: var(--tech-shadow-panel, var(--lift-1));
+  box-shadow: var(--tech-shadow-panel, var(--lift-1)), inset 0 1px 0 var(--glass-edge);
   transition: transform 120ms var(--ease-out), box-shadow 120ms var(--ease-out);
 
-  &:hover { transform: translateY(-1px); box-shadow: var(--tech-shadow-raised, var(--lift-2)); }
+  &:hover { transform: translateY(-1px); box-shadow: var(--tech-shadow-raised, var(--lift-2)), inset 0 1px 0 var(--glass-edge); }
 }
 
 .au-top__ic {
@@ -169,22 +174,22 @@
 // PER-CALL LIST
 // ============================================================================
 
-.au-list { display: flex; flex-direction: column; gap: 9px; }
+.au-list { display: flex; flex-direction: column; gap: 10px; }
 
 .au-row {
   position: relative;
   display: flex; align-items: center; gap: 10px;
   width: 100%; text-align: left;
-  padding: 12px 12px 12px 15px;
+  padding: 13px 12px 13px 15px;
   background: var(--bg-rise);
   border: 1px solid var(--tech-border, var(--hairline));
   border-radius: var(--tech-radius, var(--r-tile));
-  box-shadow: var(--tech-shadow-panel, var(--lift-1));
+  box-shadow: var(--tech-shadow-panel, var(--lift-1)), inset 0 1px 0 var(--glass-edge);
   cursor: pointer; touch-action: manipulation; -webkit-tap-highlight-color: transparent;
   overflow: hidden;
   transition: transform 120ms var(--ease-out), box-shadow 120ms var(--ease-out);
 
-  &:hover { transform: translateY(-1px); box-shadow: var(--tech-shadow-raised, var(--lift-2)); }
+  &:hover { transform: translateY(-1px); box-shadow: var(--tech-shadow-raised, var(--lift-2)), inset 0 1px 0 var(--glass-edge); }
   &:active { transform: scale(.985); box-shadow: var(--press); }
   &:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 }
@@ -274,7 +279,7 @@
 
 .au-pager {
   display: flex; align-items: center; justify-content: space-between; gap: 10px;
-  margin-top: 4px;
+  margin-top: 8px;
 }
 
 .au-pager__btn {
@@ -289,7 +294,7 @@
   transition: opacity 120ms var(--ease-out), transform 120ms var(--ease-out), box-shadow 120ms var(--ease-out);
 
   mat-icon { font-size: 18px; width: 18px; height: 18px; }
-  &:hover:not(:disabled) { box-shadow: var(--tech-shadow-raised, var(--lift-2)); }
+  &:hover:not(:disabled) { transform: translateY(-1px); box-shadow: var(--tech-shadow-raised, var(--lift-2)); }
   &:active:not(:disabled) { transform: scale(.97); }
   &:disabled { opacity: .4; cursor: default; }
   &:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
@@ -381,7 +386,7 @@
 
 .ad__title {
   margin: 0;
-  font-family: var(--font-ui); font-weight: 800; font-size: 19px; color: var(--ink);
+  font-family: var(--tech-font-display, var(--font-display, var(--font-ui))); font-weight: 800; font-size: 19px; color: var(--ink);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 
@@ -390,9 +395,12 @@
   font-family: var(--font-ui); font-size: 12.5px; color: var(--ink-dim);
 }
 
-// token / cost breakdown grid
+// token / cost breakdown grid — 4-col; collapses to 2-col on very narrow screens (≥360px target)
 .ad__macros {
   display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px;
+  @media (max-width: 380px) {
+    grid-template-columns: repeat(2, 1fr);
+  }
 }
 
 .ad__macro {
@@ -401,7 +409,7 @@
   background: var(--bg-rise);
   border: 1px solid var(--tech-border, var(--hairline));
   border-radius: var(--tech-r-control, var(--r-tile));
-  box-shadow: var(--tech-shadow-panel, var(--lift-1));
+  box-shadow: var(--tech-shadow-panel, var(--lift-1)), inset 0 1px 0 var(--glass-edge);
 }
 
 .ad__macro-n {
@@ -421,7 +429,7 @@
   background: var(--bg-rise);
   border: 1px solid var(--tech-border, var(--hairline));
   border-radius: var(--tech-radius, var(--r-card));
-  box-shadow: var(--tech-shadow-panel, var(--lift-1));
+  box-shadow: var(--tech-shadow-panel, var(--lift-1)), inset 0 1px 0 var(--glass-edge);
   overflow: hidden;
 }
 

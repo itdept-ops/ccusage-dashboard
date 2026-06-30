@@ -1,7 +1,7 @@
 <div class="welcome">
   <div class="hero glass">
     <span class="micro-label hero-eyebrow">~/welcome — you're signed in</span>
-    <h2>Welcome, {{ displayName() }}.</h2>
+    <h2>Welcome, <span class="display-name-grad">{{ displayName() }}</span>.</h2>
 
     @if (pages().length) {
       <p class="sub">You have access to the following {{ pages().length === 1 ? 'page' : 'pages' }}. Need more?
@@ -25,9 +25,12 @@
         }
       </nav>
     } @else {
-      <div class="empty">
-        <mat-icon>hourglass_empty</mat-icon>
-        <span>Awaiting access</span>
+      <div class="empty-state" role="status">
+        <span class="empty-orb" aria-hidden="true">
+          <mat-icon>hourglass_empty</mat-icon>
+        </span>
+        <span class="empty-title">Awaiting access</span>
+        <span class="empty-hint">An administrator needs to grant permissions before you can get started.</span>
       </div>
     }
 

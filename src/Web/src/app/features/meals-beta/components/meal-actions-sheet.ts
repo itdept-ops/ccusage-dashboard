@@ -89,6 +89,7 @@ import { hasIngredients, slotMeta } from '../meals-beta.model';
     .ma-macro {
       display: flex; flex-direction: column; align-items: center; gap: 1px;
       padding: 10px 4px; border-radius: var(--r-tile); background: var(--bg-sink); border: 1px solid var(--hairline);
+      box-shadow: inset 0 1px 0 color-mix(in srgb, #fff 8%, transparent);
     }
     .ma-macro--cal { border-color: color-mix(in srgb, var(--accent-a) 36%, transparent); }
     .ma-val { font-family: var(--font-display); font-variant-numeric: tabular-nums; font-size: 19px; font-weight: 600; color: var(--ink); line-height: 1; }
@@ -97,8 +98,16 @@ import { hasIngredients, slotMeta } from '../meals-beta.model';
 
     .ma-ings { display: flex; flex-direction: column; gap: 6px; }
     .ma-ings-h { font-size: 12px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; color: var(--ink-dim); }
-    .ma-ings ul { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 3px; }
-    .ma-ings li { font-size: 14px; color: var(--ink); }
+    .ma-ings ul {
+      margin: 0; padding: 0; list-style: none;
+      display: flex; flex-direction: column;
+      border: 1px solid var(--hairline); border-radius: var(--r-tile); overflow: hidden;
+    }
+    .ma-ings li {
+      font-size: 14px; font-weight: 600; color: var(--ink);
+      padding: 9px 12px; background: var(--bg-rise);
+    }
+    .ma-ings li + li { border-top: 1px solid var(--hairline); }
 
     .ma-actions { display: flex; flex-direction: column; gap: 10px; padding-top: 2px; }
     .ma-btn {

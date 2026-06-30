@@ -1,9 +1,11 @@
 <header class="head">
-  <span class="head-eyebrow mono-num">~/pacts</span>
-  <h2>Habit pacts</h2>
-  <p class="sub">Shared accountability goals. Pick an activity, set a target over a stretch of days, and invite
-    the people in your circle to race it with you. Only your mutual contacts can be invited — no unsolicited
-    pings.</p>
+  <div class="head__body">
+    <span class="head-eyebrow">Accountability</span>
+    <h2 class="head__title">Habit Pacts</h2>
+    <p class="sub">Shared accountability goals. Pick an activity, set a target over a stretch of days, and invite
+      the people in your circle to race it with you. Only your mutual contacts can be invited — no unsolicited
+      pings.</p>
+  </div>
   <button mat-flat-button color="primary" type="button" class="head-cta" (click)="toggleCreate()">
     <mat-icon aria-hidden="true">{{ showCreate() ? 'close' : 'add' }}</mat-icon>
     {{ showCreate() ? 'Cancel' : 'New pact' }}
@@ -80,9 +82,22 @@
 }
 
 @if (loading()) {
-  <div class="state" role="status" aria-live="polite">
-    <mat-progress-spinner mode="indeterminate" diameter="36" />
-    <p>Loading your pacts…</p>
+  <div class="pacts-loading" role="status" aria-live="polite">
+    @for (_ of [1, 2, 3]; track $index) {
+      <div class="pact pact--skeleton" aria-hidden="true">
+        <div class="pact__head">
+          <span class="pact__icon skeleton-orb"></span>
+          <div class="pact__id">
+            <div class="skeleton-line skeleton-line--title"></div>
+            <div class="skeleton-line skeleton-line--meta"></div>
+          </div>
+        </div>
+        <div class="pact__members" style="margin-top: 12px;">
+          <div class="skeleton-chip"></div>
+          <div class="skeleton-chip"></div>
+        </div>
+      </div>
+    }
   </div>
 } @else if (error()) {
   <app-bs-error
@@ -162,8 +177,8 @@
               @if (rows.length) {
                 <ul class="standings">
                   @for (r of rows; track r.userId; let i = $index) {
-                    <li class="standing" [class.is-met]="r.metTarget">
-                      <span class="standing__rank">{{ i + 1 }}</span>
+                    <li class="standing" [class.is-met]="r.metTarget" [class.is-top]="i === 0" [class.is-second]="i === 1" [class.is-third]="i === 2">
+                      <span class="standing__rank" [class.rank--gold]="i === 0" [class.rank--silver]="i === 1" [class.rank--bronze]="i === 2">{{ i + 1 }}</span>
                       <span class="standing__avatar" aria-hidden="true">{{ initials(r.name) }}</span>
                       <span class="standing__name">{{ r.name }}</span>
                       <span class="standing__count">{{ r.count }} / {{ p.targetIntValue }}</span>
@@ -174,10 +189,16 @@
                   }
                 </ul>
               } @else {
-                <p class="pact__progress-empty">No progress recorded yet.</p>
+                <div class="pact__progress-hint">
+                  <mat-icon aria-hidden="true">leaderboard</mat-icon>
+                  <span>No progress recorded yet.</span>
+                </div>
               }
             } @else {
-              <p class="pact__progress-empty">Loading standings…</p>
+              <div class="pact__progress-hint pact__progress-hint--loading">
+                <mat-progress-spinner mode="indeterminate" diameter="18" />
+                <span>Loading standings…</span>
+              </div>
             }
           </div>
         }

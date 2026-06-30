@@ -1,5 +1,5 @@
 <div class="head">
-  <div>
+  <div class="head__copy">
     <h2>Settings</h2>
     <p class="sub">Configure how transcripts are ingested, manage the sources that feed the sync, and review the result
       of the last run.</p>
@@ -85,7 +85,11 @@
         </div>
       </div>
     } @empty {
-      <p class="hint">No sources configured yet.</p>
+      <div class="sources-empty">
+        <div class="sources-empty__orb"><mat-icon aria-hidden="true">folder_open</mat-icon></div>
+        <p>No sources configured yet.</p>
+        <span class="sources-empty__hint">Sources are ingestion paths for JSONL log folders. They will appear here once the backend is configured.</span>
+      </div>
     }
   </mat-card>
 
@@ -177,8 +181,9 @@
           <mat-progress-bar mode="indeterminate" aria-label="Loading routes" />
         } @else if (routesError()) {
           <div class="route-empty">
-            <mat-icon aria-hidden="true">cloud_off</mat-icon>
-            <span>Couldn't load the routing table.</span>
+            <div class="route-empty__orb"><mat-icon aria-hidden="true">cloud_off</mat-icon></div>
+            <p class="route-empty__title">Couldn't load the routing table.</p>
+            <span class="route-empty__hint">Check your connection and try again.</span>
             <button mat-stroked-button (click)="loadRoutes()">
               <mat-icon aria-hidden="true">refresh</mat-icon> Retry
             </button>
@@ -212,7 +217,11 @@
                 </span>
               </div>
             } @empty {
-              <p class="hint">No routes configured.</p>
+              <div class="route-empty">
+                <div class="route-empty__orb"><mat-icon aria-hidden="true">alt_route</mat-icon></div>
+                <p class="route-empty__title">No routes configured.</p>
+                <span class="route-empty__hint">Event routes control which Discord notifications are forwarded.</span>
+              </div>
             }
           </div>
         }

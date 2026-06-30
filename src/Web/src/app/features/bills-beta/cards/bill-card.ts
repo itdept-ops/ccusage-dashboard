@@ -122,6 +122,11 @@ interface Member {
       -webkit-tap-highlight-color: transparent;
       transition: transform 140ms var(--ease-out), box-shadow 220ms var(--ease-out);
     }
+    .bc:hover {
+      transform: translateY(-2px);
+      box-shadow: var(--lift-3, var(--lift-2)),
+        0 0 0 1px color-mix(in srgb, var(--accent-a) 22%, transparent);
+    }
     .bc:active {
       transform: scale(.99);
       box-shadow: var(--lift-1),

@@ -68,6 +68,10 @@
   --reel-pad: max(18px, env(safe-area-inset-left, 0px));
   --reel-pad-r: max(18px, env(safe-area-inset-right, 0px));
 
+  // The sticky glass top bar height — used by wb-top (min-height) and wb-scroll (padding-top offset).
+  // 56px accommodates the segmented control row (≈40px) plus 8px top/bottom padding inside the bar.
+  --bar-top-h: 56px;
+
   height: 100%;   // fill the immersive shell frame (.content--mobile); inner regions own the scroll
 }
 
@@ -114,8 +118,12 @@
   border: 1px solid var(--glass-edge);
   background: color-mix(in srgb, var(--accent-a) 14%, var(--bg-rise));
   color: var(--ink); cursor: pointer;
-  transition: transform 120ms var(--ease-spring), background 160ms var(--ease-out);
+  transition: transform 120ms var(--ease-spring), background 160ms var(--ease-out), color 160ms var(--ease-out);
   mat-icon { font-size: 22px; width: 22px; height: 22px; }
+  &:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--accent-a) 24%, var(--bg-rise));
+    color: var(--ink);
+  }
   &:active { transform: scale(.92); }
   &:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
   &:disabled { opacity: .4; cursor: default; }
@@ -158,6 +166,10 @@
   scrollbar-width: none;
   // The reel is tall — a full immersive story panel. Capped so desktop centers nicely.
   height: clamp(440px, 72vh, 660px);
+  // Desktop: cap the reel column so slides don't stretch across the full viewport width.
+  max-width: 720px;
+  margin-inline: auto;
+  width: 100%;
   &::-webkit-scrollbar { display: none; }
 }
 
@@ -226,6 +238,7 @@
 .wb-slide__chip-ico {
   display: grid; place-items: center; width: 24px; height: 24px; border-radius: var(--r-tile);
   background: linear-gradient(135deg, var(--sa), var(--sb));
+  mat-icon { color: var(--ink-on-accent); }
 }
 
 // The HUGE Clash Display numeral — the whole point of the slide.
@@ -380,6 +393,9 @@
   flex: 0 0 auto;
   display: flex; align-items: center; justify-content: center; gap: 6px;
   padding: 16px var(--reel-pad) 4px;
+  max-width: 720px;
+  margin-inline: auto;
+  width: 100%;
 }
 .wb-dots {
   display: flex; align-items: center; justify-content: center; gap: 8px;
@@ -420,12 +436,17 @@
 .wb-recap {
   flex: 0 0 auto;
   margin: 18px var(--reel-pad) 0;
+  // Desktop: cap width to match the reel column, centered.
+  max-width: 684px;
+  align-self: center;
+  width: calc(100% - (var(--reel-pad) + var(--reel-pad-r)));
   border-radius: var(--r-glass);
   background: var(--glass);
   backdrop-filter: blur(var(--blur-glass)) saturate(1.4);
   -webkit-backdrop-filter: blur(var(--blur-glass)) saturate(1.4);
   border: 1px solid var(--glass-edge);
-  box-shadow: var(--lift-3);
+  // lift-3 shadow + subtle inset top highlight for premium floating-card depth.
+  box-shadow: var(--lift-3), inset 0 1px 0 color-mix(in srgb, var(--accent-a) 20%, var(--glass-edge));
   overflow: hidden;
   content-visibility: auto;
   contain-intrinsic-size: auto 360px;
@@ -503,8 +524,9 @@
   background: linear-gradient(135deg, var(--accent-a), var(--accent-b));
   color: var(--ink-on-accent); font: 700 14px/1 var(--font-ui); cursor: pointer;
   box-shadow: 0 8px 22px color-mix(in srgb, var(--accent-a) 36%, transparent);
-  transition: transform 120ms var(--ease-spring);
+  transition: transform 120ms var(--ease-spring), filter 160ms var(--ease-out);
   mat-icon { font-size: 20px; width: 20px; height: 20px; }
+  &:hover:not(:disabled) { filter: brightness(1.08); }
   &:active { transform: scale(.96); }
   &:focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; }
   &:disabled { opacity: .55; cursor: default; }
@@ -514,6 +536,7 @@
     background: color-mix(in srgb, var(--accent-a) 14%, var(--glass));
     color: var(--ink); box-shadow: none;
     border: 1px solid var(--glass-edge);
+    &:hover:not(:disabled) { filter: none; background: color-mix(in srgb, var(--accent-a) 24%, var(--glass)); }
   }
 }
 
@@ -521,6 +544,10 @@
 .wb-tail {
   margin: 18px var(--reel-pad) 4px;
   display: flex; flex-direction: column; gap: 8px;
+  // Desktop: cap width to match the reel column, centered.
+  max-width: 684px;
+  align-self: center;
+  width: calc(100% - (var(--reel-pad) + var(--reel-pad-r)));
 }
 .wb-tail__head {
   font: 700 12px/1 var(--font-ui); letter-spacing: .14em; text-transform: uppercase; color: var(--ink-faint);
@@ -529,7 +556,14 @@
 .wb-tail__row {
   display: flex; align-items: center; gap: 12px;
   padding: 12px 14px; border-radius: var(--r-tile);
-  background: var(--bg-rise); border: 1px solid var(--hairline); box-shadow: var(--lift-1);
+  background: var(--bg-rise); border: 1px solid var(--hairline);
+  // lift-1 elevation + subtle inset top highlight for premium card depth.
+  box-shadow: var(--lift-1), inset 0 1px 0 var(--glass-edge);
+  transition: transform 140ms var(--ease-spring), box-shadow 160ms var(--ease-out);
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--lift-2), inset 0 1px 0 var(--glass-edge);
+  }
 }
 .wb-tail__ico {
   flex: 0 0 auto; display: grid; place-items: center; width: 38px; height: 38px; border-radius: var(--r-tile);

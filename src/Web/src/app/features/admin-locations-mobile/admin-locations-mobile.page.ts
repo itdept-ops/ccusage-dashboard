@@ -169,7 +169,9 @@ import {
             </ol>
           } @else {
             <div class="ap-empty">
-              <mat-icon aria-hidden="true">location_off</mat-icon>
+              <span class="ap-empty__orb" aria-hidden="true">
+                <mat-icon aria-hidden="true">location_off</mat-icon>
+              </span>
               <p>No history for this person yet.</p>
             </div>
           }
@@ -206,7 +208,9 @@ import {
             </ul>
           } @else {
             <div class="ap-empty">
-              <mat-icon aria-hidden="true">person_off</mat-icon>
+              <span class="ap-empty__orb" aria-hidden="true">
+                <mat-icon aria-hidden="true">person_off</mat-icon>
+              </span>
               <p>No users have recorded a location yet.</p>
             </div>
           }

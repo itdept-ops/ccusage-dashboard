@@ -1,6 +1,7 @@
 /* Trophy Wall — reuses the tracker design tokens (--tech-*). Tier accents: bronze / silver / gold, with a
    warm "earned" glow vs a muted "locked" state. Read-only personal grid.
-   FiMobile pass: card signature (shadow-panel + radius), chip count badge, icon-tile spec, hover lift on earned cards. */
+   FiMobile pass: display-font title, card signature (shadow-panel + inset highlight + radius),
+   chip count badge, icon-tile spec, hover lift on earned cards, full empty/error/loading states. */
 
 .trophies {
   --t-bronze: #c2774a;
@@ -23,18 +24,23 @@
   align-items: flex-start;
   justify-content: space-between;
   gap: var(--tech-space-3, 12px);
+  margin-bottom: var(--tech-space-2, 8px);
 }
-.trophies__title h1 {
+/* Display-font title — matches dashboard/journal polish bar */
+.trophies__h1 {
   margin: 0;
+  font-family: var(--tech-font-display);
   font-size: var(--tech-fs-display, 28px);
   font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
   color: var(--tech-text);
 }
 .trophies__sub {
   margin: var(--tech-space-2, 8px) 0 0;
   max-width: 60ch;
   color: var(--tech-text-tertiary);
-  font-size: var(--tech-fs-body);
+  font-size: var(--tech-fs-label, 13px);
   line-height: 1.45;
 }
 
@@ -66,63 +72,61 @@
   border-radius: var(--tech-radius, 15px);
   background: var(--tech-panel);
   border: 1px solid var(--tech-border);
-  box-shadow: var(--tech-shadow-panel);
+  /* FiMobile card signature: panel shadow + inset top highlight */
+  box-shadow: var(--tech-shadow-panel), inset 0 1px 0 rgba(255,255,255,0.07);
   color: var(--tech-text-secondary);
 }
 
-/* Icon orb inside the empty/error card */
-.trophies__state mat-icon,
-.trophies__state mat-spinner {
-  color: var(--tech-text-secondary);
-}
+/* Icon orb shared across all states */
+.trophies__state-orb {
+  display: grid;
+  place-items: center;
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--tech-accent) 10%, var(--tech-bg-sunken, var(--tech-panel)));
+  border: 1px solid color-mix(in srgb, var(--tech-accent) 22%, var(--tech-border));
 
-/* FiMobile empty-state: icon orb + heading + body */
-.trophies__state--empty {
-  .trophies__state-orb {
-    display: grid;
-    place-items: center;
-    width: 64px;
-    height: 64px;
-    border-radius: 50%;
-    background: color-mix(in srgb, var(--tech-accent) 10%, var(--tech-bg-sunken, var(--tech-panel)));
-    border: 1px solid color-mix(in srgb, var(--tech-accent) 22%, var(--tech-border));
-  }
-  .trophies__state-orb mat-icon {
+  mat-icon {
     font-size: 32px;
     width: 32px;
     height: 32px;
     color: var(--tech-accent);
   }
-  .trophies__state-title {
-    margin: 0;
-    font-size: var(--tech-fs-h1, 18px);
-    font-weight: 700;
-    color: var(--tech-text);
-  }
-  .trophies__state-body {
-    margin: 0;
-    max-width: 34ch;
-    font-size: var(--tech-fs-body);
-    color: var(--tech-text-secondary);
-    line-height: 1.45;
-  }
+  mat-spinner { --mdc-circular-progress-active-indicator-color: var(--tech-accent); }
 }
-
-.trophies__state--error {
-  color: var(--tech-danger, #dc2626);
+.trophies__state-orb--error {
+  background: color-mix(in srgb, var(--tech-danger, #dc2626) 10%, var(--tech-bg-sunken, var(--tech-panel)));
+  border-color: color-mix(in srgb, var(--tech-danger, #dc2626) 22%, var(--tech-border));
   mat-icon { color: var(--tech-danger, #dc2626); }
 }
+
+.trophies__state-title {
+  margin: 0;
+  font-size: var(--tech-fs-h1, 18px);
+  font-weight: 700;
+  color: var(--tech-text);
+}
+.trophies__state-body {
+  margin: 0;
+  max-width: 34ch;
+  font-size: var(--tech-fs-body);
+  color: var(--tech-text-secondary);
+  line-height: 1.45;
+}
+
+.trophies__state--error { color: var(--tech-danger, #dc2626); }
 
 /* ── Groups ── */
 .trophies__group { display: flex; flex-direction: column; gap: var(--tech-space-3, 12px); }
 .trophies__group-title {
   margin: 0;
-  font-size: var(--tech-fs-h2, 16px);
+  font-size: var(--tech-fs-label, 12px);
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.08em;
   color: var(--tech-text-tertiary);
-  padding-bottom: 4px;
+  padding-bottom: 6px;
   border-bottom: 1px solid var(--tech-border);
 }
 .trophies__grid {
@@ -140,22 +144,29 @@
   border: 1px solid var(--tech-border);
   border-radius: var(--tech-radius, 15px);
   background: var(--tech-panel);
-  box-shadow: var(--tech-shadow-panel);
+  /* FiMobile card signature: panel shadow + subtle inset top highlight */
+  box-shadow: var(--tech-shadow-panel), inset 0 1px 0 rgba(255,255,255,0.07);
   transition: border-color 0.15s ease, transform 0.2s ease, box-shadow 0.2s ease;
+
+  &:focus-visible {
+    outline: var(--tech-focus-ring, 2px solid var(--tech-accent));
+    outline-offset: 2px;
+  }
 }
 
-/* Earned cards are interactive (have tooltip) — FiMobile hover lift */
+/* Earned cards — FiMobile hover lift + accent border tint */
 .badge--earned {
   border-color: color-mix(in srgb, var(--t-gold) 40%, var(--tech-border));
   cursor: default;
 
   &:hover {
-    transform: translateY(-1px);
-    box-shadow: var(--tech-shadow-raised, 0 4px 16px rgba(0,0,0,0.14));
+    transform: translateY(-2px);
+    box-shadow: var(--tech-shadow-raised, 0 6px 20px rgba(0,0,0,0.16)), inset 0 1px 0 rgba(255,255,255,0.09);
+    border-color: color-mix(in srgb, var(--t-gold) 55%, var(--tech-border));
   }
 }
-.badge--locked { opacity: 0.72; }
-.badge--locked .badge__medal { filter: grayscale(1); opacity: 0.55; }
+.badge--locked { opacity: 0.65; }
+.badge--locked .badge__medal { filter: grayscale(1); opacity: 0.5; }
 
 /* ── Medal icon tile — FiMobile list-row leading icon spec ── */
 .badge__medal {
@@ -220,6 +231,20 @@
 .badge__tier--earned[data-tier='complete'] { background: var(--t-complete); }
 
 @media (max-width: 640px) {
-  .trophies { padding: var(--tech-space-4, 1rem); }
+  .trophies {
+    padding: var(--tech-space-4, 1rem);
+    gap: var(--tech-space-4, 1rem);
+  }
+  .trophies__head { align-items: flex-start; }
+  .trophies__h1 { font-size: clamp(22px, 6vw, var(--tech-fs-display, 28px)); }
   .trophies__grid { grid-template-columns: 1fr; }
+  /* Count chip wraps below the title on narrow screens */
+  .trophies__count { align-self: flex-start; }
+}
+
+@media (max-width: 360px) {
+  .trophies { padding: var(--tech-space-3, 0.75rem); }
+  .badge { padding: var(--tech-space-3, 12px); gap: var(--tech-space-2, 8px); }
+  .badge__medal { width: 40px; height: 40px; }
+  .badge__medal mat-icon { font-size: 22px; width: 22px; height: 22px; }
 }

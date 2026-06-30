@@ -14,8 +14,8 @@
   .head-eyebrow { display: block; color: var(--tech-text-accent); margin-bottom: 6px; }
   h2 {
     margin: 0 0 6px;
-    font-family: var(--tech-font-ui);
-    font-size: clamp(20px, 5vw, var(--tech-fs-display));
+    font-family: var(--tech-font-display);
+    font-size: clamp(22px, 5vw, var(--tech-fs-display));
     font-weight: 700;
     letter-spacing: -0.02em;
     color: var(--tech-text);
@@ -77,6 +77,14 @@ mat-progress-bar {
   border-radius: var(--tech-radius, 15px) !important;
   box-shadow: var(--tech-shadow-panel) !important;
   border: 1px solid var(--tech-border) !important;
+  background: var(--tech-panel, #141a24) !important;
+  // Inset top highlight
+  box-shadow: var(--tech-shadow-panel), inset 0 1px 0 color-mix(in srgb, #fff 6%, transparent) !important;
+  transition: transform 120ms ease, box-shadow 120ms ease;
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--tech-shadow-card, 0 4px 20px rgba(0,0,0,.4)), inset 0 1px 0 color-mix(in srgb, #fff 8%, transparent) !important;
+  }
 
   .stat-label {
     font-size: var(--tech-fs-micro, 10.5px);
@@ -99,8 +107,9 @@ mat-progress-bar {
   padding: 12px 14px;
   // FiMobile card signature
   border-radius: var(--tech-radius, 15px) !important;
-  box-shadow: var(--tech-shadow-panel) !important;
+  box-shadow: var(--tech-shadow-panel), inset 0 1px 0 color-mix(in srgb, #fff 5%, transparent) !important;
   border: 1px solid var(--tech-border) !important;
+  background: var(--tech-panel, #141a24) !important;
 }
 .cal-wrap { width: 100%; min-height: 220px; }
 .cal-wrap app-chart { display: block; width: 100%; height: 100%; }
@@ -171,6 +180,11 @@ mat-progress-bar {
     background: color-mix(in srgb, var(--tech-accent) 6%, transparent);
     transform: translateX(2px);
   }
+  &:focus-visible {
+    outline: var(--tech-focus-ring, 2px solid var(--tech-accent));
+    outline-offset: -2px;
+    border-radius: var(--tech-r-control, 8px);
+  }
 
   // Leading icon tile — FiMobile accent tile
   .ts-icon-tile {
@@ -191,7 +205,36 @@ mat-progress-bar {
   // Trailing chevron in tertiary
   .ts-chev { font-size: 18px; width: 18px; height: 18px; color: var(--tech-text-tertiary); }
 }
-.ts-empty { padding: 20px 4px; color: var(--tech-text-tertiary); font-size: 13px; }
+.ts-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 28px 16px;
+  gap: 8px;
+
+  .ts-empty-orb {
+    width: 44px; height: 44px;
+    border-radius: 50%;
+    background: color-mix(in srgb, var(--tech-accent) 10%, transparent);
+    color: var(--tech-accent);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 20px;
+    margin-bottom: 4px;
+    mat-icon { font-size: 20px; width: 20px; height: 20px; }
+  }
+  .ts-empty-title {
+    font-size: var(--tech-fs-label, 13px);
+    font-weight: 600;
+    color: var(--tech-text-secondary);
+  }
+  .ts-empty-hint {
+    font-size: var(--tech-fs-micro, 11px);
+    color: var(--tech-text-tertiary);
+    max-width: 200px;
+    line-height: 1.4;
+  }
+}
 
 @media (max-width: 640px) {
   .ts-list { max-height: none; } // let the list flow; the page scrolls, not a nested box

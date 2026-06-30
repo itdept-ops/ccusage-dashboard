@@ -98,9 +98,10 @@
 
 .cy-hero__title {
   margin: 2px 0 0;
-  font-size: 1.55rem;
+  font-family: var(--font-display, var(--tech-font-display));
+  font-size: 1.6rem;
   font-weight: 800;
-  letter-spacing: -.01em;
+  letter-spacing: -.02em;
   color: var(--ink);
 }
 
@@ -122,12 +123,12 @@
   border-radius: var(--tech-radius);
   background: var(--glass);
   border: 1px solid var(--hairline);
-  box-shadow: var(--tech-shadow-panel);
+  box-shadow: var(--tech-shadow-panel), inset 0 1px 0 var(--glass-edge);
   transition: transform .18s ease, box-shadow .18s ease;
 
   &:hover {
     transform: translateY(-1px);
-    box-shadow: var(--tech-shadow-raised);
+    box-shadow: var(--tech-shadow-raised), inset 0 1px 0 var(--glass-edge);
   }
 }
 
@@ -244,12 +245,12 @@
   border-radius: var(--tech-radius);
   background: var(--glass);
   border: 1px solid var(--hairline);
-  box-shadow: var(--tech-shadow-panel);
+  box-shadow: var(--tech-shadow-panel), inset 0 1px 0 var(--glass-edge);
   transition: transform .18s ease, box-shadow .18s ease;
 
   &:hover {
     transform: translateY(-1px);
-    box-shadow: var(--tech-shadow-raised);
+    box-shadow: var(--tech-shadow-raised), inset 0 1px 0 var(--glass-edge);
   }
 }
 
@@ -271,8 +272,10 @@
   background: var(--bg-rise);
   color: var(--ink);
   cursor: pointer;
+  transition: background .14s ease, transform .14s ease;
 
   mat-icon { font-size: 22px; width: 22px; height: 22px; }
+  &:hover { background: var(--hairline); }
   &:active { transform: scale(.94); }
 }
 
@@ -282,12 +285,15 @@
   border: none;
   border-radius: var(--tech-r-pill);
   background: transparent;
+  font-family: var(--font-display, var(--tech-font-display));
   font-size: 1rem;
   font-weight: 800;
   color: var(--ink);
   cursor: pointer;
+  transition: background .14s ease;
 
-  &:active { background: var(--bg-rise); }
+  &:hover { background: var(--bg-rise); }
+  &:active { background: color-mix(in srgb, var(--accent-a) 10%, var(--bg-rise)); }
 }
 
 .cy-cal__dow {
@@ -417,15 +423,21 @@
 .cy-hist {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
+  padding: 14px 16px;
+  border-radius: var(--tech-radius);
+  background: var(--glass);
+  border: 1px solid var(--hairline);
+  box-shadow: var(--tech-shadow-panel), inset 0 1px 0 var(--glass-edge);
 }
 
 .cy-hist__h {
   display: flex;
   align-items: center;
   gap: 6px;
-  margin: 4px 0 0;
-  font-size: 1rem;
+  margin: 0;
+  font-family: var(--font-display, var(--tech-font-display));
+  font-size: .95rem;
   font-weight: 800;
   color: var(--ink);
 
@@ -448,12 +460,12 @@
   border-radius: var(--tech-r-control);
   background: var(--glass);
   border: 1px solid var(--hairline);
-  box-shadow: var(--tech-shadow-panel);
+  box-shadow: var(--tech-shadow-panel), inset 0 1px 0 var(--glass-edge);
   transition: transform .18s ease, box-shadow .18s ease;
 
   &:hover {
     transform: translateY(-1px);
-    box-shadow: var(--tech-shadow-raised);
+    box-shadow: var(--tech-shadow-raised), inset 0 1px 0 var(--glass-edge);
   }
 
   &__glyph {
@@ -463,7 +475,7 @@
     width: 36px;
     height: 36px;
     flex: none;
-    border-radius: var(--tech-r-control);
+    border-radius: 50%;
     background: color-mix(in srgb, var(--accent-a) 14%, transparent);
 
     mat-icon { font-size: 20px; width: 20px; height: 20px; color: var(--accent-b); }
@@ -510,6 +522,7 @@
   height: 56px;
   border-radius: 50%;
   background: color-mix(in srgb, var(--accent-a) 14%, transparent);
+  box-shadow: 0 0 0 8px color-mix(in srgb, var(--accent-a) 7%, transparent);
 
   mat-icon { font-size: 28px; width: 28px; height: 28px; color: var(--accent-b); }
 }
@@ -560,13 +573,13 @@
   border-radius: var(--tech-radius);
   background: var(--glass);
   border: 1px solid var(--hairline);
-  box-shadow: var(--tech-shadow-panel);
+  box-shadow: var(--tech-shadow-panel), inset 0 1px 0 var(--glass-edge);
   cursor: pointer;
   transition: transform .18s ease, box-shadow .18s ease;
 
   &:not(:disabled):hover {
     transform: translateY(-1px);
-    box-shadow: var(--tech-shadow-raised);
+    box-shadow: var(--tech-shadow-raised), inset 0 1px 0 var(--glass-edge);
   }
 
   > mat-icon {
@@ -638,6 +651,7 @@
 
 .ls__title {
   margin: 0;
+  font-family: var(--font-display, var(--tech-font-display));
   font-size: 1.2rem;
   font-weight: 800;
   color: var(--ink);
@@ -654,7 +668,9 @@
   background: var(--bg-rise);
   color: var(--ink);
   cursor: pointer;
+  transition: background .14s ease, transform .14s ease;
 
+  &:hover { background: color-mix(in srgb, var(--ink) 10%, var(--bg-rise)); }
   &:active { transform: scale(.94); }
 }
 
@@ -676,8 +692,10 @@
   background: var(--bg-rise);
   color: var(--ink);
   cursor: pointer;
+  transition: background .14s ease, transform .14s ease;
 
   mat-icon { font-size: 22px; width: 22px; height: 22px; }
+  &:hover { background: color-mix(in srgb, var(--accent-a) 10%, var(--bg-rise)); }
   &:active { transform: scale(.94); }
 }
 
@@ -728,7 +746,7 @@
   border-radius: var(--tech-radius);
   background: var(--bg-rise);
   border: 1px solid var(--hairline);
-  box-shadow: var(--tech-shadow-panel);
+  box-shadow: var(--tech-shadow-panel), inset 0 1px 0 var(--glass-edge);
 }
 
 .ls__block-h {
@@ -848,8 +866,11 @@
   font-weight: 600;
   text-transform: capitalize;
   cursor: pointer;
-  transition: transform .12s ease;
+  transition: transform .12s ease, border-color .12s ease, background .12s ease;
 
+  &:not(.is-on):hover {
+    border-color: color-mix(in srgb, var(--accent-a) 40%, var(--hairline));
+  }
   &.is-on {
     border-color: transparent;
     color: var(--ink-on-accent, #fff);
@@ -957,4 +978,92 @@
   color: var(--ink-faint);
 
   mat-icon { flex: none; font-size: 18px; width: 18px; height: 18px; }
+}
+
+// ============================================================================
+// FOCUS-VISIBLE RINGS — rubric #6: focus-visible rings on every interactive element
+// ============================================================================
+
+.cy-cal__nav,
+.cy-cal__month {
+  &:focus-visible {
+    outline: 2px solid var(--focus, var(--accent-a));
+    outline-offset: 2px;
+  }
+}
+
+.cy-day {
+  &:focus-visible {
+    outline: 2px solid var(--focus, var(--accent-a));
+    outline-offset: 1px;
+  }
+}
+
+.cy-overlay {
+  &:focus-visible {
+    outline: 2px solid var(--focus, var(--accent-a));
+    outline-offset: 2px;
+  }
+}
+
+.cy-state__cta {
+  &:focus-visible {
+    outline: 2px solid var(--focus, var(--accent-a));
+    outline-offset: 3px;
+  }
+}
+
+.ls__close,
+.ls__day-nav,
+.ls__today {
+  &:focus-visible {
+    outline: 2px solid var(--focus, var(--accent-a));
+    outline-offset: 2px;
+  }
+}
+
+.ls__logbtn {
+  &:focus-visible {
+    outline: 2px solid var(--focus, var(--accent-a));
+    outline-offset: 3px;
+  }
+}
+
+.ls__chip,
+.ls__seg-b {
+  &:focus-visible {
+    outline: 2px solid var(--focus, var(--accent-a));
+    outline-offset: 2px;
+  }
+}
+
+.ls__dot {
+  &:focus-visible {
+    outline: 2px solid var(--focus, var(--accent-a));
+    outline-offset: 3px;
+  }
+}
+
+.ls__toggle {
+  &:focus-visible {
+    outline: 2px solid var(--focus, var(--accent-a));
+    outline-offset: 2px;
+  }
+}
+
+.ls__clear {
+  &:focus-visible {
+    outline: 2px solid var(--warn);
+    outline-offset: 2px;
+  }
+}
+
+// ============================================================================
+// RESPONSIVE — rubric #10: 3-col facts grid collapses to 2-col at ≤380px
+// ============================================================================
+
+@media (max-width: 380px) {
+  .cy-summary__facts {
+    grid-template-columns: 1fr 1fr;
+  }
 }

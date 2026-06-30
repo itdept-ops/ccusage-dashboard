@@ -58,11 +58,12 @@
 
 .ib-hero__bloom {
   position: absolute;
-  inset: -40px -30% auto -10%;
-  height: 200px;
+  inset: -40% -30% auto -10%;
+  height: 220px;
   z-index: -1;
-  background: radial-gradient(60% 80% at 25% 0%, color-mix(in srgb, var(--accent-a) 32%, transparent), transparent 70%);
-  filter: blur(var(--blur-glass));
+  background: radial-gradient(60% 60% at 30% 30%, color-mix(in srgb, var(--accent-a) 40%, transparent), transparent 70%);
+  filter: blur(40px);
+  opacity: 0.6;
   pointer-events: none;
 }
 
@@ -71,18 +72,19 @@
   align-items: center;
   gap: 6px;
   margin: 0;
-  font-size: 12px;
+  font-size: 0.8rem;
   font-weight: 700;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--ink-dim);
 
-  mat-icon { font-size: 16px; width: 16px; height: 16px; color: var(--accent-a); }
+  mat-icon { font-size: 18px; width: 18px; height: 18px; color: var(--accent-a); }
 }
 
 .ib-hero__title {
-  margin: 0;
-  font-size: clamp(26px, 7vw, 32px);
+  margin: 2px 0 0;
+  font-family: var(--font-display, var(--tech-font-display, inherit));
+  font-size: clamp(26px, 7vw, 34px);
   font-weight: 800;
   letter-spacing: -0.02em;
   color: var(--ink);
@@ -90,7 +92,7 @@
 
 .ib-hero__sub {
   margin: 0;
-  font-size: 14px;
+  font-size: 0.9rem;
   line-height: 1.45;
   color: var(--ink-dim);
 }
@@ -139,10 +141,12 @@
   font-weight: 700;
   cursor: pointer;
   appearance: none;
+  transition: background 140ms var(--ease-out, ease), border-color 140ms var(--ease-out, ease);
 
   mat-icon { font-size: 16px; width: 16px; height: 16px; }
 
   &:disabled { opacity: 0.6; cursor: default; }
+  &:not(:disabled):hover { background: color-mix(in srgb, var(--accent-a) 10%, var(--bg-sink)); border-color: color-mix(in srgb, var(--accent-a) 30%, var(--hairline)); }
   &:not(:disabled):active { transform: translateY(1px); }
   &:focus-visible { outline: 2px solid var(--accent-a); outline-offset: 2px; }
 }
@@ -199,7 +203,7 @@
   border-radius: var(--tech-radius, var(--r-tile));
   background: var(--bg-rise);
   border: 1px solid var(--tech-border, var(--hairline));
-  box-shadow: var(--tech-shadow-panel, var(--lift-1));
+  box-shadow: var(--tech-shadow-panel, var(--lift-1)), inset 0 1px 0 var(--glass-edge);
   transition: opacity 200ms var(--ease-out, ease), transform 160ms var(--ease-out, ease), box-shadow 160ms var(--ease-out, ease);
 
   &:not(.is-handled) {
@@ -210,7 +214,7 @@
   // Gentle hover lift on interactive (non-handled) cards
   &:not(.is-handled):hover {
     transform: translateY(-1px);
-    box-shadow: var(--tech-shadow-raised, var(--lift-2));
+    box-shadow: var(--tech-shadow-raised, var(--lift-2)), inset 0 1px 0 var(--glass-edge);
   }
 }
 
@@ -300,9 +304,11 @@
   font-weight: 700;
   cursor: pointer;
   appearance: none;
+  transition: background 140ms var(--ease-out, ease), filter 140ms var(--ease-out, ease), transform 120ms var(--ease-out, ease);
 
   mat-icon { font-size: 16px; width: 16px; height: 16px; }
 
+  &:not(:disabled):hover { background: color-mix(in srgb, var(--accent-a) 10%, var(--bg-sink)); border-color: color-mix(in srgb, var(--accent-a) 28%, var(--hairline)); }
   &:not(:disabled):active { transform: translateY(1px); }
   &:focus-visible { outline: 2px solid var(--accent-a); outline-offset: 2px; }
 
@@ -311,6 +317,8 @@
     color: var(--tech-text-on-accent, var(--ink-on-accent, #fff));
     border-color: transparent;
     box-shadow: var(--tech-shadow-panel, var(--lift-1));
+
+    &:not(:disabled):hover { background: linear-gradient(135deg, var(--accent-a), var(--accent-b)); filter: brightness(1.08); }
   }
 }
 

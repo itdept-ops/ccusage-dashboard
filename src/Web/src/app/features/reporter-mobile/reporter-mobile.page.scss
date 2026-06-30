@@ -101,10 +101,11 @@
   flex: 1 1 0; min-width: 0;
   display: flex; flex-direction: column; align-items: center; gap: 2px;
   padding: 10px 8px;
-  background: color-mix(in srgb, var(--tech-accent, var(--accent-a)) 12%, transparent);
-  border: 1px solid color-mix(in srgb, var(--tech-accent, var(--accent-a)) 28%, transparent);
+  background: color-mix(in srgb, var(--accent-a) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent-a) 28%, transparent);
   border-radius: var(--tech-r-pill, var(--r-pill));
-  box-shadow: var(--tech-shadow-panel, var(--lift-1));
+  // FiMobile card signature: panel shadow + subtle inset top highlight
+  box-shadow: var(--tech-shadow-panel, var(--lift-1)), inset 0 1px 0 var(--glass-edge, rgba(255,255,255,.10));
 }
 
 .rp-stat__n {
@@ -125,7 +126,8 @@
   background: var(--bg-rise);
   border: 1px solid var(--tech-border, var(--hairline));
   border-radius: var(--tech-radius, var(--r-card));
-  box-shadow: var(--tech-shadow-panel, var(--lift-1));
+  // FiMobile card signature: panel shadow + inset top highlight
+  box-shadow: var(--tech-shadow-panel, var(--lift-1)), inset 0 1px 0 var(--glass-edge, rgba(255,255,255,.10));
   color: var(--ink); text-align: left;
   font-family: var(--font-ui); font-weight: 650; font-size: 14px;
   cursor: pointer; touch-action: manipulation; -webkit-tap-highlight-color: transparent;
@@ -134,7 +136,10 @@
 
   mat-icon { font-size: 20px; width: 20px; height: 20px; color: var(--accent-a); }
   .rp-guidebtn__go { margin-left: auto; color: var(--ink-dim); }
-  &:hover { transform: translateY(-1px); box-shadow: var(--tech-shadow-raised, var(--lift-2)); }
+  &:hover {
+    transform: translateY(-1px);
+    box-shadow: var(--tech-shadow-raised, var(--lift-2)), inset 0 1px 0 var(--glass-edge, rgba(255,255,255,.10));
+  }
   &:active { background: var(--bg-sink); transform: none; }
   &:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 }
@@ -153,19 +158,26 @@
 
 .rp-list { display: flex; flex-direction: column; gap: 10px; }
 
-// CARD SIGNATURE — FiMobile card with proper border token, shadow, radius + hover lift.
+// CARD SIGNATURE — FiMobile card with proper border token, shadow, radius + inset top highlight + hover lift.
 .rp-card {
   display: flex; align-items: center; gap: 11px;
   padding: 13px 12px;
   background: var(--bg-rise);
   border: 1px solid var(--tech-border, var(--hairline));
   border-radius: var(--tech-r-control, var(--r-tile));
-  box-shadow: var(--tech-shadow-panel, var(--lift-1));
+  // FiMobile card signature: panel shadow + subtle inset top highlight
+  box-shadow: var(--tech-shadow-panel, var(--lift-1)), inset 0 1px 0 var(--glass-edge, rgba(255,255,255,.10));
   transition: transform 160ms var(--ease-out), box-shadow 160ms var(--ease-out);
 
-  &:hover { transform: translateY(-1px); box-shadow: var(--tech-shadow-raised, var(--lift-2)); }
+  &:hover {
+    transform: translateY(-1px);
+    box-shadow: var(--tech-shadow-raised, var(--lift-2)), inset 0 1px 0 var(--glass-edge, rgba(255,255,255,.10));
+  }
   &.is-revoked { opacity: .6; }
-  &.is-revoked:hover { transform: none; box-shadow: var(--tech-shadow-panel, var(--lift-1)); }
+  &.is-revoked:hover {
+    transform: none;
+    box-shadow: var(--tech-shadow-panel, var(--lift-1)), inset 0 1px 0 var(--glass-edge, rgba(255,255,255,.10));
+  }
   &.is-busy { opacity: .5; pointer-events: none; }
 }
 
@@ -264,9 +276,15 @@
   background: var(--bg-sink);
   color: color-mix(in oklab, var(--warn) 88%, var(--ink));
   cursor: pointer; touch-action: manipulation; -webkit-tap-highlight-color: transparent;
-  transition: background 160ms var(--ease-out), border-color 160ms var(--ease-out);
+  transition: background 160ms var(--ease-out), border-color 160ms var(--ease-out),
+              color 160ms var(--ease-out);
 
   mat-icon { font-size: 20px; width: 20px; height: 20px; }
+  &:hover {
+    background: color-mix(in oklab, var(--warn) 10%, var(--bg-sink));
+    border-color: color-mix(in oklab, var(--warn) 40%, transparent);
+    color: var(--warn);
+  }
   &:active { background: color-mix(in oklab, var(--warn) 16%, transparent); }
   &:disabled { opacity: .5; pointer-events: none; }
   &:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
@@ -316,9 +334,11 @@
   font-family: var(--font-ui); font-weight: 800; font-size: 14px;
   box-shadow: var(--tech-shadow-raised, var(--lift-2));
   cursor: pointer; touch-action: manipulation; -webkit-tap-highlight-color: transparent;
-  transition: transform 160ms var(--ease-spring-up, var(--ease-out));
+  transition: transform 160ms var(--ease-spring-up, var(--ease-out)),
+              box-shadow 160ms var(--ease-out);
 
   mat-icon { font-size: 20px; width: 20px; height: 20px; }
+  &:hover { transform: translateY(-1px); box-shadow: var(--tech-shadow-popover, var(--lift-3)); }
   &:active { transform: scale(.97); }
   &:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 }
@@ -385,9 +405,11 @@
   font-family: var(--font-ui); font-weight: 800; font-size: 15px;
   box-shadow: var(--tech-shadow-raised, var(--lift-2));
   cursor: pointer; touch-action: manipulation; -webkit-tap-highlight-color: transparent;
-  transition: transform 160ms var(--ease-spring-up, var(--ease-out));
+  transition: transform 160ms var(--ease-spring-up, var(--ease-out)),
+              box-shadow 160ms var(--ease-out);
 
   mat-icon { font-size: 20px; width: 20px; height: 20px; }
+  &:hover { transform: translateY(-1px); box-shadow: var(--tech-shadow-popover, var(--lift-3)); }
   &:active { transform: scale(.98); }
   &:disabled { opacity: .6; pointer-events: none; box-shadow: none; }
   &:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
@@ -400,7 +422,8 @@
   background: color-mix(in oklab, var(--accent-a) 8%, var(--bg-sink));
   border: 1px solid color-mix(in oklab, var(--accent-a) 40%, transparent);
   border-radius: var(--tech-radius, var(--r-card));
-  box-shadow: var(--tech-shadow-panel, var(--lift-1));
+  // FiMobile card signature: panel shadow + subtle inset top highlight
+  box-shadow: var(--tech-shadow-panel, var(--lift-1)), inset 0 1px 0 var(--glass-edge, rgba(255,255,255,.10));
 }
 
 .rk__fresh-head { display: flex; align-items: flex-start; gap: 8px; }
@@ -439,6 +462,7 @@
   background: linear-gradient(135deg, var(--accent-a), var(--accent-b));
   color: var(--tech-text-on-accent, var(--ink-on-accent));
   box-shadow: var(--tech-shadow-panel, var(--lift-1));
+  &:hover { transform: translateY(-1px); box-shadow: var(--tech-shadow-raised, var(--lift-2)); }
   &:active { transform: scale(.98); }
 }
 
@@ -499,7 +523,8 @@
   background: var(--tech-bg-sunken, var(--bg-sink));
   border: 1px solid var(--tech-border, var(--hairline));
   border-radius: var(--tech-radius, var(--r-card));
-  box-shadow: var(--tech-shadow-panel, var(--lift-1));
+  // FiMobile card signature: panel shadow + subtle inset top highlight
+  box-shadow: var(--tech-shadow-panel, var(--lift-1)), inset 0 1px 0 var(--glass-edge, rgba(255,255,255,.10));
 }
 
 .rg__flow-node {
@@ -517,7 +542,8 @@
   background: var(--bg-rise);
   border: 1px solid var(--tech-border, var(--hairline));
   border-radius: var(--tech-radius, var(--r-card));
-  box-shadow: var(--tech-shadow-panel, var(--lift-1));
+  // FiMobile card signature: panel shadow + subtle inset top highlight
+  box-shadow: var(--tech-shadow-panel, var(--lift-1)), inset 0 1px 0 var(--glass-edge, rgba(255,255,255,.10));
 }
 
 .rg__step-head { display: flex; align-items: flex-start; gap: 11px; }
@@ -563,8 +589,14 @@
   border: 1px solid var(--tech-border, var(--hairline));
   background: var(--bg-sink); color: var(--ink-dim);
   cursor: pointer; touch-action: manipulation; -webkit-tap-highlight-color: transparent;
-  transition: color 160ms var(--ease-out), background 160ms var(--ease-out);
+  transition: color 160ms var(--ease-out), background 160ms var(--ease-out),
+              border-color 160ms var(--ease-out);
   mat-icon { font-size: 18px; width: 18px; height: 18px; }
+  &:hover {
+    background: color-mix(in oklab, var(--accent-a) 10%, var(--bg-sink));
+    border-color: color-mix(in oklab, var(--accent-a) 35%, transparent);
+    color: var(--accent-a);
+  }
   &:active { background: var(--bg-rise); color: var(--accent-a); }
   &:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 }

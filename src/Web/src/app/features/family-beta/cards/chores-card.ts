@@ -104,21 +104,28 @@ import { OptimisticFamily } from '../state/optimistic-family';
     .ch__sum-lbl { font-size: 12px; font-weight: 700; letter-spacing: .03em; text-transform: uppercase; color: var(--ink-dim); }
     .ch__sum-star { margin-top: 4px; font-size: 12px; font-weight: 700; color: var(--warn); }
 
-    .ch__list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+    .ch__list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0; }
+    .ch__list li + li { border-top: 1px solid var(--hairline); }
     .row { display: flex; align-items: center; gap: 12px; padding: 8px 12px; min-height: 48px; }
     .tick {
       flex: 0 0 auto; display: grid; place-items: center;
       width: 40px; height: 40px; margin: -4px 0 -4px -8px;
       border: none; background: transparent; color: #fb7185; cursor: pointer; border-radius: var(--r-pill);
+      transition: background 120ms var(--ease-out), transform 120ms var(--ease-spring);
     }
-    .tick:disabled { opacity: .5; }
+    .tick:hover:not(:disabled) { background: color-mix(in srgb, #fb7185 14%, transparent); }
+    .tick:active:not(:disabled) { transform: scale(.88); }
+    .tick:disabled { opacity: .5; cursor: default; }
     .tick:focus-visible { outline: 2px solid #fb7185; outline-offset: 2px; }
     .tick mat-icon { font-size: 24px; width: 24px; height: 24px; }
     .row__text { display: flex; flex-direction: column; min-width: 0; flex: 1 1 auto; }
-    .row__title { font-size: 15px; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .row__title { font-size: 15px; font-weight: 600; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .row__who { font-size: 12px; color: var(--ink-dim); }
     .row__pts { flex: 0 0 auto; font-size: 13px; color: var(--warn); font-weight: 700; }
-    .more { padding: 4px 2px 0; font-size: 13px; color: var(--ink-dim); }
+    .more {
+      padding: 10px 12px 6px; font-size: 13px; color: var(--ink-dim); font-weight: 600;
+      border-top: 1px solid var(--hairline);
+    }
   `],
 })
 export class ChoresCard {

@@ -71,6 +71,7 @@ interface VitalMeta {
         </header>
 
         @if (loading()) {
+          <app-bs-skeleton height="92px" radius="var(--r-tile)" />
           <app-bs-skeleton height="150px" radius="var(--r-tile)" />
           <app-bs-skeleton height="220px" radius="var(--r-tile)" />
         } @else if (errored()) {
@@ -229,6 +230,7 @@ interface VitalMeta {
               <div class="mv-readings">
                 @for (r of readingList(); track r.id) {
                   <div class="mv-reading">
+                    <span class="mv-reading__orb" aria-hidden="true"><mat-icon>{{ activeMeta().icon }}</mat-icon></span>
                     <span class="mv-reading__v mono-num">{{ readingValue(r) }} <i>{{ r.unit }}</i></span>
                     <span class="mv-reading__d">{{ friendlyDate(r.localDate) }}</span>
                     <button type="button" class="mv-icon-btn" (click)="deleteReading(r)" aria-label="Delete reading">

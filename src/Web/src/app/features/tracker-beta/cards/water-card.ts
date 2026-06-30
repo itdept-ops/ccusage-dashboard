@@ -97,7 +97,11 @@ import { ML_PER_GLASS, glasses } from '../util/units';
           }
         </ul>
       } @else {
-        <p class="wc-empty">No drinks logged yet — tap a stepper to start.</p>
+        <div class="wc-empty" aria-live="polite">
+          <span class="wc-empty-orb" aria-hidden="true">&#x1F964;</span>
+          <span class="wc-empty-title">No drinks yet</span>
+          <span class="wc-empty-hint">Tap a stepper above to log your first drink.</span>
+        </div>
       }
     </section>
   `,
@@ -111,11 +115,12 @@ import { ML_PER_GLASS, glasses } from '../util/units';
     }
     .wc-title {
       margin: 0; font-family: var(--font-ui);
-      font-size: 15px; font-weight: 600; color: var(--ink);
+      font-size: 13px; font-weight: 700; letter-spacing: .05em;
+      text-transform: uppercase; color: var(--ink-dim);
     }
     .wc-glasses {
       font-size: 11px; font-weight: 500; text-transform: uppercase; letter-spacing: .04em;
-      color: var(--ink-dim); font-variant-numeric: tabular-nums;
+      color: var(--ink-faint); font-variant-numeric: tabular-nums;
     }
 
     /* ── liquid-fill capsule ── */
@@ -183,7 +188,12 @@ import { ML_PER_GLASS, glasses } from '../util/units';
     .wc-step-glass .wc-glass-ico { font-size: 16px; line-height: 1; }
 
     /* ── logged drinks ── */
-    .wc-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+    .wc-list {
+      list-style: none; margin: 0; padding: 0;
+      display: flex; flex-direction: column;
+      border-top: 1px solid var(--hairline);
+    }
+    .wc-list li + li { border-top: 1px solid var(--hairline); }
     .wc-row {
       display: flex; align-items: center; justify-content: space-between; gap: 12px;
       min-height: 44px; padding: 0 14px;
@@ -194,8 +204,22 @@ import { ML_PER_GLASS, glasses } from '../util/units';
       font-size: 14px; font-weight: 600; color: var(--ink-dim);
       font-variant-numeric: tabular-nums;
     }
+    /* ── styled empty state ── */
     .wc-empty {
-      margin: 2px 0 0; font-family: var(--font-ui); font-size: 13px; color: var(--ink-faint);
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 6px; padding: 12px 8px 4px; text-align: center;
+    }
+    .wc-empty-orb {
+      display: grid; place-items: center;
+      width: 40px; height: 40px; border-radius: 50%;
+      background: linear-gradient(135deg, var(--water-a), var(--water-b));
+      font-size: 20px; line-height: 1; opacity: .55;
+    }
+    .wc-empty-title {
+      font-family: var(--font-ui); font-size: 13px; font-weight: 600; color: var(--ink-dim);
+    }
+    .wc-empty-hint {
+      font-size: 12px; color: var(--ink-faint);
     }
 
     /* reduced-motion: the page-host killswitch already neutralises transitions; belt-and-braces here. */

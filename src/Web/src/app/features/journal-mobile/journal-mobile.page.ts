@@ -95,8 +95,11 @@ interface MoodChoice { value: string; label: string; emoji: string; }
                   <button type="button" class="jr-row" (click)="pickDay(e.date)">
                     <span class="jr-row__emoji" aria-hidden="true">{{ moodEmoji(e.mood) || '·' }}</span>
                     <span class="jr-row__date">{{ friendlyDate(e.date) }}</span>
-                    @if (e.mood) { <span class="jr-row__mood">{{ moodLabel(e.mood) }}</span> }
-                    @if (e.tags?.length) { <span class="jr-row__tags">{{ e.tags?.length }} tag{{ e.tags?.length === 1 ? '' : 's' }}</span> }
+                    <span class="jr-row__meta">
+                      @if (e.mood) { <span class="jr-row__mood">{{ moodLabel(e.mood) }}</span> }
+                      @if (e.tags?.length) { <span class="jr-row__tags">{{ e.tags?.length }} tag{{ e.tags?.length === 1 ? '' : 's' }}</span> }
+                    </span>
+                    <mat-icon class="jr-row__chevron" aria-hidden="true">chevron_right</mat-icon>
                   </button>
                 }
               </div>

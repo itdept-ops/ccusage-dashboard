@@ -10,12 +10,24 @@
   border: 1px solid var(--tech-border, var(--hairline));
 
   &__tab {
-    width: 30px; height: 28px;
+    width: 32px; height: 30px;
     display: grid; place-items: center;
     border: none; border-radius: var(--tech-r-control, var(--r-tile));
     background: transparent; color: var(--tech-text-tertiary, var(--ink-faint)); cursor: pointer;
-    transition: background 140ms, color 140ms;
+    transition: background 140ms, color 140ms, transform 120ms var(--ease-spring);
     mat-icon { width: 16px; height: 16px; font-size: 16px; line-height: 16px; }
+
+    &:hover:not(.is-on) {
+      background: color-mix(in srgb, var(--accent-a, var(--tech-accent)) 14%, transparent);
+      color: var(--tech-text, var(--ink));
+    }
+
+    &:active { transform: scale(.9); }
+
+    &:focus-visible {
+      outline: 2px solid var(--focus, var(--accent-a, var(--tech-accent)));
+      outline-offset: 2px;
+    }
 
     &.is-on {
       color: var(--tech-text-on-accent, var(--ink-on-accent, #0c0d12));
@@ -48,9 +60,16 @@
                   var(--tech-shadow-panel, var(--lift-1));
     }
 
-    &:hover {
-      transform: translateY(-1px);
-      box-shadow: var(--tech-shadow-raised, var(--lift-2));
+    @media (hover: hover) {
+      &:hover {
+        transform: translateY(-1px);
+        box-shadow: var(--tech-shadow-raised, var(--lift-2));
+      }
+    }
+
+    &:active {
+      transform: scale(.98);
+      box-shadow: var(--tech-shadow-panel, var(--lift-1));
     }
   }
 
@@ -77,10 +96,14 @@
 
   &__name {
     flex: 1; min-width: 0;
-    font-size: 14px; color: var(--tech-text, var(--ink));
+    font-size: 14px; font-weight: 600; color: var(--tech-text, var(--ink));
     overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   }
 
-  &__value { font-variant-numeric: tabular-nums; font-weight: 700; font-size: 13.5px; color: var(--tech-text-secondary, var(--ink-dim)); }
-  &__unit { font-size: 10.5px; font-weight: 500; color: var(--tech-text-tertiary, var(--ink-faint)); }
+  &__value {
+    font-variant-numeric: tabular-nums; font-weight: 700; font-size: 14px;
+    color: var(--tech-text, var(--ink));
+    white-space: nowrap;
+  }
+  &__unit { font-size: 11px; font-weight: 500; color: var(--tech-text-tertiary, var(--ink-faint)); }
 }

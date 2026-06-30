@@ -1,4 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
+import { MatIconModule } from '@angular/material/icon';
 
 import { CacheEfficiency, SummaryResponse } from '../../../core/models';
 import { CompactPipe } from '../../../shared/format';
@@ -15,7 +16,7 @@ import { BetaSvgRing, BetaStatTile, BetaSectionHeader, BetaSkeleton } from '../.
   selector: 'app-pulse-efficiency',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CompactPipe, BetaSvgRing, BetaStatTile, BetaSectionHeader, BetaSkeleton],
+  imports: [MatIconModule, CompactPipe, BetaSvgRing, BetaStatTile, BetaSectionHeader, BetaSkeleton],
   template: `
     <div class="ef">
       <app-bs-section-header title="Cache efficiency" subtitle="Prompt input served from cache" icon="bolt" />
@@ -45,7 +46,11 @@ import { BetaSvgRing, BetaStatTile, BetaSectionHeader, BetaSkeleton } from '../.
           <app-bs-stat-tile [value]="'$' + writeCostText()" label="Cache write" />
         </div>
       } @else {
-        <p class="ef__empty">No cache activity in this range</p>
+        <div class="ef__empty">
+          <span class="ef__empty-ic" aria-hidden="true"><mat-icon>bolt</mat-icon></span>
+          <p class="ef__empty-msg">No cache activity</p>
+          <p class="ef__empty-hint">Widen the range or enable prompt caching to see savings here.</p>
+        </div>
       }
     </div>
   `,
@@ -73,7 +78,18 @@ import { BetaSvgRing, BetaStatTile, BetaSectionHeader, BetaSkeleton } from '../.
     .ef__tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
     .ef__tiles app-bs-stat-tile { min-width: 0; }
 
-    .ef__empty { margin: 12px 0; text-align: center; color: var(--ink-dim); font-size: 14px; }
+    .ef__empty {
+      display: flex; flex-direction: column; align-items: center; gap: 8px;
+      margin: 16px 0; text-align: center;
+    }
+    .ef__empty-ic {
+      display: grid; place-items: center; width: 48px; height: 48px; border-radius: 50%;
+      background: color-mix(in srgb, var(--signal) 14%, transparent);
+      color: var(--signal);
+    }
+    .ef__empty-ic mat-icon { font-size: 26px; width: 26px; height: 26px; }
+    .ef__empty-msg { margin: 0; font-size: 15px; font-weight: 700; color: var(--ink); }
+    .ef__empty-hint { margin: 0; font-size: 12px; font-weight: 500; color: var(--ink-dim); max-width: 240px; line-height: 1.45; }
   `],
 })
 export class PulseEfficiencyCard {

@@ -1,7 +1,9 @@
 <section class="prefs">
   <header class="prefs__head">
-    <h1 class="prefs__title">Settings</h1>
-    <p class="prefs__note">Your personal preferences, all in one place. Changes save automatically.</p>
+    <div class="prefs__head-copy">
+      <h1 class="prefs__title">Settings</h1>
+      <p class="prefs__note">Your personal preferences, all in one place. Changes save automatically.</p>
+    </div>
   </header>
 
   <!-- ============================ DISPLAY / THEME ============================ -->
@@ -91,7 +93,11 @@
           </label>
         </div>
       } @else {
-        <p class="card__empty">Couldn't load your notification preferences.</p>
+        <div class="prefs__state-block">
+          <span class="prefs__state-orb"><mat-icon aria-hidden="true">notifications_off</mat-icon></span>
+          <span class="prefs__state-title">Couldn't load notifications</span>
+          <span class="prefs__state-hint">Check your connection and try refreshing.</span>
+        </div>
       }
 
       <!-- Per-user Discord forwarding -->
@@ -160,7 +166,11 @@
             </div>
           </div>
         } @else {
-          <p class="card__empty">Couldn't load your Discord forwarding state.</p>
+          <div class="prefs__state-block">
+            <span class="prefs__state-orb"><mat-icon aria-hidden="true">link_off</mat-icon></span>
+            <span class="prefs__state-title">Couldn't load Discord settings</span>
+            <span class="prefs__state-hint">Check your connection and try refreshing.</span>
+          </div>
         }
       </div>
     </article>
@@ -280,7 +290,11 @@
           </label>
         </div>
       } @else {
-        <p class="card__empty">Couldn't load your location settings.</p>
+        <div class="prefs__state-block">
+          <span class="prefs__state-orb"><mat-icon aria-hidden="true">location_off</mat-icon></span>
+          <span class="prefs__state-title">Couldn't load location settings</span>
+          <span class="prefs__state-hint">Check your connection and try refreshing.</span>
+        </div>
       }
     </article>
   }
@@ -315,7 +329,11 @@
           </label>
         </div>
       } @else {
-        <p class="card__empty">Couldn't load your sync settings.</p>
+        <div class="prefs__state-block">
+          <span class="prefs__state-orb"><mat-icon aria-hidden="true">sync_problem</mat-icon></span>
+          <span class="prefs__state-title">Couldn't load sync settings</span>
+          <span class="prefs__state-hint">Check your connection and try refreshing.</span>
+        </div>
       }
     </article>
   }

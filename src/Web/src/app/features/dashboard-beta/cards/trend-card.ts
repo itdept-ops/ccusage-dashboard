@@ -124,9 +124,12 @@ type Metric = 'cost' | 'tokens';
       min-height: 44px; padding: 0 18px; border-radius: var(--r-pill); border: 0; cursor: pointer;
       background: linear-gradient(135deg, var(--accent-a), var(--accent-b)); color: var(--ink-on-accent);
       font: inherit; font-size: 14px; font-weight: 700;
-      transition: transform 120ms var(--ease-spring);
+      box-shadow: 0 4px 14px -4px color-mix(in srgb, var(--accent-a) 50%, transparent);
+      transition: transform 120ms var(--ease-spring), box-shadow 160ms var(--ease-out);
     }
-    .trend__empty-cta:active { transform: scale(.96); }
+    .trend__empty-cta:hover { transform: translateY(-1px); box-shadow: 0 8px 22px -6px color-mix(in srgb, var(--accent-a) 60%, transparent); }
+    .trend__empty-cta:active { transform: scale(.96); box-shadow: none; }
+    .trend__empty-cta:focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; }
   `],
 })
 export class PulseTrendCard {

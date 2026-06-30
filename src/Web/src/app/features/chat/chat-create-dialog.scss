@@ -1,7 +1,8 @@
 .cc-title {
-  font-family: var(--tech-font-ui);
+  font-family: var(--tech-font-display, var(--tech-font-ui));
+  font-size: var(--tech-fs-h3, 18px);
   font-weight: 700;
-  letter-spacing: -0.01em;
+  letter-spacing: -0.015em;
   color: var(--tech-text);
 }
 
@@ -48,6 +49,15 @@
     display: flex;
     align-items: baseline;
     justify-content: space-between;
+
+    /* FiMobile: small-caps tracked section label (rubric #4) */
+    .micro-label {
+      font-size: var(--tech-fs-micro);
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--tech-text-tertiary);
+    }
   }
   &__count {
     font-size: var(--tech-fs-label);

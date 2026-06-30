@@ -1,3 +1,17 @@
+<!-- ───────────────────────── Page header ───────────────────────── -->
+<header class="dash-header">
+  <div class="dash-header__copy">
+    <h1 class="dash-header__title">Usage Dashboard</h1>
+    <p class="dash-header__sub">Token spend, model costs, and cache efficiency across your projects</p>
+  </div>
+  @if (auth.hasPermission(PERM.syncRun)) {
+    <button mat-flat-button class="dash-header__sync" [disabled]="syncing()" (click)="sync()" matTooltip="Pull latest records from Claude &amp; Codex">
+      <mat-icon>{{ syncing() ? 'hourglass_top' : 'sync' }}</mat-icon>
+      {{ syncing() ? 'Syncing…' : 'Sync' }}
+    </button>
+  }
+</header>
+
 @if (loading()) {
   <mat-progress-bar mode="indeterminate" aria-label="Loading usage data" />
 }
@@ -67,12 +81,6 @@
     <div class="filter-actions">
       <button mat-stroked-button class="btn-reset" (click)="resetFilters()"><mat-icon>clear</mat-icon> Reset</button>
       <button mat-flat-button color="primary" class="btn-apply" (click)="applyFilters()"><mat-icon>filter_list</mat-icon> Apply</button>
-      @if (auth.hasPermission(PERM.syncRun)) {
-        <button mat-flat-button class="sync-btn" [disabled]="syncing()" (click)="sync()">
-          <mat-icon>{{ syncing() ? 'hourglass_top' : 'sync' }}</mat-icon>
-          {{ syncing() ? 'Syncing…' : 'Sync' }}
-        </button>
-      }
     </div>
   </div>
 </section>
@@ -255,8 +263,9 @@
       </div>
       @if (cacheEmpty()) {
         <div class="cache-empty">
-          <mat-icon>cached</mat-icon>
-          <p>No cache activity in this range yet. Once prompts reuse cached context, your savings show up here.</p>
+          <span class="cache-empty__orb" aria-hidden="true"><mat-icon>bolt</mat-icon></span>
+          <p class="cache-empty__title">No cache activity yet</p>
+          <p class="cache-empty__hint">Once prompts reuse cached context, your savings show up here.</p>
         </div>
       } @else {
         <div class="cache-headline">
@@ -349,6 +358,10 @@
     <mat-paginator [length]="r.total" [pageSize]="pageSize()" [pageIndex]="page() - 1"
                    [pageSizeOptions]="[10, 25, 50, 100]" (page)="onPage($event)" showFirstLastButtons />
   } @else if (loading()) {
-    <p class="empty">Loading messages…</p>
+    <div class="records-loading">
+      <app-bs-skeleton height="40px" radius="var(--tech-r-control)" />
+      <app-bs-skeleton height="40px" radius="var(--tech-r-control)" />
+      <app-bs-skeleton height="40px" radius="var(--tech-r-control)" />
+    </div>
   }
 </section>

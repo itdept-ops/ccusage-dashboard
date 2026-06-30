@@ -1,4 +1,11 @@
 /* Allowance Manager — a parent's view of each child's earned credits + the credit ledger. Reuses family tokens. */
+/* family__card-title with an icon inline (mirrors chores/reminders pattern) */
+.allowance__activity .family__card-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  mat-icon { width: 20px; height: 20px; font-size: 20px; color: var(--tech-accent); }
+}
 
 .family__hero--allowance {
   background:
@@ -20,10 +27,11 @@
   font-weight: 600;
 }
 .allowance__total-amount {
-  font-size: var(--tech-fs-h1, 18px);
+  font-size: var(--tech-fs-display, 26px);
   font-weight: 800;
   color: var(--tech-positive, #34c759);
   font-variant-numeric: tabular-nums;
+  font-family: var(--tech-font-display, inherit);
 }
 
 /* Per-child balance cards */
@@ -43,9 +51,10 @@
   border: 1px solid var(--tech-border);
   border-radius: var(--tech-radius, 12px);
   background: var(--tech-panel);
-  box-shadow: var(--tech-shadow-panel);
-  transition: transform var(--tech-t-fast, 120ms) ease, box-shadow var(--tech-t-fast, 120ms) ease;
-  &:hover { transform: translateY(-1px); box-shadow: var(--tech-shadow-raised); }
+  box-shadow: var(--tech-shadow-panel), inset 0 1px 0 rgba(255,255,255,0.06);
+  transition: border-color var(--tech-t-fast, 120ms) ease, transform var(--tech-t-fast, 120ms) ease, box-shadow var(--tech-t-fast, 120ms) ease;
+  &:hover { border-color: var(--tech-border-strong); transform: translateY(-1px); box-shadow: var(--tech-shadow-raised), inset 0 1px 0 rgba(255,255,255,0.06); }
+  &:focus-within { outline: none; box-shadow: var(--tech-focus-ring); }
 }
 .child-card__head { display: flex; align-items: center; gap: 12px; }
 .child-card__avatar {
@@ -74,11 +83,12 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-size: 1.5rem;
+  font-size: var(--tech-fs-display, 26px);
   font-weight: 800;
   line-height: 1;
   color: var(--tech-positive, #34c759);
   font-variant-numeric: tabular-nums;
+  font-family: var(--tech-font-display, inherit);
   &--neg { color: var(--tech-warn); }
 }
 .child-card__warn mat-icon {

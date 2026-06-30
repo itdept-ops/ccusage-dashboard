@@ -173,8 +173,11 @@ interface ClaimLine {
             }
           } @else if (!importing()) {
             <div class="bd__noitems">
-              <mat-icon aria-hidden="true">receipt_long</mat-icon>
-              <p>No items yet. Add them above@if (canUseVision()) {, or snap the receipt}.</p>
+              <span class="bd__noitems-orb" aria-hidden="true">
+                <mat-icon aria-hidden="true">receipt_long</mat-icon>
+              </span>
+              <p class="bd__noitems-h">No items yet</p>
+              <p class="bd__noitems-p">Add them above@if (canUseVision()) {, or snap the receipt to import lines automatically}.</p>
             </div>
           }
 
@@ -240,12 +243,18 @@ interface ClaimLine {
     .bd__addbtn, .bd__snap {
       flex: 0 0 auto; width: 54px; height: 54px; display: grid; place-items: center;
       border: 1px solid var(--hairline); border-radius: var(--r-tile); background: var(--bg-rise); color: var(--ink); cursor: pointer;
-      &:disabled { opacity: .4; cursor: default; }
+      transition: background 120ms var(--ease-out), transform 120ms var(--ease-spring);
+      -webkit-tap-highlight-color: transparent;
+      &:hover { background: color-mix(in srgb, var(--accent-a) 12%, var(--bg-rise)); transform: translateY(-1px); }
+      &:active { transform: scale(.96); }
+      &:disabled { opacity: .4; cursor: default; transform: none; }
+      &:focus-visible { outline: 2px solid var(--focus, var(--accent-b)); outline-offset: 2px; }
     }
     .bd__snap { background: linear-gradient(135deg, color-mix(in srgb, var(--accent-a) 22%, var(--bg-rise)), color-mix(in srgb, var(--accent-b) 22%, var(--bg-rise))); }
+    .bd__snap:hover { background: linear-gradient(135deg, color-mix(in srgb, var(--accent-a) 36%, var(--bg-rise)), color-mix(in srgb, var(--accent-b) 36%, var(--bg-rise))); }
 
     .bd__h { margin: 4px 2px -4px; font: 800 12px/1 var(--font-ui); letter-spacing: .08em; text-transform: uppercase; color: var(--ink-dim); }
-    .bd__items { display: flex; flex-direction: column; gap: 8px; }
+    .bd__items { display: flex; flex-direction: column; gap: 10px; }
 
     .bd__taxtip { display: flex; gap: 10px; }
     .bd__stepper {
@@ -259,7 +268,12 @@ interface ClaimLine {
       width: 40px; height: 40px; display: grid; place-items: center;
       border: 1px solid var(--hairline); border-radius: 10px; background: var(--bg-rise); color: var(--ink);
       font-size: 18px; cursor: pointer;
+      transition: background 120ms var(--ease-out), transform 100ms var(--ease-spring);
+      -webkit-tap-highlight-color: transparent;
     }
+    .bd__stepper-btn:hover { background: color-mix(in srgb, var(--accent-a) 12%, var(--bg-rise)); }
+    .bd__stepper-btn:active { transform: scale(.93); }
+    .bd__stepper-btn:focus-visible { outline: 2px solid var(--focus, var(--accent-b)); outline-offset: 2px; }
 
     .bd__total { display: flex; align-items: baseline; justify-content: space-between; padding: 4px 4px 0; }
     .bd__total-lbl { font: 700 13px/1 var(--font-ui); color: var(--ink-dim); text-transform: uppercase; letter-spacing: .06em; }
@@ -272,13 +286,13 @@ interface ClaimLine {
       &::-webkit-scrollbar { display: none; }
     }
 
-    .bd__owes { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+    .bd__owes { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
     .bd__owe {
       display: flex; align-items: center; gap: 10px;
-      min-height: 44px; padding: 6px 12px; border-radius: var(--r-tile);
+      min-height: 44px; padding: 8px 12px; border-radius: var(--r-tile);
       background: var(--bg-sink);
+      border: 1px solid var(--hairline);
     }
-    .bd__owe + .bd__owe { margin-top: 2px; }
     .bd__owe-dot { flex: 0 0 auto; width: 8px; height: 8px; border-radius: 50%; background: color-mix(in srgb, var(--accent-b) 70%, var(--ink-dim)); }
     .bd__owe-name { flex: 1 1 auto; min-width: 0; font: 600 14px/1.2 var(--font-ui); color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .bd__owe-tag {
@@ -301,11 +315,23 @@ interface ClaimLine {
     .bd__owe--unclaimed .bd__owe-tag { background: color-mix(in srgb, var(--warn) 16%, transparent); color: var(--warn); }
 
     .bd__noitems {
-      display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center;
-      padding: 22px; color: var(--ink-dim);
-      mat-icon { font-size: 34px; width: 34px; height: 34px; opacity: .6; }
-      p { margin: 0; font-size: 13px; }
+      display: flex; flex-direction: column; align-items: center; gap: 12px; text-align: center;
+      padding: 28px 20px;
+      border-radius: var(--r-card, 16px);
+      background: color-mix(in srgb, var(--accent-a) 6%, var(--bg-sink));
+      border: 1px solid var(--hairline);
     }
+    .bd__noitems-orb {
+      display: grid; place-items: center; width: 64px; height: 64px;
+      border-radius: var(--r-card, 16px);
+      background: linear-gradient(135deg,
+        color-mix(in srgb, var(--accent-a) 28%, transparent),
+        color-mix(in srgb, var(--accent-b) 22%, transparent));
+      box-shadow: inset 0 1px 0 var(--glass-edge, rgba(255,255,255,.12));
+      mat-icon { font-size: 32px; width: 32px; height: 32px; color: color-mix(in srgb, var(--accent-b) 70%, var(--ink-dim)); }
+    }
+    .bd__noitems-h { margin: 0; font: 600 16px/1.2 var(--font-display); color: var(--ink); }
+    .bd__noitems-p { margin: 0; font: 500 13px/1.4 var(--font-ui); color: var(--ink-dim); }
 
     .bd__share { display: flex; align-items: center; gap: 10px; padding-top: 2px; }
     .bd__share-btn {
@@ -313,7 +339,12 @@ interface ClaimLine {
       border: none; border-radius: var(--r-pill);
       background: linear-gradient(135deg, var(--accent-a), var(--accent-b)); color: var(--on-accent, var(--tech-text-on-accent, #fff));
       font: 700 15px/1 var(--font-ui); cursor: pointer; box-shadow: var(--lift-1);
+      transition: opacity 120ms var(--ease-out), transform 120ms var(--ease-spring);
+      -webkit-tap-highlight-color: transparent;
     }
+    .bd__share-btn:hover { opacity: .88; transform: translateY(-1px); }
+    .bd__share-btn:active { transform: scale(.97); opacity: 1; }
+    .bd__share-btn:focus-visible { outline: 2px solid var(--focus, var(--accent-b)); outline-offset: 2px; }
     .bd__share-btn.is-active {
       background: color-mix(in srgb, var(--signal) 18%, var(--bg-rise)); color: var(--signal);
       border: 1px solid color-mix(in srgb, var(--signal) 40%, transparent); box-shadow: none;
@@ -321,16 +352,27 @@ interface ClaimLine {
     .bd__share-ic {
       flex: 0 0 auto; width: 54px; height: 54px; display: grid; place-items: center;
       border: 1px solid var(--hairline); border-radius: var(--r-pill); background: var(--bg-rise); color: var(--ink); cursor: pointer;
+      transition: background 120ms var(--ease-out), transform 120ms var(--ease-spring);
+      -webkit-tap-highlight-color: transparent;
     }
+    .bd__share-ic:hover { background: color-mix(in srgb, var(--ink-dim) 10%, var(--bg-rise)); transform: translateY(-1px); }
+    .bd__share-ic:active { transform: scale(.96); }
+    .bd__share-ic:focus-visible { outline: 2px solid var(--focus, var(--accent-b)); outline-offset: 2px; }
 
     .bd__settle {
       display: flex; align-items: center; justify-content: center; gap: 8px;
       min-height: 50px; border-radius: var(--r-pill);
       border: 1px solid var(--hairline); background: var(--bg-sink); color: var(--ink-dim);
       font: 700 14px/1 var(--font-ui); cursor: pointer; margin-bottom: 6px;
+      transition: background 120ms var(--ease-out), color 120ms var(--ease-out), transform 120ms var(--ease-spring);
+      -webkit-tap-highlight-color: transparent;
       mat-icon { font-size: 19px; width: 19px; height: 19px; }
     }
+    .bd__settle:hover { background: color-mix(in srgb, var(--ink-dim) 10%, var(--bg-sink)); }
+    .bd__settle:active { transform: scale(.98); }
+    .bd__settle:focus-visible { outline: 2px solid var(--focus, var(--accent-b)); outline-offset: 2px; }
     .bd__settle.is-settled { color: var(--signal); border-color: color-mix(in srgb, var(--signal) 30%, transparent); }
+    .bd__settle.is-settled:hover { background: color-mix(in srgb, var(--signal) 8%, var(--bg-sink)); }
   `],
 })
 export class BillDetailSheet {

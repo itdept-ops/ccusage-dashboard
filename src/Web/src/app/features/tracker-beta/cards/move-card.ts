@@ -2,6 +2,8 @@ import {
   ChangeDetectionStrategy, Component, computed, effect, inject, output, signal,
 } from '@angular/core';
 
+import { MatIconModule } from '@angular/material/icon';
+
 import { OptimisticTracker } from '../state/optimistic-tracker';
 import { UnitService } from '../../../core/unit.service';
 import { SwipeRow } from '../ui/swipe-row';
@@ -35,7 +37,7 @@ import { group } from '../util/units';
 @Component({
   selector: 'app-move-card',
   standalone: true,
-  imports: [SwipeRow],
+  imports: [SwipeRow, MatIconModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <section class="mv" aria-labelledby="mv-h">
@@ -164,7 +166,13 @@ import { group } from '../util/units';
           }
         </ul>
       } @else {
-        <p class="mv-empty">No exercise logged yet.</p>
+        <div class="mv-empty" aria-live="polite">
+          <span class="mv-empty-orb" aria-hidden="true">
+            <mat-icon>directions_run</mat-icon>
+          </span>
+          <span class="mv-empty-title">No exercise yet</span>
+          <span class="mv-empty-hint">Tap "+ add exercise" to log a workout.</span>
+        </div>
       }
 
       @if (!readOnly()) {
@@ -182,8 +190,8 @@ import { group } from '../util/units';
       margin-bottom: 14px;
     }
     .mv-title {
-      margin: 0; font-family: var(--font-ui); font-size: 13px; font-weight: 600;
-      letter-spacing: .04em; text-transform: uppercase; color: var(--ink-dim);
+      margin: 0; font-family: var(--font-ui); font-size: 13px; font-weight: 700;
+      letter-spacing: .05em; text-transform: uppercase; color: var(--ink-dim);
     }
     .mv-burn {
       font-family: var(--font-display); font-size: 20px; font-weight: 600;
@@ -255,8 +263,10 @@ import { group } from '../util/units';
 
     .mv-list {
       list-style: none; margin: 0 0 4px; padding: 0;
-      display: flex; flex-direction: column; gap: 6px;
+      display: flex; flex-direction: column;
+      border-top: 1px solid var(--hairline);
     }
+    .mv-list li + li { border-top: 1px solid var(--hairline); }
     .mv-row {
       display: flex; align-items: baseline; gap: 8px;
       min-height: 44px; padding: 8px 12px;
@@ -277,8 +287,23 @@ import { group } from '../util/units';
     .mv-row-dur { font-size: 12px; color: var(--ink-faint); }
     .mv-row-kcal { font-size: 14px; font-weight: 600; color: var(--ink); }
 
+    /* ── styled empty state ── */
     .mv-empty {
-      margin: 0 0 6px; padding: 8px 2px; font-size: 13px; color: var(--ink-faint);
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 6px; padding: 12px 8px 4px; text-align: center;
+    }
+    .mv-empty-orb {
+      display: grid; place-items: center;
+      width: 40px; height: 40px; border-radius: 50%;
+      background: linear-gradient(135deg, var(--move-a), var(--move-b));
+      color: #fff; opacity: .55;
+    }
+    .mv-empty-orb mat-icon { font-size: 20px; width: 20px; height: 20px; }
+    .mv-empty-title {
+      font-family: var(--font-ui); font-size: 13px; font-weight: 600; color: var(--ink-dim);
+    }
+    .mv-empty-hint {
+      font-size: 12px; color: var(--ink-faint);
     }
 
     .mv-add {
@@ -292,6 +317,7 @@ import { group } from '../util/units';
                   color 120ms var(--ease-out);
     }
     .mv-add:active { transform: scale(.97) translateY(1px); box-shadow: var(--press); }
+    .mv-add:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
     .mv-add-plus {
       font-size: 18px; font-weight: 600; line-height: 1;
       color: var(--move-a);

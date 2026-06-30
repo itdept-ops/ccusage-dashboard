@@ -50,6 +50,7 @@ const DEBOUNCE_MS = 250;
       <header class="sm-head">
         <div class="sm-head__bloom" aria-hidden="true"></div>
         <h1 class="sm-head__title">Search</h1>
+        <p class="sm-head__sub">Everything you can see — in one place.</p>
         <form class="sm-box" (submit)="submit(); $event.preventDefault()" role="search">
           <mat-icon class="sm-box__ic" aria-hidden="true">search</mat-icon>
           <input class="sm-box__input" type="search" name="q" [value]="query()"
@@ -120,8 +121,8 @@ const DEBOUNCE_MS = 250;
           [body]="'Nothing you can see matches “' + query() + '”. Try a different word.'" />
 
       } @else {
-        @for (g of groups(); track g.meta.key) {
-          <section class="sm-group">
+        @for (g of groups(); track g.meta.key; let i = $index) {
+          <section class="sm-group" [style.--i]="i">
             <div class="sm-group__head">
               <mat-icon class="sm-group__ic" aria-hidden="true">{{ g.meta.icon }}</mat-icon>
               <h2 class="sm-group__title">{{ g.meta.label }}</h2>

@@ -196,8 +196,9 @@ import { SwipeRow } from '../ui/swipe-row';
       padding: 0;
       display: flex;
       flex-direction: column;
-      gap: 6px;
+      border-top: 1px solid var(--hairline);
     }
+    .tb-sleep__rows li + li { border-top: 1px solid var(--hairline); }
 
     .tb-sleep__row {
       display: flex;

@@ -182,7 +182,7 @@
 .subgroup ::ng-deep .tr-title { font-weight: 600; font-size: 14px; }
 
 .grp-cap {
-  margin: 4px 2px -2px; font-size: 11px; font-weight: 700; letter-spacing: .08em;
+  margin: 4px 2px 0; font-size: 11px; font-weight: 700; letter-spacing: .08em;
   text-transform: uppercase; color: var(--ink-faint);
 }
 
@@ -229,6 +229,7 @@
   transition: background 140ms var(--ease-out);
 }
 .home-row + .home-row { border-top: 1px solid var(--hairline); }
+.home-row:hover { background: color-mix(in srgb, var(--tech-accent) 6%, transparent); }
 .home-row:active { background: color-mix(in srgb, var(--tech-accent) 8%, transparent); }
 // Active (selected) row: subtle accent tint + left accent bar via box-shadow inset
 .home-row.is-active {
@@ -278,6 +279,7 @@
   box-shadow: var(--lift-2, var(--tech-shadow-raised));
 }
 .card--list .link-row { border: none; border-radius: 0; box-shadow: none; background: transparent; }
+.card--list .link-row:hover { background: color-mix(in srgb, var(--accent-a) 6%, transparent); }
 .card--list .link-row + .link-row { border-top: 1px solid var(--hairline); }
 .link-row:active { transform: scale(.992); background: color-mix(in srgb, var(--accent-b) 8%, transparent); }
 .link-row:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; border-radius: 12px; }
@@ -288,6 +290,15 @@
   background: color-mix(in srgb, var(--accent-a) 16%, transparent);
   border: 1px solid color-mix(in srgb, var(--accent-a) 30%, transparent);
   color: color-mix(in srgb, var(--accent-a) 80%, var(--ink));
+}
+// Material Symbols ligature variant — normalise the font-feature settings so the ligature renders
+.link-ic--sym {
+  font-family: 'Material Symbols Outlined', sans-serif;
+  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+  font-size: 20px;
+  line-height: 1;
+  font-style: normal;
+  user-select: none;
 }
 .link-ic--accent { font-weight: 800; }
 .link-text { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
@@ -340,9 +351,15 @@
 // MISC STATES
 // ============================================================================
 
-.empty, .hint { margin: 0; font-size: 13px; color: var(--ink-dim); }
-.hint { margin: 6px 6px 0; font-size: 12px; }
-.foot { margin: 10px 4px 0; font-size: 12px; color: var(--ink-faint); text-align: center; line-height: 1.5; }
+.empty { margin: 0; font-size: 13px; color: var(--ink-dim); }
+.hint {
+  margin: 6px 10px 0; font-size: 12px; line-height: 1.5;
+  color: var(--ink-faint);
+}
+.foot {
+  margin: 12px 4px 0; font-size: 12px; color: var(--ink-faint);
+  text-align: center; line-height: 1.5; letter-spacing: .01em;
+}
 
 :host ::ng-deep :focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: 8px; }
 

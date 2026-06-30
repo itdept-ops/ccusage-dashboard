@@ -140,7 +140,9 @@
   box-shadow: 0 6px 20px color-mix(in srgb, var(--accent-a) 38%, transparent);
   transition: transform 120ms var(--ease-spring);
 }
+.cm-hero__cta:hover { box-shadow: 0 8px 24px color-mix(in srgb, var(--accent-a) 48%, transparent); }
 .cm-hero__cta:active { transform: scale(.95); }
+.cm-hero__cta:focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; }
 .cm-hero__cta mat-icon { font-size: 19px; width: 19px; height: 19px; }
 
 // stat row under the ring
@@ -173,6 +175,39 @@
 .cm-seg { flex: 1 1 auto; }
 
 // ============================================================================
+// PAGE HEADER — title + one-line subtitle + end-aligned CTA (Rubric #1)
+// ============================================================================
+
+.cm-header {
+  display: flex; align-items: flex-start; justify-content: space-between; gap: 12px;
+  padding: 0 2px;
+}
+.cm-header__text { display: flex; flex-direction: column; gap: 2px; }
+.cm-header__title {
+  margin: 0;
+  font-family: var(--font-display); font-weight: 800; font-size: 26px;
+  letter-spacing: -.025em; color: var(--ink); line-height: 1.1;
+}
+.cm-header__sub {
+  margin: 0; font-size: 12.5px; font-weight: 600;
+  color: var(--ink-dim); letter-spacing: .01em;
+}
+.cm-header__action {
+  flex: 0 0 auto; display: inline-flex; align-items: center; gap: 5px;
+  min-height: 38px; padding: 0 14px; border-radius: var(--r-pill);
+  border: 1px solid color-mix(in srgb, var(--accent-a) 38%, var(--hairline));
+  background: color-mix(in srgb, var(--accent-a) 10%, var(--bg-rise));
+  color: color-mix(in srgb, var(--accent-a) 88%, var(--ink));
+  font: inherit; font-size: 13px; font-weight: 800;
+  text-decoration: none; white-space: nowrap;
+  transition: transform 120ms var(--ease-spring), background 160ms var(--ease-out);
+  mat-icon { font-size: 17px; width: 17px; height: 17px; }
+}
+.cm-header__action:hover { transform: translateY(-1px); background: color-mix(in srgb, var(--accent-a) 16%, var(--bg-rise)); }
+.cm-header__action:active { transform: scale(.96); }
+.cm-header__action:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+
+// ============================================================================
 // SECTION HEADS + EMPTY/FOOT
 // ============================================================================
 
@@ -180,20 +215,45 @@
 
 .cm-today__head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
 .cm-today__title {
-  margin: 0; font-family: var(--font-display); font-weight: 600; font-size: 18px;
-  letter-spacing: -.01em; color: var(--ink);
+  margin: 0; font-family: var(--font-display); font-weight: 800; font-size: 19px;
+  letter-spacing: -.015em; color: var(--ink);
 }
 .cm-today__points {
   font-variant-numeric: tabular-nums; font-size: 13px; font-weight: 800;
+  letter-spacing: .01em; text-transform: uppercase;
   color: color-mix(in srgb, var(--accent-a) 70%, var(--ink));
 }
 
+// Leaderboard section heading
+.cm-board__head {
+  display: flex; align-items: center; gap: 8px; margin: 0 0 2px;
+  font-size: 11px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase;
+  color: var(--ink-faint);
+  mat-icon { font-size: 15px; width: 15px; height: 15px; color: var(--accent-a); }
+}
+
+// Icon orb for inline empty states (Rubric #5 — centered icon orb)
 .cm-empty {
   display: flex; flex-direction: column; align-items: center; gap: 10px;
-  padding: 30px 20px; text-align: center;
-  border-radius: var(--r-card); background: var(--bg-rise); border: 1px solid var(--hairline);
-  font-size: 13.5px; font-weight: 600; color: var(--ink-dim); line-height: 1.45;
-  mat-icon { font-size: 30px; width: 30px; height: 30px; color: color-mix(in srgb, var(--accent-a) 60%, var(--ink-dim)); }
+  padding: 32px 20px; text-align: center;
+  border-radius: var(--r-card);
+  background: var(--bg-rise);
+  border: 1px solid var(--hairline);
+  box-shadow: inset 0 1px 0 var(--glass-edge), var(--lift-1);
+}
+.cm-empty__orb {
+  display: grid; place-items: center; width: 56px; height: 56px; border-radius: 50%;
+  background: color-mix(in srgb, var(--accent-a) 10%, var(--bg-sink));
+  border: 1.5px dashed color-mix(in srgb, var(--accent-a) 40%, var(--hairline));
+  color: color-mix(in srgb, var(--accent-a) 72%, var(--ink-dim));
+  mat-icon { font-size: 27px; width: 27px; height: 27px; }
+}
+.cm-empty__title {
+  margin: 0; font-family: var(--font-display); font-weight: 800; font-size: 15px;
+  letter-spacing: -.01em; color: var(--ink);
+}
+.cm-empty__hint {
+  margin: 0; font-size: 13px; font-weight: 600; color: var(--ink-dim); line-height: 1.45; max-width: 30ch;
 }
 
 .cm-foot {
@@ -213,7 +273,7 @@
   border-radius: var(--r-card);
   background: var(--bg-rise);
   border: 1px solid var(--hairline);
-  box-shadow: var(--lift-1);
+  box-shadow: inset 0 1px 0 var(--glass-edge), var(--lift-1);
   font: inherit; color: var(--ink);
   cursor: pointer; touch-action: manipulation; -webkit-tap-highlight-color: transparent;
   overflow: hidden; isolation: isolate;
@@ -307,7 +367,7 @@
   border-radius: var(--r-card);
   background: var(--bg-rise);
   border: 1px solid var(--hairline);
-  box-shadow: var(--lift-1);
+  box-shadow: inset 0 1px 0 var(--glass-edge), var(--lift-1);
   transition: transform 140ms var(--ease-spring), box-shadow 140ms var(--ease-out);
 }
 .cm-row:hover {
@@ -373,6 +433,10 @@
   cursor: pointer; touch-action: manipulation; -webkit-tap-highlight-color: transparent;
   transition: transform 120ms var(--ease-spring), background 160ms var(--ease-out);
   mat-icon { font-size: 20px; width: 20px; height: 20px; }
+}
+.cm-row__nudge:hover:not([disabled]) {
+  background: color-mix(in srgb, var(--accent-a) 14%, var(--bg-sink));
+  border-color: color-mix(in srgb, var(--accent-a) 32%, var(--hairline));
 }
 .cm-row__nudge:active { transform: scale(.9); }
 .cm-row__nudge:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }

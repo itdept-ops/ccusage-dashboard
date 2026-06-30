@@ -48,6 +48,7 @@ interface StatChip {
           <div class="td-hero__bloom" aria-hidden="true"></div>
           <p class="td-hero__kicker"><mat-icon aria-hidden="true">wb_twilight</mat-icon> Day in the Life</p>
           <h1 class="td-hero__title">Your day</h1>
+          <p class="td-hero__sub">A moment-by-moment look at what you tracked.</p>
 
           <nav class="td-nav" aria-label="Day navigation">
             <button type="button" class="td-nav__btn" [disabled]="busy()" (click)="step(-1)" aria-label="Previous day">
@@ -119,7 +120,10 @@ interface StatChip {
           @if (highlights().length) {
             <ul class="td-hl" aria-label="What stood out">
               @for (h of highlights(); track h) {
-                <li><mat-icon aria-hidden="true">bolt</mat-icon>{{ h }}</li>
+                <li>
+                  <span class="td-hl__orb" aria-hidden="true"><mat-icon>bolt</mat-icon></span>
+                  <span>{{ h }}</span>
+                </li>
               }
             </ul>
           }

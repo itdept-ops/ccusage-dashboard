@@ -222,9 +222,9 @@
   border: 1px solid var(--tech-border);
   border-radius: var(--tech-radius, 12px);
   background: var(--tech-panel);
-  box-shadow: var(--tech-shadow-panel);
-  transition: transform var(--tech-t-fast, 120ms) ease, box-shadow var(--tech-t-fast, 120ms) ease;
-  &:hover { transform: translateY(-1px); box-shadow: var(--tech-shadow-raised); }
+  box-shadow: var(--tech-shadow-panel), inset 0 1px 0 rgba(255,255,255,0.06);
+  transition: border-color var(--tech-t-fast, 120ms) ease, transform var(--tech-t-fast, 120ms) ease, box-shadow var(--tech-t-fast, 120ms) ease;
+  &:hover { border-color: var(--tech-border-strong); transform: translateY(-1px); box-shadow: var(--tech-shadow-raised), inset 0 1px 0 rgba(255,255,255,0.06); }
 
   &--today {
     border-color: color-mix(in srgb, var(--tech-accent) 50%, var(--tech-border));

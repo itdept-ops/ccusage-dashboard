@@ -10,7 +10,7 @@
   .head-eyebrow { display: block; color: var(--tech-text-accent); margin-bottom: 6px; }
   h2 {
     margin: 0 0 var(--tech-space-1);
-    font-family: var(--tech-font-ui);
+    font-family: var(--tech-font-display, var(--tech-font-ui));
     font-size: clamp(22px, 6vw, var(--tech-fs-display));
     font-weight: 700;
     letter-spacing: -0.02em;
@@ -25,12 +25,13 @@
   }
 }
 
-/* ── FiMobile card signature: radius + shadow for every panel card ── */
+/* ── FiMobile card signature: radius + shadow + inset top-highlight for every panel card ── */
 .panel {
   padding: var(--tech-space-4) var(--tech-space-6) var(--tech-space-6);
   margin-top: var(--tech-space-4);
   border-radius: var(--tech-radius) !important;
-  box-shadow: var(--tech-shadow-panel) !important;
+  background: var(--tech-panel) !important;
+  box-shadow: var(--tech-shadow-panel), inset 0 1px 0 var(--tech-glass-inset-hi) !important;
   border: 1px solid var(--tech-border) !important;
 }
 
@@ -238,7 +239,16 @@
   align-items: flex-start;
   gap: var(--tech-space-3);
 
-  .where-icon { flex: 0 0 auto; color: var(--tech-accent); font-size: 24px; width: 24px; height: 24px; margin-top: 2px; }
+  .where-icon {
+    flex: 0 0 auto;
+    display: flex; align-items: center; justify-content: center;
+    width: 40px; height: 40px;
+    border-radius: var(--tech-r-control);
+    background: color-mix(in srgb, var(--tech-accent) 12%, transparent);
+    color: var(--tech-accent);
+    font-size: 22px;
+    margin-top: 2px;
+  }
   .where-title { font-size: var(--tech-fs-body); font-weight: 700; color: var(--tech-text); margin-bottom: 4px; }
   .where-sub {
     margin: 0; max-width: 640px;
@@ -290,7 +300,10 @@
     flex: 0 0 auto;
     width: 30px; height: 30px; line-height: 30px;
     color: var(--tech-text-tertiary);
+    border-radius: var(--tech-r-chip);
+    transition: color var(--tech-t-control) ease;
     &:hover { color: var(--tech-accent); }
+    &:focus-visible { outline: var(--tech-focus-ring); }
     mat-icon { font-size: 17px; width: 17px; height: 17px; }
   }
 }
@@ -365,6 +378,8 @@
   display: flex;
   align-items: center;
   gap: var(--tech-space-3);
+  padding-top: var(--tech-space-3);
+  border-top: 1px solid var(--tech-border-subtle);
   margin-bottom: var(--tech-space-3);
 
   .keygen-name { flex: 1 1 auto; }
@@ -491,15 +506,52 @@
   }
 }
 
-.key-empty { color: var(--tech-text-tertiary); padding: var(--tech-space-2) 0; }
+/* Empty-key state — centered icon orb + title + hint */
+.key-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: var(--tech-space-6) var(--tech-space-4);
+  gap: var(--tech-space-2);
+
+  .key-empty-orb {
+    display: flex; align-items: center; justify-content: center;
+    width: 48px; height: 48px;
+    border-radius: var(--tech-r-control);
+    background: color-mix(in srgb, var(--tech-accent) 10%, transparent);
+    border: 1px solid color-mix(in srgb, var(--tech-accent) 25%, transparent);
+    margin-bottom: var(--tech-space-1);
+    mat-icon { color: var(--tech-accent); font-size: 22px; width: 22px; height: 22px; }
+  }
+
+  .key-empty-title {
+    font-size: var(--tech-fs-body);
+    font-weight: 600;
+    color: var(--tech-text-secondary);
+  }
+
+  .key-empty-hint {
+    margin: 0;
+    color: var(--tech-text-tertiary);
+    max-width: 280px;
+    line-height: 1.5;
+  }
+}
 
 /* ───────────────────────── Self-service explainer ───────────────────────── */
 .self-explainer {
   .se-head {
     display: flex; align-items: flex-start; gap: var(--tech-space-3);
     .se-icon {
-      flex: 0 0 auto; font-size: 24px; width: 24px; height: 24px;
-      color: var(--tech-accent); margin-top: 2px;
+      flex: 0 0 auto;
+      display: flex; align-items: center; justify-content: center;
+      width: 40px; height: 40px;
+      border-radius: var(--tech-r-control);
+      background: color-mix(in srgb, var(--tech-accent) 12%, transparent);
+      color: var(--tech-accent);
+      font-size: 22px;
+      margin-top: 2px;
     }
     .se-title {
       font-family: var(--tech-font-ui);
@@ -525,7 +577,12 @@
   }
 }
 
-.danger-btn { color: var(--tech-text-tertiary); &:hover { color: var(--tech-error, #ff5c6c); } }
+.danger-btn {
+  color: var(--tech-text-tertiary);
+  transition: color var(--tech-t-control) ease;
+  &:hover { color: var(--tech-error, #ff5c6c); }
+  &:focus-visible { outline: var(--tech-focus-ring); }
+}
 
 .foot {
   margin: var(--tech-space-4) 0 0;

@@ -59,6 +59,14 @@ interface FeedCard extends InsightCard {
     <app-bs-pull-refresh class="im-ptr" [busy]="refreshing()" (refresh)="reload()">
       <div class="im-scroll">
 
+        <!-- ─── hero bloom ─── -->
+        <header class="im-hero" aria-hidden="true">
+          <div class="im-hero__bloom"></div>
+          <p class="im-hero__kicker"><mat-icon aria-hidden="true">query_stats</mat-icon> Your patterns</p>
+          <h1 class="im-hero__title">The Insight Engine</h1>
+          <p class="im-hero__sub">Cross-domain signals surfaced from your own logs — no other user's data.</p>
+        </header>
+
         @if (loading()) {
           <div class="im-load" aria-hidden="true">
             <app-bs-skeleton height="118px" radius="var(--r-card)" />

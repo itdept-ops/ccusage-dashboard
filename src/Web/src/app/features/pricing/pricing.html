@@ -1,4 +1,4 @@
-<div class="head">
+<header class="head">
   <div class="head-text">
     <span class="micro-label head-eyebrow">~/pricing — rate config</span>
     <h2>Model pricing</h2>
@@ -6,13 +6,22 @@
       <em>Recompute</em> to re-price existing rows. Lookup is exact&nbsp;→&nbsp;longest-prefix&nbsp;→&nbsp;<code>*</code>.</p>
   </div>
   @if (auth.hasPermission(PERM.pricingManage)) {
-    <button mat-flat-button color="primary" class="recompute-btn" [disabled]="recomputing()" (click)="recompute()">
-      <mat-icon>calculate</mat-icon> {{ recomputing() ? 'Recomputing…' : 'Recompute costs' }}
-    </button>
+    <div class="head-action">
+      <button mat-flat-button color="primary" class="recompute-btn" [disabled]="recomputing()" (click)="recompute()">
+        <mat-icon>calculate</mat-icon> {{ recomputing() ? 'Recomputing…' : 'Recompute costs' }}
+      </button>
+    </div>
   }
-</div>
+</header>
 
-@if (loading()) { <mat-progress-bar mode="indeterminate" aria-label="Loading pricing" /> }
+@if (loading()) {
+  <div class="state" role="status" aria-live="polite">
+    <div class="state__orb">
+      <mat-progress-spinner mode="indeterminate" diameter="28" />
+    </div>
+    <p class="state__title">Loading pricing…</p>
+  </div>
+}
 
 <div class="grid">
   @for (row of rows(); track row.id) {
@@ -22,7 +31,7 @@
 
       <div class="rc-head">
         <div class="rc-title">
-          <span class="rc-dot"></span>
+          <span class="rc-dot" aria-hidden="true"><mat-icon>sell</mat-icon></span>
           <code class="pattern mono-num">{{ row.modelPattern }}</code>
         </div>
         @if (row.isPlaceholder) { <span class="badge">placeholder</span> }
@@ -74,7 +83,13 @@
     </mat-card>
   } @empty {
     @if (!loading()) {
-      <div class="grid-empty">No pricing rows yet.</div>
+      <div class="grid-empty state">
+        <div class="state__orb">
+          <mat-icon aria-hidden="true">sell</mat-icon>
+        </div>
+        <p class="state__title">No pricing rows yet</p>
+        <p class="state__hint">Add model pricing records to start tracking costs.</p>
+      </div>
     }
   }
 </div>

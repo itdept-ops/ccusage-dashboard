@@ -109,24 +109,42 @@ export interface ReceiptReviewResult {
       width: 40px; height: 40px; display: grid; place-items: center;
       border: 1px solid var(--hairline); border-radius: 12px; background: var(--bg-sink);
       color: var(--ink-dim); cursor: pointer;
+      transition: background 120ms var(--ease-out), color 120ms var(--ease-out), transform 100ms var(--ease-spring);
+      -webkit-tap-highlight-color: transparent;
     }
+    .rrs__del:hover { background: color-mix(in srgb, var(--warn) 14%, var(--bg-sink)); color: var(--warn); }
+    .rrs__del:active { transform: scale(.92); }
+    .rrs__del:focus-visible { outline: 2px solid var(--focus, var(--warn)); outline-offset: 2px; }
     .rrs__addline {
       align-self: flex-start; display: inline-flex; align-items: center; gap: 6px;
       min-height: 44px; padding: 0 16px; border: 1px solid var(--hairline); border-radius: var(--r-pill);
       background: var(--bg-sink); color: var(--ink); font: 600 14px/1 var(--font-ui); cursor: pointer;
+      transition: background 120ms var(--ease-out), transform 120ms var(--ease-spring);
+      -webkit-tap-highlight-color: transparent;
       mat-icon { font-size: 18px; width: 18px; height: 18px; }
     }
+    .rrs__addline:hover { background: color-mix(in srgb, var(--accent-a) 12%, var(--bg-sink)); transform: translateY(-1px); }
+    .rrs__addline:active { transform: scale(.97); }
+    .rrs__addline:focus-visible { outline: 2px solid var(--focus, var(--accent-b)); outline-offset: 2px; }
     .rrs__taxtip { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
     .rrs__tt { display: flex; flex-direction: column; gap: 6px; font: 600 12px/1 var(--font-ui); color: var(--ink-dim); }
     .rrs__total { display: flex; justify-content: space-between; align-items: baseline; margin: 0;
       font: 600 14px/1 var(--font-ui); color: var(--ink-dim); }
     .rrs__total-v { font: 600 18px/1 var(--font-display); color: var(--ink); }
     .rrs__actions { display: flex; gap: 10px; padding-top: 4px; }
-    .rrs__btn { flex: 1 1 0; min-height: 54px; border-radius: var(--r-pill);
-      font: 700 15px/1 var(--font-ui); cursor: pointer; border: 1px solid var(--hairline); }
+    .rrs__btn {
+      flex: 1 1 0; min-height: 54px; border-radius: var(--r-pill);
+      font: 700 15px/1 var(--font-ui); cursor: pointer; border: 1px solid var(--hairline);
+      transition: background 120ms var(--ease-out), opacity 120ms var(--ease-out), transform 120ms var(--ease-spring);
+      -webkit-tap-highlight-color: transparent;
+    }
+    .rrs__btn:active { transform: scale(.97); }
+    .rrs__btn:focus-visible { outline: 2px solid var(--focus, var(--accent-b)); outline-offset: 2px; }
     .rrs__btn--ghost { background: var(--bg-sink); color: var(--ink); }
-    .rrs__btn--primary { background: linear-gradient(135deg, var(--accent-a), var(--accent-b)); color: var(--on-accent, var(--tech-text-on-accent, #fff)); border: none; }
-    .rrs__btn--primary:disabled { opacity: .4; cursor: default; }
+    .rrs__btn--ghost:hover { background: color-mix(in srgb, var(--ink-dim) 10%, var(--bg-sink)); }
+    .rrs__btn--primary { background: linear-gradient(135deg, var(--accent-a), var(--accent-b)); color: var(--on-accent, var(--tech-text-on-accent, #fff)); border: none; box-shadow: var(--lift-1); }
+    .rrs__btn--primary:hover { opacity: .88; transform: translateY(-1px); }
+    .rrs__btn--primary:disabled { opacity: .4; cursor: default; transform: none; box-shadow: none; }
   `],
 })
 export class ReceiptReviewSheet {

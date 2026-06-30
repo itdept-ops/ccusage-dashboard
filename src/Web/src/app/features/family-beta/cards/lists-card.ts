@@ -68,20 +68,26 @@ import { OptimisticFamily } from '../state/optimistic-family';
     </fb-hearth-shell>
   `,
   styles: [`
+    /* --wa / --wb are injected by HearthShell on the .w host element and inherit into projected content. */
     .badge {
       margin-left: auto; font-size: 12px; font-weight: 800; padding: 3px 10px; border-radius: var(--r-pill);
-      background: color-mix(in srgb, #38bdf8 20%, transparent); color: #7dd3fc;
+      background: color-mix(in srgb, var(--wa, #38bdf8) 20%, transparent);
+      color: color-mix(in srgb, var(--wa, #7dd3fc) 90%, var(--ink));
     }
     .lists { display: flex; flex-direction: column; gap: 16px; }
     .lst { display: flex; flex-direction: column; gap: 8px; }
     .lst + .lst { padding-top: 14px; border-top: 1px solid var(--hairline); }
     .lst__head { display: flex; align-items: center; gap: 8px; }
-    .lst__icon { flex: 0 0 auto; color: #7dd3fc; font-size: 20px; width: 20px; height: 20px; }
+    .lst__icon {
+      flex: 0 0 auto; font-size: 20px; width: 20px; height: 20px;
+      color: color-mix(in srgb, var(--wa, #7dd3fc) 80%, var(--ink));
+    }
     .lst__name { font-size: 15px; font-weight: 700; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .lst__count {
       margin-left: auto; flex: 0 0 auto; font-size: 12px; font-weight: 800;
       padding: 2px 9px; border-radius: var(--r-pill);
-      background: color-mix(in srgb, #38bdf8 16%, transparent); color: #7dd3fc;
+      background: color-mix(in srgb, var(--wa, #38bdf8) 16%, transparent);
+      color: color-mix(in srgb, var(--wa, #7dd3fc) 90%, var(--ink));
     }
     .lst__count--clear { background: color-mix(in srgb, var(--signal) 18%, transparent); color: var(--signal); }
     .lst__peek { list-style: none; margin: 0; padding: 0 0 0 28px; display: flex; flex-direction: column; gap: 4px; }
@@ -96,15 +102,21 @@ import { OptimisticFamily } from '../state/optimistic-family';
       flex: 1 1 auto; min-width: 0; min-height: 44px; padding: 0 14px;
       border-radius: var(--r-pill); border: 1px solid var(--hairline);
       background: var(--bg-sink); color: var(--ink); font: inherit; font-size: 14px;
+      transition: border-color 120ms var(--ease-out);
     }
     .add__input::placeholder { color: var(--ink-faint); }
-    .add__input:focus-visible { outline: 2px solid #38bdf8; outline-offset: 1px; }
+    .add__input:focus-visible {
+      outline: 2px solid color-mix(in srgb, var(--wa, #38bdf8) 90%, transparent);
+      outline-offset: 1px;
+    }
     .add__btn {
       flex: 0 0 auto; display: grid; place-items: center; width: 44px; height: 44px;
       border-radius: var(--r-pill); border: none; cursor: pointer;
-      background: linear-gradient(135deg, #7dd3fc, #38bdf8); color: #06243a;
-      transition: transform 120ms var(--ease-spring);
+      background: linear-gradient(135deg, var(--wa, #7dd3fc), var(--wb, #38bdf8));
+      color: var(--ink-on-accent, #06243a);
+      transition: transform 120ms var(--ease-spring), opacity 120ms;
     }
+    .add__btn:hover:not(:disabled) { opacity: .88; }
     .add__btn:active { transform: scale(.92); }
     .add__btn:disabled { opacity: .4; cursor: default; }
     .add__btn:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }

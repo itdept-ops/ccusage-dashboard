@@ -11,7 +11,7 @@
   display: flex;
   align-items: flex-start;
   gap: 14px;
-  margin-bottom: 18px;
+  margin-bottom: var(--tech-space-4, 16px);
 }
 
 /* FiMobile: icon tile — tinted accent orb with control radius */
@@ -30,8 +30,11 @@
 
 .search__title {
   margin: 0;
-  font-family: var(--tech-font-ui);
-  font-size: clamp(20px, 4vw, 26px);
+  font-family: var(--tech-font-display);
+  font-size: clamp(22px, 4vw, var(--tech-fs-display, 26px));
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
   color: var(--tech-text);
 }
 
@@ -54,7 +57,7 @@
   border: 1px solid var(--tech-border);
   border-radius: var(--tech-radius, 12px);
   box-shadow: var(--tech-shadow-panel);
-  margin-bottom: 16px;
+  margin-bottom: var(--tech-space-4, 16px);
 
   &:focus-within {
     border-color: var(--tech-accent);
@@ -95,9 +98,9 @@
   flex-wrap: wrap;
   gap: 4px;
   padding: 4px;
-  margin-bottom: 18px;
+  margin-bottom: var(--tech-space-4, 16px);
   background: var(--tech-bg-sunken);
-  border-radius: var(--tech-radius, 12px);
+  border-radius: var(--tech-r-pill, 999px);
 }
 
 /* Each chip is a pill tab inside the tray */
@@ -108,18 +111,24 @@
   padding: 6px 14px;
   background: transparent;
   border: 1px solid transparent;
-  border-radius: var(--tech-r-control, 10px);
+  border-radius: var(--tech-r-pill, 999px);
   color: var(--tech-text-secondary);
   font: inherit;
   font-size: 0.82rem;
   cursor: pointer;
   transition: background-color var(--tech-t-panel, 0.15s) var(--tech-ease, ease),
               border-color var(--tech-t-panel, 0.15s) var(--tech-ease, ease),
-              color var(--tech-t-panel, 0.15s) var(--tech-ease, ease);
+              color var(--tech-t-panel, 0.15s) var(--tech-ease, ease),
+              box-shadow var(--tech-t-panel, 0.15s) var(--tech-ease, ease);
 
   mat-icon { font-size: 17px; width: 17px; height: 17px; }
 
   &:hover { color: var(--tech-text); }
+
+  &:focus-visible {
+    outline: none;
+    box-shadow: var(--tech-focus-ring);
+  }
 
   /* FiMobile active pill: accent fill, on-accent text */
   &.is-on {
@@ -148,6 +157,7 @@
   padding: 56px 16px;
   text-align: center;
   color: var(--tech-text-secondary);
+  background: var(--tech-panel);
   border-radius: var(--tech-radius, 12px);
   border: 1px solid var(--tech-border);
   box-shadow: var(--tech-shadow-panel);
@@ -204,10 +214,11 @@
 }
 
 /* ─────────────────────────── results ─────────────────────────── */
-.search__results { display: flex; flex-direction: column; gap: 22px; }
+.search__results { display: flex; flex-direction: column; gap: var(--tech-space-6, 24px); }
 
 /* FiMobile: result group gets card signature */
 .search__group {
+  background: var(--tech-panel);
   border-radius: var(--tech-radius, 12px);
   border: 1px solid var(--tech-border);
   box-shadow: var(--tech-shadow-panel);
@@ -218,7 +229,8 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 10px 14px 10px;
+  padding: 10px 14px;
+  background: color-mix(in srgb, var(--tech-accent) 5%, var(--tech-panel));
   border-bottom: 1px solid var(--tech-border);
 }
 
@@ -240,7 +252,19 @@
   color: var(--tech-text-tertiary);
 }
 
-.search__list { list-style: none; margin: 0; padding: 4px; display: flex; flex-direction: column; gap: 2px; }
+.search__list {
+  list-style: none;
+  margin: 0;
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+
+  /* hairline dividers between rows, skipping the first */
+  li + li {
+    border-top: 1px solid var(--tech-border-subtle, color-mix(in srgb, var(--tech-border) 50%, transparent));
+  }
+}
 
 /* FiMobile: list rows — roomy padding, hover lift, icon tile, on-accent chevron */
 .search__row {
@@ -261,13 +285,17 @@
               transform var(--tech-t-panel, 0.15s) var(--tech-ease, ease),
               box-shadow var(--tech-t-panel, 0.15s) var(--tech-ease, ease);
 
-  &:hover,
-  &:focus-visible {
+  &:hover {
     background: var(--tech-panel-raised, var(--tech-panel));
     border-color: var(--tech-border);
     transform: translateY(-1px);
     box-shadow: var(--tech-shadow-raised);
+  }
+
+  &:focus-visible {
     outline: none;
+    box-shadow: var(--tech-focus-ring);
+    background: var(--tech-panel-raised, var(--tech-panel));
   }
 }
 
@@ -327,6 +355,66 @@
 }
 
 @keyframes search-spin { to { transform: rotate(360deg); } }
+
+@media (max-width: 560px) {
+  .search {
+    padding: var(--tech-space-4, 16px) var(--tech-space-3, 12px) 64px;
+  }
+
+  .search__head {
+    gap: 10px;
+    margin-bottom: var(--tech-space-3, 12px);
+  }
+
+  .search__glyph {
+    width: 38px;
+    height: 38px;
+    mat-icon { font-size: 22px; width: 22px; height: 22px; }
+  }
+
+  .search__title {
+    font-size: clamp(20px, 6vw, 24px);
+  }
+
+  .search__sub {
+    display: none; /* drop the long subtitle on narrow screens */
+  }
+
+  .search__chips {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 6px;
+    border-radius: var(--tech-r-pill, 999px);
+    /* hide scrollbar on mobile */
+    scrollbar-width: none;
+    &::-webkit-scrollbar { display: none; }
+  }
+
+  .search__chip {
+    flex: 0 0 auto;
+    white-space: nowrap;
+  }
+
+  .search__state {
+    padding: 40px 12px;
+  }
+
+  .search__row {
+    padding: 10px 12px;
+    gap: 10px;
+  }
+
+  .search__row-ic {
+    width: 32px;
+    height: 32px;
+    font-size: 18px;
+  }
+}
+
+@media (max-width: 360px) {
+  .search__title { font-size: 18px; }
+}
 
 @media (prefers-reduced-motion: reduce) {
   .search__spin { animation: none; }

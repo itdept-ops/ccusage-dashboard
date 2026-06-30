@@ -62,9 +62,12 @@ interface RailPill {
       background: var(--bg-rise); box-shadow: var(--lift-1);
       border: 1px solid var(--hairline);
       color: var(--ink); text-decoration: none;
-      transition: transform 120ms var(--ease-out);
+      transition: transform 120ms var(--ease-spring), box-shadow 120ms var(--ease-out);
     }
-    .pill:active { transform: scale(.98); }
+    @media (hover: hover) {
+      .pill:hover { transform: translateY(-2px); box-shadow: var(--lift-2); }
+    }
+    .pill:active { transform: scale(.97); box-shadow: var(--lift-1); }
     .pill:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
     .pill__ic {
       flex: 0 0 auto; display: grid; place-items: center; width: 36px; height: 36px; border-radius: 11px;

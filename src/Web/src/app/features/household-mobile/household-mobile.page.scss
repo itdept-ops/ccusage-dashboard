@@ -47,6 +47,29 @@
 }
 
 // ============================================================================
+// SECTION LABEL — small-caps tracked label above a grouped section.
+// ============================================================================
+
+.hh-section-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 0 4px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+
+  mat-icon {
+    font-size: 15px;
+    width: 15px;
+    height: 15px;
+    color: var(--accent-a);
+  }
+}
+
+// ============================================================================
 // IMMERSIVE HERO — kicker + household name + count + inline rename.
 // ============================================================================
 
@@ -91,7 +114,8 @@
 
 .hh-hero__title {
   margin: 0;
-  font-size: 1.7rem;
+  font-family: var(--font-display, var(--tech-font-display, inherit));
+  font-size: clamp(1.55rem, 6vw, 1.9rem);
   font-weight: 800;
   letter-spacing: -.02em;
   line-height: 1.12;
@@ -153,6 +177,7 @@
   mat-icon { width: 22px; height: 22px; font-size: 22px; line-height: 22px; }
   &:active { transform: scale(.92); }
   &:disabled { opacity: .4; box-shadow: none; cursor: default; }
+  &:focus-visible { outline: none; box-shadow: var(--lift-2), 0 0 0 3px color-mix(in oklab, var(--accent-a) 40%, transparent); }
 }
 
 // ============================================================================
@@ -163,6 +188,7 @@
   display: flex;
   flex-direction: column;
   gap: 10px;
+  margin-top: -6px;   // tighten gap between section label and first card
 }
 
 .hh-swipe { display: block; border-radius: var(--tech-radius, var(--r-tile)); }
@@ -176,11 +202,20 @@
   padding: 12px 14px;
   border-radius: var(--tech-radius, var(--r-tile));
   border: 1px solid var(--tech-border, var(--hairline));
-  background: var(--glass);
-  box-shadow: var(--tech-shadow-panel, var(--lift-1));
+  background: var(--bg-rise, var(--glass));
+  // FiMobile card signature: panel shadow + subtle inset top highlight.
+  box-shadow: var(--tech-shadow-panel, var(--lift-1)), inset 0 1px 0 var(--glass-edge, rgba(255,255,255,.06));
   min-height: 72px;
+  transition: box-shadow .18s var(--ease-out, ease), transform .18s var(--ease-out, ease);
 
   &.is-busy { opacity: .55; }
+
+  // Hover lift on non-removable static cards (the owner row and non-owner view).
+  // Swipe rows handle their own hover internally; we scope to direct .hh-card children.
+  &:not(.is-busy):hover {
+    box-shadow: var(--tech-shadow-raised, var(--lift-2)), inset 0 1px 0 var(--glass-edge, rgba(255,255,255,.06));
+    transform: translateY(-1px);
+  }
 }
 
 .hh-avatar {
@@ -339,10 +374,11 @@
   font-weight: 700;
   box-shadow: var(--lift-2);
   cursor: pointer;
-  transition: transform .16s var(--ease-out);
+  transition: transform .16s var(--ease-out), box-shadow .16s var(--ease-out);
 
   mat-icon { width: 20px; height: 20px; font-size: 20px; line-height: 20px; }
   &:active { transform: scale(.96); }
+  &:focus-visible { outline: none; box-shadow: var(--lift-2), 0 0 0 3px color-mix(in oklab, var(--accent-a) 40%, transparent); }
 }
 
 // ============================================================================
@@ -392,8 +428,11 @@
   background: var(--glass);
   color: var(--ink-dim);
   cursor: pointer;
+  transition: background .16s var(--ease-out), opacity .16s var(--ease-out);
   mat-icon { width: 22px; height: 22px; font-size: 22px; line-height: 22px; }
   &:disabled { opacity: .5; }
+  &:hover:not(:disabled) { background: color-mix(in oklab, var(--accent-a) 8%, var(--glass)); }
+  &:focus-visible { outline: none; box-shadow: 0 0 0 3px color-mix(in oklab, var(--accent-a) 36%, transparent); }
 }
 
 .hm__list {
@@ -476,8 +515,10 @@
   width: 56px;
   height: 56px;
   border-radius: 50%;
-  background: var(--bg-rise);
-  color: var(--ink-dim);
+  background: linear-gradient(135deg,
+              color-mix(in oklab, var(--accent-a) 22%, var(--bg-rise)),
+              color-mix(in oklab, var(--accent-b) 16%, var(--bg-rise)));
+  color: color-mix(in oklab, var(--accent-a) 80%, var(--ink));
   mat-icon { width: 28px; height: 28px; font-size: 28px; line-height: 28px; }
 }
 
@@ -512,12 +553,18 @@
   background: var(--glass);
   border: 1px solid var(--tech-border, var(--hairline));
   color: var(--ink-dim);
+
+  &:hover:not(:disabled) { background: color-mix(in oklab, var(--accent-a) 6%, var(--glass)); }
+  &:focus-visible { outline: none; box-shadow: 0 0 0 3px color-mix(in oklab, var(--accent-a) 30%, transparent); }
 }
 
 .hm__btn--add {
   background: linear-gradient(135deg, var(--accent-a), var(--accent-b));
   color: var(--tech-text-on-accent, #fff);
   box-shadow: var(--lift-2);
+
+  &:hover:not(:disabled) { box-shadow: var(--lift-2), 0 4px 14px color-mix(in oklab, var(--accent-a) 35%, transparent); }
+  &:focus-visible { outline: none; box-shadow: var(--lift-2), 0 0 0 3px color-mix(in oklab, var(--accent-a) 40%, transparent); }
 }
 
 // ============================================================================

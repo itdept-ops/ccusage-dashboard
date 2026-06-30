@@ -57,8 +57,10 @@
   }
   &__title {
     margin: 0;
+    font-family: var(--tech-font-display, inherit);
     font-size: clamp(1.5rem, 3vw, 2rem);
-    font-weight: 700;
+    font-weight: 800;
+    letter-spacing: -.02em;
     color: var(--tech-text, #e6edf6);
   }
   &__sub {
@@ -99,6 +101,8 @@
       border-color: var(--tech-accent, #7c8cff);
       background: color-mix(in srgb, var(--tech-accent, #7c8cff) 8%, var(--tech-panel, #11161f));
     }
+    &:active:not(:disabled) { opacity: .75; transform: scale(.95); }
+    &:focus-visible { outline: var(--tech-focus-ring, 2px solid var(--tech-accent, #7c8cff)); outline-offset: 2px; }
     &:disabled { opacity: .4; cursor: default; }
     mat-icon { font-size: 22px; width: 22px; height: 22px; }
   }
@@ -139,6 +143,8 @@
     border: 1px solid color-mix(in srgb, var(--tech-accent, #7c8cff) 30%, transparent);
     transition: background .15s;
     &:hover:not(:disabled) { background: color-mix(in srgb, var(--tech-accent, #7c8cff) 22%, transparent); }
+    &:active:not(:disabled) { opacity: .75; }
+    &:focus-visible { outline: var(--tech-focus-ring, 2px solid var(--tech-accent, #7c8cff)); outline-offset: 2px; }
     &:disabled { opacity: .5; cursor: default; }
     mat-icon { font-size: 16px; width: 16px; height: 16px; }
   }
@@ -157,6 +163,7 @@
     color-scheme: light dark; // native calendar popup follows the OS light/dark preference
     transition: border-color .15s;
     &:hover:not(:disabled) { border-color: color-mix(in srgb, var(--tech-accent, #7c8cff) 45%, var(--tech-border, #26303f)); }
+    &:focus-visible { outline: var(--tech-focus-ring, 2px solid var(--tech-accent, #7c8cff)); outline-offset: 2px; }
     &:disabled { opacity: .5; cursor: default; }
   }
 }
@@ -215,9 +222,10 @@
   flex-direction: column;
   gap: .15rem;
   padding: .8rem 1rem .9rem;
-  // FiMobile card: radius + shadow + border
+  // FiMobile card: radius + shadow + border + inset top highlight
   border-radius: var(--tech-radius, 14px);
-  box-shadow: var(--tech-shadow-panel, 0 2px 12px rgba(0,0,0,.28));
+  box-shadow: var(--tech-shadow-panel, 0 2px 12px rgba(0,0,0,.28)),
+              inset 0 1px 0 rgba(255,255,255,.06);
   background: var(--tech-panel, #11161f);
   border: 1px solid var(--tech-border, #26303f);
   overflow: hidden;
@@ -255,6 +263,7 @@
     font-size: 1.15rem;
     font-weight: 700;
     letter-spacing: -.01em;
+    font-variant-numeric: tabular-nums;
     color: var(--tech-text, #e6edf6);
   }
   &__lab {
@@ -362,7 +371,8 @@
     width: 40px; height: 40px;
     border-radius: 50%;
     color: var(--db);
-    background: var(--tech-panel, #11161f);
+    // FiMobile list-row icon tile: accent-tinted bg (mirrors mobile twin)
+    background: color-mix(in srgb, var(--da) 12%, var(--tech-panel, #11161f));
     border: 2px solid color-mix(in srgb, var(--da) 60%, var(--tech-border, #26303f));
     box-shadow: 0 0 0 4px color-mix(in srgb, var(--da) 10%, transparent);
     mat-icon { font-size: 21px; width: 21px; height: 21px; }
@@ -370,9 +380,10 @@
   &__body {
     padding: .45rem .75rem .55rem;
     min-width: 0;
-    // FiMobile card signature on timeline body: radius + shadow + border
+    // FiMobile card signature on timeline body: radius + shadow + border + inset top highlight
     border-radius: var(--tech-radius, 14px);
-    box-shadow: var(--tech-shadow-panel, 0 2px 12px rgba(0,0,0,.28));
+    box-shadow: var(--tech-shadow-panel, 0 2px 12px rgba(0,0,0,.28)),
+                inset 0 1px 0 rgba(255,255,255,.06);
     background: var(--tech-panel, #11161f);
     border: 1px solid var(--tech-border, #26303f);
     transition: transform .18s var(--tech-ease, cubic-bezier(.2,.6,.2,1)),
@@ -383,12 +394,18 @@
       box-shadow: var(--tech-shadow-raised, 0 6px 28px rgba(0,0,0,.45));
     }
   }
+  // FiMobile pill chip — pill radius + accent-tinted bg + border (mirrors the mobile twin)
   &__domain {
+    display: inline-block;
     font-size: .68rem;
     font-weight: 700;
     letter-spacing: .05em;
     text-transform: uppercase;
     color: var(--db);
+    background: color-mix(in srgb, var(--da) 12%, transparent);
+    border: 1px solid color-mix(in srgb, var(--da) 30%, transparent);
+    border-radius: var(--tech-r-pill, 999px);
+    padding: 1px 7px;
   }
   &__label {
     margin: .1rem 0 0;

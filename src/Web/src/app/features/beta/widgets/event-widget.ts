@@ -42,18 +42,24 @@ import { ReorderableWidget } from './reorderable';
     </atr-widget-shell>
   `,
   styles: [`
-    .ev { display: flex; align-items: center; gap: 12px; min-width: 0; }
+    .ev { display: flex; align-items: center; gap: 14px; min-width: 0; }
     .ev__ic {
-      flex: 0 0 auto; display: grid; place-items: center; width: 44px; height: 44px; border-radius: 14px;
-      background: linear-gradient(135deg, color-mix(in srgb, #38bdf8 22%, transparent), color-mix(in srgb, #7c5cff 22%, transparent));
+      flex: 0 0 auto; display: grid; place-items: center; width: 46px; height: 46px; border-radius: 14px;
+      background: linear-gradient(135deg, #38bdf8, #7c5cff);
+      box-shadow:
+        0 6px 16px color-mix(in srgb, #38bdf8 32%, transparent),
+        inset 0 1px 0 rgba(255,255,255,.22);
     }
-    .ev__ic mat-icon { font-size: 24px; width: 24px; height: 24px; color: #8fd4ff; }
-    .ev__text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+    .ev__ic mat-icon { font-size: 24px; width: 24px; height: 24px; color: #fff; }
+    .ev__text { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
     .ev__title {
-      font-family: var(--font-ui); font-weight: 700; font-size: 17px; color: var(--ink);
+      font-family: var(--font-ui); font-weight: 700; font-size: 16px; color: var(--ink);
       overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
     }
-    .ev__time { font-size: 13px; font-weight: 600; color: #8fd4ff; }
+    .ev__time {
+      font-size: 12px; font-weight: 600; letter-spacing: .02em; text-transform: uppercase;
+      color: color-mix(in srgb, #38bdf8 72%, var(--ink-dim));
+    }
   `],
 })
 export class EventWidget extends ReorderableWidget {

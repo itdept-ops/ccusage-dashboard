@@ -95,7 +95,9 @@
   background: var(--glass);
   border: 1px solid var(--tech-border, var(--glass-edge));
   border-radius: var(--tech-radius, var(--r-tile));
-  box-shadow: var(--tech-shadow-panel, var(--lift-1));
+  // FiMobile card signature: drop shadow + inset top highlight
+  box-shadow: var(--tech-shadow-panel, var(--lift-1)),
+              inset 0 1px 0 rgba(255, 255, 255, .08);
 }
 .ft-stat__n { font-size: 22px; font-weight: 800; line-height: 1; color: var(--ink); letter-spacing: -.02em; }
 .ft-stat__l {
@@ -120,18 +122,25 @@
   background: var(--glass);
   border: 1px solid var(--tech-border, var(--glass-edge));
   border-radius: var(--tech-radius, var(--r-tile));
-  box-shadow: var(--tech-shadow-panel, var(--lift-1));
+  // FiMobile card signature: drop shadow + inset top highlight
+  box-shadow: var(--tech-shadow-panel, var(--lift-1)),
+              inset 0 1px 0 rgba(255, 255, 255, .08);
   overflow: hidden;
   transition: transform 120ms var(--ease-out, ease), box-shadow 120ms var(--ease-out, ease);
 
-  &:hover {
-    transform: translateY(-1px);
-    box-shadow: var(--tech-shadow-raised, var(--lift-2));
+  @media (hover: hover) {
+    &:hover {
+      transform: translateY(-2px);
+      box-shadow: var(--tech-shadow-raised, var(--lift-2)),
+                  inset 0 1px 0 rgba(255, 255, 255, .12);
+    }
   }
+  &:active { transform: scale(.985); box-shadow: var(--press); }
 
   &.is-up {
     border-color: color-mix(in srgb, var(--accent-a) 55%, var(--tech-border, var(--glass-edge)));
-    box-shadow: var(--tech-shadow-raised, var(--lift-2));
+    box-shadow: var(--tech-shadow-raised, var(--lift-2)),
+                inset 0 1px 0 rgba(255, 255, 255, .12);
   }
 }
 
@@ -150,7 +159,9 @@
   color: var(--ink-dim);
   cursor: pointer; touch-action: manipulation; -webkit-tap-highlight-color: transparent;
   transition: transform 120ms var(--ease-out), background 120ms var(--ease-out), color 120ms var(--ease-out);
-  &:hover { background: color-mix(in srgb, var(--tech-danger, var(--warn, #ef4444)) 16%, transparent); color: var(--tech-danger, var(--warn, #ef4444)); }
+  @media (hover: hover) {
+    &:hover:not(:disabled) { background: color-mix(in srgb, var(--tech-danger, var(--warn, #ef4444)) 16%, transparent); color: var(--tech-danger, var(--warn, #ef4444)); }
+  }
   &:active { transform: scale(.92); }
   &:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
   &:disabled { opacity: .45; pointer-events: none; }
@@ -180,7 +191,7 @@
 .ft-card__avatar {
   flex: 0 0 auto;
   display: inline-flex; align-items: center; justify-content: center;
-  width: 24px; height: 24px; border-radius: var(--tech-r-control, 50%);
+  width: 24px; height: 24px; border-radius: 50%;
   background: linear-gradient(135deg,
     color-mix(in srgb, var(--accent-a) 28%, transparent),
     color-mix(in srgb, var(--accent-b) 28%, transparent));
@@ -220,10 +231,15 @@
   margin: 0; font-size: 20px; font-weight: 800; letter-spacing: -.01em; color: var(--ink);
 }
 .fc__close {
+  flex: 0 0 auto;
   display: inline-flex; align-items: center; justify-content: center;
-  width: 36px; height: 36px; border-radius: 50%;
-  border: none; background: color-mix(in srgb, var(--ink) 8%, transparent); color: var(--ink-dim);
-  cursor: pointer;
+  width: 38px; height: 38px; border-radius: 50%;
+  border: 1px solid var(--glass-edge); background: var(--glass); color: var(--ink-dim);
+  cursor: pointer; -webkit-tap-highlight-color: transparent;
+  transition: background 120ms var(--ease-out), color 120ms var(--ease-out);
+  @media (hover: hover) {
+    &:hover:not(:disabled) { background: color-mix(in srgb, var(--ink) 10%, var(--glass)); color: var(--ink); }
+  }
   &:active { transform: scale(.94); }
   &:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
   &:disabled { opacity: .5; pointer-events: none; }
@@ -267,7 +283,9 @@
   background: var(--glass);
   border: 1px solid color-mix(in srgb, var(--accent-a) 40%, var(--tech-border, var(--glass-edge)));
   border-radius: var(--tech-radius, var(--r-tile));
-  box-shadow: var(--tech-shadow-panel, var(--lift-1));
+  // FiMobile card signature: drop shadow + inset top highlight
+  box-shadow: var(--tech-shadow-panel, var(--lift-1)),
+              inset 0 1px 0 rgba(255, 255, 255, .08);
 }
 .fc__chip-body {
   flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 1px;
@@ -314,11 +332,19 @@
   background: var(--glass);
   border: 1px solid var(--tech-border, var(--glass-edge));
   border-radius: var(--tech-radius, var(--r-tile));
-  box-shadow: var(--tech-shadow-panel, var(--lift-1));
+  // FiMobile card signature: drop shadow + inset top highlight
+  box-shadow: var(--tech-shadow-panel, var(--lift-1)),
+              inset 0 1px 0 rgba(255, 255, 255, .08);
   color: var(--ink); cursor: pointer;
   touch-action: manipulation; -webkit-tap-highlight-color: transparent;
   transition: transform 120ms var(--ease-out, ease), box-shadow 120ms var(--ease-out, ease);
-  &:hover { transform: translateY(-1px); box-shadow: var(--tech-shadow-raised, var(--lift-2)); }
+  @media (hover: hover) {
+    &:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: var(--tech-shadow-raised, var(--lift-2)),
+                  inset 0 1px 0 rgba(255, 255, 255, .12);
+    }
+  }
   &:active { transform: scale(.97); box-shadow: var(--press, var(--lift-1)); }
   &:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
   &:disabled { opacity: .5; pointer-events: none; }

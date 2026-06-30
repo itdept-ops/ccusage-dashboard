@@ -37,7 +37,7 @@
     <div class="cx-lists">
       @if (!hasConversations()) {
         <div class="cx-side__empty">
-          <mat-icon>forum</mat-icon>
+          <span class="cx-empty-orb" aria-hidden="true"><mat-icon>forum</mat-icon></span>
           <p>No conversations yet.</p>
           @if (canSend()) {
             <button mat-flat-button color="primary" (click)="openCreate('channel')">
@@ -195,7 +195,7 @@
 
         @if (groups().length === 0 && !loadingHistory()) {
           <div class="cx-msgs__empty">
-            <mat-icon>chat_bubble_outline</mat-icon>
+            <span class="cx-empty-orb" aria-hidden="true"><mat-icon>chat_bubble_outline</mat-icon></span>
             <p>No messages yet. Say hello!</p>
           </div>
         }
@@ -461,7 +461,7 @@
     } @else {
       <!-- no conversation selected -->
       <div class="cx-pick">
-        <mat-icon>forum</mat-icon>
+        <span class="cx-pick__orb" aria-hidden="true"><mat-icon>forum</mat-icon></span>
         <h2>Select a conversation</h2>
         <p>Pick a channel or direct message from the left to start chatting.</p>
       </div>

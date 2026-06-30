@@ -77,6 +77,7 @@ const REACTIONS = ['❤️', '👍', '😂', '🔥', '😮', '🙏', '😢', '�
             <span class="lh__count" aria-label="total unread">{{ totalUnread() > 99 ? '99+' : totalUnread() }}</span>
           }
         </div>
+        <p class="lh__sub">Channels &amp; direct messages</p>
         @if (connecting()) {
           <span class="lh__live lh__live--wait"><span class="lh__pulse" aria-hidden="true"></span> Connecting…</span>
         } @else if (live()) {

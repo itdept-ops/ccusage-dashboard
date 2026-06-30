@@ -25,7 +25,8 @@
   border: 1px solid var(--glass-edge);
   border-radius: var(--r-tile, 18px);
   background: var(--glass);
-  box-shadow: var(--lift-1);
+  // FiMobile card signature: lift shadow + subtle inset top highlight.
+  box-shadow: var(--lift-1), inset 0 1px 0 rgba(255, 255, 255, .07);
 
   &--done {
     border-color: color-mix(in srgb, var(--signal, #34d399) 50%, var(--glass-edge));
@@ -44,7 +45,9 @@
   justify-content: center;
   width: 32px; height: 32px;
   border-radius: 50%;
-  background: color-mix(in srgb, var(--accent-a) 18%, transparent);
+  background: color-mix(in srgb, var(--accent-a) 18%, var(--glass));
+  box-shadow: 0 2px 6px color-mix(in srgb, var(--accent-a) 22%, transparent),
+    inset 0 1px 0 rgba(255, 255, 255, .12);
   color: var(--accent-a);
 
   mat-icon { width: 19px; height: 19px; font-size: 19px; }
@@ -77,8 +80,9 @@
   transition: transform .12s var(--ease-out, ease), box-shadow .12s var(--ease-out, ease), opacity .12s ease;
 
   &:hover:not(:disabled) { transform: translateY(-1px); box-shadow: var(--lift-2); }
-  &:active:not(:disabled) { transform: translateY(0); }
+  &:active:not(:disabled) { transform: scale(.95); }
   &:disabled { opacity: .65; cursor: default; }
+  &:focus-visible { outline: 2px solid var(--focus, var(--accent-a)); outline-offset: 2px; }
 
   mat-icon { width: 17px; height: 17px; font-size: 17px; }
 }

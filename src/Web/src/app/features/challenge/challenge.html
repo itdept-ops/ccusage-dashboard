@@ -49,17 +49,33 @@
   <span class="challenge__sr-status" aria-live="polite" aria-atomic="true">{{ statusMsg() }}</span>
 
   @if (store.loading() && !store.challenge()) {
-    <mat-progress-bar mode="indeterminate" aria-label="Loading challenge" />
+    <div class="challenge__loading-state" aria-label="Loading challenge" aria-busy="true">
+      <span class="challenge__loading-orb" aria-hidden="true">
+        <mat-icon>local_fire_department</mat-icon>
+      </span>
+      <span class="challenge__loading-label">Loading your challenge…</span>
+      <mat-progress-bar mode="indeterminate" class="challenge__loading-bar" />
+    </div>
   }
 
   @if (store.error(); as err) {
-    <div class="challenge__error" role="alert">{{ err }}</div>
+    <div class="challenge__error challenge__card" role="alert">
+      <span class="challenge__error-orb" aria-hidden="true">
+        <mat-icon>error_outline</mat-icon>
+      </span>
+      <div class="challenge__error-copy">
+        <strong class="challenge__error-title">Something went wrong</strong>
+        <span class="challenge__error-msg">{{ err }}</span>
+      </div>
+    </div>
   }
 
   <!-- START EMPTY STATE — own view, loaded, no active challenge. -->
   @if (store.loaded() && !store.challenge() && !store.readOnly() && !store.error()) {
     <div class="challenge__start challenge__card">
-      <mat-icon class="challenge__start-icon" aria-hidden="true">local_fire_department</mat-icon>
+      <span class="challenge__start-orb" aria-hidden="true">
+        <mat-icon>local_fire_department</mat-icon>
+      </span>
       <div class="challenge__start-copy">
         <h2>Start your 75 Hard</h2>
         <p>You start with the classic set: follow your diet, drink a gallon of water, do two 45-minute
@@ -87,7 +103,9 @@
   <!-- A viewed user with no active challenge. -->
   @if (store.loaded() && !store.challenge() && store.readOnly() && !store.error()) {
     <div class="challenge__start challenge__card">
-      <mat-icon class="challenge__start-icon" aria-hidden="true">hourglass_empty</mat-icon>
+      <span class="challenge__start-orb challenge__start-orb--muted" aria-hidden="true">
+        <mat-icon>hourglass_empty</mat-icon>
+      </span>
       <div class="challenge__start-copy">
         <h2>No active challenge</h2>
         <p>This person doesn’t have a 75 Hard in progress right now.</p>
@@ -166,7 +184,10 @@
             </ul>
           }
         } @else if (store.coachLoading()) {
-          <p class="challenge__coach-narrative challenge__muted">Thinking through your week…</p>
+          <div class="challenge__coach-loading" aria-live="polite">
+            <mat-icon class="challenge__refreshspin" aria-hidden="true">autorenew</mat-icon>
+            <span class="challenge__muted">Thinking through your week…</span>
+          </div>
         }
       </section>
     }

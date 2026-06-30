@@ -1,8 +1,13 @@
 <header class="head">
-  <span class="head-eyebrow mono-num">~/people</span>
-  <h2>People</h2>
-  <p class="sub">Everyone in your circle — your contacts and your household, in one place. See who's around,
-    send a message, or jump to a profile.</p>
+  <div class="head__row">
+    <div class="head__copy">
+      <span class="head-eyebrow">Your Circle</span>
+      <h2 class="head__title">People</h2>
+      <p class="sub">Everyone in your circle — contacts and household, in one place. See who's around,
+        send a message, or send a quick nudge.</p>
+    </div>
+    <span class="head__badge" aria-hidden="true"><mat-icon>groups</mat-icon></span>
+  </div>
 </header>
 
 <!-- Segmented filter: All / Contacts / Family (with live counts). -->
@@ -22,10 +27,24 @@
 </div>
 
 @if (loading()) {
-  <!-- Loading -->
-  <div class="state" role="status" aria-live="polite">
-    <mat-progress-spinner mode="indeterminate" diameter="36" />
-    <p>Loading your people…</p>
+  <!-- Loading — skeleton cards matching the real card layout -->
+  <div class="state-skeletons" role="status" aria-live="polite" aria-label="Loading your people…">
+    @for (_ of [1,2,3,4,5,6]; track $index) {
+      <div class="skel-card">
+        <div class="skel-row">
+          <app-bs-skeleton width="44px" height="44px" [circle]="true" />
+          <div class="skel-lines">
+            <app-bs-skeleton height="14px" width="50%" />
+            <app-bs-skeleton height="11px" width="72%" />
+          </div>
+        </div>
+        <app-bs-skeleton height="11px" width="65%" />
+        <div class="skel-actions">
+          <app-bs-skeleton height="30px" width="90px" radius="var(--tech-r-control)" />
+          <app-bs-skeleton height="30px" width="80px" radius="var(--tech-r-control)" />
+        </div>
+      </div>
+    }
   </div>
 } @else if (error()) {
   <!-- Load error -->

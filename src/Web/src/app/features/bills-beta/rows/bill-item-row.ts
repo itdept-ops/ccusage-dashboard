@@ -86,19 +86,38 @@ export interface AssignChange {
     </app-bs-swipe-row>
   `,
   styles: [`
-    .bir { background: var(--bg-rise); }
+    .bir {
+      background: var(--bg-rise);
+      border-radius: var(--r-tile, 12px);
+      overflow: hidden;
+    }
     .bir__main {
       display: flex; align-items: center; gap: 10px;
       min-height: 56px; padding: 8px 12px;
       cursor: pointer;
+      transition: background 120ms var(--ease-out);
+      -webkit-tap-highlight-color: transparent;
+    }
+    .bir__main:hover { background: color-mix(in srgb, var(--accent-a) 6%, var(--bg-rise)); }
+    .bir__main:focus-visible {
+      outline: 2px solid var(--focus, var(--accent-b));
+      outline-offset: -2px;
+      border-radius: var(--r-tile, 12px);
     }
     .bir__check {
       flex: 0 0 auto; width: 40px; height: 40px;
       display: grid; place-items: center;
       border: none; background: transparent; cursor: pointer;
       color: var(--ink-dim);
+      border-radius: 50%;
+      transition: color 120ms var(--ease-out), background 120ms var(--ease-out);
       &.is-on { color: var(--signal); }
       mat-icon { font-size: 24px; width: 24px; height: 24px; }
+    }
+    .bir__check:hover { background: color-mix(in srgb, var(--ink-dim) 10%, transparent); }
+    .bir__check:focus-visible {
+      outline: 2px solid var(--focus, var(--accent-b));
+      outline-offset: 2px;
     }
     .bir__body { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
     .bir__name {
@@ -128,9 +147,15 @@ export interface AssignChange {
       color: var(--ink-dim);
       font: 700 13px/1 var(--font-display);
       cursor: pointer; overflow: hidden; padding: 0;
+      transition: border-color 140ms var(--ease-out), transform 120ms var(--ease-spring);
       img { width: 100%; height: 100%; object-fit: cover; }
       mat-icon { font-size: 20px; width: 20px; height: 20px; }
       &.is-sel { border-color: var(--accent-b); color: var(--accent-b); }
+    }
+    .bir__avatar:hover { transform: scale(1.08); }
+    .bir__avatar:focus-visible {
+      outline: 2px solid var(--focus, var(--accent-b));
+      outline-offset: 3px;
     }
     .bir__avatar--open.is-sel { border-color: var(--ink-dim); color: var(--ink); }
 
@@ -143,9 +168,15 @@ export interface AssignChange {
       background: color-mix(in srgb, var(--warn) 10%, transparent); color: var(--warn);
       font: 700 13px/1 var(--font-ui); cursor: pointer;
       -webkit-tap-highlight-color: transparent; touch-action: manipulation;
+      transition: background 120ms var(--ease-out), transform 120ms var(--ease-spring);
       mat-icon { font-size: 18px; width: 18px; height: 18px; }
     }
+    .bir__del:hover { background: color-mix(in srgb, var(--warn) 18%, transparent); }
     .bir__del:active { transform: scale(.97); }
+    .bir__del:focus-visible {
+      outline: 2px solid var(--focus, var(--warn));
+      outline-offset: 2px;
+    }
   `],
 })
 export class BillItemRow {

@@ -151,7 +151,10 @@
   }
 
   @if (store.error(); as err) {
-    <div class="tracker__error" role="alert">{{ err }}</div>
+    <div class="tracker__error" role="alert">
+      <mat-icon aria-hidden="true">error_outline</mat-icon>
+      {{ err }}
+    </div>
   }
 
   @if (store.day(); as day) {

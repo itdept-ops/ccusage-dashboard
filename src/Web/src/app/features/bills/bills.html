@@ -19,8 +19,9 @@
       <aside class="bills__list" aria-label="Your bills">
         @if (bills().length === 0) {
           <div class="bills__empty">
-            <mat-icon aria-hidden="true">receipt_long</mat-icon>
-            <p>No bills yet. Create one to start splitting.</p>
+            <span class="bills__empty__orb"><mat-icon aria-hidden="true">receipt_long</mat-icon></span>
+            <p class="bills__empty__title">No bills yet</p>
+            <p class="bills__empty__hint">Create a bill above to start splitting a check.</p>
           </div>
         }
         @for (b of bills(); track b.id) {
@@ -210,8 +211,9 @@
           </div>
         } @else {
           <div class="bills__empty bills__empty--detail">
-            <mat-icon aria-hidden="true">splitscreen</mat-icon>
-            <p>Pick a bill, or create a new one to start.</p>
+            <span class="bills__empty__orb"><mat-icon aria-hidden="true">splitscreen</mat-icon></span>
+            <p class="bills__empty__title">Select a bill</p>
+            <p class="bills__empty__hint">Pick one from the list, or create a new bill to get started.</p>
           </div>
         }
       </section>

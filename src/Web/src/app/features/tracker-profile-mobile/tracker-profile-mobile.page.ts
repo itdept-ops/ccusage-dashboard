@@ -21,7 +21,7 @@ import {
 import { StatsInputs, ageFrom, computeStats } from '../tracker/units';
 import { OnboardingCard, OnboardingResult } from '../tracker/onboarding-card';
 import {
-  BetaBottomSheet, BetaPullRefresh, BetaSegmentedControl, BetaSkeleton,
+  BetaBottomSheet, BetaEmptyState, BetaPullRefresh, BetaSegmentedControl, BetaSkeleton,
   BetaStatTile, BetaToaster, ToastController, type Segment,
 } from '../beta-ui';
 
@@ -88,6 +88,7 @@ const DIET_PATTERNS: { value: DietPattern; label: string }[] = [
   imports: [
     FormsModule, MatIconModule,
     BetaPullRefresh, BetaSegmentedControl, BetaSkeleton, BetaStatTile, BetaBottomSheet, BetaToaster,
+    BetaEmptyState,
     OnboardingCard,
   ],
   template: `
@@ -290,12 +291,17 @@ const DIET_PATTERNS: { value: DietPattern; label: string }[] = [
             @if (plansLoading()) {
               <div class="pm-skel"><app-bs-skeleton height="64px" radius="var(--r-tile)" /><app-bs-skeleton height="64px" radius="var(--r-tile)" /></div>
             } @else if (!plans().length) {
-              <p class="pm-empty"><mat-icon aria-hidden="true">event_note</mat-icon> No plan history yet — your saved targets will appear here.</p>
+              <app-bs-empty compact icon="event_note"
+                title="No plan history yet"
+                body="Your saved targets will appear here each time you update your plan." />
             } @else {
               <ul class="pm-plans">
                 @for (p of plans(); track p.effectiveFrom; let i = $index) {
                   <li>
                     <button type="button" class="pm-plan" (click)="openPlan(p)">
+                      <span class="pm-plan__orb" aria-hidden="true">
+                        <mat-icon>{{ i === 0 ? 'flag' : 'history' }}</mat-icon>
+                      </span>
                       <span class="pm-plan__main">
                         <span class="pm-plan__when">
                           {{ planEffectiveFrom(p.effectiveFrom) }}

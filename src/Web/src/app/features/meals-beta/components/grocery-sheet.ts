@@ -51,7 +51,7 @@ import { BetaBottomSheet, BetaSkeleton } from '../../beta-ui';
           </div>
         } @else if (total() === 0) {
           <div class="gs-empty">
-            <mat-icon aria-hidden="true">shopping_cart</mat-icon>
+            <span class="gs-empty-ic" aria-hidden="true"><mat-icon>shopping_cart</mat-icon></span>
             <p>Your grocery list is empty. Add a meal's ingredients to fill it up.</p>
           </div>
         } @else {
@@ -98,11 +98,17 @@ import { BetaBottomSheet, BetaSkeleton } from '../../beta-ui';
 
     .gs-skel { display: flex; flex-direction: column; gap: 8px; }
     .gs-empty {
-      display: flex; flex-direction: column; align-items: center; text-align: center; gap: 10px;
-      padding: 30px 16px; color: var(--ink-dim);
+      display: flex; flex-direction: column; align-items: center; text-align: center; gap: 12px;
+      padding: 32px 18px; border-radius: var(--r-tile); background: var(--bg-rise); border: 1px dashed var(--hairline);
     }
-    .gs-empty mat-icon { font-size: 36px; width: 36px; height: 36px; color: var(--ink-faint); }
-    .gs-empty p { margin: 0; font-size: 14px; max-width: 26ch; }
+    .gs-empty-ic {
+      display: grid; place-items: center; width: 52px; height: 52px; border-radius: 50%;
+      background: color-mix(in srgb, var(--accent-a) 10%, var(--bg-sink));
+      box-shadow: inset 0 1px 0 color-mix(in srgb, #fff 10%, transparent);
+      color: var(--accent-a);
+    }
+    .gs-empty-ic mat-icon { font-size: 26px; width: 26px; height: 26px; }
+    .gs-empty p { margin: 0; font-size: 14px; font-weight: 600; max-width: 26ch; color: var(--ink-dim); }
 
     .gs-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
     .gs-item { border-radius: 14px; }
@@ -110,10 +116,12 @@ import { BetaBottomSheet, BetaSkeleton } from '../../beta-ui';
       display: flex; align-items: center; gap: 12px; width: 100%; text-align: left;
       padding: 11px 12px; min-height: 48px; border: 1px solid var(--hairline);
       background: var(--bg-rise); border-radius: 14px; color: var(--ink);
+      box-shadow: var(--lift-1), inset 0 1px 0 color-mix(in srgb, #fff 7%, transparent);
       cursor: pointer; -webkit-tap-highlight-color: transparent; touch-action: manipulation;
-      transition: opacity 160ms var(--ease-out), background 160ms var(--ease-out);
+      transition: opacity 160ms var(--ease-out), background 160ms var(--ease-out), transform 120ms var(--ease-spring);
     }
-    .gs-row:active { background: var(--bg-sink); }
+    .gs-row:hover { transform: translateY(-1px); }
+    .gs-row:active { background: var(--bg-sink); transform: scale(.99); }
     .gs-row:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
     .gs-item.is-done .gs-row { opacity: .6; }
 

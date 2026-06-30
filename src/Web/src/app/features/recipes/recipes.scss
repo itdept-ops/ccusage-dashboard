@@ -3,7 +3,7 @@
 .recipes {
   max-width: 920px;
   margin: 0 auto;
-  padding: 24px 16px 64px;
+  padding: var(--tech-space-6, 24px) var(--tech-space-4, 16px) 64px;
 }
 
 /* ─────────────────────────── header ─────────────────────────── */
@@ -11,25 +11,27 @@
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 14px;
-  margin-bottom: 22px;
+  gap: var(--tech-space-4, 16px);
+  margin-bottom: var(--tech-space-6, 24px);
   flex-wrap: wrap;
 }
 
 .recipes__id {
   display: flex;
   align-items: flex-start;
-  gap: 14px;
+  gap: var(--tech-space-4, 16px);
 }
 
 .recipes__glyph {
   display: inline-grid;
   place-items: center;
-  width: 44px;
-  height: 44px;
+  width: 48px;
+  height: 48px;
   flex: 0 0 auto;
   border-radius: var(--tech-r-control, 10px);
   background: color-mix(in srgb, var(--tech-accent) 16%, transparent);
+  border: 1px solid color-mix(in srgb, var(--tech-accent) 30%, transparent);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--tech-accent) 20%, transparent);
   color: var(--tech-accent);
 
   mat-icon { font-size: 26px; width: 26px; height: 26px; }
@@ -37,29 +39,54 @@
 
 .recipes__title {
   margin: 0;
-  font-family: var(--tech-font-ui);
-  font-size: clamp(20px, 4vw, 26px);
+  font-family: var(--tech-font-display, var(--tech-font-ui));
+  font-size: clamp(22px, 4vw, 28px);
+  font-weight: 700;
+  line-height: 1.15;
   color: var(--tech-text);
 }
 
 .recipes__sub {
-  margin: 2px 0 0;
+  margin: 3px 0 0;
   font-size: var(--tech-fs-body, 14px);
   color: var(--tech-text-secondary);
   max-width: 460px;
 }
 
-.recipes__new { flex: 0 0 auto; }
+.recipes__new {
+  flex: 0 0 auto;
+  border-radius: var(--tech-r-pill, 999px) !important;
+}
 
 /* ─────────────────────────── states ─────────────────────────── */
 .recipes__state {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 12px;
-  padding: 56px 16px;
+  gap: var(--tech-space-3, 12px);
+  padding: 64px var(--tech-space-4, 16px);
   text-align: center;
   color: var(--tech-text-secondary);
+}
+
+/* Centered icon orb for loading / error */
+.recipes__state-orb {
+  display: grid;
+  place-items: center;
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--tech-accent) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--tech-accent) 28%, transparent);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--tech-accent) 20%, transparent);
+  margin-bottom: 4px;
+
+  mat-icon {
+    color: var(--tech-accent);
+    font-size: 28px; width: 28px; height: 28px;
+  }
+  /* Spinner tint — color is applied via Material's CSS custom property */
+  mat-progress-spinner { --mdc-circular-progress-active-indicator-color: var(--tech-accent); }
 }
 
 .recipes__state-glyph,
@@ -71,18 +98,19 @@
 }
 
 .recipes__state-title { margin: 0; font-weight: 600; color: var(--tech-text); }
+.recipes__state-hint { margin: 0; font-size: 13px; color: var(--tech-text-secondary); }
 
 /* ─────────────────────────── sections ─────────────────────────── */
-.recipes__section { margin-bottom: 28px; }
+.recipes__section { margin-bottom: var(--tech-space-7, 28px); }
 
 .recipes__section-title {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin: 0 0 12px;
-  font-size: 13px;
+  margin: 0 0 var(--tech-space-3, 12px);
+  font-size: var(--tech-fs-label, 12px);
   font-weight: 600;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--tech-text-tertiary, var(--tech-text-dim));
 }
@@ -112,29 +140,52 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 8px;
-  padding: 44px 16px;
+  gap: var(--tech-space-2, 8px);
+  padding: 48px var(--tech-space-4, 16px);
   text-align: center;
   border: 1px solid var(--tech-border);
   border-radius: var(--tech-radius, var(--tech-r-control, 10px));
   background: var(--tech-panel);
-  box-shadow: var(--tech-shadow-panel);
+  box-shadow:
+    var(--tech-shadow-panel),
+    inset 0 1px 0 color-mix(in srgb, var(--tech-text) 5%, transparent);
 
-  // CTA button inside the empty state gets pill shape + tinted accent bg
+  /* CTA button inside the empty state gets pill shape */
   button[mat-stroked-button] {
     border-radius: var(--tech-r-pill, 999px);
+    margin-top: var(--tech-space-2, 8px);
   }
 }
 
-.recipes__empty-title { margin: 0; font-weight: 600; color: var(--tech-text); }
-.recipes__empty-sub { margin: 0 0 6px; font-size: 13px; color: var(--tech-text-secondary); max-width: 360px; }
+/* Orb container for the empty-state icon */
+.recipes__empty-orb {
+  display: grid;
+  place-items: center;
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--tech-accent) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--tech-accent) 28%, transparent);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--tech-accent) 20%, transparent);
+  margin-bottom: 4px;
+
+  mat-icon {
+    color: var(--tech-accent);
+    font-size: 28px; width: 28px; height: 28px;
+  }
+}
+
+.recipes__empty-title { margin: 0; font-weight: 600; font-size: 15px; color: var(--tech-text); }
+.recipes__empty-sub { margin: 0 0 4px; font-size: 13px; color: var(--tech-text-secondary); max-width: 360px; }
 
 /* ─────────────────────────── card ─────────────────────────── */
 .r-card {
   border: 1px solid var(--tech-border);
   border-radius: var(--tech-radius, var(--tech-r-control, 10px));
   background: var(--tech-panel);
-  box-shadow: var(--tech-shadow-panel);
+  box-shadow:
+    var(--tech-shadow-panel),
+    inset 0 1px 0 color-mix(in srgb, var(--tech-text) 6%, transparent);
   overflow: hidden;
   transition: opacity var(--tech-t-fast) ease,
               border-color var(--tech-t-fast) ease,
@@ -142,8 +193,11 @@
               transform var(--tech-t-fast) ease;
 
   &:hover {
-    transform: translateY(-1px);
-    box-shadow: var(--tech-shadow-raised, var(--tech-shadow-panel));
+    transform: translateY(-2px);
+    border-color: color-mix(in srgb, var(--tech-accent) 40%, var(--tech-border));
+    box-shadow:
+      var(--tech-shadow-raised, 0 4px 16px color-mix(in srgb, var(--tech-accent) 12%, transparent)),
+      inset 0 1px 0 color-mix(in srgb, var(--tech-text) 6%, transparent);
   }
 
   &--busy { opacity: 0.6; pointer-events: none; }
@@ -166,7 +220,7 @@
   align-items: center;
   gap: 4px 10px;
   width: 100%;
-  padding: 14px;
+  padding: 16px;
   border: 0;
   background: transparent;
   text-align: left;
@@ -175,6 +229,12 @@
   font: inherit;
 
   &:hover { background: color-mix(in srgb, var(--tech-accent) 6%, transparent); }
+
+  &:focus-visible {
+    outline: var(--tech-focus-ring, 2px solid var(--tech-accent));
+    outline-offset: -2px;
+    border-radius: var(--tech-radius, 10px);
+  }
 }
 
 .r-card__head {
@@ -187,8 +247,9 @@
 
 .r-card__title {
   margin: 0;
-  font-size: 16px;
-  font-weight: 600;
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.3;
   color: var(--tech-text);
 }
 
@@ -231,9 +292,8 @@
 
 /* ─────────────────────────── detail ─────────────────────────── */
 .r-card__detail {
-  padding: 0 14px 14px;
+  padding: 0 16px 16px;
   border-top: 1px solid var(--tech-border);
-  margin-top: 2px;
 }
 
 .r-macros {
@@ -330,10 +390,10 @@
 .r-card__actions {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--tech-space-2, 8px);
   flex-wrap: wrap;
-  margin-top: 14px;
-  padding-top: 12px;
+  margin-top: var(--tech-space-3, 12px);
+  padding-top: var(--tech-space-3, 12px);
   border-top: 1px solid var(--tech-border);
 }
 
@@ -347,8 +407,8 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  margin: 14px 0 0;
-  padding-top: 12px;
+  margin: var(--tech-space-3, 12px) 0 0;
+  padding-top: var(--tech-space-3, 12px);
   border-top: 1px solid var(--tech-border);
   font-size: 12px;
   color: var(--tech-text-secondary);
@@ -358,5 +418,11 @@
 
 @media (max-width: 520px) {
   .recipes__head { flex-direction: column; }
-  .recipes__new { align-self: stretch; }
+  .recipes__new { align-self: stretch; width: 100%; }
+}
+
+@media (max-width: 360px) {
+  .recipes { padding-left: var(--tech-space-3, 12px); padding-right: var(--tech-space-3, 12px); }
+  .r-card__summary { padding: 14px 12px; }
+  .r-card__detail { padding: 0 12px 14px; }
 }

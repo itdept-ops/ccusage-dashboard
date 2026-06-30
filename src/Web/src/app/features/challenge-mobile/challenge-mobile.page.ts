@@ -117,6 +117,17 @@ const AUTO_ICON: Record<string, string> = {
         </header>
 
         @if (hasChallenge() && !loading()) {
+          <!-- ─── PAGE HEADER: title + subtitle + full-page CTA (Rubric #1) ─── -->
+          <div class="cm-header">
+            <div class="cm-header__text">
+              <h2 class="cm-header__title">75 Hard</h2>
+              <p class="cm-header__sub">Day {{ currentDay() }} of {{ totalDays }} · {{ streak() }}-day streak</p>
+            </div>
+            <a class="cm-header__action" routerLink="/challenge">
+              Full page <mat-icon aria-hidden="true">open_in_new</mat-icon>
+            </a>
+          </div>
+
           <!-- ─── TODAY | LEADERBOARD switch ─── -->
           <div class="cm-seg-wrap">
             <app-bs-segmented class="cm-seg"
@@ -136,8 +147,11 @@ const AUTO_ICON: Record<string, string> = {
 
               @if (!tasks().length) {
                 <div class="cm-empty">
-                  <mat-icon aria-hidden="true">checklist</mat-icon>
-                  No tasks for today yet — set them up on the full page.
+                  <span class="cm-empty__orb" aria-hidden="true">
+                    <mat-icon>checklist</mat-icon>
+                  </span>
+                  <p class="cm-empty__title">No tasks yet</p>
+                  <p class="cm-empty__hint">Set up your daily tasks on the full challenge page.</p>
                 </div>
               } @else {
                 @for (t of tasks(); track t.taskId; let i = $index) {
@@ -203,10 +217,17 @@ const AUTO_ICON: Record<string, string> = {
           } @else {
             <!-- ─────────────── LEADERBOARD ─────────────── -->
             <section class="cm-board">
+              <p class="cm-board__head">
+                <mat-icon aria-hidden="true">leaderboard</mat-icon>
+                Rankings
+              </p>
               @if (!leaderboard().length) {
                 <div class="cm-empty">
-                  <mat-icon aria-hidden="true">leaderboard</mat-icon>
-                  No one on the board yet — share your tracker with contacts to compare.
+                  <span class="cm-empty__orb" aria-hidden="true">
+                    <mat-icon>leaderboard</mat-icon>
+                  </span>
+                  <p class="cm-empty__title">No one on the board yet</p>
+                  <p class="cm-empty__hint">Share your tracker with contacts to compare progress.</p>
                 </div>
               } @else {
                 @for (row of leaderboard(); track row.userId; let i = $index) {

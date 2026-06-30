@@ -65,7 +65,7 @@ interface PayLink {
       padding: 16px;
       border-radius: var(--r-card);
       background: var(--bg-rise);
-      box-shadow: var(--lift-2);
+      box-shadow: var(--lift-2), inset 0 1px 0 var(--glass-edge, rgba(255,255,255,.12));
       border: 1px solid var(--hairline);
       display: flex; flex-direction: column; gap: 8px;
     }
@@ -101,7 +101,17 @@ interface PayLink {
       color: color-mix(in srgb, var(--accent-b) 80%, var(--ink));
       font: 600 12px/1 var(--font-ui);
       text-decoration: none;
+      transition: background 120ms var(--ease-out), transform 120ms var(--ease-spring);
       mat-icon { font-size: 16px; width: 16px; height: 16px; }
+    }
+    .ptc__chip:hover {
+      background: color-mix(in srgb, var(--accent-b) 12%, var(--bg-sink));
+      transform: translateY(-1px);
+    }
+    .ptc__chip:active { transform: scale(.97); }
+    .ptc__chip:focus-visible {
+      outline: 2px solid var(--focus, var(--accent-b));
+      outline-offset: 2px;
     }
   `],
 })

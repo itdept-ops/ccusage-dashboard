@@ -53,11 +53,18 @@
 
   h2 {
     margin: 0 0 var(--tech-space-3);
-    font-family: var(--tech-font-ui);
+    // Rubric #1: page title in the display font.
+    font-family: var(--tech-font-display, var(--tech-font-ui));
     font-size: clamp(22px, 6vw, var(--tech-fs-display));
     font-weight: 700;
     letter-spacing: -0.02em;
     color: var(--aur-ink);
+  }
+
+  // Gradient treatment on the display name — scheme-tracked aurora gradient
+  // so the key word pops while remaining on-scheme.
+  .display-name-grad {
+    @include aur.aurora-text-gradient;
   }
 
   .sub {
@@ -111,6 +118,13 @@
     }
   }
 
+  // Rubric #6: keyboard focus ring using the scheme focus-ring token.
+  &:focus-visible {
+    outline: var(--tech-focus-ring, 2px solid var(--aur-a));
+    outline-offset: 2px;
+    border-color: var(--aur-a);
+  }
+
   // Leading icon tile — scheme accent tint on aurora glass.
   .card-icon {
     display: inline-flex;
@@ -141,20 +155,49 @@
   }
 }
 
-// ── EMPTY STATE — faint dashed placeholder on the aurora canvas ──────────────
-.empty {
+// ── EMPTY STATE — rubric #5: centered icon orb + title + hint ───────────────
+.empty-state {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: var(--tech-space-2);
-  padding: var(--tech-space-6);
+  text-align: center;
+  gap: var(--tech-space-3);
+  padding: var(--tech-space-8) var(--tech-space-6);
   margin-bottom: var(--tech-space-6);
   // Dashed hairline using the aurora line token.
   border: 1px dashed var(--aur-line);
   border-radius: var(--tech-r-control);
-  color: var(--aur-ink-dim);
-  font-size: var(--tech-fs-body);
+}
 
-  mat-icon { color: var(--aur-ink-faint); }
+// Icon orb — sized, rounded, scheme-tinted well (matches the card-icon style).
+.empty-orb {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--aur-a) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--aur-a) 22%, transparent);
+  color: var(--aur-a);
+
+  mat-icon { font-size: 26px; width: 26px; height: 26px; }
+}
+
+// Primary empty label — slightly larger than body, bright ink.
+.empty-title {
+  font-weight: 600;
+  font-size: var(--tech-fs-body);
+  color: var(--aur-ink);
+}
+
+// Supporting hint — dim ink, smaller.
+.empty-hint {
+  font-size: var(--tech-fs-label);
+  color: var(--aur-ink-dim);
+  line-height: 1.5;
+  max-width: 30ch;
 }
 
 // ── ACTIONS — sign-out button on aurora glass surface ───────────────────────
@@ -176,6 +219,12 @@
       // On hover, nudge text to scheme accent and brighten the border.
       color: var(--aur-a);
       --mdc-outlined-button-outline-color: var(--aur-a);
+    }
+
+    // Rubric #6: keyboard focus ring.
+    &:focus-visible {
+      outline: var(--tech-focus-ring, 2px solid var(--aur-a));
+      outline-offset: 3px;
     }
   }
 }
@@ -214,8 +263,8 @@
     .card-blurb { font-size: max(12px, var(--tech-fs-label)); }
   }
 
-  .empty {
-    padding: var(--tech-space-4);
+  .empty-state {
+    padding: var(--tech-space-6) var(--tech-space-4);
   }
 
   .actions .signout {

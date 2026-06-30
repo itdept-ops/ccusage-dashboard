@@ -93,7 +93,9 @@ const ALL_ROUTES: readonly RouteOption[] = [
           <div class="drop" [class.drop--over]="dragOver()"
                (dragover)="onDragOver($event)" (dragleave)="dragOver.set(false)" (drop)="onDrop($event)"
                role="button" tabindex="0" (click)="pickFromDevice()" (keydown.enter)="pickFromDevice()">
-            <mat-icon class="drop__icon" aria-hidden="true">photo_camera</mat-icon>
+            <div class="drop__icon-orb" aria-hidden="true">
+              <mat-icon class="drop__icon">photo_camera</mat-icon>
+            </div>
             <p class="drop__label">Drag a photo here, or click to choose</p>
             <p class="drop__sub">Receipts, nutrition labels, meals, pantry, schedules, notes</p>
           </div>
@@ -105,8 +107,11 @@ const ALL_ROUTES: readonly RouteOption[] = [
         <!-- CLASSIFY spinner. -->
         @if (stage() === 'classifying') {
           <div class="busy" role="status" aria-live="polite">
-            <mat-icon class="busy__spin" aria-hidden="true">progress_activity</mat-icon>
+            <div class="busy__orb" aria-hidden="true">
+              <mat-icon class="busy__spin">progress_activity</mat-icon>
+            </div>
             <p class="busy__label">Reading your photo…</p>
+            <p class="busy__hint">This usually takes a few seconds.</p>
           </div>
         }
 
@@ -128,7 +133,11 @@ const ALL_ROUTES: readonly RouteOption[] = [
               </button>
             }
             @if (routes().length === 0) {
-              <p class="routes__empty">You don't have access to any capture destinations.</p>
+              <div class="routes__empty">
+                <div class="routes__empty-orb"><mat-icon aria-hidden="true">lock</mat-icon></div>
+                <p class="routes__empty-title">No destinations available</p>
+                <p class="routes__empty-hint">You don't have access to any capture destinations.</p>
+              </div>
             }
           </div>
         }
@@ -158,7 +167,10 @@ const ALL_ROUTES: readonly RouteOption[] = [
                 </div>
               }
               @if (foods().length === 0) {
-                <p class="rows__empty">Nothing was read — add a row or pick another route.</p>
+                <div class="rows__empty">
+                  <div class="rows__empty-orb"><mat-icon aria-hidden="true">restaurant</mat-icon></div>
+                  <p class="rows__empty-text">Nothing was read — add a row or pick another route.</p>
+                </div>
               }
               <button type="button" class="rows__add" (click)="addFood()">
                 <mat-icon aria-hidden="true">add</mat-icon> Add food
@@ -183,7 +195,10 @@ const ALL_ROUTES: readonly RouteOption[] = [
                 </div>
               }
               @if (lines().length === 0) {
-                <p class="rows__empty">No line items — add one or pick another route.</p>
+                <div class="rows__empty">
+                  <div class="rows__empty-orb"><mat-icon aria-hidden="true">receipt_long</mat-icon></div>
+                  <p class="rows__empty-text">No line items — add one or pick another route.</p>
+                </div>
               }
               <button type="button" class="rows__add" (click)="addLine()">
                 <mat-icon aria-hidden="true">add</mat-icon> Add line
@@ -203,7 +218,10 @@ const ALL_ROUTES: readonly RouteOption[] = [
                 </span>
               }
               @if (pantry().length === 0) {
-                <p class="rows__empty">Nothing was read off the shelf.</p>
+                <div class="rows__empty">
+                  <div class="rows__empty-orb"><mat-icon aria-hidden="true">kitchen</mat-icon></div>
+                  <p class="rows__empty-text">Nothing was read off the shelf.</p>
+                </div>
               }
             </div>
           }
@@ -221,7 +239,10 @@ const ALL_ROUTES: readonly RouteOption[] = [
                 </label>
               }
               @if (events().length === 0) {
-                <p class="rows__empty">No events were found in that schedule.</p>
+                <div class="rows__empty">
+                  <div class="rows__empty-orb"><mat-icon aria-hidden="true">event</mat-icon></div>
+                  <p class="rows__empty-text">No events were found in that schedule.</p>
+                </div>
               }
             </div>
           }

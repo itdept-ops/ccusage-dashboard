@@ -10,14 +10,13 @@ import { MatButtonToggleModule } from '@angular/material/button-toggle';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatMenuModule } from '@angular/material/menu';
-import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 
 import { Api } from '../../core/api';
 import { AuthService } from '../../core/auth';
 import { PERM, PersonDto, NudgeKind } from '../../core/models';
 import { timeAgo } from '../../shared/format';
-import { BetaEmptyState, BetaErrorState } from '../beta-ui';
+import { BetaEmptyState, BetaErrorState, BetaSkeleton } from '../beta-ui';
 
 /** Which slice of the caller's people the grid shows. */
 type PeopleFilter = 'all' | 'contacts' | 'family';
@@ -50,10 +49,10 @@ interface PersonVm extends PersonDto {
     MatIconModule,
     MatTooltipModule,
     MatMenuModule,
-    MatProgressSpinnerModule,
     MatSnackBarModule,
     BetaEmptyState,
     BetaErrorState,
+    BetaSkeleton,
   ],
   templateUrl: './people.html',
   changeDetection: ChangeDetectionStrategy.Eager,

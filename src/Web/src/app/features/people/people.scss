@@ -2,28 +2,64 @@
   display: block;
   max-width: var(--tech-max-width);
   margin: 0 auto;
+  padding: var(--tech-space-4, 24px) var(--tech-space-3, 16px) var(--tech-space-6, 48px);
 }
 
 /* ───────────────────────── Header ───────────────────────── */
 .head {
-  margin-bottom: var(--tech-space-4);
+  margin-bottom: var(--tech-space-5, 32px);
 
-  .head-eyebrow { display: block; color: var(--tech-text-accent); margin-bottom: 6px; }
-  h2 {
-    margin: 0 0 var(--tech-space-1);
-    font-family: var(--tech-font-ui);
-    font-size: clamp(20px, 5vw, var(--tech-fs-display));
-    font-weight: 700;
+  &__row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: var(--tech-space-3, 16px);
+  }
+
+  &__copy { flex: 1 1 auto; min-width: 0; }
+
+  &__title {
+    margin: 0 0 var(--tech-space-2, 12px);
+    font-family: var(--tech-font-display);
+    font-size: clamp(24px, 6vw, 34px);
+    font-weight: 800;
     letter-spacing: -0.02em;
+    line-height: 1.1;
     color: var(--tech-text);
   }
-  .sub {
-    margin: 0;
-    max-width: 640px;
-    font-size: var(--tech-fs-body);
-    color: var(--tech-text-secondary);
-    line-height: 1.5;
+
+  /* Accent badge — icon orb at the top-right of the header */
+  &__badge {
+    flex: 0 0 auto;
+    display: grid;
+    place-items: center;
+    width: 52px;
+    height: 52px;
+    border-radius: 50%;
+    background: color-mix(in srgb, var(--tech-accent) 14%, transparent);
+    box-shadow: inset 0 1px 0 color-mix(in srgb, var(--tech-accent) 28%, transparent);
+    color: var(--tech-accent);
+
+    mat-icon { font-size: 26px; width: 26px; height: 26px; }
   }
+}
+
+.head-eyebrow {
+  display: block;
+  margin-bottom: 6px;
+  font-size: var(--tech-fs-small);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--tech-text-accent, var(--tech-accent));
+}
+
+.sub {
+  margin: 0;
+  max-width: 64ch;
+  font-size: var(--tech-fs-body);
+  line-height: 1.55;
+  color: var(--tech-text-secondary);
 }
 
 /* ───────────────────────── Filter toolbar ───────────────────────── */
@@ -67,6 +103,13 @@
       border-left: none;
     }
 
+    /* Focus ring on the toggle buttons */
+    ::ng-deep .mat-button-toggle:focus-within {
+      outline: 2px solid var(--tech-focus-ring, var(--tech-accent));
+      outline-offset: 1px;
+      border-radius: var(--tech-r-control);
+    }
+
     .seg__count {
       margin-left: 6px;
       padding: 0 6px;
@@ -78,19 +121,49 @@
   }
 }
 
-/* ───────────────────────── Loading state ─────────────────────────
-   Error + empty render via the shared beta-ui kit primitives (app-bs-error / app-bs-empty);
-   only the spinner-bearing loading panel keeps a local layout. */
-.state {
+/* ───────────────────────── Loading skeletons ─────────────────────────
+   Skeleton cards mirror the real card layout — avatar circle + two lines
+   + a meta line + two action pill stubs. Shimmer via beta-ui BetaSkeleton. */
+.state-skeletons {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: var(--tech-space-3);
+
+  @media (max-width: 520px) {
+    grid-template-columns: 1fr;
+    gap: var(--tech-space-2);
+  }
+}
+
+.skel-card {
   display: flex;
   flex-direction: column;
+  gap: 12px;
+  padding: var(--tech-space-3, 16px);
+  border-radius: var(--tech-radius);
+  background: var(--tech-panel, #111722);
+  border: 1px solid var(--tech-border);
+  box-shadow:
+    var(--tech-shadow-panel),
+    inset 0 1px 0 color-mix(in srgb, var(--tech-text) 6%, transparent);
+}
+
+.skel-row {
+  display: flex;
   align-items: center;
   gap: 12px;
-  padding: clamp(32px, 8vw, 64px) 16px;
-  text-align: center;
-  color: var(--tech-text-secondary);
+}
 
-  p { margin: 0; max-width: 460px; line-height: 1.5; }
+.skel-lines {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.skel-actions {
+  display: flex;
+  gap: 8px;
 }
 
 /* ───────────────────────── People grid ───────────────────────── */
@@ -113,21 +186,31 @@
   flex-direction: column;
   gap: 10px;
   padding: var(--tech-space-3) var(--tech-space-4);
-  /* FiMobile card signature */
+  /* FiMobile card signature — radius + soft shadow + inset top highlight */
   border-radius: var(--tech-radius);
   border: 1px solid var(--tech-border);
   background: var(--tech-panel, #111722);
-  box-shadow: var(--tech-shadow-panel);
+  box-shadow:
+    var(--tech-shadow-panel),
+    inset 0 1px 0 color-mix(in srgb, var(--tech-text) 7%, transparent);
   transition: border-color var(--tech-t-slow, 200ms) ease, box-shadow var(--tech-t-slow, 200ms) ease, transform var(--tech-t-slow, 200ms) ease;
 
   /* FiMobile hover lift on interactive cards */
   &:hover {
     border-color: var(--tech-border-strong, #2a3548);
-    transform: translateY(-1px);
-    box-shadow: var(--tech-shadow-raised);
+    transform: translateY(-2px);
+    box-shadow:
+      var(--tech-shadow-raised),
+      inset 0 1px 0 color-mix(in srgb, var(--tech-text) 10%, transparent);
   }
 
-  /* Hero card: the caller's own card — FiMobile gradient-hero treatment */
+  /* Keyboard focus ring */
+  &:focus-within {
+    outline: 2px solid var(--tech-focus-ring, var(--tech-accent));
+    outline-offset: 2px;
+  }
+
+  /* Hero card: the caller's own card — FiMobile deliberate gradient-hero treatment */
   &--self {
     background: var(--tech-gradient-accent);
     border-color: transparent;
@@ -144,7 +227,7 @@
     .avatar { box-shadow: 0 0 0 2px color-mix(in srgb, var(--tech-text-on-accent) 30%, transparent); }
 
     /* Presence dot outline blends with gradient bg */
-    .presence-dot { box-shadow: 0 0 0 2px transparent; }
+    .presence-dot { box-shadow: 0 0 0 2px color-mix(in srgb, var(--tech-text-on-accent) 20%, transparent); }
 
     /* Action buttons: ghost style on accent bg */
     .act {
@@ -326,12 +409,23 @@
     font-weight: 600;
     font-size: 13px;
     mat-icon { font-size: 16px; width: 16px; height: 16px; margin-right: 4px; }
+
+    &:focus-visible {
+      outline: 2px solid var(--tech-focus-ring, var(--tech-accent)) !important;
+      outline-offset: 2px;
+    }
   }
-  .act--msg:hover:not(:disabled) { box-shadow: var(--tech-glow-blue); }
+  .act--msg:hover:not(:disabled)   { box-shadow: var(--tech-glow-blue); }
+  .act--nudge:hover:not(:disabled) { box-shadow: var(--tech-glow-accent, var(--tech-glow-blue)); }
   .act--more {
     margin-left: auto;
     color: var(--tech-text-tertiary);
     mat-icon { margin-right: 0; }
+
+    &:focus-visible {
+      outline: 2px solid var(--tech-focus-ring, var(--tech-accent)) !important;
+      outline-offset: 2px;
+    }
   }
 }
 

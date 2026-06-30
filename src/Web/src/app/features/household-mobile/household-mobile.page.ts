@@ -98,6 +98,9 @@ import {
 
         } @else {
           @if (members().length) {
+            <p class="hh-section-label" aria-hidden="true">
+              <mat-icon aria-hidden="true">group</mat-icon> Members
+            </p>
             <div class="hh-list">
               @for (m of members(); track m.userId; let i = $index) {
                 @if (isOwner() && m.role !== 'owner') {

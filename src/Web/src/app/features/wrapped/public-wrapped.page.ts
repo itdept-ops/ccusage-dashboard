@@ -35,9 +35,13 @@ interface PubStat { readonly key: string; readonly num: string; readonly label: 
         </div>
       } @else if (errored()) {
         <div class="wr-hero" role="alert">
-          <p class="wr-hero__kicker"><mat-icon aria-hidden="true">link_off</mat-icon> Usage IQ</p>
-          <h1 class="wr-hero__title">Link unavailable</h1>
-          <p class="wr-hero__sub">This shared recap is invalid or has expired.</p>
+          <span class="wr-hero__glow" aria-hidden="true"></span>
+          <p class="wr-hero__kicker"><mat-icon aria-hidden="true">auto_awesome</mat-icon> Usage IQ</p>
+          <div class="wr-state">
+            <span class="wr-state__orb" aria-hidden="true"><mat-icon>link_off</mat-icon></span>
+            <h1 class="wr-state__title">Link unavailable</h1>
+            <p class="wr-state__hint">This shared recap is invalid or has expired.</p>
+          </div>
         </div>
       } @else if (data(); as d) {
         <header class="wr-hero">
@@ -52,6 +56,9 @@ interface PubStat { readonly key: string; readonly num: string; readonly label: 
 
         @if (d.narrative) {
           <section class="wr-story">
+            <p class="wr-story__eyebrow" aria-hidden="true">
+              <mat-icon>psychology</mat-icon> AI Narrative
+            </p>
             <p class="wr-story__text">{{ d.narrative }}</p>
             @if (d.insights?.length) {
               <ul class="wr-story__insights">

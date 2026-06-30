@@ -1,14 +1,18 @@
 <div class="ask">
   <!-- ── Header ── -->
   <header class="ask__head">
-    <div class="ask__title">
-      <mat-icon aria-hidden="true">auto_awesome</mat-icon>
-      <h1>Ask my life</h1>
+    <div class="ask__hero">
+      <div class="ask__hero-bloom" aria-hidden="true"></div>
+      <p class="ask__kicker">
+        <mat-icon aria-hidden="true">auto_awesome</mat-icon>
+        AI · Your data
+      </p>
+      <h1 class="ask__title">Ask my life</h1>
+      <p class="ask__sub">
+        Ask anything about your own tracked data — food, fitness, sleep, 75&nbsp;Hard, bills, family, usage.
+        Answers are grounded only in your numbers; nothing is changed.
+      </p>
     </div>
-    <p class="ask__sub">
-      Ask anything about your own tracked data — food, fitness, sleep, 75&nbsp;Hard, bills, family, usage.
-      Answers are grounded only in your numbers; nothing is changed.
-    </p>
   </header>
 
   <!-- ── Transcript ── -->
@@ -16,8 +20,11 @@
     @if (turns().length === 0 && !loading()) {
       <!-- Empty state: suggestions to seed the box -->
       <div class="ask__empty">
-        <mat-icon class="ask__empty-glyph" aria-hidden="true">forum</mat-icon>
+        <div class="ask__empty-orb" aria-hidden="true">
+          <mat-icon>forum</mat-icon>
+        </div>
         <p class="ask__empty-lead">What would you like to know?</p>
+        <p class="ask__empty-hint">Your answers are private and grounded only in your own data.</p>
         <div class="ask__chips" role="list" aria-label="Suggested questions">
           @for (s of suggestions; track s) {
             <button type="button" class="chip" role="listitem" (click)="askSuggestion(s)" [disabled]="loading()">

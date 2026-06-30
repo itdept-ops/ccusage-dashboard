@@ -174,6 +174,7 @@
 
 .hero-name {
   @include aur.aurora-display(display);
+  font-family: var(--tech-font-display, 'Inter', system-ui, sans-serif);
   margin: 0 0 16px;
 }
 
@@ -220,6 +221,10 @@
   }
   .arrow { transition: transform 250ms var(--aur-ease); }
   &:hover .arrow { transform: translateX(4px); }
+  &:focus-visible {
+    outline: 2px solid var(--tech-focus-ring, var(--aur-c));
+    outline-offset: 3px;
+  }
   &.big { padding: 1em 1.9em; font-size: 1.04rem; }
 }
 
@@ -310,6 +315,10 @@
     box-shadow: var(--tech-shadow-raised, 0 1px 0 0 rgba(255, 255, 255, .06) inset, 0 34px 70px -30px rgba(0, 0, 0, .7));
     &::before { opacity: 1; }
   }
+  &:focus-visible {
+    outline: 2px solid var(--tech-focus-ring, var(--aur-c));
+    outline-offset: 3px;
+  }
 
   .pillar-icon {
     position: relative;
@@ -332,14 +341,14 @@
     font-size: 10.5px; font-weight: 500; letter-spacing: 0.16em; text-transform: uppercase;
     color: var(--aur-ink-faint);
   }
-  .pillar-title { position: relative; margin: 0 0 10px; font-family: 'Inter', system-ui, sans-serif; font-size: 1.18rem; font-weight: 400; letter-spacing: -.01em; color: var(--aur-ink); }
+  .pillar-title { position: relative; margin: 0 0 10px; font-family: var(--tech-font-display, 'Inter', system-ui, sans-serif); font-size: 1.18rem; font-weight: 400; letter-spacing: -.01em; color: var(--aur-ink); }
   p { position: relative; margin: 0; @include aur.aurora-body(0.95rem); line-height: 1.6; }
 }
 
 /* ───────────────────────── Chapters (shared) ───────────────────────── */
 .chapter {
   padding-top: clamp(72px, 10vw, 128px);
-  padding-bottom: clamp(8px, 2vw, 24px);
+  padding-bottom: clamp(24px, 3vw, 48px);
 }
 .chapter-head {
   max-width: 660px;
@@ -349,6 +358,7 @@
   }
   h2 {
     @include aur.aurora-display(h2);
+    font-family: var(--tech-font-display, 'Inter', system-ui, sans-serif);
     margin: 0 0 18px;
   }
   .lede { @include aur.aurora-body(clamp(1.02rem, 1.5vw, 1.18rem)); line-height: 1.62;
@@ -424,7 +434,7 @@
       box-shadow: 0 0 10px color-mix(in srgb, var(--aur-c) 70%, transparent); animation: pulse 2.6s ease-in-out infinite; }
   }
   h3 { position: relative; margin: 0 0 14px;
-    @include aur.aurora-display(h3); font-size: clamp(1.5rem, 3vw, 2.1rem); }
+    @include aur.aurora-display(h3); font-family: var(--tech-font-display, 'Inter', system-ui, sans-serif); font-size: clamp(1.5rem, 3vw, 2.1rem); }
   > p { position: relative; margin: 0 0 22px; @include aur.aurora-body(1.02rem); line-height: 1.64; }
 }
 .proof-stack {
@@ -465,7 +475,7 @@
   border-radius: var(--tech-radius, 15px);
   box-shadow: var(--tech-shadow-panel);
   padding: clamp(26px, 4vw, 38px);
-  h3 { margin: 0 0 14px; font-family: 'Inter', system-ui, sans-serif; font-size: 1.24rem; font-weight: 400; letter-spacing: -.01em; color: var(--aur-ink); }
+  h3 { margin: 0 0 14px; font-family: var(--tech-font-display, 'Inter', system-ui, sans-serif); font-size: 1.24rem; font-weight: 400; letter-spacing: -.01em; color: var(--aur-ink); }
   > p { margin: 0 0 24px; @include aur.aurora-body(0.97rem); line-height: 1.62; }
 }
 .founder-feature {
@@ -485,7 +495,7 @@
     color: var(--tech-accent-2, var(--aur-b));
     mat-icon { font-size: 22px; width: 22px; height: 22px; }
   }
-  h4 { margin: 0 0 5px; font-family: 'Inter', system-ui, sans-serif; font-size: 0.98rem; font-weight: 500; color: var(--aur-ink); }
+  h4 { margin: 0 0 5px; font-family: var(--tech-font-display, 'Inter', system-ui, sans-serif); font-size: 0.98rem; font-weight: 500; color: var(--aur-ink); }
   p { margin: 0; @include aur.aurora-body(0.9rem); line-height: 1.55; }
 }
 
@@ -512,6 +522,10 @@
     transform: translateY(-2px);
     box-shadow: var(--tech-shadow-raised);
   }
+  &:focus-visible {
+    outline: 2px solid var(--tech-focus-ring, var(--aur-c));
+    outline-offset: 3px;
+  }
   .vet-icon {
     display: inline-flex; align-items: center; justify-content: center;
     width: 50px; height: 50px;
@@ -522,7 +536,7 @@
     color: var(--tech-accent-cyan, var(--aur-c));
     mat-icon { font-size: 25px; width: 25px; height: 25px; }
   }
-  h4 { margin: 0 0 9px; font-family: 'Inter', system-ui, sans-serif; font-size: 1.06rem; font-weight: 400; color: var(--aur-ink); }
+  h4 { margin: 0 0 9px; font-family: var(--tech-font-display, 'Inter', system-ui, sans-serif); font-size: 1.06rem; font-weight: 400; color: var(--aur-ink); }
   p { margin: 0; @include aur.aurora-body(0.9rem); line-height: 1.55; }
 }
 .vet-note {
@@ -550,6 +564,10 @@
     border-color: rgba(255, 255, 255, .16);
     transform: translateY(-2px);
     box-shadow: var(--tech-shadow-raised);
+  }
+  &:focus-visible {
+    outline: 2px solid var(--tech-focus-ring, var(--aur-c));
+    outline-offset: 3px;
   }
 }
 .skill-head {
@@ -630,13 +648,14 @@
     position: relative;
     display: inline-block;
     margin-bottom: 22px;
-    font-family: 'Inter', system-ui, sans-serif;
+    font-family: var(--tech-font-display, 'Inter', system-ui, sans-serif);
     font-size: clamp(2.4rem, 6vw, 3.4rem);
     font-weight: 200; letter-spacing: -0.04em;
     @include aur.aurora-text-gradient;
   }
   h2 {
     @include aur.aurora-display(h2);
+    font-family: var(--tech-font-display, 'Inter', system-ui, sans-serif);
     position: relative;
     margin: 0 auto 16px;
     max-width: 18ch;

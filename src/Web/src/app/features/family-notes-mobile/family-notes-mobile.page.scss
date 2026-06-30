@@ -21,6 +21,10 @@
   // ---- NOTES' SIGNATURE ACCENT: AMBER → ROSE (the per-page contract override) ----
   --accent-a: var(--tech-accent);             // amber (start)
   --accent-b: var(--tech-accent-2);             // rose (deep, end)
+
+  // Amber→rose is a warm mid-range gradient — white ink clears WCAG AA on all
+  // scheme stops; the near-black kit default would look muddy here.
+  --ink-on-accent: var(--tech-text-on-accent, #fff);
 }
 
 @include kit.beta-springs;          // @supports linear() spring upgrade (top-level, once)
@@ -80,7 +84,7 @@
 
 .nt-hero__title {
   margin: 2px 0 0;
-  font-family: var(--font-display, var(--font-ui));
+  font-family: var(--font-display);
   font-size: clamp(28px, 8vw, 36px); font-weight: 800; letter-spacing: -.02em;
   color: var(--ink);
 }
@@ -98,7 +102,7 @@
   background: var(--glass);
   border: 1px solid var(--glass-edge);
   border-radius: var(--tech-radius);
-  box-shadow: var(--lift-1);
+  box-shadow: var(--lift-1), inset 0 1px 0 var(--glass-edge);
 }
 .nt-stat__n { font-size: 22px; font-weight: 800; line-height: 1; color: var(--ink); letter-spacing: -.02em; }
 .nt-stat__l {
@@ -133,12 +137,13 @@
   background: var(--glass);
   border: 1px solid var(--glass-edge);
   border-radius: var(--tech-radius);
-  box-shadow: var(--lift-1);
+  box-shadow: var(--lift-1), inset 0 1px 0 var(--glass-edge);
   color: var(--ink);
   font-family: var(--font-ui);
   cursor: pointer; touch-action: pan-y; -webkit-tap-highlight-color: transparent;
   transition: transform 120ms var(--ease-out), box-shadow 120ms var(--ease-out);
 
+  @media (hover: hover) { &:hover:not(.is-busy) { transform: translateY(-2px); box-shadow: var(--lift-2); } }
   &:active { transform: scale(.985); box-shadow: var(--press); }
   &:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
   &.is-busy { opacity: .55; pointer-events: none; }
@@ -193,7 +198,7 @@
   display: inline-flex; align-items: center; justify-content: center;
   width: 22px; height: 22px; border-radius: 50%;
   font-size: 10px; font-weight: 800; letter-spacing: .02em;
-  color: var(--tech-text-on-accent, #fff);
+  color: var(--ink-on-accent);
   background: linear-gradient(135deg, var(--accent-a), var(--accent-b));
   &--sm { width: 20px; height: 20px; font-size: 9.5px; }
 }
@@ -228,7 +233,7 @@
   &--pin mat-icon { transform: rotate(35deg); }
 }
 .nd__titles { min-width: 0; display: flex; flex-direction: column; gap: 3px; }
-.nd__title { margin: 0; font-size: 19px; font-weight: 800; letter-spacing: -.01em; color: var(--ink); }
+.nd__title { margin: 0; font-family: var(--font-display); font-size: 19px; font-weight: 800; letter-spacing: -.01em; color: var(--ink); }
 .nd__sub {
   display: inline-flex; align-items: center; gap: 6px;
   font-size: 12.5px; font-weight: 600; color: var(--ink-dim);
@@ -286,7 +291,8 @@
   background: var(--glass); color: var(--ink);
   font-family: var(--font-ui); font-size: 13.5px; font-weight: 700;
   cursor: pointer; -webkit-tap-highlight-color: transparent;
-  transition: transform 120ms var(--ease-out), background 120ms var(--ease-out);
+  transition: transform 120ms var(--ease-out), background 120ms var(--ease-out), box-shadow 120ms var(--ease-out);
+  @media (hover: hover) { &:hover:not(:disabled) { background: color-mix(in srgb, var(--glass) 85%, var(--ink) 6%); box-shadow: var(--lift-1); } }
   &:active { transform: scale(.97); }
   &:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
   &:disabled { opacity: .5; pointer-events: none; }
@@ -310,7 +316,7 @@
 .nd__switch-knob {
   position: absolute; top: 3px; left: 3px;
   width: 20px; height: 20px; border-radius: 50%;
-  background: var(--tech-text-on-accent, #fff); box-shadow: var(--lift-1);
+  background: #fff; box-shadow: var(--lift-1);
   transition: transform 160ms var(--ease-spring, var(--ease-out));
   .nd__switch.is-on & { transform: translateX(18px); }
 }
@@ -322,12 +328,16 @@
 .nf { display: flex; flex-direction: column; gap: 14px; padding-bottom: 12px; }
 
 .nf__head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-.nf__title { margin: 0; font-size: 19px; font-weight: 800; letter-spacing: -.01em; color: var(--ink); }
+.nf__title { margin: 0; font-family: var(--font-display); font-size: 19px; font-weight: 800; letter-spacing: -.01em; color: var(--ink); }
 .nf__close {
   flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center;
   width: 40px; height: 40px; border-radius: 50%;
   border: 1px solid var(--glass-edge); background: var(--glass); color: var(--ink-dim);
   cursor: pointer; -webkit-tap-highlight-color: transparent;
+  transition: background 120ms var(--ease-out), transform 120ms var(--ease-out);
+  @media (hover: hover) { &:hover:not(:disabled) { background: color-mix(in srgb, var(--glass) 80%, var(--ink) 10%); } }
+  &:active { transform: scale(.93); }
+  &:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
   &:disabled { opacity: .5; pointer-events: none; }
   mat-icon { width: 20px; height: 20px; font-size: 20px; line-height: 20px; }
 }
@@ -364,9 +374,10 @@
   align-self: flex-start; min-height: 40px; padding: 0 16px;
   border: none; border-radius: var(--tech-r-pill);
   background: linear-gradient(135deg, var(--accent-a), var(--accent-b));
-  color: var(--tech-text-on-accent, #fff); font-family: var(--font-ui); font-size: 13.5px; font-weight: 700;
+  color: var(--ink-on-accent); font-family: var(--font-ui); font-size: 13.5px; font-weight: 700;
   cursor: pointer; box-shadow: var(--lift-1); -webkit-tap-highlight-color: transparent;
-  transition: transform 120ms var(--ease-out);
+  transition: transform 120ms var(--ease-out), box-shadow 120ms var(--ease-out);
+  @media (hover: hover) { &:hover:not(:disabled) { box-shadow: var(--lift-2); transform: translateY(-1px); } }
   &:active { transform: scale(.96); }
   &:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
   &:disabled { opacity: .5; pointer-events: none; }
@@ -380,7 +391,10 @@
   border: 1px solid var(--glass-edge); border-radius: var(--tech-radius);
   background: var(--glass); color: var(--ink);
   font-family: var(--font-ui); cursor: pointer; -webkit-tap-highlight-color: transparent;
+  transition: background 120ms var(--ease-out), border-color 120ms var(--ease-out);
   &.is-on { border-color: color-mix(in srgb, var(--accent-a) 40%, var(--glass-edge)); }
+  @media (hover: hover) { &:hover { background: color-mix(in srgb, var(--glass) 85%, var(--ink) 5%); } }
+  &:active { background: color-mix(in srgb, var(--glass) 80%, var(--ink) 8%); }
   &:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
   > mat-icon { flex: 0 0 auto; width: 20px; height: 20px; font-size: 20px; line-height: 20px; color: var(--accent-a); transform: rotate(35deg); }
 }
@@ -394,24 +408,28 @@
   border-radius: var(--tech-r-pill);
   font-family: var(--font-ui); font-size: 14.5px; font-weight: 700;
   cursor: pointer; -webkit-tap-highlight-color: transparent;
-  transition: transform 120ms var(--ease-out);
+  transition: transform 120ms var(--ease-out), box-shadow 120ms var(--ease-out), opacity 120ms;
   &:active { transform: scale(.97); }
   &:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
   &:disabled { opacity: .5; pointer-events: none; }
   mat-icon { width: 18px; height: 18px; font-size: 18px; line-height: 18px; }
 }
-.nf__btn--ghost { border: 1px solid var(--glass-edge); background: var(--glass); color: var(--ink-dim); }
+.nf__btn--ghost {
+  border: 1px solid var(--glass-edge); background: var(--glass); color: var(--ink-dim);
+  @media (hover: hover) { &:hover:not(:disabled) { background: color-mix(in srgb, var(--glass) 80%, var(--ink) 8%); } }
+}
 .nf__btn--save {
-  border: none; color: var(--tech-text-on-accent, #fff);
+  border: none; color: var(--ink-on-accent);
   background: linear-gradient(135deg, var(--accent-a), var(--accent-b));
   box-shadow: var(--lift-2);
+  @media (hover: hover) { &:hover:not(:disabled) { box-shadow: var(--lift-3); transform: translateY(-1px); } }
 }
 
 // small inline spinner for AI / Save buttons
 .nf__spin {
   width: 15px; height: 15px; border-radius: 50%;
-  border: 2px solid color-mix(in srgb, var(--tech-text-on-accent, #fff) 45%, transparent);
-  border-top-color: var(--tech-text-on-accent, #fff);
+  border: 2px solid color-mix(in srgb, var(--ink-on-accent) 45%, transparent);
+  border-top-color: var(--ink-on-accent);
   animation: nt-spin .7s linear infinite;
 }
 @keyframes nt-spin { to { transform: rotate(360deg); } }

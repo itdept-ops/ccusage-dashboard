@@ -3,9 +3,11 @@
    body-level overlay, so the rule cannot live in this component's encapsulated scope. */
 
 .np-title {
-  font-family: var(--tech-font-ui);
-  font-weight: 700;
-  letter-spacing: -0.01em;
+  /* FiMobile rubric #1 — display font for page/dialog titles */
+  font-family: var(--tech-font-display);
+  font-size: clamp(18px, 4vw, 22px);
+  font-weight: 800;
+  letter-spacing: -0.02em;
   color: var(--tech-text);
 }
 
@@ -21,9 +23,11 @@
   display: flex;
   flex-direction: column;
   gap: 4px;
-  /* FiMobile CARD SIGNATURE: radius + shadow + border */
+  /* FiMobile CARD SIGNATURE: radius + shadow + inset top highlight + border */
   border-radius: var(--tech-radius, 15px);
-  box-shadow: var(--tech-shadow-panel);
+  box-shadow:
+    var(--tech-shadow-panel),
+    inset 0 1px 0 color-mix(in srgb, var(--tech-glass-inset-hi, rgba(255,255,255,.10)) 100%, transparent);
   border: 1px solid var(--tech-border);
   padding: 12px 8px 8px;
 
@@ -61,6 +65,16 @@
     background: color-mix(in srgb, var(--tech-accent) 6%, transparent);
   }
 
+  /* rubric #6 — focus-visible ring on interactive rows (the row itself is not natively focusable,
+     but this selector covers keyboard focus on the contained toggle/input reaching the row's ancestor
+     when no other ring is present). The real focus target is the mat-slide-toggle thumb — this adds
+     an ambient hint on the row container. */
+  &:focus-within:has(:focus-visible) {
+    outline: none;
+    box-shadow: inset 0 0 0 1px var(--tech-border-strong, #33425a);
+    background: color-mix(in srgb, var(--tech-accent) 6%, transparent);
+  }
+
   &__text {
     display: flex;
     align-items: center;
@@ -70,14 +84,14 @@
   }
 
   &__icon {
-    /* FiMobile list-row leading icon tile */
+    /* FiMobile list-row leading icon orb — pill radius, accent tint */
     flex: 0 0 auto;
     display: inline-flex;
     align-items: center;
     justify-content: center;
     width: 36px;
     height: 36px;
-    border-radius: var(--tech-r-control);
+    border-radius: var(--tech-r-pill, 999px);
     background: color-mix(in srgb, var(--tech-accent) 12%, transparent);
     border: 1px solid color-mix(in srgb, var(--tech-accent) 25%, transparent);
     font-size: 20px;
@@ -139,6 +153,58 @@
     color: var(--tech-text-secondary);
 
     mat-icon { color: var(--tech-error); }
+  }
+}
+
+/* ---- Discord loading skeleton (rubric #5 — styled loading state) ---- */
+@keyframes np-skel-pulse {
+  0%, 100% { opacity: 0.5; }
+  50%       { opacity: 1; }
+}
+
+.np-discord-loading {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 10px;
+}
+
+.np-skel {
+  border-radius: var(--tech-r-control);
+  background: color-mix(in srgb, var(--tech-text-tertiary, #5e6c82) 18%, transparent);
+  animation: np-skel-pulse 1.4s ease-in-out infinite;
+
+  &--icon {
+    flex: 0 0 auto;
+    width: 36px;
+    height: 36px;
+    border-radius: var(--tech-r-pill, 999px);
+  }
+
+  &--toggle {
+    flex: 0 0 auto;
+    width: 38px;
+    height: 22px;
+    border-radius: var(--tech-r-pill, 999px);
+    margin-left: auto;
+  }
+}
+
+.np-skel-body {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+
+  .np-skel--label {
+    width: 55%;
+    height: 13px;
+  }
+
+  .np-skel--sub {
+    width: 80%;
+    height: 11px;
+    opacity: 0.6;
   }
 }
 

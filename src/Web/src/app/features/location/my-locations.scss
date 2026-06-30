@@ -5,18 +5,27 @@
   margin: 0 auto;
 }
 
+// FiMobile card baseline — shared surface look for every card on this page.
+.glass {
+  background: var(--tech-bg-surface, var(--tech-surface));
+  box-shadow:
+    var(--tech-shadow-panel),
+    inset 0 1px 0 color-mix(in srgb, white 8%, transparent);
+}
+
 .head {
   display: flex;
   flex-wrap: wrap;
   gap: var(--tech-space-3, 12px);
   align-items: flex-start;
   justify-content: space-between;
-  margin-bottom: var(--tech-space-4, 16px);
+  margin-bottom: var(--tech-space-5, 20px);
 
   .head-eyebrow { display: block; color: var(--tech-text-accent); margin-bottom: 6px; }
   h2 {
     margin: 0 0 var(--tech-space-1, 4px);
-    font-size: clamp(20px, 5vw, var(--tech-fs-display, 26px));
+    font-family: var(--tech-font-display, inherit);
+    font-size: clamp(22px, 5vw, var(--tech-fs-display, 28px));
     font-weight: 700;
     letter-spacing: -0.02em;
     color: var(--tech-text);
@@ -35,6 +44,7 @@
     display: flex;
     flex-wrap: wrap;
     gap: var(--tech-space-2, 8px);
+    align-items: center;
 
     .danger { color: var(--tech-warn, #d9534f); }
     mat-icon { margin-right: 4px; }
@@ -43,18 +53,21 @@
 
 .optin-card {
   padding: var(--tech-space-3, 12px) var(--tech-space-4, 16px);
-  margin-bottom: var(--tech-space-3, 12px);
+  margin-bottom: var(--tech-space-4, 16px);
   border-radius: var(--tech-radius, var(--tech-r-panel, 14px));
-  background: var(--tech-gradient-accent);
-  color: var(--tech-text-on-accent);
-  box-shadow: var(--tech-shadow-panel);
+  border: 1px solid var(--tech-border);
+  // Flat surface card — no lone gradient tile (rubric §2 / §9)
+  background: var(--tech-bg-surface, var(--tech-surface));
+  box-shadow:
+    var(--tech-shadow-panel),
+    inset 0 1px 0 color-mix(in srgb, white 8%, transparent);
 
   .optin-row {
     display: flex;
     align-items: center;
     gap: var(--tech-space-4, 16px);
     padding: var(--tech-space-2, 8px) 0;
-    border-bottom: 1px solid color-mix(in srgb, var(--tech-text-on-accent) 15%, transparent);
+    border-bottom: 1px solid var(--tech-border-subtle, rgba(255, 255, 255, 0.06));
 
     &:last-child { border-bottom: none; }
     &.optin-row--muted { opacity: 0.55; }
@@ -66,18 +79,15 @@
     display: block;
     font-size: var(--tech-fs-body, 13px);
     font-weight: 600;
-    color: var(--tech-text-on-accent);
+    color: var(--tech-text);
   }
   .optin-desc {
     display: block;
     margin-top: 2px;
     font-size: var(--tech-fs-label, 11px);
-    color: color-mix(in srgb, var(--tech-text-on-accent) 80%, transparent);
+    color: var(--tech-text-secondary);
     line-height: 1.45;
   }
-
-  // Ensure slide-toggle thumb stays visible on the gradient fill
-  mat-slide-toggle { filter: brightness(1.1); }
 }
 
 .hint {
@@ -85,12 +95,11 @@
   align-items: center;
   gap: var(--tech-space-2, 8px);
   padding: var(--tech-space-3, 12px);
-  margin-bottom: var(--tech-space-3, 12px);
+  margin-bottom: var(--tech-space-4, 16px);
   font-size: var(--tech-fs-body, 13px);
   color: var(--tech-text-secondary);
   border-radius: var(--tech-r-control, 10px);
   border: 1px solid var(--tech-border);
-  box-shadow: var(--tech-shadow-panel);
 
   a { color: var(--tech-text-accent); }
   mat-icon { color: var(--tech-text-tertiary); flex: 0 0 auto; }
@@ -102,18 +111,55 @@
   }
 }
 
+// Focus-visible rings for button strip in header
+.head-actions button:focus-visible {
+  outline: var(--tech-focus-ring, 2px solid var(--tech-accent));
+  outline-offset: 2px;
+}
+
 .map-card {
   padding: var(--tech-space-2, 8px);
   margin-bottom: var(--tech-space-4, 16px);
   border-radius: var(--tech-radius, var(--tech-r-panel, 14px));
   border: 1px solid var(--tech-border);
-  box-shadow: var(--tech-shadow-panel);
+  overflow: hidden;
 
   app-location-map { display: block; height: 440px; }
 
   @media (max-width: 640px) {
-    app-location-map { height: 340px; }
+    app-location-map { height: 300px; }
   }
+
+  // ── Themed Leaflet controls + popups to match admin-locations / family-locations ──
+  ::ng-deep .leaflet-control-zoom {
+    border: 1px solid var(--tech-border) !important;
+    border-radius: var(--tech-r-control, 10px) !important;
+    overflow: hidden;
+    box-shadow: var(--tech-shadow-raised) !important;
+  }
+  ::ng-deep .leaflet-control-zoom a {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--tech-bg-surface, var(--tech-surface)) !important;
+    color: var(--tech-text) !important;
+    border-bottom: 1px solid var(--tech-border-subtle, var(--tech-border)) !important;
+    transition: background var(--tech-t-fast, 120ms) var(--tech-ease, ease);
+    &:hover {
+      background: color-mix(in srgb, var(--tech-accent) 12%, var(--tech-bg-surface, var(--tech-surface))) !important;
+      color: var(--tech-accent) !important;
+    }
+    &:last-child { border-bottom: none !important; }
+  }
+  ::ng-deep .leaflet-popup-content-wrapper {
+    background: var(--tech-bg-surface, var(--tech-surface));
+    color: var(--tech-text);
+    border-radius: var(--tech-radius, 12px);
+    box-shadow: var(--tech-shadow-panel);
+    border: 1px solid var(--tech-border);
+  }
+  ::ng-deep .leaflet-popup-tip { background: var(--tech-bg-surface, var(--tech-surface)); }
+  ::ng-deep .leaflet-popup-content { font-family: inherit; }
 
   .osm-note {
     display: flex;
@@ -132,9 +178,13 @@
   padding: var(--tech-space-4, 16px);
   border-radius: var(--tech-radius, var(--tech-r-panel, 14px));
   border: 1px solid var(--tech-border);
-  box-shadow: var(--tech-shadow-panel);
 
-  .panel-header { margin: 0 0 var(--tech-space-3, 12px); }
+  .panel-header {
+    margin: 0 0 var(--tech-space-3, 12px);
+    font-family: var(--tech-font-display, inherit);
+    font-size: var(--tech-fs-title, 15px);
+    font-weight: 700;
+  }
 }
 
 .timeline {
@@ -186,6 +236,49 @@
   }
 }
 
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: var(--tech-space-3, 12px);
+  padding: var(--tech-space-8, 32px) var(--tech-space-4, 16px);
+
+  .empty-state__orb {
+    display: grid;
+    place-items: center;
+    width: 52px;
+    height: 52px;
+    border-radius: 50%;
+    background: color-mix(in srgb, var(--tech-accent, #5b8def) 12%, transparent);
+    border: 1px solid color-mix(in srgb, var(--tech-accent, #5b8def) 25%, transparent);
+
+    mat-icon {
+      width: 24px;
+      height: 24px;
+      font-size: 24px;
+      line-height: 24px;
+      color: var(--tech-text-accent, var(--tech-accent));
+    }
+  }
+
+  .empty-state__title {
+    margin: 0;
+    font-size: var(--tech-fs-title, 15px);
+    font-weight: 600;
+    color: var(--tech-text);
+  }
+
+  .empty-state__hint {
+    margin: 0;
+    max-width: 40ch;
+    font-size: var(--tech-fs-body, 13px);
+    color: var(--tech-text-secondary);
+    line-height: 1.5;
+  }
+}
+
+// Legacy .empty kept for safety
 .empty {
   padding: var(--tech-space-4, 16px);
   text-align: center;

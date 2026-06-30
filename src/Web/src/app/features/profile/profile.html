@@ -1,19 +1,26 @@
 <div class="head">
-  <div>
-    <h2>How others see me</h2>
-    <p class="sub">Control how your name appears to everyone across chat, presence, family, and shared
-      pages — and manage your online visibility and status. These are your own settings; they never
-      change how anyone else appears to you.</p>
+  <div class="head__copy">
+    <h2 class="head__title">How others see me</h2>
+    <p class="head__sub">Control how your name appears across chat, presence, family, and shared
+      pages — and manage your online visibility and status.</p>
   </div>
+  <button mat-flat-button color="primary" class="head__save"
+          [disabled]="saving() || loading()" (click)="save()">
+    <mat-icon aria-hidden="true">save</mat-icon>
+    <span>{{ saving() ? 'Saving…' : 'Save' }}</span>
+  </button>
 </div>
 
 @if (loading()) { <mat-progress-bar mode="indeterminate" aria-label="Loading profile" /> }
 
 @if (loadError()) {
   <mat-card appearance="outlined" class="panel load-error">
-    <mat-icon aria-hidden="true">cloud_off</mat-icon>
-    <p>Couldn't load your profile. Check your connection and try again.</p>
-    <button mat-stroked-button (click)="load()">
+    <div class="load-error__orb" aria-hidden="true">
+      <mat-icon>cloud_off</mat-icon>
+    </div>
+    <p class="load-error__title">Couldn't load your profile</p>
+    <p class="load-error__hint">Check your connection and try again.</p>
+    <button mat-stroked-button class="load-error__retry" (click)="load()">
       <mat-icon aria-hidden="true">refresh</mat-icon> Retry
     </button>
   </mat-card>

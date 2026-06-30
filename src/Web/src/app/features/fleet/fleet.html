@@ -1,16 +1,22 @@
-@if (loading()) {
-  <mat-progress-bar mode="indeterminate" aria-label="Loading fleet" />
-}
-
 <!-- ───────────────────────── Header ───────────────────────── -->
 <div class="head">
   <div class="head-text">
-    <span class="micro-label head-eyebrow">~/fleet — who &amp; what is reporting</span>
+    <span class="micro-label head-eyebrow">~/fleet</span>
     <h2>Fleet</h2>
-    <p class="sub">Spend and volume rolled up by the machine that reported it and by the user who owns it. Each row
-      expands to show the linked users (for a machine) or machines (for a user). Ranked by cost.</p>
+    <p class="sub">Spend &amp; volume by machine and user — ranked by cost.</p>
   </div>
+  @if (loading()) {
+    <div class="head-loading" aria-hidden="true">
+      <span class="head-loading-dot"></span>
+      <span class="head-loading-dot"></span>
+      <span class="head-loading-dot"></span>
+    </div>
+  }
 </div>
+
+@if (loading()) {
+  <mat-progress-bar mode="indeterminate" aria-label="Loading fleet" />
+}
 
 <!-- ───────────────────────── Filter / quick range ───────────────────────── -->
 <section class="filters glass" aria-label="Range">
@@ -282,7 +288,19 @@
         }
       </div>
     } @empty {
-      <div class="lb-empty">No machines have reported in this range.</div>
+      @if (!loading()) {
+        <div class="lb-empty">
+          <div class="lb-empty-orb"><mat-icon aria-hidden="true">dns</mat-icon></div>
+          <p class="lb-empty-title">No machines yet</p>
+          <p class="lb-empty-hint">No machines have reported in this range. Install a reporter to start tracking.</p>
+        </div>
+      } @else {
+        <div class="lb-skeleton" aria-hidden="true">
+          @for (_ of [1,2,3]; track $index) {
+            <div class="lb-skel-row"><span class="skel skel-rank"></span><span class="skel skel-name"></span><span class="skel skel-num"></span><span class="skel skel-num"></span></div>
+          }
+        </div>
+      }
     }
   } @else {
     @for (u of users(); track userKey(u); let i = $index) {
@@ -336,7 +354,19 @@
         }
       </div>
     } @empty {
-      <div class="lb-empty">No users have reported in this range.</div>
+      @if (!loading()) {
+        <div class="lb-empty">
+          <div class="lb-empty-orb"><mat-icon aria-hidden="true">group</mat-icon></div>
+          <p class="lb-empty-title">No users yet</p>
+          <p class="lb-empty-hint">No users have reported in this range. Adjust the date range or check reporter status.</p>
+        </div>
+      } @else {
+        <div class="lb-skeleton" aria-hidden="true">
+          @for (_ of [1,2,3]; track $index) {
+            <div class="lb-skel-row"><span class="skel skel-rank"></span><span class="skel skel-name"></span><span class="skel skel-num"></span><span class="skel skel-num"></span></div>
+          }
+        </div>
+      }
     }
   }
 </section>

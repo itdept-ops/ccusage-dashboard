@@ -8,15 +8,17 @@
 
 .re-title {
   margin: 0;
-  font-family: var(--tech-font-ui);
+  font-family: var(--tech-font-display, var(--tech-font-ui));
+  font-size: clamp(17px, 3vw, 20px);
+  font-weight: 700;
   color: var(--tech-text);
 }
 
 .re-body {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  padding-top: 8px;
+  gap: var(--tech-space-2, 8px);
+  padding-top: var(--tech-space-3, 12px);
   min-width: min(92vw, 520px);
 }
 
@@ -25,42 +27,54 @@
 .re-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-  gap: 8px;
+  gap: var(--tech-space-2, 8px);
 }
 
 .re-hint {
-  margin: 2px 0 8px;
+  margin: 0 0 4px;
   font-size: 12px;
   color: var(--tech-text-tertiary, var(--tech-text-dim));
 }
 
 /* ─────────────────────────── ingredients ─────────────────────────── */
-.re-section { margin: 6px 0 4px; }
+.re-section {
+  margin: var(--tech-space-2, 8px) 0 4px;
+  padding: 14px;
+  border: 1px solid var(--tech-border);
+  border-radius: var(--tech-radius, var(--tech-r-control, 10px));
+  background: var(--tech-bg-sunken, transparent);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--tech-text) 4%, transparent);
+}
 
 .re-section-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
+  margin-bottom: 10px;
 }
 
 .re-section-title {
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  font-size: 13px;
   font-weight: 600;
+  letter-spacing: 0.04em;
   color: var(--tech-text);
 
-  mat-icon { font-size: 20px; width: 20px; height: 20px; color: var(--tech-accent); }
+  mat-icon { font-size: 18px; width: 18px; height: 18px; color: var(--tech-accent); }
 }
 
-.re-add mat-icon { font-size: 18px; width: 18px; height: 18px; }
+.re-add {
+  border-radius: var(--tech-r-pill, 999px) !important;
+  mat-icon { font-size: 18px; width: 18px; height: 18px; }
+}
 
 .re-rows {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  margin-top: 4px;
+  gap: 6px;
 }
 
 .re-row {
@@ -76,23 +90,28 @@
   flex: 0 0 auto;
   color: var(--tech-text-secondary);
   &:not([disabled]):hover { color: var(--tech-error, #ff5d6c); }
+  &:focus-visible { outline: var(--tech-focus-ring, 2px solid var(--tech-accent)); border-radius: 50%; }
   mat-icon { font-size: 20px; width: 20px; height: 20px; }
 }
 
 .re-empty {
-  margin: 6px 0;
+  margin: 4px 0;
   font-size: 13px;
   color: var(--tech-text-secondary);
+  text-align: center;
+  padding: 12px 0 4px;
 }
 
 /* ─────────────────────────── share ─────────────────────────── */
 .re-share {
-  margin-top: 6px;
-  padding: 12px 14px;
+  margin-top: var(--tech-space-2, 8px);
+  padding: 14px;
   border: 1px solid var(--tech-border);
   border-radius: var(--tech-radius, var(--tech-r-control, 10px));
   background: var(--tech-bg-sunken, transparent);
-  box-shadow: var(--tech-shadow-panel);
+  box-shadow:
+    var(--tech-shadow-panel),
+    inset 0 1px 0 color-mix(in srgb, var(--tech-text) 4%, transparent);
 }
 
 .re-share-hint {
@@ -109,4 +128,8 @@
 .re-actions {
   padding: 8px 4px 4px;
   gap: 8px;
+
+  button[mat-flat-button], button[mat-stroked-button] {
+    border-radius: var(--tech-r-pill, 999px);
+  }
 }

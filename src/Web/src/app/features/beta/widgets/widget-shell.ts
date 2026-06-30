@@ -164,28 +164,32 @@ export type WidgetPhase = 'loading' | 'ready' | 'empty' | 'failed';
 
     .w__skel { display: flex; flex-direction: column; gap: 12px; padding: 2px 0 6px; }
 
-    // Tasteful states — never a bare line. An accent-tinted glyph anchors the message.
+    // Tasteful states — never a bare line. Centered icon orb + message column (rubric §5).
     .w__state {
-      display: flex; align-items: center; gap: 10px; padding: 8px 2px;
+      display: flex; flex-direction: column; align-items: center; gap: 10px;
+      padding: 16px 8px 12px; text-align: center;
     }
     .w__state-ic {
-      flex: 0 0 auto; display: grid; place-items: center; width: 36px; height: 36px; border-radius: 12px;
-      background: color-mix(in srgb, var(--wa, var(--accent-a)) 12%, transparent);
+      display: grid; place-items: center; width: 44px; height: 44px; border-radius: 14px;
+      background: color-mix(in srgb, var(--wa, var(--accent-a)) 13%, transparent);
+      box-shadow: 0 0 0 6px color-mix(in srgb, var(--wa, var(--accent-a)) 7%, transparent);
     }
-    .w__state-ic mat-icon { font-size: 20px; width: 20px; height: 20px; color: color-mix(in srgb, var(--wa, var(--accent-a)) 80%, var(--ink)); }
-    .w__state--fail .w__state-ic { background: color-mix(in srgb, var(--warn) 14%, transparent); }
+    .w__state-ic mat-icon { font-size: 22px; width: 22px; height: 22px; color: color-mix(in srgb, var(--wa, var(--accent-a)) 80%, var(--ink)); }
+    .w__state--fail .w__state-ic { background: color-mix(in srgb, var(--warn) 14%, transparent); box-shadow: 0 0 0 6px color-mix(in srgb, var(--warn) 7%, transparent); }
     .w__state--fail .w__state-ic mat-icon { color: var(--warn); }
-    .w__state-msg { margin: 0; flex: 1 1 auto; color: var(--ink-dim); font-size: 13px; }
+    .w__state-msg { margin: 0; color: var(--ink-dim); font-size: 13px; font-weight: 500; max-width: 26ch; line-height: 1.4; }
     .w__retry {
-      flex: 0 0 auto;
       display: inline-flex; align-items: center; gap: 6px;
-      min-height: 36px; padding: 0 12px; border-radius: var(--r-pill);
-      border: 1px solid var(--hairline); background: color-mix(in srgb, var(--ink) 4%, transparent);
+      min-height: 34px; padding: 0 14px; border-radius: var(--r-pill);
+      border: 1px solid color-mix(in srgb, var(--wa, var(--accent-a)) 30%, var(--hairline));
+      background: color-mix(in srgb, var(--wa, var(--accent-a)) 10%, transparent);
       color: var(--ink); font: inherit; font-size: 13px; font-weight: 600; cursor: pointer;
-      transition: transform 120ms var(--ease-spring);
+      transition: transform 120ms var(--ease-spring), background 140ms var(--ease-out);
     }
+    .w__retry:hover { background: color-mix(in srgb, var(--wa, var(--accent-a)) 16%, transparent); }
     .w__retry:active { transform: scale(.94); }
-    .w__retry mat-icon { font-size: 18px; width: 18px; height: 18px; }
+    .w__retry:focus-visible { outline: 2px solid color-mix(in srgb, var(--wa, var(--accent-a)) 70%, var(--focus)); outline-offset: 2px; border-radius: var(--r-pill); }
+    .w__retry mat-icon { font-size: 17px; width: 17px; height: 17px; }
   `],
 })
 export class AtriumWidgetShell {

@@ -4,33 +4,71 @@
 }
 
 /* ───────────────────────── Page header ───────────────────────── */
+/* FiMobile pattern: display-font title + one-line sub + primary action at end of row */
 .head {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--tech-space-4);
   margin-bottom: var(--tech-space-4);
 
-  h2 {
-    margin: 0 0 var(--tech-space-1);
-    font-size: var(--tech-fs-display);
-    font-weight: 700;
-    letter-spacing: -0.02em;
+  &__copy {
+    flex: 1 1 auto;
+    min-width: 0;
   }
-  .sub {
+
+  &__title {
+    margin: 0 0 var(--tech-space-1);
+    font-family: var(--tech-font-display);
+    font-size: var(--tech-fs-display);
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    color: var(--tech-text);
+    line-height: 1.15;
+  }
+
+  &__sub {
     margin: 0;
-    max-width: 640px;
-    font-size: var(--tech-fs-body);
-    color: var(--tech-text-secondary);
+    max-width: 580px;
+    font-size: var(--tech-fs-label);
+    color: var(--tech-text-tertiary);
     line-height: 1.45;
+  }
+
+  /* Primary action lives in the header row, aligned to end — FiMobile rubric #1 */
+  &__save {
+    flex: 0 0 auto;
+    align-self: center;
+    border-radius: var(--tech-r-control);
+    font-weight: 600;
+    color: var(--tech-text-on-accent);
+    transition:
+      box-shadow var(--tech-t-slow) ease,
+      transform var(--tech-t-fast) var(--tech-ease);
+
+    &:hover:not([disabled]) { box-shadow: var(--tech-glow-blue, 0 4px 14px -2px color-mix(in srgb, var(--tech-accent) 55%, transparent)); }
+    &:active:not([disabled]) { transform: scale(0.97); }
+    &:focus-visible { outline: 2px solid var(--tech-accent); outline-offset: 3px; }
+    &[disabled] { opacity: 0.55; }
   }
 }
 
-mat-progress-bar { margin-bottom: var(--tech-space-3); }
+mat-progress-bar {
+  margin-bottom: var(--tech-space-3);
+  border-radius: var(--tech-r-pill);
+  overflow: hidden;
+}
 
 /* ───────────────────────── Panels ───────────────────────── */
+/* FiMobile card signature: radius + soft outer shadow + inset top highlight */
 .panel {
-  padding: var(--tech-space-4) var(--tech-space-6) var(--tech-space-6);
+  padding: var(--tech-space-4) var(--tech-space-5) var(--tech-space-5);
   margin-top: var(--tech-space-4);
   border-radius: var(--tech-radius) !important;
-  box-shadow: var(--tech-shadow-panel) !important;
   border: 1px solid var(--tech-border) !important;
+  background: var(--tech-panel) !important;
+  box-shadow:
+    var(--tech-shadow-panel),
+    inset 0 1px 0 var(--tech-glass-inset-hi, rgba(255, 255, 255, .06)) !important;
 
   .panel-head {
     display: flex;
@@ -42,10 +80,13 @@ mat-progress-bar { margin-bottom: var(--tech-space-3); }
     border-bottom: 1px solid var(--tech-border-subtle);
   }
 
+  /* Small-caps tracked section label — Rubric #4 / #8 typography tier */
   .panel-title {
-    font-size: var(--tech-fs-body);
-    font-weight: 600;
-    letter-spacing: -0.01em;
+    font-size: var(--tech-fs-micro, 10.5px);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.09em;
+    color: var(--tech-text-secondary);
   }
 
   .hint {
@@ -58,42 +99,11 @@ mat-progress-bar { margin-bottom: var(--tech-space-3); }
   .full { width: 100%; }
 }
 
-/* ───────────────────────── Hero card (Display name — first panel) ───────────────────────── */
-/* Uses :first-of-type + :not(.load-error): only the Display name card in the happy path.  */
+/* ───────────────────────── Display name panel — subtle accent tint (NOT a lone gradient) ───────────────────────── */
+/* A light inset left border in the accent color gives visual precedence without the
+   "lone gradient tile" anti-pattern (rubric #2 + #9). */
 mat-card.panel:first-of-type:not(.load-error) {
-  background: var(--tech-gradient-accent) !important;
-  color: var(--tech-text-on-accent) !important;
-  border-color: transparent !important;
-
-  .panel-head { border-bottom-color: color-mix(in srgb, var(--tech-text-on-accent) 20%, transparent); }
-
-  .panel-title { color: var(--tech-text-on-accent); }
-
-  .hint { color: color-mix(in srgb, var(--tech-text-on-accent) 75%, transparent); }
-
-  /* Sunken preview block inside the hero — override base .preview tokens */
-  .preview {
-    background: color-mix(in srgb, var(--tech-text-on-accent) 10%, transparent);
-    border-color: color-mix(in srgb, var(--tech-text-on-accent) 20%, transparent);
-
-    &__label { color: color-mix(in srgb, var(--tech-text-on-accent) 70%, transparent); }
-    &__value { color: var(--tech-text-on-accent); }
-  }
-
-  /* form-field inside hero — soften outline so it reads on gradient */
-  .mat-mdc-form-field {
-    --mdc-outlined-text-field-outline-color: color-mix(in srgb, var(--tech-text-on-accent) 35%, transparent);
-    --mdc-outlined-text-field-label-text-color: color-mix(in srgb, var(--tech-text-on-accent) 75%, transparent);
-    --mdc-outlined-text-field-input-text-color: var(--tech-text-on-accent);
-    --mdc-outlined-text-field-hover-outline-color: color-mix(in srgb, var(--tech-text-on-accent) 60%, transparent);
-    --mat-select-trigger-text-color: var(--tech-text-on-accent);
-    --mat-option-label-text-color: var(--tech-text-on-accent);
-    --mat-form-field-subscript-text-line-height: 1.4;
-    color: var(--tech-text-on-accent);
-  }
-
-  /* hint text below form fields */
-  .mat-mdc-form-field-hint { color: color-mix(in srgb, var(--tech-text-on-accent) 65%, transparent); }
+  border-left: 3px solid color-mix(in srgb, var(--tech-accent) 55%, transparent) !important;
 }
 
 /* ───────────────────────── Display-name preview ───────────────────────── */
@@ -172,35 +182,90 @@ mat-card.panel:first-of-type:not(.load-error) {
   }
 }
 
-/* ───────────────────────── Actions ───────────────────────── */
+/* ───────────────────────── Actions (secondary row at bottom) ───────────────────────── */
 .actions {
   display: flex;
   gap: var(--tech-space-3);
   margin-top: var(--tech-space-5);
 
-  button { border-radius: var(--tech-r-control); }
+  button {
+    border-radius: var(--tech-r-control);
+    font-weight: 600;
+    transition:
+      box-shadow var(--tech-t-slow) ease,
+      transform var(--tech-t-fast) var(--tech-ease);
+
+    &:hover:not([disabled]) { box-shadow: 0 2px 10px -2px color-mix(in srgb, var(--tech-accent) 45%, transparent); }
+    &:active:not([disabled]) { transform: scale(0.98); }
+    &:focus-visible { outline: 2px solid var(--tech-accent); outline-offset: 3px; }
+  }
 
   /* primary flat button: enforce on-accent text */
   [mat-flat-button] { color: var(--tech-text-on-accent); }
 }
 
-/* ───────────────────────── Load error ───────────────────────── */
+/* ───────────────────────── Load error — icon orb + title + hint ───────────────────────── */
+/* Rubric #5: styled empty/error state with centered icon orb, not bare text */
 .load-error {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: var(--tech-space-2);
+  gap: var(--tech-space-3);
   text-align: center;
-  padding: var(--tech-space-6);
+  padding: var(--tech-space-8, 48px) var(--tech-space-6);
 
-  mat-icon { color: var(--tech-text-tertiary); }
-  p { margin: 0; color: var(--tech-text-secondary); }
+  &__orb {
+    display: grid;
+    place-items: center;
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: color-mix(in srgb, var(--tech-accent) 10%, var(--tech-bg-sunken));
+    border: 1px solid var(--tech-border-subtle);
+    margin-bottom: var(--tech-space-1);
+
+    mat-icon {
+      color: var(--tech-text-tertiary);
+      font-size: 26px;
+      width: 26px;
+      height: 26px;
+    }
+  }
+
+  &__title {
+    margin: 0;
+    font-size: var(--tech-fs-panel-hd, 17px);
+    font-weight: 700;
+    color: var(--tech-text);
+  }
+
+  &__hint {
+    margin: 0;
+    font-size: var(--tech-fs-label);
+    color: var(--tech-text-tertiary);
+  }
+
+  &__retry {
+    margin-top: var(--tech-space-1);
+    border-radius: var(--tech-r-control);
+    &:focus-visible { outline: 2px solid var(--tech-accent); outline-offset: 3px; }
+  }
 }
 
+/* ───────────────────────── Responsive ───────────────────────── */
 @media (max-width: 600px) {
-  .toggle-row {
-    flex-direction: row;
-    align-items: center;
+  .head {
+    flex-wrap: wrap;
+    gap: var(--tech-space-3);
+
+    &__title { font-size: clamp(20px, 6vw, var(--tech-fs-display)); }
+    &__save { width: 100%; justify-content: center; min-height: 44px; }
   }
+
+  .panel {
+    /* Tighten horizontal padding on narrow viewports (360px safe) */
+    padding: var(--tech-space-4) var(--tech-space-4) var(--tech-space-5);
+  }
+
   .actions { width: 100%; button { flex: 1; } }
 }

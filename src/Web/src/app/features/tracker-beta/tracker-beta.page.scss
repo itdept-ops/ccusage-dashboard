@@ -218,10 +218,22 @@
   flex: 0 0 auto;
   border-radius: var(--r-card);            // var(--tech-r-panel, 24px) via :host mapping
   background: var(--bg-rise);
-  box-shadow: var(--tech-shadow-panel, var(--lift-1));  // FiMobile resting-card shadow token
+  // FiMobile card-signature: resting shadow + 1px inset top highlight for depth
+  box-shadow: var(--tech-shadow-panel, var(--lift-1)),
+              inset 0 1px 0 var(--glass-edge);
   border: 1px solid var(--tech-border, var(--hairline)); // FiMobile card-signature border
   scroll-snap-align: start;
   padding: 16px;
+  transition: box-shadow 160ms var(--ease-out), transform 160ms var(--ease-out);
+
+  // Lift on hover (desktop pointer)
+  @media (hover: hover) and (pointer: fine) {
+    &:hover {
+      box-shadow: var(--tech-shadow-raised, var(--lift-2)),
+                  inset 0 1px 0 var(--glass-edge);
+      transform: translateY(-1px);
+    }
+  }
 }
 
 // Apply to cards below the fold to skip rendering work until they scroll near.

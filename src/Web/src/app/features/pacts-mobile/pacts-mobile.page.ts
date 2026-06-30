@@ -191,7 +191,7 @@ const KINDS: readonly { key: PactKind; label: string; icon: string; unit: string
                       @if (rows.length) {
                         @for (r of rows; track r.userId; let j = $index) {
                           <div class="pm-standing" [class.is-met]="r.metTarget">
-                            <span class="pm-standing__rank">{{ j + 1 }}</span>
+                            <span class="pm-standing__rank" [attr.data-medal]="j < 3 ? j + 1 : null">{{ j + 1 }}</span>
                             <span class="pm-standing__avatar" aria-hidden="true">{{ initials(r.name) }}</span>
                             <span class="pm-standing__name">{{ r.name }}</span>
                             <span class="pm-standing__count">{{ r.count }}/{{ p.targetIntValue }}</span>

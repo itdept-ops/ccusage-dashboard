@@ -100,11 +100,16 @@
   <mat-card appearance="outlined" class="panel">
     <div class="panel-header">Top sessions</div>
     @if (!sessions().length) {
-      <div class="ts-empty">No sessions yet.</div>
+      <div class="ts-empty">
+        <div class="ts-empty-orb"><mat-icon aria-hidden="true">history</mat-icon></div>
+        <div class="ts-empty-title">No sessions yet</div>
+        <div class="ts-empty-hint">Your top sessions will appear here once you have activity.</div>
+      </div>
     } @else {
       <div class="ts-list">
         @for (s of sessions(); track s.key) {
           <button class="ts-row mono" (click)="openSession(s.key)">
+            <span class="ts-icon-tile" aria-hidden="true"><mat-icon>terminal</mat-icon></span>
             <span class="ts-id">{{ shortId(s.key) }}</span>
             <span class="ts-grow"></span>
             <span class="ts-msgs">{{ s.records | number }} msgs</span>

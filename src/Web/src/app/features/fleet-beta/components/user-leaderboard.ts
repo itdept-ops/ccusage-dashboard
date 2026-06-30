@@ -61,8 +61,9 @@ interface LbRow {
       </ol>
     } @else {
       <div class="lb__empty">
-        <mat-icon aria-hidden="true">group_off</mat-icon>
-        <span>No users reported in this range.</span>
+        <span class="lb__empty-orb" aria-hidden="true"><mat-icon>group_off</mat-icon></span>
+        <p class="lb__empty-title">No users found</p>
+        <p class="lb__empty-hint">No users reported activity in this range.</p>
       </div>
     }
   `,

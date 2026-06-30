@@ -73,14 +73,20 @@
   </div>
 
   @if (loading()) {
-    <div class="family__loading">
-      <mat-spinner [diameter]="28" />
-      <span>Setting the table…</span>
+    <div class="mp-state mp-state--loading" role="status" aria-live="polite">
+      <span class="mp-state__orb" aria-hidden="true">
+        <mat-spinner [diameter]="28" />
+      </span>
+      <p class="mp-state__title">Setting the table…</p>
+      <p class="mp-state__hint">Fetching your week's plan</p>
     </div>
   } @else if (error()) {
-    <div class="family__error">
-      <mat-icon aria-hidden="true">error_outline</mat-icon>
-      <p>We couldn't load the meal plan just now. Please try again in a moment.</p>
+    <div class="mp-state mp-state--error" role="alert">
+      <span class="mp-state__orb" aria-hidden="true">
+        <mat-icon>error_outline</mat-icon>
+      </span>
+      <p class="mp-state__title">Couldn't load the plan</p>
+      <p class="mp-state__hint">We couldn't reach the server. Check your connection and try again.</p>
     </div>
   } @else {
     <div class="week-grid">
@@ -159,7 +165,10 @@
               }
             </ul>
           } @else {
-            <p class="day-card__empty">Nothing planned</p>
+            <div class="day-card__empty">
+              <mat-icon aria-hidden="true">restaurant_menu</mat-icon>
+              <span>Nothing planned</span>
+            </div>
           }
 
           @if (cell.rollup.hasMacros) {

@@ -12,7 +12,7 @@
     radial-gradient(120% 160% at 0% 0%, color-mix(in srgb, var(--tech-accent) 14%, transparent), transparent 55%),
     radial-gradient(120% 160% at 100% 0%, rgba(255, 196, 0, 0.10), transparent 55%),
     var(--tech-panel);
-  box-shadow: var(--tech-shadow-panel);
+  box-shadow: var(--tech-shadow-panel), inset 0 1px 0 rgba(255,255,255,0.06);
 }
 
 .assistant__head {
@@ -31,9 +31,10 @@
 
 .assistant__title {
   margin: 0;
-  font-size: var(--tech-fs-h3, 14px);
+  font-size: var(--tech-fs-h1, 18px);
   font-weight: 700;
   color: var(--tech-text);
+  font-family: var(--tech-font-display, inherit);
 }
 
 .assistant__sub {

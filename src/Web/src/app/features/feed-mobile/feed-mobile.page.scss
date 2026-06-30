@@ -28,6 +28,7 @@
 
 @include kit.beta-springs;          // @supports linear() spring upgrade (top-level, once)
 @include kit.beta-a11y;             // reduced-motion + reduced-transparency/contrast killswitches (once)
+@include kit.beta-focus;            // accent-tracking focus ring for all interactive elements
 
 // ============================================================================
 // SHELL — the kit pull-to-refresh wrapper IS the scroll container.
@@ -56,6 +57,7 @@
 .fm-hero {
   position: relative;
   padding: 6px 4px 4px;
+  margin-bottom: 4px;        // deliberate breathing room before the first content section
   overflow: visible;
 
   &__bloom {
@@ -206,14 +208,15 @@
   border-radius: var(--r-tile, var(--tech-r-control, 18px));
   background: var(--glass);
   border: 1px solid var(--hairline);
-  box-shadow: var(--lift-1);
+  // lift-1 elevation + subtle inset top highlight (FiMobile card signature)
+  box-shadow: var(--lift-1), inset 0 1px 0 var(--glass-edge);
   transition: transform 160ms var(--ease-out, cubic-bezier(.22, 1, .36, 1)),
               box-shadow 160ms var(--ease-out, cubic-bezier(.22, 1, .36, 1));
 
   @media (hover: hover) {
     &:hover {
       transform: translateY(-1px);
-      box-shadow: var(--lift-2);
+      box-shadow: var(--lift-2), inset 0 1px 0 var(--glass-edge);
     }
   }
 
@@ -384,10 +387,17 @@
     color: var(--ink-dim);
     background: var(--glass);
     border: 1px solid var(--hairline);
-    box-shadow: var(--lift-1);
+    // consistent inset highlight matches the row cards
+    box-shadow: var(--lift-1), inset 0 1px 0 var(--glass-edge);
     cursor: pointer;
-    transition: transform var(--ease-spring, 160ms);
+    transition: transform var(--ease-spring, 160ms), box-shadow 160ms var(--ease-out, cubic-bezier(.22, 1, .36, 1));
 
+    @media (hover: hover) {
+      &:not(:disabled):hover {
+        transform: translateY(-1px);
+        box-shadow: var(--lift-2), inset 0 1px 0 var(--glass-edge);
+      }
+    }
     &:active:not(:disabled) { transform: scale(0.97); }
     &:disabled { opacity: 0.6; cursor: default; }
 

@@ -5,19 +5,28 @@
 
 /* ───────────────────────── Page header ───────────────────────── */
 .head {
-  margin-bottom: var(--tech-space-4);
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--tech-space-4);
+  margin-bottom: var(--tech-space-5);
+
+  &__copy { flex: 1 1 auto; min-width: 0; }
 
   h2 {
     margin: 0 0 var(--tech-space-1);
+    font-family: var(--tech-font-display);
     font-size: var(--tech-fs-display);
-    font-weight: 700;
+    font-weight: 800;
     letter-spacing: -0.02em;
+    color: var(--tech-text);
+    line-height: 1.15;
   }
   .sub {
     margin: 0;
     max-width: 640px;
-    font-size: var(--tech-fs-body);
-    color: var(--tech-text-secondary);
+    font-size: var(--tech-fs-label);
+    color: var(--tech-text-tertiary);
     line-height: 1.45;
   }
 }
@@ -29,10 +38,11 @@ mat-progress-bar { margin-bottom: var(--tech-space-3); }
   padding: var(--tech-space-4) var(--tech-space-6) var(--tech-space-6);
   margin-top: var(--tech-space-4);
 
-  /* FiMobile card signature */
+  /* FiMobile card signature: radius + shadow + inset top highlight */
   border-radius: var(--tech-radius) !important;
-  box-shadow: var(--tech-shadow-panel) !important;
+  box-shadow: var(--tech-shadow-panel), inset 0 1px 0 color-mix(in srgb, #fff 8%, transparent) !important;
   border: 1px solid var(--tech-border) !important;
+  background: var(--tech-panel) !important;
   transition: box-shadow var(--tech-t-panel) ease, transform var(--tech-t-panel) ease;
 
   .s-panel-head {
@@ -43,6 +53,15 @@ mat-progress-bar { margin-bottom: var(--tech-space-3); }
     padding-bottom: var(--tech-space-3);
     margin-bottom: var(--tech-space-3);
     border-bottom: 1px solid var(--tech-border-subtle);
+  }
+
+  .panel-header {
+    font-family: var(--tech-font-display);
+    font-size: var(--tech-fs-title, 1.05rem);
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    color: var(--tech-text);
+    line-height: 1.2;
   }
 
   .hint {
@@ -70,6 +89,8 @@ mat-progress-bar { margin-bottom: var(--tech-space-3); }
 .s-panel:has(.sync-pill) {
   background: var(--tech-gradient-accent) !important;
   border-color: transparent !important;
+  /* Replace the inset white highlight with a softer on-gradient shimmer */
+  box-shadow: var(--tech-shadow-panel), inset 0 1px 0 color-mix(in srgb, #fff 18%, transparent) !important;
 
   /* Panel header text + subtitle on gradient */
   .panel-header {
@@ -153,6 +174,15 @@ mat-progress-bar { margin-bottom: var(--tech-space-3); }
   letter-spacing: -0.01em;
 }
 
+/* ───────────────────────── micro-label utility ───────────────────────── */
+.micro-label {
+  font-size: var(--tech-fs-micro, 0.7rem);
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  line-height: 1;
+}
+
 /* ───────────────────────── Ingestion actions ───────────────────────── */
 .actions {
   display: flex;
@@ -168,6 +198,8 @@ mat-progress-bar { margin-bottom: var(--tech-space-3); }
       height: 18px;
       width: 18px;
     }
+
+    &:focus-visible { outline: var(--tech-focus-ring); outline-offset: 3px; }
   }
 
   .act-save {
@@ -307,7 +339,51 @@ mat-progress-bar { margin-bottom: var(--tech-space-3); }
         box-shadow: var(--tech-glow-blue);
       }
       &:active:not([disabled]) { transform: scale(0.98); }
+      &:focus-visible { outline: var(--tech-focus-ring); outline-offset: 3px; }
     }
+  }
+}
+
+/* ───────────────────────── Empty sources state ───────────────────────── */
+.sources-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--tech-space-3);
+  padding: var(--tech-space-5) var(--tech-space-4);
+  text-align: center;
+
+  .sources-empty__orb {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: color-mix(in srgb, var(--tech-accent) 8%, transparent);
+    border: 1px solid color-mix(in srgb, var(--tech-accent) 18%, transparent);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    mat-icon {
+      font-size: 22px;
+      width: 22px;
+      height: 22px;
+      color: var(--tech-text-tertiary);
+    }
+  }
+
+  p {
+    margin: 0;
+    font-size: var(--tech-fs-body);
+    color: var(--tech-text-secondary);
+  }
+
+  .sources-empty__hint {
+    margin: calc(-1 * var(--tech-space-1)) 0 0;
+    font-size: var(--tech-fs-label);
+    color: var(--tech-text-tertiary);
+    max-width: 260px;
+    line-height: 1.45;
   }
 }
 
@@ -457,14 +533,49 @@ mat-slide-toggle {
 
 .route-empty {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: var(--tech-space-2);
-  padding: var(--tech-space-3);
+  justify-content: center;
+  gap: var(--tech-space-3);
+  padding: var(--tech-space-6) var(--tech-space-4);
+  text-align: center;
   color: var(--tech-text-tertiary);
   font-size: var(--tech-fs-label);
 
-  mat-icon { font-size: 18px; width: 18px; height: 18px; }
-  button { margin-left: auto; }
+  .route-empty__orb {
+    width: 52px;
+    height: 52px;
+    border-radius: 50%;
+    background: color-mix(in srgb, var(--tech-text-tertiary) 10%, transparent);
+    border: 1px solid var(--tech-border-subtle);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    mat-icon {
+      font-size: 24px;
+      width: 24px;
+      height: 24px;
+      color: var(--tech-text-tertiary);
+    }
+  }
+
+  .route-empty__title {
+    font-size: var(--tech-fs-body);
+    font-weight: 600;
+    color: var(--tech-text-secondary);
+    margin: 0;
+  }
+
+  .route-empty__hint {
+    margin: calc(-1 * var(--tech-space-2)) 0 0;
+    max-width: 280px;
+    font-size: var(--tech-fs-label);
+    color: var(--tech-text-tertiary);
+    line-height: 1.45;
+  }
+
+  button { border-radius: var(--tech-r-control) !important; }
 }
 
 .route-table {
@@ -550,7 +661,12 @@ mat-slide-toggle {
 
 /* ───────────────────────── Responsive (phones / small tablets) ───────────────────────── */
 @media (max-width: 640px) {
-  .head h2 { font-size: clamp(20px, 6vw, var(--tech-fs-display)); }
+  .head {
+    flex-direction: column;
+    gap: var(--tech-space-3);
+    margin-bottom: var(--tech-space-4);
+    h2 { font-size: clamp(20px, 6vw, var(--tech-fs-display)); }
+  }
 
   /* Tighter panel gutters so inner controls keep their width */
   .s-panel {

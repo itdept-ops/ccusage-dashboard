@@ -95,6 +95,10 @@
       }
     </ol>
   } @else if (!loading()) {
-    <div class="empty">No locations recorded yet. Use “Share current location” above, or enable capture.</div>
+    <div class="empty-state">
+      <div class="empty-state__orb"><mat-icon aria-hidden="true">location_off</mat-icon></div>
+      <p class="empty-state__title">No locations recorded yet</p>
+      <p class="empty-state__hint">Use “Share current location” above, or enable capture in the settings below.</p>
+    </div>
   }
 </section>

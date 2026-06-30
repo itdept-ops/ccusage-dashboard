@@ -53,6 +53,75 @@
 }
 
 // ============================================================================
+// PAGE HEADER — display-font title + optional action aligned to the end.
+// Sits above the hero ring; gives the page a consistent FiMobile header rhythm.
+// ============================================================================
+
+.tr-page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 4px 2px 2px;
+}
+
+.tr-page-header__text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.tr-page-header__title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 28px;
+  letter-spacing: -.025em;
+  line-height: 1.1;
+  color: var(--ink);
+}
+
+.tr-page-header__sub {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink-dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tr-page-header__action {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 36px;
+  padding: 0 14px;
+  border-radius: var(--r-pill);
+  border: 1.5px solid color-mix(in srgb, var(--accent-a) 40%, var(--hairline));
+  background: color-mix(in srgb, var(--accent-a) 10%, var(--bg-rise));
+  color: color-mix(in srgb, var(--accent-a) 80%, var(--ink));
+  font: inherit;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: .02em;
+  text-decoration: none;
+  cursor: pointer;
+  transition: transform 120ms var(--ease-spring), background 120ms var(--ease-out),
+              box-shadow 120ms var(--ease-out);
+}
+.tr-page-header__action:hover {
+  background: color-mix(in srgb, var(--accent-a) 18%, var(--bg-rise));
+  box-shadow: 0 4px 14px color-mix(in srgb, var(--accent-a) 22%, transparent);
+  transform: translateY(-1px);
+}
+.tr-page-header__action:active { transform: scale(.95); }
+.tr-page-header__action:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.tr-page-header__action mat-icon { font-size: 17px; width: 17px; height: 17px; }
+
+// ============================================================================
 // IMMERSIVE HERO — progress ring + "N of M" numeral + name, behind a gold bloom.
 // ============================================================================
 
@@ -142,8 +211,25 @@
 .tr-hero__cta mat-icon { font-size: 19px; width: 19px; height: 19px; }
 
 // ============================================================================
-// GROUP-BY SWITCH
+// CONTROLS SECTION — status filter + group-by with labelled kickers.
 // ============================================================================
+
+.tr-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.tr-control-row { display: flex; flex-direction: column; gap: 6px; }
+
+.tr-control-label {
+  padding-left: 2px;
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
 
 .tr-seg-wrap { display: flex; }
 .tr-seg { flex: 1 1 auto; }
@@ -160,7 +246,8 @@
   border-radius: var(--r-card);
   background: var(--bg-rise);
   border: 1px solid color-mix(in srgb, var(--accent-a) 30%, var(--hairline));
-  box-shadow: var(--lift-1);
+  box-shadow: var(--lift-1),
+              inset 0 1px 0 color-mix(in srgb, var(--accent-a) 22%, rgba(255, 255, 255, .07));
   cursor: pointer; touch-action: manipulation; -webkit-tap-highlight-color: transparent;
   overflow: hidden; isolation: isolate;
   font: inherit; color: var(--ink);
@@ -206,15 +293,48 @@
 }
 .tr-nextup__go { flex: 0 0 auto; color: var(--ink-faint); font-size: 22px; width: 22px; height: 22px; }
 
-// A small inline note when a status filter empties the grid.
+// Filter-empty state: proper centered orb + title + hint (rubric #5).
 .tr-filter-empty {
-  display: inline-flex; align-items: center; gap: 8px; justify-content: center;
-  margin: 2px 0; padding: 16px 18px; border-radius: var(--r-pill);
-  background: color-mix(in srgb, var(--accent-a) 8%, var(--bg-rise));
-  border: 1px solid color-mix(in srgb, var(--accent-a) 20%, var(--hairline));
-  font-size: 13.5px; font-weight: 600; color: var(--ink-dim); text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  text-align: center;
+  padding: 32px 22px;
+  border-radius: var(--r-card);
+  background: var(--bg-rise);
+  border: 1px solid var(--hairline);
+  box-shadow: var(--lift-1);
 }
-.tr-filter-empty mat-icon { font-size: 18px; width: 18px; height: 18px; color: var(--ink-faint); }
+.tr-filter-empty__orb {
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: radial-gradient(circle, color-mix(in srgb, var(--accent-a) 22%, transparent), transparent 70%),
+              var(--bg-sink);
+  border: 1px solid color-mix(in srgb, var(--accent-a) 28%, var(--hairline));
+}
+.tr-filter-empty__orb mat-icon {
+  font-size: 28px; width: 28px; height: 28px;
+  color: color-mix(in srgb, var(--accent-a) 80%, var(--ink));
+}
+.tr-filter-empty__title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 17px;
+  color: var(--ink);
+}
+.tr-filter-empty__hint {
+  margin: 0;
+  max-width: 30ch;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink-dim);
+  line-height: 1.4;
+}
 
 // ============================================================================
 // GROUPS + GRID
@@ -222,8 +342,27 @@
 
 .tr-group { display: flex; flex-direction: column; gap: 10px; }
 
-.tr-group__head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; padding: 0 2px; }
+.tr-group__head {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 0 2px;
+}
+// Leading dot — visible in tier mode only; hidden in category mode (no data-tier attr set).
+.tr-group__dot {
+  flex: 0 0 auto;
+  display: none;
+  width: 8px; height: 8px;
+  border-radius: 50%;
+}
+.tr-group__dot[data-tier] {
+  display: block;
+}
+.tr-group__dot[data-tier='gold']     { background: var(--t-gold); box-shadow: 0 0 6px color-mix(in srgb, var(--t-gold) 55%, transparent); }
+.tr-group__dot[data-tier='silver']   { background: var(--t-silver); }
+.tr-group__dot[data-tier='bronze']   { background: var(--t-bronze); }
+.tr-group__dot[data-tier='complete'] { background: var(--t-complete); box-shadow: 0 0 6px color-mix(in srgb, var(--t-complete) 55%, transparent); }
+.tr-group__dot[data-tier='locked']   { background: var(--ink-faint); }
+
 .tr-group__title {
+  flex: 1 1 auto;
   margin: 0; font-size: 13px; font-weight: 800; letter-spacing: .07em; text-transform: uppercase;
   color: var(--ink-dim);
 }
@@ -233,6 +372,7 @@
 .tr-group__title[data-tier='bronze']   { color: var(--t-bronze); }
 .tr-group__title[data-tier='complete'] { color: var(--t-complete); }
 .tr-group__count {
+  flex: 0 0 auto;
   font-family: var(--font-display); font-variant-numeric: tabular-nums;
   font-size: 13px; font-weight: 600; color: var(--ink-faint);
 }
@@ -257,7 +397,8 @@
   border-radius: var(--r-tile);
   background: var(--bg-rise);
   border: 1px solid var(--hairline);
-  box-shadow: var(--lift-1);
+  box-shadow: var(--lift-1),
+              inset 0 1px 0 rgba(255, 255, 255, .06);
   text-align: center;
   cursor: pointer; touch-action: manipulation; -webkit-tap-highlight-color: transparent;
   overflow: hidden; isolation: isolate;
@@ -374,7 +515,13 @@
 // ============================================================================
 
 .tr-foot {
-  margin: 4px 0 0; text-align: center; font-size: 12px; font-weight: 600; color: var(--ink-faint);
+  margin: 4px 0 0;
+  padding-top: 12px;
+  border-top: 1px solid var(--hairline);
+  text-align: center;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink-faint);
 }
 
 // ============================================================================

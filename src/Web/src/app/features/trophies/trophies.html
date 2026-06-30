@@ -1,7 +1,7 @@
 <section class="trophies">
   <header class="trophies__head">
     <div class="trophies__title">
-      <h1>Trophies</h1>
+      <h1 class="trophies__h1">Trophies</h1>
       <p class="trophies__sub">Milestones earned across your tracker, 75 Hard, and bills. Each badge has a
         bronze, silver, and gold tier — keep logging to climb the ladder.</p>
     </div>
@@ -15,12 +15,26 @@
 
   @if (loading()) {
     <div class="trophies__state">
-      <mat-spinner diameter="32"></mat-spinner>
+      <div class="trophies__state-orb">
+        <mat-spinner diameter="28"></mat-spinner>
+      </div>
+      <p class="trophies__state-title">Loading trophies…</p>
     </div>
   } @else if (error()) {
     <div class="trophies__state trophies__state--error" role="alert">
-      <mat-icon>error_outline</mat-icon>
-      <span>{{ error() }}</span>
+      <div class="trophies__state-orb trophies__state-orb--error">
+        <mat-icon>error_outline</mat-icon>
+      </div>
+      <p class="trophies__state-title">Something went wrong</p>
+      <p class="trophies__state-body">{{ error() }}</p>
+    </div>
+  } @else if (groups().length === 0) {
+    <div class="trophies__state trophies__state--empty">
+      <div class="trophies__state-orb">
+        <mat-icon>emoji_events</mat-icon>
+      </div>
+      <p class="trophies__state-title">No trophies yet</p>
+      <p class="trophies__state-body">Start logging workouts, meals, and bills to earn your first badge.</p>
     </div>
   } @else {
     @for (group of groups(); track group.name) {

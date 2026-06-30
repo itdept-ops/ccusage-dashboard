@@ -6,6 +6,64 @@
   color: var(--tech-text, #e6edf6);
 }
 
+/* ── Shared state scaffold (loading / error) ──────────────────────────────── */
+.ps-loading-state,
+.ps-error-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 60vh;
+  padding: 40px 24px;
+  text-align: center;
+  gap: 12px;
+}
+
+.ps-state-orb {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--tech-accent, #3d8bff) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--tech-accent, #3d8bff) 28%, transparent);
+  margin-bottom: 4px;
+
+  mat-progress-bar {
+    width: 36px;
+    border-radius: 4px;
+    --mat-progress-bar-active-indicator-color: var(--tech-accent);
+  }
+
+  .material-icons {
+    font-size: 28px;
+    color: var(--tech-accent, #3d8bff);
+  }
+
+  &--error {
+    background: color-mix(in srgb, var(--tech-error, #ff5c6c) 12%, transparent);
+    border-color: color-mix(in srgb, var(--tech-error, #ff5c6c) 26%, transparent);
+    .material-icons { color: var(--tech-error, #ff5c6c); }
+  }
+}
+
+.ps-state-title {
+  margin: 0;
+  font-family: var(--tech-font-display, var(--tech-font-ui));
+  font-size: 1.2rem;
+  font-weight: 700;
+  letter-spacing: -0.015em;
+  color: var(--tech-text);
+}
+
+.ps-state-hint {
+  margin: 0;
+  font-size: var(--tech-fs-body, 13px);
+  color: var(--tech-text-secondary);
+  max-width: 300px;
+}
+
 .ps-wrap { max-width: 1100px; margin: 0 auto; padding: 28px 24px 40px; }
 @media (max-width: 560px) { .ps-wrap { padding: 20px 16px 32px; } }
 
@@ -26,6 +84,7 @@
   .ps-titles { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1 1 auto; }
   h1 {
     margin: 0;
+    font-family: var(--tech-font-display, var(--tech-font-ui));
     font-size: clamp(18px, 5vw, var(--tech-fs-display, 22px));
     font-weight: 700; letter-spacing: -0.02em;
     overflow-wrap: anywhere;
@@ -47,27 +106,23 @@
   border: 1px solid var(--tech-border, #26303f);
   border-radius: var(--tech-radius, 15px);
   background: var(--tech-panel, #111722);
-  box-shadow: var(--tech-shadow-panel);
+  box-shadow: var(--tech-shadow-panel), inset 0 1px 0 rgba(255,255,255,.06);
   display: flex; flex-direction: column; gap: 6px;
   transition: transform 0.15s ease, box-shadow 0.15s ease;
 
   &:hover {
-    transform: translateY(-1px);
-    box-shadow: var(--tech-shadow-raised);
+    transform: translateY(-2px);
+    box-shadow: var(--tech-shadow-raised), inset 0 1px 0 rgba(255,255,255,.09);
+  }
+
+  &:focus-visible {
+    outline: var(--tech-focus-ring, 2px solid var(--tech-accent, #3d8bff));
+    outline-offset: 2px;
   }
 
   .k { font-size: var(--tech-fs-micro, 10.5px); letter-spacing: 0.06em; text-transform: uppercase; color: var(--tech-text-tertiary); }
   .v { font-family: var(--tech-font-mono); font-size: 26px; font-weight: 700; color: var(--tech-text); }
   .v.cost { color: var(--tech-accent-magenta, #f472b6); }
-}
-
-/* ── Hero card: first KPI (Total cost) gets the gradient fill ── */
-.ps-kpi:first-child {
-  background: var(--tech-gradient-accent);
-  border-color: transparent;
-
-  .k { color: color-mix(in srgb, var(--tech-text-on-accent) 70%, transparent); }
-  .v.cost { color: var(--tech-text-on-accent); }
 }
 
 .ps-charts {
@@ -83,7 +138,7 @@
   border: 1px solid var(--tech-border, #26303f);
   border-radius: var(--tech-radius, 15px);
   background: var(--tech-panel, #111722);
-  box-shadow: var(--tech-shadow-panel);
+  box-shadow: var(--tech-shadow-panel), inset 0 1px 0 rgba(255,255,255,.06);
   min-height: 328px;
 
   app-chart { display: block; width: 100%; height: 100%; }
@@ -94,14 +149,6 @@
   text-align: center;
   font-size: var(--tech-fs-label, 12px);
   color: var(--tech-text-tertiary);
-}
-
-.ps-error {
-  max-width: 480px;
-  margin: 18vh auto 0;
-  text-align: center;
-  h2 { margin: 0 0 8px; color: var(--tech-text); }
-  p { color: var(--tech-text-secondary); }
 }
 
 mat-progress-bar { --mat-progress-bar-active-indicator-color: var(--tech-accent); }

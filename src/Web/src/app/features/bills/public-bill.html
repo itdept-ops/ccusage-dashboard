@@ -2,6 +2,7 @@
   <mat-progress-bar mode="indeterminate" aria-label="Loading bill" />
 } @else if (error()) {
   <div class="pb-error">
+    <span class="pb-error__orb"><mat-icon aria-hidden="true">link_off</mat-icon></span>
     <h2>Link unavailable</h2>
     <p>This bill link is invalid, has been turned off, or no longer exists.</p>
   </div>

@@ -4,6 +4,7 @@
 .polls-toolbar {
   display: flex;
   justify-content: flex-end;
+  margin-bottom: var(--tech-space-4, 16px);
 }
 
 /* Empty/error states use the shared beta-ui kit primitive (app-bs-empty); the ad-hoc
@@ -20,12 +21,14 @@
   border: 1px solid var(--tech-border);
   border-radius: var(--tech-radius, 12px);
   background: var(--tech-panel);
+  /* subtle inset highlight consistent with the FiMobile card signature */
+  box-shadow: var(--tech-shadow-panel), inset 0 1px 0 rgba(255,255,255,0.06);
   padding: var(--tech-space-5, 20px);
-  box-shadow: var(--tech-shadow-panel);
-  transition: transform var(--tech-t-fast, 120ms) ease, box-shadow var(--tech-t-fast, 120ms) ease;
-  &:not(.poll--closed):hover { transform: translateY(-1px); box-shadow: var(--tech-shadow-raised); }
+  transition: border-color var(--tech-t-fast, 120ms) ease, transform var(--tech-t-fast, 120ms) ease, box-shadow var(--tech-t-fast, 120ms) ease;
+  &:not(.poll--closed):hover { border-color: var(--tech-border-strong); transform: translateY(-1px); box-shadow: var(--tech-shadow-raised), inset 0 1px 0 rgba(255,255,255,0.06); }
+  &:focus-visible { outline: none; box-shadow: var(--tech-focus-ring); }
 
-  &--closed { background: var(--tech-bg-sunken); }
+  &--closed { background: var(--tech-bg-sunken); box-shadow: none; }
 }
 
 .poll__head {

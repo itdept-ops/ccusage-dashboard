@@ -19,16 +19,21 @@
   <!-- ─────────────────────────── LOADING ─────────────────────────── -->
   @if (loading()) {
     <div class="recipes__state" aria-live="polite">
-      <mat-progress-spinner mode="indeterminate" diameter="36" aria-hidden="true" />
-      <p>Loading your recipes…</p>
+      <div class="recipes__state-orb">
+        <mat-progress-spinner mode="indeterminate" diameter="28" aria-hidden="true" />
+      </div>
+      <p class="recipes__state-title">Loading your recipes…</p>
     </div>
   }
 
   <!-- ─────────────────────────── ERROR ─────────────────────────── -->
   @else if (error()) {
     <div class="recipes__state">
-      <mat-icon class="recipes__state-glyph" aria-hidden="true">cloud_off</mat-icon>
+      <div class="recipes__state-orb">
+        <mat-icon aria-hidden="true">cloud_off</mat-icon>
+      </div>
       <p class="recipes__state-title">Couldn't load your recipes</p>
+      <p class="recipes__state-hint">Check your connection and try again.</p>
       <button mat-stroked-button type="button" (click)="load()">
         <mat-icon aria-hidden="true">refresh</mat-icon> Try again
       </button>
@@ -52,7 +57,9 @@
         </div>
       } @else {
         <div class="recipes__empty">
-          <mat-icon class="recipes__empty-glyph" aria-hidden="true">restaurant_menu</mat-icon>
+          <div class="recipes__empty-orb" aria-hidden="true">
+            <mat-icon>restaurant_menu</mat-icon>
+          </div>
           <p class="recipes__empty-title">No recipes yet</p>
           <p class="recipes__empty-sub">
             Create one with “New recipe”, or save an idea from the tracker's “What should I eat?”.

@@ -4,6 +4,7 @@ import type { EChartsOption } from 'echarts';
 
 import { MAT_DIALOG_DATA, MatDialogModule } from '@angular/material/dialog';
 import { MatButtonModule } from '@angular/material/button';
+import { MatIconModule } from '@angular/material/icon';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 
@@ -18,6 +19,7 @@ import { CompactPipe } from '../../shared/format';
     CommonModule,
     MatDialogModule,
     MatButtonModule,
+    MatIconModule,
     MatProgressBarModule,
     MatSnackBarModule,
     ChartComponent,
@@ -76,8 +78,8 @@ export class SessionDialog {
           symbol: 'none',
           data: points,
           areaStyle: { opacity: 0.14 },
-          itemStyle: { color: '#f472b6' },
-          lineStyle: { color: '#f472b6', width: 2 },
+          itemStyle: { color: 'var(--tech-accent-magenta, #f472b6)' },
+          lineStyle: { color: 'var(--tech-accent-magenta, #f472b6)', width: 2 },
         },
       ],
     };

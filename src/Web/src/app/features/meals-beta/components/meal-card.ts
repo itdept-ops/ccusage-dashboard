@@ -69,10 +69,12 @@ import { hasIngredients, macroTag, slotMeta } from '../meals-beta.model';
       display: flex; align-items: center; gap: 12px; width: 100%;
       padding: 12px 12px 12px 12px; border: none; text-align: left;
       background: var(--bg-rise); border-radius: var(--r-tile);
+      box-shadow: var(--lift-1), inset 0 1px 0 color-mix(in srgb, #fff 8%, transparent);
       color: var(--ink); cursor: pointer; -webkit-tap-highlight-color: transparent; touch-action: manipulation;
-      transition: opacity 120ms var(--ease-out);
+      transition: transform 140ms var(--ease-spring), box-shadow 160ms var(--ease-out), opacity 120ms var(--ease-out);
     }
-    .mc:active { opacity: .82; }
+    .mc:hover { transform: translateY(-1px); box-shadow: var(--lift-2), inset 0 1px 0 color-mix(in srgb, #fff 8%, transparent); }
+    .mc:active { opacity: .84; transform: scale(.99); box-shadow: var(--lift-1), inset 0 1px 0 color-mix(in srgb, #fff 8%, transparent); }
     .mc:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: var(--r-tile); }
 
     .mc-ring { flex: 0 0 auto; display: grid; place-items: center; width: 58px; height: 58px; }

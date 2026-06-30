@@ -1,6 +1,7 @@
 import {
   ChangeDetectionStrategy, Component, computed, inject, output, signal,
 } from '@angular/core';
+import { MatIconModule } from '@angular/material/icon';
 import type { EChartsOption } from 'echarts';
 
 import { TrackerStore } from '../../../core/tracker-store';
@@ -29,7 +30,7 @@ import { UnitService } from '../../../core/unit.service';
   selector: 'app-weight-card',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ChartComponent],
+  imports: [ChartComponent, MatIconModule],
   template: `
     <div class="wc-head">
       <button type="button" class="wc-open"
@@ -68,7 +69,13 @@ import { UnitService } from '../../../core/unit.service';
         }
       </div>
     } @else if (!loading()) {
-      <p class="wc-none">No weight logged yet. Tap to start your trend.</p>
+      <div class="wc-none" aria-live="polite">
+        <span class="wc-none-orb" aria-hidden="true">
+          <mat-icon>monitor_weight</mat-icon>
+        </span>
+        <span class="wc-none-title">No weigh-ins yet</span>
+        <span class="wc-none-hint">Tap to start your trend.</span>
+      </div>
     }
 
     <!-- Expanded history — recent readings, newest first. -->
@@ -108,10 +115,11 @@ import { UnitService } from '../../../core/unit.service';
       transition: transform 120ms var(--ease-out);
     }
     .wc-open:active:not(:disabled) { transform: scale(.985); }
+    .wc-open:focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; border-radius: var(--r-tile); }
     .wc-open:disabled { cursor: default; }
 
     .wc-label {
-      font-size: 11px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase;
+      font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase;
       color: var(--ink-dim);
     }
     .wc-value {
@@ -160,19 +168,31 @@ import { UnitService } from '../../../core/unit.service';
     .wc-spark-skeleton { width: 100%; height: 64px; border-radius: var(--r-tile); }
 
     .wc-none {
-      margin: 8px 0 0; font-size: 13px; color: var(--ink-faint);
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 6px; margin: 12px 0 0; padding: 8px; text-align: center;
     }
+    .wc-none-orb {
+      display: grid; place-items: center;
+      width: 40px; height: 40px; border-radius: 50%;
+      background: linear-gradient(135deg, var(--pro-a), var(--pro-b));
+      color: #fff; opacity: .55;
+    }
+    .wc-none-orb mat-icon { font-size: 20px; width: 20px; height: 20px; }
+    .wc-none-title { font-family: var(--font-ui); font-size: 13px; font-weight: 600; color: var(--ink-dim); }
+    .wc-none-hint { font-size: 12px; color: var(--ink-faint); }
 
     .wc-history {
-      list-style: none; margin: 12px 0 0; padding: 10px 0 0;
+      list-style: none; margin: 12px 0 0; padding: 0;
       border-top: 1px solid var(--hairline);
-      display: flex; flex-direction: column; gap: 2px;
+      display: flex; flex-direction: column;
     }
     .wc-row {
       display: flex; align-items: baseline; gap: 8px;
-      min-height: 32px; padding: 4px 0;
+      min-height: 36px; padding: 6px 0;
       font-size: 14px;
+      border-bottom: 1px solid var(--hairline);
     }
+    .wc-row:last-child { border-bottom: none; }
     .wc-row-date { color: var(--ink); flex: 0 0 auto; }
     .wc-row-slot {
       font-size: 11px; letter-spacing: .03em; text-transform: uppercase;

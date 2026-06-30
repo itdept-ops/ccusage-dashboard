@@ -26,7 +26,14 @@
   min-height: 100%;
   max-width: 720px;
   margin: 0 auto;
-  padding: 0 14px calc(env(safe-area-inset-bottom, 0px) + 96px);
+  padding: 0 var(--gutter) calc(var(--safe-bottom) + 96px);
+  padding-right: var(--gutter-r);
+}
+
+@media (min-width: 640px) {
+  .sm-scroll {
+    padding-inline: 24px;
+  }
 }
 
 /* ─────────────────────────── sticky header ─────────────────────────── */
@@ -36,8 +43,8 @@
   z-index: 5;
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  padding: calc(env(safe-area-inset-top, 0px) + 14px) 0 12px;
+  gap: 10px;
+  padding: calc(var(--safe-top) + 14px) 0 12px;
   background: linear-gradient(var(--bg-base) 72%, transparent);
 }
 
@@ -46,8 +53,9 @@
   inset: -40% -30% auto -30%;
   height: 220px;
   background: radial-gradient(60% 80% at 30% 0%,
-              color-mix(in srgb, var(--tech-accent) 26%, transparent), transparent 70%);
-  filter: blur(8px);
+              color-mix(in srgb, var(--tech-accent) 30%, transparent), transparent 70%);
+  filter: blur(22px);
+  opacity: .85;
   pointer-events: none;
   z-index: -1;
 }
@@ -55,10 +63,18 @@
 .sm-head__title {
   margin: 0;
   font-family: var(--font-display);
-  font-size: 28px;
+  font-size: 30px;
   font-weight: 700;
   letter-spacing: -0.02em;
+  line-height: 1.05;
   color: var(--ink);
+}
+
+.sm-head__sub {
+  margin: 2px 0 0;
+  font-size: 13px;
+  color: var(--ink-dim);
+  line-height: 1.35;
 }
 
 .sm-box {
@@ -70,9 +86,14 @@
   background: var(--glass);
   border: 1px solid var(--glass-edge);
   border-radius: var(--r-pill);
-  box-shadow: var(--lift-2);
+  box-shadow: var(--lift-2), inset 0 1px 0 var(--glass-edge);
+  transition: border-color 120ms var(--ease-out), box-shadow 120ms var(--ease-out);
 
-  &:focus-within { border-color: color-mix(in srgb, var(--tech-accent) 60%, transparent); }
+  &:focus-within {
+    border-color: color-mix(in srgb, var(--tech-accent) 60%, transparent);
+    box-shadow: var(--lift-2), inset 0 1px 0 var(--glass-edge),
+                0 0 0 3px color-mix(in srgb, var(--tech-accent) 18%, transparent);
+  }
 }
 
 .sm-box__ic { flex: none; color: var(--ink-dim); }
@@ -114,6 +135,13 @@
   border-radius: 50%;
   color: var(--ink-dim);
   cursor: pointer;
+  transition: background 120ms var(--ease-out), color 120ms var(--ease-out);
+
+  @media (hover: hover) {
+    &:hover { background: color-mix(in srgb, var(--tech-accent) 12%, transparent); color: var(--ink); }
+  }
+  &:active { background: color-mix(in srgb, var(--tech-accent) 20%, transparent); }
+  &:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 
   mat-icon { font-size: 20px; width: 20px; height: 20px; }
 }
@@ -124,8 +152,8 @@
   gap: 8px;
   overflow-x: auto;
   scrollbar-width: none;
-  margin: 0 -14px;
-  padding: 2px 14px;
+  margin: 0 calc(-1 * var(--gutter));
+  padding: 2px var(--gutter);
 
   &::-webkit-scrollbar { display: none; }
 }
@@ -151,11 +179,20 @@
 
   mat-icon { font-size: 17px; width: 17px; height: 17px; }
 
+  @media (hover: hover) {
+    &:not(.is-on):hover {
+      background: color-mix(in srgb, var(--tech-accent) 20%, transparent);
+      border-color: color-mix(in srgb, var(--tech-accent) 45%, transparent);
+    }
+  }
+  &:active { transform: scale(.95); }
+  &:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+
   &.is-on {
     background: linear-gradient(135deg, var(--tech-accent), var(--tech-accent-2));
     border-color: transparent;
     color: var(--tech-text-on-accent);
-    box-shadow: var(--lift-1);
+    box-shadow: 0 4px 14px color-mix(in srgb, var(--tech-accent) 32%, transparent), var(--lift-1);
   }
 }
 
@@ -174,21 +211,22 @@
 .sm-state__orb {
   display: grid;
   place-items: center;
-  width: 64px;
-  height: 64px;
-  border-radius: var(--r-card);
+  width: 68px;
+  height: 68px;
+  border-radius: 50%;
   background: color-mix(in srgb, var(--tech-accent) 16%, transparent);
   color: var(--tech-accent);
-  box-shadow: var(--lift-1);
+  box-shadow: var(--lift-2), 0 0 0 6px color-mix(in srgb, var(--tech-accent) 8%, transparent);
 
-  mat-icon { font-size: 30px; width: 30px; height: 30px; }
+  mat-icon { font-size: 32px; width: 32px; height: 32px; }
 }
 
 .sm-state__title {
   margin: 0;
-  font-family: var(--font-ui);
-  font-size: 17px;
+  font-family: var(--font-display);
+  font-size: 18px;
   font-weight: 700;
+  letter-spacing: -0.01em;
   color: var(--ink);
 }
 
@@ -242,7 +280,15 @@
 }
 
 /* ─────────────────────────── results ─────────────────────────── */
-.sm-group { display: flex; flex-direction: column; gap: 6px; }
+.sm-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  // Staggered spring entrance — set --i on the element via [style.--i]="index"
+  animation: sm-rise 500ms var(--ease-spring-up) both;
+  animation-delay: calc(var(--i, 0) * 60ms);
+  will-change: transform, opacity;
+}
 
 .sm-group__head {
   display: flex;
@@ -280,10 +326,11 @@
   min-height: 56px;
   // FiMobile rows: roomy 12-14px padding, card signature shadow + border-radius
   padding: 12px 14px;
-  background: var(--surface, var(--glass));
+  background: var(--bg-rise);
   border: 1px solid var(--hairline);
   border-radius: var(--r-tile);
-  box-shadow: var(--lift-1);
+  // Inset top highlight: the FiMobile card signature
+  box-shadow: var(--lift-1), inset 0 1px 0 var(--glass-edge);
   color: var(--ink);
   font-family: var(--font-ui);
   text-align: left;
@@ -294,9 +341,13 @@
 
   // FiMobile interactive card hover lift
   @media (hover: hover) {
-    &:hover { transform: translateY(-1px); box-shadow: var(--lift-2); }
+    &:hover {
+      transform: translateY(-1px);
+      box-shadow: var(--lift-2), inset 0 1px 0 var(--glass-edge);
+    }
   }
   &:active { transform: scale(0.985); box-shadow: var(--lift-1); }
+  &:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: var(--r-tile); }
 }
 
 .sm-row__ic {
@@ -350,3 +401,21 @@
 }
 
 @keyframes sm-spin { to { transform: rotate(360deg); } }
+
+// ─────────────────────────── focus ring ───────────────────────────
+// Global accent-tracking focus ring pierces emulated view encapsulation
+// so kit primitives (BetaEmptyState, BetaErrorState) also get the ring.
+:host ::ng-deep :focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+  border-radius: 8px;
+}
+
+// ─────────────────────────── entrance animation ───────────────────────────
+@keyframes sm-rise {
+  from { opacity: 0; transform: translateY(14px) scale(.99); }
+  to   { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sm-group { animation: none; }
+}

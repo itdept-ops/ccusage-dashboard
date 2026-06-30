@@ -17,6 +17,7 @@ import { HomeOption, HOME_OPTIONS } from '../../core/home-options';
 
 import {
   BetaPullRefresh, BetaSectionHeader, BetaSegmentedControl, BetaBottomSheet, BetaToaster,
+  BetaErrorState,
   ToastController, Segment,
 } from '../beta-ui';
 import { BetaToggleRow } from '../beta-settings/beta-toggle-row';
@@ -61,7 +62,8 @@ interface LinkOut {
   styleUrl: './preferences-mobile.page.scss',
   imports: [
     FormsModule, RouterLink,
-    BetaPullRefresh, BetaSectionHeader, BetaSegmentedControl, BetaBottomSheet, BetaToaster, BetaToggleRow,
+    BetaPullRefresh, BetaSectionHeader, BetaSegmentedControl, BetaBottomSheet, BetaToaster,
+    BetaErrorState, BetaToggleRow,
   ],
   template: `
     <app-bs-pull-refresh class="bs-ptr" [busy]="refreshing()" (refresh)="refreshAll()">
@@ -152,7 +154,10 @@ interface LinkOut {
                 }
               </div>
             } @else {
-              <div class="card card--pad"><p class="empty">Couldn't load notifications.</p></div>
+              <app-bs-error compact icon="notifications_off"
+                            title="Couldn't load notifications"
+                            body="Pull down to retry."
+                            ctaLabel="Retry" (retry)="refreshNotifications()" />
             }
           </section>
 
@@ -308,7 +313,7 @@ interface LinkOut {
             <div class="card card--list">
               @for (l of links(); track l.route) {
                 <a class="link-row" [routerLink]="l.route">
-                  <span class="link-ic link-ic--accent" aria-hidden="true">›</span>
+                  <span class="link-ic link-ic--sym material-symbols-outlined" aria-hidden="true">{{ l.icon }}</span>
                   <span class="link-text">
                     <span class="link-title">{{ l.label }}</span>
                     <span class="link-sub">{{ l.blurb }}</span>
@@ -518,6 +523,12 @@ export class PreferencesMobilePage {
         }
       },
     });
+  }
+
+  refreshNotifications(): void {
+    if (!this.canChat()) return;
+    this.api.getNotificationPreferences().subscribe({ next: p => this.prefs.set(p), error: () => {} });
+    this.api.myDiscord().subscribe({ next: d => this.discord.set(d), error: () => {} });
   }
 
   async refreshAll(): Promise<void> {

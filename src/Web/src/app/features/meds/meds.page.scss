@@ -10,8 +10,8 @@
   --md-sub: var(--tech-text-secondary, #9ba9bd);
   --md-accent: var(--tech-accent, #7c8cff);
   --accent: var(--md-accent);
-  // FiMobile: Nunito headings for the feature
-  h1, h2, h3 { font-family: 'Nunito', 'Inter', system-ui, sans-serif; }
+  // FiMobile: display font for headings via the token cascade (picks up Nunito automatically)
+  h1, h2, h3 { font-family: var(--tech-font-display, 'Nunito', 'Inter', system-ui, sans-serif); }
 }
 
 .mono-num { font-family: 'JetBrains Mono', ui-monospace, monospace; font-variant-numeric: tabular-nums; }
@@ -40,7 +40,7 @@
     color: var(--md-accent); text-transform: uppercase; letter-spacing: .04em;
     mat-icon { font-size: 1.05rem; width: 1.05rem; height: 1.05rem; }
   }
-  &__title { margin: 0; font-size: 1.6rem; font-weight: 700; letter-spacing: -.01em; }
+  &__title { margin: 0; font-size: clamp(1.4rem, 4vw, 1.75rem); font-weight: 800; letter-spacing: -.02em; font-family: var(--tech-font-display, 'Nunito', 'Inter', system-ui, sans-serif); }
   &__sub { margin: .35rem 0 0; color: var(--md-sub); max-width: 52ch; line-height: 1.5; }
 }
 
@@ -78,6 +78,10 @@
     color: var(--tech-text-on-accent, #fff); border-color: transparent;
     background: var(--accent, var(--md-accent));
   }
+  &:focus-visible {
+    outline: none;
+    box-shadow: var(--tech-focus-ring, 0 0 0 2px var(--md-panel), 0 0 0 4px color-mix(in srgb, var(--md-accent) 55%, transparent));
+  }
 }
 
 // ─────────── insight ───────────
@@ -110,8 +114,8 @@
   background: var(--md-panel);
   border: 1px solid var(--tech-border, #26303f);
   padding: 1.25rem;
-  // FiMobile card signature: panel shadow
-  box-shadow: var(--tech-shadow-panel);
+  // FiMobile card signature: panel shadow + subtle inset top highlight
+  box-shadow: var(--tech-shadow-panel), inset 0 1px 0 var(--tech-glass-inset-hi, rgba(255,255,255,.06));
   &__head {
     display: flex; justify-content: space-between; align-items: center;
     gap: 1rem; flex-wrap: wrap; margin-bottom: 1.1rem;
@@ -130,10 +134,14 @@
   padding: .5rem .9rem; border-radius: var(--tech-r-control, 10px);
   background: var(--md-accent); color: var(--tech-text-on-accent, #fff); border: 0;
   font-weight: 600; font-size: .85rem; cursor: pointer;
-  transition: filter var(--tech-t-fast, 120ms) ease;
+  transition: filter var(--tech-t-fast, 120ms) ease, box-shadow var(--tech-t-fast, 120ms) ease;
   &:hover { filter: brightness(1.08); }
   &:disabled { opacity: .55; cursor: default; filter: none; }
   mat-icon { font-size: 1.1rem; width: 1.1rem; height: 1.1rem; }
+  &:focus-visible {
+    outline: none;
+    box-shadow: var(--tech-focus-ring, 0 0 0 2px var(--md-panel), 0 0 0 4px color-mix(in srgb, var(--md-accent) 55%, transparent));
+  }
 }
 
 // Secondary "Repeat yesterday" affordance: ghost/outline so the primary Add stays dominant.
@@ -184,14 +192,14 @@
 .md-list { display: flex; flex-direction: column; gap: .85rem; }
 
 .md-med {
-  // FiMobile card signature: proper radius + panel shadow + hover lift on interactive cards
+  // FiMobile card signature: proper radius + panel shadow + inset highlight + hover lift
   border-radius: var(--tech-radius, 12px);
   background: var(--md-panel2);
   border: 1px solid var(--tech-border, #26303f);
-  box-shadow: var(--tech-shadow-panel);
+  box-shadow: var(--tech-shadow-panel), inset 0 1px 0 var(--tech-glass-inset-hi, rgba(255,255,255,.06));
   overflow: hidden;
   transition: transform var(--tech-t-fast, 120ms) ease, box-shadow var(--tech-t-fast, 120ms) ease;
-  &:hover { transform: translateY(-1px); box-shadow: var(--tech-shadow-raised); }
+  &:hover { transform: translateY(-1px); box-shadow: var(--tech-shadow-raised), inset 0 1px 0 var(--tech-glass-inset-hi, rgba(255,255,255,.06)); }
   &__bar { display: flex; justify-content: space-between; align-items: flex-start; gap: .5rem; padding: 1rem 1rem; }
   &__id { display: flex; gap: .7rem; align-items: center; min-width: 0; }
   &__glyph {
@@ -240,6 +248,10 @@
     &.is-take.is-on { background: color-mix(in srgb, var(--tech-success, #3dd68c) 22%, var(--md-panel2, #11161f)); border-color: var(--tech-success, #3dd68c); color: var(--tech-text, #e6edf6); }
     &.is-skip.is-on { background: color-mix(in srgb, var(--tech-warn, #f2b340) 20%, var(--md-panel2, #11161f)); border-color: var(--tech-warn, #f2b340); color: var(--tech-text, #e6edf6); }
     &:hover:not(:disabled):not(.is-on) { color: var(--md-text); }
+    &:focus-visible {
+      outline: none;
+      box-shadow: var(--tech-focus-ring, 0 0 0 2px var(--md-panel), 0 0 0 4px color-mix(in srgb, var(--md-accent) 55%, transparent));
+    }
   }
 }
 
@@ -260,8 +272,8 @@
   border-radius: var(--tech-radius, 12px);
   background: var(--md-panel2);
   border: 1px solid var(--tech-border, #26303f);
-  // FiMobile card signature: panel shadow
-  box-shadow: var(--tech-shadow-panel);
+  // FiMobile card signature: panel shadow + inset top highlight
+  box-shadow: var(--tech-shadow-panel), inset 0 1px 0 var(--tech-glass-inset-hi, rgba(255,255,255,.06));
   &__h {
     display: inline-flex; align-items: center; gap: .45rem;
     margin: 0 0 .9rem; font-weight: 700;
@@ -274,7 +286,12 @@
     padding: .55rem .65rem; border-radius: var(--tech-r-control, 9px);
     background: var(--md-panel); border: 1px solid var(--md-border); color: var(--md-text);
     font-size: 1rem; font-family: 'JetBrains Mono', ui-monospace, monospace;
+    transition: border-color var(--tech-t-fast, 120ms) ease, box-shadow var(--tech-t-fast, 120ms) ease;
     &:focus { outline: none; border-color: var(--accent); }
+    &:focus-visible {
+      outline: none; border-color: var(--accent);
+      box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 25%, transparent);
+    }
   }
   &__sep { font-size: 1.4rem; color: var(--md-sub); padding-bottom: .35rem; }
   &__unit { font-size: .85rem; color: var(--md-sub); padding-bottom: .55rem; }
@@ -282,8 +299,14 @@
     display: inline-flex; align-items: center; justify-content: center; gap: .4rem;
     margin-top: 1rem; width: 100%; padding: .6rem; border-radius: var(--tech-r-control, 10px);
     background: var(--accent); color: var(--tech-text-on-accent, #fff); border: 0; font-weight: 600; cursor: pointer;
+    transition: filter var(--tech-t-fast, 120ms) ease, box-shadow var(--tech-t-fast, 120ms) ease;
+    &:hover:not(:disabled) { filter: brightness(1.08); }
     &:disabled { opacity: .6; }
     mat-icon { font-size: 1.1rem; width: 1.1rem; height: 1.1rem; }
+    &:focus-visible {
+      outline: none;
+      box-shadow: var(--tech-focus-ring, 0 0 0 2px var(--md-panel2), 0 0 0 4px color-mix(in srgb, var(--accent) 55%, transparent));
+    }
   }
 }
 
@@ -292,8 +315,8 @@
   border-radius: var(--tech-radius, 12px);
   background: var(--md-panel2);
   border: 1px solid var(--tech-border, #26303f);
-  // FiMobile card signature: panel shadow
-  box-shadow: var(--tech-shadow-panel);
+  // FiMobile card signature: panel shadow + inset top highlight
+  box-shadow: var(--tech-shadow-panel), inset 0 1px 0 var(--tech-glass-inset-hi, rgba(255,255,255,.06));
   &__stats { display: flex; gap: 1.25rem; margin-bottom: .5rem; flex-wrap: wrap; }
   &__chart { height: 240px; }
 }
@@ -305,19 +328,36 @@
 
 .md-readings {
   grid-column: 1 / -1;
-  &__h { margin: 0 0 .6rem; font-size: .9rem; color: var(--md-sub); font-weight: 600; }
-  &__none { color: var(--md-sub); font-size: .85rem; margin: 0; }
+  // FiMobile list container: panel surface + card signature
+  border-radius: var(--tech-radius, 12px);
+  background: var(--md-panel2);
+  border: 1px solid var(--tech-border, #26303f);
+  box-shadow: var(--tech-shadow-panel), inset 0 1px 0 var(--tech-glass-inset-hi, rgba(255,255,255,.06));
+  overflow: hidden;
+  &__h {
+    margin: 0;
+    padding: .65rem .85rem;
+    // Small-caps tracked label — rubric §4 + §8
+    font-size: .72rem; font-weight: 700;
+    text-transform: uppercase; letter-spacing: .06em;
+    color: var(--md-sub);
+    border-bottom: 1px solid var(--tech-border, #26303f);
+  }
+  &__none {
+    color: var(--md-sub); font-size: .85rem; margin: 0;
+    padding: 1.25rem .85rem; text-align: center;
+  }
 }
 .md-reading {
   display: flex; align-items: center; gap: .75rem;
-  // FiMobile list row: roomy 12-14px vertical padding, border-radius via --tech-r-control
+  // FiMobile list row: roomy 12-14px vertical, hairline dividers between rows
   padding: .7rem .85rem;
-  border-radius: var(--tech-r-control, 8px);
-  background: var(--md-panel2);
-  border: 1px solid var(--tech-border, #26303f);
-  margin-bottom: .4rem;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--tech-border-subtle, rgba(255,255,255,.05));
   transition: background var(--tech-t-fast, 120ms) ease;
-  &:hover { background: var(--md-panel); }
+  &:last-child { border-bottom: none; }
+  &:hover { background: color-mix(in srgb, var(--md-accent) 5%, transparent); }
   &__v { font-size: .95rem; font-weight: 600; i { color: var(--tech-text-secondary, #9ba9bd); font-style: normal; font-size: .78rem; } }
   // FiMobile trailing value: tertiary text color
   &__d { margin-left: auto; font-size: .8rem; color: var(--tech-text-tertiary, #8492a8); }
@@ -331,6 +371,11 @@
   transition: all var(--tech-t-fast, 120ms) ease;
   mat-icon { font-size: 1.1rem; width: 1.1rem; height: 1.1rem; }
   &:hover { color: var(--md-text); border-color: var(--md-accent); }
+  &:focus-visible {
+    outline: none;
+    box-shadow: var(--tech-focus-ring, 0 0 0 2px var(--md-panel), 0 0 0 4px color-mix(in srgb, var(--md-accent) 55%, transparent));
+    border-color: var(--md-accent);
+  }
 }
 
 .md-skel-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1rem; }
@@ -373,8 +418,14 @@
     display: inline-flex; align-items: center; justify-content: center; gap: .4rem;
     margin-top: .25rem; padding: .7rem; border-radius: var(--tech-r-control, 11px);
     background: var(--md-accent); color: var(--tech-text-on-accent, #fff); border: 0; font-weight: 600; cursor: pointer;
+    transition: filter var(--tech-t-fast, 120ms) ease, box-shadow var(--tech-t-fast, 120ms) ease;
+    &:hover:not(:disabled) { filter: brightness(1.08); }
     &:disabled { opacity: .6; }
     mat-icon { font-size: 1.15rem; width: 1.15rem; height: 1.15rem; }
+    &:focus-visible {
+      outline: none;
+      box-shadow: var(--tech-focus-ring, 0 0 0 2px var(--md-panel), 0 0 0 4px color-mix(in srgb, var(--md-accent) 55%, transparent));
+    }
   }
   &__foot {
     display: inline-flex; align-items: center; gap: .4rem;
@@ -389,7 +440,12 @@
     padding: .6rem .7rem; border-radius: var(--tech-r-control, 10px);
     background: var(--md-panel2); border: 1px solid var(--md-border); color: var(--md-text);
     font-size: .95rem;
+    transition: border-color var(--tech-t-fast, 120ms) ease, box-shadow var(--tech-t-fast, 120ms) ease;
     &:focus { outline: none; border-color: var(--md-accent); }
+    &:focus-visible {
+      outline: none; border-color: var(--md-accent);
+      box-shadow: 0 0 0 3px color-mix(in srgb, var(--md-accent) 25%, transparent);
+    }
   }
   &__area { resize: vertical; min-height: 56px; font-family: inherit; }
 }
@@ -401,7 +457,13 @@
     width: 36px; height: 36px; border-radius: var(--tech-r-control, 9px); cursor: pointer;
     background: var(--md-panel2); border: 1px solid var(--md-border); color: var(--md-text);
     font-size: 1.2rem; line-height: 1;
+    transition: border-color var(--tech-t-fast, 120ms) ease, box-shadow var(--tech-t-fast, 120ms) ease;
     &:hover { border-color: var(--md-accent); }
+    &:focus-visible {
+      outline: none;
+      border-color: var(--md-accent);
+      box-shadow: var(--tech-focus-ring, 0 0 0 2px var(--md-panel), 0 0 0 4px color-mix(in srgb, var(--md-accent) 55%, transparent));
+    }
   }
   span { min-width: 40px; text-align: center; font-size: 1.1rem; font-weight: 700; }
 }
@@ -410,10 +472,16 @@
   display: flex; align-items: center; gap: .7rem;
   padding: .7rem .8rem; border-radius: var(--tech-r-control, 12px); cursor: pointer;
   background: var(--md-panel2); border: 1px solid var(--md-border);
+  transition: border-color var(--tech-t-fast, 120ms) ease, box-shadow var(--tech-t-fast, 120ms) ease;
   > mat-icon { color: var(--md-sub); }
   &.is-on { border-color: color-mix(in srgb, var(--md-accent) 45%, transparent); > mat-icon { color: var(--md-accent); } }
   &__txt { display: flex; flex-direction: column; flex: 1; min-width: 0;
     b { font-size: .9rem; } i { font-size: .76rem; color: var(--md-sub); font-style: normal; } }
+  &:focus-visible {
+    outline: none;
+    box-shadow: var(--tech-focus-ring, 0 0 0 2px var(--md-panel), 0 0 0 4px color-mix(in srgb, var(--md-accent) 55%, transparent));
+    border-color: color-mix(in srgb, var(--md-accent) 45%, transparent);
+  }
 }
 .md-switch {
   flex: none; width: 40px; height: 22px; border-radius: 999px; padding: 2px;

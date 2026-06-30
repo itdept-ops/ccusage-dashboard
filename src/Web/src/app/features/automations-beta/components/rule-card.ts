@@ -91,9 +91,15 @@ import {
     .rk {
       display: flex; flex-direction: column; gap: 12px;
       padding: 15px 15px 13px; border-radius: var(--r-card);
-      background: var(--bg-rise); border: 1px solid var(--hairline); box-shadow: var(--lift-1);
+      background: var(--bg-rise); border: 1px solid var(--hairline);
+      box-shadow: var(--lift-1), inset 0 1px 0 rgba(255,255,255,.06);
       position: relative; overflow: hidden;
-      transition: opacity 200ms var(--ease-out);
+      transition: opacity 200ms var(--ease-out), box-shadow 160ms var(--ease-out),
+                  transform 140ms var(--ease-spring);
+    }
+    .rk:hover {
+      box-shadow: var(--lift-2), inset 0 1px 0 rgba(255,255,255,.09);
+      transform: translateY(-1px);
     }
     /* Accent edge-glow on the active card's left rail. */
     .rk::before {

@@ -79,7 +79,7 @@
   border: 1px solid var(--tech-border);
   border-radius: var(--tech-radius, 16px);
   background: var(--tech-panel);
-  box-shadow: var(--tech-shadow-panel);
+  box-shadow: var(--tech-shadow-panel), inset 0 1px 0 rgba(255,255,255,0.06);
   cursor: pointer;
   text-align: left;
   transition: border-color var(--tech-t-fast, 120ms) ease, transform var(--tech-t-fast, 120ms) ease, background-color var(--tech-t-fast, 120ms) ease, box-shadow var(--tech-t-fast, 120ms) ease;
@@ -88,7 +88,7 @@
     border-color: var(--tech-accent);
     background: var(--tech-panel-raised);
     transform: translateY(-1px);
-    box-shadow: var(--tech-shadow-raised);
+    box-shadow: var(--tech-shadow-raised), inset 0 1px 0 rgba(255,255,255,0.06);
   }
   &:focus-visible { outline: none; box-shadow: var(--tech-focus-ring); }
   &:disabled { opacity: 0.6; cursor: default; }
@@ -143,7 +143,7 @@
   background:
     radial-gradient(140% 120% at 0% 0%, color-mix(in srgb, var(--tech-accent) 8%, transparent), transparent 55%),
     var(--tech-panel);
-  box-shadow: var(--tech-shadow-panel);
+  box-shadow: var(--tech-shadow-panel), inset 0 1px 0 rgba(255,255,255,0.06);
 
   &--ending {
     border-color: color-mix(in srgb, var(--tech-warn) 55%, var(--tech-border));

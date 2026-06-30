@@ -8,6 +8,83 @@
   .family__hero--page { margin-top: 0; }
 }
 
+// ── Centered state blocks (loading + error) — FiMobile icon-orb pattern ─────────────────────────
+// Replaces the bare .family__loading / .family__error inline text with a proper centered treatment:
+// icon orb → title → hint; consistent across both states.
+.mp-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: var(--tech-space-3, 12px);
+  padding: var(--tech-space-8, 32px) var(--tech-space-6, 24px);
+}
+
+.mp-state__orb {
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--tech-accent) 12%, var(--tech-panel));
+  border: 1px solid var(--tech-border);
+  box-shadow: var(--tech-shadow-panel), inset 0 1px 0 rgba(255,255,255,0.06);
+  flex: 0 0 auto;
+
+  mat-icon {
+    width: 26px; height: 26px; font-size: 26px;
+    color: var(--tech-accent);
+  }
+
+  // Loading state: spinner sits centered in the orb naturally
+  mat-spinner { --mdc-circular-progress-active-indicator-color: var(--tech-accent); }
+}
+
+.mp-state--error .mp-state__orb {
+  background: color-mix(in srgb, var(--tech-error, #e5484d) 10%, var(--tech-panel));
+  border-color: color-mix(in srgb, var(--tech-error, #e5484d) 25%, var(--tech-border));
+  mat-icon { color: var(--tech-error, #e5484d); }
+}
+
+.mp-state__title {
+  margin: 0;
+  font-size: var(--tech-fs-h1, 18px);
+  font-weight: 700;
+  color: var(--tech-text);
+  letter-spacing: -0.01em;
+}
+
+.mp-state__hint {
+  margin: 0;
+  font-size: var(--tech-fs-label);
+  color: var(--tech-text-secondary);
+  max-width: 30ch;
+  line-height: 1.5;
+}
+
+// ── Day card empty state override — add an icon orb nudge above the bare italic ──────────────────
+// The upstream .day-card__empty (meals.scss) styles a <p>; we now emit a <div> with an icon so we
+// need to re-declare the layout here. Keeps the same secondary-ink style, adds a centred icon.
+.day-card__empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: var(--tech-space-3, 12px) 0 var(--tech-space-2, 8px);
+
+  mat-icon {
+    width: 24px; height: 24px; font-size: 24px;
+    color: var(--tech-text-tertiary);
+    opacity: 0.55;
+  }
+
+  span {
+    font-size: var(--tech-fs-label);
+    color: var(--tech-text-tertiary);
+    font-style: italic;
+  }
+}
+
 // ── On-hand ingredient chips (the Snap & Route pantry handoff) ───────────────────────────────────
 // A slim banner of removable chips between the hero and the week grid; these bias "Plan my day & week".
 .mp-onhand {

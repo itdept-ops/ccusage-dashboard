@@ -28,6 +28,22 @@
   display: flex;
   flex-direction: column;
   gap: var(--tech-space-6, 1.5rem);
+  position: relative;
+
+  // A faint radial accent bloom behind the header — the page's depth signature
+  &::before {
+    content: '';
+    position: absolute;
+    inset: 0 20% auto -10%;
+    height: 300px;
+    background: radial-gradient(60% 80% at 20% 10%,
+      color-mix(in srgb, var(--tech-accent, #7c8cff) 8%, transparent),
+      transparent 70%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  > * { position: relative; z-index: 1; }
 }
 
 // ─────────── HEADER ───────────
@@ -54,9 +70,11 @@
 
   &__title {
     margin: 0;
+    font-family: var(--tech-font-display, var(--tech-font, system-ui));
     font-size: clamp(1.5rem, 3vw, 2rem);
     font-weight: 700;
     color: var(--tech-text, #e6edf6);
+    letter-spacing: -.02em;
   }
 
   &__sub {
@@ -95,6 +113,8 @@
   transition: background .15s, color .15s;
 
   &:hover:not(:disabled) { color: var(--tech-text, #e6edf6); }
+  &:focus-visible { outline: var(--tech-focus-ring, 2px solid #7c8cff); outline-offset: 2px; }
+  &:active:not(:disabled) { opacity: .8; }
   &.is-on {
     background: var(--tech-accent, #7c8cff);
     color: var(--tech-text-on-accent, #fff);
@@ -173,6 +193,9 @@
   flex-direction: column;
   gap: var(--tech-space-4, 1rem);
 
+  // Hairline separator above each section for visual rhythm
+  & + & { padding-top: var(--tech-space-2, .5rem); border-top: 1px solid var(--tech-border, #26303f); }
+
   &__head {
     display: flex;
     align-items: center;
@@ -194,6 +217,7 @@
 
   &__title {
     margin: 0;
+    font-family: var(--tech-font-display, var(--tech-font, system-ui));
     font-size: 1.1rem;
     font-weight: 700;
     color: var(--tech-text, #e6edf6);
@@ -234,15 +258,25 @@
   border-radius: var(--tech-radius, 16px);
   background: var(--tech-panel, #11161f);
   border: 1px solid var(--tech-border, #26303f);
-  // FiMobile card signature — soft panel shadow
-  box-shadow: var(--tech-shadow-panel, 0 2px 12px rgba(0,0,0,.2));
+  // FiMobile card signature — soft panel shadow + subtle inset top highlight
+  box-shadow:
+    var(--tech-shadow-panel, 0 2px 12px rgba(0,0,0,.2)),
+    inset 0 1px 0 rgba(255, 255, 255, .05);
   overflow: hidden;
   transition: transform .15s ease, box-shadow .15s ease;
 
-  // FiMobile hover lift — only on cards that contain an interactive expand button
-  &:has(.iq-card__expand):hover {
+  // FiMobile hover lift — all cards
+  &:hover {
     transform: translateY(-1px);
-    box-shadow: var(--tech-shadow-raised, 0 6px 20px rgba(0,0,0,.3));
+    box-shadow:
+      var(--tech-shadow-raised, 0 6px 20px rgba(0,0,0,.3)),
+      inset 0 1px 0 rgba(255, 255, 255, .07);
+  }
+
+  // Focus-visible ring when the card itself receives focus (keyboard nav)
+  &:focus-visible {
+    outline: var(--tech-focus-ring, 2px solid #7c8cff);
+    outline-offset: 2px;
   }
 
   // a thin domain-accent wash along the top edge
@@ -251,17 +285,21 @@
     position: absolute;
     inset: 0 0 auto 0;
     height: 3px;
-    background: linear-gradient(90deg, var(--da-primary), var(--db-primary));
-    background: linear-gradient(90deg, var(--da), var(--db));
+    background: linear-gradient(90deg, var(--da, var(--da-primary, #818cf8)), var(--db, var(--db-primary, #c084fc)));
   }
 
   &--skel {
     min-height: 168px;
+    // subtle shimmer using the panel token pair — no hardcoded colors
     background:
-      linear-gradient(110deg, var(--tech-panel, #11161f) 30%,
-        var(--tech-panel-raised, #161c28) 50%, var(--tech-panel, #11161f) 70%);
+      linear-gradient(110deg,
+        var(--tech-panel, #11161f) 30%,
+        color-mix(in srgb, var(--tech-accent, #7c8cff) 6%, var(--tech-panel-raised, #161c28)) 50%,
+        var(--tech-panel, #11161f) 70%);
     background-size: 200% 100%;
     animation: iq-shimmer 1.3s ease-in-out infinite;
+    // no hover lift on skeletons
+    &:hover { transform: none; box-shadow: var(--tech-shadow-panel, 0 2px 12px rgba(0,0,0,.2)), inset 0 1px 0 rgba(255,255,255,.05); }
   }
 
   &__top {
@@ -362,6 +400,7 @@
     border: 1px solid color-mix(in srgb, var(--tech-accent, #7c8cff) 30%, transparent);
     transition: background .15s;
     &:hover { background: color-mix(in srgb, var(--tech-accent, #7c8cff) 22%, transparent); }
+    &:focus-visible { outline: var(--tech-focus-ring, 2px solid #7c8cff); outline-offset: 2px; }
     mat-icon { font-size: 16px; width: 16px; height: 16px; }
   }
 
@@ -438,9 +477,21 @@
 
 @media (prefers-reduced-motion: reduce) {
   .iq-card--skel { animation: none !important; }
+  .iq-card { transition: none !important; }
+  .iq-chip { transition: none !important; }
+  .iq-card__expand { transition: none !important; }
 }
 
 @media (max-width: 640px) {
+  .iq { padding: var(--tech-space-4, 1rem); gap: var(--tech-space-4, 1rem); }
   .iq-head { flex-direction: column; }
   .iq-head__windows { width: 100%; justify-content: space-between; }
+  .iq-grid { grid-template-columns: 1fr; }
+}
+
+// ─────────── VERY NARROW (360px) ───────────
+@media (max-width: 400px) {
+  .iq { padding: .75rem; gap: .75rem; }
+  .iq-chip { padding: .4rem .6rem; font-size: .8rem; }
+  .iq-card { padding: .85rem .9rem .9rem; }
 }

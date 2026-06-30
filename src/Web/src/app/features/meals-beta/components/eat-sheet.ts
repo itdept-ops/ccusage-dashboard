@@ -43,7 +43,7 @@ import { BetaBottomSheet, BetaSkeleton } from '../../beta-ui';
 
         @if (phase() === 'idle') {
           <div class="es-hint">
-            <mat-icon aria-hidden="true">tips_and_updates</mat-icon>
+            <span class="es-hint-ic" aria-hidden="true"><mat-icon>tips_and_updates</mat-icon></span>
             <p>Tap the spark for tailored ideas — or type a craving first.</p>
           </div>
         }
@@ -88,7 +88,7 @@ import { BetaBottomSheet, BetaSkeleton } from '../../beta-ui';
             </div>
           } @else {
             <div class="es-hint">
-              <mat-icon aria-hidden="true">sentiment_satisfied</mat-icon>
+              <span class="es-hint-ic" aria-hidden="true"><mat-icon>sentiment_satisfied</mat-icon></span>
               <p>No ideas right now — try a different craving.</p>
             </div>
           }
@@ -96,7 +96,7 @@ import { BetaBottomSheet, BetaSkeleton } from '../../beta-ui';
 
         @if (phase() === 'error') {
           <div class="es-hint">
-            <mat-icon aria-hidden="true">cloud_off</mat-icon>
+            <span class="es-hint-ic" aria-hidden="true"><mat-icon>cloud_off</mat-icon></span>
             <p>Couldn't fetch ideas. Please try again.</p>
           </div>
         }
@@ -151,18 +151,27 @@ import { BetaBottomSheet, BetaSkeleton } from '../../beta-ui';
     .es-note mat-icon { color: var(--warn); font-size: 20px; width: 20px; height: 20px; }
 
     .es-hint {
-      display: flex; flex-direction: column; align-items: center; text-align: center; gap: 8px;
-      padding: 26px 16px; color: var(--ink-dim);
+      display: flex; flex-direction: column; align-items: center; text-align: center; gap: 10px;
+      padding: 28px 16px; color: var(--ink-dim);
     }
-    .es-hint mat-icon { font-size: 32px; width: 32px; height: 32px; color: var(--ink-faint); }
-    .es-hint p { margin: 0; font-size: 14px; }
+    .es-hint-ic {
+      display: grid; place-items: center; width: 52px; height: 52px; border-radius: 50%;
+      background: color-mix(in srgb, var(--accent-a) 10%, var(--bg-sink));
+      box-shadow: inset 0 1px 0 color-mix(in srgb, #fff 10%, transparent);
+      color: var(--accent-a);
+    }
+    .es-hint-ic mat-icon { font-size: 26px; width: 26px; height: 26px; }
+    .es-hint p { margin: 0; font-size: 14px; max-width: 26ch; line-height: 1.45; }
 
     .es-list { display: flex; flex-direction: column; gap: 10px; }
     .es-opt {
       padding: 13px 14px; border-radius: var(--r-tile);
-      background: var(--bg-rise); border: 1px solid var(--hairline); box-shadow: var(--lift-1);
+      background: var(--bg-rise); border: 1px solid var(--hairline);
+      box-shadow: var(--lift-1), inset 0 1px 0 color-mix(in srgb, #fff 8%, transparent);
       animation: es-in 420ms var(--ease-spring-up) both; animation-delay: calc(var(--i, 0) * 50ms);
+      transition: transform 140ms var(--ease-spring), box-shadow 160ms var(--ease-out);
     }
+    .es-opt:hover { transform: translateY(-1px); box-shadow: var(--lift-2), inset 0 1px 0 color-mix(in srgb, #fff 8%, transparent); }
     @keyframes es-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
     .es-opt-h { display: flex; align-items: baseline; gap: 10px; }
     .es-opt-title { flex: 1 1 auto; min-width: 0; font-size: 16px; font-weight: 700; color: var(--ink); }

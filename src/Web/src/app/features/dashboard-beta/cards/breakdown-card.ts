@@ -151,10 +151,11 @@ export type BreakdownDim = 'model' | 'source' | 'project';
       display: flex; flex-direction: column; gap: 6px; width: 100%;
       background: none; border: 0; padding: 8px 6px; margin: 0; cursor: pointer; text-align: left;
       border-radius: var(--r-tile); font: inherit; color: inherit;
-      transition: background 140ms var(--ease-out);
+      transition: background 140ms var(--ease-out), transform 120ms var(--ease-spring);
       -webkit-tap-highlight-color: transparent;
     }
-    .row__btn:active { background: color-mix(in srgb, var(--ink) 6%, transparent); }
+    .row__btn:hover { background: color-mix(in srgb, var(--accent-a) 6%, transparent); transform: translateX(2px); }
+    .row__btn:active { background: color-mix(in srgb, var(--ink) 6%, transparent); transform: none; }
     .row__btn:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
     .row__head { display: flex; align-items: baseline; gap: 8px; }
     .row__chev {
@@ -203,9 +204,12 @@ export type BreakdownDim = 'model' | 'source' | 'project';
       min-height: 44px; padding: 0 18px; border-radius: var(--r-pill); border: 0; cursor: pointer;
       background: linear-gradient(135deg, var(--accent-a), var(--accent-b)); color: var(--ink-on-accent);
       font: inherit; font-size: 14px; font-weight: 700;
-      transition: transform 120ms var(--ease-spring);
+      box-shadow: 0 4px 14px -4px color-mix(in srgb, var(--accent-a) 50%, transparent);
+      transition: transform 120ms var(--ease-spring), box-shadow 160ms var(--ease-out);
     }
-    .bd__empty-cta:active { transform: scale(.96); }
+    .bd__empty-cta:hover { transform: translateY(-1px); box-shadow: 0 8px 22px -6px color-mix(in srgb, var(--accent-a) 60%, transparent); }
+    .bd__empty-cta:active { transform: scale(.96); box-shadow: none; }
+    .bd__empty-cta:focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; }
 
     /* ---- tap-through detail sheet ---- */
     .dt { display: flex; flex-direction: column; gap: 20px; padding: 4px 0 24px; }

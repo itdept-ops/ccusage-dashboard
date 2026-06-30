@@ -66,6 +66,12 @@ export interface QuickTile {
       transition: transform 120ms var(--ease-out), box-shadow 120ms var(--ease-out);
     }
     .tb-qtile:disabled { opacity: .45; pointer-events: none; }
+    @media (hover: hover) and (pointer: fine) {
+      .tb-qtile:not(:disabled):hover {
+        box-shadow: var(--lift-2);
+        transform: translateY(-1px);
+      }
+    }
     .tb-qtile.sink {
       transform: scale(.97) translateY(1px);
       box-shadow: var(--press);

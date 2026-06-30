@@ -189,8 +189,9 @@ interface HourBar {
             </div>
             @if (!sessions().length) {
               <div class="cm-empty">
-                <mat-icon aria-hidden="true">history</mat-icon>
-                No sessions yet — they'll appear as you log usage.
+                <span class="cm-empty__orb"><mat-icon aria-hidden="true">history</mat-icon></span>
+                <p class="cm-empty__title">No sessions yet</p>
+                <p class="cm-empty__hint">They'll appear here as you log usage.</p>
               </div>
             } @else {
               <ul class="cm-sess">
@@ -243,8 +244,9 @@ interface HourBar {
           </div>
         } @else if (sessionError()) {
           <div class="cm-empty">
-            <mat-icon aria-hidden="true">error_outline</mat-icon>
-            Could not load this session.
+            <span class="cm-empty__orb"><mat-icon aria-hidden="true">error_outline</mat-icon></span>
+            <p class="cm-empty__title">Couldn't load session</p>
+            <p class="cm-empty__hint">Give it another go by closing and reopening.</p>
           </div>
         } @else if (sessionDetail(); as d) {
           <div class="sd__stats">
@@ -254,7 +256,11 @@ interface HourBar {
           </div>
 
           @if (!d.items.length) {
-            <div class="cm-empty"><mat-icon aria-hidden="true">inbox</mat-icon> No messages in this session.</div>
+            <div class="cm-empty">
+              <span class="cm-empty__orb"><mat-icon aria-hidden="true">inbox</mat-icon></span>
+              <p class="cm-empty__title">No messages</p>
+              <p class="cm-empty__hint">This session has no recorded messages.</p>
+            </div>
           } @else {
             <ul class="sd__msgs">
               @for (m of d.items; track $index) {

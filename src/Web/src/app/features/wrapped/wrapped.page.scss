@@ -88,7 +88,7 @@
 
 .wr-chip {
   appearance: none; cursor: pointer;
-  min-height: 36px; padding: 0 16px; border-radius: var(--tech-r-control, 10px);
+  min-height: 36px; padding: 0 18px; border-radius: var(--tech-r-pill, 999px);
   border: 1px solid transparent;
   background: transparent;
   color: var(--wr-ink-dim);
@@ -96,7 +96,7 @@
   transition: color .16s, background .16s, border-color .16s, transform .12s;
   &:hover:not(:disabled) { color: var(--wr-ink); background: color-mix(in srgb, var(--wr-panel-2) 60%, transparent); }
   &:active:not(:disabled) { transform: scale(.96); }
-  &:focus-visible { outline: 2px solid var(--wr-a); outline-offset: 2px; }
+  &:focus-visible { outline: var(--tech-focus-ring, 2px solid var(--wr-a)); outline-offset: 2px; }
   &:disabled { opacity: .5; cursor: default; }
   &.is-on {
     color: var(--tech-text-on-accent, #fff); border-color: transparent;
@@ -136,7 +136,7 @@
   transition: transform .12s, filter .16s, background .16s;
   mat-icon { font-size: 20px; width: 20px; height: 20px; }
   &:active:not(:disabled) { transform: scale(.96); }
-  &:focus-visible { outline: 2px solid var(--wr-a); outline-offset: 3px; }
+  &:focus-visible { outline: var(--tech-focus-ring, 2px solid var(--wr-a)); outline-offset: 3px; }
   &:disabled { opacity: .6; cursor: default; }
 }
 .wr-btn--solid {
@@ -164,12 +164,20 @@
 
 // ─────────── AI NARRATIVE ───────────
 .wr-story {
+  position: relative;
   border-radius: var(--tech-radius, 18px);
   padding: clamp(22px, 4vw, 34px);
   background: var(--wr-panel);
   border: 1px solid var(--wr-edge);
   border-left: 3px solid var(--wr-a);
-  box-shadow: var(--tech-shadow-panel);
+  box-shadow: var(--tech-shadow-panel), inset 0 1px 0 rgba(255,255,255,.08);
+}
+.wr-story__eyebrow {
+  display: flex; align-items: center; gap: 7px;
+  margin: 0 0 14px;
+  font: 700 11px/1 var(--tech-font, system-ui); letter-spacing: .18em; text-transform: uppercase;
+  color: var(--wr-ink-dim);
+  mat-icon { font-size: 16px; width: 16px; height: 16px; color: var(--wr-a); }
 }
 .wr-story__text {
   margin: 0;
@@ -200,11 +208,11 @@
   border-radius: var(--tech-radius, 14px);
   background: var(--wr-panel);
   border: 1px solid var(--wr-edge);
-  box-shadow: var(--tech-shadow-panel);
+  box-shadow: var(--tech-shadow-panel), inset 0 1px 0 rgba(255,255,255,.08);
   transition: transform .18s, box-shadow .18s;
   &:hover {
-    transform: translateY(-1px);
-    box-shadow: var(--tech-shadow-raised);
+    transform: translateY(-2px);
+    box-shadow: var(--tech-shadow-raised), inset 0 1px 0 rgba(255,255,255,.10);
   }
   &::before {
     content: ""; position: absolute; inset: 0 0 auto 0; height: 3px;
@@ -230,6 +238,31 @@
 }
 .wr-stat__sub { font: 500 12.5px/1.4 var(--tech-font, system-ui); color: var(--wr-ink-dim); }
 
+// ─────────── EMPTY / ERROR STATE BLOCK ───────────
+// A centred icon orb + title + hint (+ optional action) inside the hero.
+.wr-state {
+  display: flex; flex-direction: column; align-items: center; gap: 12px;
+  padding: 8px 0 4px;
+}
+.wr-state__orb {
+  display: grid; place-items: center;
+  width: 64px; height: 64px; border-radius: 50%;
+  background: color-mix(in srgb, var(--wr-a) 18%, var(--wr-panel-2));
+  border: 1px solid color-mix(in srgb, var(--wr-a) 30%, transparent);
+  box-shadow: 0 0 24px color-mix(in srgb, var(--wr-a) 20%, transparent);
+  margin-bottom: 4px;
+  mat-icon { font-size: 30px; width: 30px; height: 30px; color: var(--wr-a); }
+}
+.wr-state__title {
+  margin: 0;
+  font: 800 clamp(26px, 5vw, 44px)/1.1 var(--tech-font-display, var(--tech-font, system-ui));
+  letter-spacing: -.02em; color: var(--wr-ink);
+}
+.wr-state__hint {
+  margin: 0; max-width: 36ch;
+  font: 500 16px/1.55 var(--tech-font, system-ui); color: var(--wr-ink-dim);
+}
+
 // ─────────── PUBLIC viewer footer ───────────
 .wr-foot {
   margin-top: 8px; text-align: center;
@@ -237,6 +270,36 @@
 }
 // The public viewer renders its own bare chrome — give it breathing room from the top.
 .wr--public { padding-top: clamp(24px, 6vh, 56px); }
+
+// ─────────── RESPONSIVE ───────────
+@media (max-width: 480px) {
+  .wr-hero__head {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+  .wr-hero__periods {
+    align-self: stretch;
+    justify-content: stretch;
+  }
+  .wr-chip {
+    flex: 1 1 0;
+    justify-content: center;
+    min-height: 38px;
+  }
+  .wr-hero__actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .wr-btn {
+    width: 100%;
+    justify-content: center;
+  }
+  .wr-grid {
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 10px;
+  }
+}
 
 @media (prefers-reduced-motion: reduce) {
   .wr-sk { animation: none; }

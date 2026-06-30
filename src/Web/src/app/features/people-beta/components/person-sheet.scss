@@ -75,7 +75,9 @@ $hues: #fb7185, #f0a35a, #a78bfa, #38bdf8, #34d399, #f472b6;
   display: flex; align-items: flex-start; gap: 7px; margin: 0;
   padding: 11px 13px; border-radius: var(--tech-radius, var(--r-tile));
   background: var(--bg-sink); border: 1px solid var(--tech-border, var(--hairline));
-  box-shadow: var(--tech-shadow-panel, none);
+  // Rubric #2: consistent inset top highlight across all surface cards
+  box-shadow: var(--tech-shadow-panel, var(--lift-1)),
+              inset 0 1px 0 color-mix(in srgb, #fff 6%, transparent);
   font-size: 13.5px; font-weight: 600; font-style: italic; color: var(--ink-dim);
 }
 .cs__status mat-icon { flex: 0 0 auto; font-size: 16px; width: 16px; height: 16px; color: var(--ink-faint); margin-top: 1px; }
@@ -88,15 +90,24 @@ $hues: #fb7185, #f0a35a, #a78bfa, #38bdf8, #34d399, #f472b6;
   border: 1px solid var(--tech-border, var(--hairline)); background: var(--bg-rise); color: var(--ink);
   font-family: var(--font-ui); font-size: 14.5px; font-weight: 800; cursor: pointer;
   -webkit-tap-highlight-color: transparent; touch-action: manipulation;
-  transition: transform 120ms var(--ease-out);
+  // Rubric #6: hover lift + active press
+  box-shadow: var(--tech-shadow-panel, var(--lift-1));
+  transition: transform 120ms var(--ease-out), box-shadow 120ms var(--ease-out);
 }
-.cs__act:active { transform: scale(.97); }
+.cs__act:hover { transform: translateY(-1px); box-shadow: var(--tech-shadow-raised, var(--lift-2)); }
+.cs__act:active { transform: scale(.97); box-shadow: var(--press); }
 .cs__act:disabled { opacity: .55; pointer-events: none; }
 .cs__act:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 .cs__act mat-icon { font-size: 20px; width: 20px; height: 20px; }
 .cs__act--primary {
-  border: none; color: var(--tech-text-on-accent, #fff); box-shadow: var(--tech-shadow-panel, var(--lift-2));
+  border: none; color: var(--tech-text-on-accent, #fff);
+  box-shadow: 0 4px 16px color-mix(in srgb, var(--accent-a) 40%, transparent),
+              var(--tech-shadow-panel, var(--lift-2));
   background: linear-gradient(135deg, var(--accent-a), var(--accent-b));
+}
+.cs__act--primary:hover {
+  box-shadow: 0 6px 20px color-mix(in srgb, var(--accent-a) 50%, transparent),
+              var(--tech-shadow-raised, var(--lift-3, var(--lift-2)));
 }
 
 // ---- Nudge picker ----
@@ -109,10 +120,17 @@ $hues: #fb7185, #f0a35a, #a78bfa, #38bdf8, #34d399, #f472b6;
   display: inline-flex; align-items: center; gap: 9px; text-align: left;
   min-height: 50px; padding: 0 13px; border-radius: var(--tech-r-control, var(--r-tile));
   border: 1px solid var(--tech-border, var(--hairline)); background: var(--bg-rise); color: var(--ink);
-  box-shadow: var(--tech-shadow-panel, none);
+  // Rubric #2: inset top highlight on surface card; rubric #6: hover lift
+  box-shadow: var(--tech-shadow-panel, var(--lift-1)),
+              inset 0 1px 0 color-mix(in srgb, #fff 7%, transparent);
   font-family: var(--font-ui); font-size: 13px; font-weight: 700; cursor: pointer;
   -webkit-tap-highlight-color: transparent; touch-action: manipulation;
   transition: transform 120ms var(--ease-out), box-shadow 140ms var(--ease-out);
+}
+.cs__nudge-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--tech-shadow-raised, var(--lift-2)),
+              inset 0 1px 0 color-mix(in srgb, #fff 7%, transparent);
 }
 .cs__nudge-btn:active { transform: scale(.98); box-shadow: var(--press); }
 .cs__nudge-btn:disabled { opacity: .55; pointer-events: none; }

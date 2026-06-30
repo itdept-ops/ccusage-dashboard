@@ -71,7 +71,13 @@ const MEAL_ORDER: ReadonlyArray<{ meal: Meal; title: string }> = [
     @if (expanded()) {
       <div id="fc-body" class="fc-body">
         @if (totalKcal() === 0) {
-          <p class="fc-empty">No food logged yet.</p>
+          <div class="fc-empty" aria-live="polite">
+            <span class="fc-empty-orb" aria-hidden="true">
+              <mat-icon>restaurant</mat-icon>
+            </span>
+            <span class="fc-empty-title">Nothing logged yet</span>
+            <span class="fc-empty-hint">Tap a meal below to add your first food.</span>
+          </div>
         }
 
         @for (g of groups(); track g.meal) {
@@ -96,50 +102,56 @@ const MEAL_ORDER: ReadonlyArray<{ meal: Meal; title: string }> = [
                 }
               </header>
 
-              @for (f of g.foods; track f.id) {
-                <app-swipe-row
-                  [disabled]="readOnly()"
-                  [label]="'Delete ' + f.description"
-                  (delete)="onDelete(f)">
-                  @if (readOnly()) {
-                    <div class="fc-row">
-                      <div class="fc-row-main">
-                        <span class="fc-name">{{ f.description }}</span>
-                        <span class="fc-leader" aria-hidden="true"></span>
-                        <span class="fc-kcal">{{ kcal(f) }}</span>
-                      </div>
-                      @if (macroLine(f); as ml) {
-                        <span class="fc-macros">{{ ml }}</span>
-                      }
-                    </div>
-                  } @else {
-                    <div class="fc-row-wrap">
-                      <button type="button" class="fc-row fc-row-edit"
-                              [attr.aria-label]="'Edit ' + f.description + ', ' + kcal(f) + ' kcal'"
-                              (click)="editFood.emit(f)">
-                        <div class="fc-row-main">
-                          <span class="fc-name">{{ f.description }}</span>
-                          <span class="fc-leader" aria-hidden="true"></span>
-                          <span class="fc-kcal">{{ kcal(f) }}</span>
-                          <mat-icon class="fc-edit-ic" aria-hidden="true">edit</mat-icon>
-                        </div>
-                        @if (macroLine(f); as ml) {
-                          <span class="fc-macros">{{ ml }}</span>
+              @if (g.foods.length) {
+                <div class="fc-rows">
+                  @for (f of g.foods; track f.id) {
+                    <div class="fc-rows-item">
+                      <app-swipe-row
+                        [disabled]="readOnly()"
+                        [label]="'Delete ' + f.description"
+                        (delete)="onDelete(f)">
+                        @if (readOnly()) {
+                          <div class="fc-row">
+                            <div class="fc-row-main">
+                              <span class="fc-name">{{ f.description }}</span>
+                              <span class="fc-leader" aria-hidden="true"></span>
+                              <span class="fc-kcal">{{ kcal(f) }}</span>
+                            </div>
+                            @if (macroLine(f); as ml) {
+                              <span class="fc-macros">{{ ml }}</span>
+                            }
+                          </div>
+                        } @else {
+                          <div class="fc-row-wrap">
+                            <button type="button" class="fc-row fc-row-edit"
+                                    [attr.aria-label]="'Edit ' + f.description + ', ' + kcal(f) + ' kcal'"
+                                    (click)="editFood.emit(f)">
+                              <div class="fc-row-main">
+                                <span class="fc-name">{{ f.description }}</span>
+                                <span class="fc-leader" aria-hidden="true"></span>
+                                <span class="fc-kcal">{{ kcal(f) }}</span>
+                                <mat-icon class="fc-edit-ic" aria-hidden="true">edit</mat-icon>
+                              </div>
+                              @if (macroLine(f); as ml) {
+                                <span class="fc-macros">{{ ml }}</span>
+                              }
+                            </button>
+                            <button type="button" class="fc-row-copy"
+                                    [attr.aria-label]="'Repeat ' + f.description + ' tomorrow'"
+                                    (click)="repeatFood.emit(f)">
+                              <mat-icon aria-hidden="true">event_repeat</mat-icon>
+                            </button>
+                            <button type="button" class="fc-row-copy"
+                                    [attr.aria-label]="'Copy ' + f.description + ' to another day'"
+                                    (click)="copyFood.emit(f)">
+                              <mat-icon aria-hidden="true">content_copy</mat-icon>
+                            </button>
+                          </div>
                         }
-                      </button>
-                      <button type="button" class="fc-row-copy"
-                              [attr.aria-label]="'Repeat ' + f.description + ' tomorrow'"
-                              (click)="repeatFood.emit(f)">
-                        <mat-icon aria-hidden="true">event_repeat</mat-icon>
-                      </button>
-                      <button type="button" class="fc-row-copy"
-                              [attr.aria-label]="'Copy ' + f.description + ' to another day'"
-                              (click)="copyFood.emit(f)">
-                        <mat-icon aria-hidden="true">content_copy</mat-icon>
-                      </button>
+                      </app-swipe-row>
                     </div>
                   }
-                </app-swipe-row>
+                </div>
               }
 
               @if (!readOnly()) {
@@ -171,8 +183,8 @@ const MEAL_ORDER: ReadonlyArray<{ meal: Meal; title: string }> = [
     }
     .fc-head-text { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
     .fc-title {
-      font-family: var(--font-ui); font-size: 13px; font-weight: 600;
-      text-transform: uppercase; letter-spacing: .06em; color: var(--ink-dim);
+      font-family: var(--font-ui); font-size: 13px; font-weight: 700;
+      text-transform: uppercase; letter-spacing: .07em; color: var(--ink-dim);
     }
     .fc-total {
       font-family: var(--font-display); font-size: 22px; font-weight: 600;
@@ -189,9 +201,20 @@ const MEAL_ORDER: ReadonlyArray<{ meal: Meal; title: string }> = [
 
     /* ── body ─────────────────────────────────────────────────────────────── */
     .fc-body { margin-top: 12px; }
+    /* ── styled empty state ── */
     .fc-empty {
-      margin: 4px 0 0; font-family: var(--font-ui); font-size: 13px; color: var(--ink-faint);
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 6px; padding: 12px 8px 4px; text-align: center;
     }
+    .fc-empty-orb {
+      display: grid; place-items: center;
+      width: 40px; height: 40px; border-radius: 50%;
+      background: linear-gradient(135deg, var(--cal-a), var(--cal-b));
+      color: #fff; opacity: .55;
+    }
+    .fc-empty-orb mat-icon { font-size: 20px; width: 20px; height: 20px; }
+    .fc-empty-title { font-family: var(--font-ui); font-size: 13px; font-weight: 600; color: var(--ink-dim); }
+    .fc-empty-hint { font-size: 12px; color: var(--ink-faint); }
 
     .fc-group { margin-top: 14px; }
     .fc-group:first-child { margin-top: 0; }
@@ -224,7 +247,12 @@ const MEAL_ORDER: ReadonlyArray<{ meal: Meal; title: string }> = [
     .fc-group-copy mat-icon { font-size: 18px; width: 18px; height: 18px; }
 
     /* ── ledger row (GRAFT LEDGER: name · dotted-leader · tabular kcal) ─────── */
-    app-swipe-row { margin: 2px 0; }
+    .fc-rows {
+      display: flex; flex-direction: column;
+      border-top: 1px solid var(--hairline); margin: 4px 0;
+    }
+    .fc-rows-item { border-bottom: 1px solid var(--hairline); }
+    .fc-rows-item:last-child { border-bottom: none; }
     .fc-row { padding: 7px 2px; min-height: 30px; }
     /* Editable rows: a flex pairing of the tap-to-edit body (grows) + a trailing copy icon button. */
     .fc-row-wrap { display: flex; align-items: stretch; gap: 4px; }

@@ -17,8 +17,11 @@
 
 @if (loading()) {
   <div class="state" role="status" aria-live="polite">
-    <mat-progress-spinner mode="indeterminate" diameter="36" />
-    <p>Loading your agent activity…</p>
+    <span class="state__orb" aria-hidden="true">
+      <mat-progress-spinner mode="indeterminate" diameter="28" />
+    </span>
+    <p class="state__label">Loading your inbox…</p>
+    <p>Checking what your agents have been up to.</p>
   </div>
 } @else if (error()) {
   <app-bs-error

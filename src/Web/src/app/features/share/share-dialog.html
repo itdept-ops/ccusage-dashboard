@@ -1,4 +1,7 @@
-<h2 mat-dialog-title>Share externally</h2>
+<h2 mat-dialog-title class="sd-dialog-title">
+  <span class="sd-title-orb" aria-hidden="true"><mat-icon>share</mat-icon></span>
+  Share externally
+</h2>
 
 <mat-dialog-content>
   <p class="sd-note">
@@ -41,6 +44,9 @@
     <div class="sd-list">
       @for (s of shares(); track s.id) {
         <div class="sd-item" [class.expired]="s.expired">
+          <div class="sd-item-orb" aria-hidden="true">
+            <mat-icon>{{ s.expired ? 'link_off' : 'link' }}</mat-icon>
+          </div>
           <div class="sd-item-main">
             <span class="sd-item-label">{{ s.label || 'Untitled' }}</span>
             <span class="sd-item-scope">{{ s.scope }}</span>
@@ -85,9 +91,9 @@
         @if (expandedId() === s.id) {
           <div class="sd-views-detail">
             @if (loadingAccesses()) {
-              <div class="sd-view-empty">Loading…</div>
+              <div class="sd-view-empty"><mat-icon class="sd-view-empty-icon">hourglass_empty</mat-icon>Loading…</div>
             } @else if (!accesses().length) {
-              <div class="sd-view-empty">No views recorded yet.</div>
+              <div class="sd-view-empty"><mat-icon class="sd-view-empty-icon">visibility_off</mat-icon>No views recorded yet.</div>
             } @else {
               @for (a of accesses(); track $index) {
                 <div class="sd-view-row mono">

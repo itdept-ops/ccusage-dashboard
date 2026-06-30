@@ -64,6 +64,8 @@
   transition: transform 120ms var(--ease-spring), filter 120ms var(--ease-out);
 }
 .cb-bubble:active { transform: scale(.97); }
+:host.theirs .cb-bubble:hover { filter: brightness(1.07); }
+:host.mine .cb-bubble:hover { filter: brightness(1.10); }
 
 // theirs — glass / sediment, ink text
 :host.theirs .cb-bubble {
@@ -111,7 +113,13 @@
   background: var(--bg-rise);
   color: var(--ink-dim);
   cursor: pointer; touch-action: manipulation; -webkit-tap-highlight-color: transparent;
-  transition: transform 110ms var(--ease-spring);
+  transition: transform 110ms var(--ease-spring), background 120ms var(--ease-out),
+              border-color 120ms var(--ease-out), box-shadow 120ms var(--ease-out);
+}
+.cb-chip:hover {
+  border-color: color-mix(in srgb, var(--accent-a) 40%, transparent);
+  background: color-mix(in srgb, var(--accent-a) 9%, var(--bg-rise));
+  box-shadow: var(--lift-1);
 }
 .cb-chip:active { transform: scale(.9); }
 .cb-chip.is-mine {

@@ -27,16 +27,22 @@
   <!-- ─────────────────────────── LOADING ─────────────────────────── -->
   @if (loading()) {
     <div class="grocery__state" aria-live="polite">
-      <mat-progress-spinner mode="indeterminate" diameter="36" aria-hidden="true" />
-      <p>Loading your grocery list…</p>
+      <span class="grocery__state-orb" aria-hidden="true">
+        <mat-progress-spinner mode="indeterminate" diameter="28" aria-hidden="true" />
+      </span>
+      <p class="grocery__state-title">Loading your list…</p>
+      <p class="grocery__state-hint">Just a moment</p>
     </div>
   }
 
   <!-- ─────────────────────────── ERROR ─────────────────────────── -->
   @else if (error()) {
     <div class="grocery__state">
-      <mat-icon class="grocery__state-glyph" aria-hidden="true">cloud_off</mat-icon>
+      <span class="grocery__state-orb grocery__state-orb--error" aria-hidden="true">
+        <mat-icon>cloud_off</mat-icon>
+      </span>
       <p class="grocery__state-title">Couldn't load your grocery list</p>
+      <p class="grocery__state-hint">Check your connection and try again</p>
       <button mat-stroked-button type="button" (click)="load()">
         <mat-icon aria-hidden="true">refresh</mat-icon> Try again
       </button>
@@ -124,7 +130,9 @@
       </ul>
     } @else {
       <div class="grocery__empty">
-        <mat-icon class="grocery__empty-glyph" aria-hidden="true">remove_shopping_cart</mat-icon>
+        <span class="grocery__empty-orb" aria-hidden="true">
+          <mat-icon>remove_shopping_cart</mat-icon>
+        </span>
         <p class="grocery__empty-title">Nothing to buy yet</p>
         <p class="grocery__empty-sub">
           Add items above, or pull missing ingredients from a recipe in your meal planner.
@@ -204,8 +212,10 @@
 
         @if (archivedLoading()) {
           <div class="grocery__state" aria-live="polite">
-            <mat-progress-spinner mode="indeterminate" diameter="28" aria-hidden="true" />
-            <p>Loading past trips…</p>
+            <span class="grocery__state-orb" aria-hidden="true">
+              <mat-progress-spinner mode="indeterminate" diameter="28" aria-hidden="true" />
+            </span>
+            <p class="grocery__state-title">Loading past trips…</p>
           </div>
         } @else if (archivedTrips().length) {
           <ul class="grocery__items" aria-label="Completed shopping trips">
@@ -233,7 +243,13 @@
             }
           </ul>
         } @else {
-          <p class="grocery__past-empty">No past trips yet. Complete a trip to keep it here for reference.</p>
+          <div class="grocery__past-empty">
+            <span class="grocery__state-orb" aria-hidden="true">
+              <mat-icon>receipt_long</mat-icon>
+            </span>
+            <p class="grocery__state-title">No past trips yet</p>
+            <p class="grocery__state-hint">Complete a trip to keep it here for reference.</p>
+          </div>
         }
       </section>
     }

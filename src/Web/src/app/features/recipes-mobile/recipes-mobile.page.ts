@@ -376,7 +376,10 @@ interface IngredientRow {
         <!-- share -->
         <button type="button" class="rf__share" [class.is-on]="fShare()" (click)="fShare.set(!fShare())">
           <mat-icon aria-hidden="true">{{ fShare() ? 'group' : 'group_off' }}</mat-icon>
-          <span class="rf__share-txt">Share read-only with my contacts</span>
+          <span class="rf__share-txt">
+            <b>{{ fShare() ? 'Shared with your contacts' : 'Private to you' }}</b>
+            <i>Tap to {{ fShare() ? 'stop sharing' : 'share read-only' }}</i>
+          </span>
           <span class="rd__switch" [class.is-on]="fShare()" aria-hidden="true"><span class="rd__switch-knob"></span></span>
         </button>
 

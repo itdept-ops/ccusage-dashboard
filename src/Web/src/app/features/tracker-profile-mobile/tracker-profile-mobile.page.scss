@@ -23,6 +23,7 @@
 
 @include kit.beta-springs;           // @supports linear() spring upgrade (top-level, once)
 @include kit.beta-a11y;              // reduced-motion + reduced-transparency/contrast killswitches (once)
+@include kit.beta-focus;             // accent-tracking focus rings, pierces ng-deep to kit primitives
 
 // ============================================================================
 // SHELL — the kit pull-to-refresh wrapper IS the scroll container.
@@ -71,6 +72,7 @@
   }
   &__title {
     margin: 0;
+    font-family: var(--font-display, var(--tech-font-display, inherit));
     font-size: clamp(1.7rem, 7vw, 2.2rem);
     font-weight: 800; letter-spacing: -.02em; line-height: 1.05;
     color: var(--ink);
@@ -90,7 +92,10 @@
   background: var(--glass);
   border: 1px solid var(--tech-border, var(--glass-edge));
   border-radius: var(--tech-radius, var(--r-card));
-  box-shadow: var(--tech-shadow-panel, var(--lift-2));
+  // Soft depth shadow + the FiMobile card signature: subtle inset top highlight
+  box-shadow:
+    var(--tech-shadow-panel, var(--lift-2)),
+    inset 0 1px 0 rgba(255, 255, 255, .09);
   backdrop-filter: blur(var(--blur-glass, 14px));
   padding: 16px;
 
@@ -275,8 +280,10 @@
   color: var(--accent-a);
   font-size: .82rem; font-weight: 700;
   cursor: pointer;
+  transition: transform .12s var(--ease-out, ease), box-shadow .18s, background .15s;
   mat-icon { font-size: 17px; width: 17px; height: 17px; }
-  &:active { transform: scale(.97); }
+  &:hover { transform: translateY(-1px); box-shadow: var(--tech-shadow-raised, var(--lift-2)); background: color-mix(in srgb, var(--accent-a) 20%, transparent); }
+  &:active { transform: scale(.97); box-shadow: none; }
 }
 
 .pm-ai {
@@ -294,7 +301,10 @@
     color: var(--ink);
     font-size: .92rem; font-weight: 700;
     cursor: pointer;
+    transition: transform .12s var(--ease-out, ease), box-shadow .18s, border-color .15s;
     mat-icon { font-size: 19px; width: 19px; height: 19px; color: var(--accent-a); }
+    &:hover:not(:disabled) { transform: translateY(-1px); box-shadow: var(--tech-shadow-raised, var(--lift-2)); border-color: var(--accent-a); }
+    &:active:not(:disabled) { transform: translateY(0); box-shadow: none; }
     &:disabled { opacity: .6; cursor: default; }
   }
   &__why { margin: 12px 0 0; font-size: .86rem; line-height: 1.45; color: var(--ink-dim); }
@@ -309,27 +319,39 @@
 // PLAN HISTORY
 // ============================================================================
 
-.pm-empty {
-  display: flex; align-items: center; gap: 8px;
-  margin: 0; padding: 12px 4px;
-  font-size: .9rem; color: var(--ink-dim);
-  mat-icon { font-size: 20px; width: 20px; height: 20px; color: var(--ink-faint); }
+// kit app-bs-empty handles the empty state — no local .pm-empty needed.
+
+.pm-plans {
+  list-style: none; margin: 0; padding: 0;
+  display: flex; flex-direction: column;
+  // Hairline dividers between rows (no gap — divider IS the separator)
+  li + li { border-top: 1px solid var(--hairline, var(--tech-border-subtle, rgba(255,255,255,.07))); }
 }
 
-.pm-plans { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
-
 .pm-plan {
-  display: flex; align-items: center; gap: 10px;
+  display: flex; align-items: center; gap: 12px;
   width: 100%;
-  min-height: 60px;
-  padding: 12px 14px;
-  border-radius: var(--tech-r-control, var(--r-tile));
-  border: 1px solid var(--tech-border, var(--glass-edge));
-  background: var(--bg-rise);
+  min-height: 64px;
+  padding: 10px 0;
+  border-radius: 0;       // rows sit inside the card; card carries the radius
+  border: none;
+  background: transparent;
   cursor: pointer; text-align: left;
-  transition: border-color .16s, transform .12s, box-shadow .18s;
-  &:hover { transform: translateY(-1px); box-shadow: var(--tech-shadow-raised, var(--lift-2)); }
-  &:active { transform: scale(.99); box-shadow: none; }
+  transition: background .15s var(--ease-out, ease), transform .12s;
+  &:hover { background: color-mix(in srgb, var(--accent-a) 6%, transparent); }
+  &:active { transform: scale(.995); background: color-mix(in srgb, var(--accent-a) 10%, transparent); }
+
+  // Leading icon orb — rubric #8 "leading icon orb + content + trailing meta/chevron"
+  &__orb {
+    display: grid; place-items: center; flex: none;
+    width: 40px; height: 40px; border-radius: 50%;
+    background: color-mix(in srgb, var(--accent-a) 14%, transparent);
+    border: 1px solid color-mix(in srgb, var(--accent-a) 22%, transparent);
+    mat-icon {
+      font-size: 20px; width: 20px; height: 20px;
+      color: var(--accent-a);
+    }
+  }
 
   &__main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
   &__when {
@@ -347,9 +369,12 @@
 }
 
 .pm-foot {
-  margin: 2px 0 0;
+  margin: 4px 0 0;
+  padding-top: 10px;
+  border-top: 1px solid var(--hairline, var(--tech-border-subtle, rgba(255,255,255,.07)));
   text-align: center;
-  font-size: .78rem; color: var(--ink-faint);
+  font-size: .78rem; letter-spacing: .01em;
+  color: var(--ink-faint);
 }
 
 // ============================================================================
@@ -376,8 +401,10 @@
   color: var(--ink-dim);
   cursor: pointer;
   backdrop-filter: blur(var(--blur-glass, 14px));
+  transition: transform .12s var(--ease-out, ease), color .15s, box-shadow .18s;
   mat-icon { font-size: 22px; width: 22px; height: 22px; }
-  &:active { transform: scale(.96); }
+  &:hover { transform: translateY(-1px); color: var(--ink); box-shadow: var(--tech-shadow-raised, var(--lift-2)); }
+  &:active { transform: scale(.96); box-shadow: none; }
 }
 
 .pm-save {

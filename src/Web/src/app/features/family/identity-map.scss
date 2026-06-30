@@ -10,7 +10,7 @@
   text-align: center; display: flex; flex-direction: column; align-items: center; gap: var(--tech-space-2, 8px);
 }
 .idm__state-crest mat-icon { color: var(--tech-warn); }
-.idm__state-title, .idm__empty-title { margin: var(--tech-space-2, 8px) 0 0; font-size: var(--tech-fs-h3, 14px); }
+.idm__state-title, .idm__empty-title { margin: var(--tech-space-2, 8px) 0 0; font-size: var(--tech-fs-h1, 18px); font-weight: 700; font-family: var(--tech-font-display, inherit); }
 .idm__state-body, .idm__empty-body { margin: 0; color: var(--tech-text-secondary); max-width: 46ch; }
 
 /* ── Range selector ── */

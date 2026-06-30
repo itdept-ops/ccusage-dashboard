@@ -166,8 +166,12 @@
   color: var(--ink);
   font: inherit; font-size: 13.5px; font-weight: 700;
   cursor: pointer;
-  transition: transform 120ms var(--ease-out);
+  transition: transform 120ms var(--ease-out), background 120ms var(--ease-out), border-color 120ms var(--ease-out);
   mat-icon { width: 20px; height: 20px; font-size: 20px; line-height: 20px; }
+  &:hover {
+    background: color-mix(in srgb, var(--glass) 100%, var(--accent-a) 6%);
+    border-color: color-mix(in srgb, var(--accent-a) 28%, var(--glass-edge));
+  }
   &:active { transform: scale(.96); }
 }
 
@@ -254,9 +258,13 @@
 .ap {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  padding-top: 4px;
-  padding-bottom: 8px;
+  gap: 12px;
+  padding-top: 6px;
+  padding-bottom: 12px;
+  // On desktop/tablet the sheet body stays comfortably readable.
+  max-width: var(--content-max, 640px);
+  margin-inline: auto;
+  width: 100%;
 }
 
 // ---- sheet head (roster title or selected-user header) ----
@@ -264,7 +272,7 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 2px 2px 8px;
+  padding: 6px 2px 12px;
   border-bottom: 1px solid var(--hairline);
 }
 
@@ -276,17 +284,24 @@
   border: 1px solid var(--tech-border, var(--glass-edge));
   border-radius: var(--tech-r-control, var(--r-tile));
   background: var(--bg-rise);
-  box-shadow: var(--tech-shadow-panel, var(--lift-1));
+  box-shadow: var(--tech-shadow-panel, var(--lift-1)),
+              inset 0 1px 0 color-mix(in srgb, var(--glass-edge) 60%, transparent);
   color: var(--ink);
   cursor: pointer;
+  transition: background 120ms var(--ease-out), border-color 120ms var(--ease-out), transform 120ms var(--ease-out);
   mat-icon { width: 22px; height: 22px; font-size: 22px; line-height: 22px; }
-  &:active { background: var(--bg-sink); }
+  &:hover {
+    background: color-mix(in srgb, var(--bg-rise) 100%, var(--accent-a) 8%);
+    border-color: color-mix(in srgb, var(--accent-a) 28%, var(--hairline));
+  }
+  &:active { background: var(--bg-sink); transform: scale(.94); }
 }
 
 .ap-head__titles { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
 .ap-head__title {
   margin: 0;
-  font-size: 18px; font-weight: 800; letter-spacing: -.01em; color: var(--ink);
+  font-family: var(--font-display, var(--font-ui));
+  font-size: 18px; font-weight: 800; letter-spacing: -.02em; color: var(--ink);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .ap-head__sub {
@@ -312,17 +327,29 @@
   @include kit.tap44;
   width: 100%;
   display: flex; align-items: center; gap: 12px;
-  padding: 12px 10px 12px 11px;
+  padding: 12px 10px 12px 12px;
   border: 1px solid var(--tech-border, var(--hairline));
   border-radius: var(--tech-radius, var(--r-tile));
   background: var(--bg-rise);
-  box-shadow: var(--tech-shadow-panel, var(--lift-1));
+  // Card signature: panel shadow + subtle inset top highlight.
+  box-shadow: var(--tech-shadow-panel, var(--lift-1)),
+              inset 0 1px 0 color-mix(in srgb, var(--glass-edge) 80%, transparent);
   color: var(--ink);
   text-align: left;
   cursor: pointer;
   transition: transform 130ms var(--ease-out), box-shadow 130ms var(--ease-out), border-color 130ms var(--ease-out);
-  &:hover { transform: translateY(-1px); box-shadow: var(--tech-shadow-raised, var(--lift-2)); }
-  &:active { transform: scale(.985); border-color: var(--glass-edge); box-shadow: var(--tech-shadow-panel, var(--lift-1)); }
+  &:hover {
+    transform: translateY(-1px);
+    box-shadow: var(--tech-shadow-raised, var(--lift-2)),
+                inset 0 1px 0 color-mix(in srgb, var(--glass-edge) 80%, transparent);
+    border-color: color-mix(in srgb, var(--accent-a) 30%, var(--hairline));
+  }
+  &:active {
+    transform: scale(.985);
+    border-color: var(--glass-edge);
+    box-shadow: var(--tech-shadow-panel, var(--lift-1)),
+                inset 0 1px 0 color-mix(in srgb, var(--glass-edge) 80%, transparent);
+  }
 }
 
 .ap-row__glyph {
@@ -424,15 +451,31 @@
 // ============================================================================
 
 .ap-empty {
-  display: flex; flex-direction: column; align-items: center; gap: 8px;
-  padding: 32px 16px;
+  display: flex; flex-direction: column; align-items: center; gap: 10px;
+  padding: 36px 20px;
   text-align: center;
-  color: var(--ink-dim);
+}
+
+// Icon orb — matches the ap-state__orb treatment; consistent with error state.
+.ap-empty__orb {
+  display: grid; place-items: center;
+  width: 56px; height: 56px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%,
+    color-mix(in srgb, var(--accent-a) 14%, transparent), var(--bg-rise));
+  box-shadow: var(--lift-2);
+  flex-shrink: 0;
   mat-icon {
-    width: 40px; height: 40px; font-size: 40px; line-height: 40px;
+    width: 28px; height: 28px; font-size: 28px; line-height: 28px;
     color: var(--ink-faint);
   }
-  p { margin: 0; font-size: 14px; font-weight: 600; }
+}
+
+.ap-empty p {
+  margin: 2px 0 0;
+  font-size: 14px; font-weight: 600;
+  color: var(--ink-dim);
+  max-width: 30ch;
 }
 
 .ap-state {

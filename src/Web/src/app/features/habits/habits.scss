@@ -16,15 +16,33 @@
   border: 1px solid var(--tech-border);
   border-radius: var(--tech-radius, 15px);
   background: var(--tech-panel);
-  box-shadow: var(--tech-shadow-panel);
+  box-shadow: var(--tech-shadow-panel), inset 0 1px 0 var(--tech-glass-inset-hi, rgba(255,255,255,.06));
 }
-.habits__card-title { margin: 0 0 4px; font-size: var(--tech-fs-h1, 18px); font-weight: 700; color: var(--tech-text); }
+.habits__card-title {
+  margin: 0 0 4px;
+  font-family: var(--tech-font-display, var(--tech-font-ui));
+  font-size: var(--tech-fs-h1, 18px);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--tech-text);
+}
 .habits__card-sub { margin: 0 0 var(--tech-space-4, 16px); color: var(--tech-text-secondary, var(--tech-text-tertiary)); font-size: var(--tech-fs-body); line-height: 1.45; }
 
 /* ── Header ── */
-.habits__head { display: flex; flex-wrap: wrap; gap: 1rem; align-items: flex-start; justify-content: space-between; }
-.habits__title h1 { margin: 0 0 4px; font-size: 1.6rem; font-weight: 800; color: var(--tech-text); }
-.habits__sub { margin: 0; max-width: 62ch; color: var(--tech-text-tertiary); line-height: 1.5; }
+.habits__head {
+  display: flex; flex-wrap: wrap; gap: 1rem; align-items: flex-start; justify-content: space-between;
+  margin-bottom: var(--tech-space-2, 8px);
+}
+.habits__title h1 {
+  margin: 0 0 4px;
+  font-family: var(--tech-font-display, var(--tech-font-ui));
+  font-size: clamp(22px, 5vw, 32px);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+  color: var(--tech-text);
+}
+.habits__sub { margin: 0; max-width: 62ch; font-size: var(--tech-fs-body); color: var(--tech-text-tertiary); line-height: 1.5; }
 
 /* Loading spinner wrapper; empty + error render via the shared app-bs-empty / app-bs-error kit primitives. */
 .habits__loading { display: flex; justify-content: center; padding: 3rem 0; }
@@ -60,9 +78,13 @@
   display: flex; flex-direction: column; gap: 12px;
   border-top: 3px solid var(--hc-accent, var(--tech-accent));
   border-radius: var(--tech-radius, 15px);
-  box-shadow: var(--tech-shadow-panel);
+  box-shadow: var(--tech-shadow-panel), inset 0 1px 0 var(--tech-glass-inset-hi, rgba(255,255,255,.06));
   transition: transform 0.15s ease, box-shadow 0.15s ease;
-  &:hover { transform: translateY(-1px); box-shadow: var(--tech-shadow-raised, var(--tech-shadow-panel)); }
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--tech-shadow-raised, var(--tech-shadow-panel)), inset 0 1px 0 color-mix(in srgb, var(--hc-accent, var(--tech-accent)) 18%, transparent);
+  }
+  &:focus-within { outline: none; }
   &.is-paused { opacity: 0.6; }
 }
 .hcard__top { display: flex; align-items: flex-start; gap: 10px; }
@@ -72,7 +94,11 @@
   mat-icon { color: var(--hc-accent); }
 }
 .hcard__id { flex: 1; min-width: 0; }
-.hcard__title { margin: 0; font-size: 1.05rem; font-weight: 700; color: var(--tech-text); }
+.hcard__title {
+  margin: 0;
+  font-family: var(--tech-font-display, var(--tech-font-ui));
+  font-size: 1.05rem; font-weight: 700; letter-spacing: -0.01em; color: var(--tech-text);
+}
 /* FiMobile chip — cadence pill badge */
 .hcard__cadence {
   display: inline-block; font-size: 0.74rem; font-weight: 600; line-height: 1;
@@ -94,11 +120,20 @@
 .hcard__bar { height: 8px; border-radius: 999px; background: var(--tech-bg); overflow: hidden; }
 .hcard__bar-fill { display: block; height: 100%; background: var(--hc-accent, var(--tech-accent)); border-radius: 999px; transition: width .25s; }
 .hcard__measured { font-size: 0.82rem; color: var(--tech-text-tertiary); }
-.hcard__valinput { width: 100px; padding: 5px 8px; border: 1px solid var(--tech-border); border-radius: var(--tech-r-control, 8px); background: var(--tech-panel); color: var(--tech-text); font: inherit; }
+.hcard__valinput {
+  width: 100px; padding: 5px 8px; border: 1px solid var(--tech-border); border-radius: var(--tech-r-control, 8px);
+  background: var(--tech-panel); color: var(--tech-text); font: inherit;
+  transition: border-color 0.15s;
+  &:focus { outline: none; border-color: var(--tech-accent); }
+  &:focus-visible { outline: var(--tech-focus-ring, 2px solid var(--tech-accent)); outline-offset: 2px; }
+}
 .hcard__check {
   display: inline-flex; align-items: center; gap: 8px; padding: 9px 14px; cursor: pointer;
-  border: 1px solid var(--tech-border); border-radius: var(--tech-r-control, 10px); background: var(--tech-panel); color: var(--tech-text); font: inherit; font-weight: 600;
-  &:hover { border-color: var(--hc-accent); }
+  border: 1px solid var(--tech-border); border-radius: var(--tech-r-control, 10px);
+  background: var(--tech-panel); color: var(--tech-text); font: inherit; font-weight: 600;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+  &:hover { border-color: var(--hc-accent); background: color-mix(in srgb, var(--hc-accent) 6%, transparent); }
+  &:focus-visible { outline: var(--tech-focus-ring, 2px solid var(--tech-accent)); outline-offset: 2px; }
   &.is-on { background: color-mix(in srgb, var(--hc-accent) 14%, transparent); border-color: var(--hc-accent); color: var(--hc-accent); }
   mat-icon { font-size: 20px; width: 20px; height: 20px; }
 }
@@ -125,12 +160,15 @@
 .hcard__act--danger { color: var(--tech-error, #dc2626) !important; }
 
 /* ── Leaderboard — FiMobile list rows ── */
-.lb__list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.lb__list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0; }
 .lb__row {
   display: flex; align-items: center; gap: 12px;
   padding: 12px 10px; border-radius: var(--tech-r-control, 10px);
+  border-bottom: 1px solid var(--tech-border-subtle, var(--tech-border));
   transition: background 0.12s;
+  &:last-child { border-bottom: none; }
   &:hover { background: color-mix(in srgb, var(--tech-accent) 5%, transparent); }
+  &:focus-visible { outline: var(--tech-focus-ring, 2px solid var(--tech-accent)); outline-offset: -2px; }
   &.is-self { background: color-mix(in srgb, var(--tech-accent, #4f46e5) 10%, transparent); }
 }
 .lb__rank { width: 22px; text-align: center; font-weight: 800; color: var(--tech-text-tertiary); }
@@ -160,10 +198,23 @@
   box-shadow: -8px 0 36px rgba(0,0,0,0.22), var(--tech-shadow-panel);
   border-radius: var(--tech-radius, 15px) 0 0 var(--tech-radius, 15px);
 }
-.hsheet__head { display: flex; align-items: center; justify-content: space-between; h3 { margin: 0; font-size: 1.2rem; font-weight: 700; color: var(--tech-text); } }
+.hsheet__head {
+  display: flex; align-items: center; justify-content: space-between;
+  h3 {
+    margin: 0;
+    font-family: var(--tech-font-display, var(--tech-font-ui));
+    font-size: 1.2rem; font-weight: 700; letter-spacing: -0.01em; color: var(--tech-text);
+  }
+}
 .hsheet__field { display: flex; flex-direction: column; gap: 5px; }
 .hsheet__label { font-size: 0.76rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--tech-text-tertiary); }
-.hsheet__input { padding: 9px 11px; border: 1px solid var(--tech-border); border-radius: var(--tech-r-control, 9px); background: var(--tech-panel); color: var(--tech-text); font: inherit; &:focus { outline: none; border-color: var(--tech-accent, #4f46e5); } }
+.hsheet__input {
+  padding: 9px 11px; border: 1px solid var(--tech-border); border-radius: var(--tech-r-control, 9px);
+  background: var(--tech-panel); color: var(--tech-text); font: inherit;
+  transition: border-color 0.15s;
+  &:focus { outline: none; border-color: var(--tech-accent, #4f46e5); }
+  &:focus-visible { outline: var(--tech-focus-ring, 2px solid var(--tech-accent)); outline-offset: 2px; border-color: var(--tech-accent, #4f46e5); }
+}
 .hsheet__row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 
 /* FiMobile segmented pill container */
@@ -177,6 +228,7 @@
   background: transparent; color: var(--tech-text);
   transition: background 0.15s, color 0.15s;
   &:hover { background: color-mix(in srgb, var(--tech-accent) 8%, transparent); }
+  &:focus-visible { outline: var(--tech-focus-ring, 2px solid var(--tech-accent)); outline-offset: 1px; }
   &.is-on {
     background: var(--tech-accent, #4f46e5); border-color: var(--tech-accent, #4f46e5);
     color: var(--tech-text-on-accent, #fff);
@@ -186,16 +238,27 @@
 .hsheet__dow {
   flex: 1; aspect-ratio: 1; cursor: pointer; font-weight: 700;
   border: 1px solid var(--tech-border); border-radius: var(--tech-r-control, 8px); background: var(--tech-panel); color: var(--tech-text);
+  transition: background 0.15s, border-color 0.15s;
+  &:hover { border-color: var(--tech-accent); }
+  &:focus-visible { outline: var(--tech-focus-ring, 2px solid var(--tech-accent)); outline-offset: 2px; }
   &.is-on { background: var(--tech-accent, #4f46e5); border-color: var(--tech-accent, #4f46e5); color: var(--tech-text-on-accent, #fff); }
 }
 .hsheet__toggle {
   display: flex; align-items: center; gap: 8px; padding: 9px 0; cursor: pointer; text-align: left;
   background: none; border: none; color: var(--tech-text); font: inherit; font-size: 0.9rem;
+  border-radius: var(--tech-r-control, 8px);
+  &:focus-visible { outline: var(--tech-focus-ring, 2px solid var(--tech-accent)); outline-offset: 2px; }
   mat-icon { color: var(--tech-text-tertiary); }
   &.is-on mat-icon { color: var(--tech-accent, #4f46e5); }
 }
 .hsheet__colors { display: flex; gap: 8px; }
-.hsheet__color { width: 30px; height: 30px; border-radius: 50%; cursor: pointer; border: 2px solid transparent; &.is-on { border-color: var(--tech-text); box-shadow: 0 0 0 2px var(--tech-panel) inset; } }
+.hsheet__color {
+  width: 30px; height: 30px; border-radius: 50%; cursor: pointer; border: 2px solid transparent;
+  transition: transform 0.12s;
+  &:hover { transform: scale(1.12); }
+  &:focus-visible { outline: var(--tech-focus-ring, 2px solid var(--tech-accent)); outline-offset: 3px; }
+  &.is-on { border-color: var(--tech-text); box-shadow: 0 0 0 2px var(--tech-panel) inset; }
+}
 .hsheet__foot { display: flex; gap: 10px; justify-content: flex-end; margin-top: auto; padding-top: 12px; }
 
 /* ── Calendar ── */
@@ -221,4 +284,24 @@
 
 @media (max-width: 880px) {
   .habits__grid { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 480px) {
+  /* Leaderboard: hide soft metric column on small screens to prevent overflow */
+  .lb__metric--soft { display: none; }
+  /* Leaderboard rows: tighten horizontal padding */
+  .lb__row { padding: 10px 6px; }
+  /* Coach card: stack icon + body vertically */
+  .habits__coach { flex-direction: column; gap: 10px; }
+}
+
+@media (max-width: 360px) {
+  /* Habit card footer: allow buttons to wrap rather than overflow */
+  .hcard__foot { flex-wrap: wrap; gap: 4px; }
+  /* Sheet: full-width on very small screens */
+  .hsheet, .hcal { width: 100vw; border-radius: 0; border-left: none; }
+  /* Segmented control: allow wrapping */
+  .hsheet__seg { flex-wrap: wrap; }
+  /* Color swatches: slightly smaller */
+  .hsheet__color { width: 26px; height: 26px; }
 }

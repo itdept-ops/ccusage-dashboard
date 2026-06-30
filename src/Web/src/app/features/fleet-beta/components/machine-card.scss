@@ -12,7 +12,7 @@
   padding: 14px 16px 16px;
   border-radius: var(--r-card);
   background: var(--bg-rise);
-  box-shadow: var(--lift-2);
+  box-shadow: var(--lift-2), inset 0 1px 0 var(--glass-edge);
   border: 1px solid var(--tech-border, var(--hairline));
   text-align: left;
   color: var(--ink);
@@ -24,9 +24,9 @@
   transition: transform 140ms var(--ease-spring), box-shadow 140ms var(--ease-out);
 }
 @media (hover: hover) {
-  .mc:hover { transform: translateY(-1px); box-shadow: var(--lift-3); }
+  .mc:hover { transform: translateY(-1px); box-shadow: var(--lift-3), inset 0 1px 0 var(--glass-edge); }
 }
-.mc:active { transform: scale(.985); box-shadow: var(--lift-1); }
+.mc:active { transform: scale(.985); box-shadow: var(--lift-1), inset 0 1px 0 var(--glass-edge); }
 .mc:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 
 // Gradient accent edge along the top — the "gradient-edge" depth cue.

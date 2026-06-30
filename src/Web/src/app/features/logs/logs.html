@@ -1,11 +1,17 @@
-<div class="head">
-  <div class="head-text">
-    <span class="micro-label head-eyebrow">~/activity — request log</span>
-    <h2>Activity</h2>
-    <p class="sub">Every API request and response, captured by middleware. Bodies are truncated and
-      secrets/auth routes redacted; health and polling calls are skipped, and the newest ~10k are kept.</p>
+<header class="logs-header">
+  <div class="logs-header__copy">
+    <span class="micro-label logs-header__eyebrow">~/activity — request log</span>
+    <h1 class="logs-header__title">Activity</h1>
+    <p class="logs-header__sub">Every API request and response, captured by middleware. Bodies are
+      truncated and secrets/auth routes redacted; health and polling calls are skipped, and the newest
+      ~10k are kept.</p>
   </div>
-</div>
+  <button mat-flat-button class="logs-header__refresh" (click)="load()" [disabled]="loading()"
+          matTooltip="Reload the log">
+    <mat-icon aria-hidden="true">refresh</mat-icon>
+    Refresh
+  </button>
+</header>
 
 <mat-card appearance="outlined" class="panel filter-card">
   <div class="filter-row">
@@ -29,10 +35,6 @@
       <input matInput class="mono-input" [ngModel]="q()" (ngModelChange)="q.set($event)"
              (keyup.enter)="load()" placeholder="/api/usage" />
     </mat-form-field>
-
-    <button mat-stroked-button class="f-refresh" (click)="load()">
-      <mat-icon aria-hidden="true">refresh</mat-icon> Refresh
-    </button>
   </div>
 </mat-card>
 
@@ -98,7 +100,21 @@
           }
         }
         @if (!logs().length && !loading()) {
-          <tr><td colspan="8" class="empty">No requests logged yet — interact with the app, then refresh.</td></tr>
+          <tr class="empty-row">
+            <td colspan="8">
+              <div class="empty-state">
+                <div class="empty-state__orb">
+                  <mat-icon aria-hidden="true">receipt_long</mat-icon>
+                </div>
+                <p class="empty-state__title">No requests logged yet</p>
+                <p class="empty-state__hint">Interact with the app, then refresh to see activity here.</p>
+                <button mat-stroked-button class="empty-state__cta" (click)="load()">
+                  <mat-icon aria-hidden="true">refresh</mat-icon>
+                  Refresh
+                </button>
+              </div>
+            </td>
+          </tr>
         }
       </tbody>
     </table>

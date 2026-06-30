@@ -223,10 +223,40 @@
 // MISC STATES
 // ============================================================================
 
-.empty, .hint {
-  margin: 0; font-size: 13px; color: var(--ink-dim);
+// ── skeleton list — zero extra padding so shimmer rows sit flush inside the card ──
+.skel-list {
+  padding: 0;
+  overflow: hidden;
+  app-bs-skeleton + app-bs-skeleton {
+    border-top: 1px solid var(--hairline);
+  }
 }
-.hint { margin: 6px 6px 0; font-size: 12px; }
+
+// ── Discord unconfigured hint — leading icon orb + body text, visually connected to the card ──
+.hint-row {
+  display: flex; align-items: flex-start; gap: 10px;
+  margin: 6px 2px 0;
+  padding: 10px 14px;
+  border-radius: var(--r-tile);
+  background: color-mix(in srgb, var(--accent-a) 8%, var(--bg-rise));
+  border: 1px solid color-mix(in srgb, var(--accent-a) 20%, var(--hairline));
+}
+.hint-ic {
+  // Material ligature rendered as text inside a tinted orb
+  flex: 0 0 auto;
+  display: grid; place-items: center; width: 28px; height: 28px; border-radius: 8px;
+  font-family: 'Material Icons'; font-size: 16px; line-height: 1; font-style: normal;
+  background: color-mix(in srgb, var(--accent-a) 16%, transparent);
+  color: color-mix(in srgb, var(--accent-a) 72%, var(--ink));
+}
+.hint-text {
+  flex: 1 1 auto; min-width: 0;
+  font-size: 12.5px; line-height: 1.45; color: var(--ink-dim);
+}
+.hint-link {
+  color: color-mix(in srgb, var(--accent-b) 76%, var(--ink)); font-weight: 600; text-decoration: none;
+  &:hover { text-decoration: underline; }
+}
 
 .foot {
   margin: 10px 4px 0; font-size: 12px; color: var(--ink-faint); text-align: center; line-height: 1.5;

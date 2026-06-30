@@ -14,18 +14,21 @@
   gap: var(--tech-space-4, 1rem);
 }
 
-/* Shared card surface (the family__card analogue — that class is component-scoped to family/). */
+/* Shared card surface (the family__card analogue — that class is component-scoped to family/).
+   FiMobile card signature: radius + soft shadow + subtle inset top highlight. */
 .challenge__card {
   padding: var(--tech-space-6, 24px);
   border: 1px solid var(--tech-border);
   border-radius: var(--tech-radius, 12px);
   background: var(--tech-panel);
-  box-shadow: var(--tech-shadow-panel);
+  box-shadow: var(--tech-shadow-panel), inset 0 1px 0 var(--tech-glass-inset-hi, rgba(255,255,255,0.06));
 }
 .challenge__card-title {
   margin: 0 0 var(--tech-space-2, 8px);
+  font-family: var(--tech-font-display, var(--font-display, inherit));
   font-size: var(--tech-fs-h1, 18px);
   font-weight: 700;
+  letter-spacing: -0.01em;
   color: var(--tech-text);
 }
 .challenge__card-sub {
@@ -44,7 +47,14 @@
   gap: var(--tech-space-4, 1rem);
 }
 .challenge__title {
-  h1 { margin: 0; font-size: var(--tech-fs-h1, 18px); font-weight: 700; color: var(--tech-text); }
+  h1 {
+    margin: 0;
+    font-family: var(--tech-font-display, var(--font-display, inherit));
+    font-size: var(--tech-fs-h1, 18px);
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    color: var(--tech-text);
+  }
   .challenge__sub { margin: 0.25rem 0 0; font-size: var(--tech-fs-body); color: var(--tech-text-tertiary); }
 }
 .challenge__head-actions { display: flex; gap: var(--tech-space-2); flex-wrap: wrap; }
@@ -65,6 +75,7 @@
   border: 1px solid var(--tech-border);
   border-radius: var(--tech-radius, 12px);
   background: var(--tech-bg-sunken, var(--tech-panel));
+  box-shadow: inset 0 1px 0 var(--tech-glass-inset-hi, rgba(255,255,255,0.06));
   color: var(--tech-text-secondary);
   font-size: var(--tech-fs-body);
 }
@@ -101,12 +112,76 @@
   white-space: nowrap;
 }
 
+/* ── Loading state (Rubric #5: styled orb + label + bar instead of bare progress bar) ── */
+.challenge__loading-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--tech-space-3, 12px);
+  padding: var(--tech-space-8, 40px) var(--tech-space-6, 24px);
+  text-align: center;
+}
+.challenge__loading-orb {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: var(--ch-fire-soft);
+  border: 1px solid color-mix(in srgb, var(--ch-fire) 25%, transparent);
+  color: var(--ch-fire);
+  animation: ch-spin 2s linear infinite;
+  mat-icon { font-size: 26px; width: 26px; height: 26px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .challenge__loading-orb { animation: none; }
+}
+.challenge__loading-label {
+  font-size: var(--tech-fs-body);
+  color: var(--tech-text-tertiary);
+}
+.challenge__loading-bar {
+  width: 160px;
+  border-radius: var(--tech-r-pill, 999px);
+  overflow: hidden;
+}
+
+/* ── Error state (Rubric #5: orb + title + hint, not bare text) ── */
 .challenge__error {
-  padding: var(--tech-space-3, 12px) var(--tech-space-4, 16px);
-  border: 1px solid var(--tech-danger, #dc2626);
-  border-radius: var(--tech-radius, 12px);
+  display: flex;
+  align-items: flex-start;
+  gap: var(--tech-space-3, 12px);
+  border-color: color-mix(in srgb, var(--tech-danger, #dc2626) 40%, transparent);
+  background: color-mix(in srgb, var(--tech-danger, #dc2626) 6%, var(--tech-panel));
+}
+.challenge__error-orb {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--tech-danger, #dc2626) 14%, transparent);
   color: var(--tech-danger, #dc2626);
-  background: color-mix(in srgb, var(--tech-danger, #dc2626) 8%, transparent);
+  mat-icon { font-size: 20px; width: 20px; height: 20px; }
+}
+.challenge__error-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.challenge__error-title {
+  font-weight: 700;
+  color: var(--tech-danger, #dc2626);
+  font-size: var(--tech-fs-body);
+}
+.challenge__error-msg {
+  font-size: var(--tech-fs-caption, 0.82rem);
+  color: var(--tech-text-secondary);
+  line-height: 1.45;
 }
 
 /* ── Start empty-state ── */
@@ -115,14 +190,34 @@
   gap: var(--tech-space-4, 16px);
   align-items: flex-start;
 }
-.challenge__start-icon {
+/* FiMobile icon orb: centered mat-icon inside a tinted circular container (rubric #5). */
+.challenge__start-orb {
   flex: none;
-  font-size: 40px; width: 40px; height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: var(--ch-fire-soft);
+  border: 1px solid color-mix(in srgb, var(--ch-fire) 25%, transparent);
   color: var(--ch-fire);
+  mat-icon { font-size: 28px; width: 28px; height: 28px; }
+}
+.challenge__start-orb--muted {
+  background: color-mix(in srgb, var(--tech-text) 8%, transparent);
+  border-color: color-mix(in srgb, var(--tech-text) 15%, transparent);
+  color: var(--tech-text-tertiary);
 }
 .challenge__start-copy {
   min-width: 0;
-  h2 { margin: 0 0 var(--tech-space-2, 8px); font-size: var(--tech-fs-h2, 16px); color: var(--tech-text); }
+  h2 {
+    margin: 0 0 var(--tech-space-2, 8px);
+    font-family: var(--tech-font-display, var(--font-display, inherit));
+    font-size: var(--tech-fs-h2, 16px);
+    font-weight: 700;
+    color: var(--tech-text);
+  }
   p { margin: 0 0 var(--tech-space-4, 16px); color: var(--tech-text-secondary); line-height: 1.5; }
 }
 .challenge__start-fields {
@@ -194,7 +289,14 @@
 .challenge__hero-day { display: flex; align-items: center; gap: var(--tech-space-3, 12px); }
 .challenge__hero-trophy { color: var(--ch-fire); font-size: 38px; width: 38px; height: 38px; }
 .challenge__hero-daynum { display: flex; flex-direction: column; line-height: 1.1; }
-.challenge__hero-big { font-size: 2rem; font-weight: 800; color: var(--tech-text); font-variant-numeric: tabular-nums; }
+.challenge__hero-big {
+  font-family: var(--tech-font-display, var(--font-display, inherit));
+  font-size: 2rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--tech-text);
+  font-variant-numeric: tabular-nums;
+}
 .challenge__hero-small { font-size: var(--tech-fs-caption, 0.85rem); color: var(--tech-text-tertiary); text-transform: uppercase; letter-spacing: 0.04em; }
 
 .challenge__hero-meter { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
@@ -240,6 +342,11 @@
   display: flex;
   align-items: center;
   gap: var(--tech-space-2, 8px);
+  padding: var(--tech-space-2, 8px) var(--tech-space-3, 12px);
+  border: 1px solid var(--tech-border);
+  border-radius: var(--tech-radius, 12px);
+  background: var(--tech-panel);
+  box-shadow: var(--tech-shadow-panel), inset 0 1px 0 var(--tech-glass-inset-hi, rgba(255,255,255,0.06));
 }
 .challenge__datelabel { display: flex; flex-direction: column; min-width: 8rem; }
 .challenge__dateheading { font-weight: 700; color: var(--tech-text); font-size: var(--tech-fs-body); }
@@ -260,8 +367,24 @@
 }
 .challenge__today { margin-left: var(--tech-space-2, 8px); font-weight: 600; }
 
-.challenge__daynote { margin: 0; color: var(--tech-text-secondary); font-size: var(--tech-fs-body); }
-.challenge__daynote--out { color: var(--tech-text-tertiary); font-style: italic; }
+.challenge__daynote {
+  margin: 0;
+  padding: var(--tech-space-2, 8px) var(--tech-space-3, 12px);
+  border-radius: var(--tech-r-control, 8px);
+  background: var(--tech-bg-sunken, color-mix(in srgb, var(--tech-text) 4%, transparent));
+  color: var(--tech-text-secondary);
+  font-size: var(--tech-fs-body);
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 6px;
+}
+.challenge__daynote--out {
+  color: var(--tech-text-tertiary);
+  font-style: italic;
+  background: transparent;
+  padding: 0 var(--tech-space-1, 4px);
+}
 .challenge__pill {
   display: inline-flex;
   align-items: center;
@@ -309,12 +432,12 @@
   display: flex;
   align-items: center;
   gap: var(--tech-space-3, 12px);
-  /* FiMobile row: roomy 13px vertical padding, card signature radius + shadow + border. */
+  /* FiMobile row: roomy 13px vertical padding, card signature radius + shadow + inset highlight. */
   padding: 13px var(--tech-space-4, 16px);
   border: 1px solid var(--tech-border);
   border-radius: var(--tech-radius, 12px);
   background: var(--tech-panel);
-  box-shadow: var(--tech-shadow-panel);
+  box-shadow: var(--tech-shadow-panel), inset 0 1px 0 var(--tech-glass-inset-hi, rgba(255,255,255,0.06));
   transition: transform 0.15s ease, box-shadow 0.15s ease;
 
   &:hover {
@@ -515,6 +638,14 @@
   color: var(--tech-text-tertiary);
 }
 .challenge__coach-refresh { margin-left: auto; }
+.challenge__coach-loading {
+  display: flex;
+  align-items: center;
+  gap: var(--tech-space-2, 8px);
+  padding: var(--tech-space-2, 8px) 0;
+  font-size: var(--tech-fs-body);
+  mat-icon { color: var(--ch-fire); font-size: 18px; width: 18px; height: 18px; }
+}
 .challenge__coach-narrative { margin: 0; color: var(--tech-text); line-height: 1.55; }
 .challenge__coach-insights {
   list-style: none;
@@ -545,7 +676,7 @@
   border-radius: var(--tech-radius, 12px);
   padding: var(--tech-space-3, 12px) var(--tech-space-4, 16px);
   background: var(--tech-bg-sunken, var(--tech-panel));
-  box-shadow: var(--tech-shadow-panel);
+  box-shadow: var(--tech-shadow-panel), inset 0 1px 0 var(--tech-glass-inset-hi, rgba(255,255,255,0.04));
   transition: transform 0.15s ease, box-shadow 0.15s ease;
 
   &:hover {
@@ -601,7 +732,12 @@
   padding: 12px var(--tech-space-2, 8px);
   border-radius: var(--tech-radius, 12px);
   transition: transform 0.15s ease, box-shadow 0.15s ease;
-  & + .challenge__board-row { margin-top: 2px; }
+  /* Hairline divider between non-self rows (rubric #8). */
+  & + .challenge__board-row:not(.challenge__board-row--self) {
+    border-top: 1px solid var(--tech-border);
+    margin-top: 0;
+  }
+  & + .challenge__board-row--self { margin-top: var(--tech-space-1, 4px); }
 
   &:hover {
     transform: translateY(-1px);
@@ -631,6 +767,14 @@
   flex: none; display: flex; align-items: center; gap: var(--tech-space-3, 12px);
   /* FiMobile trailing muted value. */
   color: var(--tech-text-tertiary); font-size: var(--tech-fs-caption, 0.8rem);
+  font-variant-numeric: tabular-nums;
+}
+/* Small-caps tracked day label in the meta cluster (Rubric #4). */
+.challenge__board-day {
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  font-size: 0.72rem;
+  font-weight: 600;
 }
 .challenge__board-streak {
   display: inline-flex; align-items: center; gap: 2px; font-variant-numeric: tabular-nums;
@@ -646,6 +790,7 @@
   flex: none; width: 44px; height: 44px; margin-left: -4px;
   color: var(--tech-text-tertiary);
   &:hover:not([disabled]) { color: var(--ch-fire); }
+  &:focus-visible { outline: 2px solid var(--tech-accent); outline-offset: 2px; border-radius: 50%; }
 }
 
 @media (max-width: 560px) {

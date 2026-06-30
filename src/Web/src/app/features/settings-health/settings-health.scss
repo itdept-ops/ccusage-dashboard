@@ -3,6 +3,7 @@
   max-width: var(--tech-max-width, 760px);
   margin: 0 auto;
   padding: var(--tech-space-4, 24px) var(--tech-space-3, 16px) var(--tech-space-6, 48px);
+  overflow-x: clip; // hard guard: page never pushes past viewport
 }
 
 // ── HERO HEADER — FiMobile icon-badge treatment using existing DOM elements ──
@@ -30,18 +31,19 @@
     pointer-events: none;
   }
 
-  // Eyebrow pill — small accent-tinted label above the title (acts as the section kicker)
+  // Eyebrow pill — small-caps accent-tinted label above the title (section kicker)
   .head-eyebrow {
     display: inline-flex;
     align-items: center;
     gap: 6px;
     align-self: flex-start;
-    padding: 4px 10px;
+    padding: 3px 10px;
     border-radius: var(--tech-r-pill);
     background: color-mix(in srgb, var(--tech-accent) 12%, transparent);
-    font-size: var(--tech-fs-small);
+    border: 1px solid color-mix(in srgb, var(--tech-accent) 22%, transparent);
+    font-size: var(--tech-fs-micro, 11px);
     font-weight: 700;
-    letter-spacing: 0.07em;
+    letter-spacing: 0.08em;
     text-transform: uppercase;
     color: var(--tech-accent);
     margin-bottom: 4px;
@@ -64,38 +66,103 @@
   }
 }
 
+// ── loading / error states — icon-orb + title + hint, FiMobile rubric §5 ──
 .state {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: var(--tech-space-2, 12px);
-  padding: clamp(36px, 10vw, 72px) var(--tech-space-3, 16px);
+  padding: clamp(40px, 12vw, 80px) var(--tech-space-3, 16px);
   text-align: center;
   color: var(--tech-text-secondary);
 
-  p { margin: 0; max-width: 48ch; }
-  mat-icon { font-size: 36px; width: 36px; height: 36px; color: var(--tech-text-accent); }
-  &--error mat-icon { color: var(--tech-error, #ff5c6c); }
+  p { margin: 0; max-width: 44ch; font-size: var(--tech-fs-body); }
+
+  // Icon orb — accent-tinted circle wraps the spinner/icon
+  &__orb {
+    display: grid;
+    place-items: center;
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: color-mix(in srgb, var(--tech-accent) 14%, transparent);
+    color: var(--tech-accent);
+    border: 1px solid color-mix(in srgb, var(--tech-accent) 22%, transparent);
+    margin-bottom: 4px;
+
+    mat-icon {
+      font-size: 28px;
+      width: 28px;
+      height: 28px;
+      color: inherit;
+    }
+    mat-progress-spinner { --mdc-circular-progress-active-indicator-color: var(--tech-accent); }
+  }
+
+  &__title {
+    margin: 0;
+    font-family: var(--tech-font-display, var(--tech-font-ui));
+    font-size: var(--tech-fs-h3, 15px);
+    font-weight: 700;
+    color: var(--tech-text);
+  }
+
+  &--error &__orb {
+    background: color-mix(in srgb, var(--tech-error, #ff5c6c) 12%, transparent);
+    border-color: color-mix(in srgb, var(--tech-error, #ff5c6c) 22%, transparent);
+    color: var(--tech-error, #ff5c6c);
+  }
+
+  button {
+    margin-top: 4px;
+    border-radius: var(--tech-r-control);
+  }
 }
 
-// ── base card — FiMobile card signature ──
+// ── base card — FiMobile card signature (radius + shadow + inset top highlight) ──
 .card {
   border: 1px solid var(--tech-border);
   border-radius: var(--tech-radius);
   background: var(--tech-panel);
-  box-shadow: var(--tech-shadow-panel);
+  box-shadow:
+    var(--tech-shadow-panel),
+    inset 0 1px 0 color-mix(in srgb, var(--tech-text) 6%, transparent); // subtle top highlight
   padding: var(--tech-space-3, 16px);
   margin-bottom: var(--tech-space-3, 16px);
+  transition:
+    border-color var(--tech-t-control, 120ms) ease,
+    box-shadow var(--tech-t-slow, 200ms) ease,
+    transform var(--tech-t-fast, 100ms) var(--tech-ease, ease);
 }
 
-// ── not configured notice ──
+// ── not configured notice — leading icon orb + content block ──
 .notice {
   display: flex;
   gap: var(--tech-space-3, 16px);
   align-items: flex-start;
 
-  mat-icon { flex: none; color: var(--tech-text-accent); }
-  &__title { margin: 0 0 4px; font-size: var(--tech-fs-h3, 14px); color: var(--tech-text); }
+  // Upgrade bare mat-icon to icon-orb consistent with FiMobile list rows
+  mat-icon {
+    flex: none;
+    display: grid;
+    place-items: center;
+    width: 40px;
+    height: 40px;
+    border-radius: var(--tech-r-control);
+    background: color-mix(in srgb, var(--tech-accent) 12%, transparent);
+    color: var(--tech-accent);
+    font-size: 22px;
+    // mat-icon is 24px by default; we size the orb, not the icon, so use a containing div approach via font-size
+  }
+
+  div { flex: 1 1 auto; min-width: 0; }
+  &__title {
+    margin: 0 0 4px;
+    font-family: var(--tech-font-display, var(--tech-font-ui));
+    font-size: var(--tech-fs-h3, 14px);
+    font-weight: 700;
+    color: var(--tech-text);
+  }
   &__body { margin: 0; font-size: var(--tech-fs-body); color: var(--tech-text-secondary); max-width: 56ch; }
 }
 
@@ -218,37 +285,84 @@
 // ── sync-now summary ──
 .summary {
   &__head {
-    display: flex; align-items: center; gap: 8px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
     margin: 0 0 var(--tech-space-2, 12px);
-    color: var(--tech-text); font-size: var(--tech-fs-body);
-    mat-icon { color: var(--tech-success, #34d399); }
+    font-family: var(--tech-font-display, var(--tech-font-ui));
+    font-size: var(--tech-fs-body);
+    font-weight: 600;
+    color: var(--tech-text);
+
+    mat-icon {
+      flex: none;
+      font-size: 18px;
+      width: 18px;
+      height: 18px;
+      color: var(--tech-success, #34d399);
+    }
   }
-  &__grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: var(--tech-space-2, 12px); }
+
+  &__grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: var(--tech-space-2, 12px);
+  }
+
   &__cell {
     border: 1px solid var(--tech-border);
     border-radius: var(--tech-r-control);
-    box-shadow: var(--tech-shadow-panel);
+    box-shadow:
+      var(--tech-shadow-panel),
+      inset 0 1px 0 color-mix(in srgb, var(--tech-text) 5%, transparent);
     padding: 10px 12px;
     background: var(--tech-bg-sunken);
   }
-  &__label { display: block; font-size: var(--tech-fs-small); color: var(--tech-text-secondary); margin-bottom: 4px; }
+
+  // Small-caps tracked label (rubric §4 — distinct meta tier)
+  &__label {
+    display: block;
+    font-size: var(--tech-fs-micro, 11px);
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--tech-text-secondary);
+    margin-bottom: 5px;
+  }
+
   &__nums { font-size: var(--tech-fs-small); color: var(--tech-text-secondary); }
   &__num { color: var(--tech-text); font-weight: 600; }
   &__num--muted { color: var(--tech-text-tertiary, var(--tech-text-secondary)); font-weight: 400; }
 }
 
-// ── toggles ──
+// ── toggles — FiMobile list rows: icon-orb + content + trailing toggle + hairlines ──
 .toggles { padding: 4px 0; }
 
 .toggle {
   display: flex;
   align-items: center;
   gap: var(--tech-space-3, 16px);
-  padding: 12px var(--tech-space-3, 16px);
+  padding: 13px var(--tech-space-3, 16px);
+  cursor: pointer;
+  border-radius: calc(var(--tech-radius) - 4px); // inset radius so hover doesn't escape card corners
+  transition: background-color var(--tech-t-control, 120ms) ease;
+
+  &:hover {
+    background: color-mix(in srgb, var(--tech-accent) 6%, transparent);
+
+    .toggle__ic {
+      background: color-mix(in srgb, var(--tech-accent) 20%, transparent);
+    }
+  }
+
+  // hairline divider between rows (last row has no bottom divider)
+  & + .toggle {
+    border-top: 1px solid var(--tech-border-subtle, var(--tech-border));
+  }
 
   &__body { display: flex; align-items: center; gap: var(--tech-space-2, 12px); flex: 1 1 auto; min-width: 0; }
 
-  // FiMobile icon tile: accent-tinted square with control radius
+  // FiMobile icon tile: accent-tinted orb with control radius + smooth color transition
   &__ic {
     flex: none;
     display: inline-flex;
@@ -258,6 +372,8 @@
     height: 36px;
     border-radius: var(--tech-r-control);
     background: color-mix(in srgb, var(--tech-accent) 12%, transparent);
+    transition: background-color var(--tech-t-control, 120ms) ease;
+
     mat-icon {
       font-size: 18px;
       width: 18px;
@@ -265,21 +381,91 @@
       color: var(--tech-accent);
     }
   }
+
   &__text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-  &__label { color: var(--tech-text); font-size: var(--tech-fs-body); }
-  &__hint { color: var(--tech-text-secondary); font-size: var(--tech-fs-small); }
-  &__divider { height: 1px; background: var(--tech-border); margin: 2px var(--tech-space-3, 16px); }
+  &__label { color: var(--tech-text); font-size: var(--tech-fs-body); font-weight: 500; }
+  &__hint { color: var(--tech-text-secondary); font-size: var(--tech-fs-small); line-height: 1.4; }
+
+  // Master toggle separator — heavier divider to visually group master from children
+  &__divider {
+    height: 1px;
+    background: var(--tech-border);
+    margin: 0 var(--tech-space-3, 16px);
+
+    // Reset the auto-hairline that .toggle + .toggle adds — the explicit divider IS the separator
+    & + .toggle { border-top: none; }
+  }
+
+  // The master toggle row gets a slightly heavier label weight
+  &--master .toggle__label {
+    font-size: var(--tech-fs-body);
+    font-weight: 700;
+    color: var(--tech-text);
+  }
 }
 
-// ── disconnect ──
+// ── disconnect — danger zone ──
 .danger {
   margin-top: var(--tech-space-4, 24px);
-  padding-top: var(--tech-space-3, 16px);
-  border-top: 1px dashed var(--tech-border);
+  padding: var(--tech-space-3, 16px);
+  border: 1px dashed color-mix(in srgb, var(--tech-error, #ff5c6c) 35%, var(--tech-border));
+  border-radius: var(--tech-radius);
+  background: color-mix(in srgb, var(--tech-error, #ff5c6c) 4%, transparent);
 
   &__btn {
     color: var(--tech-error, #ff5c6c);
     border-radius: var(--tech-r-control);
+    --mdc-outlined-button-outline-color: color-mix(in srgb, var(--tech-error, #ff5c6c) 40%, transparent);
+
+    &:hover:not([disabled]) {
+      background: color-mix(in srgb, var(--tech-error, #ff5c6c) 8%, transparent);
+    }
+    &:focus-visible {
+      outline: 2px solid var(--tech-error, #ff5c6c);
+      outline-offset: 2px;
+    }
   }
-  &__hint { margin: var(--tech-space-1, 8px) 0 0; font-size: var(--tech-fs-small); color: var(--tech-text-secondary); }
+
+  &__hint {
+    margin: var(--tech-space-1, 8px) 0 0;
+    font-size: var(--tech-fs-small);
+    color: var(--tech-text-secondary);
+    line-height: 1.5;
+  }
+}
+
+// ── focus-visible rings — scheme-tracked (rubric §6) ──
+:host ::ng-deep :focus-visible {
+  outline: 2px solid var(--tech-accent);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+// ── responsive — graceful down to 360px (rubric §10) ──
+@media (max-width: 600px) {
+  // Status banner: stack sync button below text on very narrow screens
+  .statusbar {
+    flex-wrap: wrap;
+    gap: var(--tech-space-2, 12px);
+
+    &__sync {
+      width: 100%;
+      justify-content: center;
+      min-height: 44px;
+    }
+  }
+
+  // Reconnect alert: stack button below content
+  .reconnect {
+    flex-wrap: wrap;
+
+    button { width: 100%; justify-content: center; min-height: 44px; }
+  }
+
+  // Summary: single-column grid on narrow phones
+  .summary__grid { grid-template-columns: 1fr 1fr; }
+}
+
+@media (max-width: 420px) {
+  .summary__grid { grid-template-columns: 1fr; }
 }

@@ -20,28 +20,57 @@
   border: 1px solid var(--tech-border);
   border-radius: var(--tech-radius, 12px);
   background: var(--tech-panel);
-  box-shadow: var(--tech-shadow-panel);
+  /* FiMobile card: soft outer shadow + inset top highlight */
+  box-shadow:
+    var(--tech-shadow-panel),
+    inset 0 1px 0 var(--tech-glass-inset-hi, rgba(255, 255, 255, .06));
 }
 .journal__card-title {
   margin: 0 0 var(--tech-space-3, 12px);
-  font-size: var(--tech-fs-h1, 18px);
+  font-family: var(--tech-font-ui);
+  font-size: var(--tech-fs-panel-hd, 17px);
   font-weight: 700;
   color: var(--tech-text);
 }
 
 /* ── Header ── */
-.journal__head { display: flex; flex-wrap: wrap; gap: 1rem; align-items: flex-start; }
-.journal__title h1 { margin: 0 0 4px; font-size: 1.6rem; font-weight: 800; color: var(--tech-text); }
-.journal__sub { margin: 0; max-width: 60ch; color: var(--tech-text-tertiary); line-height: 1.5; }
+.journal__head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  align-items: flex-start;
+  justify-content: space-between;
+}
+.journal__title h1 {
+  margin: 0 0 4px;
+  font-family: var(--tech-font-display);
+  font-size: clamp(1.4rem, 4vw, 1.75rem);
+  font-weight: 800;
+  color: var(--tech-text);
+  letter-spacing: -0.01em;
+}
+.journal__sub { margin: 0; max-width: 60ch; color: var(--tech-text-tertiary); line-height: 1.5; font-size: var(--tech-fs-body, 0.9rem); }
 
 /* ── Loading ── (error renders via the shared app-bs-error kit primitive) */
-.journal__loading { display: flex; justify-content: center; padding: 3rem 0; }
+.journal__loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--tech-space-3, 12px);
+  padding: 4rem 0;
+  color: var(--tech-text-tertiary);
+  font-size: var(--tech-fs-body, 0.9rem);
+}
 
 /* ── Weekly reflection card — FiMobile HERO CARD ── */
 .journal__reflect {
   display: flex; gap: 16px; align-items: flex-start;
   background: var(--tech-gradient-accent);
   border-color: transparent;
+  /* Hero card overrides the inset highlight with a brighter edge on gradient */
+  box-shadow:
+    var(--tech-shadow-panel),
+    inset 0 1px 0 rgba(255, 255, 255, .18);
 }
 .journal__reflect-ic {
   flex: none; width: 42px; height: 42px; border-radius: 50%;
@@ -73,9 +102,9 @@
   display: flex; flex-direction: column; gap: 2px;
   padding: 14px 16px; border: 1px solid var(--tech-border); border-radius: var(--tech-radius, 12px);
   background: var(--tech-panel);
-  box-shadow: var(--tech-shadow-panel);
+  box-shadow: var(--tech-shadow-panel), inset 0 1px 0 var(--tech-glass-inset-hi, rgba(255, 255, 255, .06));
   transition: transform 120ms ease, box-shadow 120ms ease;
-  &:hover { transform: translateY(-1px); box-shadow: var(--tech-shadow-raised); }
+  &:hover { transform: translateY(-1px); box-shadow: var(--tech-shadow-raised), inset 0 1px 0 var(--tech-glass-inset-hi, rgba(255, 255, 255, .06)); }
 }
 .journal__stat-v { font-size: 1.05rem; font-weight: 800; color: var(--tech-text); }
 .journal__stat-l { font-size: 0.74rem; color: var(--tech-text-tertiary); text-transform: uppercase; letter-spacing: 0.04em; }
@@ -85,19 +114,40 @@
 
 /* left rail */
 .journal__rail { max-height: 640px; overflow: auto; }
-.journal__list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
 
-/* FiMobile list rows — roomy with leading icon tile */
+/* FiMobile list rows — roomy with leading icon tile + trailing indicator */
+.journal__list {
+  list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column;
+  /* hairline dividers between rows */
+  li + li { border-top: 1px solid var(--tech-border-subtle, rgba(0,0,0,.06)); }
+}
 .journal__row {
   width: 100%; display: flex; align-items: center; gap: 10px;
-  padding: 12px 11px; border: 1px solid transparent; border-radius: var(--tech-r-control, 10px);
+  padding: 11px 10px; border: 1px solid transparent; border-radius: var(--tech-r-control, 10px);
   background: transparent; color: var(--tech-text); cursor: pointer; text-align: left;
   transition: background 100ms ease, border-color 100ms ease;
   &:hover { background: var(--tech-bg); }
+  &:focus-visible {
+    outline: none;
+    box-shadow: var(--tech-focus-ring, 0 0 0 3px color-mix(in srgb, var(--tech-accent) 40%, transparent));
+    border-color: color-mix(in srgb, var(--tech-accent) 40%, transparent);
+  }
   &.is-sel {
     background: color-mix(in srgb, var(--tech-accent) 10%, var(--tech-panel));
     border-color: color-mix(in srgb, var(--tech-accent) 32%, transparent);
   }
+  /* trailing chevron — cosmetic only, visible on selected row */
+  &::after {
+    content: '';
+    flex: none;
+    width: 7px; height: 7px;
+    border-right: 2px solid var(--tech-text-tertiary);
+    border-top: 2px solid var(--tech-text-tertiary);
+    transform: rotate(45deg);
+    opacity: 0;
+    transition: opacity 120ms ease;
+  }
+  &.is-sel::after, &:hover::after { opacity: 0.5; }
 }
 .journal__row-emoji {
   /* leading icon tile */
@@ -120,6 +170,11 @@
 .journal__date {
   margin-left: auto; padding: 6px 8px; border: 1px solid var(--tech-border); border-radius: var(--tech-r-control, 8px);
   background: var(--tech-panel); color: var(--tech-text); font: inherit;
+  &:focus-visible { outline: none; border-color: var(--tech-accent); box-shadow: var(--tech-focus-ring, 0 0 0 3px color-mix(in srgb, var(--tech-accent) 20%, transparent)); }
+}
+/* Touch target floor: mat-icon-button is 40px by default; bump to 44px for rubric compliance */
+.journal__daybar button[mat-icon-button] {
+  width: 44px; height: 44px;
 }
 
 .journal__field { display: flex; flex-direction: column; gap: 6px; }
@@ -135,9 +190,14 @@
   min-width: 64px; padding: 10px 8px; cursor: pointer;
   border: 1px solid var(--tech-border); border-radius: var(--tech-radius, 12px);
   background: var(--tech-panel); color: var(--tech-text);
-  box-shadow: var(--tech-shadow-panel);
-  transition: transform 100ms ease, border-color 100ms ease, background 100ms ease;
-  &:hover { border-color: color-mix(in srgb, var(--tech-accent) 50%, transparent); transform: translateY(-1px); }
+  box-shadow: var(--tech-shadow-panel), inset 0 1px 0 var(--tech-glass-inset-hi, rgba(255,255,255,.05));
+  transition: transform 100ms ease, border-color 100ms ease, background 100ms ease, box-shadow 100ms ease;
+  &:hover { border-color: color-mix(in srgb, var(--tech-accent) 50%, transparent); transform: translateY(-1px); box-shadow: var(--tech-shadow-raised), inset 0 1px 0 var(--tech-glass-inset-hi, rgba(255,255,255,.05)); }
+  &:focus-visible {
+    outline: none;
+    box-shadow: var(--tech-focus-ring, 0 0 0 3px color-mix(in srgb, var(--tech-accent) 30%, transparent)), inset 0 1px 0 var(--tech-glass-inset-hi, rgba(255,255,255,.05));
+    border-color: var(--tech-accent);
+  }
   &.is-on {
     background: color-mix(in srgb, var(--tech-accent) 12%, var(--tech-panel));
     border-color: var(--tech-accent);
@@ -149,9 +209,14 @@
 /* energy */
 .journal__energy { display: flex; align-items: center; gap: 10px; }
 .journal__dot {
-  width: 26px; height: 26px; border-radius: 50%; cursor: pointer;
+  width: 28px; height: 28px; border-radius: 50%; cursor: pointer;
   border: 2px solid var(--tech-border); background: var(--tech-panel); padding: 0;
-  transition: background 100ms ease, border-color 100ms ease;
+  transition: background 100ms ease, border-color 100ms ease, box-shadow 100ms ease;
+  &:hover { border-color: color-mix(in srgb, var(--tech-accent) 60%, transparent); }
+  &:focus-visible {
+    outline: none;
+    box-shadow: var(--tech-focus-ring, 0 0 0 3px color-mix(in srgb, var(--tech-accent) 30%, transparent));
+  }
   &.is-on { background: var(--tech-accent); border-color: var(--tech-accent); }
 }
 .journal__energy-v { font-size: 0.85rem; color: var(--tech-text-tertiary); font-weight: 600; }
@@ -159,28 +224,36 @@
 /* tags — FiMobile chip/badge pills */
 .journal__tags { display: flex; flex-wrap: wrap; gap: 6px; }
 .journal__tag {
-  padding: 6px 12px; cursor: pointer; font-size: 0.85rem;
+  padding: 6px 14px; cursor: pointer; font-size: 0.85rem; font-weight: 500;
   border: 1px solid color-mix(in srgb, var(--tech-accent) 30%, transparent);
   border-radius: var(--tech-r-pill, 999px);
   background: color-mix(in srgb, var(--tech-accent) 12%, transparent);
   color: var(--tech-text);
   text-transform: capitalize;
+  min-height: 34px;
   transition: background 100ms ease, border-color 100ms ease, color 100ms ease;
   &:hover { border-color: color-mix(in srgb, var(--tech-accent) 60%, transparent); background: color-mix(in srgb, var(--tech-accent) 18%, transparent); }
+  &:focus-visible {
+    outline: none;
+    box-shadow: var(--tech-focus-ring, 0 0 0 3px color-mix(in srgb, var(--tech-accent) 30%, transparent));
+  }
   &.is-on { background: var(--tech-accent); border-color: var(--tech-accent); color: var(--tech-text-on-accent); }
 }
 
 /* text areas */
 .journal__area {
-  resize: vertical; padding: 10px 12px; font: inherit; line-height: 1.5;
+  resize: vertical; padding: 10px 12px; font: inherit; line-height: 1.5; width: 100%; box-sizing: border-box;
   border: 1px solid var(--tech-border); border-radius: var(--tech-r-control, 10px); background: var(--tech-panel); color: var(--tech-text);
-  &:focus { outline: none; border-color: var(--tech-accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--tech-accent) 18%, transparent); }
+  transition: border-color 120ms ease;
+  &:focus, &:focus-visible { outline: none; border-color: var(--tech-accent); box-shadow: var(--tech-focus-ring, 0 0 0 3px color-mix(in srgb, var(--tech-accent) 18%, transparent)); }
 }
 .journal__area--lg { min-height: 120px; }
 
 .journal__editor-foot {
   display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
-  padding-top: 4px;
+  padding-top: 8px;
+  border-top: 1px solid var(--tech-border-subtle, rgba(0,0,0,.06));
+  margin-top: 4px;
 }
 .journal__privacy {
   display: flex; align-items: center; gap: 6px; margin: 0;
@@ -188,10 +261,42 @@
   mat-icon { font-size: 18px; width: 18px; height: 18px; }
 }
 .journal__day-actions { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.journal__copy, .journal__clear {
+  min-height: 44px;
+  border-radius: var(--tech-r-control, 10px) !important;
+  font-weight: 600;
+  mat-icon { font-size: 18px; width: 18px; height: 18px; }
+}
 .journal__clear { color: var(--tech-text-tertiary) !important; }
+.journal__today {
+  min-height: 40px;
+  border-radius: var(--tech-r-control, 10px) !important;
+  font-weight: 600;
+  mat-icon { font-size: 16px; width: 16px; height: 16px; margin-right: 2px; vertical-align: text-bottom; }
+}
 
 @media (max-width: 880px) {
   .journal__grid { grid-template-columns: 1fr; }
   .journal__summary { grid-template-columns: repeat(2, 1fr); }
   .journal__rail { max-height: 280px; }
+}
+
+@media (max-width: 480px) {
+  .journal {
+    padding: var(--tech-space-4, 1rem) var(--tech-space-3, 0.75rem);
+    gap: var(--tech-space-3, 0.75rem);
+  }
+  .journal__card { padding: 16px; }
+  .journal__moods { gap: 6px; }
+  .journal__mood { min-width: 56px; padding: 8px 6px; }
+  .journal__editor-foot { flex-direction: column; align-items: flex-start; }
+  .journal__day-actions { width: 100%; }
+  .journal__copy, .journal__clear { flex: 1; justify-content: center; }
+}
+
+@media (max-width: 360px) {
+  .journal__summary { grid-template-columns: 1fr 1fr; }
+  .journal__mood { min-width: 48px; }
+  .journal__daybar { gap: 4px; }
+  .journal__daybar-now { min-width: 100px; }
 }

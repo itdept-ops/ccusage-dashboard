@@ -4,6 +4,66 @@
   margin: 0 auto;
 }
 
+/* ═══════════════════════════════════════════════════════════════
+   Page header — display-font title + one-line subtitle + primary action
+   ═══════════════════════════════════════════════════════════════ */
+.dash-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: var(--tech-space-4);
+
+  &__copy {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  &__title {
+    font-family: var(--tech-font-display);
+    font-size: var(--tech-fs-display);
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    color: var(--tech-text);
+    line-height: 1.15;
+    margin: 0 0 2px;
+  }
+
+  &__sub {
+    margin: 0;
+    font-size: var(--tech-fs-label);
+    color: var(--tech-text-tertiary);
+    line-height: 1.4;
+  }
+
+  /* Sync lives in the header; cyan "data" identity */
+  &__sync {
+    flex: 0 0 auto;
+    background: var(--tech-accent-cyan);
+    color: var(--tech-text-on-accent);
+    border-radius: var(--tech-r-control);
+    font-weight: 600;
+    transition:
+      box-shadow var(--tech-t-slow) ease,
+      transform var(--tech-t-fast) var(--tech-ease);
+
+    &:hover:not([disabled]) { box-shadow: var(--tech-glow-cyan); }
+    &:active:not([disabled]) { transform: scale(0.97); }
+    &:focus-visible { outline: 2px solid var(--tech-accent-cyan); outline-offset: 3px; }
+    &[disabled] { opacity: 0.55; }
+  }
+}
+
+@media (max-width: 560px) {
+  .dash-header {
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: var(--tech-space-3);
+
+    &__title { font-size: clamp(20px, 6vw, var(--tech-fs-display)); }
+    &__sync { width: 100%; justify-content: center; min-height: 44px; }
+  }
+}
+
 mat-progress-bar {
   margin-bottom: var(--tech-space-4);
   border-radius: var(--tech-r-pill);
@@ -94,18 +154,12 @@ mat-progress-bar {
     .btn-reset {
       --mdc-outlined-button-outline-color: var(--tech-border-strong);
       color: var(--tech-text-secondary);
+      &:focus-visible { outline: 2px solid var(--tech-accent); outline-offset: 3px; }
     }
 
-    .btn-apply:hover:not(:disabled) {
-      box-shadow: var(--tech-glow-blue);
-    }
-
-    /* Sync uses the cyan tertiary "data" identity */
-    .sync-btn {
-      background: var(--tech-accent-cyan);
-      color: var(--tech-text-on-accent);
-      &:hover:not(:disabled) { box-shadow: var(--tech-glow-cyan); }
-      &:disabled { opacity: 0.55; }
+    .btn-apply {
+      &:hover:not(:disabled) { box-shadow: var(--tech-glow-blue); }
+      &:focus-visible { outline: 2px solid var(--tech-accent); outline-offset: 3px; }
     }
   }
 }
@@ -146,6 +200,10 @@ mat-progress-bar {
       color: var(--tech-text);
       background: color-mix(in srgb, var(--tech-accent) 14%, transparent);
       border-color: color-mix(in srgb, var(--tech-accent) 35%, transparent);
+    }
+    &:focus-visible {
+      outline: 2px solid var(--tech-accent);
+      outline-offset: 2px;
     }
   }
 
@@ -192,6 +250,10 @@ mat-progress-bar {
       color: var(--tech-accent);
       background: color-mix(in srgb, var(--tech-accent) 13%, transparent);
       box-shadow: var(--tech-glow-blue);
+    }
+    &:focus-visible {
+      outline: 2px solid var(--tech-accent);
+      outline-offset: 2px;
     }
   }
 }
@@ -524,6 +586,11 @@ mat-progress-bar {
   display: flex;
   align-items: center;
   gap: var(--tech-space-3);
+  font-family: var(--tech-font-display);
+  font-size: var(--tech-fs-h2);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--tech-text);
 
   .header-icon { flex: 0 0 auto; }
 }
@@ -706,18 +773,40 @@ mat-button-toggle-group {
     flex-direction: column;
     align-items: center;
     text-align: center;
-    gap: 8px;
-    padding: 20px 12px;
-    color: var(--tech-text-tertiary);
+    gap: 10px;
+    padding: 24px 12px;
 
-    mat-icon {
-      font-size: 30px;
-      width: 30px;
-      height: 30px;
-      color: var(--tech-text-tertiary);
-      opacity: 0.7;
+    /* FiMobile state orb — accent-tinted circle with a centered glyph */
+    &__orb {
+      display: grid;
+      place-items: center;
+      width: 52px;
+      height: 52px;
+      border-radius: 50%;
+      background: color-mix(in srgb, var(--tech-accent-cyan) 16%, transparent);
+      color: var(--tech-accent-cyan);
+      mat-icon {
+        font-size: 26px;
+        width: 26px;
+        height: 26px;
+      }
     }
-    p { margin: 0; font-size: var(--tech-fs-label); max-width: 30ch; }
+
+    &__title {
+      margin: 0;
+      font-family: var(--tech-font-display);
+      font-size: var(--tech-fs-h2);
+      font-weight: 700;
+      color: var(--tech-text);
+    }
+
+    &__hint {
+      margin: 0;
+      font-size: var(--tech-fs-label);
+      color: var(--tech-text-tertiary);
+      max-width: 28ch;
+      line-height: 1.5;
+    }
   }
 }
 
@@ -733,6 +822,16 @@ mat-button-toggle-group {
     color: var(--tech-text-tertiary);
     padding: 28px 12px;
   }
+}
+
+/* Skeleton rows shown while records are loading — stack with consistent gap */
+.records-loading {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 0;
+
+  app-bs-skeleton { display: block; }
 }
 
 .table-scroll {

@@ -8,8 +8,8 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { Api } from '../../core/api';
 import { AutomationRule, AutomationRuleInput } from '../../core/models';
 import {
-  BetaFab, BetaPullRefresh, BetaSegmentedControl, BetaSkeleton, BetaSwipeRow, BetaToaster,
-  ToastController, type Segment,
+  BetaErrorState, BetaFab, BetaPullRefresh, BetaSegmentedControl, BetaSkeleton,
+  BetaSwipeRow, BetaToaster, ToastController, type Segment,
 } from '../beta-ui';
 
 import { RelayRuleCard } from './components/rule-card';
@@ -40,7 +40,7 @@ import { AutomationTemplate, TEMPLATES } from './automations-beta.model';
   providers: [ToastController],
   imports: [
     MatIconModule, BetaPullRefresh, BetaFab, BetaToaster, BetaSkeleton, BetaSwipeRow,
-    BetaSegmentedControl, RelayRuleCard, RelayCreateSheet,
+    BetaSegmentedControl, BetaErrorState, RelayRuleCard, RelayCreateSheet,
   ],
   template: `
     <app-bs-pull-refresh class="ab-ptr" [busy]="refreshing()" (refresh)="refreshAll()">
@@ -89,13 +89,13 @@ import { AutomationTemplate, TEMPLATES } from './automations-beta.model';
               @for (s of [0,1,2]; track s) { <app-bs-skeleton height="132px" radius="var(--r-card)" /> }
             </div>
           } @else if (error()) {
-            <div class="ab-state">
-              <span class="ab-state-ic" aria-hidden="true"><mat-icon>cloud_off</mat-icon></span>
-              <p class="ab-state-msg">We couldn't load your automations just now.</p>
-              <button type="button" class="ab-state-btn" (click)="reload(true)">
-                <mat-icon aria-hidden="true">refresh</mat-icon> Try again
-              </button>
-            </div>
+            <app-bs-error
+              icon="cloud_off"
+              title="Couldn't load automations"
+              body="We couldn't reach the server just now."
+              ctaLabel="Try again"
+              ctaIcon="refresh"
+              (retry)="reload(true)" />
           } @else if (rules().length === 0) {
             <div class="ab-state ab-empty">
               <span class="ab-state-ic ab-empty-ic" aria-hidden="true"><mat-icon>bolt</mat-icon></span>

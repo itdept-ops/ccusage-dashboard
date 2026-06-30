@@ -45,6 +45,10 @@
   // Reserve room for the fixed extended FAB above the safe-area.
   padding-bottom: calc(var(--safe-bottom) + 96px);
   padding-inline: var(--gutter) var(--gutter-r);
+  // Comfortable readable column on desktop; fluid on mobile.
+  max-width: calc(var(--content-max) + var(--gutter) + var(--gutter-r));
+  margin-inline: auto;
+  box-sizing: border-box;
 }
 
 // ============================================================================
@@ -145,10 +149,11 @@
 .ab-seg { flex: 1 1 auto; }
 
 .ab-filter-empty {
-  display: inline-flex; align-items: center; gap: 8px; justify-content: center;
+  display: flex; align-items: center; gap: 8px; justify-content: center;
   margin: 2px 0; padding: 16px 18px; border-radius: var(--tech-radius);
   background: var(--bg-rise); border: 1px dashed var(--hairline);
   font-size: 13.5px; font-weight: 600; color: var(--ink-dim); text-align: center;
+  width: 100%; box-sizing: border-box;
 }
 .ab-filter-empty mat-icon { font-size: 18px; width: 18px; height: 18px; color: var(--ink-faint); }
 
@@ -205,6 +210,10 @@
   cursor: pointer; -webkit-tap-highlight-color: transparent; touch-action: manipulation;
   transition: border-color 140ms var(--ease-out), background 140ms var(--ease-out), transform 120ms var(--ease-spring);
 }
+.ab-tpl-chip:hover {
+  border-color: color-mix(in srgb, var(--accent-a) 50%, var(--hairline));
+  background: color-mix(in srgb, var(--accent-a) 14%, var(--bg-rise));
+}
 .ab-tpl-chip:active { transform: scale(.96); }
 .ab-tpl-chip:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 .ab-tpl-chip mat-icon { font-size: 16px; width: 16px; height: 16px; color: var(--accent-a); }
@@ -230,18 +239,6 @@
 }
 .ab-state-ic mat-icon { font-size: 28px; width: 28px; height: 28px; }
 .ab-state-msg { margin: 0; font-size: 14px; font-weight: 600; color: var(--ink-dim); max-width: 32ch; line-height: 1.4; }
-.ab-state-btn {
-  display: inline-flex; align-items: center; gap: 7px;
-  min-height: 48px; padding: 0 22px; border: none; border-radius: var(--tech-r-pill);
-  background: linear-gradient(135deg, var(--accent-a), var(--accent-b)); color: var(--tech-text-on-accent, var(--ink-on-accent));
-  font-family: var(--font-ui); font-size: 14.5px; font-weight: 800; cursor: pointer; box-shadow: var(--lift-2);
-  -webkit-tap-highlight-color: transparent; touch-action: manipulation;
-  transition: transform 120ms var(--ease-out);
-}
-.ab-state-btn:active { transform: scale(.97); }
-.ab-state-btn:focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; }
-.ab-state-btn mat-icon { font-size: 19px; width: 19px; height: 19px; }
-
 // Empty state — a touch more presence (glyph glow + heading).
 .ab-empty { padding: 44px 20px; }
 .ab-empty-ic {
@@ -265,5 +262,5 @@
   border-radius: var(--tech-r-control);
 }
 
-// No 390px overflow: everything is fluid by construction.
-:host, .ab-scroll { max-width: 100vw; }
+// No 390px overflow: everything is fluid by construction; host never overflows.
+:host { max-width: 100vw; }

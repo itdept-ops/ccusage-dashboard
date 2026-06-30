@@ -77,15 +77,16 @@
 .ac-hero__kicker {
   display: inline-flex; align-items: center; gap: 6px;
   margin: 0;
-  font-size: .74rem; font-weight: 600; letter-spacing: .04em;
-  color: color-mix(in oklab, var(--accent-a) 80%, var(--ink-dim));
-  text-transform: lowercase;
-  mat-icon { font-size: 18px; width: 18px; height: 18px; }
+  font-size: .68rem; font-weight: 700; letter-spacing: .08em;
+  color: var(--ink-dim);
+  text-transform: uppercase;
+  mat-icon { font-size: 16px; width: 16px; height: 16px; color: var(--accent-a); }
 }
 
 .ac-hero__title {
   margin: 0;
-  font-size: 1.7rem; font-weight: 800; letter-spacing: -.02em;
+  font-family: var(--font-display, var(--tech-font-display));
+  font-size: clamp(26px, 7vw, 34px); font-weight: 800; letter-spacing: -.02em;
   color: var(--ink);
 }
 
@@ -110,7 +111,7 @@
   background: var(--glass);
   border: 1px solid var(--tech-border, var(--hairline));
   border-radius: var(--tech-radius, var(--r-tile));
-  box-shadow: var(--tech-shadow-panel, var(--lift-1));
+  box-shadow: var(--tech-shadow-panel, var(--lift-1)), inset 0 1px 0 var(--glass-edge, rgba(255,255,255,.08));
 
   &.is-bad {
     border-color: color-mix(in oklab, var(--st-4xx) 50%, var(--hairline));
@@ -156,6 +157,7 @@
   .ac-method__caret { margin-left: -2px; }
   &:hover { transform: translateY(-1px); box-shadow: var(--tech-shadow-raised, var(--lift-2)); }
   &:active { transform: scale(.98); }
+  &:focus-visible { outline: 2px solid var(--focus, var(--accent-a)); outline-offset: 2px; }
 }
 
 .ac-search {
@@ -166,6 +168,12 @@
   background: var(--glass);
   border: 1px solid var(--tech-border, var(--hairline));
   border-radius: var(--r-pill);
+  transition: border-color 160ms var(--ease-out), box-shadow 160ms var(--ease-out);
+
+  &:focus-within {
+    border-color: color-mix(in oklab, var(--accent-a) 55%, var(--hairline));
+    box-shadow: 0 0 0 2px color-mix(in oklab, var(--accent-a) 20%, transparent);
+  }
 
   > mat-icon { font-size: 18px; width: 18px; height: 18px; color: var(--tech-text-secondary, var(--ink-dim)); flex: 0 0 auto; }
 }
@@ -207,13 +215,14 @@
   background: var(--glass);
   border: 1px solid var(--tech-border, var(--hairline));
   border-radius: var(--tech-radius, var(--r-tile));
-  box-shadow: var(--tech-shadow-panel, var(--lift-1));
+  box-shadow: var(--tech-shadow-panel, var(--lift-1)), inset 0 1px 0 var(--glass-edge, rgba(255,255,255,.08));
   cursor: pointer;
   color: var(--ink);
   transition: transform 140ms var(--ease-out), border-color 140ms var(--ease-out), box-shadow 140ms var(--ease-out);
 
-  &:hover { transform: translateY(-1px); box-shadow: var(--tech-shadow-raised, var(--lift-2)); }
-  &:active { transform: scale(.99); box-shadow: var(--lift-2); }
+  &:hover { transform: translateY(-1px); box-shadow: var(--tech-shadow-raised, var(--lift-2)), inset 0 1px 0 var(--glass-edge, rgba(255,255,255,.08)); }
+  &:active { transform: scale(.99); box-shadow: var(--lift-2), inset 0 1px 0 var(--glass-edge, rgba(255,255,255,.08)); }
+  &:focus-visible { outline: 2px solid var(--focus, var(--accent-a)); outline-offset: 2px; }
 }
 
 // reveal-in stagger (collapses under reduced motion via the kit a11y killswitch)
@@ -323,15 +332,16 @@
   min-height: 44px;
   margin-top: 6px;
   padding: 0 18px;
-  border: none; border-radius: var(--tech-r-control, var(--r-tile));
+  border: none; border-radius: var(--r-pill);
   background: var(--tech-gradient-accent, linear-gradient(120deg, var(--accent-a), var(--accent-b)));
-  color: var(--tech-text-on-accent, #06121f); font-weight: 700; font-size: .88rem;
+  color: var(--ink-on-accent, var(--tech-text-on-accent, #06121f)); font-weight: 700; font-size: .88rem;
   cursor: pointer;
   box-shadow: var(--tech-shadow-raised, var(--lift-2));
   transition: transform 140ms var(--ease-out), box-shadow 140ms var(--ease-out);
   mat-icon { font-size: 19px; width: 19px; height: 19px; }
   &:hover { transform: translateY(-1px); box-shadow: var(--tech-shadow-popover, var(--lift-3)); }
   &:active { transform: scale(.97); }
+  &:focus-visible { outline: 2px solid var(--focus, var(--accent-a)); outline-offset: 3px; }
 }
 
 // ============================================================================
@@ -349,15 +359,16 @@
   background: var(--glass);
   border: 1px solid var(--tech-border, var(--hairline));
   border-radius: var(--tech-radius, var(--r-tile));
-  box-shadow: var(--tech-shadow-panel, var(--lift-1));
+  box-shadow: var(--tech-shadow-panel, var(--lift-1)), inset 0 1px 0 var(--glass-edge, rgba(255,255,255,.08));
   color: var(--ink); font-size: .9rem; font-weight: 600;
   cursor: pointer;
-  transition: transform 140ms var(--ease-out), box-shadow 140ms var(--ease-out);
+  transition: transform 140ms var(--ease-out), box-shadow 140ms var(--ease-out), border-color 140ms var(--ease-out);
 
   &.is-on { border-color: color-mix(in oklab, var(--accent-a) 55%, var(--hairline)); }
   mat-icon { color: var(--accent-a); font-size: 20px; width: 20px; height: 20px; }
-  &:hover { transform: translateY(-1px); box-shadow: var(--tech-shadow-raised, var(--lift-2)); }
+  &:hover { transform: translateY(-1px); box-shadow: var(--tech-shadow-raised, var(--lift-2)), inset 0 1px 0 var(--glass-edge, rgba(255,255,255,.08)); }
   &:active { transform: scale(.99); }
+  &:focus-visible { outline: 2px solid var(--focus, var(--accent-a)); outline-offset: 2px; }
 }
 .ms__opt-txt { flex: 1 1 auto; text-align: left; }
 
@@ -402,7 +413,7 @@
   background: var(--glass);
   border: 1px solid var(--tech-border, var(--hairline));
   border-radius: var(--tech-radius, var(--r-tile));
-  box-shadow: var(--tech-shadow-panel, var(--lift-1));
+  box-shadow: var(--tech-shadow-panel, var(--lift-1)), inset 0 1px 0 var(--glass-edge, rgba(255,255,255,.08));
 }
 .ad__metric-n { font-size: 1.05rem; font-weight: 800; color: var(--ink); .is-slow & , &.is-slow { color: var(--st-4xx); } }
 .ad__metric-l { font-size: .66rem; color: var(--tech-text-secondary, var(--ink-dim)); text-transform: uppercase; letter-spacing: .05em; }
@@ -428,7 +439,7 @@
   margin: 0;
   padding: 12px;
   background: color-mix(in oklab, var(--bg-sink) 60%, transparent);
-  border: 1px solid var(--hairline);
+  border: 1px solid var(--tech-border, var(--hairline));
   border-radius: var(--r-tile);
   font-size: .76rem; line-height: 1.5;
   color: var(--ink);

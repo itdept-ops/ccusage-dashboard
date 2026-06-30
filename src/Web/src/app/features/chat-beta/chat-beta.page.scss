@@ -33,6 +33,13 @@
   --bg-rise: var(--tech-panel, #121a22);
   --bg-sink: var(--tech-bg-sunken, #080c11);
 
+  // ---- ELEVATION — override kit defaults so cards carry the inset top highlight ----
+  // --lift-1 = resting panel shadow (flat card), --lift-2 = raised card (with inset hi-light).
+  // The inset 0 1px 0 glass-edge is the FiMobile card signature; kit --lift-2 may or may not
+  // include it depending on the --tech-shadow-raised value, so we pin it explicitly here.
+  --lift-1: var(--tech-shadow-panel, 0 2px 8px rgba(0, 0, 0, .30));
+  --lift-2: var(--tech-shadow-raised, 0 6px 18px rgba(0, 0, 0, .38), inset 0 1px 0 var(--glass-edge));
+
   // A cool radial wash behind the whole surface (theme-aware — light in light mode).
   background: radial-gradient(120% 80% at 50% -10%, var(--tech-panel-raised, #11252b) 0%, var(--bg-base) 58%);
 
@@ -45,11 +52,35 @@
 
 // ============================================================================
 // PANES — list + thread share the full surface; thread slides over the list.
+// On desktop (>= 680px) the panes are constrained to a comfortable reading
+// width and centered so the messenger never stretches to an unreadable sprawl.
 // ============================================================================
 
 .pane {
   position: relative; flex: 1; min-height: 0;
   display: flex; flex-direction: column;
+}
+
+// On wider viewports the list and thread both cap at --content-max and center.
+// The thread uses position:absolute; we apply the same max-width + centering so
+// both panes align. The thread's inset:0 is scoped to the thread rule below and
+// overrides position only — max-width + margin-inline still constrain its paint box.
+@media (min-width: 680px) {
+  :host {
+    align-items: center;   // center the flex children (panes) on the cross axis
+  }
+  .pane {
+    max-width: var(--content-max, 640px);
+    width: 100%;
+  }
+  .thread {
+    // Re-scope inset to be relative to the list's layout box (center column)
+    // by NOT using inset:0; instead pin it to the same centered column.
+    left: 50%; right: auto;
+    width: min(100%, var(--content-max, 640px));
+    transform-origin: center top;
+    translate: -50% 0;
+  }
 }
 
 // The list stays mounted underneath; hidden (and inert) while a thread is open.
@@ -98,6 +129,11 @@
   background: linear-gradient(135deg, var(--accent-a), var(--accent-b));
   color: var(--tech-text-on-accent, #fff); font-size: 12px; font-weight: 800; line-height: 1;
   box-shadow: var(--lift-1);
+}
+.lh__sub {
+  margin: 3px 0 0; padding: 0;
+  font-size: 13px; font-weight: 500; color: var(--ink-dim);
+  letter-spacing: .01em; line-height: 1.3;
 }
 .lh__live {
   display: inline-flex; align-items: center; gap: 6px; margin-top: 6px;
@@ -166,6 +202,11 @@
   cursor: pointer; touch-action: manipulation; -webkit-tap-highlight-color: transparent;
   transition: transform 120ms var(--ease-spring), background 140ms var(--ease-out), color 140ms var(--ease-out), border-color 140ms var(--ease-out);
 }
+.lh__filter:hover:not(.is-on) {
+  background: color-mix(in srgb, var(--accent-a) 8%, var(--bg-rise));
+  border-color: color-mix(in srgb, var(--accent-a) 30%, transparent);
+  color: var(--ink);
+}
 .lh__filter:active { transform: scale(.94); }
 .lh__filter:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 .lh__filter mat-icon { font-size: 18px; width: 18px; height: 18px; }
@@ -192,8 +233,14 @@
   background: var(--tech-panel, var(--bg-rise));
   border-radius: var(--tech-radius, var(--r-tile));
   border: 1px solid var(--tech-border, var(--glass-edge));
-  box-shadow: var(--tech-shadow-panel, var(--lift-1));
+  box-shadow: var(--lift-1);
   overflow: hidden;   // clip the swipe-row / conv-row to the card shape
+  transition: transform 160ms var(--ease-spring), box-shadow 160ms var(--ease-out);
+}
+// Hover lift: card rises 2px and picks up the raised-card shadow with the inset hi-light.
+.rise:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--lift-2);
 }
 @keyframes rise-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
 
@@ -248,6 +295,7 @@
   -webkit-tap-highlight-color: transparent; touch-action: manipulation;
   transition: transform 120ms var(--ease-spring);
 }
+.th__back:hover { color: var(--ink); background: color-mix(in srgb, var(--accent-a) 10%, transparent); border-radius: 12px; }
 .th__back:active { transform: scale(.86); }
 .th__back:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: 12px; }
 .th__back mat-icon { font-size: 20px; width: 20px; height: 20px; }
@@ -371,6 +419,7 @@
   cursor: pointer; touch-action: manipulation; -webkit-tap-highlight-color: transparent;
   transition: transform 120ms var(--ease-spring), opacity 140ms var(--ease-out), filter 140ms var(--ease-out);
 }
+.composer__send:hover:not(:disabled) { transform: translateY(-1px) scale(1.04); filter: brightness(1.1); }
 .composer__send:active { transform: scale(.9); }
 .composer__send:disabled { opacity: .4; filter: grayscale(.4); cursor: default; box-shadow: var(--lift-1); }
 .composer__send:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
@@ -394,13 +443,20 @@
   min-height: 56px; border-radius: var(--r-tile);
   background: var(--bg-rise); font-size: 28px; line-height: 1;
   cursor: pointer; touch-action: manipulation; -webkit-tap-highlight-color: transparent;
-  transition: transform 120ms var(--ease-spring), background 140ms var(--ease-out);
+  transition: transform 120ms var(--ease-spring), background 140ms var(--ease-out),
+              box-shadow 140ms var(--ease-out), border-color 140ms var(--ease-out);
 }
 .react__e:active { transform: scale(.88); }
-.react__e:hover { background: color-mix(in srgb, var(--accent-a) 10%, var(--bg-rise)); }
+.react__e:hover {
+  background: color-mix(in srgb, var(--accent-a) 10%, var(--bg-rise));
+  border-color: color-mix(in srgb, var(--accent-a) 35%, transparent);
+  box-shadow: var(--lift-1);
+  transform: translateY(-1px) scale(1.04);
+}
 .react__e:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 
 @media (prefers-reduced-motion: reduce) {
   .thread, .rise, .empty, .typing { animation: none; }
   .lh__pulse, .typing__dots i { animation: none; }
+  .rise { transition: none; }
 }

@@ -22,6 +22,7 @@
 
 @include kit.beta-springs;          // @supports linear() spring upgrade (top-level, once)
 @include kit.beta-a11y;             // reduced-motion + reduced-transparency/contrast killswitches (once)
+@include kit.beta-focus;            // single accent-tracking focus ring pierces kit primitives too
 
 // ============================================================================
 // SHELL — the kit pull-to-refresh wrapper IS the scroll container.
@@ -32,7 +33,7 @@
 .rc-scroll {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: var(--stack-gap);     // 16px rhythm token — consistent with the kit standard
   min-height: 100%;
   max-width: 720px;          // centers on desktop; full-bleed within 390px
   margin-inline: auto;
@@ -52,7 +53,7 @@
   display: flex;
   flex-direction: column;
   gap: 4px;
-  padding: 8px 4px 4px;
+  padding: 8px 4px 12px;    // extra bottom breathing room before the next section
   isolation: isolate;
 }
 
@@ -97,7 +98,7 @@
   background: var(--glass);
   border: 1px solid var(--glass-edge);
   border-radius: var(--r-tile);
-  box-shadow: var(--lift-1);
+  box-shadow: var(--lift-1), inset 0 1px 0 var(--glass-edge); // inset top highlight
 }
 .rc-stat__n {
   font-size: 22px; font-weight: 800; line-height: 1; color: var(--ink); letter-spacing: -.02em;
@@ -130,14 +131,14 @@
   background: var(--glass);
   border: 1px solid var(--glass-edge);
   border-radius: var(--r-tile);
-  box-shadow: var(--lift-1);
+  box-shadow: var(--lift-1), inset 0 1px 0 var(--glass-edge); // inset top highlight
   color: var(--ink);
   font-family: var(--font-ui);
   cursor: pointer; touch-action: pan-y; -webkit-tap-highlight-color: transparent;
   transition: transform 120ms var(--ease-out), box-shadow 120ms var(--ease-out);
 
   @media (hover: hover) {
-    &:hover { transform: translateY(-1px); box-shadow: var(--lift-2); }
+    &:hover { transform: translateY(-2px); box-shadow: var(--lift-2), inset 0 1px 0 var(--glass-edge); }
   }
   &:active { transform: scale(.985); box-shadow: var(--press); }
   &:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
@@ -203,7 +204,7 @@
   background: var(--glass);
   border: 1px solid var(--glass-edge);
   border-radius: var(--r-glass);
-  box-shadow: var(--lift-1);
+  box-shadow: var(--lift-1), inset 0 1px 0 var(--glass-edge); // inset top highlight
 }
 .rc-state__orb, .rc-empty__orb {
   display: inline-flex; align-items: center; justify-content: center;
@@ -227,6 +228,10 @@
   background: linear-gradient(135deg, var(--accent-a), var(--accent-b));
   color: var(--ink-on-accent); font-family: var(--font-ui); font-size: 14px; font-weight: 700;
   cursor: pointer; box-shadow: var(--lift-2);
+  transition: transform 120ms var(--ease-out), box-shadow 120ms var(--ease-out);
+  @media (hover: hover) {
+    &:hover { transform: translateY(-2px); box-shadow: var(--lift-3); }
+  }
   &:active { transform: scale(.97); }
   &:focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; }
   mat-icon { width: 20px; height: 20px; font-size: 20px; line-height: 20px; }
@@ -236,7 +241,7 @@
 // DETAIL SHEET
 // ============================================================================
 
-.rd { display: flex; flex-direction: column; gap: 14px; padding-top: 4px; }
+.rd { display: flex; flex-direction: column; gap: var(--stack-gap); padding-top: 4px; }
 
 .rd__head { display: flex; align-items: center; gap: 12px; }
 .rd__glyph {
@@ -250,7 +255,8 @@
 .rd__titles { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .rd__title {
   margin: 0; font-size: 20px; font-weight: 800; letter-spacing: -.01em; color: var(--ink);
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  font-family: var(--font-display, var(--font-ui));   // display font for sheet title
+  overflow-wrap: break-word; word-break: break-word;  // wrap naturally in the sheet; no hard clip
 }
 .rd__sub {
   display: inline-flex; align-items: center; gap: 5px;
@@ -303,25 +309,25 @@
   min-height: 56px; padding: 10px 14px;
   text-align: left;
   background: var(--bg-sink); border: 1px solid var(--hairline); border-radius: var(--r-tile);
-  box-shadow: var(--lift-1);
+  box-shadow: var(--lift-1), inset 0 1px 0 var(--glass-edge); // inset top highlight
   color: var(--ink); font-family: var(--font-ui); cursor: pointer;
   transition: border-color 160ms var(--ease-out), background 160ms var(--ease-out),
               transform 120ms var(--ease-out), box-shadow 120ms var(--ease-out);
   &.is-on { border-color: color-mix(in srgb, var(--accent-a) 55%, transparent);
             background: color-mix(in srgb, var(--accent-a) 8%, var(--bg-sink)); }
   @media (hover: hover) {
-    &:hover { transform: translateY(-1px); box-shadow: var(--lift-2); }
+    &:hover { transform: translateY(-1px); box-shadow: var(--lift-2), inset 0 1px 0 var(--glass-edge); }
   }
   &:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
   &:disabled { opacity: .55; pointer-events: none; }
   > mat-icon { flex: 0 0 auto; color: var(--ink-dim); width: 22px; height: 22px; font-size: 22px; line-height: 22px; }
   &.is-on > mat-icon { color: var(--accent-a); }
 }
-.rd__share-txt, .rf__share-txt { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 1px;
+.rd__share-txt, .rf__share-txt {
+  flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 1px;
   b { font-size: 14px; font-weight: 700; color: var(--ink); }
   i { font-size: 11.5px; font-weight: 600; font-style: normal; color: var(--ink-dim); }
 }
-.rf__share-txt { font-size: 14px; font-weight: 700; color: var(--ink); flex-direction: row; align-items: center; }
 
 .rd__switch {
   flex: 0 0 auto; position: relative; width: 44px; height: 26px; border-radius: var(--r-pill);
@@ -342,7 +348,10 @@
   border-radius: var(--r-pill); border: 1px solid var(--hairline);
   background: var(--bg-sink); color: var(--ink);
   font-family: var(--font-ui); font-size: 14px; font-weight: 700;
-  cursor: pointer; transition: transform 120ms var(--ease-out);
+  cursor: pointer; transition: transform 120ms var(--ease-out), box-shadow 120ms var(--ease-out);
+  @media (hover: hover) {
+    &:hover { transform: translateY(-1px); box-shadow: var(--lift-1); }
+  }
   &:active { transform: scale(.97); }
   &:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
   &:disabled { opacity: .55; pointer-events: none; }
@@ -366,7 +375,7 @@
 // ADD / EDIT FORM SHEET
 // ============================================================================
 
-.rf { display: flex; flex-direction: column; gap: 14px; padding-top: 2px; padding-bottom: 8px; }
+.rf { display: flex; flex-direction: column; gap: var(--stack-gap); padding-top: 2px; padding-bottom: 8px; }
 
 .rf__head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .rf__title { margin: 0; font-size: 20px; font-weight: 800; letter-spacing: -.01em; color: var(--ink); }
@@ -374,6 +383,10 @@
   flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center;
   width: 40px; height: 40px; border-radius: 50%;
   border: 1px solid var(--hairline); background: var(--bg-sink); color: var(--ink-dim); cursor: pointer;
+  transition: transform 120ms var(--ease-out), background 120ms var(--ease-out);
+  @media (hover: hover) {
+    &:hover { background: var(--glass); transform: scale(1.06); }
+  }
   &:active { transform: scale(.94); }
   &:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
   &:disabled { opacity: .5; pointer-events: none; }
@@ -428,6 +441,14 @@
   border: 1px dashed color-mix(in srgb, var(--accent-a) 45%, var(--hairline));
   border-radius: var(--r-pill); background: transparent; color: var(--accent-a);
   font-family: var(--font-ui); font-size: 13.5px; font-weight: 700; cursor: pointer;
+  transition: transform 120ms var(--ease-out), background 120ms var(--ease-out),
+              border-color 120ms var(--ease-out);
+  @media (hover: hover) {
+    &:hover {
+      background: color-mix(in srgb, var(--accent-a) 8%, transparent);
+      border-color: color-mix(in srgb, var(--accent-a) 70%, transparent);
+    }
+  }
   &:active { transform: scale(.97); }
   &:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
   mat-icon { width: 19px; height: 19px; font-size: 19px; line-height: 19px; }
@@ -440,6 +461,9 @@
   border: none; color: var(--ink-on-accent);
   background: linear-gradient(135deg, var(--accent-a), var(--accent-b));
   box-shadow: var(--lift-2);
+  @media (hover: hover) {
+    &:hover { transform: translateY(-2px); box-shadow: var(--lift-3); }
+  }
 }
 .rf__spin {
   width: 16px; height: 16px; border-radius: 50%;

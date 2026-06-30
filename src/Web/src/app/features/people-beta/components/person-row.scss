@@ -27,21 +27,29 @@ $hues: #fb7185, #f0a35a, #a78bfa, #38bdf8, #34d399, #f472b6;
   border: 1px solid var(--tech-border, var(--hairline));
   border-radius: var(--tech-radius, var(--r-tile));
   background: var(--bg-rise);
-  box-shadow: var(--tech-shadow-panel, var(--lift-1));
+  // Rubric #2: card = soft shadow + subtle inset top highlight
+  box-shadow: var(--tech-shadow-panel, var(--lift-1)),
+              inset 0 1px 0 color-mix(in srgb, #fff 8%, transparent);
   color: var(--ink);
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
   touch-action: manipulation;
   transition: transform 120ms var(--ease-spring), box-shadow 160ms var(--ease-out);
 }
-.cr:hover { transform: translateY(-1px); box-shadow: var(--tech-shadow-raised, var(--lift-2)); }
+.cr:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--tech-shadow-raised, var(--lift-2)),
+              inset 0 1px 0 color-mix(in srgb, #fff 8%, transparent);
+}
 .cr:active { transform: scale(.985); box-shadow: var(--press); }
 .cr:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 
 // Online rows get a faint accent left-edge so the eye lands on who's around.
 .cr[data-presence='online'] {
   border-color: color-mix(in srgb, var(--accent-a) 30%, var(--hairline));
-  box-shadow: var(--lift-1), inset 3px 0 0 -1px color-mix(in srgb, var(--accent-a) 70%, transparent);
+  box-shadow: var(--lift-1),
+              inset 3px 0 0 -1px color-mix(in srgb, var(--accent-a) 70%, transparent),
+              inset 0 1px 0 color-mix(in srgb, #fff 8%, transparent);
 }
 .cr--self {
   background: color-mix(in srgb, var(--accent-a) 8%, var(--bg-rise));

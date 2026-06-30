@@ -176,15 +176,19 @@ import { currentStreak, dayHasAnyLog } from './util/streak';
     }
     .tb-daybtn:disabled { opacity: .3; pointer-events: none; }
     .tb-daybtn:active { background: var(--bg-sink); }
+    .tb-daybtn:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
     .tb-today-pill {
       height: 32px; padding: 0 12px; border-radius: var(--r-pill);
       border: 1px solid var(--glass-edge); background: var(--bg-rise); color: var(--ink);
       font: 600 12px/1 var(--font-ui); letter-spacing: .02em; cursor: pointer;
       touch-action: manipulation; -webkit-tap-highlight-color: transparent;
+      transition: box-shadow 120ms var(--ease-out), transform 120ms var(--ease-out);
     }
     .tb-today-pill:active { box-shadow: var(--press); transform: translateY(1px); }
+    .tb-today-pill:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
     .tb-date {
-      font: 600 14px/1 var(--font-ui); color: var(--ink); white-space: nowrap;
+      font: 700 15px/1 var(--font-display); letter-spacing: -.01em;
+      color: var(--ink); white-space: nowrap;
       overflow: hidden; text-overflow: ellipsis; padding: 0 4px;
     }
     .tb-avatar {
@@ -195,6 +199,7 @@ import { currentStreak, dayHasAnyLog } from './util/streak';
       cursor: pointer; touch-action: manipulation; -webkit-tap-highlight-color: transparent;
     }
     .tb-avatar:active { transform: scale(.95); }
+    .tb-avatar:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
     .tb-avatar-initial { font: 700 16px/1 var(--font-display); letter-spacing: -.02em; }
 
     /* ACTION BAR internals */

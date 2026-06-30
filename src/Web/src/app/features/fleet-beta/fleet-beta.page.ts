@@ -65,6 +65,7 @@ const EMPTY_FILTER: UsageFilter = {
             <div class="hh__text">
               <span class="hh__eyebrow"><span class="hh__spark" aria-hidden="true"></span> Fleet</span>
               <h1 class="hh__title">Fleet</h1>
+              <p class="hh__sub">Machines &amp; spend across your fleet</p>
             </div>
             @if (onlineCount() > 0) {
               <span class="hh__online" [attr.aria-label]="onlineCount() + ' online now'">

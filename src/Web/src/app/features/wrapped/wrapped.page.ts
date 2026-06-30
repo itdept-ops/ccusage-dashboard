@@ -56,19 +56,25 @@ interface RecapStat { readonly key: string; readonly num: string; readonly label
             <span class="wr-sk wr-sk--line"></span>
           </div>
         } @else if (errored()) {
-          <h1 class="wr-hero__title">Couldn't load Wrapped</h1>
-          <p class="wr-hero__sub">Something went wrong fetching your recap.</p>
-          <button type="button" class="wr-btn wr-btn--solid" (click)="reload()">
-            <mat-icon aria-hidden="true">refresh</mat-icon> Try again
-          </button>
+          <div class="wr-state" role="alert">
+            <span class="wr-state__orb" aria-hidden="true"><mat-icon>warning_amber</mat-icon></span>
+            <h1 class="wr-state__title">Couldn't load Wrapped</h1>
+            <p class="wr-state__hint">Something went wrong fetching your recap.</p>
+            <button type="button" class="wr-btn wr-btn--solid" (click)="reload()">
+              <mat-icon aria-hidden="true">refresh</mat-icon> Try again
+            </button>
+          </div>
         } @else if (!cards().length) {
-          <h1 class="wr-hero__title">Nothing to wrap… yet</h1>
-          <p class="wr-hero__sub">
-            Log a few things — a workout, a meal, some water — and your recap writes itself.
-          </p>
-          <a class="wr-btn wr-btn--solid" href="/tracker">
-            <mat-icon aria-hidden="true">arrow_forward</mat-icon> Open the tracker
-          </a>
+          <div class="wr-state">
+            <span class="wr-state__orb" aria-hidden="true"><mat-icon>auto_awesome</mat-icon></span>
+            <h1 class="wr-state__title">Nothing to wrap… yet</h1>
+            <p class="wr-state__hint">
+              Log a few things — a workout, a meal, some water — and your recap writes itself.
+            </p>
+            <a class="wr-btn wr-btn--solid" href="/tracker">
+              <mat-icon aria-hidden="true">arrow_forward</mat-icon> Open the tracker
+            </a>
+          </div>
         } @else {
           <h1 class="wr-hero__title">{{ coverTitle() }}</h1>
           <p class="wr-hero__sub">{{ data()?.userName }}, here's your highlight reel.</p>
@@ -97,6 +103,9 @@ interface RecapStat { readonly key: string; readonly num: string; readonly label
         <!-- ─────────── AI NARRATIVE ─────────── -->
         @if (narrative()?.narrative; as story) {
           <section class="wr-story">
+            <p class="wr-story__eyebrow" aria-hidden="true">
+              <mat-icon>psychology</mat-icon> AI Narrative
+            </p>
             <p class="wr-story__text">{{ story }}</p>
             @if (narrative()?.insights?.length) {
               <ul class="wr-story__insights">

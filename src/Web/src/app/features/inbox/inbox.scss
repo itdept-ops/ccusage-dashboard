@@ -27,11 +27,13 @@
   }
 
   h2 {
-    margin: 0 0 var(--tech-space-1, 8px);
-    font-family: var(--tech-font-ui);
-    font-size: clamp(20px, 5vw, var(--tech-fs-display));
-    font-weight: 700;
+    margin: 0 0 4px;
+    font-family: var(--tech-font-display);
+    font-size: clamp(22px, 5vw, var(--tech-fs-display));
+    font-weight: 800;
+    letter-spacing: -0.02em;
     color: var(--tech-text);
+    line-height: 1.15;
   }
   .sub {
     margin: 0;
@@ -47,6 +49,7 @@
   align-items: center;
   gap: 6px;
   padding: 8px 16px;
+  min-height: 44px;
   border: 1px solid var(--tech-border);
   border-radius: var(--tech-r-control);
   background: var(--tech-bg-sunken, var(--tech-surface));
@@ -55,16 +58,18 @@
   font-size: var(--tech-fs-small);
   font-weight: 600;
   cursor: pointer;
-  transition: border-color 150ms ease, box-shadow 150ms ease;
+  transition: border-color 150ms ease, box-shadow 150ms ease, transform 120ms ease;
 
   mat-icon { font-size: 18px; width: 18px; height: 18px; }
 
   &:hover:not(:disabled) {
     border-color: var(--tech-accent);
     box-shadow: var(--tech-shadow-panel);
+    transform: translateY(-1px);
   }
+  &:active:not(:disabled) { transform: scale(0.97); }
   &:disabled { opacity: 0.6; cursor: default; }
-  &:focus-visible { outline: 2px solid var(--tech-accent); outline-offset: 1px; }
+  &:focus-visible { outline: 2px solid var(--tech-accent); outline-offset: 2px; }
 }
 
 .state {
@@ -74,11 +79,31 @@
   gap: var(--tech-space-2, 12px);
   padding: clamp(36px, 10vw, 72px) var(--tech-space-3, 16px);
   text-align: center;
-  color: var(--tech-text-secondary);
 
-  p { margin: 0; max-width: 48ch; }
+  // FiMobile loading orb — accent-tinted circle wrapping the spinner
+  &__orb {
+    display: grid;
+    place-items: center;
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    background: color-mix(in srgb, var(--tech-accent) 14%, transparent);
+    border: 1px solid color-mix(in srgb, var(--tech-accent) 22%, transparent);
+  }
 
-  mat-icon { font-size: 36px; width: 36px; height: 36px; color: var(--tech-text-accent); }
+  p {
+    margin: 0;
+    max-width: 40ch;
+    font-size: var(--tech-fs-body);
+    color: var(--tech-text-secondary);
+  }
+
+  .state__label {
+    margin: 0;
+    font-size: var(--tech-fs-h2, 1.1rem);
+    font-weight: 700;
+    color: var(--tech-text);
+  }
 }
 
 // ── period section ──────────────────────────────────────────────────────────
@@ -94,11 +119,11 @@
     font-family: var(--tech-font-ui);
     font-size: var(--tech-fs-small);
     font-weight: 700;
-    letter-spacing: 0.06em;
+    letter-spacing: 0.07em;
     text-transform: uppercase;
     color: var(--tech-text-secondary);
 
-    mat-icon { font-size: 16px; width: 16px; height: 16px; color: var(--tech-text-accent); }
+    mat-icon { font-size: 18px; width: 18px; height: 18px; color: var(--tech-accent); flex: none; }
   }
 
   // FiMobile chip: pill bg + tinted border
@@ -131,12 +156,26 @@
 // ── base card shell (FiMobile card signature) ───────────────────────────────
 
 .card {
+  position: relative;
   border: 1px solid var(--tech-border);
   border-radius: var(--tech-radius);
   background: var(--tech-surface);
   padding: 14px var(--tech-space-3, 16px);
   box-shadow: var(--tech-shadow-panel);
   transition: box-shadow 180ms ease, transform 180ms ease, border-color 160ms ease, opacity 160ms ease;
+  overflow: hidden;
+
+  // FiMobile inset top highlight (the shared card signature across all strong pages)
+  &::before {
+    content: '';
+    position: absolute;
+    inset: 0 0 auto 0;
+    height: 1px;
+    background: linear-gradient(90deg,
+      color-mix(in srgb, var(--tech-text) 18%, transparent),
+      color-mix(in srgb, var(--tech-text) 6%, transparent));
+    pointer-events: none;
+  }
 }
 
 // ── inbox item row ──────────────────────────────────────────────────────────
@@ -160,15 +199,16 @@
   }
   &:not(.item--unhandled) { opacity: 0.78; }
 
-  // FiMobile leading icon tile
+  // FiMobile leading icon orb (circle with accent tint)
   &__ic {
     flex: none;
     display: grid;
     place-items: center;
-    width: 40px;
-    height: 40px;
-    border-radius: var(--tech-r-control);
-    background: color-mix(in srgb, var(--item-accent) 12%, transparent);
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    background: color-mix(in srgb, var(--item-accent) 14%, transparent);
+    border: 1px solid color-mix(in srgb, var(--item-accent) 20%, transparent);
     color: var(--item-accent);
 
     mat-icon { font-size: 22px; width: 22px; height: 22px; }
@@ -234,8 +274,9 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 6px 13px;
-  border-radius: var(--tech-r-control);
+  padding: 6px 14px;
+  min-height: 36px;      // comfortable click target; items are desktop-capable
+  border-radius: var(--tech-r-pill);   // pill shape per FiMobile pill convention
   border: 1px solid var(--tech-border);
   background: transparent;
   color: var(--tech-text);
@@ -243,12 +284,18 @@
   font-size: var(--tech-fs-small);
   font-weight: 600;
   cursor: pointer;
-  transition: border-color 150ms ease, box-shadow 150ms ease;
+  transition: border-color 150ms ease, box-shadow 150ms ease, transform 120ms ease,
+              background 150ms ease;
 
   mat-icon { font-size: 16px; width: 16px; height: 16px; }
 
-  &:hover { border-color: var(--tech-accent); box-shadow: var(--tech-shadow-panel); }
-  &:focus-visible { outline: 2px solid var(--tech-accent); outline-offset: 1px; }
+  &:hover {
+    border-color: var(--tech-accent);
+    box-shadow: var(--tech-shadow-panel);
+    transform: translateY(-1px);
+  }
+  &:active { transform: scale(0.97); }
+  &:focus-visible { outline: 2px solid var(--tech-accent); outline-offset: 2px; }
 }
 
 .btn-act {
@@ -256,5 +303,57 @@
   border-color: color-mix(in srgb, var(--item-accent) 30%, transparent);
   background: color-mix(in srgb, var(--item-accent) 8%, transparent);
 
-  &:hover { border-color: var(--item-accent); box-shadow: var(--tech-shadow-panel); }
+  &:hover {
+    border-color: var(--item-accent);
+    background: color-mix(in srgb, var(--item-accent) 14%, transparent);
+    box-shadow: var(--tech-shadow-panel);
+  }
+}
+
+// ── responsive ──────────────────────────────────────────────────────────────
+
+@media (max-width: 640px) {
+  :host {
+    padding-inline: var(--tech-space-2, 12px);
+  }
+
+  .head {
+    .head-row { flex-direction: column; align-items: stretch; gap: var(--tech-space-2, 12px); }
+
+    // On mobile the "Mark all handled" button goes full-width below the title copy
+    .btn-ghost {
+      width: 100%;
+      justify-content: center;
+    }
+  }
+
+  // Items: tighter inner padding on phones
+  .card { padding: 12px; }
+
+  // On very narrow screens the action buttons stack
+  .item {
+    gap: 12px;
+
+    &__actions {
+      gap: 8px;
+    }
+  }
+
+  // Ensure action pills hit 44px tap target on touch
+  .btn-act,
+  .btn-handle {
+    min-height: 44px;
+    padding: 0 16px;
+    flex: 1 1 auto;
+    justify-content: center;
+  }
+}
+
+@media (max-width: 400px) {
+  // Collapse the icon orb on the narrowest screens to save horizontal space
+  .item__ic {
+    width: 36px;
+    height: 36px;
+    mat-icon { font-size: 18px; width: 18px; height: 18px; }
+  }
 }

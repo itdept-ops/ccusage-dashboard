@@ -33,7 +33,7 @@
 .ff-scroll {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: var(--stack-gap, 16px);
   min-height: 100%;
   max-width: 720px;          // centers on desktop; full-bleed within 390px
   margin-inline: auto;
@@ -80,7 +80,7 @@
 
 .ff-hero__title {
   margin: 2px 0 0;
-  font-family: var(--font-display, var(--font-ui));
+  font-family: var(--font-display);
   font-size: clamp(28px, 8vw, 36px); font-weight: 800; letter-spacing: -.02em;
   color: var(--ink);
 }
@@ -119,7 +119,7 @@
 // ============================================================================
 
 .ff-stats {
-  display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px;
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;
 }
 .ff-stats app-bs-stat-tile { min-width: 0; }
 
@@ -134,8 +134,8 @@
     color-mix(in srgb, var(--accent-a) 9%, var(--glass)),
     color-mix(in srgb, var(--accent-b) 6%, var(--glass)));
   border: 1px solid color-mix(in srgb, var(--accent-a) 30%, var(--glass-edge));
-  border-radius: var(--r-glass);
-  box-shadow: var(--lift-1);
+  border-radius: var(--r-card);
+  box-shadow: var(--lift-1), inset 0 1px 0 color-mix(in srgb, var(--accent-a) 20%, var(--glass-edge));
 }
 .ff-ai--tips { margin-top: 2px; }
 .ff-ai__spark {
@@ -179,8 +179,8 @@
   padding: 14px 16px;
   background: var(--glass);
   border: 1px solid var(--glass-edge);
-  border-radius: var(--r-glass);
-  box-shadow: var(--lift-1);
+  border-radius: var(--r-card);
+  box-shadow: var(--lift-1), inset 0 1px 0 var(--glass-edge);
 }
 .ff-bar {
   display: grid;
@@ -215,8 +215,8 @@
   padding: 14px 16px;
   background: var(--glass);
   border: 1px solid var(--glass-edge);
-  border-radius: var(--r-glass);
-  box-shadow: var(--lift-1);
+  border-radius: var(--r-card);
+  box-shadow: var(--lift-1), inset 0 1px 0 var(--glass-edge);
 }
 .ff-owners__title {
   font-size: 12px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; color: var(--ink-dim);
@@ -256,7 +256,7 @@
   background: var(--glass);
   border: 1px solid var(--glass-edge);
   border-radius: var(--r-tile);
-  box-shadow: var(--lift-1);
+  box-shadow: var(--lift-1), inset 0 1px 0 var(--glass-edge);
   color: var(--ink); font-family: var(--font-ui);
   cursor: pointer; -webkit-tap-highlight-color: transparent;
   transition: transform 120ms var(--ease-out), box-shadow 120ms var(--ease-out);
@@ -300,12 +300,12 @@
     color-mix(in srgb, var(--accent-a) 14%, var(--glass)),
     color-mix(in srgb, var(--accent-b) 10%, var(--glass)));
   border: 1px solid color-mix(in srgb, var(--accent-a) 34%, var(--glass-edge));
-  border-radius: var(--r-glass);
-  box-shadow: var(--lift-1);
+  border-radius: var(--r-card);
+  box-shadow: var(--lift-1), inset 0 1px 0 color-mix(in srgb, var(--accent-a) 22%, var(--glass-edge));
 }
 .ff-recur-total__l { font-size: 13px; font-weight: 700; color: var(--ink-dim); }
 .ff-recur-total__n {
-  font-family: var(--font-display, var(--font-ui));
+  font-family: var(--font-display);
   font-size: 26px; font-weight: 800; letter-spacing: -.02em; color: var(--ink);
 }
 
@@ -315,7 +315,7 @@
   background: var(--glass);
   border: 1px solid var(--glass-edge);
   border-radius: var(--r-tile);
-  box-shadow: var(--lift-1);
+  box-shadow: var(--lift-1), inset 0 1px 0 var(--glass-edge);
 }
 .ff-recur__glyph {
   flex: 0 0 auto;
@@ -343,18 +343,25 @@
 // ============================================================================
 
 .ff-imports {
-  display: flex; flex-direction: column; gap: 8px;
+  display: flex; flex-direction: column; gap: 0;
   padding: 14px 16px;
   background: var(--bg-sink);
   border: 1px solid var(--hairline);
-  border-radius: var(--r-glass);
+  border-radius: var(--r-card);
+  box-shadow: var(--lift-1);
 }
 .ff-imports__title {
   display: inline-flex; align-items: center; gap: 6px;
+  margin-bottom: 10px;
   font-size: 12px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; color: var(--ink-dim);
   mat-icon { width: 16px; height: 16px; font-size: 16px; line-height: 16px; color: var(--accent-a); }
 }
-.ff-import { display: flex; flex-direction: column; gap: 1px; }
+.ff-import {
+  display: flex; flex-direction: column; gap: 1px;
+  padding: 8px 0;
+  border-top: 1px solid var(--hairline);
+  &:first-of-type { border-top: none; padding-top: 0; }
+}
 .ff-import__file {
   font-size: 13px; font-weight: 700; color: var(--ink);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
@@ -371,12 +378,19 @@
 /* Page-level empty/error states now use the shared beta-ui kit primitives (app-bs-empty / app-bs-error). */
 
 .ff-mini-empty {
-  display: flex; flex-direction: column; align-items: center; text-align: center; gap: 6px;
-  padding: 26px 20px;
+  display: flex; flex-direction: column; align-items: center; text-align: center; gap: 8px;
+  padding: 28px 20px;
   background: var(--bg-sink);
   border: 1px dashed var(--hairline);
-  border-radius: var(--r-glass);
-  mat-icon { width: 28px; height: 28px; font-size: 28px; line-height: 28px; color: var(--ink-faint); }
+  border-radius: var(--r-card);
+
+  // Icon orb — keeps visual weight proportional to the beta-ui empty-state pattern.
+  mat-icon {
+    display: flex; align-items: center; justify-content: center;
+    width: 48px; height: 48px; border-radius: 50%;
+    background: color-mix(in srgb, var(--ink-faint) 12%, transparent);
+    font-size: 24px; line-height: 24px; color: var(--ink-faint);
+  }
   p { margin: 0; font-size: 13px; font-weight: 600; color: var(--ink-dim); max-width: 30ch; }
 }
 
@@ -401,7 +415,7 @@
   border-radius: var(--r-tile);
   background: var(--glass);
   border: 1px solid var(--glass-edge);
-  box-shadow: var(--lift-1);
+  box-shadow: var(--lift-1), inset 0 1px 0 var(--glass-edge);
 }
 
 .ff-budget__top { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
@@ -451,17 +465,30 @@
   display: flex; align-items: center; gap: 12px; width: 100%;
   padding: 13px 14px; text-align: left;
   background: var(--glass); border: 1px solid var(--glass-edge);
-  border-radius: var(--r-tile); box-shadow: var(--lift-1);
+  border-radius: var(--r-tile); box-shadow: var(--lift-1), inset 0 1px 0 var(--glass-edge);
   color: var(--ink); font-family: var(--font-ui); cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
   transition: transform 120ms var(--ease-out), box-shadow 120ms var(--ease-out);
   &:hover { transform: translateY(-1px); box-shadow: var(--lift-2); }
-  &:active { transform: scale(0.99); }
+  &:active { transform: scale(.985); box-shadow: var(--press); }
+  &:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+
+  // trailing chevron — pure CSS affordance, no HTML change
+  &::after {
+    content: '›'; flex: 0 0 auto;
+    font-size: 18px; font-weight: 600; line-height: 1; color: var(--ink-faint);
+    margin-left: 2px;
+  }
 }
 .ff-nw-acct__dot { flex: 0 0 auto; width: 10px; height: 10px; border-radius: 50%; }
 .ff-nw-acct__body { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .ff-nw-acct__name { font-size: 14px; font-weight: 700; color: var(--ink); }
 .ff-nw-acct__meta { font-size: 12px; font-weight: 600; color: var(--ink-dim); text-transform: capitalize; }
-.ff-nw-acct__bal { flex: 0 0 auto; font-size: 14px; font-weight: 800; color: var(--ink); &.is-neg { color: var(--tech-error, #fb7185); } }
+.ff-nw-acct__bal {
+  flex: 0 0 auto; font-size: 14px; font-weight: 800; color: var(--ink);
+  &.is-neg { color: var(--tech-error, #fb7185); }
+  &.is-prompt { color: var(--accent-a); font-size: 12.5px; font-weight: 700; letter-spacing: .01em; }
+}
 
 // ============================================================================
 // SAVINGS GOALS — ring-to-target cards with an owner tag
@@ -472,7 +499,8 @@
 .ff-goal {
   display: flex; align-items: center; gap: 14px;
   padding: 13px 14px; border-radius: var(--r-tile);
-  background: var(--glass); border: 1px solid var(--glass-edge); box-shadow: var(--lift-1);
+  background: var(--glass); border: 1px solid var(--glass-edge);
+  box-shadow: var(--lift-1), inset 0 1px 0 var(--glass-edge);
   &.is-archived { opacity: 0.6; }
 }
 
@@ -508,6 +536,9 @@
 .be__btn {
   flex: 1 1 0; min-height: 46px; border-radius: var(--r-pill);
   border: 1px solid var(--hairline); font: inherit; font-size: 0.92rem; font-weight: 700; cursor: pointer;
+  transition: opacity 120ms var(--ease-out), transform 100ms var(--ease-out);
+  &:active { transform: scale(.97); }
+  &:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
   &:disabled { opacity: 0.5; }
 }
 .be__btn--ghost { background: var(--glass); color: var(--ink); }
@@ -609,6 +640,9 @@
   flex: 1 1 0; min-height: 46px;
   border-radius: var(--r-pill); border: 1px solid var(--hairline);
   font: inherit; font-size: 0.92rem; font-weight: 700; cursor: pointer;
+  transition: opacity 120ms var(--ease-out), transform 100ms var(--ease-out);
+  &:active { transform: scale(.97); }
+  &:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
   &:disabled { opacity: 0.5; }
 }
 .cm__btn--ghost,
@@ -648,6 +682,10 @@
   border: 1px dashed color-mix(in srgb, var(--accent-a) 50%, transparent);
   background: color-mix(in srgb, var(--accent-a) 12%, transparent);
   color: var(--accent-a); font: inherit; font-size: 0.86rem; font-weight: 700; cursor: pointer;
+  transition: background 120ms var(--ease-out), transform 100ms var(--ease-out);
+  &:hover { background: color-mix(in srgb, var(--accent-a) 18%, transparent); }
+  &:active { transform: scale(.97); }
+  &:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
   &:disabled { opacity: 0.6; }
   mat-icon { font-size: 18px; width: 18px; height: 18px; }
 }
@@ -695,5 +733,8 @@
   border: 1px dashed color-mix(in srgb, var(--accent-a) 50%, transparent);
   background: color-mix(in srgb, var(--accent-a) 12%, transparent);
   color: var(--accent-a); font: inherit; font-size: 0.72rem; font-weight: 700; cursor: pointer;
+  transition: background 120ms var(--ease-out);
+  &:hover { background: color-mix(in srgb, var(--accent-a) 20%, transparent); }
+  &:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
   mat-icon { font-size: 13px; width: 13px; height: 13px; }
 }

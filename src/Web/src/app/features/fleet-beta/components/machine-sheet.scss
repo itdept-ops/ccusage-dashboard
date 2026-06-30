@@ -81,6 +81,7 @@
   display: flex; flex-direction: column; gap: 3px;
   padding: 10px 12px; border-radius: var(--r-tile);
   background: var(--bg-rise); border: 1px solid var(--hairline);
+  box-shadow: inset 0 1px 0 var(--glass-edge);
   min-width: 0;
 }
 .ms__cell dt {
@@ -102,6 +103,9 @@
   color: var(--ink); font: inherit; cursor: pointer; text-align: left;
   -webkit-tap-highlight-color: transparent; touch-action: manipulation;
   transition: transform 120ms var(--ease-spring), border-color 160ms var(--ease-out);
+}
+@media (hover: hover) {
+  .ms__copyname:hover { border-color: color-mix(in srgb, var(--accent-a) 40%, transparent); background: color-mix(in srgb, var(--accent-a) 6%, var(--bg-rise)); }
 }
 .ms__copyname:active { transform: scale(.985); }
 .ms__copyname:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
@@ -128,6 +132,9 @@
   font: inherit; color: var(--ink); cursor: pointer;
   -webkit-tap-highlight-color: transparent; touch-action: manipulation;
   transition: transform 120ms var(--ease-spring), border-color 160ms var(--ease-out);
+}
+@media (hover: hover) {
+  .ms__net-row.is-copy:hover { border-color: color-mix(in srgb, var(--accent-a) 40%, transparent); background: color-mix(in srgb, var(--accent-a) 6%, var(--bg-rise)); }
 }
 .ms__net-row.is-copy:active { transform: scale(.985); }
 .ms__net-row.is-copy:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
@@ -183,6 +190,9 @@
   border: 1px solid color-mix(in srgb, var(--accent-a) 30%, transparent);
   color: var(--accent-a); font-size: 13px; font-weight: 700; text-decoration: none;
   -webkit-tap-highlight-color: transparent; touch-action: manipulation;
+}
+@media (hover: hover) {
+  .ms__map:hover { background: color-mix(in srgb, var(--accent-a) 22%, var(--bg-sink)); transform: translateY(-1px); }
 }
 .ms__map:active { transform: scale(.96); }
 .ms__map:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }

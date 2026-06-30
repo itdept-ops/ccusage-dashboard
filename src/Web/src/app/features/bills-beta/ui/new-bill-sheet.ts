@@ -164,6 +164,7 @@ interface Participant {
       transition: transform 90ms var(--ease-spring), background 120ms var(--ease-out);
       -webkit-tap-highlight-color: transparent;
     }
+    .nb__key:hover { background: color-mix(in srgb, var(--accent-a) 10%, var(--bg-rise)); }
     .nb__key:active { transform: scale(.95); background: var(--bg-sink); }
     .nb__key:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
     .nb__key--wide { grid-column: span 1; }
@@ -181,7 +182,10 @@ interface Participant {
       flex: 0 0 auto; display: flex; flex-direction: column; align-items: center; gap: 6px;
       width: 60px; border: none; background: transparent; cursor: pointer; padding: 0;
       color: var(--ink-dim);
+      transition: color 120ms var(--ease-out);
+      -webkit-tap-highlight-color: transparent;
     }
+    .nb__person:hover { color: var(--ink); }
     .nb__person.is-on { color: var(--ink); }
     .nb__person:focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; border-radius: 12px; }
     .nb__av {
@@ -241,15 +245,19 @@ interface Participant {
     .nb__btn {
       flex: 1 1 0; min-height: 54px; border-radius: var(--r-pill);
       font: 700 15px/1 var(--font-ui); cursor: pointer; border: 1px solid var(--hairline);
-      transition: transform 120ms var(--ease-spring);
+      transition: transform 120ms var(--ease-spring), background 120ms var(--ease-out), opacity 120ms var(--ease-out);
+      -webkit-tap-highlight-color: transparent;
     }
     .nb__btn:active { transform: scale(.97); }
+    .nb__btn:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
     .nb__btn--ghost { background: var(--bg-sink); color: var(--ink); }
+    .nb__btn--ghost:hover { background: color-mix(in srgb, var(--ink-dim) 10%, var(--bg-sink)); }
     .nb__btn--primary {
       background: linear-gradient(135deg, var(--accent-a), var(--accent-b));
       color: var(--on-accent, var(--tech-text-on-accent, #fff)); border: none; box-shadow: var(--lift-2);
     }
-    .nb__btn--primary:disabled { opacity: .42; cursor: default; box-shadow: none; }
+    .nb__btn--primary:hover { opacity: .88; transform: translateY(-1px); }
+    .nb__btn--primary:disabled { opacity: .42; cursor: default; box-shadow: none; transform: none; }
   `],
 })
 export class NewBillSheet {

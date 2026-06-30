@@ -52,6 +52,11 @@
   padding-top: calc(var(--safe-top) + 8px);
   padding-bottom: 24px;
   padding-inline: var(--gutter) var(--gutter-r);
+  // Comfortable reading column on desktop — prevents bubbles from stretching wall-to-wall.
+  max-width: 720px;
+  margin-inline: auto;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 // ============================================================================
@@ -160,7 +165,7 @@
 // ── Question bubble (right, accent-filled) ──
 .ab-q {
   align-self: flex-end;
-  max-width: 84%;
+  max-width: min(84%, 520px);
   padding: 11px 15px;
   border-radius: 22px 22px 6px 22px;
   background: linear-gradient(135deg, var(--accent-a), var(--accent-b));
@@ -181,7 +186,7 @@
   display: flex;
   align-items: flex-end;
   gap: 9px;
-  max-width: 92%;
+  max-width: min(92%, 580px);
 }
 
 .ab-a__avatar {
@@ -204,7 +209,7 @@
   padding: 12px 15px;
   border-radius: 6px 22px 22px 22px;
   background: var(--bg-rise);
-  box-shadow: var(--lift-2);
+  box-shadow: var(--lift-2), inset 0 1px 0 rgba(255, 255, 255, .07);
   animation: ab-a-in 380ms var(--ease-spring) both;
 }
 
@@ -285,7 +290,7 @@
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-  max-width: 92%;
+  max-width: min(92%, 540px);
   margin-inline-start: 39px;          // align past the 30px avatar + 9px gap
   margin-top: -2px;
 }
@@ -479,7 +484,10 @@
   cursor: pointer;
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--accent-b) 32%, transparent);
+  transition: transform .12s var(--ease-spring), box-shadow .15s var(--ease-out);
 
+  &:hover { transform: translateY(-1px); box-shadow: 0 6px 18px color-mix(in srgb, var(--accent-b) 44%, transparent); }
   &:active { transform: scale(.95); }
   &:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 }

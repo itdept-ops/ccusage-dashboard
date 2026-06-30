@@ -8,36 +8,71 @@
 .head {
   margin-bottom: var(--tech-space-4, 24px);
 
-  .head-eyebrow { display: block; color: var(--tech-text-accent); margin-bottom: 6px; }
+  /* Small-caps eyebrow label — accent-tinted, tracked */
+  .head-eyebrow {
+    display: inline-block;
+    font-size: 0.68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--tech-text-accent, var(--tech-accent));
+    margin-bottom: 6px;
+  }
 
   h2 {
     margin: 0 0 var(--tech-space-1, 8px);
-    font-family: var(--tech-font-ui);
-    font-size: clamp(20px, 5vw, var(--tech-fs-display));
-    font-weight: 700;
+    /* Display font for the page title — matches the FiMobile rubric */
+    font-family: var(--tech-font-display, var(--tech-font-ui));
+    font-size: clamp(22px, 5vw, var(--tech-fs-display, 28px));
+    font-weight: 800;
+    letter-spacing: -0.01em;
     color: var(--tech-text);
+    line-height: 1.15;
   }
   .sub {
     margin: 0;
     max-width: 64ch;
     font-size: var(--tech-fs-body);
     color: var(--tech-text-secondary);
+    line-height: 1.5;
   }
 }
 
-/* Loading / error / empty states (mirrors the People page). */
+/* Loading state — matches the bs-state panel aesthetic for visual consistency with error/empty. */
 .state {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: var(--tech-space-2, 12px);
-  padding: clamp(36px, 10vw, 72px) var(--tech-space-3, 16px);
+  padding: clamp(36px, 10vw, 64px) var(--tech-space-3, 16px);
   text-align: center;
-  color: var(--tech-text-secondary);
+  border-radius: var(--tech-radius, 12px);
+  background: var(--tech-panel, #111722);
+  border: 1px solid var(--tech-border, #1e2a3a);
+  box-shadow: var(--tech-shadow-panel);
 
-  p { margin: 0; max-width: 48ch; }
+  p {
+    margin: 0;
+    max-width: 48ch;
+    font-size: var(--tech-fs-body);
+    color: var(--tech-text-secondary);
+  }
 
   a, button { margin-top: var(--tech-space-1, 8px); }
+
+  /* Orb wrapper — mirrors bs-state__orb so spinner floats on the accent tint */
+  &__orb {
+    display: grid;
+    place-items: center;
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    background: color-mix(in srgb, var(--tech-accent, #3FD8D0) 14%, transparent);
+    color: var(--tech-accent, #3FD8D0);
+
+    /* Tint the Material spinner to the page accent */
+    mat-progress-spinner { --mdc-circular-progress-active-indicator-color: var(--tech-accent, #3FD8D0); }
+  }
 }
 
 /* ---- The feed ---- */
@@ -54,16 +89,17 @@
     z-index: 1;
     display: block;
     width: fit-content;
-    margin: 10px auto var(--tech-space-2, 12px);
+    margin: 2px auto var(--tech-space-2, 12px);
     padding: 4px 14px;
     border-radius: var(--tech-r-pill, 999px);
     border: 1px solid var(--tech-border, #1e2a3a);
-    background: color-mix(in srgb, var(--tech-panel, #111722) 90%, transparent);
+    background: color-mix(in srgb, var(--tech-panel, #111722) 92%, transparent);
     backdrop-filter: blur(8px);
+    /* Small-caps tracked label — consistent with app-wide "date chip" pattern */
     font-size: var(--tech-fs-small, 12px);
     font-weight: 700;
     text-transform: uppercase;
-    letter-spacing: 0.08em;
+    letter-spacing: 0.1em;
     color: var(--tech-text-tertiary, #6b7688);
     box-shadow: var(--tech-shadow-panel);
   }
@@ -86,12 +122,13 @@
   border-radius: var(--tech-radius, 12px);
   border: 1px solid var(--tech-border, #1e2a3a);
   background: var(--tech-panel, #111722);
-  box-shadow: var(--tech-shadow-panel);
+  /* Inset top highlight gives the "raised glass" FiMobile card signature */
+  box-shadow: var(--tech-shadow-panel), inset 0 1px 0 var(--tech-glass-inset-hi, rgba(255,255,255,.06));
   transition: border-color var(--tech-t-fast) ease, box-shadow var(--tech-t-fast) ease, transform var(--tech-t-fast) ease;
 
   &:hover {
     border-color: color-mix(in srgb, var(--tech-accent) 30%, transparent);
-    box-shadow: var(--tech-shadow-raised);
+    box-shadow: var(--tech-shadow-raised), inset 0 1px 0 var(--tech-glass-inset-hi, rgba(255,255,255,.06));
     transform: translateY(-1px);
   }
 
@@ -100,7 +137,7 @@
     flex: 1 1 auto;
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    gap: 6px;
   }
 
   &__text {
@@ -122,12 +159,13 @@
     display: flex;
     align-items: center;
     gap: var(--tech-space-2, 12px);
-    margin-top: 4px;
+    /* margin-top removed — parent gap: 6px handles the rhythm */
   }
 
   &__time {
     font-size: var(--tech-fs-small, 12px);
     color: var(--tech-text-tertiary, #6b7688);
+    font-variant-numeric: tabular-nums;
   }
 }
 
@@ -169,7 +207,7 @@
   }
 
   &:focus-visible {
-    outline: 2px solid var(--tech-accent, #3FD8D0);
+    outline: var(--tech-focus-ring, 2px solid var(--tech-accent, #3FD8D0));
     outline-offset: 2px;
   }
 
@@ -234,10 +272,25 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: var(--tech-space-1, 8px);
+  gap: var(--tech-space-2, 12px);
   margin-top: var(--tech-space-4, 24px);
+  padding-bottom: var(--tech-space-2, 12px);
 
-  &__error { margin: 0; color: var(--tech-warn, #f5a623); font-size: var(--tech-fs-small, 12px); }
+  &__error {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin: 0;
+    padding: 6px 14px;
+    border-radius: var(--tech-r-pill, 999px);
+    border: 1px solid color-mix(in srgb, var(--tech-warn, #f5a623) 30%, transparent);
+    background: color-mix(in srgb, var(--tech-warn, #f5a623) 10%, transparent);
+    color: var(--tech-warn, #f5a623);
+    font-size: var(--tech-fs-small, 12px);
+    font-weight: 600;
+
+    mat-icon { width: 16px; height: 16px; font-size: 16px; line-height: 16px; }
+  }
 
   .more__btn {
     display: inline-flex;

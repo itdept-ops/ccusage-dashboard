@@ -60,7 +60,7 @@
   font-size: .8rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--ink-dim);
   mat-icon { font-size: 18px; width: 18px; height: 18px; color: var(--accent-a); }
 }
-.jr-hero__title { margin: 2px 0 0; font-size: 1.55rem; font-weight: 800; letter-spacing: -.01em; color: var(--ink); }
+.jr-hero__title { margin: 2px 0 0; font-family: var(--font-display, var(--tech-font-display, inherit)); font-size: 1.55rem; font-weight: 800; letter-spacing: -.01em; color: var(--ink); }
 .jr-hero__sub { margin: 0; font-size: .9rem; color: var(--ink-dim); }
 
 // ============================================================================
@@ -71,7 +71,8 @@
 // Full gradient fill + on-accent ink so it reads as the FiMobile hero block.
 .jr-reflect {
   display: flex; gap: 12px; align-items: flex-start; padding: 16px;
-  border-radius: var(--r-tile); border: none; box-shadow: var(--lift-2);
+  border-radius: var(--tech-radius, var(--r-tile)); border: none;
+  box-shadow: var(--tech-shadow-raised, var(--lift-2));
   background: linear-gradient(135deg, var(--accent-a), var(--accent-b));
   color: var(--ink-on-accent, #fff);
 }
@@ -99,8 +100,12 @@
 .jr-summary { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
 .jr-stat {
   display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 12px 6px;
-  border-radius: var(--r-tile); background: var(--glass); border: 1px solid var(--hairline); box-shadow: var(--lift-1);
-  // Non-interactive tiles: no hover lift (values only).
+  border-radius: var(--tech-radius, var(--r-tile));
+  // Non-interactive stat tile: matte surface (bg-rise), not blurred glass — consistent with habits/today
+  background: var(--bg-rise);
+  border: 1px solid var(--tech-border, var(--hairline));
+  // FiMobile card signature: lift shadow + subtle inset top highlight
+  box-shadow: var(--tech-shadow-panel, var(--lift-1)), inset 0 1px 0 var(--glass-edge, rgba(255,255,255,.10));
 }
 .jr-stat__v { font-size: 1.05rem; font-weight: 800; color: var(--ink); }
 .jr-stat__l { font-size: .64rem; font-weight: 700; letter-spacing: .03em; text-transform: uppercase; color: var(--ink-faint); }
@@ -112,18 +117,24 @@
 .jr-recent { display: flex; flex-direction: column; gap: 10px; }
 .jr-recent__h {
   display: flex; align-items: center; gap: 6px; margin: 0;
+  font-family: var(--font-display, var(--tech-font-display, inherit));
   font-size: .95rem; font-weight: 800; color: var(--ink);
   mat-icon { font-size: 20px; width: 20px; height: 20px; color: var(--accent-a); }
 }
 .jr-recent__list { display: flex; flex-direction: column; gap: 6px; }
 .jr-row {
   display: flex; align-items: center; gap: 10px; width: 100%; text-align: left;
-  padding: 12px 14px; border-radius: var(--r-tile); background: var(--glass);
-  border: 1px solid var(--hairline); box-shadow: var(--lift-1); color: var(--ink); cursor: pointer;
+  padding: 12px 14px; border-radius: var(--tech-radius, var(--r-tile));
+  background: var(--glass);
+  border: 1px solid var(--tech-border, var(--hairline));
+  // FiMobile card signature: lift shadow + subtle inset top highlight
+  box-shadow: var(--tech-shadow-panel, var(--lift-1)), inset 0 1px 0 var(--glass-edge, rgba(255,255,255,.10));
+  color: var(--ink); cursor: pointer;
   // FiMobile interactive-card hover lift.
-  transition: transform .14s ease, box-shadow .14s ease;
-  &:hover { transform: translateY(-1px); box-shadow: var(--lift-2); }
-  &:active { transform: scale(.99); box-shadow: var(--lift-1); }
+  transition: transform .15s var(--ease-out, ease), box-shadow .15s var(--ease-out, ease);
+  &:hover { transform: translateY(-1px); box-shadow: var(--tech-shadow-raised, var(--lift-2)), inset 0 1px 0 var(--glass-edge, rgba(255,255,255,.10)); }
+  &:active { transform: scale(.99); }
+  &:focus-visible { outline: 2px solid var(--focus, var(--accent-a)); outline-offset: 2px; border-radius: var(--tech-radius, var(--r-tile)); }
 }
 // Leading emoji is rendered inside a FiMobile-style accent tile: tinted bg + accent ink.
 .jr-row__emoji {
@@ -134,10 +145,18 @@
   background: color-mix(in srgb, var(--accent-a) 12%, transparent);
   font-size: 1.15rem; text-align: center;
 }
-.jr-row__date { font-weight: 700; flex: 1; color: var(--ink); }
+.jr-row__date { font-weight: 700; flex: 1; min-width: 0; color: var(--ink); }
 // Subtitle-class info reads in secondary/tertiary ink per FiMobile list pattern.
+// flex: none so the date flex: 1 fills the remaining space, and meta sits at the end.
+.jr-row__meta { flex: none; display: flex; flex-direction: column; align-items: flex-end; gap: 1px; }
 .jr-row__mood { font-size: .78rem; color: var(--ink-dim); }
 .jr-row__tags { font-size: .72rem; color: var(--ink-faint); }
+// FiMobile list-row trailing chevron: tertiary ink, small icon
+.jr-row__chevron {
+  flex: none; font-size: 18px; width: 18px; height: 18px;
+  color: var(--tech-text-tertiary, var(--ink-faint));
+  margin-left: 2px;
+}
 
 // ============================================================================
 // LOG SHEET (cloned from cycle-mobile's .ls system)
@@ -145,19 +164,23 @@
 
 .ls { display: flex; flex-direction: column; gap: 16px; padding-bottom: 24px; }
 .ls__head { display: flex; align-items: center; justify-content: space-between; }
-.ls__title { margin: 0; font-size: 1.2rem; font-weight: 800; color: var(--ink); }
+.ls__title { margin: 0; font-family: var(--font-display, var(--tech-font-display, inherit)); font-size: 1.2rem; font-weight: 800; color: var(--ink); }
 .ls__close {
   display: inline-flex; align-items: center; justify-content: center; width: 38px; height: 38px;
   border: none; border-radius: 50%; background: var(--bg-rise); color: var(--ink); cursor: pointer;
+  transition: transform .12s ease;
   &:active { transform: scale(.94); }
+  &:focus-visible { outline: 2px solid var(--focus, var(--accent-a)); outline-offset: 2px; }
 }
 .ls__daybar { display: flex; align-items: center; gap: 8px; }
 .ls__day-nav {
   display: inline-flex; align-items: center; justify-content: center; width: 42px; height: 42px; flex: none;
   border: none; border-radius: var(--r-pill); background: var(--bg-rise); color: var(--ink); cursor: pointer;
+  transition: transform .12s ease;
   mat-icon { font-size: 22px; width: 22px; height: 22px; }
   &:disabled { opacity: .4; }
   &:active { transform: scale(.94); }
+  &:focus-visible { outline: 2px solid var(--focus, var(--accent-a)); outline-offset: 2px; }
 }
 .ls__day-now { flex: 1; text-align: center; display: flex; flex-direction: column; line-height: 1.1; }
 .ls__day-l { font-size: .68rem; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--ink-faint); }
@@ -165,9 +188,14 @@
 .ls__save { font-style: normal; font-size: .72rem; font-weight: 700; color: var(--ink-faint); &.is-ok { color: var(--accent-b); } }
 .ls__today {
   align-self: center; display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px;
-  border: 1px solid var(--hairline); border-radius: var(--r-pill); background: var(--bg-rise);
+  border: 1px solid var(--tech-border, var(--hairline));
+  border-radius: var(--tech-r-pill, var(--r-pill));
+  background: color-mix(in srgb, var(--accent-b) 10%, var(--bg-rise));
   font-size: .82rem; font-weight: 700; color: var(--accent-b); cursor: pointer;
+  transition: opacity .12s ease;
   mat-icon { font-size: 18px; width: 18px; height: 18px; }
+  &:active { opacity: .75; }
+  &:focus-visible { outline: 2px solid var(--focus, var(--accent-a)); outline-offset: 2px; }
 }
 .ls__sub { font-size: .72rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--ink-faint); }
 .ls__field { display: flex; flex-direction: column; gap: 5px; }
@@ -185,30 +213,44 @@
   display: inline-flex; align-items: center; gap: 5px; padding: 8px 14px;
   // FiMobile pill chip: tinted bg + tinted border in rest state; solid accent when active.
   border: 1px solid color-mix(in srgb, var(--accent-a) 30%, transparent);
-  border-radius: var(--r-pill);
+  border-radius: var(--tech-r-pill, var(--r-pill));
   background: color-mix(in srgb, var(--accent-a) 10%, transparent);
   color: var(--ink); font-size: .85rem; font-weight: 600;
   text-transform: capitalize; cursor: pointer; transition: transform .12s ease;
+  min-height: 36px; // comfortable touch floor
   &.is-on {
     border-color: transparent; color: var(--ink-on-accent, #fff);
     background: linear-gradient(135deg, var(--accent-a), var(--accent-b));
   }
   &:active { transform: scale(.95); }
+  &:focus-visible { outline: 2px solid var(--focus, var(--accent-a)); outline-offset: 2px; }
 }
 .ls__energy { display: flex; gap: 10px; }
 .ls__dot {
-  width: 34px; height: 34px; border-radius: 50%; border: 1px solid var(--hairline); background: var(--bg-base);
+  // Visual size 34px; hit target floored to 44px via position offset — stays circular
+  position: relative; width: 34px; height: 34px; border-radius: 50%;
+  border: 1px solid var(--tech-border, var(--hairline)); background: var(--bg-base);
   cursor: pointer; transition: transform .12s ease;
+  &::before {
+    content: ''; position: absolute; top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    width: 44px; height: 44px; // purely a hit-area; never paints.
+  }
   &.is-on { border-color: transparent; background: linear-gradient(135deg, var(--accent-a), var(--accent-b)); }
   &:active { transform: scale(.9); }
+  &:focus-visible { outline: 2px solid var(--focus, var(--accent-a)); outline-offset: 3px; }
 }
 // Day-action row: "Copy to day" (accent) beside "Clear this day" (warn).
 .ls__rowbtns { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .ls__clear {
   display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px;
-  border: 1px solid color-mix(in srgb, var(--warn) 40%, transparent); border-radius: var(--r-pill);
+  border: 1px solid color-mix(in srgb, var(--warn) 40%, transparent);
+  border-radius: var(--tech-r-pill, var(--r-pill));
   background: transparent; font-size: .82rem; font-weight: 700; color: var(--warn); cursor: pointer;
+  transition: opacity .12s ease;
   mat-icon { font-size: 18px; width: 18px; height: 18px; }
+  &:active { opacity: .75; }
+  &:focus-visible { outline: 2px solid var(--warn); outline-offset: 2px; }
 }
 .ls__copy {
   display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px;

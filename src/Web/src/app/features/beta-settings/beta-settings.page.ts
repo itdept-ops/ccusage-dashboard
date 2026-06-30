@@ -11,7 +11,8 @@ import {
 } from '../../core/models';
 
 import {
-  BetaPullRefresh, BetaSectionHeader, BetaSegmentedControl, BetaToaster, ToastController, Segment,
+  BetaPullRefresh, BetaSectionHeader, BetaSegmentedControl,
+  BetaSkeleton, BetaToaster, ToastController, Segment,
 } from '../beta-ui';
 import { BetaToggleRow } from './beta-toggle-row';
 import { HomeOption, HOME_OPTIONS } from '../../core/home-options';
@@ -41,7 +42,8 @@ import { HomeOption, HOME_OPTIONS } from '../../core/home-options';
   styleUrl: './beta-settings.page.scss',
   imports: [
     RouterLink,
-    BetaPullRefresh, BetaSectionHeader, BetaSegmentedControl, BetaToaster, BetaToggleRow,
+    BetaPullRefresh, BetaSectionHeader, BetaSegmentedControl,
+    BetaSkeleton, BetaToaster, BetaToggleRow,
   ],
   template: `
     <!-- The scroll column IS the kit pull-to-refresh (it owns overflow + the live accent spinner). -->
@@ -134,7 +136,11 @@ import { HomeOption, HOME_OPTIONS } from '../../core/home-options';
                 }
               </div>
             } @else {
-              <div class="card card--pad"><p class="empty">Couldn't load notifications.</p></div>
+              <!-- Loading skeleton while notification prefs are in-flight -->
+              <div class="card card--list skel-list" aria-hidden="true">
+                <app-bs-skeleton height="56px" radius="0" />
+                <app-bs-skeleton height="56px" radius="0" />
+              </div>
             }
           </section>
 
@@ -160,7 +166,10 @@ import { HomeOption, HOME_OPTIONS } from '../../core/home-options';
                                      (toggle)="weeklyRecapChange($event)" />
               </div>
               @if (!d.configured) {
-                <p class="hint">Add a webhook on the full Settings page to start forwarding.</p>
+                <div class="hint-row" role="note">
+                  <span class="hint-ic" aria-hidden="true">link_off</span>
+                  <span class="hint-text">Add a webhook on the full <a class="hint-link" routerLink="/preferences">Settings page</a> to start forwarding.</span>
+                </div>
               }
             </section>
           }
@@ -200,6 +209,16 @@ import { HomeOption, HOME_OPTIONS } from '../../core/home-options';
               <app-beta-toggle-row title="View the circle feed" subtitle="See your contacts' activity"
                                    icon="diversity_3" [checked]="pf.viewActivityFeed"
                                    (toggle)="setProfile('viewActivityFeed', $event)" />
+            </div>
+          </section>
+        } @else {
+          <!-- Loading skeletons while profile is in-flight -->
+          <section class="rise" [style.--i]="4" aria-hidden="true">
+            <div class="card card--list skel-list">
+              <app-bs-skeleton height="80px" radius="0" />
+              <app-bs-skeleton height="56px" radius="0" />
+              <app-bs-skeleton height="56px" radius="0" />
+              <app-bs-skeleton height="56px" radius="0" />
             </div>
           </section>
         }

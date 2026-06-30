@@ -80,7 +80,11 @@ import { SwipeRow } from '../ui/swipe-row';
         }
       </ul>
     } @else {
-      <p class="tb-coffee__empty">No coffee yet today.</p>
+      <div class="tb-coffee__empty" aria-live="polite">
+        <span class="tb-coffee__empty-orb" aria-hidden="true">&#x2615;</span>
+        <span class="tb-coffee__empty-title">No coffee yet</span>
+        <span class="tb-coffee__empty-hint">Tap +1 to log your first cup.</span>
+      </div>
     }
   `,
   styles: [`
@@ -201,8 +205,9 @@ import { SwipeRow } from '../ui/swipe-row';
       padding: 0;
       display: flex;
       flex-direction: column;
-      gap: 6px;
+      border-top: 1px solid var(--hairline);
     }
+    .tb-coffee__rows li + li { border-top: 1px solid var(--hairline); }
 
     // GRAFT(LEDGER): dotted-leader typeset rows — name left, tabular amount right.
     .tb-coffee__row {
@@ -247,8 +252,35 @@ import { SwipeRow } from '../ui/swipe-row';
     }
 
     .tb-coffee__empty {
-      margin: 14px 0 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      margin: 12px 0 0;
+      padding: 8px;
+      text-align: center;
+    }
+    .tb-coffee__empty-orb {
+      display: grid;
+      place-items: center;
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--coffee-a), var(--coffee-b));
+      color: #1a0e00;
+      font-size: 20px;
+      line-height: 1;
+      opacity: .55;
+    }
+    .tb-coffee__empty-title {
+      font-family: var(--font-ui);
       font-size: 13px;
+      font-weight: 600;
+      color: var(--ink-dim);
+    }
+    .tb-coffee__empty-hint {
+      font-size: 12px;
       color: var(--ink-faint);
     }
   `],

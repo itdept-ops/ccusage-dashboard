@@ -1,14 +1,15 @@
 <header class="head">
-  <span class="head-eyebrow mono-num">~/feed</span>
+  <span class="head-eyebrow">Circle Feed</span>
   <h2>Activity</h2>
-  <p class="sub">What's happening in your circle — workouts, challenge milestones, and goals hit by the
-    people you're connected with. Only people who've turned activity sharing on appear here.</p>
+  <p class="sub">Workouts, challenge milestones, and goals hit by the people you're connected with. Only people who've turned activity sharing on appear here.</p>
 </header>
 
 @if (loading()) {
-  <!-- Loading -->
+  <!-- Loading — styled to match the bs-state panel so loading/error/empty feel like one system -->
   <div class="state" role="status" aria-live="polite">
-    <mat-progress-spinner mode="indeterminate" diameter="36" />
+    <span class="state__orb" aria-hidden="true">
+      <mat-progress-spinner mode="indeterminate" diameter="28" />
+    </span>
     <p>Loading your feed…</p>
   </div>
 } @else if (error()) {
@@ -79,7 +80,7 @@
   @if (hasMore()) {
     <div class="more">
       @if (moreError()) {
-        <p class="more__error" role="alert">Couldn't load more.</p>
+        <p class="more__error" role="alert"><mat-icon aria-hidden="true">warning_amber</mat-icon>Couldn't load more.</p>
       }
       <button mat-stroked-button type="button" [disabled]="loadingMore()" (click)="loadMore()">
         @if (loadingMore()) {

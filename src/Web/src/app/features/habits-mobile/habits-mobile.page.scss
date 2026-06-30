@@ -49,7 +49,7 @@
   font-size: .8rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--ink-dim);
   mat-icon { font-size: 18px; width: 18px; height: 18px; color: var(--accent-a); }
 }
-.hm-hero__title { margin: 2px 0 0; font-size: 1.55rem; font-weight: 800; letter-spacing: -.01em; color: var(--ink); }
+.hm-hero__title { margin: 2px 0 0; font-family: var(--font-display, var(--tech-font-display, inherit)); font-size: 1.55rem; font-weight: 800; letter-spacing: -.01em; color: var(--ink); }
 .hm-hero__sub { margin: 0; font-size: .9rem; color: var(--ink-dim); }
 
 // FiMobile HERO CARD — the summary stats row becomes the gradient-accent hero card.
@@ -85,17 +85,22 @@
 // HABIT CARDS
 // ============================================================================
 
+// Skeleton placeholder containers — match the card spacing so the skeleton
+// height matches the real card height during load; no further styling needed.
+.hm-card { display: block; }
+
 .hm-list { display: flex; flex-direction: column; gap: 12px; }
 .hm-hcard {
   display: flex; flex-direction: column; gap: 10px; padding: 16px;
   border-radius: var(--tech-radius, var(--r-tile));
   background: var(--glass);
   border: 1px solid var(--tech-border, var(--hairline));
-  box-shadow: var(--tech-shadow-panel, var(--lift-1));
+  // FiMobile card signature: lift shadow + subtle inset top highlight
+  box-shadow: var(--tech-shadow-panel, var(--lift-1)), inset 0 1px 0 var(--glass-edge, rgba(255,255,255,.10));
   border-top: 3px solid var(--hc-accent, var(--accent-a));
   // FiMobile hover lift — interactive cards float gently on hover
   transition: transform .18s var(--ease-out, ease), box-shadow .18s var(--ease-out, ease);
-  &:hover { transform: translateY(-1px); box-shadow: var(--tech-shadow-raised, var(--lift-2)); }
+  &:hover { transform: translateY(-1px); box-shadow: var(--tech-shadow-raised, var(--lift-2)), inset 0 1px 0 var(--glass-edge, rgba(255,255,255,.10)); }
   &.is-paused { opacity: .6; }
 }
 .hm-hcard__top { display: flex; align-items: center; gap: 10px; }
@@ -118,6 +123,7 @@
   background: var(--bg-rise); color: var(--tech-text-secondary, var(--ink-dim)); cursor: pointer;
   mat-icon { font-size: 18px; width: 18px; height: 18px; }
   &:active { transform: scale(.94); }
+  &:focus-visible { outline: 2px solid var(--focus, var(--accent-a)); outline-offset: 2px; }
 }
 
 .hm-hcard__streak { display: flex; align-items: baseline; gap: 7px; }
@@ -136,6 +142,7 @@
   border: 1px solid var(--tech-border, var(--hairline));
   border-radius: var(--tech-r-control, var(--r-pill));
   background: var(--bg-base); color: var(--ink); font-weight: 700; cursor: pointer;
+  touch-action: manipulation; -webkit-tap-highlight-color: transparent;
   transition: transform .12s var(--ease-out, ease);
   mat-icon { font-size: 20px; width: 20px; height: 20px; }
   &.is-on {
@@ -144,15 +151,18 @@
     background: linear-gradient(135deg, var(--accent-a), var(--accent-b));
   }
   &:active { transform: scale(.98); }
+  &:focus-visible { outline: 2px solid var(--focus, var(--accent-a)); outline-offset: 2px; }
 }
 .hm-hcard__skip {
   flex: none; padding: 11px 16px;
   border: 1px solid var(--tech-border, var(--hairline));
   border-radius: var(--tech-r-control, var(--r-pill));
   background: var(--bg-base); color: var(--tech-text-secondary, var(--ink-dim)); font-weight: 700; cursor: pointer;
+  touch-action: manipulation; -webkit-tap-highlight-color: transparent;
   transition: transform .12s var(--ease-out, ease);
   &.is-on { color: var(--ink); border-color: var(--accent-b); }
   &:active { transform: scale(.97); }
+  &:focus-visible { outline: 2px solid var(--focus, var(--accent-a)); outline-offset: 2px; }
 }
 
 // ============================================================================
@@ -160,15 +170,16 @@
 // ============================================================================
 
 .hm-board { display: flex; flex-direction: column; gap: 8px; }
-// FiMobile LIST ROWS — roomy rows (~12-14px padding); card signature radii + shadow; hover lift on interactive rows
+// FiMobile LIST ROWS — roomy rows (~12-14px padding); card signature radii + shadow + inset highlight; hover lift on interactive rows
 .hm-row {
   display: flex; align-items: center; gap: 10px; padding: 12px 14px;
   border-radius: var(--tech-radius, var(--r-tile));
   background: var(--glass);
   border: 1px solid var(--tech-border, var(--hairline));
-  box-shadow: var(--tech-shadow-panel, var(--lift-1));
+  // FiMobile card signature: lift shadow + subtle inset top highlight
+  box-shadow: var(--tech-shadow-panel, var(--lift-1)), inset 0 1px 0 var(--glass-edge, rgba(255,255,255,.10));
   transition: transform .18s var(--ease-out, ease), box-shadow .18s var(--ease-out, ease);
-  &:hover { transform: translateY(-1px); box-shadow: var(--tech-shadow-raised, var(--lift-2)); }
+  &:hover { transform: translateY(-1px); box-shadow: var(--tech-shadow-raised, var(--lift-2)), inset 0 1px 0 var(--glass-edge, rgba(255,255,255,.10)); }
   &.is-self { border-color: color-mix(in srgb, var(--accent-a) 40%, transparent); }
 }
 .hm-row__rank {
@@ -222,13 +233,15 @@
   display: inline-flex; align-items: center; justify-content: center; width: 38px; height: 38px;
   border: none; border-radius: 50%; background: var(--bg-rise); color: var(--ink); cursor: pointer;
   &:active { transform: scale(.94); }
+  &:focus-visible { outline: 2px solid var(--focus, var(--accent-a)); outline-offset: 2px; }
 }
 .hs__field { display: flex; flex-direction: column; gap: 5px; }
 .hs__label { font-size: .8rem; font-weight: 700; color: var(--ink-dim); }
 .hs__sub { font-size: .72rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--ink-faint); }
 .hs__input {
   width: 100%; box-sizing: border-box; padding: 11px 12px; border: 1px solid var(--hairline);
-  border-radius: var(--r-card); background: var(--bg-base); color: var(--ink); font: inherit; font-size: .92rem;
+  // FiMobile form control: var(--r-tile) = var(--tech-r-control) keeps the input on-brand (not oversized --r-card)
+  border-radius: var(--r-tile); background: var(--bg-base); color: var(--ink); font: inherit; font-size: .92rem;
   &:focus-visible { outline: none; border-color: var(--accent-a); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent-a) 22%, transparent); }
 }
 .hs__row { display: flex; gap: 10px; }
@@ -247,30 +260,35 @@
     background: linear-gradient(135deg, var(--accent-a), var(--accent-b));
   }
   &:active { transform: scale(.95); }
+  &:focus-visible { outline: 2px solid var(--focus, var(--accent-a)); outline-offset: 2px; }
 }
 .hs__dows { display: flex; gap: 6px; }
 // FiMobile: day-of-week selector uses tinted chip pattern (inactive) + gradient (active)
 .hs__dow {
   flex: 1; aspect-ratio: 1;
   border: 1px solid color-mix(in srgb, var(--accent-a) 30%, transparent);
-  border-radius: var(--tech-r-control, var(--r-card));
+  border-radius: var(--tech-r-control, var(--r-tile));
   background: color-mix(in srgb, var(--accent-a) 10%, transparent);
   color: var(--ink); font-weight: 800; cursor: pointer;
+  transition: transform .12s ease;
   &.is-on {
     border-color: transparent;
     color: var(--tech-text-on-accent, #fff);
     background: linear-gradient(135deg, var(--accent-a), var(--accent-b));
   }
+  &:active { transform: scale(.93); }
+  &:focus-visible { outline: 2px solid var(--focus, var(--accent-a)); outline-offset: 2px; }
 }
 .hs__toggle {
   display: flex; align-items: center; gap: 10px; width: 100%; text-align: left; padding: 11px 12px;
-  border: 1px solid var(--hairline); border-radius: var(--r-card); background: var(--bg-base); cursor: pointer;
+  border: 1px solid var(--hairline); border-radius: var(--r-tile); background: var(--bg-base); cursor: pointer;
   > mat-icon { flex: none; font-size: 22px; width: 22px; height: 22px; color: var(--ink-dim); }
   &.is-on > mat-icon { color: var(--accent-b); }
+  &:focus-visible { outline: 2px solid var(--focus, var(--accent-a)); outline-offset: 2px; }
 }
 .hs__toggle-txt { flex: 1; font-size: .9rem; font-weight: 700; color: var(--ink); }
 .hs__colors { display: flex; gap: 10px; }
-.hs__color { width: 32px; height: 32px; border-radius: 50%; cursor: pointer; border: 2px solid transparent; &.is-on { border-color: var(--ink); box-shadow: 0 0 0 2px var(--bg-base) inset; } }
+.hs__color { width: 32px; height: 32px; border-radius: 50%; cursor: pointer; border: 2px solid transparent; &.is-on { border-color: var(--ink); box-shadow: 0 0 0 2px var(--bg-base) inset; } &:focus-visible { outline: 2px solid var(--focus, var(--accent-a)); outline-offset: 2px; } }
 // FiMobile CTA — radius from --tech-r-control; on-accent text
 .hs__save {
   display: inline-flex; align-items: center; justify-content: center; gap: 8px; margin-top: 2px; padding: 13px;
@@ -281,6 +299,7 @@
   mat-icon { font-size: 20px; width: 20px; height: 20px; }
   &:disabled { opacity: .6; cursor: default; }
   &:active { transform: scale(.98); }
+  &:focus-visible { outline: 2px solid var(--focus, var(--accent-a)); outline-offset: 3px; }
 }
 .hs__spin { width: 16px; height: 16px; border-radius: 50%; border: 2px solid color-mix(in srgb, var(--tech-text-on-accent, #fff) 50%, transparent); border-top-color: var(--tech-text-on-accent, #fff); animation: hm-spin .7s linear infinite; }
 @keyframes hm-spin { to { transform: rotate(360deg); } }
@@ -289,6 +308,7 @@
   border: 1px solid color-mix(in srgb, var(--warn) 40%, transparent); border-radius: var(--r-pill);
   background: transparent; font-weight: 700; color: var(--warn); cursor: pointer;
   mat-icon { font-size: 18px; width: 18px; height: 18px; }
+  &:focus-visible { outline: 2px solid var(--warn); outline-offset: 2px; }
 }
 
 // ============================================================================

@@ -52,7 +52,7 @@ import {
         <!-- ─── IMMERSIVE HEADER: title + accent bloom + a tiny stat strip ─── -->
         <header class="ac-hero">
           <div class="ac-hero__bloom" aria-hidden="true"></div>
-          <p class="ac-hero__kicker"><mat-icon aria-hidden="true">timeline</mat-icon> ~/activity — request log</p>
+          <p class="ac-hero__kicker"><mat-icon aria-hidden="true">timeline</mat-icon> Request Log</p>
           <h1 class="ac-hero__title">Activity</h1>
           <p class="ac-hero__sub">Every API request and response, captured by middleware. Bodies are truncated and secrets redacted.</p>
 

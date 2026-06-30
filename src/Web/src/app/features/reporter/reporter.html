@@ -160,8 +160,10 @@
       }
     </div>
   } @else {
-    <div class="key-empty micro-label">
-      {{ canManage() ? 'No ingest keys yet anywhere.' : 'You have no ingest keys yet.' }} Generate one above to connect a reporter.
+    <div class="key-empty">
+      <div class="key-empty-orb"><mat-icon aria-hidden="true">vpn_key</mat-icon></div>
+      <div class="key-empty-title">{{ canManage() ? 'No ingest keys yet' : 'No keys yet' }}</div>
+      <p class="key-empty-hint micro-label">Generate one above to connect a reporter to this dashboard.</p>
     </div>
   }
 </mat-card>

@@ -4,22 +4,44 @@
 }
 
 .head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
   margin-bottom: var(--tech-space-4);
+
   .head-eyebrow { display: block; color: var(--tech-text-accent); margin-bottom: 6px; }
-  h2 {
+
+  .head-title {
     margin: 0 0 6px;
-    font-family: var(--tech-font-ui);
-    font-size: clamp(20px, 5vw, var(--tech-fs-display));
+    font-family: var(--tech-font-display, var(--tech-font-ui));
+    font-size: clamp(22px, 5vw, var(--tech-fs-display));
     font-weight: 700;
     letter-spacing: -0.02em;
     color: var(--tech-text);
   }
+
   .sub {
     margin: 0;
     max-width: 760px;
     font-size: var(--tech-fs-body);
     line-height: 1.5;
     color: var(--tech-text-secondary);
+  }
+
+  .head-actions {
+    flex: 0 0 auto;
+    padding-top: 4px; /* optical align with eyebrow */
+  }
+
+  .head-refresh-btn {
+    border-radius: var(--tech-r-control);
+    color: var(--tech-text);
+    white-space: nowrap;
+    transition: box-shadow var(--tech-t-slow) ease, transform var(--tech-t-fast) ease;
+    &:hover:not([disabled]) { box-shadow: var(--tech-shadow-raised); }
+    &:active { transform: scale(0.98); }
+    mat-icon { margin-right: 2px; }
   }
 }
 
@@ -31,19 +53,40 @@ mat-progress-bar {
 /* ===== Summary cards ===== */
 .cards {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  grid-template-columns: repeat(3, 1fr);
   gap: 12px;
   margin-bottom: var(--tech-space-4);
 }
 
 .stat-card {
+  position: relative;
   padding: 14px 16px;
   min-width: 0;
+  overflow: hidden;
   /* FiMobile card signature */
   border-radius: var(--tech-radius) !important;
   box-shadow: var(--tech-shadow-panel) !important;
   border: 1px solid var(--tech-border) !important;
-  transition: box-shadow 0.18s ease, transform 0.18s ease;
+  transition: box-shadow var(--tech-t-slow) ease, transform var(--tech-t-fast) ease,
+              border-color var(--tech-t-control) ease;
+
+  /* top accent hairline — lights up on hover */
+  &::after {
+    content: '';
+    position: absolute;
+    inset: 0 0 auto 0;
+    height: 2px;
+    background: var(--tech-accent);
+    opacity: 0;
+    transition: opacity var(--tech-t-panel, 0.2s) ease;
+  }
+
+  &:hover {
+    border-color: var(--tech-border-strong) !important;
+    transform: translateY(-1px);
+    box-shadow: var(--tech-shadow-raised) !important;
+    &::after { opacity: 0.8; }
+  }
 
   .stat-label {
     font-size: var(--tech-fs-micro, 10.5px);
@@ -92,17 +135,26 @@ mat-progress-bar {
   border: 1px solid var(--tech-border) !important;
 }
 
+/* Table card: clip radius + contained scroll */
+.table-card {
+  overflow: hidden;
+  padding: 16px 16px 4px;
+}
+
 .panel-header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: var(--tech-space-3, 12px);
   font-family: var(--tech-font-ui);
   font-size: var(--tech-fs-panel-hd, 13px);
   font-weight: 600;
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--tech-text-secondary);
-  margin-bottom: 10px;
+  margin-bottom: 12px;
+
+  /* Icon-orb inherits global .header-icon utility; ensure it shrinks correctly */
+  .header-icon { flex: 0 0 auto; }
 }
 
 /* ===== Filter bar ===== */
@@ -120,7 +172,12 @@ mat-progress-bar {
 }
 
 /* ===== Table ===== */
-.table-scroll { overflow-x: auto; }
+.table-scroll {
+  overflow-x: auto;
+  border: 1px solid var(--tech-border-subtle);
+  border-radius: var(--tech-r-control);
+  background: var(--tech-bg-sunken);
+}
 
 .ai-table {
   width: 100%;
@@ -183,21 +240,55 @@ mat-progress-bar {
   &.oc-danger { background: color-mix(in srgb, var(--tech-error, #ff5c6c) 24%, transparent); color: var(--tech-error, #ff9aa4); }
 }
 
-.empty {
+/* ===== Empty / error state blocks ===== */
+.state-cell { padding: 0; border: none; }
+
+.state-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   text-align: center;
-  color: var(--tech-text-tertiary);
-  padding: 28px 12px;
+  gap: 8px;
+  padding: 40px 20px 36px;
 }
 
-.error-cell {
-  color: var(--tech-text-secondary);
-  .retry-btn {
-    display: inline-flex;
-    align-items: center;
-    margin-left: 12px;
-    border-radius: var(--tech-r-control);
-    color: var(--tech-text);
+.state-orb {
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--tech-accent) 12%, transparent);
+  color: var(--tech-accent);
+  margin-bottom: 4px;
+
+  mat-icon { font-size: 24px; width: 24px; height: 24px; }
+
+  &--danger {
+    background: color-mix(in srgb, var(--tech-error, #ff5c6c) 14%, transparent);
+    color: var(--tech-error, #ff9aa4);
   }
+}
+
+.state-title {
+  font-family: var(--tech-font-ui);
+  font-size: var(--tech-fs-body);
+  font-weight: 600;
+  color: var(--tech-text);
+}
+
+.state-hint {
+  font-size: var(--tech-fs-label, 12px);
+  color: var(--tech-text-tertiary);
+  max-width: 36ch;
+  line-height: 1.5;
+}
+
+.state-action {
+  margin-top: 4px;
+  border-radius: var(--tech-r-control);
+  color: var(--tech-text);
+  mat-icon { margin-right: 4px; }
 }
 
 /* loading placeholder rows */
@@ -222,7 +313,13 @@ mat-progress-bar {
   gap: 14px;
   margin-top: 14px;
 
-  .pg-btn { border-radius: var(--tech-r-control); color: var(--tech-text); }
+  .pg-btn {
+    border-radius: var(--tech-r-control);
+    color: var(--tech-text);
+    transition: box-shadow var(--tech-t-slow) ease, transform var(--tech-t-fast) ease;
+    &:hover:not([disabled]) { box-shadow: var(--tech-shadow-raised); }
+    &:active { transform: scale(0.98); }
+  }
   .pg-label { color: var(--tech-text-tertiary); font-size: var(--tech-fs-label, 12px); }
 }
 
@@ -231,16 +328,16 @@ mat-form-field { --mat-form-field-container-text-size: 13px; }
 /* ===================================================================== */
 /* Responsive                                                            */
 /* ===================================================================== */
-@media (max-width: 1100px) {
-  .cards { grid-template-columns: repeat(3, 1fr); }
+/* Tablet: 6 cards → 2-col (3 rows). Already at 3-col on desktop. */
+@media (max-width: 860px) {
+  .cards { grid-template-columns: repeat(2, 1fr); }
+  .head { flex-direction: column; gap: 10px; }
+  .head-actions { align-self: flex-start; }
 }
 
 @media (max-width: 640px) {
   .panel { padding: 12px 14px; }
   .cards { grid-template-columns: 1fr 1fr; gap: 10px; }
-
-  /* 5 cards in a 2-col grid: let the lone last card fill the final row. */
-  .stat-card:last-child { grid-column: 1 / -1; }
 
   /* Long user/feature values are unreadable when clipped + tooltip-only on touch;
      let them wrap (clamped) so the full value is visible. */
@@ -261,8 +358,13 @@ mat-form-field { --mat-form-field-container-text-size: 13px; }
     .f-btn { width: 100%; min-height: 44px; }
   }
 
-  /* The table becomes a list of cards — no horizontal page scroll. */
-  .table-scroll { overflow-x: visible; }
+  /* Head: full-width refresh button on phone */
+  .head { flex-direction: column; gap: 8px; }
+  .head-actions { width: 100%; }
+  .head-refresh-btn { width: 100%; min-height: 44px; justify-content: center; }
+
+  /* The table card-list uses block layout; drop the sunken border well. */
+  .table-scroll { overflow-x: visible; border: none; background: transparent; border-radius: 0; }
 
   .ai-table {
     display: block;
@@ -321,7 +423,6 @@ mat-form-field { --mat-form-field-container-text-size: 13px; }
     .c-tokens .tok-split { margin-left: 4px; }
   }
 
-  .empty { display: block; padding: 24px 8px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

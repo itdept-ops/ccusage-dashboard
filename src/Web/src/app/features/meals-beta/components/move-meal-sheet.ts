@@ -39,6 +39,9 @@ import { DayCell, slotMeta } from '../meals-beta.model';
                         (click)="pick(c.localDate)"
                         [attr.aria-label]="'Move to ' + c.weekdayLong + ', ' + c.dateLabel
                                            + (c.localDate === m.localDate ? ' (current day)' : '')">
+                  <span class="mv-orb" aria-hidden="true">
+                    <mat-icon>{{ c.isToday ? 'today' : 'calendar_today' }}</mat-icon>
+                  </span>
                   <span class="mv-day-day">
                     <b>{{ c.weekdayLong }}</b>
                     <i>{{ c.dateLabel }}</i>
@@ -76,17 +79,27 @@ import { DayCell, slotMeta } from '../meals-beta.model';
     .mv-day {
       display: flex; align-items: center; justify-content: space-between; gap: 10px; width: 100%;
       min-height: 52px; padding: 8px 14px; border-radius: var(--r-tile);
-      border: 1px solid var(--hairline); background: var(--bg-sink); color: var(--ink); text-align: left;
+      border: 1px solid var(--hairline); background: var(--bg-rise); color: var(--ink); text-align: left;
+      box-shadow: var(--lift-1), inset 0 1px 0 color-mix(in srgb, #fff 7%, transparent);
       cursor: pointer; -webkit-tap-highlight-color: transparent; touch-action: manipulation;
-      transition: transform 120ms var(--ease-out), background 160ms var(--ease-out), border-color 160ms var(--ease-out);
+      transition: transform 120ms var(--ease-out), background 160ms var(--ease-out), border-color 160ms var(--ease-out), box-shadow 160ms var(--ease-out);
     }
     .mv-day:active { transform: scale(.985); }
     .mv-day:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
-    .mv-day:not(:disabled):hover { border-color: color-mix(in srgb, var(--accent-a) 40%, transparent); }
-    .mv-day:disabled { cursor: default; opacity: .62; }
+    .mv-day:not(:disabled):hover { transform: translateY(-1px); border-color: color-mix(in srgb, var(--accent-a) 40%, transparent); box-shadow: var(--lift-2), inset 0 1px 0 color-mix(in srgb, #fff 7%, transparent); }
+    .mv-day:disabled { cursor: default; opacity: .62; box-shadow: none; }
     .mv-day.is-current { border-color: color-mix(in srgb, var(--accent-a) 34%, transparent); }
 
-    .mv-day-day { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+    .mv-orb {
+      flex: 0 0 auto; display: grid; place-items: center; width: 36px; height: 36px; border-radius: 50%;
+      background: color-mix(in srgb, var(--accent-a) 10%, var(--bg-sink));
+      box-shadow: inset 0 1px 0 color-mix(in srgb, #fff 10%, transparent);
+      color: var(--accent-a);
+    }
+    .mv-orb mat-icon { font-size: 18px; width: 18px; height: 18px; }
+    .mv-day.is-current .mv-orb { background: color-mix(in srgb, var(--accent-a) 18%, var(--bg-sink)); }
+
+    .mv-day-day { display: flex; flex-direction: column; gap: 1px; min-width: 0; flex: 1 1 auto; }
     .mv-day-day b { font-family: var(--font-ui); font-size: 15px; font-weight: 700; color: var(--ink); }
     .mv-day-day i { font-style: normal; font-size: 12.5px; font-weight: 600; color: var(--ink-faint); }
 

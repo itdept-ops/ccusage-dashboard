@@ -8,13 +8,19 @@
 
 @if (loading()) {
   <div class="state" role="status" aria-live="polite">
-    <mat-progress-spinner mode="indeterminate" diameter="36" />
-    <p>@if (connecting()) { Finishing the Fitbit connection… } @else { Loading your wearable… }</p>
+    <span class="state__orb" aria-hidden="true">
+      <mat-progress-spinner mode="indeterminate" diameter="28" />
+    </span>
+    <p class="state__title">@if (connecting()) { Connecting… } @else { Loading… }</p>
+    <p>@if (connecting()) { Finishing the Fitbit connection… } @else { Loading your wearable settings… }</p>
   </div>
 
 } @else if (errored()) {
   <div class="state state--error" role="alert">
-    <mat-icon aria-hidden="true">cloud_off</mat-icon>
+    <span class="state__orb" aria-hidden="true">
+      <mat-icon>cloud_off</mat-icon>
+    </span>
+    <p class="state__title">Couldn't load settings</p>
     <p>We couldn't load your wearable settings just now.</p>
     <button mat-stroked-button type="button" (click)="reload()">
       <mat-icon aria-hidden="true">refresh</mat-icon> Try again

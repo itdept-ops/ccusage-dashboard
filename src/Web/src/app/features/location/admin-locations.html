@@ -51,7 +51,11 @@
           }
         </ol>
       } @else {
-        <div class="empty">No history for this user.</div>
+        <div class="empty-state">
+          <div class="empty-state__orb"><mat-icon aria-hidden="true">history</mat-icon></div>
+          <p class="empty-state__title">No history</p>
+          <p class="empty-state__hint">No recorded locations for this user yet.</p>
+        </div>
       }
     } @else {
       <!-- Roster: every user with a latest pin -->
@@ -78,7 +82,11 @@
           }
         </ul>
       } @else if (!loading()) {
-        <div class="empty">No users have recorded a location yet.</div>
+        <div class="empty-state">
+          <div class="empty-state__orb"><mat-icon aria-hidden="true">people_outline</mat-icon></div>
+          <p class="empty-state__title">No locations yet</p>
+          <p class="empty-state__hint">No users have recorded a location yet. Locations appear once capture is enabled.</p>
+        </div>
       }
     }
   </aside>

@@ -1,12 +1,17 @@
 <div class="head">
   <div class="head-text">
     <span class="micro-label head-eyebrow">~/ai-usage — gemini call log</span>
-    <h2>AI usage</h2>
+    <h2 class="head-title">AI usage</h2>
     <p class="sub">
       Every AI (Gemini) call, captured at the service chokepoint: who called which feature, the
       model, how it went, and the token counts. No prompt or response content is ever recorded; the
       newest rows are kept.
     </p>
+  </div>
+  <div class="head-actions">
+    <button mat-stroked-button class="head-refresh-btn" (click)="reload()" [disabled]="loading()">
+      <mat-icon aria-hidden="true">refresh</mat-icon> Refresh
+    </button>
   </div>
 </div>
 
@@ -128,6 +133,7 @@
 <!-- ===== Table ===== -->
 <mat-card appearance="outlined" class="panel table-card">
   <div class="panel-header">
+    <div class="header-icon" aria-hidden="true"><mat-icon>receipt_long</mat-icon></div>
     <span>AI calls</span>
   </div>
   <div class="table-scroll">
@@ -203,18 +209,30 @@
         }
         @if (error() && !loading()) {
           <tr>
-            <td colspan="8" class="empty error-cell">
-              Couldn’t load AI usage — the request failed.
-              <button mat-stroked-button class="retry-btn" (click)="reload()">
-                <mat-icon aria-hidden="true">refresh</mat-icon> Retry
-              </button>
+            <td colspan="8" class="state-cell">
+              <div class="state-block">
+                <div class="state-orb state-orb--danger">
+                  <mat-icon aria-hidden="true">error_outline</mat-icon>
+                </div>
+                <div class="state-title">Request failed</div>
+                <div class="state-hint">Couldn’t load AI usage data. Check your connection and try again.</div>
+                <button mat-stroked-button class="state-action" (click)="reload()">
+                  <mat-icon aria-hidden="true">refresh</mat-icon> Retry
+                </button>
+              </div>
             </td>
           </tr>
         }
         @if (!error() && !rows().length && !loading()) {
           <tr>
-            <td colspan="8" class="empty">
-              No AI calls in this window — adjust the filters or use an AI feature, then refresh.
+            <td colspan="8" class="state-cell">
+              <div class="state-block">
+                <div class="state-orb">
+                  <mat-icon aria-hidden="true">auto_awesome</mat-icon>
+                </div>
+                <div class="state-title">No AI calls yet</div>
+                <div class="state-hint">No calls match this filter window. Adjust the filters or trigger an AI feature, then refresh.</div>
+              </div>
             </td>
           </tr>
         }

@@ -1,6 +1,30 @@
 :host { display: block; min-width: 520px; max-width: 680px; }
 .mono { font-family: var(--tech-font-mono, ui-monospace, monospace); }
 
+// Dialog header — icon + display-font title
+.sd-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--tech-font-display);
+  font-size: var(--tech-fs-panel-hd, 15px);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--tech-text);
+
+  .sd-title-icon {
+    width: 32px; height: 32px;
+    border-radius: var(--tech-r-control, 8px);
+    background: color-mix(in srgb, var(--tech-accent) 12%, transparent);
+    color: var(--tech-accent);
+    display: flex; align-items: center; justify-content: center;
+    flex: 0 0 auto;
+    mat-icon { font-size: 17px; width: 17px; height: 17px; }
+  }
+
+  .sd-title-text { flex: 1 1 auto; }
+}
+
 // Robust dialog shell (panelClass 'uiq-dialog', set in calendar.ts open()).
 // The panel is capped at 90dvh (also via the open() maxHeight); only the
 // content scrolls, and the action row stays pinned so Close is always reachable
@@ -32,7 +56,35 @@
   }
 }
 
-.sx-error { margin: 4px 0; font-size: 13px; color: var(--tech-text-secondary); }
+// Styled error/empty state block
+.sx-error-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 36px 16px;
+  gap: 10px;
+
+  .sx-error-orb {
+    width: 52px; height: 52px;
+    border-radius: 50%;
+    background: color-mix(in srgb, var(--tech-warn, #f59e0b) 10%, transparent);
+    color: var(--tech-warn, #f59e0b);
+    display: flex; align-items: center; justify-content: center;
+    margin-bottom: 4px;
+    mat-icon { font-size: 24px; width: 24px; height: 24px; }
+  }
+  .sx-error-title {
+    font-family: var(--tech-font-display);
+    font-size: var(--tech-fs-label, 14px);
+    font-weight: 600;
+    color: var(--tech-text);
+  }
+  .sx-error-hint {
+    font-size: var(--tech-fs-micro, 12px);
+    color: var(--tech-text-tertiary);
+  }
+}
 
 .sx-head { margin-bottom: 14px; }
 .sx-id { font-size: 12px; color: var(--tech-text); word-break: break-all; }
@@ -51,7 +103,13 @@
   box-shadow: var(--tech-shadow-panel);
   background: var(--tech-panel-raised, #141a24);
   display: flex; flex-direction: column; gap: 4px;
+  // Inset top highlight
+  box-shadow: var(--tech-shadow-panel), inset 0 1px 0 color-mix(in srgb, #fff 6%, transparent);
   transition: transform 120ms ease, box-shadow 120ms ease;
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--tech-shadow-card, 0 4px 20px rgba(0,0,0,.4)), inset 0 1px 0 color-mix(in srgb, #fff 8%, transparent);
+  }
   .k { font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--tech-text-tertiary); }
   .v { font-family: var(--tech-font-mono); font-size: 19px; font-weight: 700; color: var(--tech-text); }
   .v.cost { color: var(--tech-accent-magenta, #f472b6); }

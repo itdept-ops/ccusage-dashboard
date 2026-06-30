@@ -46,6 +46,12 @@
   padding-top: calc(var(--safe-top) + 8px);
   padding-bottom: calc(var(--safe-bottom) + 28px);
   padding-inline: var(--gutter) var(--gutter-r);
+
+  // Comfortable reading column on wider viewports.
+  max-width: var(--content-max, 640px);
+  margin-inline: auto;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 // ============================================================================
@@ -86,6 +92,9 @@
 .hh__title {
   margin: 0; font-family: var(--font-display); font-weight: 600; font-size: 32px; line-height: 1.04;
   letter-spacing: -.02em; color: var(--ink);
+}
+.hh__sub {
+  margin: 4px 0 0; font-size: 13px; font-weight: 600; color: var(--ink-dim); line-height: 1.3;
 }
 
 // Online live badge (top-right).
@@ -149,6 +158,9 @@
 }
 .pill:active { transform: scale(.95); }
 .pill:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+@media (hover: hover) {
+  .pill:not(.pill--on):hover { color: var(--ink); background: color-mix(in srgb, var(--ink) 8%, transparent); }
+}
 .pill--on {
   color: var(--tech-text-on-accent, var(--ink-on-accent, #04222a));
   background: linear-gradient(135deg, var(--accent-a), var(--accent-b));
@@ -178,6 +190,9 @@
   white-space: nowrap; -webkit-tap-highlight-color: transparent; touch-action: manipulation;
   transition: transform 120ms var(--ease-spring), color 160ms var(--ease-out),
               border-color 160ms var(--ease-out), background 160ms var(--ease-out);
+}
+@media (hover: hover) {
+  .fb-chip:not(.fb-chip--on):hover { color: var(--ink); border-color: color-mix(in srgb, var(--ink) 30%, transparent); background: color-mix(in srgb, var(--ink) 6%, var(--bg-rise)); }
 }
 .fb-chip:active { transform: scale(.95); }
 .fb-chip:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
@@ -214,8 +229,10 @@
 // Leaderboard card (sediment surface holding the ranked rows).
 .fb-lb-card {
   padding: 16px; border-radius: var(--r-card);
-  background: var(--bg-rise); box-shadow: var(--lift-2);
-  border: 1px solid var(--hairline);
+  background: var(--bg-rise);
+  border: 1px solid var(--tech-border, var(--hairline));
+  // Outer depth + inset top highlight — matches the machine card depth cue.
+  box-shadow: var(--lift-2), inset 0 1px 0 var(--glass-edge);
 }
 
 // ============================================================================
@@ -229,12 +246,18 @@
   padding: 40px 20px; text-align: center;
 }
 .fb-state__ic {
-  display: grid; place-items: center; width: 64px; height: 64px; border-radius: var(--r-tile);
-  background: color-mix(in srgb, var(--accent-a) 12%, var(--bg-rise));
-  border: 1px solid var(--glass-edge); color: var(--accent-a);
+  display: grid; place-items: center; width: 68px; height: 68px; border-radius: 50%;
+  background: color-mix(in srgb, var(--accent-a) 14%, var(--bg-rise));
+  border: 1px solid color-mix(in srgb, var(--accent-a) 22%, transparent);
+  box-shadow: 0 0 0 6px color-mix(in srgb, var(--accent-a) 7%, transparent);
+  color: var(--accent-a);
 }
 .fb-state__ic mat-icon { font-size: 32px; width: 32px; height: 32px; }
-.fb-state__msg { margin: 0; max-width: 30ch; font-size: 14px; font-weight: 600; color: var(--ink-dim); }
+.fb-state__msg {
+  margin: 0; max-width: 30ch; text-align: center;
+  font-size: 15px; font-weight: 700; color: var(--ink);
+  line-height: 1.4;
+}
 .fb-state__btn {
   display: inline-flex; align-items: center; gap: 6px;
   min-height: 44px; padding: 0 18px; border-radius: var(--r-pill);

@@ -95,7 +95,10 @@
   border-radius: var(--tech-r-panel, 12px);
   background: var(--tech-panel, #111722);
   background-image: radial-gradient(120% 100% at 100% 0%, color-mix(in srgb, var(--tech-accent) 8%, transparent), transparent 55%);
-  box-shadow: var(--tech-shadow-popover, 0 24px 60px -20px rgba(0, 0, 0, 0.8));
+  /* FiMobile card signature: popover shadow + inset top highlight */
+  box-shadow:
+    var(--tech-shadow-popover, 0 24px 60px -20px rgba(0, 0, 0, 0.8)),
+    inset 0 1px 0 color-mix(in srgb, var(--tech-glass-inset-hi, rgba(255,255,255,.10)) 100%, transparent);
   overflow: hidden;
   /* Cap the whole panel so a short (landscape) viewport never overruns the fixed header/footer. */
   max-height: 85vh;
@@ -304,34 +307,47 @@
     }
   }
 
-  /* ── Empty state ── */
+  /* ── Empty state — centered icon orb + display title + hint (rubric #5) ── */
   .nb-empty {
     display: flex;
     flex-direction: column;
     align-items: center;
     text-align: center;
-    padding: 28px 20px 30px;
+    padding: 28px 20px 32px;
     cursor: default;
 
-    &__icon {
-      font-size: 30px;
-      width: 30px;
-      height: 30px;
+    /* FiMobile icon orb: pill radius, accent-tinted bg + border */
+    &__orb {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 48px;
+      height: 48px;
+      border-radius: var(--tech-r-pill, 999px);
+      background: color-mix(in srgb, var(--tech-text-tertiary, #5e6c82) 12%, transparent);
+      border: 1px solid color-mix(in srgb, var(--tech-text-tertiary, #5e6c82) 22%, transparent);
+      margin-bottom: 12px;
       color: var(--tech-text-tertiary, #5e6c82);
-      opacity: 0.7;
-      margin-bottom: 8px;
     }
+    &__icon {
+      font-size: 24px;
+      width: 24px;
+      height: 24px;
+    }
+    /* Display font for the empty-state headline (rubric #4 — distinct heading tier) */
     &__title {
       margin: 0;
-      font-family: var(--tech-font-ui);
-      font-size: var(--tech-fs-body, 13px);
-      font-weight: 600;
+      font-family: var(--tech-font-display);
+      font-size: var(--tech-fs-h3, 14px);
+      font-weight: 700;
+      letter-spacing: -0.01em;
       color: var(--tech-text-secondary);
     }
     &__sub {
-      margin: 3px 0 0;
+      margin: 4px 0 0;
       font-size: var(--tech-fs-label, 11px);
       color: var(--tech-text-tertiary, #5e6c82);
+      line-height: 1.4;
     }
   }
 

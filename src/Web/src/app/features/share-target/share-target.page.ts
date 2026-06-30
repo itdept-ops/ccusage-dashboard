@@ -1,6 +1,7 @@
 import { Component, OnInit, inject, ChangeDetectionStrategy } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { MatDialog } from '@angular/material/dialog';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 
 import { AuthService } from '../../core/auth';
 import { normalizeHome } from '../../core/nav-model';
@@ -48,7 +49,48 @@ interface SharedPayload {
 @Component({
   selector: 'app-share-target',
   standalone: true,
-  template: '',
+  imports: [MatProgressSpinnerModule],
+  template: `
+    <div class="st-splash" aria-live="polite" aria-label="Processing your share…">
+      <span class="st-orb" aria-hidden="true">
+        <mat-spinner diameter="32" />
+      </span>
+      <p class="st-label">Opening tracker…</p>
+    </div>
+  `,
+  styles: [`
+    :host {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100dvh;
+      background: var(--tech-surface, var(--tech-bg, #0d1117));
+    }
+    .st-splash {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+      padding: 40px 24px;
+    }
+    .st-orb {
+      display: grid;
+      place-items: center;
+      width: 64px;
+      height: 64px;
+      border-radius: 50%;
+      background: color-mix(in srgb, var(--tech-accent, #7c8cff) 14%, transparent);
+      mat-spinner { --mdc-circular-progress-active-indicator-color: var(--tech-accent, #7c8cff); }
+    }
+    .st-label {
+      margin: 0;
+      font-family: var(--tech-font-display, inherit);
+      font-size: 0.9rem;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      color: var(--tech-text-secondary, #9ba9bd);
+    }
+  `],
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class ShareTargetPage implements OnInit {

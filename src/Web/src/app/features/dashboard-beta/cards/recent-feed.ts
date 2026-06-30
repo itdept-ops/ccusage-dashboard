@@ -34,16 +34,19 @@ import { BetaSectionHeader, BetaSkeleton } from '../../beta-ui';
         <ul class="rf__list">
           @for (r of items(); track r.id) {
             <li class="rec">
-              <span class="rec__main">
-                <span class="rec__model">{{ r.model || 'unknown' }}</span>
-                <span class="rec__cost">\${{ fmtCost(r.costUsd) }}</span>
-              </span>
-              <span class="rec__meta">
-                <span class="rec__when">{{ r.timestampUtc | date:'MMM d, h:mm a' }}</span>
-                <span class="rec__dot" aria-hidden="true">·</span>
-                <span class="rec__proj">{{ r.projectName || r.source }}</span>
-                @if (r.isSidechain) { <span class="rec__tag">subagent</span> }
-                <span class="rec__tok">{{ r.totalTokens | compact }} tok</span>
+              <span class="rec__orb" aria-hidden="true">{{ modelInitial(r.model) }}</span>
+              <span class="rec__body">
+                <span class="rec__main">
+                  <span class="rec__model">{{ r.model || 'unknown' }}</span>
+                  <span class="rec__cost">\${{ fmtCost(r.costUsd) }}</span>
+                </span>
+                <span class="rec__meta">
+                  <span class="rec__when">{{ r.timestampUtc | date:'MMM d, h:mm a' }}</span>
+                  <span class="rec__dot" aria-hidden="true">·</span>
+                  <span class="rec__proj">{{ r.projectName || r.source }}</span>
+                  @if (r.isSidechain) { <span class="rec__tag">subagent</span> }
+                  <span class="rec__tok">{{ r.totalTokens | compact }} tok</span>
+                </span>
               </span>
             </li>
           }
@@ -72,10 +75,18 @@ import { BetaSectionHeader, BetaSkeleton } from '../../beta-ui';
 
     .rf__list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
     .rec {
-      display: flex; flex-direction: column; gap: 3px; min-height: 56px; justify-content: center;
+      display: flex; align-items: center; gap: 12px; min-height: 56px;
       padding: 10px 0; border-bottom: 1px solid var(--hairline);
     }
     .rec:last-child { border-bottom: 0; }
+    .rec__orb {
+      flex: 0 0 auto; width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center;
+      background: color-mix(in srgb, var(--accent-a) 18%, transparent);
+      color: color-mix(in srgb, var(--accent-a) 80%, var(--ink));
+      font-family: var(--font-display); font-size: 14px; font-weight: 700; text-transform: uppercase;
+      user-select: none;
+    }
+    .rec__body { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
     .rec__main { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
     .rec__model { font-size: 14px; font-weight: 600; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .rec__cost {
@@ -94,10 +105,13 @@ import { BetaSectionHeader, BetaSkeleton } from '../../beta-ui';
     .rf__more {
       min-height: 48px; border-radius: var(--r-pill); border: 1px solid var(--hairline);
       background: var(--bg-rise); color: var(--ink); font: inherit; font-size: 14px; font-weight: 700;
-      cursor: pointer; margin-top: 4px; transition: transform 120ms var(--ease-spring);
+      cursor: pointer; margin-top: 4px;
+      transition: transform 120ms var(--ease-spring), box-shadow 160ms var(--ease-out), background 160ms var(--ease-out);
     }
+    .rf__more:hover:not(:disabled) { background: color-mix(in srgb, var(--accent-a) 8%, var(--bg-rise)); box-shadow: var(--lift-2); transform: translateY(-1px); }
     .rf__more:active { transform: scale(.98); }
-    .rf__more:disabled { opacity: .6; }
+    .rf__more:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+    .rf__more:disabled { opacity: .6; cursor: not-allowed; }
     .rf__empty {
       display: flex; flex-direction: column; align-items: center; gap: 10px;
       margin: 16px 0; text-align: center;
@@ -113,9 +127,12 @@ import { BetaSectionHeader, BetaSkeleton } from '../../beta-ui';
       min-height: 44px; padding: 0 18px; border-radius: var(--r-pill); border: 0; cursor: pointer;
       background: linear-gradient(135deg, var(--accent-a), var(--accent-b)); color: var(--ink-on-accent);
       font: inherit; font-size: 14px; font-weight: 700;
-      transition: transform 120ms var(--ease-spring);
+      box-shadow: 0 4px 14px -4px color-mix(in srgb, var(--accent-a) 50%, transparent);
+      transition: transform 120ms var(--ease-spring), box-shadow 160ms var(--ease-out);
     }
-    .rf__empty-cta:active { transform: scale(.96); }
+    .rf__empty-cta:hover { transform: translateY(-1px); box-shadow: 0 8px 22px -6px color-mix(in srgb, var(--accent-a) 60%, transparent); }
+    .rf__empty-cta:active { transform: scale(.96); box-shadow: none; }
+    .rf__empty-cta:focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; }
   `],
 })
 export class PulseRecentFeed {
@@ -144,5 +161,11 @@ export class PulseRecentFeed {
 
   fmtCost(c: number): string {
     return c.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+
+  /** One-letter orb initial for the model name (first non-whitespace char). */
+  modelInitial(model: string | null | undefined): string {
+    const s = (model || '?').trim();
+    return s.charAt(0).toUpperCase();
   }
 }

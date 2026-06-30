@@ -207,7 +207,11 @@
       } @empty {
         @if (!loading()) {
           <li class="list-empty">
-            @if (isFiltering()) { No users match this search/filter. } @else { No users yet. }
+            <span class="list-empty-orb">
+              <mat-icon aria-hidden="true">{{ isFiltering() ? 'search_off' : 'group_off' }}</mat-icon>
+            </span>
+            <span class="list-empty-title">{{ isFiltering() ? 'No results' : 'No users yet' }}</span>
+            <span class="list-empty-hint">{{ isFiltering() ? 'Clear filters to see all users.' : 'Add the first user above.' }}</span>
           </li>
         }
       }
@@ -532,8 +536,9 @@
       }
     } @else {
       <div class="detail-empty">
-        <mat-icon>arrow_back</mat-icon>
-        <p>Select a user to view and edit their access.</p>
+        <span class="detail-empty-orb"><mat-icon aria-hidden="true">manage_accounts</mat-icon></span>
+        <p class="detail-empty-title">No user selected</p>
+        <p class="detail-empty-hint">Pick a user from the list to view and edit their access.</p>
       </div>
     }
   </section>

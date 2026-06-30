@@ -333,7 +333,7 @@ const BUDGET_STATUS_LABEL: Record<FinanceBudgetStatus, string> = {
                           @if (a.hasBalance) { · {{ txnDate(a.asOfDate!) }} }
                         </span>
                       </span>
-                      <span class="ff-nw-acct__bal mono-num" [class.is-neg]="a.latestBalance < 0">
+                      <span class="ff-nw-acct__bal mono-num" [class.is-neg]="a.latestBalance < 0" [class.is-prompt]="!a.hasBalance">
                         {{ a.hasBalance ? money(a.latestBalance) : 'Set' }}
                       </span>
                     </button>

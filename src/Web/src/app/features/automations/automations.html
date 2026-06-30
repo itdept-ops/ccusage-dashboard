@@ -1,31 +1,39 @@
 <header class="head">
-  <span class="head-eyebrow mono-num">~/automations</span>
-  <h2>Automations</h2>
-  <p class="sub">React to your own activity automatically. When you log a workout, complete a 75 Hard day,
-    start the challenge, or hit your water goal, an automation can ping you in-app or on your own Discord —
-    optionally only when a number you choose is met. Automations only ever watch your own activity and only
-    ever notify you.</p>
+  <div class="head-text">
+    <span class="head-eyebrow">Automations</span>
+    <h2>React &amp; notify</h2>
+    <p class="sub">When you log a workout, complete a 75 Hard day, start the challenge, or hit your water
+      goal — get pinged in-app or on your own Discord, optionally only when a threshold is met. Every rule
+      watches only your own activity.</p>
+  </div>
+  @if (!loading() && !error()) {
+    <div class="head-action">
+      <button mat-flat-button color="primary" type="button" (click)="newRule()" [disabled]="formOpen()">
+        <mat-icon aria-hidden="true">add</mat-icon> New
+      </button>
+    </div>
+  }
 </header>
 
 @if (loading()) {
   <div class="state" role="status" aria-live="polite">
-    <mat-progress-spinner mode="indeterminate" diameter="36" />
-    <p>Loading your automations…</p>
+    <div class="state__orb">
+      <mat-progress-spinner mode="indeterminate" diameter="28" />
+    </div>
+    <p class="state__title">Loading automations…</p>
   </div>
 } @else if (error()) {
   <div class="state state--error" role="alert">
-    <mat-icon aria-hidden="true">cloud_off</mat-icon>
-    <p>We couldn't load your automations just now.</p>
+    <div class="state__orb state__orb--error">
+      <mat-icon aria-hidden="true">cloud_off</mat-icon>
+    </div>
+    <p class="state__title">Couldn't load your automations</p>
+    <p class="state__hint">Check your connection and try again.</p>
     <button mat-stroked-button type="button" (click)="load()">
       <mat-icon aria-hidden="true">refresh</mat-icon> Try again
     </button>
   </div>
 } @else {
-  <div class="toolbar">
-    <button mat-flat-button color="primary" type="button" (click)="newRule()" [disabled]="formOpen()">
-      <mat-icon aria-hidden="true">add</mat-icon> New automation
-    </button>
-  </div>
 
   <!-- Create / edit form -->
   @if (formOpen()) {
@@ -117,17 +125,25 @@
   <!-- The rules list -->
   @if (isEmpty()) {
     <div class="state state--empty">
-      <mat-icon aria-hidden="true">bolt</mat-icon>
-      <p>No automations yet. Create one to get a nudge when you hit a milestone.</p>
+      <div class="state__orb">
+        <mat-icon aria-hidden="true">bolt</mat-icon>
+      </div>
+      <p class="state__title">No automations yet</p>
+      <p class="state__hint">Create one to get a nudge when you hit a milestone.</p>
     </div>
   } @else {
     <ul class="rules">
       @for (r of rules(); track trackRule($index, r)) {
         <li class="card rule" [class.rule--off]="!r.enabled">
+          <div class="rule__orb" aria-hidden="true">
+            <mat-icon>bolt</mat-icon>
+          </div>
           <div class="rule__body">
-            <p class="rule__name">{{ r.name }}</p>
+            <p class="rule__name">{{ r.name || triggerLabel(r.triggerKind) }}</p>
+            @if (r.name) {
+              <p class="rule__trigger">{{ triggerLabel(r.triggerKind) }}</p>
+            }
             <p class="rule__detail">
-              <span class="chip">{{ triggerLabel(r.triggerKind) }}</span>
               <span class="chip chip--cond">{{ conditionLabel(r) }}</span>
               <span class="chip chip--action">{{ actionLabel(r.action) }}</span>
               @if (r.hasWebhook) {
@@ -135,7 +151,7 @@
               }
             </p>
             @if (r.messageTemplate) {
-              <p class="rule__msg">“{{ r.messageTemplate }}”</p>
+              <p class="rule__msg">"{{ r.messageTemplate }}"</p>
             }
           </div>
           <div class="rule__actions">

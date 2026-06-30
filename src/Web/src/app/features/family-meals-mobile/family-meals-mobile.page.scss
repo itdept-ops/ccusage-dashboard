@@ -63,23 +63,36 @@
     pointer-events: none;
   }
 
+  // ── Kicker row: icon badge + "MEAL PLAN" uppercase label ──
   &__kicker {
     display: inline-flex;
     align-items: center;
-    gap: 6px;
-    margin: 0 0 12px;
-    font-size: 12px;
+    gap: 7px;
+    margin: 0 0 6px;
+    font-size: 11px;
     font-weight: 700;
-    letter-spacing: .08em;
+    letter-spacing: .10em;
     text-transform: uppercase;
-    color: var(--ink-dim);
+    color: var(--ink-faint);
 
     mat-icon {
-      font-size: 18px;
-      width: 18px;
-      height: 18px;
+      font-size: 16px;
+      width: 16px;
+      height: 16px;
       color: var(--accent-b);
+      opacity: .85;
     }
+  }
+
+  // ── Display title below the kicker ──
+  &__title {
+    margin: 0 0 14px;
+    font-family: var(--font-display, var(--tech-font-display));
+    font-size: var(--title-xl, 34px);
+    font-weight: 800;
+    line-height: 1.05;
+    letter-spacing: -.02em;
+    color: var(--ink);
   }
 }
 
@@ -101,9 +114,19 @@
     box-shadow: var(--lift-1);
     color: var(--ink);
     cursor: pointer;
-    transition: transform var(--ease-spring, .2s), background .2s;
+    transition: transform var(--ease-spring, .2s), background .2s, box-shadow .2s;
 
+    @media (hover: hover) {
+      &:hover {
+        background: color-mix(in oklab, var(--accent-a) 12%, var(--glass));
+        box-shadow: var(--lift-2);
+      }
+    }
     &:active { transform: scale(.92); }
+    &:focus-visible {
+      outline: 2px solid var(--focus, var(--accent-a));
+      outline-offset: 2px;
+    }
     mat-icon { font-size: 24px; width: 24px; height: 24px; }
   }
 
@@ -127,11 +150,16 @@
   &__today {
     border: none;
     background: none;
-    padding: 0;
+    padding: 2px 6px;
     font-size: 12.5px;
     font-weight: 700;
     color: var(--accent-b);
     cursor: pointer;
+    border-radius: var(--r-pill, 999px);
+    &:focus-visible {
+      outline: 2px solid var(--focus, var(--accent-a));
+      outline-offset: 2px;
+    }
   }
 
   &__cur {
@@ -158,7 +186,7 @@
   border-radius: var(--tech-radius, var(--r-tile, 18px));
   background: var(--glass);
   border: 1px solid var(--tech-border, var(--hairline, rgba(255,255,255,.07)));
-  box-shadow: var(--tech-shadow-panel, var(--lift-1));
+  box-shadow: inset 0 1px 0 var(--glass-edge, rgba(255,255,255,.10)), var(--tech-shadow-panel, var(--lift-1));
 
   &__n {
     font-size: 17px;
@@ -209,9 +237,16 @@
 
   @media (hover: hover) {
     &:hover:not(.is-active) {
-      transform: translateY(-1px);
+      transform: translateY(-2px);
       box-shadow: var(--tech-shadow-raised, var(--lift-2));
+      background: color-mix(in oklab, var(--accent-a) 10%, var(--glass));
+      border-color: color-mix(in oklab, var(--accent-a) 30%, transparent);
     }
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--focus, var(--accent-a));
+    outline-offset: 2px;
   }
 
   &:active { transform: scale(.94); }
@@ -267,7 +302,7 @@
   align-items: baseline;
   justify-content: space-between;
   gap: 10px;
-  padding: 2px 4px;
+  padding: 4px 4px 2px;
 
   &__when {
     display: flex;
@@ -313,18 +348,18 @@
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 12px;
+  padding: 14px 14px 14px 12px;
   border-radius: var(--tech-radius, var(--r-tile, 18px));
   background: var(--glass);
   border: 1px solid var(--tech-border, var(--hairline, rgba(255,255,255,.07)));
-  box-shadow: var(--tech-shadow-panel, var(--lift-1));
-  min-height: 64px;
+  box-shadow: inset 0 1px 0 var(--glass-edge, rgba(255,255,255,.10)), var(--tech-shadow-panel, var(--lift-1));
+  min-height: 68px;
   transition: opacity .2s, transform .2s, box-shadow .2s;
 
   @media (hover: hover) {
     &:hover:not(.is-busy) {
-      transform: translateY(-1px);
-      box-shadow: var(--tech-shadow-raised, var(--lift-2));
+      transform: translateY(-2px);
+      box-shadow: inset 0 1px 0 var(--glass-edge, rgba(255,255,255,.10)), var(--tech-shadow-raised, var(--lift-2));
     }
   }
 
@@ -408,13 +443,23 @@
     border: none;
     border-radius: var(--tech-r-pill, var(--r-pill, 999px));
     background: var(--glass);
-    box-shadow: var(--lift-1);
+    box-shadow: inset 0 1px 0 var(--glass-edge, rgba(255,255,255,.10)), var(--lift-1);
     color: var(--accent-b);
     cursor: pointer;
-    transition: transform var(--ease-spring, .2s);
+    transition: transform var(--ease-spring, .2s), box-shadow .2s, background .2s;
 
+    @media (hover: hover) {
+      &:hover:not(:disabled) {
+        background: color-mix(in oklab, var(--accent-b) 15%, var(--glass));
+        box-shadow: inset 0 1px 0 var(--glass-edge, rgba(255,255,255,.10)), var(--lift-2);
+      }
+    }
     &:active { transform: scale(.9); }
     &:disabled { opacity: .5; }
+    &:focus-visible {
+      outline: 2px solid var(--focus, var(--accent-a));
+      outline-offset: 2px;
+    }
     mat-icon { font-size: 22px; width: 22px; height: 22px; }
   }
 }
@@ -455,12 +500,22 @@
   color: var(--ink-on-accent);
   font-size: 14.5px;
   font-weight: 700;
-  box-shadow: var(--lift-2);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.18), var(--lift-2);
   cursor: pointer;
-  transition: transform var(--ease-spring, .2s), filter .2s;
+  transition: transform var(--ease-spring, .2s), filter .2s, box-shadow .2s;
 
+  @media (hover: hover) {
+    &:hover:not(:disabled) {
+      filter: brightness(1.07);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.18), var(--lift-3, var(--lift-2));
+    }
+  }
   &:active { transform: scale(.98); }
   &:disabled { opacity: .7; }
+  &:focus-visible {
+    outline: 2px solid var(--focus, var(--accent-a));
+    outline-offset: 3px;
+  }
   mat-icon { font-size: 21px; width: 21px; height: 21px; }
 }
 
@@ -501,8 +556,10 @@
 
   &__title {
     margin: 0;
-    font-size: 19px;
+    font-family: var(--font-display, var(--tech-font-display));
+    font-size: 22px;
     font-weight: 800;
+    letter-spacing: -.01em;
     color: var(--ink);
   }
 
@@ -516,6 +573,16 @@
     background: var(--glass);
     color: var(--ink-dim);
     cursor: pointer;
+    transition: background .2s;
+    @media (hover: hover) {
+      &:hover:not(:disabled) {
+        background: color-mix(in oklab, var(--ink-dim) 12%, var(--glass));
+      }
+    }
+    &:focus-visible {
+      outline: 2px solid var(--focus, var(--accent-a));
+      outline-offset: 2px;
+    }
     &:disabled { opacity: .5; }
     mat-icon { font-size: 22px; width: 22px; height: 22px; }
   }
@@ -547,16 +614,27 @@
     font-size: 13.5px;
     font-weight: 700;
     cursor: pointer;
-    transition: background .2s, color .2s, border-color .2s, transform var(--ease-spring, .2s);
+    transition: background .2s, color .2s, border-color .2s, transform var(--ease-spring, .2s), box-shadow .2s;
 
+    @media (hover: hover) {
+      &:hover:not(.is-on) {
+        background: color-mix(in oklab, var(--accent-a) 10%, var(--glass));
+        border-color: color-mix(in oklab, var(--accent-a) 25%, transparent);
+        color: var(--ink);
+      }
+    }
     &:active { transform: scale(.97); }
+    &:focus-visible {
+      outline: 2px solid var(--focus, var(--accent-a));
+      outline-offset: 2px;
+    }
     mat-icon { font-size: 19px; width: 19px; height: 19px; }
 
     &.is-on {
       background: linear-gradient(135deg, var(--accent-a), var(--accent-b));
       border-color: transparent;
       color: var(--ink-on-accent);
-      box-shadow: var(--lift-1);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.18), var(--lift-1);
     }
   }
 
@@ -606,16 +684,25 @@
     align-items: center;
     gap: 6px;
     align-self: flex-start;
-    padding: 6px 4px;
+    padding: 6px 8px;
     border: none;
     background: none;
     color: var(--ink-dim);
     font-size: 13.5px;
     font-weight: 700;
     cursor: pointer;
+    border-radius: var(--r-pill, 999px);
+    transition: color .2s, background .2s;
     i { font-weight: 500; color: var(--ink-faint); font-style: normal; }
     mat-icon { font-size: 20px; width: 20px; height: 20px; }
     &.is-on { color: var(--accent-b); }
+    &:focus-visible {
+      outline: 2px solid var(--focus, var(--accent-a));
+      outline-offset: 2px;
+    }
+    @media (hover: hover) {
+      &:hover { background: color-mix(in oklab, var(--ink-dim) 8%, transparent); }
+    }
   }
 
   &__macros {
@@ -656,10 +743,14 @@
     font-size: 14.5px;
     font-weight: 700;
     cursor: pointer;
-    transition: transform var(--ease-spring, .2s), filter .2s;
+    transition: transform var(--ease-spring, .2s), filter .2s, box-shadow .2s;
 
     &:active { transform: scale(.97); }
     &:disabled { opacity: .6; cursor: default; }
+    &:focus-visible {
+      outline: 2px solid var(--focus, var(--accent-a));
+      outline-offset: 2px;
+    }
     mat-icon { font-size: 20px; width: 20px; height: 20px; }
 
     &--ghost {
@@ -667,13 +758,24 @@
       padding-inline: 20px;
       background: var(--glass);
       color: var(--ink-dim);
-      box-shadow: var(--lift-1);
+      box-shadow: inset 0 1px 0 var(--glass-edge, rgba(255,255,255,.10)), var(--lift-1);
+      @media (hover: hover) {
+        &:hover:not(:disabled) {
+          background: color-mix(in oklab, var(--ink-dim) 12%, var(--glass));
+        }
+      }
     }
 
     &--save {
       background: linear-gradient(135deg, var(--accent-a), var(--accent-b));
       color: var(--ink-on-accent);
-      box-shadow: var(--lift-2);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.18), var(--lift-2);
+      @media (hover: hover) {
+        &:hover:not(:disabled) {
+          filter: brightness(1.07);
+          box-shadow: inset 0 1px 0 rgba(255,255,255,.18), var(--lift-3, var(--lift-2));
+        }
+      }
     }
   }
 }

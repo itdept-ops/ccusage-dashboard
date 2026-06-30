@@ -86,6 +86,18 @@ interface BadgeGroup {
     <app-bs-pull-refresh class="tr-ptr" [busy]="refreshing()" (refresh)="reload()">
       <div class="tr-scroll" aria-live="polite">
 
+        <!-- ─── PAGE HEADER: display-font title + tracker action aligned end ─── -->
+        <div class="tr-page-header">
+          <div class="tr-page-header__text">
+            <h1 class="tr-page-header__title">Achievements</h1>
+            <p class="tr-page-header__sub">Your milestone trophy wall</p>
+          </div>
+          <a class="tr-page-header__action" routerLink="/tracker-beta"
+             aria-label="Open tracker">
+            <mat-icon aria-hidden="true">fitness_center</mat-icon> Tracker
+          </a>
+        </div>
+
         <!-- ─── IMMERSIVE HEADER: ring + "N of M" + name, behind an accent bloom ─── -->
         <header class="tr-hero">
           <div class="tr-hero__bloom" aria-hidden="true"></div>
@@ -111,10 +123,10 @@ interface BadgeGroup {
               </app-bs-ring>
             </div>
 
-            <h1 class="tr-hero__title">
+            <p class="tr-hero__title">
               @if (allEarned() && totalCount() > 0) { Every trophy, earned }
               @else { {{ earnedCount() }} unlocked }
-            </h1>
+            </p>
             <p class="tr-hero__sub">
               {{ subline() }}
             </p>
@@ -166,24 +178,40 @@ interface BadgeGroup {
             </button>
           }
 
-          <!-- ─── FILTER: All | Earned | Locked ─── -->
-          <div class="tr-seg-wrap">
-            <app-bs-segmented class="tr-seg"
-              [segments]="statusSegments" [value]="statusFilter()" label="Filter trophies by status"
-              (change)="setStatusFilter($event)" />
-          </div>
+          <!-- ─── CONTROLS: status filter + group-by, each with a labelled kicker ─── -->
+          <div class="tr-controls">
+            <div class="tr-control-row">
+              <span class="tr-control-label">Show</span>
+              <div class="tr-seg-wrap">
+                <app-bs-segmented class="tr-seg"
+                  [segments]="statusSegments" [value]="statusFilter()" label="Filter trophies by status"
+                  (change)="setStatusFilter($event)" />
+              </div>
+            </div>
 
-          <!-- ─── GROUP-BY SWITCH ─── -->
-          <div class="tr-seg-wrap">
-            <app-bs-segmented class="tr-seg"
-              [segments]="groupSegments" [value]="groupBy()" label="Group trophies by"
-              (change)="setGroupBy($event)" />
+            <div class="tr-control-row">
+              <span class="tr-control-label">Group by</span>
+              <div class="tr-seg-wrap">
+                <app-bs-segmented class="tr-seg"
+                  [segments]="groupSegments" [value]="groupBy()" label="Group trophies by"
+                  (change)="setGroupBy($event)" />
+              </div>
+            </div>
           </div>
 
           @if (!visibleBadges().length) {
-            <div class="tr-filter-empty">
-              <mat-icon aria-hidden="true">{{ statusFilter() === 'earned' ? 'lock_open' : 'lock' }}</mat-icon>
-              {{ statusFilter() === 'earned' ? 'No trophies earned yet — keep logging to light up the wall.' : 'Every trophy is earned. Nothing left locked.' }}
+            <div class="tr-filter-empty" role="status">
+              <span class="tr-filter-empty__orb" aria-hidden="true">
+                <mat-icon>{{ statusFilter() === 'earned' ? 'lock_open' : 'emoji_events' }}</mat-icon>
+              </span>
+              <h2 class="tr-filter-empty__title">
+                {{ statusFilter() === 'earned' ? 'None earned yet' : 'Wall cleared!' }}
+              </h2>
+              <p class="tr-filter-empty__hint">
+                {{ statusFilter() === 'earned'
+                  ? 'Keep logging to light up the wall — your first trophy is closer than you think.'
+                  : 'Every trophy is earned. Nothing left locked — you\'ve maxed the wall.' }}
+              </p>
             </div>
           }
 
@@ -191,6 +219,8 @@ interface BadgeGroup {
           @for (g of groups(); track g.key) {
             <section class="tr-group">
               <div class="tr-group__head">
+                <span class="tr-group__dot" aria-hidden="true"
+                      [attr.data-tier]="groupBy() === 'tier' ? g.key : null"></span>
                 <h2 class="tr-group__title" [attr.data-tier]="groupBy() === 'tier' ? g.key : null">{{ g.name }}</h2>
                 <span class="tr-group__count">{{ g.earned }}/{{ g.badges.length }}</span>
               </div>

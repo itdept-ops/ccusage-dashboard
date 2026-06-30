@@ -1,16 +1,31 @@
 <header class="head">
-  <span class="head-eyebrow mono-num">~/agents</span>
-  <h2>Proactive Agents</h2>
-  <p class="sub">Per-you assistants that run on a daily schedule and nudge you — a morning briefing, a
-    late-day streak rescue, a budget alert, and a low-staples reminder. Each lands in your in-app bell (and
-    on your devices if you've enabled web-push). Agents only ever watch your own data and only ever nudge
-    you; AI summaries use your existing AI access — the deterministic version is always there without it.</p>
+  <div class="head__row">
+    <div class="head__copy">
+      <span class="head-eyebrow">Proactive Agents</span>
+      <h2 class="head__title">Your daily assistants</h2>
+      <p class="sub">Per-you assistants that run on a daily schedule and nudge you — a morning briefing, a
+        late-day streak rescue, a budget alert, and a low-staples reminder. Each lands in your in-app bell (and
+        on your devices if you've enabled web-push). Agents only ever watch your own data and only ever nudge
+        you; AI summaries use your existing AI access — the deterministic version is always there without it.</p>
+    </div>
+    <span class="head__badge" aria-hidden="true"><mat-icon>smart_toy</mat-icon></span>
+  </div>
 </header>
 
 @if (loading()) {
-  <div class="state" role="status" aria-live="polite">
-    <mat-progress-spinner mode="indeterminate" diameter="36" />
-    <p>Loading your agents…</p>
+  <div class="state-skeletons" role="status" aria-live="polite" aria-label="Loading your agents…">
+    @for (_ of [1,2,3,4]; track $index) {
+      <div class="skel-card">
+        <div class="skel-row">
+          <app-bs-skeleton width="44px" height="44px" [circle]="true" />
+          <div class="skel-lines">
+            <app-bs-skeleton height="15px" width="55%" />
+            <app-bs-skeleton height="12px" width="80%" />
+          </div>
+          <app-bs-skeleton width="48px" height="26px" radius="999px" />
+        </div>
+      </div>
+    }
   </div>
 } @else if (error()) {
   <app-bs-error
@@ -89,11 +104,17 @@
             <mat-icon aria-hidden="true">send</mat-icon>
             @if (r.testing) { Sending… } @else { Send a test }
           </button>
-          @if (r.saving) { <span class="agent__saving" aria-live="polite">Saving…</span> }
+          @if (r.saving) {
+            <span class="agent__saving" aria-live="polite">
+              <mat-icon aria-hidden="true">sync</mat-icon> Saving…
+            </span>
+          }
         </div>
 
         @if (r.error) {
-          <p class="agent__error" role="alert">{{ r.error }}</p>
+          <p class="agent__error" role="alert">
+            <mat-icon aria-hidden="true">error_outline</mat-icon> {{ r.error }}
+          </p>
         }
         @if (r.testMsg) {
           <p class="agent__toast" aria-live="polite"><mat-icon aria-hidden="true">check_circle</mat-icon> {{ r.testMsg }}</p>
