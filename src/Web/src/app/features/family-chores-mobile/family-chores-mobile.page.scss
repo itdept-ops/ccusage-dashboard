@@ -8,6 +8,12 @@
 //
 // ISOLATED + gated by platform.mobile + the family route: nothing here touches the global --tech-* tokens
 // or the live /family/chores page. The kit partial is the only import.
+//
+// FiMobile elevation pass: card/panel radii → var(--tech-radius); icon-tile/control radii →
+// var(--tech-r-control); chip radii → var(--tech-r-pill); card shadows supplemented with
+// var(--tech-shadow-panel); card borders reinforced with var(--tech-border); on-accent text uses
+// var(--tech-text-on-accent) in addition to the kit's --ink-on-accent; interactive cards get a gentle
+// hover lift. Bespoke lime→emerald accent contract and layout structure are fully preserved.
 // ============================================================================
 
 @use '../beta-ui/beta-kit' as kit;
@@ -96,8 +102,8 @@
   padding: 10px 12px;
   background: var(--glass);
   border: 1px solid var(--glass-edge);
-  border-radius: var(--r-tile);
-  box-shadow: var(--lift-1);
+  border-radius: var(--tech-radius, var(--r-tile));
+  box-shadow: var(--tech-shadow-panel, var(--lift-1));
 }
 .cm-stat--bal {
   background: linear-gradient(135deg,
@@ -130,9 +136,9 @@
 .cm-card {
   display: flex; flex-direction: column;
   background: var(--glass);
-  border: 1px solid var(--glass-edge);
-  border-radius: var(--r-tile);
-  box-shadow: var(--lift-1);
+  border: 1px solid var(--tech-border, var(--glass-edge));
+  border-radius: var(--tech-radius, var(--r-tile));
+  box-shadow: var(--tech-shadow-panel, var(--lift-1));
   overflow: hidden;
   &.is-busy { opacity: .6; }
 }
@@ -147,8 +153,11 @@
   color: var(--ink);
   font-family: var(--font-ui);
   cursor: pointer; -webkit-tap-highlight-color: transparent;
-  transition: transform 120ms var(--ease-out);
+  transition: transform 120ms var(--ease-out), box-shadow 120ms var(--ease-out);
 
+  @media (hover: hover) {
+    &:hover { transform: translateY(-1px); box-shadow: var(--tech-shadow-raised, var(--lift-2)); }
+  }
   &:active { transform: scale(.99); }
   &:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
 }
@@ -156,7 +165,7 @@
 .cm-card__glyph {
   flex: 0 0 auto;
   display: inline-flex; align-items: center; justify-content: center;
-  width: 44px; height: 44px; border-radius: 12px;
+  width: 44px; height: 44px; border-radius: var(--tech-r-control, 12px);
   background: linear-gradient(135deg,
     color-mix(in srgb, var(--accent-a) 24%, transparent),
     color-mix(in srgb, var(--accent-b) 24%, transparent));
@@ -190,7 +199,7 @@
 .cm-chip {
   flex: 0 0 auto;
   display: inline-flex; align-items: center;
-  padding: 4px 9px; border-radius: var(--r-pill);
+  padding: 4px 9px; border-radius: var(--tech-r-pill, var(--r-pill));
   font-size: 10.5px; font-weight: 800; letter-spacing: .02em;
   white-space: nowrap;
   border: 1px solid transparent;
@@ -224,6 +233,7 @@
   width: 100%; min-height: 46px;
   padding: 0 16px;
   border: none; border-top: 1px solid var(--hairline);
+  border-radius: 0; // full-bleed footer; card itself clips
   background: color-mix(in srgb, var(--accent-a) 12%, transparent);
   color: var(--accent-b);
   font-family: var(--font-ui); font-size: 14px; font-weight: 800; letter-spacing: -.01em;
@@ -236,7 +246,7 @@
 }
 .cm-card__cta--approve {
   background: linear-gradient(135deg, var(--accent-a), var(--accent-b));
-  color: var(--ink-on-accent);
+  color: var(--tech-text-on-accent, var(--ink-on-accent));
 }
 
 // staggered reveal (collapsed under reduced-motion by the kit a11y killswitch)
@@ -265,9 +275,9 @@
   display: flex; flex-direction: column; gap: 8px;
   padding: 14px;
   background: var(--glass);
-  border: 1px solid var(--glass-edge);
-  border-radius: var(--r-glass);
-  box-shadow: var(--lift-1);
+  border: 1px solid var(--tech-border, var(--glass-edge));
+  border-radius: var(--tech-radius, var(--r-glass));
+  box-shadow: var(--tech-shadow-panel, var(--lift-1));
 }
 .cm-ledger__title {
   display: inline-flex; align-items: center; gap: 6px; margin: 0;
@@ -284,7 +294,7 @@
 .cm-ledger__ic {
   flex: 0 0 auto;
   display: inline-flex; align-items: center; justify-content: center;
-  width: 28px; height: 28px; border-radius: 9px;
+  width: 28px; height: 28px; border-radius: var(--tech-r-control, 9px);
   background: color-mix(in srgb, var(--ink) 8%, transparent);
   color: var(--ink-dim);
   &.is-plus {
@@ -319,9 +329,9 @@
 .cd__glyph {
   flex: 0 0 auto;
   display: inline-flex; align-items: center; justify-content: center;
-  width: 48px; height: 48px; border-radius: 14px;
+  width: 48px; height: 48px; border-radius: var(--tech-r-control, 14px);
   background: linear-gradient(135deg, var(--accent-a), var(--accent-b));
-  color: var(--ink-on-accent); box-shadow: var(--lift-2);
+  color: var(--tech-text-on-accent, var(--ink-on-accent)); box-shadow: var(--lift-2);
   mat-icon { width: 24px; height: 24px; font-size: 24px; line-height: 24px; }
 }
 .cd__titles { min-width: 0; display: flex; flex-direction: column; gap: 5px; align-items: flex-start; }
@@ -335,7 +345,7 @@
 .cd__reward {
   display: flex; flex-direction: column; align-items: center; gap: 3px;
   padding: 12px 4px;
-  background: var(--bg-sink); border: 1px solid var(--hairline); border-radius: var(--r-tile);
+  background: var(--bg-sink); border: 1px solid var(--tech-border, var(--hairline)); border-radius: var(--tech-radius, var(--r-tile));
 }
 .cd__reward--credit {
   background: color-mix(in srgb, var(--accent-a) 10%, var(--bg-sink));
@@ -360,9 +370,9 @@
 .cd__cta {
   display: inline-flex; align-items: center; justify-content: center; gap: 8px;
   width: 100%; min-height: 50px;
-  border: none; border-radius: var(--r-pill);
+  border: none; border-radius: var(--tech-r-control, var(--r-pill));
   background: linear-gradient(135deg, var(--accent-a), var(--accent-b));
-  color: var(--ink-on-accent);
+  color: var(--tech-text-on-accent, var(--ink-on-accent));
   font-family: var(--font-ui); font-size: 15px; font-weight: 800; letter-spacing: -.01em;
   cursor: pointer; box-shadow: var(--lift-2); -webkit-tap-highlight-color: transparent;
   transition: transform 120ms var(--ease-out), filter 120ms var(--ease-out);

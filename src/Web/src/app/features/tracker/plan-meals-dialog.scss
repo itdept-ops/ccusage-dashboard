@@ -75,8 +75,8 @@
 }
 .pm-slot--on {
   border-color: var(--tech-accent);
-  background: var(--tech-accent-tint, rgba(99, 140, 255, 0.12));
-  color: var(--tech-text-accent);
+  background: color-mix(in srgb, var(--tech-accent) 12%, transparent);
+  color: var(--tech-accent);
 }
 
 .pm-refine { width: 100%; }
@@ -105,9 +105,9 @@
   display: inline-flex; align-items: center; gap: 2px;
   padding: 2px 4px 2px 10px;
   border-radius: var(--tech-r-pill);
-  border: 1px solid var(--tech-border);
-  background: var(--tech-accent-tint, rgba(99, 140, 255, 0.12));
-  color: var(--tech-text-accent);
+  border: 1px solid color-mix(in srgb, var(--tech-accent) 30%, transparent);
+  background: color-mix(in srgb, var(--tech-accent) 12%, transparent);
+  color: var(--tech-accent);
 }
 .pm-chip__input {
   border: 0;
@@ -250,7 +250,7 @@
   font-weight: 600;
   small { color: var(--tech-text-tertiary); font-size: var(--tech-fs-micro); font-weight: 600; }
 }
-.wte-macro--cal { border-color: var(--tech-accent); color: var(--tech-text-accent); }
+.wte-macro--cal { border-color: var(--tech-accent); color: var(--tech-accent); }
 
 // ── ingredients (HAVE vs NEED) ──────────────────────────────────────────────────────────────────
 .wte-ings { display: flex; flex-direction: column; gap: var(--tech-space-2); }

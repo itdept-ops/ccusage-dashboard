@@ -8,6 +8,9 @@
 //
 // ISOLATED + gated by platform.mobile + family.use: nothing here touches the global --tech-* tokens or the
 // live /family/notes page. The kit partial is the only import.
+//
+// FiMobile elevation pass (FINAL): bespoke Strata design kept intact; only radii aligned to FiMobile
+// tokens (--tech-radius / --tech-r-control / --tech-r-pill) and text-on-accent references verified.
 // ============================================================================
 
 @use '../beta-ui/beta-kit' as kit;
@@ -94,7 +97,7 @@
   padding: 10px 12px;
   background: var(--glass);
   border: 1px solid var(--glass-edge);
-  border-radius: var(--r-tile);
+  border-radius: var(--tech-radius);
   box-shadow: var(--lift-1);
 }
 .nt-stat__n { font-size: 22px; font-weight: 800; line-height: 1; color: var(--ink); letter-spacing: -.02em; }
@@ -109,7 +112,7 @@
 
 .nt-list { display: flex; flex-direction: column; gap: 10px; }
 
-.nt-swipe { border-radius: var(--r-tile); }
+.nt-swipe { border-radius: var(--tech-radius); }
 
 // staggered reveal-in (collapsed by the a11y killswitch)
 .nt-reveal {
@@ -129,7 +132,7 @@
   text-align: left;
   background: var(--glass);
   border: 1px solid var(--glass-edge);
-  border-radius: var(--r-tile);
+  border-radius: var(--tech-radius);
   box-shadow: var(--lift-1);
   color: var(--ink);
   font-family: var(--font-ui);
@@ -157,7 +160,7 @@
 .nt-card__pin {
   position: absolute; top: 10px; right: 12px;
   display: inline-flex; align-items: center; justify-content: center;
-  width: 24px; height: 24px; border-radius: 8px;
+  width: 24px; height: 24px; border-radius: var(--tech-r-control);
   color: var(--accent-a);
   background: color-mix(in srgb, var(--accent-a) 16%, transparent);
   mat-icon { width: 15px; height: 15px; font-size: 15px; line-height: 15px; transform: rotate(35deg); }
@@ -216,7 +219,7 @@
 .nd__glyph {
   flex: 0 0 auto;
   display: inline-flex; align-items: center; justify-content: center;
-  width: 46px; height: 46px; border-radius: 13px;
+  width: 46px; height: 46px; border-radius: var(--tech-r-control);
   background: linear-gradient(135deg,
     color-mix(in srgb, var(--accent-a) 22%, transparent),
     color-mix(in srgb, var(--accent-b) 22%, transparent));
@@ -241,7 +244,7 @@
   a { color: var(--accent-b); font-weight: 600; text-decoration: underline; }
   code {
     font-family: var(--font-mono, monospace); font-size: .88em;
-    padding: 1px 5px; border-radius: 6px;
+    padding: 1px 5px; border-radius: var(--tech-r-control);
     background: color-mix(in srgb, var(--ink) 8%, transparent);
   }
   blockquote {
@@ -263,14 +266,14 @@
 .nd__chip {
   display: inline-flex; align-items: center; gap: 6px;
   padding: 5px 10px 5px 5px;
-  border-radius: var(--r-pill);
+  border-radius: var(--tech-r-pill);
   background: var(--glass);
   border: 1px solid var(--glass-edge);
   font-size: 12.5px; font-weight: 600; color: var(--ink);
 }
 .nd__chip-tag {
   font-style: normal; font-size: 10.5px; font-weight: 700; color: var(--accent-a);
-  padding: 1px 6px; border-radius: 6px;
+  padding: 1px 6px; border-radius: var(--tech-r-control);
   background: color-mix(in srgb, var(--accent-a) 14%, transparent);
 }
 
@@ -279,7 +282,7 @@
   flex: 1 1 0;
   display: inline-flex; align-items: center; justify-content: center; gap: 6px;
   min-height: 46px; padding: 0 12px;
-  border: 1px solid var(--glass-edge); border-radius: var(--r-tile);
+  border: 1px solid var(--glass-edge); border-radius: var(--tech-r-control);
   background: var(--glass); color: var(--ink);
   font-family: var(--font-ui); font-size: 13.5px; font-weight: 700;
   cursor: pointer; -webkit-tap-highlight-color: transparent;
@@ -339,7 +342,7 @@
 .nf__input {
   width: 100%; box-sizing: border-box;
   min-height: 46px; padding: 11px 13px;
-  border: 1px solid var(--glass-edge); border-radius: var(--r-tile);
+  border: 1px solid var(--glass-edge); border-radius: var(--tech-r-control);
   background: var(--surface, var(--glass)); color: var(--ink);
   font-family: var(--font-ui); font-size: 15px;
   transition: border-color 120ms var(--ease-out), box-shadow 120ms var(--ease-out);
@@ -351,7 +354,7 @@
 
 .nf__ai {
   display: flex; flex-direction: column; gap: 8px;
-  padding: 12px; border-radius: var(--r-tile);
+  padding: 12px; border-radius: var(--tech-radius);
   background: color-mix(in srgb, var(--glass) 90%, var(--accent-a) 6%);
   border: 1px solid color-mix(in srgb, var(--accent-a) 26%, var(--glass-edge));
 }
@@ -359,7 +362,7 @@
 .nf__ai-btn {
   display: inline-flex; align-items: center; justify-content: center; gap: 6px;
   align-self: flex-start; min-height: 40px; padding: 0 16px;
-  border: none; border-radius: var(--r-pill);
+  border: none; border-radius: var(--tech-r-pill);
   background: linear-gradient(135deg, var(--accent-a), var(--accent-b));
   color: var(--tech-text-on-accent, #fff); font-family: var(--font-ui); font-size: 13.5px; font-weight: 700;
   cursor: pointer; box-shadow: var(--lift-1); -webkit-tap-highlight-color: transparent;
@@ -374,7 +377,7 @@
 .nf__pin {
   display: flex; align-items: center; gap: 10px;
   padding: 12px 14px; min-height: 56px;
-  border: 1px solid var(--glass-edge); border-radius: var(--r-tile);
+  border: 1px solid var(--glass-edge); border-radius: var(--tech-radius);
   background: var(--glass); color: var(--ink);
   font-family: var(--font-ui); cursor: pointer; -webkit-tap-highlight-color: transparent;
   &.is-on { border-color: color-mix(in srgb, var(--accent-a) 40%, var(--glass-edge)); }
@@ -388,7 +391,7 @@
   flex: 1 1 0;
   display: inline-flex; align-items: center; justify-content: center; gap: 6px;
   min-height: 48px; padding: 0 14px;
-  border-radius: var(--r-pill);
+  border-radius: var(--tech-r-pill);
   font-family: var(--font-ui); font-size: 14.5px; font-weight: 700;
   cursor: pointer; -webkit-tap-highlight-color: transparent;
   transition: transform 120ms var(--ease-out);

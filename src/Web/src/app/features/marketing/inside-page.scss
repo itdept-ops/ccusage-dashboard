@@ -287,7 +287,7 @@
     justify-content: center;
     width: 46px; height: 46px;
     margin-bottom: 18px;
-    border-radius: 13px;
+    border-radius: var(--tech-r-control, 13px);
     border: 1px solid var(--aur-line);
     background: rgba(255, 255, 255, 0.04);
     color: var(--aur-b);
@@ -330,7 +330,7 @@
     justify-content: center;
     width: 42px; height: 42px;
     margin-bottom: 10px;
-    border-radius: 12px;
+    border-radius: var(--tech-r-control, 12px);
     border: 1px solid var(--aur-line);
     background: rgba(255, 255, 255, 0.04);
     color: var(--aur-c);

@@ -23,8 +23,8 @@
   align-self: center;
   width: 26px; height: 26px;
   display: grid; place-items: center;
-  border-radius: 9px;
-  background: color-mix(in srgb, var(--accent-a) 12%, var(--bg-sink));
+  border-radius: var(--r-tile);
+  background: color-mix(in srgb, var(--accent-a) 12%, transparent);
   border: 1px solid var(--glass-edge);
   font-family: var(--font-display); font-variant-numeric: tabular-nums;
   font-size: 14px; font-weight: 600; color: var(--accent-a);

@@ -49,7 +49,7 @@
     font-weight: 700;
     letter-spacing: 0.16em;
     text-transform: uppercase;
-    color: var(--tech-text-accent, #3fd8d0);
+    color: var(--tech-text-accent);
   }
   h1 {
     margin: 0 auto 16px;
@@ -99,7 +99,7 @@
     font-weight: 700;
     letter-spacing: 0.12em;
     text-transform: uppercase;
-    color: var(--tech-text-accent, #3fd8d0);
+    color: var(--tech-text-accent);
   }
   h2, h3 {
     margin: 0 0 12px;
@@ -141,7 +141,9 @@
   flex-direction: column;
   gap: 4px;
   padding: 14px 18px;
-  border-radius: var(--tech-r-panel, 14px);
+  border-radius: var(--tech-radius);
+  box-shadow: var(--tech-shadow-panel);
+  border: 1px solid var(--tech-border);
   li {
     display: flex;
     align-items: flex-start;
@@ -153,7 +155,7 @@
     line-height: 1.45;
     color: var(--tech-text);
     &:last-child { border-bottom: none; }
-    mat-icon { flex: 0 0 auto; font-size: 20px; width: 20px; height: 20px; color: var(--tech-accent-cyan, #3fd8d0); margin-top: 1px; }
+    mat-icon { flex: 0 0 auto; font-size: 20px; width: 20px; height: 20px; color: var(--tech-accent); margin-top: 1px; }
   }
 }
 
@@ -197,7 +199,7 @@
     border-radius: 50%;
     background: var(--tech-bg-sunken, #05080f);
     border: 1.5px solid color-mix(in srgb, var(--tech-accent) 60%, transparent);
-    color: var(--tech-accent-cyan, #3fd8d0);
+    color: var(--tech-accent-cyan, var(--tech-accent));
     box-shadow: var(--tech-glow, 0 0 24px -8px rgba(99, 140, 255, 0.6));
     mat-icon { font-size: 26px; width: 26px; height: 26px; }
   }
@@ -205,7 +207,9 @@
 }
 .flow-body {
   padding: 22px 24px;
-  border-radius: var(--tech-r-panel, 14px);
+  border-radius: var(--tech-radius);
+  box-shadow: var(--tech-shadow-panel);
+  border: 1px solid var(--tech-border);
   h2 { margin: 0 0 8px; font-size: 1.2rem; font-weight: 600; color: var(--tech-text); }
   .flow-lead { margin: 0 0 10px; font-size: 1rem; line-height: 1.55; color: var(--tech-text-secondary); }
   .flow-detail { margin: 0; font-size: 0.92rem; line-height: 1.6; color: var(--tech-text-tertiary); }
@@ -223,7 +227,7 @@
     font-weight: 700;
     letter-spacing: 0.14em;
     text-transform: uppercase;
-    color: var(--tech-text-accent, #3fd8d0);
+    color: var(--tech-text-accent);
   }
   h2 {
     margin: 0;
@@ -239,9 +243,11 @@
 .faq-section { padding-top: clamp(40px, 6vw, 72px); padding-bottom: clamp(24px, 4vw, 40px); }
 .faqs { display: flex; flex-direction: column; gap: 12px; max-width: 760px; margin: 0 auto; }
 .faq {
-  border-radius: var(--tech-r-panel, 12px);
+  border-radius: var(--tech-radius);
+  border: 1px solid var(--tech-border);
+  box-shadow: var(--tech-shadow-panel);
   overflow: hidden;
-  transition: border-color 200ms var(--tech-ease);
+  transition: border-color 200ms var(--tech-ease), box-shadow 200ms var(--tech-ease);
   summary {
     display: flex;
     align-items: center;
@@ -258,7 +264,7 @@
   }
   &[open] { border-color: var(--tech-border-strong); summary mat-icon { transform: rotate(180deg); } }
   p { margin: 0; padding: 0 20px 20px; font-size: 0.96rem; line-height: 1.65; color: var(--tech-text-secondary); }
-  &:hover { border-color: var(--tech-border-strong); }
+  &:hover { border-color: var(--tech-border-strong); box-shadow: var(--tech-shadow-raised); }
 }
 
 /* ───────────────────────── CTA ───────────────────────── */
@@ -268,8 +274,9 @@
   overflow: hidden;
   text-align: center;
   padding: clamp(40px, 6vw, 72px) 24px;
-  border-radius: var(--tech-r-chrome, 20px);
-  border-color: var(--tech-border-strong);
+  border-radius: var(--tech-radius);
+  border: 1px solid var(--tech-border);
+  box-shadow: var(--tech-shadow-panel);
   .cta-glow {
     position: absolute;
     left: 50%; top: -40%;
@@ -298,9 +305,9 @@
   padding: 13px 28px;
   font-size: 15px;
   font-weight: 700;
-  color: var(--tech-text);
+  color: var(--tech-text-on-accent);
   text-decoration: none;
-  border-radius: var(--tech-r-pill, 999px);
+  border-radius: var(--tech-r-control);
   background: linear-gradient(120deg, color-mix(in srgb, var(--tech-accent) 90%, #000), var(--tech-accent-2, #8b7cff));
   border: 1px solid color-mix(in srgb, var(--tech-accent) 60%, transparent);
   transition: box-shadow 220ms var(--tech-ease), transform 160ms var(--tech-ease);
@@ -313,7 +320,7 @@
   gap: 8px;
   font-size: 15px;
   font-weight: 600;
-  color: var(--tech-text-accent, #3fd8d0);
+  color: var(--tech-text-accent);
   text-decoration: none;
   span { transition: transform 200ms var(--tech-ease); }
   &:hover span { transform: translateX(4px); }

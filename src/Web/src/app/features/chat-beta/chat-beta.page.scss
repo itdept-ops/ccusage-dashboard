@@ -201,7 +201,7 @@
 .empty--thread { padding: 40px 28px; }
 .empty__art {
   display: grid; place-items: center;
-  width: 84px; height: 84px; border-radius: 28px;
+  width: 84px; height: 84px; border-radius: var(--r-card);
   background: color-mix(in srgb, var(--accent-a) 12%, var(--bg-rise));
   border: 1px solid var(--glass-edge);
   box-shadow: var(--lift-2);
@@ -338,7 +338,7 @@
   resize: none; overflow-y: auto;
   min-height: 44px; max-height: 120px;
   padding: 11px 16px;
-  border-radius: 22px;
+  border-radius: var(--r-pill);
   border: 1px solid var(--glass-edge);
   background: var(--bg-rise);
   color: var(--ink); font: inherit; font-size: 15px; line-height: 1.35;

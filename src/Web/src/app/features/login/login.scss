@@ -88,7 +88,7 @@
 .landing button:focus-visible {
   outline: 2px solid var(--lx-cyan);
   outline-offset: 3px;
-  border-radius: 8px;
+  border-radius: var(--tech-r-control, 8px);
 }
 
 .landing {
@@ -443,7 +443,7 @@
   display: grid;
   place-items: center;
   width: 46px; height: 46px;
-  border-radius: 13px;
+  border-radius: var(--tech-r-control, 13px);
   background: linear-gradient(160deg, rgba(34, 26, 77, 0.95), rgba(12, 10, 36, 0.95));
   border: 1px solid rgba(176, 107, 255, 0.32);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
@@ -508,7 +508,7 @@
   display: flex;
   flex-direction: column;
   padding: 1.7rem 1.6rem 1.6rem;
-  border-radius: 18px;
+  border-radius: var(--tech-radius, 18px);
   overflow: hidden;
   background:
     radial-gradient(120% 90% at 18% 0%, rgba(176, 107, 255, 0.07), transparent 60%),
@@ -535,7 +535,7 @@
     display: grid;
     place-items: center;
     width: 46px; height: 46px;
-    border-radius: 13px;
+    border-radius: var(--tech-r-control, 13px);
     color: var(--acc, var(--lx-violet));
     background: rgba(10, 8, 24, 0.6);
     border: 1px solid color-mix(in srgb, var(--acc, var(--lx-violet)) 45%, transparent);
@@ -675,7 +675,7 @@
   display: grid;
   place-items: center;
   width: 56px; height: 56px;
-  border-radius: 15px;
+  border-radius: var(--tech-r-control, 15px);
   /* the six nodes carry the brand VIOLET (not cyan) — cyan is reserved as a
      scarce focal accent (the one hero satellite, the foot-core spark, the repo
      link), so six cyan chips at once would flatten the luminance ladder. */
@@ -685,9 +685,10 @@
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
   .aglyph { width: 26px; height: 26px; }
 }
+
 .agent-card {
   padding: 1.2rem 1.4rem;
-  border-radius: 16px;
+  border-radius: var(--tech-radius, 16px);
   background:
     radial-gradient(110% 80% at 80% 0%, rgba(52, 227, 232, 0.06), transparent 60%),
     linear-gradient(170deg, rgba(18, 14, 43, 0.5), rgba(10, 8, 24, 0.3));
@@ -850,7 +851,7 @@
     display: grid;
     place-items: center;
     width: 44px; height: 44px;
-    border-radius: 12px;
+    border-radius: var(--tech-r-control, 12px);
     color: var(--lx-violet);
     background: rgba(10, 8, 24, 0.6);
     border: 1px solid rgba(176, 107, 255, 0.32);
@@ -901,7 +902,7 @@
   align-items: center;
   gap: clamp(1.5rem, 4vw, 3rem);
   padding: clamp(2rem, 5vw, 3.2rem);
-  border-radius: var(--radius-lg);
+  border-radius: var(--tech-radius, var(--radius-lg));
   overflow: hidden;
   background:
     radial-gradient(90% 120% at 0% 50%, rgba(176, 107, 255, 0.12), transparent 60%),
@@ -985,7 +986,7 @@
   margin: 0 auto;
   padding: clamp(2.8rem, 6vw, 4.4rem) clamp(1.5rem, 5vw, 3rem);
   text-align: center;
-  border-radius: 28px;
+  border-radius: var(--tech-radius, 28px);
   overflow: hidden;
   /* the brightest-cored ground on the page — the conversion ground */
   background:

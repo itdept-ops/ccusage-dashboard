@@ -90,7 +90,7 @@
 
 // A floating accent glyph badge in the header's top-right.
 .hh__glyph {
-  flex: 0 0 auto; display: grid; place-items: center; width: 46px; height: 46px; border-radius: 15px;
+  flex: 0 0 auto; display: grid; place-items: center; width: 46px; height: 46px; border-radius: var(--tech-radius);
   background: linear-gradient(135deg, var(--accent-a), var(--accent-b)); color: var(--tech-text-on-accent, #2a0a00);
   box-shadow: 0 10px 26px color-mix(in srgb, var(--accent-a) 42%, transparent), inset 0 1px 0 rgba(255,255,255,.25);
 }
@@ -146,7 +146,7 @@
 
 .ab-filter-empty {
   display: inline-flex; align-items: center; gap: 8px; justify-content: center;
-  margin: 2px 0; padding: 16px 18px; border-radius: var(--r-tile);
+  margin: 2px 0; padding: 16px 18px; border-radius: var(--tech-radius);
   background: var(--bg-rise); border: 1px dashed var(--hairline);
   font-size: 13.5px; font-weight: 600; color: var(--ink-dim); text-align: center;
 }
@@ -166,16 +166,21 @@
 .ab-tpl-grid { display: flex; flex-direction: column; gap: 9px; }
 .ab-tpl-card {
   display: flex; align-items: center; gap: 12px; width: 100%; box-sizing: border-box; text-align: left;
-  padding: 12px 13px; border-radius: var(--r-tile);
-  border: 1px solid var(--hairline); background: var(--bg-rise); color: var(--ink);
+  padding: 12px 13px; border-radius: var(--tech-radius);
+  border: 1px solid var(--tech-border, var(--hairline)); background: var(--bg-rise); color: var(--ink);
+  box-shadow: var(--tech-shadow-panel);
   cursor: pointer; -webkit-tap-highlight-color: transparent; touch-action: manipulation;
-  transition: border-color 160ms var(--ease-out), background 160ms var(--ease-out), transform 120ms var(--ease-spring);
+  transition: border-color 160ms var(--ease-out), background 160ms var(--ease-out),
+              transform 120ms var(--ease-spring), box-shadow 160ms var(--ease-out);
 }
 .ab-tpl-card:active { transform: scale(.985); }
 .ab-tpl-card:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
-.ab-tpl-card:hover { border-color: color-mix(in srgb, var(--accent-a) 45%, var(--hairline)); }
+.ab-tpl-card:hover {
+  border-color: color-mix(in srgb, var(--accent-a) 45%, var(--hairline));
+  transform: translateY(-1px); box-shadow: var(--tech-shadow-raised, var(--lift-2));
+}
 .ab-tpl-ic {
-  flex: 0 0 auto; display: grid; place-items: center; width: 38px; height: 38px; border-radius: 12px;
+  flex: 0 0 auto; display: grid; place-items: center; width: 38px; height: 38px; border-radius: var(--tech-r-control);
   background: color-mix(in srgb, var(--accent-a) 14%, var(--bg-sink)); color: var(--accent-a);
 }
 .ab-tpl-ic mat-icon { font-size: 21px; width: 21px; height: 21px; }
@@ -193,7 +198,7 @@
 .ab-tpl-row::-webkit-scrollbar { display: none; }
 .ab-tpl-chip {
   flex: 0 0 auto; display: inline-flex; align-items: center; gap: 6px;
-  min-height: 40px; padding: 0 13px; border-radius: var(--r-pill);
+  min-height: 40px; padding: 0 13px; border-radius: var(--tech-r-pill);
   border: 1px solid color-mix(in srgb, var(--accent-a) 28%, var(--hairline));
   background: color-mix(in srgb, var(--accent-a) 8%, var(--bg-rise)); color: var(--ink);
   font: inherit; font-size: 13px; font-weight: 700; white-space: nowrap;
@@ -215,19 +220,20 @@
 // ============================================================================
 .ab-state {
   display: flex; flex-direction: column; align-items: center; text-align: center; gap: 12px;
-  padding: 34px 18px; border-radius: var(--r-card);
-  background: var(--bg-rise); border: 1px dashed var(--hairline);
+  padding: 34px 18px; border-radius: var(--tech-radius);
+  background: var(--bg-rise); border: 1px dashed var(--tech-border, var(--hairline));
+  box-shadow: var(--tech-shadow-panel);
 }
 .ab-state-ic {
-  display: grid; place-items: center; width: 56px; height: 56px; border-radius: 18px;
+  display: grid; place-items: center; width: 56px; height: 56px; border-radius: var(--tech-radius);
   background: color-mix(in srgb, var(--accent-a) 12%, var(--bg-sink)); color: var(--accent-a);
 }
 .ab-state-ic mat-icon { font-size: 28px; width: 28px; height: 28px; }
 .ab-state-msg { margin: 0; font-size: 14px; font-weight: 600; color: var(--ink-dim); max-width: 32ch; line-height: 1.4; }
 .ab-state-btn {
   display: inline-flex; align-items: center; gap: 7px;
-  min-height: 48px; padding: 0 22px; border: none; border-radius: var(--r-pill);
-  background: linear-gradient(135deg, var(--accent-a), var(--accent-b)); color: var(--ink-on-accent);
+  min-height: 48px; padding: 0 22px; border: none; border-radius: var(--tech-r-pill);
+  background: linear-gradient(135deg, var(--accent-a), var(--accent-b)); color: var(--tech-text-on-accent, var(--ink-on-accent));
   font-family: var(--font-ui); font-size: 14.5px; font-weight: 800; cursor: pointer; box-shadow: var(--lift-2);
   -webkit-tap-highlight-color: transparent; touch-action: manipulation;
   transition: transform 120ms var(--ease-out);
@@ -256,7 +262,7 @@
 :host ::ng-deep :focus-visible {
   outline: 2px solid var(--focus);
   outline-offset: 2px;
-  border-radius: 8px;
+  border-radius: var(--tech-r-control);
 }
 
 // No 390px overflow: everything is fluid by construction.

@@ -82,8 +82,8 @@
 // ---- create sheet ----
 .pm-create {
   display: flex; flex-direction: column; gap: 14px;
-  padding: 16px; border-radius: var(--r-tile, 16px);
-  background: var(--glass-1); border: 1px solid var(--hair); box-shadow: var(--lift-1);
+  padding: 16px; border-radius: var(--tech-radius, var(--r-tile, 16px));
+  background: var(--glass-1); border: 1px solid var(--tech-border, var(--hair)); box-shadow: var(--tech-shadow-panel, var(--lift-1));
   animation: pm-slide 320ms var(--ease-spring, cubic-bezier(0.22, 1, 0.36, 1)) both;
 
   &__hint { margin: 0; font-size: 12px; color: var(--ink-3, var(--ink-2)); }
@@ -110,7 +110,7 @@
     color: var(--ink-3, var(--ink-2));
   }
   &__input {
-    min-height: 44px; padding: 0 13px; border-radius: var(--r-tile, 12px);
+    min-height: 44px; padding: 0 13px; border-radius: var(--tech-r-control, var(--r-tile, 12px));
     border: 1px solid var(--hair); background: var(--glass-2); color: var(--ink-1);
     font: inherit; font-size: 15px;
     &::placeholder { color: var(--ink-3, var(--ink-2)); }
@@ -144,7 +144,7 @@
 
 // ---- skeleton ----
 .pm-skel { display: flex; flex-direction: column; gap: 12px; padding: 4px 2px; }
-.pm-skel__card { display: flex; align-items: center; gap: 12px; padding: 12px; border-radius: var(--r-tile, 16px); background: var(--glass-1); border: 1px solid var(--hair); }
+.pm-skel__card { display: flex; align-items: center; gap: 12px; padding: 12px; border-radius: var(--tech-radius, var(--r-tile, 16px)); background: var(--glass-1); border: 1px solid var(--tech-border, var(--hair)); }
 .pm-skel__lines { flex: 1; display: flex; flex-direction: column; gap: 8px; }
 
 // ---- empty / error states ----
@@ -174,15 +174,21 @@
 .pm-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px; }
 
 .pm-card {
-  padding: 14px; border-radius: var(--r-tile, 16px);
-  background: var(--glass-1); border: 1px solid var(--hair); box-shadow: var(--lift-1);
+  padding: 14px; border-radius: var(--tech-radius, var(--r-tile, 16px));
+  background: var(--glass-1); border: 1px solid var(--tech-border, var(--hair)); box-shadow: var(--tech-shadow-panel, var(--lift-1));
+  transition: transform 140ms var(--ease-out, ease), box-shadow 140ms var(--ease-out, ease);
+
+  &:has(.pm-card__expand):hover {
+    transform: translateY(-1px);
+    box-shadow: var(--tech-shadow-raised, var(--lift-2));
+  }
 
   &.is-archived { opacity: .6; }
 
   &__head { display: flex; align-items: flex-start; gap: 12px; }
 
   &__icon {
-    flex: 0 0 auto; width: 44px; height: 44px; border-radius: 12px;
+    flex: 0 0 auto; width: 44px; height: 44px; border-radius: var(--tech-r-control, var(--r-tile, 12px));
     display: grid; place-items: center; color: var(--ink-on-accent, #fff);
     background: linear-gradient(135deg, var(--accent-a), var(--accent-b));
     mat-icon { width: 24px; height: 24px; font-size: 24px; line-height: 24px; }
@@ -192,7 +198,7 @@
   &__meta { margin: 3px 0 0; font-size: 12px; color: var(--ink-3, var(--ink-2)); }
 
   &__archive {
-    flex: 0 0 auto; width: 34px; height: 34px; border: none; border-radius: 10px;
+    flex: 0 0 auto; width: 34px; height: 34px; border: none; border-radius: var(--tech-r-control, 10px);
     display: grid; place-items: center; background: var(--glass-2); color: var(--ink-3, var(--ink-2)); cursor: pointer;
     mat-icon { width: 18px; height: 18px; font-size: 18px; line-height: 18px; }
   }
@@ -232,7 +238,7 @@
 
 .pm-standing {
   display: flex; align-items: center; gap: 10px;
-  padding: 8px 10px; border-radius: var(--r-tile, 12px); background: var(--glass-2);
+  padding: 8px 10px; border-radius: var(--tech-r-control, var(--r-tile, 12px)); background: var(--glass-2);
 
   &__rank { flex: 0 0 auto; width: 18px; text-align: center; font-weight: 700; font-size: 13px; color: var(--ink-3, var(--ink-2)); }
   &__avatar {

@@ -240,7 +240,7 @@
   align-items: center;
   gap: 4px;
   padding: 2px 9px;
-  border-radius: 999px;
+  border-radius: var(--tech-r-pill);
   background: color-mix(in srgb, var(--tech-accent) 14%, transparent);
   color: var(--tech-accent);
   font-size: var(--tech-fs-micro);

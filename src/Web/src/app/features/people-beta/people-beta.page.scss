@@ -91,12 +91,13 @@
 // Hero "who's online" count chip.
 .hh__count {
   flex: 0 0 auto; display: flex; flex-direction: column; align-items: center; gap: 0;
-  min-width: 64px; padding: 8px 14px; border-radius: var(--r-card);
+  min-width: 64px; padding: 8px 14px;
+  border-radius: var(--tech-radius, var(--r-card));
   background: var(--glass);
   backdrop-filter: blur(var(--blur-glass)) saturate(1.4);
   -webkit-backdrop-filter: blur(var(--blur-glass)) saturate(1.4);
-  border: 1px solid color-mix(in srgb, var(--accent-a) 24%, var(--glass-edge));
-  box-shadow: var(--lift-2);
+  border: 1px solid color-mix(in srgb, var(--accent-a) 24%, var(--tech-border, var(--glass-edge)));
+  box-shadow: var(--tech-shadow-panel, var(--lift-2));
 }
 .hh__count-n {
   font-family: var(--font-display); font-variant-numeric: tabular-nums;
@@ -218,8 +219,8 @@ $hues: #fb7185, #f0a35a, #a78bfa, #38bdf8, #34d399, #f472b6;
 .pl-skel { display: flex; flex-direction: column; gap: 10px; }
 .pl-skel-row {
   display: flex; align-items: center; gap: 13px;
-  padding: 12px; border-radius: var(--r-tile);
-  background: var(--bg-rise); border: 1px solid var(--hairline);
+  padding: 12px; border-radius: var(--tech-radius, var(--r-tile));
+  background: var(--bg-rise); border: 1px solid var(--tech-border, var(--hairline));
 }
 .pl-skel-lines { flex: 1 1 auto; display: flex; flex-direction: column; gap: 7px; }
 
@@ -236,7 +237,9 @@ $hues: #fb7185, #f0a35a, #a78bfa, #38bdf8, #34d399, #f472b6;
 }
 .pl-group-c {
   display: inline-grid; place-items: center; min-width: 22px; height: 20px; padding: 0 6px;
-  border-radius: var(--r-pill); background: var(--bg-sink); border: 1px solid var(--hairline);
+  border-radius: var(--tech-r-pill, var(--r-pill));
+  background: color-mix(in srgb, var(--accent-a) 12%, var(--bg-sink));
+  border: 1px solid color-mix(in srgb, var(--accent-a) 30%, transparent);
   font-family: var(--font-display); font-variant-numeric: tabular-nums; font-size: 12px; font-weight: 600; color: var(--ink-dim);
 }
 .pl-group-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--ink-faint); }

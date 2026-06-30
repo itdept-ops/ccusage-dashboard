@@ -79,14 +79,14 @@
 
 // ─────────── AI BANNER ───────────
 .im-ai {
-  border-radius: var(--r-card);
+  border-radius: var(--tech-radius);
   padding: 1rem 1.1rem;
   background:
     linear-gradient(135deg,
       color-mix(in srgb, var(--accent-a) 22%, var(--bg-rise)),
       color-mix(in srgb, var(--accent-b) 16%, var(--bg-rise)));
-  border: 1px solid var(--glass-edge);
-  box-shadow: var(--lift-2);
+  border: 1px solid var(--tech-border);
+  box-shadow: var(--tech-shadow-panel);
 
   &__kicker {
     display: inline-flex;
@@ -147,10 +147,10 @@
   flex-direction: column;
   gap: .5rem;
   padding: 1rem 1.05rem 1.05rem;
-  border-radius: var(--r-card);
+  border-radius: var(--tech-radius);
   background: var(--bg-rise);
-  border: 1px solid var(--hairline);
-  box-shadow: var(--lift-2);
+  border: 1px solid var(--tech-border);
+  box-shadow: var(--tech-shadow-panel);
   overflow: hidden;
   scroll-snap-align: start;
 
@@ -169,7 +169,7 @@
     place-items: center;
     width: 26px;
     height: 26px;
-    border-radius: 8px;
+    border-radius: var(--tech-r-control);
     color: var(--db);
     background: color-mix(in srgb, var(--da) 20%, transparent);
     mat-icon { font-size: 17px; width: 17px; height: 17px; }
@@ -184,12 +184,12 @@
   &__mag {
     margin-left: auto;
     padding: .1rem .5rem;
-    border-radius: var(--r-pill);
+    border-radius: var(--tech-r-pill);
     font-size: .7rem;
     font-weight: 700;
     color: var(--ink-dim);
     background: var(--bg-base);
-    border: 1px solid var(--hairline);
+    border: 1px solid var(--tech-border);
     &[data-dir='up']   { color: var(--tech-success, #4ade80); }
     &[data-dir='down'] { color: var(--tech-error, #fb7185); }
     &[data-dir='flat'] { color: var(--ink-dim); }
@@ -233,12 +233,12 @@
   align-items: center;
   gap: .26rem;
   padding: .18rem .5rem;
-  border-radius: var(--r-pill);
+  border-radius: var(--tech-r-pill);
   font-size: .68rem;
   font-weight: 600;
   color: var(--ink-dim);
   background: var(--bg-base);
-  border: 1px solid var(--hairline);
+  border: 1px solid var(--tech-border);
   mat-icon { font-size: 13px; width: 13px; height: 13px; }
 
   &--med {
@@ -255,10 +255,10 @@
   text-align: center;
   gap: .7rem;
   padding: clamp(36px, 12vw, 64px) 1.25rem;
-  border-radius: var(--r-card);
+  border-radius: var(--tech-radius);
   background: var(--bg-rise);
-  border: 1px solid var(--hairline);
-  box-shadow: var(--lift-2);
+  border: 1px solid var(--tech-border);
+  box-shadow: var(--tech-shadow-panel);
 
   &__orb {
     display: grid;
@@ -279,13 +279,13 @@
     margin-top: .3rem;
     min-height: 44px;
     padding: 0 1.1rem;
-    border-radius: var(--r-pill);
+    border-radius: var(--tech-r-control);
     font: inherit;
     font-weight: 600;
     text-decoration: none;
     border: 0;
     cursor: pointer;
-    color: var(--ink-on-accent);
+    color: var(--tech-text-on-accent);
     background: linear-gradient(135deg, var(--accent-a), var(--accent-b));
     mat-icon { font-size: 19px; width: 19px; height: 19px; }
   }

@@ -176,7 +176,7 @@
 
 .bh-tile__icon {
   flex: 0 0 auto; display: grid; place-items: center;
-  width: 46px; height: 46px; border-radius: 14px;
+  width: 46px; height: 46px; border-radius: var(--r-tile);
   background: linear-gradient(135deg, var(--ta, var(--accent-a)), var(--tb, var(--accent-b)));
   box-shadow:
     0 6px 18px color-mix(in srgb, var(--ta, var(--accent-a)) 40%, transparent),
@@ -234,7 +234,7 @@
   background: var(--bg-rise); border: 1px solid var(--hairline); box-shadow: var(--lift-1);
 }
 .bh-empty__ic {
-  display: grid; place-items: center; width: 58px; height: 58px; border-radius: 18px;
+  display: grid; place-items: center; width: 58px; height: 58px; border-radius: var(--r-tile);
   background: color-mix(in srgb, var(--accent-a) 14%, transparent);
 }
 .bh-empty__ic mat-icon {
@@ -332,7 +332,7 @@
 .bh-handle mat-icon { font-size: 22px; width: 22px; height: 22px; }
 
 .bh-tile__icon--sm {
-  width: 38px; height: 38px; border-radius: 11px;
+  width: 38px; height: 38px; border-radius: var(--r-tile);
 }
 .bh-tile__icon--sm mat-icon { font-size: 21px; width: 21px; height: 21px; }
 
@@ -343,8 +343,8 @@
 
 .bh-editbtns { flex: 0 0 auto; display: flex; gap: 5px; }
 .bh-ebtn {
-  display: grid; place-items: center; width: 34px; height: 34px; border-radius: 10px;
-  border: 1px solid var(--hairline); background: color-mix(in srgb, var(--ink) 3%, transparent);
+  display: grid; place-items: center; width: 34px; height: 34px; border-radius: var(--r-tile);
+  border: 1px solid var(--tech-border, var(--hairline)); background: color-mix(in srgb, var(--ink) 3%, transparent);
   color: var(--ink); cursor: pointer; transition: transform 120ms var(--ease-spring);
 }
 .bh-ebtn:active { transform: scale(.9); }

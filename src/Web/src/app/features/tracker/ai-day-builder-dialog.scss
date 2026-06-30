@@ -102,7 +102,7 @@
 .db-chip {
   min-height: 36px; padding: 0 14px;
   border: 1px solid var(--tech-border-strong);
-  border-radius: 999px;
+  border-radius: var(--tech-r-pill);
   background: var(--tech-panel);
   color: var(--tech-text);
   font: inherit; font-weight: 600; font-size: var(--tech-fs-label);
@@ -185,7 +185,7 @@
 }
 .db-conf, .db-clamped {
   display: inline-flex; align-items: center;
-  padding: 1px 7px; border-radius: 999px;
+  padding: 1px 7px; border-radius: var(--tech-r-pill);
   font-size: var(--tech-fs-micro); font-weight: 600;
 }
 .db-conf { background: var(--tech-bg-sunken); border: 1px solid var(--tech-border-strong); color: var(--tech-text-secondary); }

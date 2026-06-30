@@ -140,7 +140,7 @@
 .ff-ai__spark {
   flex: 0 0 auto;
   display: inline-flex; align-items: center; justify-content: center;
-  width: 32px; height: 32px; border-radius: 10px;
+  width: 32px; height: 32px; border-radius: var(--r-tile);
   background: linear-gradient(135deg, var(--accent-a), var(--accent-b));
   color: var(--ink-on-accent); box-shadow: var(--lift-1);
   mat-icon { width: 19px; height: 19px; font-size: 19px; line-height: 19px; }
@@ -259,13 +259,14 @@
   color: var(--ink); font-family: var(--font-ui);
   cursor: pointer; -webkit-tap-highlight-color: transparent;
   transition: transform 120ms var(--ease-out), box-shadow 120ms var(--ease-out);
+  &:hover { transform: translateY(-1px); box-shadow: var(--lift-2); }
   &:active { transform: scale(.985); box-shadow: var(--press); }
   &:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 }
 .ff-txn__glyph {
   flex: 0 0 auto;
   display: inline-flex; align-items: center; justify-content: center;
-  width: 38px; height: 38px; border-radius: 11px;
+  width: 38px; height: 38px; border-radius: var(--r-tile);
   background: color-mix(in srgb, var(--ink-faint) 16%, transparent);
   color: var(--ink-dim);
   mat-icon { width: 20px; height: 20px; font-size: 20px; line-height: 20px; }
@@ -318,7 +319,7 @@
 .ff-recur__glyph {
   flex: 0 0 auto;
   display: inline-flex; align-items: center; justify-content: center;
-  width: 38px; height: 38px; border-radius: 11px;
+  width: 38px; height: 38px; border-radius: var(--r-tile);
   background: linear-gradient(135deg,
     color-mix(in srgb, var(--accent-a) 22%, transparent),
     color-mix(in srgb, var(--accent-b) 22%, transparent));
@@ -451,6 +452,8 @@
   background: var(--glass); border: 1px solid var(--glass-edge);
   border-radius: var(--r-tile); box-shadow: var(--lift-1);
   color: var(--ink); font-family: var(--font-ui); cursor: pointer;
+  transition: transform 120ms var(--ease-out), box-shadow 120ms var(--ease-out);
+  &:hover { transform: translateY(-1px); box-shadow: var(--lift-2); }
   &:active { transform: scale(0.99); }
 }
 .ff-nw-acct__dot { flex: 0 0 auto; width: 10px; height: 10px; border-radius: 50%; }
@@ -522,7 +525,7 @@
 .td__glyph {
   flex: 0 0 auto;
   display: inline-flex; align-items: center; justify-content: center;
-  width: 46px; height: 46px; border-radius: 13px;
+  width: 46px; height: 46px; border-radius: var(--r-tile);
   background: color-mix(in srgb, var(--ink-faint) 16%, transparent);
   color: var(--ink-dim);
   mat-icon { width: 24px; height: 24px; font-size: 24px; line-height: 24px; }

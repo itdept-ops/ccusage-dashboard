@@ -68,7 +68,7 @@
   border: 0;
   border-radius: var(--r-pill, 999px);
   background: linear-gradient(135deg, var(--accent-a), var(--accent-b));
-  color: var(--ink-on-accent, #0c0d12);
+  color: var(--tech-text-on-accent, #fff);
   font: inherit;
   font-size: 13px;
   font-weight: 700;
@@ -106,8 +106,8 @@
 .aa-spin {
   width: 15px; height: 15px;
   border-radius: 50%;
-  border: 2px solid color-mix(in srgb, var(--ink-on-accent, #0c0d12) 35%, transparent);
-  border-top-color: var(--ink-on-accent, #0c0d12);
+  border: 2px solid color-mix(in srgb, var(--tech-text-on-accent, #fff) 35%, transparent);
+  border-top-color: var(--tech-text-on-accent, #fff);
   animation: aa-spin .7s linear infinite;
 }
 

@@ -5,6 +5,8 @@
   margin-bottom: var(--tech-space-4);
   padding: var(--tech-space-3) var(--tech-space-4);
   border-radius: var(--tech-radius);
+  border: 1px solid var(--tech-border);
+  box-shadow: var(--tech-shadow-panel);
 }
 
 .pt__head {
@@ -74,7 +76,7 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 7px 0;
+  padding: 12px 0;
   border-top: 1px solid var(--tech-border-subtle, rgba(255, 255, 255, 0.06));
   &:first-child { border-top: 0; }
 }
@@ -85,7 +87,7 @@
   width: 28px;
   height: 28px;
   flex: 0 0 auto;
-  border-radius: 8px;
+  border-radius: var(--tech-r-control);
   color: var(--tech-accent-cyan, #3fd8d0);
   background: color-mix(in srgb, var(--tech-accent-cyan, #3fd8d0) 14%, transparent);
   mat-icon { font-size: 17px; width: 17px; height: 17px; }
@@ -131,11 +133,11 @@
 .pt__row--sk { gap: 10px; }
 .pt__sk {
   display: block;
-  border-radius: 6px;
+  border-radius: var(--tech-r-control);
   background: color-mix(in srgb, var(--tech-text-tertiary, #7c8aa0) 16%, transparent);
   animation: pt-sheen 1.3s ease-in-out infinite;
 }
-.pt__sk--av { width: 28px; height: 28px; border-radius: 8px; flex: 0 0 auto; }
+.pt__sk--av { width: 28px; height: 28px; border-radius: var(--tech-r-control); flex: 0 0 auto; }
 .pt__sk--line { height: 12px; flex: 1 1 auto; }
 @keyframes pt-sheen {
   0%, 100% { opacity: 0.55; }

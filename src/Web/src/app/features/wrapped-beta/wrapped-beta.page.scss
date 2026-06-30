@@ -110,7 +110,7 @@
 .wb-top__share {
   flex: 0 0 auto;
   display: inline-grid; place-items: center;
-  width: 44px; height: 44px; border-radius: 14px;
+  width: 44px; height: 44px; border-radius: var(--r-tile);
   border: 1px solid var(--glass-edge);
   background: color-mix(in srgb, var(--accent-a) 14%, var(--bg-rise));
   color: var(--ink); cursor: pointer;
@@ -218,10 +218,10 @@
   border: 1px solid color-mix(in srgb, var(--sa) 36%, transparent);
   color: var(--ink);
   font: 700 12.5px/1 var(--font-ui); letter-spacing: .04em; text-transform: uppercase;
-  mat-icon { font-size: 18px; width: 18px; height: 18px; color: #fff; }
+  mat-icon { font-size: 18px; width: 18px; height: 18px; color: var(--ink-on-accent); }
 }
 .wb-slide__chip-ico {
-  display: grid; place-items: center; width: 24px; height: 24px; border-radius: 8px;
+  display: grid; place-items: center; width: 24px; height: 24px; border-radius: var(--r-tile);
   background: linear-gradient(135deg, var(--sa), var(--sb));
 }
 
@@ -276,7 +276,7 @@
   min-height: 44px; padding: 0 18px; border-radius: var(--r-pill);
   border: 1px solid color-mix(in srgb, var(--sa) 42%, transparent);
   background: linear-gradient(135deg, var(--sa), var(--sb));
-  color: #fff; cursor: pointer;
+  color: var(--ink-on-accent); cursor: pointer;
   font: 700 14px/1 var(--font-ui); letter-spacing: .01em;
   transition: transform 120ms var(--ease-spring), filter 160ms var(--ease-out);
   mat-icon { font-size: 19px; width: 19px; height: 19px; }
@@ -489,7 +489,7 @@
   display: inline-flex; align-items: center; gap: 8px;
   min-height: 44px; padding: 0 18px; border: none; border-radius: var(--r-pill);
   background: linear-gradient(135deg, var(--accent-a), var(--accent-b));
-  color: #fff; font: 700 14px/1 var(--font-ui); cursor: pointer;
+  color: var(--ink-on-accent); font: 700 14px/1 var(--font-ui); cursor: pointer;
   box-shadow: 0 8px 22px color-mix(in srgb, var(--accent-a) 36%, transparent);
   transition: transform 120ms var(--ease-spring);
   mat-icon { font-size: 20px; width: 20px; height: 20px; }
@@ -520,8 +520,8 @@
   background: var(--bg-rise); border: 1px solid var(--hairline); box-shadow: var(--lift-1);
 }
 .wb-tail__ico {
-  flex: 0 0 auto; display: grid; place-items: center; width: 38px; height: 38px; border-radius: 12px;
-  background: var(--tg, var(--grad-primary)); color: #fff;
+  flex: 0 0 auto; display: grid; place-items: center; width: 38px; height: 38px; border-radius: var(--r-tile);
+  background: var(--tg, var(--grad-primary)); color: var(--ink-on-accent);
   mat-icon { font-size: 20px; width: 20px; height: 20px; }
 }
 .wb-tail__txt { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
@@ -559,7 +559,7 @@
 .wb-state__orb {
   display: grid; place-items: center; width: 92px; height: 92px; border-radius: 50%;
   background: linear-gradient(135deg, var(--accent-a), var(--accent-b));
-  color: #fff; box-shadow: 0 18px 48px color-mix(in srgb, var(--accent-a) 40%, transparent);
+  color: var(--ink-on-accent); box-shadow: 0 18px 48px color-mix(in srgb, var(--accent-a) 40%, transparent);
   animation: wb-orb 3.4s var(--ease-out) infinite;
   mat-icon { font-size: 46px; width: 46px; height: 46px; }
 }
@@ -574,7 +574,7 @@
   display: inline-flex; align-items: center; gap: 8px;
   min-height: 48px; padding: 0 24px; border: none; border-radius: var(--r-pill);
   background: linear-gradient(135deg, var(--accent-a), var(--accent-b));
-  color: #fff; font: 700 15px/1 var(--font-ui); text-decoration: none; cursor: pointer;
+  color: var(--ink-on-accent); font: 700 15px/1 var(--font-ui); text-decoration: none; cursor: pointer;
   box-shadow: 0 10px 28px color-mix(in srgb, var(--accent-a) 36%, transparent);
   transition: transform 120ms var(--ease-spring);
   mat-icon { font-size: 20px; width: 20px; height: 20px; }

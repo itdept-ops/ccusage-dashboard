@@ -10,6 +10,9 @@
 //
 // ISOLATED + gated by platform.mobile (+ bills.use): nothing here touches the global --tech-* tokens or the
 // flagship tracker-beta. The kit partial is the only style import; we consume the kit, never modify it.
+//
+// FiMobile pass: card/panel radii aligned to var(--tech-radius); inner control radii to
+// var(--tech-r-control); focus ring uses var(--tech-r-control); bespoke cream signature preserved.
 // ============================================================================
 
 @use '../beta-ui/beta-kit' as kit;
@@ -104,10 +107,10 @@
   flex: 0 0 auto;
   display: flex; flex-direction: column; align-items: flex-end; gap: 1px;
   padding: 10px 14px;
-  border-radius: var(--r-tile);
-  border: 1px solid var(--hairline);
+  border-radius: var(--tech-radius, var(--r-tile));
+  border: 1px solid var(--tech-border, var(--hairline));
   background: color-mix(in srgb, var(--warn) 9%, var(--bg-rise));
-  box-shadow: var(--lift-1);
+  box-shadow: var(--tech-shadow-panel, var(--lift-1));
 }
 .hh__owed-v { font-family: var(--font-display); font-weight: 600; font-size: 22px; line-height: 1; color: var(--warn); letter-spacing: -.02em; }
 .hh__owed-l { font-size: 10px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-dim); }
@@ -116,9 +119,10 @@
 .hh__running {
   display: flex; align-items: center; gap: 14px;
   padding: 10px 14px;
-  border-radius: var(--r-tile);
-  border: 1px solid var(--hairline);
+  border-radius: var(--tech-radius, var(--r-tile));
+  border: 1px solid var(--tech-border, var(--hairline));
   background: color-mix(in srgb, var(--accent-a) 7%, var(--bg-rise));
+  box-shadow: var(--tech-shadow-panel, var(--lift-1));
 }
 .hh__run { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
 .hh__run-v {
@@ -165,16 +169,16 @@
   text-align: center;
   display: flex; flex-direction: column; align-items: center; gap: 14px;
   padding: 30px 22px;
-  border-radius: var(--r-card);
+  border-radius: var(--tech-radius, var(--r-card));
   background:
     radial-gradient(120% 90% at 50% 0%, color-mix(in srgb, var(--accent-a) 12%, transparent), transparent 60%),
     var(--bg-rise);
-  border: 1px solid var(--hairline);
-  box-shadow: var(--lift-2);
+  border: 1px solid var(--tech-border, var(--hairline));
+  box-shadow: var(--tech-shadow-panel, var(--lift-2));
 }
 .bb-empty__art {
   display: grid; place-items: center; width: 72px; height: 72px;
-  border-radius: var(--r-card);
+  border-radius: var(--tech-r-control, var(--r-card));
   background: linear-gradient(135deg,
     color-mix(in srgb, var(--accent-a) 30%, transparent),
     color-mix(in srgb, var(--accent-b) 24%, transparent));
@@ -187,10 +191,10 @@
   margin-top: 2px;
   display: inline-flex; align-items: center; gap: 8px;
   min-height: 52px; padding: 0 26px;
-  border: none; border-radius: var(--r-pill);
+  border: none; border-radius: var(--tech-r-pill, var(--r-pill));
   background: linear-gradient(135deg, var(--accent-a), var(--accent-b));
   color: var(--on-accent); font: 700 15px/1 var(--font-ui); cursor: pointer;
-  box-shadow: var(--lift-2);
+  box-shadow: var(--tech-shadow-raised, var(--lift-2));
   transition: transform 120ms var(--ease-spring);
 }
 .bb-empty__btn:active { transform: scale(.96); }
@@ -226,7 +230,7 @@
 :host ::ng-deep :focus-visible {
   outline: 2px solid var(--focus);
   outline-offset: 2px;
-  border-radius: 8px;
+  border-radius: var(--tech-r-control, 8px);
 }
 
 // No 390px overflow: everything is fluid by construction.

@@ -81,14 +81,14 @@
 }
 
 // ============================================================================
-// CARDS — glass surfaces with the kit depth.
+// CARDS — glass surfaces with the kit depth, aligned to FiMobile card signature.
 // ============================================================================
 
 .pm-card {
   background: var(--glass);
-  border: 1px solid var(--glass-edge);
-  border-radius: var(--r-card);
-  box-shadow: var(--lift-2);
+  border: 1px solid var(--tech-border, var(--glass-edge));
+  border-radius: var(--tech-radius, var(--r-card));
+  box-shadow: var(--tech-shadow-panel, var(--lift-2));
   backdrop-filter: blur(var(--blur-glass, 14px));
   padding: 16px;
 
@@ -120,11 +120,11 @@
 
   .pm-conf {
     font-size: .72rem; font-weight: 700; letter-spacing: .02em;
-    padding: 4px 10px; border-radius: var(--r-pill);
+    padding: 4px 10px; border-radius: var(--tech-r-pill, var(--r-pill));
     background: color-mix(in srgb, var(--accent-a) 16%, transparent);
     color: var(--accent-a);
     border: 1px solid color-mix(in srgb, var(--accent-a) 30%, transparent);
-    &[data-c='low'] { color: var(--ink-dim); background: var(--bg-rise); border-color: var(--glass-edge); }
+    &[data-c='low'] { color: var(--ink-dim); background: var(--bg-rise); border-color: var(--tech-border, var(--glass-edge)); }
   }
 
   &__hint {
@@ -153,17 +153,18 @@
   display: flex; align-items: center; gap: 10px;
   min-height: 52px;
   padding: 10px 14px;
-  border-radius: var(--r-tile);
-  border: 1.5px solid var(--glass-edge);
+  border-radius: var(--tech-r-control, var(--r-tile));
+  border: 1.5px solid var(--tech-border, var(--glass-edge));
   background: var(--bg-rise);
   color: var(--ink-dim);
   font-size: .95rem; font-weight: 600;
   cursor: pointer;
-  transition: border-color .18s var(--ease, ease), color .18s, background .18s, transform .12s;
+  transition: border-color .18s var(--ease, ease), color .18s, background .18s, transform .12s, box-shadow .18s;
 
   mat-icon { font-size: 22px; width: 22px; height: 22px; color: var(--ink-faint); transition: color .18s; }
 
-  &:active { transform: scale(.98); }
+  &:hover { transform: translateY(-1px); box-shadow: var(--tech-shadow-raised, var(--lift-2)); }
+  &:active { transform: scale(.98); box-shadow: none; }
 
   &.is-on {
     border-color: var(--accent-a);
@@ -192,8 +193,8 @@
     display: flex; align-items: center; gap: 6px;
     min-height: 48px;
     padding: 0 14px;
-    border-radius: var(--r-tile);
-    border: 1.5px solid var(--glass-edge);
+    border-radius: var(--tech-r-control, var(--r-tile));
+    border: 1.5px solid var(--tech-border, var(--glass-edge));
     background: var(--bg-rise);
     transition: border-color .16s var(--ease, ease);
 
@@ -246,7 +247,7 @@
 .pm-mini {
   display: inline-flex; align-items: center; gap: 5px;
   padding: 7px 12px;
-  border-radius: var(--r-pill);
+  border-radius: var(--tech-r-pill, var(--r-pill));
   border: 1px solid color-mix(in srgb, var(--accent-a) 34%, transparent);
   background: color-mix(in srgb, var(--accent-a) 14%, transparent);
   color: var(--accent-a);
@@ -265,7 +266,7 @@
     display: inline-flex; align-items: center; gap: 8px;
     min-height: 44px;
     padding: 0 16px;
-    border-radius: var(--r-pill);
+    border-radius: var(--tech-r-control, var(--r-pill));
     border: 1.5px solid color-mix(in srgb, var(--accent-a) 40%, transparent);
     background: var(--bg-rise);
     color: var(--ink);
@@ -299,13 +300,14 @@
   display: flex; align-items: center; gap: 10px;
   width: 100%;
   min-height: 60px;
-  padding: 10px 12px;
-  border-radius: var(--r-tile);
-  border: 1px solid var(--glass-edge);
+  padding: 12px 14px;
+  border-radius: var(--tech-r-control, var(--r-tile));
+  border: 1px solid var(--tech-border, var(--glass-edge));
   background: var(--bg-rise);
   cursor: pointer; text-align: left;
-  transition: border-color .16s, transform .12s;
-  &:active { transform: scale(.99); }
+  transition: border-color .16s, transform .12s, box-shadow .18s;
+  &:hover { transform: translateY(-1px); box-shadow: var(--tech-shadow-raised, var(--lift-2)); }
+  &:active { transform: scale(.99); box-shadow: none; }
 
   &__main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
   &__when {
@@ -314,12 +316,12 @@
   }
   &__active {
     font-size: .68rem; font-weight: 800; letter-spacing: .03em; text-transform: uppercase;
-    padding: 2px 8px; border-radius: var(--r-pill);
+    padding: 2px 8px; border-radius: var(--tech-r-pill, var(--r-pill));
     background: color-mix(in srgb, var(--accent-a) 18%, transparent);
     color: var(--accent-a);
   }
-  &__sub { font-size: .84rem; color: var(--ink-dim); overflow: hidden; text-overflow: ellipsis; }
-  &__go { color: var(--ink-faint); flex: none; }
+  &__sub { font-size: .84rem; color: var(--tech-text-secondary, var(--ink-dim)); overflow: hidden; text-overflow: ellipsis; }
+  &__go { color: var(--tech-text-tertiary, var(--ink-faint)); flex: none; }
 }
 
 .pm-foot {
@@ -346,8 +348,8 @@
 .pm-back {
   display: inline-flex; align-items: center; justify-content: center;
   width: 52px; height: 52px; flex: none;
-  border-radius: var(--r-tile);
-  border: 1px solid var(--glass-edge);
+  border-radius: var(--tech-r-control, var(--r-tile));
+  border: 1px solid var(--tech-border, var(--glass-edge));
   background: var(--glass);
   color: var(--ink-dim);
   cursor: pointer;
@@ -360,13 +362,13 @@
   flex: 1;
   display: inline-flex; align-items: center; justify-content: center; gap: 8px;
   min-height: 52px;
-  border-radius: var(--r-tile);
+  border-radius: var(--tech-r-control, var(--r-tile));
   border: none;
   background: linear-gradient(135deg, var(--accent-a), var(--accent-b));
-  color: var(--ink-on-accent);
+  color: var(--tech-text-on-accent, var(--ink-on-accent));
   font-size: 1rem; font-weight: 800; letter-spacing: .01em;
   cursor: pointer;
-  box-shadow: var(--lift-2);
+  box-shadow: var(--tech-shadow-panel, var(--lift-2));
   mat-icon { font-size: 21px; width: 21px; height: 21px; }
   &:disabled { opacity: .7; cursor: default; }
   &:active { transform: translateY(1px); }
@@ -386,7 +388,7 @@
   &__when { font-size: 1.1rem; font-weight: 800; color: var(--ink); }
   &__goal {
     font-size: .82rem; font-weight: 700;
-    padding: 4px 10px; border-radius: var(--r-pill);
+    padding: 4px 10px; border-radius: var(--tech-r-pill, var(--r-pill));
     background: color-mix(in srgb, var(--accent-a) 16%, transparent);
     color: var(--accent-a);
   }
@@ -397,10 +399,10 @@
   &__cell {
     display: flex; flex-direction: column; gap: 3px;
     padding: 12px 14px;
-    border-radius: var(--r-tile);
+    border-radius: var(--tech-r-control, var(--r-tile));
     background: var(--bg-rise);
-    border: 1px solid var(--glass-edge);
-    i { font-style: normal; font-size: .76rem; font-weight: 600; color: var(--ink-faint); }
+    border: 1px solid var(--tech-border, var(--glass-edge));
+    i { font-style: normal; font-size: .76rem; font-weight: 600; color: var(--tech-text-tertiary, var(--ink-faint)); }
     b { font-size: 1.02rem; font-weight: 700; color: var(--ink); }
   }
 }

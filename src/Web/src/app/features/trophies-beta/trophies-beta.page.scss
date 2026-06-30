@@ -166,6 +166,7 @@
   font: inherit; color: var(--ink);
   transition: transform 140ms var(--ease-spring), box-shadow 140ms var(--ease-out), border-color 140ms var(--ease-out);
 }
+.tr-nextup:hover  { transform: translateY(-1px); box-shadow: var(--lift-2); }
 .tr-nextup:active { transform: scale(.985); box-shadow: var(--press); }
 .tr-nextup:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 
@@ -208,8 +209,9 @@
 // A small inline note when a status filter empties the grid.
 .tr-filter-empty {
   display: inline-flex; align-items: center; gap: 8px; justify-content: center;
-  margin: 2px 0; padding: 16px 18px; border-radius: var(--r-tile);
-  background: var(--bg-rise); border: 1px solid var(--hairline);
+  margin: 2px 0; padding: 16px 18px; border-radius: var(--r-pill);
+  background: color-mix(in srgb, var(--accent-a) 8%, var(--bg-rise));
+  border: 1px solid color-mix(in srgb, var(--accent-a) 20%, var(--hairline));
   font-size: 13.5px; font-weight: 600; color: var(--ink-dim); text-align: center;
 }
 .tr-filter-empty mat-icon { font-size: 18px; width: 18px; height: 18px; color: var(--ink-faint); }
@@ -263,6 +265,7 @@
   transition: transform 140ms var(--ease-spring), box-shadow 140ms var(--ease-out),
               border-color 140ms var(--ease-out);
 }
+.tr-tile:hover  { transform: translateY(-1px); box-shadow: var(--lift-2); }
 .tr-tile:active { transform: scale(.96); box-shadow: var(--press); }
 .tr-tile:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 
@@ -316,14 +319,14 @@
 .tr-tile__medal[data-tier='silver'],
 .tr-tile__medal[data-tier='gold'],
 .tr-tile__medal[data-tier='complete'] {
-  color: var(--tech-text-on-accent, #1a1205); border-color: transparent;
+  color: var(--ink-on-accent); border-color: transparent;
   box-shadow: 0 4px 14px color-mix(in srgb, var(--m-h) 50%, transparent),
               inset 0 1px 0 rgba(255, 255, 255, .35);
 }
 .tr-tile__medal[data-tier='bronze']   { --m-h: var(--t-bronze);  background: linear-gradient(150deg, #e2a06a, var(--t-bronze)); }
-.tr-tile__medal[data-tier='silver']   { --m-h: var(--t-silver);  background: linear-gradient(150deg, #e8edf3, var(--t-silver)); color: var(--tech-text-on-accent, #20262f); }
+.tr-tile__medal[data-tier='silver']   { --m-h: var(--t-silver);  background: linear-gradient(150deg, #e8edf3, var(--t-silver)); }
 .tr-tile__medal[data-tier='gold']     { --m-h: var(--t-gold);    background: linear-gradient(150deg, var(--t-gold), var(--t-gold-2)); }
-.tr-tile__medal[data-tier='complete'] { --m-h: var(--t-complete); background: linear-gradient(150deg, #c4b5fd, var(--t-complete)); color: var(--tech-text-on-accent, #1b1233); }
+.tr-tile__medal[data-tier='complete'] { --m-h: var(--t-complete); background: linear-gradient(150deg, #c4b5fd, var(--t-complete)); }
 
 .tr-tile__label {
   font-weight: 700; font-size: 13.5px; line-height: 1.2; color: var(--ink);
@@ -418,10 +421,10 @@
   background: var(--bg-sink); border: 2px solid var(--hairline); color: var(--ink-faint);
 }
 .trd__medal mat-icon { font-size: 34px; width: 34px; height: 34px; }
-.trd__medal[data-tier='bronze']   { color: var(--tech-text-on-accent, #1a1205); border-color: transparent; background: linear-gradient(150deg, #e2a06a, var(--t-bronze)); box-shadow: 0 6px 18px color-mix(in srgb, var(--t-bronze) 45%, transparent); }
-.trd__medal[data-tier='silver']   { color: var(--tech-text-on-accent, #20262f); border-color: transparent; background: linear-gradient(150deg, #e8edf3, var(--t-silver)); box-shadow: 0 6px 18px color-mix(in srgb, var(--t-silver) 45%, transparent); }
-.trd__medal[data-tier='gold']     { color: var(--tech-text-on-accent, #1a1205); border-color: transparent; background: linear-gradient(150deg, var(--t-gold), var(--t-gold-2)); box-shadow: 0 6px 18px color-mix(in srgb, var(--t-gold) 50%, transparent); }
-.trd__medal[data-tier='complete'] { color: var(--tech-text-on-accent, #1b1233); border-color: transparent; background: linear-gradient(150deg, #c4b5fd, var(--t-complete)); box-shadow: 0 6px 18px color-mix(in srgb, var(--t-complete) 45%, transparent); }
+.trd__medal[data-tier='bronze']   { color: var(--ink-on-accent); border-color: transparent; background: linear-gradient(150deg, #e2a06a, var(--t-bronze)); box-shadow: 0 6px 18px color-mix(in srgb, var(--t-bronze) 45%, transparent); }
+.trd__medal[data-tier='silver']   { color: var(--ink-on-accent); border-color: transparent; background: linear-gradient(150deg, #e8edf3, var(--t-silver)); box-shadow: 0 6px 18px color-mix(in srgb, var(--t-silver) 45%, transparent); }
+.trd__medal[data-tier='gold']     { color: var(--ink-on-accent); border-color: transparent; background: linear-gradient(150deg, var(--t-gold), var(--t-gold-2)); box-shadow: 0 6px 18px color-mix(in srgb, var(--t-gold) 50%, transparent); }
+.trd__medal[data-tier='complete'] { color: var(--ink-on-accent); border-color: transparent; background: linear-gradient(150deg, #c4b5fd, var(--t-complete)); box-shadow: 0 6px 18px color-mix(in srgb, var(--t-complete) 45%, transparent); }
 
 .trd__titles { min-width: 0; }
 .trd__title { margin: 0; font-family: var(--font-display); font-weight: 600; font-size: 22px; letter-spacing: -.01em; color: var(--ink); }
@@ -480,13 +483,13 @@
 // earned rung — filled dot, brighter name, tier-tinted.
 .trd__rung.is-earned .trd__rung-name { color: var(--ink); }
 .trd__rung.is-earned .trd__rung-dot {
-  border-color: transparent; color: var(--tech-text-on-accent, #1a1205);
+  border-color: transparent; color: var(--ink-on-accent);
   background: linear-gradient(150deg, var(--accent-a), var(--accent-b));
 }
 .trd__rung.is-earned[data-tier='bronze']   .trd__rung-dot { background: linear-gradient(150deg, #e2a06a, var(--t-bronze)); }
-.trd__rung.is-earned[data-tier='silver']   .trd__rung-dot { background: linear-gradient(150deg, #e8edf3, var(--t-silver)); color: var(--tech-text-on-accent, #20262f); }
+.trd__rung.is-earned[data-tier='silver']   .trd__rung-dot { background: linear-gradient(150deg, #e8edf3, var(--t-silver)); }
 .trd__rung.is-earned[data-tier='gold']     .trd__rung-dot { background: linear-gradient(150deg, var(--t-gold), var(--t-gold-2)); }
-.trd__rung.is-earned[data-tier='complete'] .trd__rung-dot { background: linear-gradient(150deg, #c4b5fd, var(--t-complete)); color: var(--tech-text-on-accent, #1b1233); }
+.trd__rung.is-earned[data-tier='complete'] .trd__rung-dot { background: linear-gradient(150deg, #c4b5fd, var(--t-complete)); }
 
 // the next-to-earn rung — a dashed accent outline to mark the target.
 .trd__rung.is-next {
@@ -517,9 +520,9 @@
 
 .trd__maxed {
   display: inline-flex; align-items: center; gap: 8px;
-  padding: 12px 14px; border-radius: var(--r-tile);
+  padding: 12px 16px; border-radius: var(--r-pill);
   background: color-mix(in srgb, var(--accent-a) 12%, transparent);
-  border: 1px solid color-mix(in srgb, var(--accent-a) 30%, var(--hairline));
+  border: 1px solid color-mix(in srgb, var(--accent-a) 30%, transparent);
   font-size: 13.5px; font-weight: 700; color: color-mix(in srgb, var(--accent-a) 78%, var(--ink));
 }
 .trd__maxed mat-icon { font-size: 19px; width: 19px; height: 19px; }

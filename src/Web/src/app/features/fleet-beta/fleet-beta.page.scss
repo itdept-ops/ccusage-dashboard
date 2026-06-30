@@ -130,19 +130,26 @@
 }
 .hh__div { width: 1px; align-self: stretch; background: var(--hairline); }
 
-// Range pills.
-.hh__pills { display: flex; flex-wrap: wrap; gap: 8px; }
+// Range pills — FiMobile pill-tab pattern: sunken container + pill tabs.
+.hh__pills {
+  display: flex; flex-wrap: wrap; gap: 4px;
+  background: var(--bg-sink);
+  border-radius: var(--r-card);
+  padding: 4px;
+}
 .pill {
-  min-height: 36px; padding: 0 15px; border-radius: var(--r-pill);
-  border: 1px solid var(--hairline); background: var(--bg-rise);
+  min-height: 36px; padding: 0 15px; border-radius: var(--r-tile);
+  border: 1px solid transparent; background: transparent;
   color: var(--ink-dim); font: inherit; font-size: 13px; font-weight: 700; cursor: pointer;
   -webkit-tap-highlight-color: transparent; touch-action: manipulation;
-  transition: transform 120ms var(--ease-spring), color 160ms var(--ease-out), border-color 160ms var(--ease-out);
+  transition: transform 120ms var(--ease-spring), color 160ms var(--ease-out),
+              background 160ms var(--ease-out), border-color 160ms var(--ease-out),
+              box-shadow 160ms var(--ease-out);
 }
 .pill:active { transform: scale(.95); }
 .pill:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 .pill--on {
-  color: var(--tech-text-on-accent, #04222a);
+  color: var(--tech-text-on-accent, var(--ink-on-accent, #04222a));
   background: linear-gradient(135deg, var(--accent-a), var(--accent-b));
   border-color: transparent;
   box-shadow: 0 4px 14px color-mix(in srgb, var(--accent-a) 35%, transparent);
@@ -221,7 +228,7 @@
   padding: 40px 20px; text-align: center;
 }
 .fb-state__ic {
-  display: grid; place-items: center; width: 64px; height: 64px; border-radius: 20px;
+  display: grid; place-items: center; width: 64px; height: 64px; border-radius: var(--r-tile);
   background: color-mix(in srgb, var(--accent-a) 12%, var(--bg-rise));
   border: 1px solid var(--glass-edge); color: var(--accent-a);
 }

@@ -1,23 +1,24 @@
 // Inherits the kit token contract from the family-beta page :host cascade (no global --tech-*).
+// --glass-2/--hair/--ink-0..3 are non-standard aliases routed here to the canonical kit tokens.
 
 .lb-switch {
   display: inline-flex;
   gap: 2px;
-  padding: 2px;
-  border-radius: var(--r-pill);
-  background: var(--glass-2);
-  border: 1px solid var(--hair);
+  padding: 4px;
+  border-radius: var(--tech-radius, var(--r-pill));
+  background: var(--tech-bg-sunken, var(--glass));
+  border: 1px solid var(--tech-border, var(--hairline));
 
   &__tab {
     width: 30px; height: 28px;
     display: grid; place-items: center;
-    border: none; border-radius: var(--r-pill);
-    background: transparent; color: var(--ink-3, var(--ink-2)); cursor: pointer;
+    border: none; border-radius: var(--tech-r-control, var(--r-tile));
+    background: transparent; color: var(--tech-text-tertiary, var(--ink-faint)); cursor: pointer;
     transition: background 140ms, color 140ms;
     mat-icon { width: 16px; height: 16px; font-size: 16px; line-height: 16px; }
 
     &.is-on {
-      color: var(--ink-0, #fff);
+      color: var(--tech-text-on-accent, var(--ink-on-accent, #0c0d12));
       background: linear-gradient(120deg, var(--accent-a, #fbbf24), var(--accent-b, #fb7185));
     }
   }
@@ -35,11 +36,22 @@
     display: flex;
     align-items: center;
     gap: 10px;
-    padding: 8px 10px;
-    border-radius: var(--r-tile, 12px);
-    background: var(--glass-2);
+    padding: 12px 14px;
+    border-radius: var(--tech-r-control, var(--r-tile, 18px));
+    background: var(--tech-panel, var(--glass));
+    border: 1px solid var(--tech-border, var(--hairline));
+    box-shadow: var(--tech-shadow-panel, var(--lift-1));
+    transition: transform 120ms var(--ease-spring), box-shadow 120ms var(--ease-out);
 
-    &.is-podium { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent-a, #fbbf24) 40%, transparent); }
+    &.is-podium {
+      box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent-a, #fbbf24) 40%, transparent),
+                  var(--tech-shadow-panel, var(--lift-1));
+    }
+
+    &:hover {
+      transform: translateY(-1px);
+      box-shadow: var(--tech-shadow-raised, var(--lift-2));
+    }
   }
 
   &__rank {
@@ -47,27 +59,28 @@
     width: 22px; height: 22px; border-radius: 50%;
     display: grid; place-items: center;
     font-weight: 700; font-size: 11px;
-    color: var(--ink-3, var(--ink-2)); background: transparent;
+    color: var(--tech-text-tertiary, var(--ink-faint)); background: transparent;
 
-    &[data-rank='1'] { color: var(--ink-on-accent, #1a1206); background: var(--tech-warn, #f5c542); }
-    &[data-rank='2'] { color: var(--ink-on-accent, #1a1206); background: #c9d1d9; }
-    &[data-rank='3'] { color: var(--ink-on-accent, #1a1206); background: #cd7f32; }
+    &[data-rank='1'] { color: var(--tech-text-on-accent, var(--ink-on-accent, #1a1206)); background: var(--tech-warn, #f5c542); }
+    &[data-rank='2'] { color: var(--tech-text-on-accent, var(--ink-on-accent, #1a1206)); background: #c9d1d9; }
+    &[data-rank='3'] { color: var(--tech-text-on-accent, var(--ink-on-accent, #1a1206)); background: #cd7f32; }
   }
 
   &__avatar {
     flex: 0 0 auto;
-    width: 28px; height: 28px; border-radius: 50%;
+    width: 28px; height: 28px; border-radius: var(--tech-r-control, var(--r-tile, 18px));
     display: grid; place-items: center;
-    font-size: 11px; font-weight: 700; color: var(--ink-on-accent, var(--ink-0, #fff));
+    font-size: 11px; font-weight: 700;
+    color: var(--tech-text-on-accent, var(--ink-on-accent, #0c0d12));
     background: linear-gradient(135deg, var(--accent-a, #fbbf24), var(--accent-b, #fb7185));
   }
 
   &__name {
     flex: 1; min-width: 0;
-    font-size: 14px; color: var(--ink-1);
+    font-size: 14px; color: var(--tech-text, var(--ink));
     overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   }
 
-  &__value { font-variant-numeric: tabular-nums; font-weight: 700; font-size: 13.5px; color: var(--ink-2); }
-  &__unit { font-size: 10.5px; font-weight: 500; color: var(--ink-3, var(--ink-2)); }
+  &__value { font-variant-numeric: tabular-nums; font-weight: 700; font-size: 13.5px; color: var(--tech-text-secondary, var(--ink-dim)); }
+  &__unit { font-size: 10.5px; font-weight: 500; color: var(--tech-text-tertiary, var(--ink-faint)); }
 }

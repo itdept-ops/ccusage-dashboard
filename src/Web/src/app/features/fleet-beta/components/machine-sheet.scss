@@ -10,8 +10,8 @@
 .ms__ico {
   position: relative; flex: 0 0 auto;
   display: grid; place-items: center;
-  width: 54px; height: 54px; border-radius: 16px;
-  background: color-mix(in srgb, var(--accent-a) 16%, var(--bg-sink));
+  width: 54px; height: 54px; border-radius: var(--r-tile);
+  background: color-mix(in srgb, var(--accent-a) 12%, transparent);
   border: 1px solid var(--glass-edge);
   color: var(--accent-a);
 }
@@ -63,12 +63,13 @@
 }
 .ms__geo.is-gps { color: var(--signal); border-color: color-mix(in srgb, var(--signal) 40%, transparent); }
 
-// chips
+// chips — FiMobile chip/badge: tinted accent bg + accent border
 .ms__chips { display: flex; flex-wrap: wrap; gap: 8px; }
 .ms__chip {
   display: inline-flex; align-items: center; gap: 5px;
   padding: 6px 11px; border-radius: var(--r-pill);
-  background: var(--bg-rise); border: 1px solid var(--hairline);
+  background: color-mix(in srgb, var(--accent-a) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent-a) 30%, transparent);
   font-size: 13px; font-weight: 600; color: var(--ink);
 }
 .ms__chip mat-icon { font-size: 16px; width: 16px; height: 16px; color: var(--accent-a); }
@@ -143,21 +144,25 @@
 .ms__net-v.mono { font-variant-numeric: tabular-nums; }
 .ms__net-c { flex: 0 0 auto; font-size: 16px; width: 16px; height: 16px; color: var(--accent-a); }
 
-// "Set up another reporter →" CTA
+// "Set up another reporter →" CTA — interactive card with hover lift
 .ms__cta {
   display: flex; align-items: center; gap: 12px;
   padding: 14px; border-radius: var(--r-card);
   background: color-mix(in srgb, var(--accent-a) 10%, var(--bg-rise));
   border: 1px solid color-mix(in srgb, var(--accent-a) 26%, transparent);
+  box-shadow: var(--lift-1);
   color: var(--ink); text-decoration: none;
   -webkit-tap-highlight-color: transparent; touch-action: manipulation;
-  transition: transform 120ms var(--ease-spring);
+  transition: transform 120ms var(--ease-spring), box-shadow 140ms var(--ease-out);
+}
+@media (hover: hover) {
+  .ms__cta:hover { transform: translateY(-1px); box-shadow: var(--lift-2); }
 }
 .ms__cta:active { transform: scale(.985); }
 .ms__cta:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 .ms__cta-ic {
-  flex: 0 0 auto; display: grid; place-items: center; width: 40px; height: 40px; border-radius: 12px;
-  background: linear-gradient(135deg, var(--accent-a), var(--accent-b)); color: var(--tech-text-on-accent, #04222a);
+  flex: 0 0 auto; display: grid; place-items: center; width: 40px; height: 40px; border-radius: var(--r-tile);
+  background: linear-gradient(135deg, var(--accent-a), var(--accent-b)); color: var(--tech-text-on-accent, var(--ink-on-accent, #04222a));
 }
 .ms__cta-ic mat-icon { font-size: 22px; width: 22px; height: 22px; }
 .ms__cta-t { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }

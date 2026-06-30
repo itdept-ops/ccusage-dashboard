@@ -91,7 +91,7 @@
 .hh__nav { flex: 0 0 auto; display: inline-flex; align-items: center; gap: 4px; }
 .hh__navbtn {
   display: grid; place-items: center; width: 40px; height: 40px;
-  border-radius: 13px; border: 1px solid var(--hairline); background: var(--glass);
+  border-radius: var(--tech-r-control); border: 1px solid var(--hairline); background: var(--glass);
   backdrop-filter: blur(var(--blur-glass)) saturate(1.3);
   -webkit-backdrop-filter: blur(var(--blur-glass)) saturate(1.3);
   color: var(--ink); cursor: pointer;
@@ -103,7 +103,7 @@
 
 .hh__week {
   position: relative;
-  min-height: 40px; padding: 0 14px; border-radius: var(--r-pill);
+  min-height: 40px; padding: 0 14px; border-radius: var(--tech-r-pill);
   border: 1px solid var(--hairline);
   background: color-mix(in srgb, var(--accent-a) 8%, var(--bg-rise));
   color: var(--ink); font: inherit; font-size: 13px; font-weight: 800; white-space: nowrap; cursor: pointer;
@@ -112,7 +112,7 @@
 .hh__week:active { transform: scale(.96); }
 .hh__week:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 .hh__today-hint {
-  margin-left: 6px; padding: 1px 7px; border-radius: var(--r-pill);
+  margin-left: 6px; padding: 1px 7px; border-radius: var(--tech-r-pill);
   background: linear-gradient(135deg, var(--accent-a), var(--accent-b)); color: var(--tech-text-on-accent, #07140d);
   font-size: 10px; font-weight: 800;
 }
@@ -120,7 +120,7 @@
 // Glance row — planned-meals + planned-kcal numerals + an optional day-goal ring.
 .hh__glance {
   display: flex; align-items: center; gap: 16px;
-  padding: 14px 16px; border-radius: var(--r-card);
+  padding: 14px 16px; border-radius: var(--tech-radius);
   background: var(--glass);
   backdrop-filter: blur(var(--blur-glass)) saturate(1.4);
   -webkit-backdrop-filter: blur(var(--blur-glass)) saturate(1.4);
@@ -160,7 +160,7 @@
 // ============================================================================
 .mb-week {
   display: flex; flex-direction: column; gap: 14px;
-  padding: 16px 14px; border-radius: var(--r-card);
+  padding: 16px 14px; border-radius: var(--tech-radius);
   background: var(--glass);
   backdrop-filter: blur(var(--blur-glass)) saturate(1.4);
   -webkit-backdrop-filter: blur(var(--blur-glass)) saturate(1.4);
@@ -220,7 +220,7 @@
 
 .mb-day-gro {
   flex: 0 0 auto; display: inline-flex; align-items: center; gap: 6px;
-  min-height: 40px; padding: 0 14px; border-radius: var(--r-pill);
+  min-height: 40px; padding: 0 14px; border-radius: var(--tech-r-pill);
   border: 1px solid color-mix(in srgb, var(--accent-a) 36%, transparent);
   background: color-mix(in srgb, var(--accent-a) 10%, var(--bg-rise));
   color: var(--accent-a); font: inherit; font-size: 13px; font-weight: 800; cursor: pointer;
@@ -250,18 +250,18 @@
 // Empty / error states.
 .mb-state {
   display: flex; flex-direction: column; align-items: center; text-align: center; gap: 12px;
-  padding: 32px 18px; border-radius: var(--r-card);
+  padding: 32px 18px; border-radius: var(--tech-radius);
   background: var(--bg-rise); border: 1px dashed var(--hairline);
 }
 .mb-state-ic {
-  display: grid; place-items: center; width: 56px; height: 56px; border-radius: 18px;
+  display: grid; place-items: center; width: 56px; height: 56px; border-radius: var(--tech-r-control);
   background: color-mix(in srgb, var(--accent-a) 12%, var(--bg-sink)); color: var(--accent-a);
 }
 .mb-state-ic mat-icon { font-size: 28px; width: 28px; height: 28px; }
 .mb-state-msg { margin: 0; font-size: 14.5px; font-weight: 600; color: var(--ink-dim); max-width: 28ch; }
 .mb-state-btn {
   display: inline-flex; align-items: center; gap: 7px;
-  min-height: 46px; padding: 0 20px; border: none; border-radius: var(--r-pill);
+  min-height: 46px; padding: 0 20px; border: none; border-radius: var(--tech-r-control);
   background: linear-gradient(135deg, var(--accent-a), var(--accent-b)); color: var(--tech-text-on-accent, #07140d);
   font-family: var(--font-ui); font-size: 14px; font-weight: 800; cursor: pointer; box-shadow: var(--lift-2);
   -webkit-tap-highlight-color: transparent; touch-action: manipulation;
@@ -285,15 +285,16 @@
 .mb-quick { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .mb-q {
   display: flex; align-items: center; gap: 11px; text-align: left;
-  padding: 13px 13px; border-radius: var(--r-card);
-  background: var(--bg-rise); border: 1px solid var(--hairline); box-shadow: var(--lift-1);
+  padding: 13px 13px; border-radius: var(--tech-radius);
+  background: var(--bg-rise); border: 1px solid var(--tech-border, var(--hairline)); box-shadow: var(--tech-shadow-panel, var(--lift-1));
   color: var(--ink); cursor: pointer; -webkit-tap-highlight-color: transparent; touch-action: manipulation;
   transition: transform 120ms var(--ease-spring), box-shadow 160ms var(--ease-out);
 }
+.mb-q:hover { transform: translateY(-1px); box-shadow: var(--tech-shadow-raised, var(--lift-2)); }
 .mb-q:active { transform: scale(.98); box-shadow: var(--press); }
 .mb-q:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 .mb-q-ic {
-  flex: 0 0 auto; display: grid; place-items: center; width: 40px; height: 40px; border-radius: 13px;
+  flex: 0 0 auto; display: grid; place-items: center; width: 40px; height: 40px; border-radius: var(--tech-r-control);
   background: color-mix(in srgb, var(--accent-a) 13%, var(--bg-sink)); color: var(--accent-a);
 }
 .mb-q-ic mat-icon { font-size: 22px; width: 22px; height: 22px; }

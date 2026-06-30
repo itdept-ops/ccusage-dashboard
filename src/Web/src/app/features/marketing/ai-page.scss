@@ -278,7 +278,7 @@
     justify-content: center;
     width: 48px; height: 48px;
     margin-bottom: 18px;
-    border-radius: 13px;
+    border-radius: var(--tech-r-control, 13px);
     background: rgba(255, 255, 255, 0.05);
     border: 1px solid var(--aur-line);
     color: color-mix(in srgb, var(--aur-b) 78%, #fff);
@@ -360,7 +360,7 @@
     justify-content: center;
     flex: 0 0 auto;
     width: 46px; height: 46px;
-    border-radius: 13px;
+    border-radius: var(--tech-r-control, 13px);
     background: rgba(255, 255, 255, 0.05);
     border: 1px solid var(--aur-line);
     color: var(--dom-accent, var(--aur-b));

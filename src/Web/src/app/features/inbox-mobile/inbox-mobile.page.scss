@@ -106,19 +106,19 @@
   align-items: center;
   gap: 5px;
   padding: 5px 11px;
-  border-radius: var(--r-pill, 999px);
+  border-radius: var(--tech-r-pill, var(--r-pill, 999px));
   font-size: 12.5px;
   font-weight: 700;
   color: var(--accent-a);
   background: color-mix(in srgb, var(--accent-a) 14%, var(--bg-rise));
-  border: 1px solid color-mix(in srgb, var(--accent-a) 28%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent-a) 30%, transparent);
 
   mat-icon { font-size: 15px; width: 15px; height: 15px; }
 
   &--done {
-    color: var(--signal, var(--tech-success, #4ade80));
-    background: color-mix(in srgb, var(--signal, var(--tech-success, #4ade80)) 14%, var(--bg-rise));
-    border-color: color-mix(in srgb, var(--signal, var(--tech-success, #4ade80)) 28%, transparent);
+    color: var(--signal, var(--tech-success));
+    background: color-mix(in srgb, var(--signal, var(--tech-success)) 14%, var(--bg-rise));
+    border-color: color-mix(in srgb, var(--signal, var(--tech-success)) 30%, transparent);
   }
 }
 
@@ -128,7 +128,7 @@
   gap: 5px;
   min-height: 36px;
   padding: 0 13px;
-  border-radius: var(--r-pill, 999px);
+  border-radius: var(--tech-r-control, var(--r-pill, 999px));
   border: 1px solid var(--hairline);
   background: var(--bg-sink);
   color: var(--ink);
@@ -194,16 +194,22 @@
   align-items: flex-start;
   gap: 12px;
   padding: 14px;
-  border-radius: var(--r-tile);
+  border-radius: var(--tech-radius, var(--r-tile));
   background: var(--bg-rise);
-  border: 1px solid var(--hairline);
-  box-shadow: var(--lift-1);
-  transition: opacity 200ms var(--ease-out, ease);
+  border: 1px solid var(--tech-border, var(--hairline));
+  box-shadow: var(--tech-shadow-panel, var(--lift-1));
+  transition: opacity 200ms var(--ease-out, ease), transform 160ms var(--ease-out, ease), box-shadow 160ms var(--ease-out, ease);
 
   &:not(.is-handled) {
     border-color: color-mix(in srgb, var(--item-accent) 38%, var(--hairline));
   }
   &.is-handled { opacity: 0.74; }
+
+  // Gentle hover lift on interactive (non-handled) cards
+  &:not(.is-handled):hover {
+    transform: translateY(-1px);
+    box-shadow: var(--tech-shadow-raised, var(--lift-2));
+  }
 }
 
 .ib-card__ic {
@@ -212,7 +218,7 @@
   place-items: center;
   width: 38px;
   height: 38px;
-  border-radius: var(--tech-r-control, 12px);
+  border-radius: var(--tech-r-control, var(--r-tile));
   background: color-mix(in srgb, var(--item-accent) 16%, var(--bg-sink));
   color: var(--item-accent);
 
@@ -242,12 +248,12 @@
 .ib-card__new {
   margin-left: 2px;
   padding: 1px 8px;
-  border-radius: 999px;
+  border-radius: var(--tech-r-pill, 999px);
   font-size: 11px;
   font-weight: 700;
   color: var(--item-accent);
   background: color-mix(in srgb, var(--item-accent) 16%, transparent);
-  border: 1px solid color-mix(in srgb, var(--item-accent) 34%, transparent);
+  border: 1px solid color-mix(in srgb, var(--item-accent) 30%, transparent);
 }
 
 .ib-card__summary {
@@ -271,7 +277,7 @@
   gap: 5px;
   font-size: 12.5px;
   font-weight: 600;
-  color: var(--signal, var(--tech-success, #4ade80));
+  color: var(--signal, var(--tech-success));
 
   mat-icon { font-size: 16px; width: 16px; height: 16px; }
 }
@@ -283,7 +289,7 @@
   gap: 5px;
   min-height: 38px;
   padding: 0 13px;
-  border-radius: var(--r-pill, 999px);
+  border-radius: var(--tech-r-control, var(--r-pill, 999px));
   border: 1px solid var(--hairline);
   background: var(--bg-sink);
   color: var(--ink);
@@ -300,9 +306,9 @@
 
   &--accent {
     background: linear-gradient(135deg, var(--accent-a), var(--accent-b));
-    color: var(--ink-on-accent, #fff);
+    color: var(--tech-text-on-accent, var(--ink-on-accent, #fff));
     border-color: transparent;
-    box-shadow: var(--lift-1);
+    box-shadow: var(--tech-shadow-panel, var(--lift-1));
   }
 }
 

@@ -203,10 +203,19 @@
   flex-wrap: wrap;
   gap: 12px;
   padding: 11px 13px;
-  border-radius: var(--r-tile, 16px);
+  border-radius: var(--r-tile, var(--tech-r-control, 18px));
   background: var(--glass);
   border: 1px solid var(--hairline);
   box-shadow: var(--lift-1);
+  transition: transform 160ms var(--ease-out, cubic-bezier(.22, 1, .36, 1)),
+              box-shadow 160ms var(--ease-out, cubic-bezier(.22, 1, .36, 1));
+
+  @media (hover: hover) {
+    &:hover {
+      transform: translateY(-1px);
+      box-shadow: var(--lift-2);
+    }
+  }
 
   // The comment thread drops onto a full-width second line below the avatar/verb/cheer line.
   &__comments {
@@ -248,7 +257,7 @@
     width: 21px;
     height: 21px;
     border-radius: 50%;
-    color: var(--ink-on-accent, #fff);
+    color: var(--ink-on-accent);
     background: var(--kind, var(--accent-a));
     border: 2px solid var(--bg-base, var(--glass));
     box-shadow: var(--lift-1);

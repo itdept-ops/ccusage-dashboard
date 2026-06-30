@@ -170,6 +170,12 @@
 
   &.is-closed { opacity: .96; }
 
+  // interactive cards get a gentle lift on hover (open polls are tappable, closed are read-only)
+  &:not(.is-closed) {
+    transition: transform 140ms var(--ease-out), box-shadow 140ms var(--ease-out);
+    &:hover { transform: translateY(-1px); box-shadow: var(--lift-3); }
+  }
+
   &__head {
     display: flex;
     align-items: flex-start;
@@ -183,7 +189,7 @@
     justify-content: center;
     width: 40px;
     height: 40px;
-    border-radius: 12px;
+    border-radius: var(--r-tile);
     background: linear-gradient(135deg,
       color-mix(in srgb, var(--accent-a) 22%, transparent),
       color-mix(in srgb, var(--accent-b) 22%, transparent));
@@ -313,7 +319,7 @@
     min-height: 48px;
     padding: 8px 12px;
     border: 1px solid var(--glass-edge);
-    border-radius: 12px;
+    border-radius: var(--r-tile);
     background: var(--bg-sink, color-mix(in srgb, var(--glass) 70%, transparent));
     color: var(--ink);
     text-align: left;
@@ -409,7 +415,7 @@
 
     &--more {
       background: color-mix(in srgb, var(--ink) 30%, transparent);
-      color: var(--ink-on-accent, #fff);
+      color: var(--ink-on-accent);
     }
   }
 }
@@ -482,7 +488,7 @@
     min-height: 46px;
     padding: 11px 13px;
     border: 1px solid var(--glass-edge);
-    border-radius: 12px;
+    border-radius: var(--r-tile);
     background: var(--bg-sink, var(--glass));
     color: var(--ink);
     font-family: var(--font-ui);

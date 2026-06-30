@@ -18,6 +18,11 @@
   // ---- REMINDERS' SIGNATURE ACCENT: CORAL → ROSE ----
   --accent-a: #fb7185;               // coral (start)
   --accent-b: #e11d48;               // rose (deep, end)
+
+  // ---- FiMobile token alignment ----
+  // Route --r-pill through the FiMobile pill token (30px in FiMobile; 999px kit default)
+  // so chips, pill buttons, and inputs follow the scheme-level radius contract.
+  --r-pill: var(--tech-r-pill, 999px);
 }
 
 @include kit.beta-springs;           // @supports linear() spring upgrade (top-level, once)
@@ -188,6 +193,9 @@
   cursor: pointer; touch-action: pan-y; -webkit-tap-highlight-color: transparent;
   transition: transform 120ms var(--ease-out), box-shadow 120ms var(--ease-out);
 
+  @media (hover: hover) {
+    &:hover:not(:active):not(.is-busy) { transform: translateY(-1px); box-shadow: var(--lift-2); }
+  }
   &:active { transform: scale(.985); box-shadow: var(--press); }
   &:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
   &.is-busy { opacity: .55; pointer-events: none; }
@@ -200,7 +208,7 @@
 .fr-card__glyph {
   flex: 0 0 auto;
   display: inline-flex; align-items: center; justify-content: center;
-  width: 44px; height: 44px; border-radius: 12px;
+  width: 44px; height: 44px; border-radius: var(--r-tile);
   background: linear-gradient(135deg,
     color-mix(in srgb, var(--accent-a) 22%, transparent),
     color-mix(in srgb, var(--accent-b) 22%, transparent));
@@ -275,7 +283,7 @@
 .rd__glyph {
   flex: 0 0 auto;
   display: inline-flex; align-items: center; justify-content: center;
-  width: 48px; height: 48px; border-radius: 14px;
+  width: 48px; height: 48px; border-radius: var(--r-tile);
   background: linear-gradient(135deg,
     color-mix(in srgb, var(--accent-a) 24%, transparent),
     color-mix(in srgb, var(--accent-b) 24%, transparent));

@@ -18,16 +18,17 @@ $hues: #fb7185, #f0a35a, #a78bfa, #38bdf8, #34d399, #f472b6;
   width: 100%;
   text-align: left;
   padding: 12px 12px;
-  border: 1px solid var(--hairline);
-  border-radius: var(--r-tile);
+  border: 1px solid var(--tech-border, var(--hairline));
+  border-radius: var(--tech-radius, var(--r-tile));
   background: var(--bg-rise);
-  box-shadow: var(--lift-1);
+  box-shadow: var(--tech-shadow-panel, var(--lift-1));
   color: var(--ink);
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
   touch-action: manipulation;
   transition: transform 120ms var(--ease-spring), box-shadow 160ms var(--ease-out);
 }
+.cr:hover { transform: translateY(-1px); box-shadow: var(--tech-shadow-raised, var(--lift-2)); }
 .cr:active { transform: scale(.985); box-shadow: var(--press); }
 .cr:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 
@@ -45,7 +46,7 @@ $hues: #fb7185, #f0a35a, #a78bfa, #38bdf8, #34d399, #f472b6;
 .cr__avatar {
   width: 48px; height: 48px; border-radius: 50%; object-fit: cover; display: block;
   border: 2px solid color-mix(in srgb, var(--av) 60%, transparent);
-  background: var(--bg-sink);
+  background: color-mix(in srgb, var(--accent-a) 12%, var(--bg-sink));
 }
 .cr__avatar--init {
   display: grid; place-items: center;
@@ -88,7 +89,7 @@ $hues: #fb7185, #f0a35a, #a78bfa, #38bdf8, #34d399, #f472b6;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .cr__you {
-  flex: 0 0 auto; padding: 1px 7px; border-radius: var(--r-pill);
+  flex: 0 0 auto; padding: 1px 7px; border-radius: var(--tech-r-pill, var(--r-pill));
   background: linear-gradient(135deg, var(--accent-a), var(--accent-b)); color: var(--tech-text-on-accent, #1a0e14);
   font-size: 10px; font-weight: 800; letter-spacing: .02em;
 }
@@ -117,20 +118,20 @@ $hues: #fb7185, #f0a35a, #a78bfa, #38bdf8, #34d399, #f472b6;
 .cr__chips { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 1px; }
 .cr__chip {
   display: inline-flex; align-items: center; gap: 4px;
-  padding: 2px 9px 2px 7px; border-radius: var(--r-pill);
+  padding: 2px 9px 2px 7px; border-radius: var(--tech-r-pill, var(--r-pill));
   font-size: 11px; font-weight: 700; letter-spacing: .01em;
-  border: 1px solid var(--hairline); color: var(--ink-dim); background: var(--bg-sink);
+  border: 1px solid var(--tech-border, var(--hairline)); color: var(--ink-dim); background: var(--bg-sink);
 }
 .cr__chip mat-icon { font-size: 13px; width: 13px; height: 13px; }
 .cr__chip--contact {
   color: var(--accent-a);
   border-color: color-mix(in srgb, var(--accent-a) 30%, transparent);
-  background: color-mix(in srgb, var(--accent-a) 10%, var(--bg-sink));
+  background: color-mix(in srgb, var(--accent-a) 12%, transparent);
 }
 .cr__chip--family {
   color: var(--tech-accent-cyan, #38bdf8);
   border-color: color-mix(in srgb, var(--tech-accent-cyan, #38bdf8) 28%, transparent);
-  background: color-mix(in srgb, var(--tech-accent-cyan, #38bdf8) 10%, var(--bg-sink));
+  background: color-mix(in srgb, var(--tech-accent-cyan, #38bdf8) 12%, transparent);
 }
 
-.cr__chev { flex: 0 0 auto; color: var(--ink-faint); font-size: 22px; width: 22px; height: 22px; align-self: center; }
+.cr__chev { flex: 0 0 auto; color: var(--tech-text-tertiary, var(--ink-faint)); font-size: 22px; width: 22px; height: 22px; align-self: center; }

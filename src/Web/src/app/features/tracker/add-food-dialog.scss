@@ -114,8 +114,8 @@
 /* Reassurance that an attached/snapped photo is read but never stored. */
 .af-photo-note {
   margin: 6px 0 0;
-  font-size: 0.78rem;
-  color: var(--tech-text-muted, #6b7280);
+  font-size: var(--tech-fs-label);
+  color: var(--tech-text-tertiary);
 }
 
 /* ── AI chip (on the review heading) ── */

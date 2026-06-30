@@ -137,7 +137,7 @@
     width: 52px;
     height: 52px;
     margin-bottom: 20px;
-    border-radius: 14px;
+    border-radius: var(--tech-r-control, 14px);
     background: color-mix(in srgb, var(--dom) 16%, transparent);
     border: 1px solid color-mix(in srgb, var(--dom) 30%, transparent);
     color: var(--dom);

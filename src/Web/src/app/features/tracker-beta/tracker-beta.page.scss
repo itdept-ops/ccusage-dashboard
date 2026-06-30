@@ -212,13 +212,14 @@
   &::-webkit-scrollbar { display: none; }
 }
 
-// Stacked sediment cards — matte extrusion (no blur), --lift-2, scroll-snap landing,
-// content-visibility for below-fold cost savings (paired with contain-intrinsic-size).
+// Stacked sediment cards — matte extrusion (no blur), FiMobile card-signature shadow + 1px border,
+// scroll-snap landing, content-visibility for below-fold cost savings (paired with contain-intrinsic-size).
 .tb-card {
   flex: 0 0 auto;
-  border-radius: var(--r-card);
+  border-radius: var(--r-card);            // var(--tech-r-panel, 24px) via :host mapping
   background: var(--bg-rise);
-  box-shadow: var(--lift-2);
+  box-shadow: var(--tech-shadow-panel, var(--lift-1));  // FiMobile resting-card shadow token
+  border: 1px solid var(--tech-border, var(--hairline)); // FiMobile card-signature border
   scroll-snap-align: start;
   padding: 16px;
 }

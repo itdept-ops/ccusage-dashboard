@@ -106,9 +106,9 @@
   gap: 8px;
   margin: 8px 0 0;
   padding: 10px 12px;
-  border-radius: var(--r-tile);
+  border-radius: var(--tech-radius, var(--r-tile));
   background: color-mix(in srgb, var(--accent-a) 12%, var(--bg-rise));
-  border: 1px solid color-mix(in srgb, var(--accent-a) 24%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent-a) 30%, transparent);
   font-size: 13px;
   line-height: 1.4;
   color: var(--ink);
@@ -155,10 +155,10 @@
 .fs-card {
   display: flex;
   flex-direction: column;
-  border-radius: var(--r-tile);
+  border-radius: var(--tech-radius, var(--r-tile));
   background: var(--bg-rise);
-  border: 1px solid var(--hairline);
-  box-shadow: var(--lift-1);
+  border: 1px solid var(--tech-border, var(--hairline));
+  box-shadow: var(--tech-shadow-panel, var(--lift-1));
   overflow: hidden;
 }
 
@@ -188,6 +188,12 @@
     background: color-mix(in srgb, var(--accent-a) 8%, transparent);
   }
 
+  // gentle hover lift on interactive rows (FiMobile interactive-card lift)
+  &.fs-row--toggle:not(:disabled):hover,
+  &.fs-row--value:not(:disabled):hover {
+    background: color-mix(in srgb, var(--accent-a) 4%, transparent);
+  }
+
   &:focus-visible {
     outline: 2px solid var(--accent-a);
     outline-offset: -2px;
@@ -200,7 +206,7 @@
   place-items: center;
   width: 38px;
   height: 38px;
-  border-radius: 12px;
+  border-radius: var(--tech-r-control, 12px);
   background: color-mix(in srgb, var(--accent-a) 14%, var(--bg-sink));
   color: var(--accent-a);
 
@@ -275,8 +281,8 @@
   width: 100%;
   margin-top: 4px;
   padding: 9px 11px;
-  border-radius: 10px;
-  border: 1px solid var(--hairline);
+  border-radius: var(--tech-r-control, 10px);
+  border: 1px solid var(--tech-border, var(--hairline));
   background: var(--bg-sink);
   color: var(--ink);
   font: inherit;
@@ -304,7 +310,7 @@
   position: relative;
   width: 50px;
   height: 30px;
-  border-radius: var(--r-pill, 999px);
+  border-radius: var(--tech-r-pill, var(--r-pill, 999px));
   background: color-mix(in srgb, var(--ink-dim) 28%, transparent);
   transition: background 240ms var(--ease-out, ease);
 
@@ -362,7 +368,7 @@
   justify-content: center;
   gap: 6px;
   min-height: 46px;
-  border-radius: var(--r-pill, 999px);
+  border-radius: var(--tech-r-pill, var(--r-pill, 999px));
   border: 0;
   font: inherit;
   font-size: 15px;
@@ -379,13 +385,13 @@
     min-width: 96px;
     background: var(--bg-sink);
     color: var(--ink);
-    border: 1px solid var(--hairline);
+    border: 1px solid var(--tech-border, var(--hairline));
   }
 
   &--save {
     background: linear-gradient(135deg, var(--accent-a), var(--accent-b));
     color: var(--tech-text-on-accent, #fff);
-    box-shadow: var(--lift-2);
+    box-shadow: var(--tech-shadow-raised, var(--lift-2));
 
     &:not(:disabled):active { transform: translateY(1px); }
   }
@@ -431,7 +437,7 @@
   border-radius: 50%;
   background: color-mix(in srgb, var(--accent-a) 14%, var(--bg-sink));
   color: var(--accent-a);
-  box-shadow: var(--lift-1);
+  box-shadow: var(--tech-shadow-panel, var(--lift-1));
 
   mat-icon { font-size: 32px; width: 32px; height: 32px; }
 }
@@ -456,7 +462,7 @@
   gap: 6px;
   margin-top: 8px;
   padding: 11px 20px;
-  border-radius: var(--r-pill, 999px);
+  border-radius: var(--tech-r-pill, var(--r-pill, 999px));
   border: 0;
   background: linear-gradient(135deg, var(--accent-a), var(--accent-b));
   color: var(--tech-text-on-accent, #fff);
@@ -464,7 +470,7 @@
   font-size: 15px;
   font-weight: 700;
   cursor: pointer;
-  box-shadow: var(--lift-2);
+  box-shadow: var(--tech-shadow-raised, var(--lift-2));
 
   mat-icon { font-size: 20px; width: 20px; height: 20px; }
 }
@@ -505,7 +511,7 @@
   width: 100%;
   min-height: 52px;
   padding: 12px 14px;
-  border-radius: var(--r-tile);
+  border-radius: var(--tech-r-control, var(--r-tile));
   border: 1px solid transparent;
   background: transparent;
   color: var(--ink);
@@ -519,7 +525,7 @@
 
   &.is-sel {
     background: color-mix(in srgb, var(--accent-a) 12%, var(--bg-sink));
-    border-color: color-mix(in srgb, var(--accent-a) 28%, transparent);
+    border-color: color-mix(in srgb, var(--accent-a) 30%, transparent);
     font-weight: 700;
   }
 

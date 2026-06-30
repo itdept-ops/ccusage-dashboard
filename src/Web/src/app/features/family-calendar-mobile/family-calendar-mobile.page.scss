@@ -8,6 +8,11 @@
 //
 // ISOLATED + gated by platform.mobile + family.use: nothing here touches the global --tech-* tokens or the
 // live /family/calendar page. The kit partial is the only import.
+//
+// FiMobile alignment pass: radii → --tech-radius / --tech-r-control / --tech-r-pill; card borders use
+// --tech-border; card/panel shadows use --tech-shadow-panel; interactive card hover lift uses
+// --tech-shadow-raised; text on accent fills via --tech-text-on-accent. Strata kit vars kept where no
+// FiMobile equivalent exists (--lift-1, --hairline for decorative lines, Strata accent ramp intact).
 // ============================================================================
 
 @use '../beta-ui/beta-kit' as kit;
@@ -99,8 +104,8 @@
   flex: none;
   display: grid; place-items: center;
   width: 42px; height: 42px;
-  border: 1px solid var(--hairline);
-  border-radius: var(--r-card);
+  border: 1px solid var(--tech-border, var(--hairline));
+  border-radius: var(--tech-radius, var(--r-card));
   background: var(--bg-rise);
   color: var(--ink);
   cursor: pointer;
@@ -115,8 +120,8 @@
   display: flex; flex-direction: column; align-items: center; gap: 1px;
   min-height: 42px;
   padding: 4px 10px;
-  border: 1px solid var(--hairline);
-  border-radius: var(--r-card);
+  border: 1px solid var(--tech-border, var(--hairline));
+  border-radius: var(--tech-radius, var(--r-card));
   background: var(--bg-rise);
   color: var(--ink);
   cursor: pointer;
@@ -141,7 +146,7 @@
   margin: 0;
   padding: 8px 12px;
   border: 1px solid color-mix(in oklab, var(--warn) 36%, transparent);
-  border-radius: var(--r-tile);
+  border-radius: var(--tech-r-control, var(--r-tile));
   background: color-mix(in oklab, var(--warn) 12%, transparent);
   color: var(--warn);
   font-family: var(--font-ui); font-size: 12.5px; line-height: 1.35;
@@ -157,9 +162,10 @@
   display: flex; align-items: center; gap: 10px;
   width: 100%;
   padding: 8px 12px;
-  border: 1px solid var(--hairline);
-  border-radius: var(--r-tile);
+  border: 1px solid var(--tech-border, var(--hairline));
+  border-radius: var(--tech-r-control, var(--r-tile));
   background: var(--bg-rise);
+  box-shadow: var(--tech-shadow-panel);
   text-align: left;
   cursor: pointer;
   transition: opacity var(--ease-out, 160ms);
@@ -208,9 +214,9 @@
 
 .fc-day__badge {
   padding: 2px 8px;
-  border-radius: var(--r-pill);
+  border-radius: var(--tech-r-pill, var(--r-pill));
   background: linear-gradient(90deg, var(--accent-a), var(--accent-b));
-  color: var(--ink-on-accent, #fff);
+  color: var(--tech-text-on-accent, var(--ink-on-accent, #fff));
   font-family: var(--font-ui); font-size: 10px; font-weight: 800;
   letter-spacing: .04em; text-transform: uppercase;
 }
@@ -240,14 +246,19 @@
   display: flex; align-items: center; gap: 10px;
   width: 100%;
   padding: 11px 12px;
-  border: 1px solid var(--hairline);
-  border-radius: var(--r-tile);
+  border: 1px solid var(--tech-border, var(--hairline));
+  border-radius: var(--tech-r-control, var(--r-tile));
   background: var(--bg-rise);
-  box-shadow: var(--lift-1);
+  box-shadow: var(--tech-shadow-panel, var(--lift-1));
   text-align: left;
   cursor: pointer;
-  transition: border-color var(--ease-out, 160ms), background var(--ease-out, 160ms);
+  transition: border-color var(--ease-out, 160ms), background var(--ease-out, 160ms),
+              box-shadow var(--ease-out, 160ms), transform var(--ease-out, 160ms);
 
+  &:hover:not(:active):not(.is-busy) {
+    transform: translateY(-1px);
+    box-shadow: var(--tech-shadow-raised, var(--lift-2, var(--lift-1)));
+  }
   &:active { transform: scale(.99); }
   &.is-busy { opacity: .55; pointer-events: none; }
 }
@@ -347,9 +358,9 @@
   margin-top: 8px;
   padding: 11px 18px;
   border: 0;
-  border-radius: var(--r-pill);
+  border-radius: var(--tech-r-pill, var(--r-pill));
   background: linear-gradient(135deg, var(--accent-a), var(--accent-b));
-  color: var(--ink-on-accent, #fff);
+  color: var(--tech-text-on-accent, var(--ink-on-accent, #fff));
   font-family: var(--font-ui); font-size: 14px; font-weight: 700;
   cursor: pointer;
   box-shadow: 0 8px 22px color-mix(in oklab, var(--accent-b) 35%, transparent);
@@ -392,7 +403,7 @@
   flex: none;
   display: grid; place-items: center;
   width: 38px; height: 38px;
-  border: 1px solid var(--hairline);
+  border: 1px solid var(--tech-border, var(--hairline));
   border-radius: 50%;
   background: var(--bg-rise);
   color: var(--ink-dim);
@@ -406,8 +417,9 @@
   display: flex; flex-direction: column; gap: 8px;
   padding: 12px;
   border: 1px solid color-mix(in oklab, var(--accent-a) 30%, transparent);
-  border-radius: var(--r-card);
+  border-radius: var(--tech-radius, var(--r-card));
   background: color-mix(in oklab, var(--accent-a) 7%, var(--bg-rise));
+  box-shadow: var(--tech-shadow-panel);
 }
 
 .ef__ai-row { display: flex; gap: 8px; }
@@ -417,9 +429,9 @@
   display: grid; place-items: center;
   width: 44px; height: 44px;
   border: 0;
-  border-radius: var(--r-tile);
+  border-radius: var(--tech-r-control, var(--r-tile));
   background: linear-gradient(135deg, var(--accent-a), var(--accent-b));
-  color: var(--ink-on-accent, #fff);
+  color: var(--tech-text-on-accent, var(--ink-on-accent, #fff));
   cursor: pointer;
   mat-icon { font-size: 20px; width: 20px; height: 20px; }
   &:disabled { opacity: .5; cursor: default; }
@@ -433,8 +445,8 @@
 .ef__prop {
   display: flex; align-items: center; gap: 8px;
   padding: 8px 10px;
-  border: 1px solid var(--hairline);
-  border-radius: var(--r-tile);
+  border: 1px solid var(--tech-border, var(--hairline));
+  border-radius: var(--tech-r-control, var(--r-tile));
   background: var(--bg-base);
 }
 
@@ -450,7 +462,7 @@
   flex: none;
   display: grid; place-items: center;
   width: 34px; height: 34px;
-  border: 1px solid var(--hairline);
+  border: 1px solid var(--tech-border, var(--hairline));
   border-radius: 50%;
   background: var(--bg-rise);
   color: var(--ink);
@@ -487,8 +499,8 @@
 .ef__input {
   width: 100%; box-sizing: border-box;
   padding: 11px 12px;
-  border: 1px solid var(--hairline);
-  border-radius: var(--r-tile);
+  border: 1px solid var(--tech-border, var(--hairline));
+  border-radius: var(--tech-r-control, var(--r-tile));
   background: var(--bg-base);
   color: var(--ink);
   font-family: var(--font-ui); font-size: 14px;
@@ -508,9 +520,10 @@
   display: flex; align-items: center; gap: 10px;
   width: 100%;
   padding: 11px 12px;
-  border: 1px solid var(--hairline);
-  border-radius: var(--r-card);
+  border: 1px solid var(--tech-border, var(--hairline));
+  border-radius: var(--tech-radius, var(--r-card));
   background: var(--bg-rise);
+  box-shadow: var(--tech-shadow-panel);
   text-align: left;
   cursor: pointer;
 
@@ -555,8 +568,8 @@
   display: inline-flex; align-items: center; justify-content: center; gap: 6px;
   min-height: 46px;
   padding: 0 16px;
-  border: 1px solid var(--hairline);
-  border-radius: var(--r-pill);
+  border: 1px solid var(--tech-border, var(--hairline));
+  border-radius: var(--tech-r-control, var(--r-pill));
   background: var(--bg-rise);
   color: var(--ink);
   font-family: var(--font-ui); font-size: 14px; font-weight: 700;
@@ -580,6 +593,6 @@
 .ef__btn--save {
   border: 0;
   background: linear-gradient(135deg, var(--accent-a), var(--accent-b));
-  color: var(--ink-on-accent, #fff);
+  color: var(--tech-text-on-accent, var(--ink-on-accent, #fff));
   box-shadow: 0 8px 22px color-mix(in oklab, var(--accent-b) 30%, transparent);
 }

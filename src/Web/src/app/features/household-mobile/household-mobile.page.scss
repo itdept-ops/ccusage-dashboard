@@ -8,6 +8,9 @@
 //
 // ISOLATED + gated by platform.mobile: nothing here touches the global --tech-* tokens or the live
 // /family/household page. The kit partial is the only import.
+//
+// FiMobile alignment (2026-06-29): card/list/chip/button radii routed to --tech-* tokens; hover lift
+// added to interactive list rows; text-on-accent already uses var(--tech-text-on-accent).
 // ============================================================================
 
 @use '../beta-ui/beta-kit' as kit;
@@ -109,8 +112,8 @@
   min-width: 0;
   height: 44px;
   padding: 0 14px;
-  border-radius: var(--r-pill, 999px);
-  border: 1px solid var(--hairline);
+  border-radius: var(--tech-r-pill, var(--r-pill, 999px));
+  border: 1px solid var(--tech-border, var(--hairline));
   background: var(--glass);
   color: var(--ink);
   font: inherit;
@@ -157,7 +160,7 @@
   gap: 10px;
 }
 
-.hh-swipe { display: block; border-radius: var(--r-tile); }
+.hh-swipe { display: block; border-radius: var(--tech-radius, var(--r-tile)); }
 
 .hh-card {
   display: flex;
@@ -166,10 +169,10 @@
   width: 100%;
   box-sizing: border-box;
   padding: 12px 14px;
-  border-radius: var(--r-tile);
-  border: 1px solid var(--hairline);
+  border-radius: var(--tech-radius, var(--r-tile));
+  border: 1px solid var(--tech-border, var(--hairline));
   background: var(--glass);
-  box-shadow: var(--lift-1);
+  box-shadow: var(--tech-shadow-panel, var(--lift-1));
   min-height: 72px;
 
   &.is-busy { opacity: .55; }
@@ -229,8 +232,9 @@
   letter-spacing: .04em;
   text-transform: uppercase;
   padding: 2px 7px;
-  border-radius: var(--r-pill, 999px);
+  border-radius: var(--tech-r-pill, var(--r-pill, 999px));
   background: color-mix(in oklab, var(--accent-a) 22%, transparent);
+  border: 1px solid color-mix(in oklab, var(--accent-a) 30%, transparent);
   color: color-mix(in oklab, var(--accent-a) 86%, var(--ink));
 }
 
@@ -281,10 +285,10 @@
   text-align: center;
   gap: 10px;
   padding: 38px 22px;
-  border-radius: var(--r-glass, 22px);
-  border: 1px solid var(--hairline);
+  border-radius: var(--tech-radius, var(--r-glass, 22px));
+  border: 1px solid var(--tech-border, var(--hairline));
   background: var(--glass);
-  box-shadow: var(--lift-1);
+  box-shadow: var(--tech-shadow-panel, var(--lift-1));
 }
 
 .hh-state__orb, .hh-empty__orb {
@@ -323,7 +327,7 @@
   height: 44px;
   padding: 0 20px;
   border: none;
-  border-radius: var(--r-pill, 999px);
+  border-radius: var(--tech-r-control, var(--r-pill, 999px));
   background: linear-gradient(135deg, var(--accent-a), var(--accent-b));
   color: var(--tech-text-on-accent, #fff);
   font: inherit;
@@ -360,7 +364,7 @@
   justify-content: center;
   width: 46px;
   height: 46px;
-  border-radius: 14px;
+  border-radius: var(--tech-r-control, 14px);
   background: linear-gradient(135deg, var(--accent-a), var(--accent-b));
   color: var(--tech-text-on-accent, #fff);
   box-shadow: var(--lift-1);
@@ -378,7 +382,7 @@
   justify-content: center;
   width: 40px;
   height: 40px;
-  border: 1px solid var(--hairline);
+  border: 1px solid var(--tech-border, var(--hairline));
   border-radius: 50%;
   background: var(--glass);
   color: var(--ink-dim);
@@ -399,16 +403,22 @@
   gap: 12px;
   width: 100%;
   box-sizing: border-box;
-  padding: 10px 12px;
-  border-radius: var(--r-tile);
-  border: 1px solid var(--hairline);
+  padding: 12px 14px;
+  border-radius: var(--tech-radius, var(--r-tile));
+  border: 1px solid var(--tech-border, var(--hairline));
   background: var(--glass);
+  box-shadow: var(--tech-shadow-panel, var(--lift-1));
   color: var(--ink);
   font: inherit;
   text-align: left;
   cursor: pointer;
-  transition: border-color .16s var(--ease-out), background .16s var(--ease-out);
+  transition: border-color .16s var(--ease-out), background .16s var(--ease-out),
+              transform .16s var(--ease-out), box-shadow .16s var(--ease-out);
 
+  &:hover:not(:disabled):not(.is-picked) {
+    transform: translateY(-1px);
+    box-shadow: var(--tech-shadow-raised, var(--lift-2));
+  }
   &.is-picked {
     border-color: color-mix(in oklab, var(--accent-a) 60%, var(--hairline));
     background: color-mix(in oklab, var(--accent-a) 12%, var(--glass));
@@ -482,7 +492,7 @@
   gap: 8px;
   height: 48px;
   border: none;
-  border-radius: var(--r-pill, 999px);
+  border-radius: var(--tech-r-control, var(--r-pill, 999px));
   font: inherit;
   font-weight: 700;
   cursor: pointer;
@@ -495,7 +505,7 @@
 
 .hm__btn--ghost {
   background: var(--glass);
-  border: 1px solid var(--hairline);
+  border: 1px solid var(--tech-border, var(--hairline));
   color: var(--ink-dim);
 }
 
