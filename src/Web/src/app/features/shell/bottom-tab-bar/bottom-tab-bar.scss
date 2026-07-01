@@ -31,7 +31,11 @@
   align-items: stretch;
   justify-content: space-around;
   gap: 2px;
-  padding: 6px max(6px, env(safe-area-inset-left)) calc(6px + var(--safe-bottom)) max(6px, env(safe-area-inset-right));
+  // Bottom pad = home-indicator clearance, TRIMMED: the full safe-inset (~34px) + 6px left a big empty
+  // glass band under the labels ("wasted space" at the bottom). ~12px less keeps the labels clear of the
+  // home-indicator pill + gesture zone while reclaiming real estate. The bar background still fills to the
+  // screen edge (bottom:0); only the labels sit a touch lower.
+  padding: 6px max(6px, env(safe-area-inset-left)) max(8px, calc(var(--safe-bottom) - 12px)) max(6px, env(safe-area-inset-right));
   background: var(--glass);
   backdrop-filter: blur(var(--blur-glass)) saturate(1.4);
   -webkit-backdrop-filter: blur(var(--blur-glass)) saturate(1.4);

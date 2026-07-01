@@ -1218,7 +1218,7 @@
   --mobile-bar-h: calc(52px + env(safe-area-inset-top, 0px));
   /* The real bottom-tab bar is ~61px tall (6 + 48 tab + 6 + 1 border) PLUS its safe-area padding; reserve a
      touch more so the fixed bar can never overlap the page or a twin's own bottom action bar. */
-  --mobile-tabbar-h: calc(62px + env(safe-area-inset-bottom, 0px));
+  --mobile-tabbar-h: calc(54px + max(8px, calc(env(safe-area-inset-bottom, 0px) - 12px)));
   height: calc(100dvh - var(--mobile-bar-h) - var(--mobile-tabbar-h));
   /* `auto`, not `hidden`: the immersive twins fill 100% and own their inner scroll (no frame scroll → no
      double scrollbar), while a NO-TWIN fallback desktop page scrolls WITHIN this frame between the bars. */
