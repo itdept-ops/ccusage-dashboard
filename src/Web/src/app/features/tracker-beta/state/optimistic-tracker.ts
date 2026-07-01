@@ -447,7 +447,10 @@ export class OptimisticTracker {
     const caffeineMg = sum(d.coffee, c => c.caffeineMg ?? 0);
 
     const calorieGoal = d.calorieGoal;
-    const remaining = calorieGoal != null ? calorieGoal - caloriesIn : d.remaining;
+    // Match the server: remaining = goal − eaten + BURNED (exercise + watch active-cal), i.e. the eat-more
+    // model. Omitting caloriesOut here meant a logged exercise never moved "calories left" on mobile until
+    // a full day reload — it read as "exercise isn't counting".
+    const remaining = calorieGoal != null ? calorieGoal - caloriesIn + caloriesOut : d.remaining;
 
     return {
       ...d,
