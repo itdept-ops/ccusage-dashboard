@@ -159,7 +159,7 @@ import { AutomationTemplate, TEMPLATES } from './automations-beta.model';
                     <app-relay-rule-card
                       [rule]="r"
                       (toggle)="setEnabled(r, $event)"
-                      (open)="openCreate()" />
+                      (open)="openEdit(r)" />
                   </app-bs-swipe-row>
                 </div>
               }
@@ -177,8 +177,8 @@ import { AutomationTemplate, TEMPLATES } from './automations-beta.model';
     <!-- Primary action: add a rule. -->
     <app-bs-fab icon="add" label="New automation" [extended]="true" [fixed]="true" (action)="openCreate()" />
 
-    <!-- Create sheet. -->
-    <app-relay-create-sheet #createSheet (created)="onCreated($event)" />
+    <!-- Create / edit sheet. -->
+    <app-relay-create-sheet #createSheet (created)="onCreated($event)" (updated)="onUpdated($event)" />
 
     <app-bs-toaster />
   `,
@@ -318,6 +318,13 @@ export class AutomationsBetaPage {
     sheet.open.set(true);
   }
 
+  /** Open the sheet pre-filled to edit an existing rule (the user reviews + saves). */
+  openEdit(rule: AutomationRule): void {
+    const sheet = this.createSheet();
+    sheet.openForEdit(rule);
+    sheet.open.set(true);
+  }
+
   /** Open the create sheet pre-filled from a starter template (the user reviews + commits). */
   startFromTemplate(t: AutomationTemplate): void {
     const sheet = this.createSheet();
@@ -329,6 +336,12 @@ export class AutomationsBetaPage {
     // Optimistically prepend the new rule (the server returns the canonical row).
     this.rules.set([rule, ...this.rules().filter(r => r.id !== rule.id)]);
     this.toast.show(`Created “${this.label(rule)}”`, { tone: 'success', durationMs: 2600 });
+  }
+
+  onUpdated(rule: AutomationRule): void {
+    // Reconcile the edited rule in place with the server's canonical row (order preserved).
+    this.rules.set(this.rules().map(r => (r.id === rule.id ? rule : r)));
+    this.toast.show(`Saved “${this.label(rule)}”`, { tone: 'success', durationMs: 2400 });
   }
 
   /** A short display name for a rule in toasts (name, else a default from its trigger). */

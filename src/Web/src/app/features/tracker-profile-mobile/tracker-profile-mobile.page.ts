@@ -12,10 +12,14 @@ import { TrackerStore } from '../../core/tracker-store';
 import {
   ActivityLevel,
   DietPattern,
+  EatingWindow,
   GoalPlanDto,
+  LifeStage,
   PERM,
+  ProteinBasis,
   Sex,
   TrackerProfileDto,
+  TrainingType,
   UnitSystem,
 } from '../../core/models';
 import { StatsInputs, ageFrom, computeStats } from '../tracker/units';
@@ -56,6 +60,25 @@ const DIET_PATTERNS: { value: DietPattern; label: string }[] = [
   { value: 'Mediterranean', label: 'Mediterranean' },
   { value: 'Paleo', label: 'Paleo' },
 ];
+
+const TRAINING_TYPES: { value: TrainingType; label: string }[] = [
+  { value: 'None', label: 'None' },
+  { value: 'Strength', label: 'Strength' },
+  { value: 'Endurance', label: 'Endurance' },
+  { value: 'Hybrid', label: 'Hybrid' },
+];
+
+const EATING_WINDOWS: { value: EatingWindow; label: string }[] = [
+  { value: 'None', label: 'No fasting' },
+  { value: 'W16x8', label: '16:8' },
+  { value: 'W18x6', label: '18:6' },
+  { value: 'OMAD', label: 'OMAD' },
+];
+
+/** Weight drift (kg) past which the check-in banner suggests a recompute. */
+const CHECKIN_DRIFT_KG = 1.5;
+/** Baseline staleness (days) past which the check-in banner suggests a recompute. */
+const CHECKIN_STALE_DAYS = 90;
 
 /**
  * Tracker Profile "My Plan" — the MOBILE twin of the live `/tracker/profile` page (route owned by the
@@ -139,6 +162,23 @@ const DIET_PATTERNS: { value: DietPattern; label: string }[] = [
             }
           </section>
 
+          <!-- ─── CHECK-IN BANNER (weight drift / stale baseline → recompute) ─── -->
+          @if (checkIn(); as ci) {
+            <section class="pm-checkin" role="status">
+              <mat-icon class="pm-checkin__ic" aria-hidden="true">event_available</mat-icon>
+              <div class="pm-checkin__body">
+                <p class="pm-checkin__msg">{{ ci.reason }}</p>
+                <p class="pm-checkin__sub">Recompute your targets from your current numbers?</p>
+              </div>
+              <div class="pm-checkin__acts">
+                <button type="button" class="pm-checkin__go" (click)="recomputeFromCheckIn()">Recompute</button>
+                <button type="button" class="pm-checkin__x" (click)="checkInDismissed.set(true)" aria-label="Dismiss">
+                  <mat-icon aria-hidden="true">close</mat-icon>
+                </button>
+              </div>
+            </section>
+          }
+
           <!-- ─── GOAL CHIPS ─── -->
           <section class="pm-card">
             <div class="pm-card__head"><span class="pm-card__title"><mat-icon aria-hidden="true">my_location</mat-icon> Goal</span></div>
@@ -163,14 +203,23 @@ const DIET_PATTERNS: { value: DietPattern; label: string }[] = [
             </div>
 
             <div class="pm-fields">
-              <!-- weight -->
-              <label class="pm-field">
-                <span class="pm-field__lbl">Current weight</span>
-                <span class="pm-field__in">
-                  <input type="number" inputmode="decimal" [ngModel]="weightDisp()" (ngModelChange)="weightDisp.set($event)" placeholder="—" />
-                  <span class="pm-field__suf">{{ weightUnit }}</span>
-                </span>
-              </label>
+              <!-- weight + goal weight -->
+              <div class="pm-macros pm-macros--2">
+                <label class="pm-field pm-field--macro">
+                  <span class="pm-field__lbl">Current weight</span>
+                  <span class="pm-field__in">
+                    <input type="number" inputmode="decimal" [ngModel]="weightDisp()" (ngModelChange)="weightDisp.set($event)" placeholder="—" />
+                    <span class="pm-field__suf">{{ weightUnit }}</span>
+                  </span>
+                </label>
+                <label class="pm-field pm-field--macro">
+                  <span class="pm-field__lbl">Goal weight</span>
+                  <span class="pm-field__in">
+                    <input type="number" inputmode="decimal" [ngModel]="goalWeightDisp()" (ngModelChange)="goalWeightDisp.set($event)" placeholder="—" />
+                    <span class="pm-field__suf">{{ weightUnit }}</span>
+                  </span>
+                </label>
+              </div>
 
               <!-- height -->
               @if (imperial()) {
@@ -269,16 +318,221 @@ const DIET_PATTERNS: { value: DietPattern; label: string }[] = [
                   </span>
                 </label>
               </div>
+
+              <!-- hydration / steps / coffee -->
+              <div class="pm-macros pm-macros--3">
+                <label class="pm-field pm-field--macro">
+                  <span class="pm-field__lbl">Hydration</span>
+                  <span class="pm-field__in">
+                    <input type="number" inputmode="numeric" [ngModel]="hydrationGoalDisp()" (ngModelChange)="hydrationGoalDisp.set($event)" [placeholder]="hydrationDefaultHint" />
+                    <span class="pm-field__suf">{{ volumeUnit }}</span>
+                  </span>
+                </label>
+                <label class="pm-field pm-field--macro">
+                  <span class="pm-field__lbl">Steps</span>
+                  <span class="pm-field__in">
+                    <input type="number" inputmode="numeric" [ngModel]="stepGoal()" (ngModelChange)="stepGoal.set($event)" placeholder="10000" />
+                  </span>
+                </label>
+                <label class="pm-field pm-field--macro">
+                  <span class="pm-field__lbl">Coffee</span>
+                  <span class="pm-field__in">
+                    <input type="number" inputmode="numeric" [ngModel]="coffeeGoalCups()" (ngModelChange)="coffeeGoalCups.set($event)" placeholder="3" />
+                    <span class="pm-field__suf">cups</span>
+                  </span>
+                </label>
+              </div>
+
+              <!-- share with contacts -->
+              <button type="button" class="pm-toggle" role="switch" [attr.aria-checked]="shareWithContacts()"
+                      (click)="shareWithContacts.set(!shareWithContacts())">
+                <span class="pm-toggle__txt">
+                  <span class="pm-toggle__lbl">Share progress with contacts</span>
+                  <span class="pm-toggle__sub">Let contacts you share with see your tracker summary.</span>
+                </span>
+                <span class="pm-toggle__sw" [class.is-on]="shareWithContacts()" aria-hidden="true"><i></i></span>
+              </button>
             </div>
 
             @if (showAi()) {
               <div class="pm-ai">
-                <button type="button" class="pm-ai__btn" [disabled]="aiLoading()" (click)="suggestWithAi()">
-                  @if (aiLoading()) { <mat-icon class="pm-spin" aria-hidden="true">progress_activity</mat-icon> Thinking… }
-                  @else { <mat-icon aria-hidden="true">auto_awesome</mat-icon> Suggest with AI }
-                </button>
+                <!-- Describe your goal (free-text → naturalGoal prefill) -->
+                <label class="pm-field pm-ai__describe">
+                  <span class="pm-field__lbl">Describe your goal</span>
+                  <span class="pm-field__in">
+                    <input type="text" [ngModel]="goalText()" (ngModelChange)="goalText.set($event)"
+                           placeholder="e.g. lose 10 lbs in 3 months" />
+                  </span>
+                </label>
+                <div class="pm-ai__row">
+                  <button type="button" class="pm-ai__btn" [disabled]="!canDescribeGoal()" (click)="describeGoalWithAi()">
+                    @if (goalLoading()) { <mat-icon class="pm-spin" aria-hidden="true">progress_activity</mat-icon> Reading… }
+                    @else { <mat-icon aria-hidden="true">bolt</mat-icon> Set from description }
+                  </button>
+                  <button type="button" class="pm-ai__btn" [disabled]="aiLoading()" (click)="suggestWithAi()">
+                    @if (aiLoading()) { <mat-icon class="pm-spin" aria-hidden="true">progress_activity</mat-icon> Thinking… }
+                    @else { <mat-icon aria-hidden="true">auto_awesome</mat-icon> Suggest with AI }
+                  </button>
+                </div>
+
+                @if (goalTimeline() || goalRealistic() !== null || goalRationale()) {
+                  <div class="pm-ai__chips">
+                    @if (goalTimeline(); as t) { <span class="pm-ai__chip"><mat-icon aria-hidden="true">schedule</mat-icon>{{ t }}</span> }
+                    @if (goalRealistic() !== null) {
+                      <span class="pm-ai__chip" [attr.data-ok]="goalRealistic()">
+                        <mat-icon aria-hidden="true">{{ goalRealistic() ? 'check_circle' : 'warning' }}</mat-icon>
+                        {{ goalRealistic() ? 'Realistic timeline' : 'May be aggressive' }}
+                      </span>
+                    }
+                  </div>
+                  @if (goalRationale(); as gr) { <p class="pm-ai__why">{{ gr }}</p> }
+                }
+
                 @if (aiRationale(); as r) { <p class="pm-ai__why">{{ r }}</p> }
                 @if (aiSafety(); as s) { <p class="pm-ai__safety"><mat-icon aria-hidden="true">info</mat-icon> {{ s }}</p> }
+              </div>
+            }
+          </section>
+
+          <!-- ─── FINE-TUNE (optional refinements) ─── -->
+          <section class="pm-card pm-fine">
+            <button type="button" class="pm-fine__head" [attr.aria-expanded]="refineOpen()" (click)="refineOpen.set(!refineOpen())">
+              <span class="pm-card__title"><mat-icon aria-hidden="true">tune</mat-icon> Fine-tune</span>
+              @if (dietSummary().length) {
+                <span class="pm-fine__tags">
+                  @for (t of dietSummary(); track t) { <span class="pm-fine__tag">{{ t }}</span> }
+                </span>
+              }
+              <mat-icon class="pm-fine__chev" [class.is-open]="refineOpen()" aria-hidden="true">expand_more</mat-icon>
+            </button>
+
+            @if (refineOpen()) {
+              <div class="pm-fields pm-fine__body">
+                <!-- weekly pace -->
+                <label class="pm-field">
+                  <span class="pm-field__lbl">Weekly pace (− lose / + gain)</span>
+                  <span class="pm-field__in">
+                    <input type="number" inputmode="decimal" [step]="rateStep" [ngModel]="weeklyRateDisp()" (ngModelChange)="weeklyRateDisp.set($event)" placeholder="Auto" />
+                    <span class="pm-field__suf">{{ rateUnit }}</span>
+                  </span>
+                </label>
+
+                <!-- body fat + navy-tape estimate -->
+                <label class="pm-field">
+                  <span class="pm-field__lbl">Body fat</span>
+                  <span class="pm-field__in">
+                    <input type="number" inputmode="decimal" [ngModel]="bodyFatPct()" (ngModelChange)="bodyFatPct.set($event)" placeholder="Optional" />
+                    <span class="pm-field__suf">%</span>
+                  </span>
+                </label>
+                <div class="pm-macros" [class.pm-macros--3]="sex() === 'Female'" [class.pm-macros--2]="sex() !== 'Female'">
+                  <label class="pm-field pm-field--macro">
+                    <span class="pm-field__lbl">Neck</span>
+                    <span class="pm-field__in">
+                      <input type="number" inputmode="decimal" [ngModel]="neckDisp()" (ngModelChange)="neckDisp.set($event)" placeholder="—" />
+                      <span class="pm-field__suf">{{ lengthUnit }}</span>
+                    </span>
+                  </label>
+                  <label class="pm-field pm-field--macro">
+                    <span class="pm-field__lbl">Waist</span>
+                    <span class="pm-field__in">
+                      <input type="number" inputmode="decimal" [ngModel]="waistDisp()" (ngModelChange)="waistDisp.set($event)" placeholder="—" />
+                      <span class="pm-field__suf">{{ lengthUnit }}</span>
+                    </span>
+                  </label>
+                  @if (sex() === 'Female') {
+                    <label class="pm-field pm-field--macro">
+                      <span class="pm-field__lbl">Hip</span>
+                      <span class="pm-field__in">
+                        <input type="number" inputmode="decimal" [ngModel]="hipDisp()" (ngModelChange)="hipDisp.set($event)" placeholder="—" />
+                        <span class="pm-field__suf">{{ lengthUnit }}</span>
+                      </span>
+                    </label>
+                  }
+                </div>
+                @if (navyBodyFatPct(); as bf) {
+                  <button type="button" class="pm-mini pm-fine__navy" (click)="applyNavyBodyFat()">
+                    <mat-icon aria-hidden="true">straighten</mat-icon> Use tape estimate: {{ bf }}%
+                  </button>
+                }
+
+                <!-- diet pattern -->
+                <label class="pm-field">
+                  <span class="pm-field__lbl">Diet pattern</span>
+                  <span class="pm-field__in pm-field__in--select">
+                    <select [ngModel]="dietPattern()" (ngModelChange)="dietPattern.set($event)">
+                      @for (d of dietPatterns; track d.value) { <option [value]="d.value">{{ d.label }}</option> }
+                    </select>
+                  </span>
+                </label>
+
+                <!-- protein basis + training type -->
+                <div class="pm-macros pm-macros--2">
+                  <label class="pm-field pm-field--macro">
+                    <span class="pm-field__lbl">Protein basis</span>
+                    <span class="pm-field__in pm-field__in--select">
+                      <select [ngModel]="proteinBasis()" (ngModelChange)="proteinBasis.set($event)">
+                        @for (b of proteinBases; track b.value) { <option [value]="b.value">{{ b.label }}</option> }
+                      </select>
+                    </span>
+                  </label>
+                  <label class="pm-field pm-field--macro">
+                    <span class="pm-field__lbl">Training</span>
+                    <span class="pm-field__in pm-field__in--select">
+                      <select [ngModel]="trainingType()" (ngModelChange)="trainingType.set($event)">
+                        @for (t of trainingTypes; track t.value) { <option [value]="t.value">{{ t.label }}</option> }
+                      </select>
+                    </span>
+                  </label>
+                </div>
+
+                <!-- life stage (+ trimester) -->
+                <div class="pm-macros" [class.pm-macros--2]="showTrimester()">
+                  <label class="pm-field" [class.pm-field--macro]="showTrimester()">
+                    <span class="pm-field__lbl">Life stage</span>
+                    <span class="pm-field__in pm-field__in--select">
+                      <select [ngModel]="lifeStage()" (ngModelChange)="lifeStage.set($event)">
+                        @for (l of lifeStages; track l.value) { <option [value]="l.value">{{ l.label }}</option> }
+                      </select>
+                    </span>
+                  </label>
+                  @if (showTrimester()) {
+                    <label class="pm-field pm-field--macro">
+                      <span class="pm-field__lbl">Trimester</span>
+                      <span class="pm-field__in">
+                        <input type="number" inputmode="numeric" min="1" max="3" [ngModel]="trimester()" (ngModelChange)="trimester.set($event)" placeholder="1–3" />
+                      </span>
+                    </label>
+                  }
+                </div>
+
+                <!-- meals per day + eating window -->
+                <div class="pm-macros pm-macros--2">
+                  <label class="pm-field pm-field--macro">
+                    <span class="pm-field__lbl">Meals / day</span>
+                    <span class="pm-field__in">
+                      <input type="number" inputmode="numeric" min="1" max="8" [ngModel]="mealsPerDay()" (ngModelChange)="mealsPerDay.set($event)" placeholder="—" />
+                    </span>
+                  </label>
+                  <label class="pm-field pm-field--macro">
+                    <span class="pm-field__lbl">Eating window</span>
+                    <span class="pm-field__in pm-field__in--select">
+                      <select [ngModel]="eatingWindow()" (ngModelChange)="eatingWindow.set($event)">
+                        @for (w of eatingWindows; track w.value) { <option [value]="w.value">{{ w.label }}</option> }
+                      </select>
+                    </span>
+                  </label>
+                </div>
+
+                <!-- allergies / restrictions -->
+                <label class="pm-field">
+                  <span class="pm-field__lbl">Allergies &amp; restrictions</span>
+                  <span class="pm-field__in">
+                    <input type="text" [ngModel]="restrictions()" (ngModelChange)="restrictions.set($event || null)"
+                           placeholder="e.g. peanuts, shellfish, dairy" />
+                  </span>
+                </label>
+                <p class="pm-fine__note">Comma-separated. Used only to constrain AI meal ideas — never a calorie input.</p>
               </div>
             }
           </section>
@@ -379,6 +633,18 @@ export class TrackerProfileMobilePage {
   readonly goals = GOALS;
   readonly sexes = SEXES;
   readonly activityLevels = ACTIVITY_LEVELS;
+  readonly dietPatterns = DIET_PATTERNS;
+  readonly trainingTypes = TRAINING_TYPES;
+  readonly eatingWindows = EATING_WINDOWS;
+  readonly lifeStages: { value: LifeStage; label: string }[] = [
+    { value: 'None', label: 'None' },
+    { value: 'Pregnant', label: 'Pregnant' },
+    { value: 'Breastfeeding', label: 'Breastfeeding' },
+  ];
+  readonly proteinBases: { value: ProteinBasis; label: string }[] = [
+    { value: 'PerBodyweight', label: 'Per bodyweight' },
+    { value: 'PerLeanMass', label: 'Per lean mass' },
+  ];
   readonly unitSegments: Segment[] = [
     { key: 'Imperial', label: 'lb / ft' },
     { key: 'Metric', label: 'kg / cm' },
@@ -403,11 +669,34 @@ export class TrackerProfileMobilePage {
   readonly proteinGoalG = signal<number | null>(null);
   readonly carbGoalG = signal<number | null>(null);
   readonly fatGoalG = signal<number | null>(null);
+  readonly stepGoal = signal<number | null>(null);
+  readonly coffeeGoalCups = signal<number | null>(null);
+  readonly shareWithContacts = signal<boolean>(false);
 
   // ---- body profile ----
   readonly dateOfBirth = signal<string | null>(null);
   readonly sex = signal<Sex>('Unspecified');
   readonly activityLevel = signal<ActivityLevel>('Sedentary');
+
+  // ---- optional goal-builder refinements (the Fine-tune panel) ----
+  /** Weekly pace held in the DISPLAYED rate unit (lb/wk or kg/wk); converted to canonical kg/wk on save. */
+  readonly weeklyRateDisp = signal<number | null>(null);
+  readonly bodyFatPct = signal<number | null>(null);
+  readonly dietPattern = signal<DietPattern>('Balanced');
+  readonly trainingType = signal<TrainingType>('None');
+  readonly proteinBasis = signal<ProteinBasis>('PerBodyweight');
+  readonly lifeStage = signal<LifeStage>('None');
+  readonly trimester = signal<number | null>(null);
+  readonly mealsPerDay = signal<number | null>(null);
+  readonly eatingWindow = signal<EatingWindow>('None');
+  readonly restrictions = signal<string | null>(null);
+
+  // ---- Navy-tape circumferences, held in the DISPLAYED unit (in or cm) ----
+  readonly neckDisp = signal<number | null>(null);
+  readonly waistDisp = signal<number | null>(null);
+  readonly hipDisp = signal<number | null>(null);
+  /** Whether the optional "Fine-tune" panel is expanded. */
+  readonly refineOpen = signal(false);
 
   readonly unitSystem = this.units.unitSystem;
   readonly imperial = this.units.imperial;
@@ -417,11 +706,20 @@ export class TrackerProfileMobilePage {
   readonly heightFt = signal<number | null>(null);
   readonly heightIn = signal<number | null>(null);
   readonly weightDisp = signal<number | null>(null);
+  readonly goalWeightDisp = signal<number | null>(null);
+  readonly hydrationGoalDisp = signal<number | null>(null);
 
   // ---- AI suggestion ----
   readonly aiLoading = signal(false);
   readonly aiRationale = signal<string | null>(null);
   readonly aiSafety = signal<string | null>(null);
+
+  // ---- AI natural-goal ("describe your goal" free-text) ----
+  readonly goalText = signal('');
+  readonly goalLoading = signal(false);
+  readonly goalTimeline = signal<string | null>(null);
+  readonly goalRealistic = signal<boolean | null>(null);
+  readonly goalRationale = signal<string | null>(null);
 
   constructor() {
     void this.reload();
@@ -465,10 +763,28 @@ export class TrackerProfileMobilePage {
     this.proteinGoalG.set(p?.proteinGoalG ?? null);
     this.carbGoalG.set(p?.carbGoalG ?? null);
     this.fatGoalG.set(p?.fatGoalG ?? null);
+    this.stepGoal.set(p?.stepGoal ?? null);
+    this.coffeeGoalCups.set(p?.coffeeGoalCups ?? null);
+    this.shareWithContacts.set(p?.shareWithContacts ?? false);
 
     this.dateOfBirth.set(p?.dateOfBirth ?? null);
     this.sex.set(p?.sex ?? 'Unspecified');
     this.activityLevel.set(p?.activityLevel ?? 'Sedentary');
+
+    this.weeklyRateDisp.set(this.toRateDisp(p?.weeklyRateKg));
+    this.bodyFatPct.set(p?.bodyFatPct ?? null);
+    this.dietPattern.set(p?.dietPattern ?? 'Balanced');
+    this.trainingType.set(p?.trainingType ?? 'None');
+    this.proteinBasis.set(p?.proteinBasis ?? 'PerBodyweight');
+    this.lifeStage.set(p?.lifeStage ?? 'None');
+    this.trimester.set(p?.trimester ?? null);
+    this.mealsPerDay.set(p?.mealsPerDay ?? null);
+    this.eatingWindow.set(p?.eatingWindow ?? 'None');
+    this.restrictions.set(p?.restrictions ?? null);
+
+    this.neckDisp.set(this.toLenDisp(p?.neckCm));
+    this.waistDisp.set(this.toLenDisp(p?.waistCm));
+    this.hipDisp.set(this.toLenDisp(p?.hipCm));
 
     this.heightCm.set(p?.heightCm ?? null);
     if (p?.heightCm != null) {
@@ -480,6 +796,8 @@ export class TrackerProfileMobilePage {
       this.heightIn.set(null);
     }
     this.weightDisp.set(this.toDisp(p?.weightKg));
+    this.goalWeightDisp.set(this.toDisp(p?.goalWeightKg));
+    this.hydrationGoalDisp.set(this.toVolDisp(p?.hydrationGoalMl));
   }
 
   // ─────────────── ONBOARDING GATE (verbatim predicate from the live page) ───────────────
@@ -513,6 +831,13 @@ export class TrackerProfileMobilePage {
   // ─────────────── UNIT-AWARE HELPERS (mirror the live page) ───────────────
 
   get weightUnit(): string { return this.units.weightUnit(); }
+  get volumeUnit(): string { return this.units.volumeUnit(); }
+  get lengthUnit(): string { return this.units.lengthUnit(); }
+  /** Weekly-pace suffix ('lb/wk' | 'kg/wk'). */
+  get rateUnit(): string { return this.units.rateUnit(); }
+  /** Sensible step for the weekly-pace input in the active unit (0.1 lb/wk, 0.05 kg/wk). */
+  get rateStep(): number { return this.units.imperial() ? 0.1 : 0.05; }
+  get hydrationDefaultHint(): string { return `~${this.units.formatVolume(2000)}`; }
 
   readonly todayIso = (() => {
     const d = new Date();
@@ -525,6 +850,35 @@ export class TrackerProfileMobilePage {
     if (kg == null) return null;
     return Math.round(this.units.weightToDisplay(kg) * 10) / 10;
   }
+  private toVolDisp(ml: number | null | undefined): number | null {
+    if (ml == null) return null;
+    return Math.round(this.units.volumeToDisplay(ml));
+  }
+  private toLenDisp(cm: number | null | undefined): number | null {
+    if (cm == null) return null;
+    return Math.round(this.units.lengthToDisplay(cm) * 10) / 10;
+  }
+  /** A canonical kg/wk pace as a DISPLAY value (lb/wk or kg/wk); null passes through. */
+  private toRateDisp(kgPerWk: number | null | undefined): number | null {
+    if (kgPerWk == null) return null;
+    return Math.round(this.units.rateToDisplay(kgPerWk) * 100) / 100;
+  }
+  private toCm(disp: number | null): number | null {
+    if (disp == null || disp <= 0) return null;
+    return this.units.lengthToCanonical(disp);
+  }
+  private currentHydrationGoalMl(disp: number | null): number | null {
+    if (disp == null || disp <= 0) return null;
+    return Math.round(this.units.volumeToCanonical(disp));
+  }
+  /** A display pace (lb/wk or kg/wk) back to canonical kg/wk; null passes through (0 = no preference). */
+  private currentWeeklyRateKg(disp: number | null): number | null {
+    if (disp == null) return null;
+    return Math.round(this.units.rateToCanonical(disp) * 1000) / 1000;
+  }
+
+  /** The canonical kg/wk pace from the in-flight display value — what the calc + save consume. */
+  readonly weeklyRateKg = computed<number | null>(() => this.currentWeeklyRateKg(this.weeklyRateDisp()));
 
   private currentHeightCm(): number | null {
     if (this.imperial()) {
@@ -547,6 +901,12 @@ export class TrackerProfileMobilePage {
     const toImperial = sys === 'Imperial';
     const cm = this.currentHeightCm();
     const wKg = this.currentWeightKg(this.weightDisp());
+    const gKg = this.currentWeightKg(this.goalWeightDisp());
+    const hydMl = this.currentHydrationGoalMl(this.hydrationGoalDisp());
+    const neckCm = this.toCm(this.neckDisp());
+    const waistCm = this.toCm(this.waistDisp());
+    const hipCm = this.toCm(this.hipDisp());
+    const rateKg = this.currentWeeklyRateKg(this.weeklyRateDisp());
 
     this.units.setLocal(sys);
 
@@ -560,6 +920,12 @@ export class TrackerProfileMobilePage {
       }
     }
     this.weightDisp.set(this.toDisp(wKg));
+    this.goalWeightDisp.set(this.toDisp(gKg));
+    this.hydrationGoalDisp.set(this.toVolDisp(hydMl));
+    this.neckDisp.set(this.toLenDisp(neckCm));
+    this.waistDisp.set(this.toLenDisp(waistCm));
+    this.hipDisp.set(this.toLenDisp(hipCm));
+    this.weeklyRateDisp.set(this.toRateDisp(rateKg));
   }
 
   // ─────────────── LIVE PREVIEW (same computeStats the live page reads) ───────────────
@@ -572,14 +938,24 @@ export class TrackerProfileMobilePage {
     activityLevel: this.activityLevel(),
     goal: this.goal(),
     dailyCalorieGoal: this.dailyCalorieGoal(),
+    weeklyRateKg: this.weeklyRateKg(),
+    bodyFatPct: this.bodyFatPct(),
+    dietPattern: this.dietPattern(),
+    trainingType: this.trainingType(),
+    proteinBasis: this.proteinBasis(),
+    lifeStage: this.lifeStage(),
+    trimester: this.lifeStage() === 'Pregnant' ? this.trimester() : null,
   }));
 
   readonly preview = computed(() => computeStats(this.statsInputs()));
   readonly hasSuggestion = computed(() => this.preview().suggestedCalorieGoal != null);
+  readonly showTrimester = computed(() => this.lifeStage() === 'Pregnant');
 
   readonly confidence = computed<'low' | 'med' | 'high'>(() => {
     const s = this.preview();
-    return s.tdee == null ? 'low' : 'med';
+    if (s.tdee == null) return 'low';
+    if (this.bodyFatPct() != null) return 'high';
+    return 'med';
   });
   readonly confidenceLabel = computed(() => {
     switch (this.confidence()) {
@@ -609,6 +985,98 @@ export class TrackerProfileMobilePage {
     if (s.suggestedFatG != null) this.fatGoalG.set(s.suggestedFatG);
   }
 
+  // ─────────────── NAVY-TAPE BODY FAT (mirror the live page) ───────────────
+
+  readonly navyBodyFatPct = computed<number | null>(() => {
+    const heightCm = this.currentHeightCm();
+    const sex = this.sex();
+    if (heightCm == null || heightCm <= 0 || sex === 'Unspecified') return null;
+    const neck = this.toCm(this.neckDisp());
+    const waist = this.toCm(this.waistDisp());
+    if (neck == null || waist == null) return null;
+
+    let pct: number;
+    if (sex === 'Female') {
+      const hip = this.toCm(this.hipDisp());
+      if (hip == null) return null;
+      const v = waist + hip - neck;
+      if (v <= 0) return null;
+      pct = 163.205 * Math.log10(v) - 97.684 * Math.log10(heightCm) - 78.387;
+    } else {
+      const v = waist - neck;
+      if (v <= 0) return null;
+      pct = 86.01 * Math.log10(v) - 70.041 * Math.log10(heightCm) + 36.76;
+    }
+    if (!Number.isFinite(pct)) return null;
+    pct = Math.round(pct * 10) / 10;
+    return pct > 0 && pct < 100 ? pct : null;
+  });
+
+  applyNavyBodyFat(): void {
+    const bf = this.navyBodyFatPct();
+    if (bf != null) this.bodyFatPct.set(bf);
+  }
+
+  /** A compact read-only digest of what the AI meal recommenders are told (eating style · restrictions · pace). */
+  readonly dietSummary = computed<string[]>(() => {
+    const parts: string[] = [];
+    const pat = this.dietPattern();
+    if (pat && pat !== 'Balanced') parts.push(DIET_PATTERNS.find((d) => d.value === pat)?.label ?? pat);
+
+    const raw = (this.restrictions() ?? '').trim();
+    if (raw) {
+      raw
+        .split(',')
+        .map((t) => t.trim())
+        .filter((t) => t.length > 0)
+        .forEach((t) => parts.push(`no ${t.toLowerCase()}`));
+    }
+
+    const rate = this.weeklyRateKg();
+    if (rate != null && rate !== 0) {
+      const dir = rate < 0 ? 'cutting' : 'gaining';
+      const disp = this.units.formatWeight(Math.abs(rate), Math.abs(rate) < 1 ? 2 : 1);
+      if (disp) parts.push(`${dir} ${disp}/wk`);
+    }
+
+    const win = this.eatingWindow();
+    if (win && win !== 'None') parts.push(win === 'OMAD' ? 'OMAD' : win.replace('W', '').replace('x', ':'));
+    return parts;
+  });
+
+  // ─────────────── NON-BLOCKING CHECK-IN BANNER (mirror the live page) ───────────────
+
+  readonly checkInDismissed = signal(false);
+  readonly checkIn = computed<{ reason: string } | null>(() => {
+    if (this.checkInDismissed()) return null;
+    const p = this.profile();
+    if (!p) return null;
+    const latestKg = p.weightKg;
+
+    if (p.goalBasisWeightKg != null && latestKg != null) {
+      const drift = Math.abs(latestKg - p.goalBasisWeightKg);
+      if (drift >= CHECKIN_DRIFT_KG) {
+        return { reason: `Your weight has moved ${this.units.formatWeight(drift, 1)} since your last target.` };
+      }
+    }
+    if (p.baselineReviewedUtc) {
+      const reviewed = new Date(p.baselineReviewedUtc).getTime();
+      if (Number.isFinite(reviewed)) {
+        const days = (Date.now() - reviewed) / 86_400_000;
+        if (days >= CHECKIN_STALE_DAYS) {
+          return { reason: `It's been over ${Math.round(days)} days since you last reviewed your target.` };
+        }
+      }
+    }
+    return null;
+  });
+
+  recomputeFromCheckIn(): void {
+    this.useSuggested();
+    this.checkInDismissed.set(true);
+    this.toast.show('Targets recomputed — review and Save to keep them.', { tone: 'success', durationMs: 3200 });
+  }
+
   // ─────────────── AI SUGGESTION (gated; same endpoint as the live page) ───────────────
 
   async suggestWithAi(): Promise<void> {
@@ -629,6 +1097,36 @@ export class TrackerProfileMobilePage {
       this.toast.show('AI offline — filled a calculated estimate you can adjust', { tone: 'warn' });
     } finally {
       this.aiLoading.set(false);
+    }
+  }
+
+  // ─────────────── AI NATURAL-GOAL ("describe your goal" → prefill) ───────────────
+
+  readonly canDescribeGoal = computed(() => this.goalText().trim().length > 0 && !this.goalLoading());
+
+  async describeGoalWithAi(): Promise<void> {
+    const text = this.goalText().trim();
+    if (!text || this.goalLoading()) return;
+    this.goalLoading.set(true);
+    try {
+      const res = await firstValueFrom(this.api.naturalGoal({ text }));
+      this.dailyCalorieGoal.set(res.calorieTarget);
+      this.proteinGoalG.set(res.proteinG);
+      this.carbGoalG.set(res.carbsG);
+      this.fatGoalG.set(res.fatG);
+      this.goalTimeline.set(res.timeline ?? null);
+      this.goalRealistic.set(res.realistic);
+      this.goalRationale.set(res.rationale ?? null);
+      this.aiSafety.set(res.safetyNote ?? null);
+    } catch {
+      this.useSuggested();
+      this.goalTimeline.set(null);
+      this.goalRealistic.set(null);
+      this.goalRationale.set(null);
+      this.aiSafety.set(null);
+      this.toast.show('AI offline — filled a calculated estimate you can adjust', { tone: 'warn' });
+    } finally {
+      this.goalLoading.set(false);
     }
   }
 
@@ -676,7 +1174,21 @@ export class TrackerProfileMobilePage {
 
     const heightCm = this.currentHeightCm();
     const weightKg = this.currentWeightKg(this.weightDisp());
+    const goalWeightKg = this.currentWeightKg(this.goalWeightDisp());
+    const hydrationGoalMl = this.currentHydrationGoalMl(this.hydrationGoalDisp());
     const roundedWeight = weightKg != null ? Math.round(weightKg * 100) / 100 : undefined;
+    const reAnchor = this.checkInDismissed();
+
+    const neckCm = this.toCm(this.neckDisp());
+    const waistCm = this.toCm(this.waistDisp());
+    const hipCm = this.toCm(this.hipDisp());
+    const restrictionsCsv =
+      (this.restrictions() ?? '')
+        .split(',')
+        .map((t) => t.trim())
+        .filter((t) => t.length > 0)
+        .join(', ') || null;
+    const trimester = this.lifeStage() === 'Pregnant' ? this.num(this.trimester()) : undefined;
     const prev = this.profile();
 
     const body: TrackerProfileDto = {
@@ -687,11 +1199,31 @@ export class TrackerProfileMobilePage {
       proteinGoalG: this.num(this.proteinGoalG()),
       carbGoalG: this.num(this.carbGoalG()),
       fatGoalG: this.num(this.fatGoalG()),
+      shareWithContacts: this.shareWithContacts(),
       dateOfBirth: this.dateOfBirth() || null,
       heightCm: heightCm != null ? Math.round(heightCm * 10) / 10 : undefined,
       sex: this.sex(),
       activityLevel: this.activityLevel(),
+      goalWeightKg: goalWeightKg != null ? Math.round(goalWeightKg * 100) / 100 : undefined,
       unitSystem: this.unitSystem(),
+      hydrationGoalMl: hydrationGoalMl ?? undefined,
+      stepGoal: this.num(this.stepGoal()),
+      coffeeGoalCups: this.num(this.coffeeGoalCups()),
+      weeklyRateKg: this.weeklyRateKg() ?? undefined,
+      bodyFatPct: this.num(this.bodyFatPct()),
+      neckCm: neckCm != null ? Math.round(neckCm * 10) / 10 : undefined,
+      waistCm: waistCm != null ? Math.round(waistCm * 10) / 10 : undefined,
+      hipCm: hipCm != null ? Math.round(hipCm * 10) / 10 : undefined,
+      dietPattern: this.dietPattern(),
+      restrictions: restrictionsCsv,
+      trainingType: this.trainingType(),
+      proteinBasis: this.proteinBasis(),
+      lifeStage: this.lifeStage(),
+      trimester,
+      mealsPerDay: this.num(this.mealsPerDay()),
+      eatingWindow: this.eatingWindow(),
+      goalBasisWeightKg: reAnchor ? roundedWeight : (prev?.goalBasisWeightKg ?? undefined),
+      baselineReviewedUtc: reAnchor ? new Date().toISOString() : (prev?.baselineReviewedUtc ?? undefined),
     };
 
     try {

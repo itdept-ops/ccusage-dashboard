@@ -253,8 +253,130 @@
   display: grid;
   grid-template-columns: 1fr 1fr 1fr;
   gap: 8px;
+  &--2 { grid-template-columns: 1fr 1fr; }
+  &--3 { grid-template-columns: 1fr 1fr 1fr; }
 }
 .pm-field--macro .pm-field__in { padding-inline: 10px; }
+
+// ============================================================================
+// CHECK-IN BANNER (weight drift / stale baseline → recompute)
+// ============================================================================
+
+.pm-checkin {
+  display: flex; align-items: flex-start; gap: 12px;
+  margin: 0 0 4px;
+  padding: 14px;
+  border-radius: var(--tech-radius, var(--r-card));
+  border: 1px solid color-mix(in srgb, var(--accent-a) 34%, transparent);
+  background: color-mix(in srgb, var(--accent-a) 12%, var(--bg-rise));
+
+  &__ic { color: var(--accent-a); flex: none; }
+  &__body { flex: 1; min-width: 0; }
+  &__msg { margin: 0; font-size: .9rem; font-weight: 700; color: var(--ink); line-height: 1.35; }
+  &__sub { margin: 3px 0 0; font-size: .82rem; color: var(--ink-dim); line-height: 1.35; }
+  &__acts { display: flex; align-items: center; gap: 6px; flex: none; }
+  &__go {
+    min-height: 40px; padding: 0 14px;
+    border-radius: var(--tech-r-pill, var(--r-pill));
+    border: none; background: var(--accent-a); color: var(--on-accent, #fff);
+    font-size: .82rem; font-weight: 700; cursor: pointer;
+    &:active { transform: scale(.97); }
+  }
+  &__x {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 34px; height: 34px;
+    border-radius: 50%; border: none; background: transparent; color: var(--ink-faint); cursor: pointer;
+    mat-icon { font-size: 20px; width: 20px; height: 20px; }
+    &:active { transform: scale(.92); }
+  }
+}
+
+// ============================================================================
+// SHARE TOGGLE (native-styled switch row)
+// ============================================================================
+
+.pm-toggle {
+  display: flex; align-items: center; gap: 12px;
+  width: 100%;
+  min-height: 52px;
+  padding: 10px 4px;
+  background: transparent; border: none; text-align: left; cursor: pointer;
+
+  &__txt { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+  &__lbl { font-size: .9rem; font-weight: 600; color: var(--ink); }
+  &__sub { font-size: .78rem; color: var(--ink-dim); line-height: 1.35; }
+
+  &__sw {
+    flex: none; position: relative;
+    width: 46px; height: 28px; border-radius: 999px;
+    background: color-mix(in srgb, var(--ink-faint) 42%, transparent);
+    transition: background .18s var(--ease, ease);
+    i {
+      position: absolute; top: 3px; left: 3px;
+      width: 22px; height: 22px; border-radius: 50%;
+      background: #fff; box-shadow: var(--lift-1, 0 1px 3px rgba(0,0,0,.3));
+      transition: transform .18s var(--ease-out, ease);
+    }
+    &.is-on { background: var(--accent-a); i { transform: translateX(18px); } }
+  }
+}
+
+// ============================================================================
+// FINE-TUNE (collapsible refinements panel)
+// ============================================================================
+
+.pm-fine {
+  &__head {
+    display: flex; align-items: center; gap: 10px;
+    width: 100%;
+    min-height: 48px;
+    padding: 0; margin: 0;
+    background: transparent; border: none; text-align: left; cursor: pointer;
+    color: var(--ink);
+  }
+  &__tags { display: flex; flex-wrap: wrap; gap: 4px; flex: 1; justify-content: flex-end; }
+  &__tag {
+    font-size: .72rem; font-weight: 600; color: var(--ink-dim);
+    padding: 2px 8px; border-radius: var(--tech-r-pill, var(--r-pill));
+    background: color-mix(in srgb, var(--ink-faint) 16%, transparent);
+    white-space: nowrap;
+  }
+  &__chev {
+    flex: none; color: var(--ink-faint);
+    transition: transform .18s var(--ease, ease);
+    &.is-open { transform: rotate(180deg); }
+  }
+  &__body { margin-top: 14px; }
+  &__navy { align-self: flex-start; }
+  &__note { margin: 2px 0 0; font-size: .76rem; color: var(--ink-faint); line-height: 1.4; }
+}
+
+// ============================================================================
+// AI describe-goal row + verdict chips
+// ============================================================================
+
+.pm-ai {
+  &__describe { margin-bottom: 12px; }
+  &__row { display: flex; flex-wrap: wrap; gap: 8px; }
+  &__chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+  &__chip {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 5px 10px;
+    border-radius: var(--tech-r-pill, var(--r-pill));
+    background: color-mix(in srgb, var(--ink-faint) 14%, transparent);
+    color: var(--ink-dim);
+    font-size: .78rem; font-weight: 600;
+    mat-icon { font-size: 15px; width: 15px; height: 15px; }
+    &[data-ok='true'] {
+      background: color-mix(in srgb, var(--good, #35c759) 16%, transparent);
+      color: var(--good, #35c759);
+    }
+    &[data-ok='false'] {
+      background: color-mix(in srgb, var(--warn, #ff9f0a) 16%, transparent);
+      color: var(--warn, #ff9f0a);
+    }
+  }
+}
 
 // ============================================================================
 // "Use suggested" mini + AI block

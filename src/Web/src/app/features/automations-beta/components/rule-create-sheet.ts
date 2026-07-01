@@ -11,14 +11,18 @@ import { BetaBottomSheet } from '../../beta-ui';
 import { ACTIONS, AutomationTemplate, TRIGGERS, condOpLabel, triggerOpt } from '../automations-beta.model';
 
 /**
- * Relay CreateSheet — "Add automation" in a BetaBottomSheet. The user picks a WHEN (trigger) and a
+ * Relay CreateSheet — "Add / edit automation" in a BetaBottomSheet. The user picks a WHEN (trigger) and a
  * THEN (action), optionally names it, optionally gates it with a numeric condition (only offered for
- * triggers that carry a number), then commits — which creates the rule via the SAME `Api.createAutomation`
+ * triggers that carry a number), optionally sets a message template + a per-rule Discord webhook, then
+ * commits — which creates OR updates the rule via the SAME `Api.createAutomation` / `Api.updateAutomation`
  * the live `/automations` page uses. No new endpoint; the server owns all validation + self-scoping.
  *
- * The page owns this sheet's two-way `open`. On a successful create it emits `created` (the new rule) so
- * the page can optimistically prepend + toast. Webhook is intentionally NOT collected here — a fresh rule
- * falls back to the caller's personal Discord webhook (same default as the live form's blank field).
+ * The page owns this sheet's two-way `open`. On a successful create it emits `created` (the new rule); on a
+ * successful edit it emits `updated` (the saved rule) so the page can reconcile + toast.
+ *
+ * Webhook contract (mirrors the live form): the stored URL is NEVER returned. On EDIT, a blank field leaves
+ * the stored webhook as-is; typing a new URL replaces it; the explicit "remove it" action clears it (sends
+ * ""). On CREATE, a blank field falls back to the caller's personal Discord webhook.
  */
 @Component({
   selector: 'app-relay-create-sheet',
@@ -26,12 +30,12 @@ import { ACTIONS, AutomationTemplate, TRIGGERS, condOpLabel, triggerOpt } from '
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [FormsModule, MatIconModule, BetaBottomSheet],
   template: `
-    <app-bs-sheet [(open)]="open" detent="full" label="Add automation" [dismissable]="!busy()" (closed)="onClosed()">
+    <app-bs-sheet [(open)]="open" detent="full" [label]="isEdit() ? 'Edit automation' : 'Add automation'" [dismissable]="!busy()" (closed)="onClosed()">
       <div class="rc">
         <header class="rc-head">
           <span class="rc-spark" aria-hidden="true"><mat-icon>bolt</mat-icon></span>
           <div class="rc-head-txt">
-            <h2 class="rc-title">New automation</h2>
+            <h2 class="rc-title">{{ isEdit() ? 'Edit automation' : 'New automation' }}</h2>
             <p class="rc-sub">Pick what happens and how you're nudged. It only ever watches your own activity and only ever pings you.</p>
           </div>
         </header>
@@ -88,13 +92,41 @@ import { ACTIONS, AutomationTemplate, TRIGGERS, condOpLabel, triggerOpt } from '
                [ngModel]="name()" (ngModelChange)="name.set($event)"
                placeholder="e.g. Long run cheer" aria-label="Automation name" />
 
+        <!-- Optional message template -->
+        <span class="rc-step">Message <i>(optional)</i></span>
+        <input class="rc-input" type="text" maxlength="200"
+               [ngModel]="messageTemplate()" (ngModelChange)="messageTemplate.set($event)"
+               placeholder="Use {value} to include the number" aria-label="Message template" />
+        <span class="rc-hint">Leave blank for a default. No &#64; mentions — they're stripped automatically.</span>
+
+        <!-- Optional per-rule Discord webhook (only when the action posts to Discord) -->
+        @if (action() !== 0) {
+          <span class="rc-step">Discord webhook <i>(optional)</i></span>
+          <input class="rc-input" type="url" autocomplete="off"
+                 [ngModel]="webhookUrl()" (ngModelChange)="onWebhookInput($event)"
+                 placeholder="https://discord.com/api/webhooks/…" aria-label="Discord webhook URL" />
+          <span class="rc-hint">
+            @if (editingHasWebhook()) {
+              A webhook is configured. Leave blank to keep it, type a new URL to replace it, or
+              <button type="button" class="rc-link" (click)="requestClearWebhook()">remove it</button>.
+            } @else if (clearWebhook()) {
+              The stored webhook will be removed on save. Type a URL to set a new one instead.
+            } @else {
+              Send to this rule's own webhook. Leave blank to use your personal Discord webhook instead.
+            }
+          </span>
+        }
+
         @if (error()) {
           <p class="rc-error" role="alert">{{ error() }}</p>
         }
 
         <button type="button" class="rc-primary" [disabled]="busy()" (click)="commit()">
-          @if (busy()) { <span class="rc-spin" aria-hidden="true"></span> Creating… }
-          @else { <mat-icon aria-hidden="true">add</mat-icon> Create automation }
+          @if (busy()) { <span class="rc-spin" aria-hidden="true"></span> {{ isEdit() ? 'Saving…' : 'Creating…' }} }
+          @else {
+            <mat-icon aria-hidden="true">{{ isEdit() ? 'check' : 'add' }}</mat-icon>
+            {{ isEdit() ? 'Save changes' : 'Create automation' }}
+          }
         </button>
 
         <p class="rc-foot">
@@ -198,6 +230,15 @@ import { ACTIONS, AutomationTemplate, TRIGGERS, condOpLabel, triggerOpt } from '
     .rc-input:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
     .rc-num { max-width: 140px; }
 
+    .rc-hint {
+      margin-top: -4px; font-size: 12px; font-weight: 600; color: var(--ink-faint); line-height: 1.4;
+    }
+    .rc-link {
+      padding: 0; border: none; background: none; font: inherit; font-weight: 700;
+      color: var(--accent-a); cursor: pointer; text-decoration: underline; -webkit-tap-highlight-color: transparent;
+    }
+    .rc-link:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: 4px; }
+
     .rc-error {
       margin: 2px 0 0; padding: 10px 12px; border-radius: var(--r-tile);
       background: color-mix(in srgb, var(--warn) 16%, var(--bg-sink)); color: var(--ink);
@@ -237,8 +278,10 @@ export class RelayCreateSheet {
 
   /** Two-way open state, owned by the page. */
   readonly open = signal(false);
-  /** Emitted with the freshly created rule on a successful commit. */
+  /** Emitted with the freshly created rule on a successful create. */
   readonly created = output<AutomationRule>();
+  /** Emitted with the saved rule on a successful edit. */
+  readonly updated = output<AutomationRule>();
 
   protected readonly triggers = TRIGGERS;
   protected readonly actions = ACTIONS;
@@ -249,24 +292,75 @@ export class RelayCreateSheet {
   protected readonly conditionValue = signal<number | null>(null);
   protected readonly action = signal<RuleAction>(0);
   protected readonly name = signal<string>('');
+  protected readonly messageTemplate = signal<string>('');
+  protected readonly webhookUrl = signal<string>('');
+
+  /** The id being edited (null => create mode). */
+  protected readonly editingId = signal<number | null>(null);
+  /** The edited rule's current enabled state, preserved across an edit (the sheet has no enable toggle). */
+  private readonly editingEnabled = signal(true);
+  /** Whether the rule being edited already has a webhook stored (its URL is never returned). */
+  protected readonly editingHasWebhook = signal(false);
+  /** When true, save sends "" to CLEAR a stored webhook (vs. null = leave as-is). */
+  protected readonly clearWebhook = signal(false);
 
   protected readonly busy = signal(false);
   protected readonly error = signal<string | null>(null);
+
+  /** True when the sheet is editing an existing rule (drives titles + which endpoint commits). */
+  protected readonly isEdit = computed(() => this.editingId() !== null);
 
   /** The selected trigger's numeric-payload unit (null => no condition row). */
   protected readonly unit = computed(() => triggerOpt(this.triggerKind()).unit);
 
   protected opLabel(op: RuleConditionOp): string { return condOpLabel(op); }
 
-  /** Reset to defaults whenever the sheet is (re)opened. */
+  /** Typing a URL supersedes a pending clear (mirrors the live form's set/replace/clear semantics). */
+  protected onWebhookInput(v: string): void {
+    this.webhookUrl.set(v);
+    if (v.trim().length > 0) this.clearWebhook.set(false);
+  }
+
+  /** Mark the stored webhook for removal on save (a blank field alone leaves it as-is). */
+  protected requestClearWebhook(): void {
+    this.clearWebhook.set(true);
+    this.editingHasWebhook.set(false);
+    this.webhookUrl.set('');
+  }
+
+  /** Reset to defaults whenever the sheet is (re)opened for a fresh create. */
   reset(): void {
+    this.editingId.set(null);
+    this.editingEnabled.set(true);
+    this.editingHasWebhook.set(false);
+    this.clearWebhook.set(false);
     this.triggerKind.set('workout.logged');
     this.conditionOp.set(0);
     this.conditionValue.set(null);
     this.action.set(0);
     this.name.set('');
+    this.messageTemplate.set('');
+    this.webhookUrl.set('');
     this.busy.set(false);
     this.error.set(null);
+  }
+
+  /**
+   * Open the sheet pre-filled to EDIT an existing rule. Mirrors the live form: name/trigger/condition/
+   * action/message are prefilled; the webhook URL field is left blank (the stored URL is never returned) —
+   * blank keeps it, a typed URL replaces it, "remove it" clears it. Commit routes to `Api.updateAutomation`.
+   */
+  openForEdit(r: AutomationRule): void {
+    this.reset();
+    this.editingId.set(r.id);
+    this.editingEnabled.set(r.enabled);
+    this.editingHasWebhook.set(r.hasWebhook);
+    this.triggerKind.set(r.triggerKind);
+    this.conditionOp.set(r.conditionOp);
+    this.conditionValue.set(r.conditionValue);
+    this.action.set(r.action);
+    this.name.set(r.name ?? '');
+    this.messageTemplate.set(r.messageTemplate ?? '');
   }
 
   /**
@@ -293,23 +387,41 @@ export class RelayCreateSheet {
     const trig = triggerOpt(this.triggerKind());
     // A condition only makes sense for kinds with a numeric payload; force "always" otherwise.
     const op: RuleConditionOp = trig.unit ? this.conditionOp() : 0;
+    // Webhook only applies when the action posts to Discord; force null (leave-as-is) otherwise.
+    // Webhook contract (null = leave · "" = clear · value = set): a typed value sets/replaces it; an
+    // explicit "remove it" sends "" to clear a stored webhook; otherwise (blank, untouched) send null.
+    const typed = this.webhookUrl().trim();
+    const webhookUrl =
+      this.action() === 0 ? null : typed.length > 0 ? typed : this.clearWebhook() ? '' : null;
     const body: AutomationRuleInput = {
       name: this.name().trim() || null,
       triggerKind: this.triggerKind(),
       conditionOp: op,
       conditionValue: op === 0 ? null : (this.conditionValue() ?? null),
       action: this.action(),
-      messageTemplate: null,
-      // webhookUrl omitted => null = leave unset; a fresh rule uses the caller's personal Discord webhook.
-      enabled: true,
+      messageTemplate: this.messageTemplate().trim() || null,
+      webhookUrl,
+      // A fresh rule starts enabled; an edit preserves the rule's current state (no enable toggle here).
+      enabled: this.editingId() == null ? true : this.editingEnabled(),
     };
 
+    const id = this.editingId();
     try {
-      const saved = await firstValueFrom(this.api.createAutomation(body));
-      this.open.set(false);
-      this.created.emit(saved);
+      if (id == null) {
+        const saved = await firstValueFrom(this.api.createAutomation(body));
+        this.open.set(false);
+        this.created.emit(saved);
+      } else {
+        const saved = await firstValueFrom(this.api.updateAutomation(id, body));
+        this.open.set(false);
+        this.updated.emit(saved);
+      }
     } catch {
-      this.error.set('Could not create this automation. Please try again.');
+      this.error.set(
+        id == null
+          ? 'Could not create this automation. Please try again.'
+          : 'Could not save this automation. Please try again.',
+      );
     } finally {
       this.busy.set(false);
     }

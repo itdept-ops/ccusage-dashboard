@@ -8,7 +8,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { Api } from '../../core/api';
 import { AuthService } from '../../core/auth';
 import {
-  FamilyMeal, FamilyMealDay, PERM, TrackerProfileDto,
+  FamilyMeal, FamilyMealDay, HouseholdMember, PERM, TrackerProfileDto,
 } from '../../core/models';
 import {
   BetaFab, BetaPullRefresh, BetaSegmentedControl, BetaSkeleton, BetaSvgRing, BetaSwipeRow,
@@ -25,6 +25,9 @@ import { ForageEatSheet } from './components/eat-sheet';
 import { ForageGrocerySheet } from './components/grocery-sheet';
 import { ForageMealActionsSheet } from './components/meal-actions-sheet';
 import { ForageMoveMealSheet } from './components/move-meal-sheet';
+import { ForageEditMealSheet, EditMealResult } from './components/edit-meal-sheet';
+import { ForageRefineMealSheet } from './components/refine-meal-sheet';
+import { ForageAddToTrackerSheet, AddToTrackerResult } from './components/add-to-tracker-sheet';
 
 /**
  * Meals "Forage" — the mobile-first meal-planning + grocery surface, built on the shared beta-ui "Strata"
@@ -56,7 +59,7 @@ import { ForageMoveMealSheet } from './components/move-meal-sheet';
     MatIconModule, BetaPullRefresh, BetaFab, BetaToaster, BetaSkeleton, BetaSvgRing, BetaSwipeRow,
     BetaSegmentedControl,
     ForageDayStrip, ForageMealCard, ForagePlanSheet, ForageEatSheet, ForageGrocerySheet, ForageMealActionsSheet,
-    ForageMoveMealSheet,
+    ForageMoveMealSheet, ForageEditMealSheet, ForageRefineMealSheet, ForageAddToTrackerSheet,
   ],
   template: `
     <app-bs-pull-refresh class="mb-ptr" [busy]="refreshing()" (refresh)="refreshAll()">
@@ -149,14 +152,21 @@ import { ForageMoveMealSheet } from './components/move-meal-sheet';
               <h2 class="mb-day-title">{{ selectedCell()?.weekdayLong || 'Day' }}</h2>
               <span class="mb-day-sub">{{ selectedCell()?.dateLabel }}</span>
             </div>
-            @if ((selectedCell()?.meals?.length ?? 0) > 0) {
-              <button type="button" class="mb-day-gro" (click)="addDayToGrocery()" [disabled]="addingDay()"
-                      aria-label="Add this day's ingredients to grocery list">
-                @if (addingDay()) { <span class="mb-mini-spin" aria-hidden="true"></span> }
-                @else { <mat-icon aria-hidden="true">add_shopping_cart</mat-icon> }
-                <span>Add day</span>
+            <div class="mb-day-h-btns">
+              <button type="button" class="mb-day-gro" (click)="addMeal()"
+                      aria-label="Add a meal to this day">
+                <mat-icon aria-hidden="true">add</mat-icon>
+                <span>Add meal</span>
               </button>
-            }
+              @if ((selectedCell()?.meals?.length ?? 0) > 0) {
+                <button type="button" class="mb-day-gro" (click)="addDayToGrocery()" [disabled]="addingDay()"
+                        aria-label="Add this day's ingredients to grocery list">
+                  @if (addingDay()) { <span class="mb-mini-spin" aria-hidden="true"></span> }
+                  @else { <mat-icon aria-hidden="true">add_shopping_cart</mat-icon> }
+                  <span>Add day</span>
+                </button>
+              }
+            </div>
           </div>
 
           @if (loading()) {
@@ -173,9 +183,14 @@ import { ForageMoveMealSheet } from './components/move-meal-sheet';
             <div class="mb-state">
               <span class="mb-state-ic" aria-hidden="true"><mat-icon>restaurant_menu</mat-icon></span>
               <p class="mb-state-msg">Nothing planned for {{ selectedCell()?.weekdayLong }} yet.</p>
-              <button type="button" class="mb-state-btn" (click)="openPlan()">
-                <mat-icon aria-hidden="true">auto_awesome</mat-icon> Plan with AI
-              </button>
+              <div class="mb-state-btns">
+                <button type="button" class="mb-state-btn" (click)="openPlan()">
+                  <mat-icon aria-hidden="true">auto_awesome</mat-icon> Plan with AI
+                </button>
+                <button type="button" class="mb-state-btn mb-state-btn--ghost" (click)="addMeal()">
+                  <mat-icon aria-hidden="true">add</mat-icon> Add manually
+                </button>
+              </div>
             </div>
           } @else {
             <div class="mb-meals">
@@ -206,6 +221,15 @@ import { ForageMoveMealSheet } from './components/move-meal-sheet';
             <span class="mb-q-ic" aria-hidden="true"><mat-icon>shopping_cart</mat-icon></span>
             <span class="mb-q-txt"><b>Grocery list</b><i>Check off what you've got</i></span>
           </button>
+          @if (mealCount() > 0) {
+            <button type="button" class="mb-q" (click)="addWeekToGrocery()" [disabled]="addingWeek()">
+              <span class="mb-q-ic" aria-hidden="true">
+                @if (addingWeek()) { <span class="mb-mini-spin" aria-hidden="true"></span> }
+                @else { <mat-icon>add_shopping_cart</mat-icon> }
+              </span>
+              <span class="mb-q-txt"><b>Add week to grocery</b><i>Every planned ingredient this week</i></span>
+            </button>
+          }
         </div>
       </div>
     </app-bs-pull-refresh>
@@ -218,9 +242,18 @@ import { ForageMoveMealSheet } from './components/move-meal-sheet';
     <app-forage-eat-sheet #eatSheet />
     <app-forage-grocery-sheet #grocerySheet (changed)="noop()" />
     <app-forage-meal-actions-sheet #mealSheet
-      [meal]="activeMeal()" (grocery)="addActiveMealToGrocery()" (move)="openMoveActiveMeal()" (remove)="removeActiveMeal()" />
+      [meal]="activeMeal()" [canRefine]="canTrackerAi()" [canTrack]="canTrack()"
+      (grocery)="addActiveMealToGrocery()" (edit)="editActiveMeal()" (refine)="refineActiveMeal()"
+      (track)="trackActiveMeal()" (move)="openMoveActiveMeal()" (remove)="removeActiveMeal()" />
     <app-forage-move-meal-sheet #moveSheet
       [meal]="activeMeal()" [cells]="cells()" (move)="moveActiveMeal($event)" />
+    <app-forage-edit-meal-sheet #editSheet
+      [meal]="editingMeal()" [localDate]="editDate()" [dayLabel]="editDayLabel()"
+      [canAi]="canTrackerAi()" (saved)="onMealSaved($event)" />
+    <app-forage-refine-meal-sheet #refineSheet
+      [meal]="activeMeal()" (wrote)="onRefined($event)" />
+    <app-forage-add-to-tracker-sheet #trackSheet
+      [meal]="activeMeal()" [householdMembers]="householdMembers()" (add_)="onTrackConfirmed($event)" />
 
     <app-bs-toaster />
   `,
@@ -237,6 +270,9 @@ export class MealsBetaPage {
   private readonly grocerySheet = viewChild.required(ForageGrocerySheet);
   private readonly mealSheet = viewChild.required(ForageMealActionsSheet);
   private readonly moveSheet = viewChild.required(ForageMoveMealSheet);
+  private readonly editSheet = viewChild.required(ForageEditMealSheet);
+  private readonly refineSheet = viewChild.required(ForageRefineMealSheet);
+  private readonly trackSheet = viewChild.required(ForageAddToTrackerSheet);
 
   // ---- week + data state ----
   readonly weekStart = signal<Date>(thisMonday());
@@ -262,12 +298,29 @@ export class MealsBetaPage {
 
   /** The caller's tracker goals (loaded when they hold tracker.self), for the calorie ring fractions. */
   private readonly trackerProfile = signal<TrackerProfileDto | null>(null);
-  private readonly canTrack = computed(() => {
+  readonly canTrack = computed(() => {
     this.auth.permissions();
     return this.auth.hasPermission(PERM.trackerSelf);
   });
+  /** tracker.ai gates "Refine with AI" + the editor's "Estimate with AI" assist (server floors too). */
+  readonly canTrackerAi = computed(() => {
+    this.auth.permissions();
+    return this.auth.hasPermission(PERM.trackerAi);
+  });
   readonly calorieGoal = computed(() =>
     this.canTrack() ? (this.trackerProfile()?.dailyCalorieGoal ?? null) : null);
+
+  /** True while the whole-week "add to grocery" call is in flight (locks the quick action). */
+  readonly addingWeek = signal(false);
+
+  /** The household members for the "whose tracker?" picker, loaded once (cached) on first tracker use. */
+  readonly householdMembers = signal<HouseholdMember[]>([]);
+  private householdLoaded = false;
+
+  /** Edit-sheet state: the meal being edited (null = create) + the target day for a new meal. */
+  readonly editingMeal = signal<FamilyMeal | null>(null);
+  readonly editDate = signal<string>('');
+  readonly editDayLabel = signal<string>('');
 
   // ---- derived view model ----
   readonly weekLabel = computed(() => {
@@ -451,6 +504,127 @@ export class MealsBetaPage {
     else this.addMealToGrocery(meal);
   }
 
+  // ---- add / edit meal (reuse createFamilyMeal / patchFamilyMeal via the editor sheet) ----
+  /**
+   * Open the editor sheet to ADD a meal to the selected day (defaults to the dinner slot). The sheet emits
+   * `saved` → onMealSaved does the create write + reload. Falls back to the week's Monday if no day is selected.
+   */
+  addMeal(): void {
+    const cell = this.selectedCell();
+    const date = cell?.localDate ?? this.weekStartIso();
+    const label = cell ? `${cell.weekdayLong}, ${cell.dateLabel}` : this.weekLabel();
+    this.editingMeal.set(null);
+    this.editDate.set(date);
+    this.editDayLabel.set(label);
+    const sheet = this.editSheet();
+    sheet.reset();
+    sheet.open.set(true);
+  }
+
+  /** Open the editor sheet to EDIT the active meal (from the actions sheet). */
+  editActiveMeal(): void {
+    const meal = this.activeMeal();
+    if (!meal) return;
+    this.mealSheet().open.set(false);
+    const cell = this.cells().find(c => c.localDate === dateOnly(meal.localDate));
+    this.editingMeal.set(meal);
+    this.editDate.set(dateOnly(meal.localDate));
+    this.editDayLabel.set(cell ? `${cell.weekdayLong}, ${cell.dateLabel}` : dateOnly(meal.localDate));
+    const sheet = this.editSheet();
+    sheet.reset();
+    sheet.open.set(true);
+  }
+
+  /** Persist the editor result: PATCH an existing meal, else create a new one on the target day. Then reload. */
+  async onMealSaved(result: EditMealResult): Promise<void> {
+    const meal = this.editingMeal();
+    const macro = {
+      servings: result.servings,
+      calories: result.calories,
+      proteinG: result.proteinG,
+      carbG: result.carbG,
+      fatG: result.fatG,
+      macroSource: result.macroSource,
+    };
+    try {
+      if (meal) {
+        await firstValueFrom(this.api.patchFamilyMeal(meal.id, {
+          slot: result.slot, title: result.title, ingredients: result.ingredients, ...macro,
+        }));
+        this.toast.show(`Saved “${result.title}”`, { tone: 'success', durationMs: 2400 });
+      } else {
+        await firstValueFrom(this.api.createFamilyMeal({
+          localDate: this.editDate(), slot: result.slot, title: result.title,
+          ingredients: result.ingredients, ...macro,
+        }));
+        this.toast.show(`Added “${result.title}”`, { tone: 'success', durationMs: 2400 });
+      }
+      this.reload();
+    } catch {
+      this.toast.show('Couldn’t save that meal — please try again', { tone: 'warn' });
+    }
+  }
+
+  // ---- refine with AI (reuse refineMeal preview → patchFamilyMeal, gated tracker.ai) ----
+  refineActiveMeal(): void {
+    if (!this.canTrackerAi() || !this.activeMeal()) return;
+    this.mealSheet().open.set(false);
+    const sheet = this.refineSheet();
+    sheet.reset();
+    sheet.open.set(true);
+  }
+
+  onRefined(title: string): void {
+    this.reload();
+    this.toast.show(`Refined “${title}”`, { tone: 'success', durationMs: 2600 });
+  }
+
+  // ---- add planned meal to tracker (reuse addMealToTracker, gated tracker.self + macros) ----
+  async trackActiveMeal(): Promise<void> {
+    const meal = this.activeMeal();
+    if (!meal || !this.canTrack() || meal.macroSource === 'none') return;
+    this.mealSheet().open.set(false);
+    await this.ensureHouseholdMembers();
+    const sheet = this.trackSheet();
+    sheet.reset();
+    sheet.open.set(true);
+  }
+
+  async onTrackConfirmed(choice: AddToTrackerResult): Promise<void> {
+    const meal = this.activeMeal();
+    if (!meal) return;
+    try {
+      await firstValueFrom(this.api.addMealToTracker(meal.id, {
+        localDate: dateOnly(meal.localDate),
+        servings: choice.servings,
+        targetUserId: choice.targetUserId,
+      }));
+      const n = choice.servings;
+      const serving = n === 1 ? 'serving' : 'servings';
+      this.toast.show(`Added ${n} ${serving} of “${meal.title}” to ${choice.targetName} tracker`, {
+        tone: 'success', durationMs: 4000,
+      });
+    } catch {
+      this.toast.show('Couldn’t add this meal to the tracker', { tone: 'warn' });
+    }
+  }
+
+  /**
+   * Load the household members for the "whose tracker?" picker once, cached. Without family.use (or on any
+   * error) we leave the list empty — the sheet then offers a Me-only choice, so self-logging always works.
+   */
+  private async ensureHouseholdMembers(): Promise<void> {
+    if (this.householdLoaded) return;
+    this.householdLoaded = true;
+    if (!this.auth.hasPermission(PERM.familyUse)) return;
+    try {
+      const household = await firstValueFrom(this.api.getHousehold());
+      this.householdMembers.set(household.members ?? []);
+    } catch {
+      this.householdMembers.set([]);
+    }
+  }
+
   // ---- grocery hand-offs (reuse mealsToGrocery + the grocery sheet) ----
   async addMealToGrocery(meal: FamilyMeal): Promise<void> {
     try {
@@ -481,6 +655,22 @@ export class MealsBetaPage {
       this.toast.show('Couldn’t add this day’s ingredients', { tone: 'warn' });
     } finally {
       this.addingDay.set(false);
+    }
+  }
+
+  /** Pour the WHOLE visible week's ingredients into the household grocery list (reuse mealsToGrocery). */
+  async addWeekToGrocery(): Promise<void> {
+    if (this.addingWeek() || this.mealCount() === 0) return;
+    this.addingWeek.set(true);
+    try {
+      const before = await this.groceryOpenCount();
+      const list = await firstValueFrom(this.api.mealsToGrocery({ weekStart: this.weekStartIso() }));
+      const added = Math.max(0, list.items.filter(i => !i.done).length - before);
+      this.toastAdded(added);
+    } catch {
+      this.toast.show('Couldn’t add this week’s ingredients', { tone: 'warn' });
+    } finally {
+      this.addingWeek.set(false);
     }
   }
 

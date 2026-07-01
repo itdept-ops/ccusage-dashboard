@@ -4,20 +4,45 @@ import {
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatIconModule } from '@angular/material/icon';
+import { ActivatedRoute } from '@angular/router';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 
-import { firstValueFrom } from 'rxjs';
+import { firstValueFrom, catchError, of } from 'rxjs';
 
 import { Api } from '../../core/api';
 import { AuthService } from '../../core/auth';
 import { ChatRealtime, TypingUser } from '../../core/chat-realtime';
-import { ChatChannelDto, ChatMessageDto, Presence } from '../../core/models';
+import {
+  ChatChannelDto, ChatComposeAction, ChatContactDto, ChatMember, ChatMessageDto, PERM, Presence,
+} from '../../core/models';
 
 import {
   BetaPullRefresh, BetaBottomSheet, BetaToaster, ToastController, BetaSkeleton,
-  BetaSwipeRow,
+  BetaSwipeRow, BetaFab, BetaSegmentedControl, type Segment,
 } from '../beta-ui';
 import { ConversationRow } from './conversation-row';
 import { MessageBubble } from './message-bubble';
+
+/** One pickable teammate in the create-channel / DM picker (contacts, or the directory for an admin). */
+interface PickPerson {
+  userId: number;
+  name: string;
+  picture?: string | null;
+  online: boolean;
+}
+
+/** One @mention autocomplete candidate (a channel member matching the active token). */
+interface MentionCandidate extends ChatMember {
+  initials: string;
+}
+
+/** The compose-assist actions offered in the composer ✨ sheet (drives the reshape buttons). */
+const COMPOSE_ACTIONS: readonly { action: Exclude<ChatComposeAction, 'draft'>; label: string; icon: string }[] = [
+  { action: 'rewrite', label: 'Rewrite', icon: 'autorenew' },
+  { action: 'shorten', label: 'Shorten', icon: 'compress' },
+  { action: 'friendlier', label: 'Friendlier', icon: 'sentiment_satisfied' },
+  { action: 'formal', label: 'More formal', icon: 'business_center' },
+];
 
 /** A message paired with its rendering flags (run grouping + day separators), derived per thread. */
 interface ThreadRow {
@@ -64,6 +89,7 @@ const REACTIONS = ['❤️', '👍', '😂', '🔥', '😮', '🙏', '😢', '�
   imports: [
     FormsModule, MatIconModule,
     BetaPullRefresh, BetaBottomSheet, BetaToaster, BetaSkeleton, BetaSwipeRow,
+    BetaFab, BetaSegmentedControl,
     ConversationRow, MessageBubble,
   ],
   template: `
@@ -151,6 +177,10 @@ const REACTIONS = ['❤️', '👍', '😂', '🔥', '😮', '🙏', '😢', '�
           <div class="list__foot" aria-hidden="true"></div>
         </div>
       </app-bs-pull-refresh>
+
+      @if (canSendPerm()) {
+        <app-bs-fab icon="add" label="New conversation" [fixed]="true" (action)="openCreate('channel')" />
+      }
     </section>
 
     <!-- ══════════════════════ THREAD PANE ══════════════════════ -->
@@ -175,9 +205,45 @@ const REACTIONS = ['❤️', '👍', '😂', '🔥', '😮', '🙏', '😢', '�
               <span class="th__sub">{{ threadSubtitle() }}</span>
             </div>
           </div>
+          <button type="button" class="th__ai" (click)="catchMeUp()"
+                  [disabled]="catchUpLoading()" aria-label="Catch me up">
+            <mat-icon aria-hidden="true">auto_awesome</mat-icon>
+          </button>
         </header>
 
-        <div #scroll class="th__scroll">
+        <div #scroll class="th__scroll" (scroll)="onThreadScroll()">
+          @if (loadingOlder()) {
+            <div class="th__older" aria-live="polite">
+              <span class="th__older-dot" aria-hidden="true"></span> Loading earlier messages…
+            </div>
+          }
+
+          <!-- ✨ Catch me up recap card (dismissible) -->
+          @if (catchUpLoading()) {
+            <div class="recap recap--wait" aria-live="polite">
+              <mat-icon class="recap__i" aria-hidden="true">auto_awesome</mat-icon>
+              <span class="recap__body">Catching you up…</span>
+            </div>
+          } @else if (catchUpSummary(); as sum) {
+            <div class="recap" [class.recap--plain]="catchUpPlain()" aria-live="polite">
+              <mat-icon class="recap__i" aria-hidden="true">auto_awesome</mat-icon>
+              <div class="recap__col">
+                <span class="recap__t">Caught up</span>
+                <p class="recap__body">{{ sum }}</p>
+              </div>
+              <button type="button" class="recap__x" (click)="dismissCatchUp()" aria-label="Dismiss recap">
+                <mat-icon aria-hidden="true">close</mat-icon>
+              </button>
+            </div>
+          } @else if (catchUpError(); as err) {
+            <div class="recap recap--err" aria-live="polite">
+              <span class="recap__body">{{ err }}</span>
+              <button type="button" class="recap__x" (click)="dismissCatchUp()" aria-label="Dismiss">
+                <mat-icon aria-hidden="true">close</mat-icon>
+              </button>
+            </div>
+          }
+
           @if (loadingThread()) {
             <div class="th__load">
               @for (s of [0,1,2,3]; track s) {
@@ -194,7 +260,7 @@ const REACTIONS = ['❤️', '👍', '😂', '🔥', '😮', '🙏', '😢', '�
           } @else {
             @for (r of rows(); track r.msg.id) {
               @if (r.daySep) { <div class="daysep"><span>{{ r.daySep }}</span></div> }
-              <div class="bubrow" [class.run-start]="r.showAvatar">
+              <div class="bubrow" [class.run-start]="r.showAvatar" [attr.data-msg-id]="r.msg.id">
                 <cb-bubble [msg]="r.msg" [mine]="r.mine" [showAvatar]="r.showAvatar"
                            [showTail]="r.showTail" [meUserId]="meUserId()"
                            (react)="openReactSheet($event)"
@@ -212,18 +278,207 @@ const REACTIONS = ['❤️', '👍', '😂', '🔥', '😮', '🙏', '😢', '�
           <div class="th__foot" aria-hidden="true"></div>
         </div>
 
+        <!-- Reply suggestion chips (✨) — tapping fills the composer, never sends -->
+        @if (replySuggestions().length || repliesLoading() || repliesError()) {
+          <div class="rsug" aria-live="polite">
+            @if (repliesLoading()) {
+              <span class="rsug__wait"><span class="rsug__dot" aria-hidden="true"></span> Thinking of replies…</span>
+            } @else if (repliesError(); as e) {
+              <span class="rsug__err">{{ e }}</span>
+              <button type="button" class="rsug__x" (click)="dismissReplies()" aria-label="Dismiss">
+                <mat-icon aria-hidden="true">close</mat-icon>
+              </button>
+            } @else {
+              @for (r of replySuggestions(); track r) {
+                <button type="button" class="rsug__chip" (click)="useReply(r)">{{ r }}</button>
+              }
+              <button type="button" class="rsug__x" (click)="dismissReplies()" aria-label="Dismiss suggestions">
+                <mat-icon aria-hidden="true">close</mat-icon>
+              </button>
+            }
+          </div>
+        }
+
         <!-- Composer bar -->
-        <form class="composer" (submit)="send($event)">
-          <textarea #composer class="composer__in" [(ngModel)]="draft" name="draft"
-                    rows="1" placeholder="Message…" aria-label="Message"
-                    enterkeyhint="send" autocomplete="off"
-                    (input)="onDraftInput()" (keydown)="onKeydown($event)"></textarea>
-          <button type="submit" class="composer__send" [disabled]="!canSend()" aria-label="Send">
-            <mat-icon aria-hidden="true">arrow_upward</mat-icon>
-          </button>
-        </form>
+        <div class="composer-wrap">
+          <!-- @mention autocomplete popover -->
+          @if (mentionOpen()) {
+            <ul class="ment" role="listbox" aria-label="Mention a member">
+              @for (c of mentionCandidates(); track c.userId; let i = $index) {
+                <li>
+                  <button type="button" class="ment__row" [class.is-active]="i === mentionIndex()"
+                          role="option" [attr.aria-selected]="i === mentionIndex()"
+                          (click)="applyMention(c)">
+                    <span class="ment__ava" aria-hidden="true">
+                      @if (c.picture) {
+                        <img class="ment__img" [src]="c.picture" alt="" referrerpolicy="no-referrer" />
+                      } @else { <span class="ment__mono">{{ c.initials }}</span> }
+                    </span>
+                    <span class="ment__name">{{ c.name }}</span>
+                  </button>
+                </li>
+              }
+            </ul>
+          }
+
+          <form class="composer" (submit)="send($event)">
+            @if (canSendPerm()) {
+              <button type="button" class="composer__ai" (click)="composeOpen.set(true)"
+                      [disabled]="composeBusy()" aria-label="AI compose assist">
+                <mat-icon aria-hidden="true">auto_awesome</mat-icon>
+              </button>
+            }
+            <textarea #composer class="composer__in" [(ngModel)]="draft" name="draft"
+                      rows="1" placeholder="Message…" aria-label="Message"
+                      enterkeyhint="send" autocomplete="off"
+                      (input)="onDraftInput()" (keydown)="onKeydown($event)"
+                      (blur)="closeMentionsSoon()"></textarea>
+            <button type="submit" class="composer__send" [disabled]="!canSend()" aria-label="Send">
+              <mat-icon aria-hidden="true">arrow_upward</mat-icon>
+            </button>
+          </form>
+        </div>
       </section>
     }
+
+    <!-- ══════════════ Create channel / DM (kit bottom sheet) ══════════════ -->
+    <app-bs-sheet [(open)]="createOpen" detent="full" label="New conversation">
+      <div class="mk">
+        <h2 class="mk__h">New conversation</h2>
+        <app-bs-segmented class="mk__seg" [segments]="createSegments" [value]="createMode()"
+                          (change)="setCreateMode($any($event))" label="Conversation type" />
+
+        @if (createMode() === 'channel') {
+          <label class="mk__field">
+            <span class="mk__lbl">Channel name</span>
+            <input class="mk__in" type="text" [ngModel]="mkName()" (ngModelChange)="mkName.set($event)"
+                   name="mkName" placeholder="e.g. weekend-plans" maxlength="80" autocomplete="off" />
+          </label>
+          <label class="mk__field">
+            <span class="mk__lbl">Topic <em>(optional)</em></span>
+            <input class="mk__in" type="text" [ngModel]="mkTopic()" (ngModelChange)="mkTopic.set($event)"
+                   name="mkTopic" placeholder="What's this channel about?" maxlength="200" autocomplete="off" />
+          </label>
+          <button type="button" class="mk__toggle" (click)="mkPrivate.set(!mkPrivate())"
+                  [attr.aria-pressed]="mkPrivate()">
+            <mat-icon aria-hidden="true">{{ mkPrivate() ? 'lock' : 'public' }}</mat-icon>
+            <span class="mk__toggle-t">
+              <span class="mk__toggle-h">{{ mkPrivate() ? 'Private channel' : 'Open channel' }}</span>
+              <span class="mk__toggle-s">{{ mkPrivate() ? 'Only invited members can find and join.' : 'Anyone can be added.' }}</span>
+            </span>
+            <span class="mk__switch" [class.is-on]="mkPrivate()" aria-hidden="true"><span></span></span>
+          </button>
+        }
+
+        <div class="mk__pick">
+          <span class="mk__lbl">
+            {{ createMode() === 'direct' ? 'Choose a person' : 'Add members' }}
+            @if (createMode() === 'channel' && mkSelected().size) { <em>· {{ mkSelected().size }} selected</em> }
+          </span>
+          <label class="mk__search">
+            <mat-icon aria-hidden="true">search</mat-icon>
+            <input class="mk__search-in" type="search" [ngModel]="mkQuery()" (ngModelChange)="mkQuery.set($event)"
+                   name="mkQuery" placeholder="Search people" aria-label="Search people" autocomplete="off" />
+          </label>
+          @if (mkPeople().length === 0) {
+            <p class="mk__empty">{{ mkEmptyCopy() }}</p>
+          } @else if (mkFilteredPeople().length === 0) {
+            <p class="mk__empty">No people match your search.</p>
+          } @else {
+            <ul class="mk__list">
+              @for (p of mkFilteredPeople(); track p.userId) {
+                <li>
+                  <button type="button" class="mk__person" [class.is-sel]="mkIsSelected(p.userId)"
+                          (click)="mkToggle(p.userId)" [attr.aria-pressed]="mkIsSelected(p.userId)">
+                    <span class="mk__ava" aria-hidden="true">
+                      @if (p.picture) {
+                        <img class="mk__img" [src]="p.picture" alt="" referrerpolicy="no-referrer" />
+                      } @else { <span class="mk__mono">{{ mkInitials(p) }}</span> }
+                      @if (p.online) { <span class="mk__dot"></span> }
+                    </span>
+                    <span class="mk__pname">{{ p.name }}</span>
+                    @if (mkIsSelected(p.userId)) { <mat-icon class="mk__check" aria-hidden="true">check_circle</mat-icon> }
+                  </button>
+                </li>
+              }
+            </ul>
+          }
+        </div>
+
+        @if (mkError(); as e) { <p class="mk__err">{{ e }}</p> }
+
+        <div class="mk__actions">
+          <button type="button" class="mk__btn mk__btn--ghost" (click)="createOpen.set(false)">Cancel</button>
+          <button type="button" class="mk__btn mk__btn--go" [disabled]="!mkCanSubmit()" (click)="submitCreate()">
+            {{ mkBusy() ? 'Creating…' : (createMode() === 'direct' ? 'Start chat' : 'Create channel') }}
+          </button>
+        </div>
+      </div>
+    </app-bs-sheet>
+
+    <!-- ══════════════ Message actions (long-press) ══════════════ -->
+    <app-bs-sheet [(open)]="actionOpen" detent="peek" label="Message actions">
+      <div class="macts">
+        <button type="button" class="macts__row" (click)="reactFromAction()">
+          <mat-icon aria-hidden="true">add_reaction</mat-icon> Add reaction
+        </button>
+        @if (actionCanManage()) {
+          <button type="button" class="macts__row" (click)="startEditFromAction()">
+            <mat-icon aria-hidden="true">edit</mat-icon> Edit message
+          </button>
+          <button type="button" class="macts__row macts__row--danger" (click)="deleteFromAction()">
+            <mat-icon aria-hidden="true">delete</mat-icon> Delete message
+          </button>
+        }
+      </div>
+    </app-bs-sheet>
+
+    <!-- ══════════════ Edit message ══════════════ -->
+    <app-bs-sheet [(open)]="editOpen" detent="peek" label="Edit message">
+      <div class="edit">
+        <h2 class="edit__h">Edit message</h2>
+        <textarea class="edit__in" [ngModel]="editDraft()" (ngModelChange)="editDraft.set($event)"
+                  name="editDraft" rows="3" aria-label="Edit message"></textarea>
+        <div class="edit__actions">
+          <button type="button" class="mk__btn mk__btn--ghost" (click)="editOpen.set(false)">Cancel</button>
+          <button type="button" class="mk__btn mk__btn--go" [disabled]="!editDraft().trim()" (click)="saveEdit()">Save</button>
+        </div>
+      </div>
+    </app-bs-sheet>
+
+    <!-- ══════════════ ✨ Compose assist ══════════════ -->
+    <app-bs-sheet [(open)]="composeOpen" detent="half" label="AI compose assist">
+      <div class="ai">
+        <h2 class="ai__h"><mat-icon aria-hidden="true">auto_awesome</mat-icon> Compose assist</h2>
+
+        <button type="button" class="ai__row" (click)="suggestReplies()" [disabled]="composeBusy()">
+          <mat-icon aria-hidden="true">quickreply</mat-icon>
+          <span class="ai__row-t"><span class="ai__row-h">Suggest replies</span>
+            <span class="ai__row-s">A few short replies you can tap to use.</span></span>
+        </button>
+
+        <div class="ai__prompt">
+          <span class="ai__lbl">Draft from a prompt</span>
+          <textarea class="ai__in" [ngModel]="composePrompt()" (ngModelChange)="composePrompt.set($event)"
+                    name="composePrompt" rows="2" placeholder="e.g. Ask if they're free Saturday afternoon"
+                    aria-label="Draft prompt"></textarea>
+          <button type="button" class="mk__btn mk__btn--go ai__draft" [disabled]="composeBusy() || !composePrompt().trim()"
+                  (click)="runDraftFromPrompt()">Draft it</button>
+        </div>
+
+        <span class="ai__lbl">Refine your draft</span>
+        <div class="ai__grid">
+          @for (a of COMPOSE_ACTIONS; track a.action) {
+            <button type="button" class="ai__chip" (click)="composeFromDraft(a.action)" [disabled]="composeBusy()">
+              <mat-icon aria-hidden="true">{{ a.icon }}</mat-icon> {{ a.label }}
+            </button>
+          }
+        </div>
+
+        @if (composeBusy()) { <p class="ai__note ai__note--wait">Working…</p> }
+        @if (composeError(); as e) { <p class="ai__note ai__note--err">{{ e }}</p> }
+      </div>
+    </app-bs-sheet>
 
     <!-- React picker (kit bottom sheet) -->
     <app-bs-sheet [(open)]="reactOpen" detent="peek" label="Add a reaction">
@@ -246,8 +501,21 @@ export class ChatBetaPage implements OnDestroy {
   private readonly auth = inject(AuthService);
   private readonly toasts = inject(ToastController);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly route = inject(ActivatedRoute);
 
   protected readonly EMOJI = REACTIONS;
+  protected readonly COMPOSE_ACTIONS = COMPOSE_ACTIONS;
+  protected readonly createSegments: Segment[] = [
+    { key: 'channel', label: 'Channel' },
+    { key: 'direct', label: 'Direct' },
+  ];
+
+  // ── permissions (guarded exactly like the desktop page) ──
+  /** May write into a conversation (create/DM, send, edit own, react, AI compose). */
+  protected readonly canSendPerm = computed(() => this.auth.hasPermission(PERM.chatSend));
+  protected readonly canModerate = computed(() => this.auth.hasPermission(PERM.chatModerate));
+  /** Admins pick from the full directory; regular users pick from their curated contacts circle. */
+  private readonly canManageContacts = computed(() => this.auth.hasPermission(PERM.chatContactsManage));
 
   private readonly scrollEl = viewChild<ElementRef<HTMLDivElement>>('scroll');
   private readonly composerEl = viewChild<ElementRef<HTMLTextAreaElement>>('composer');
@@ -307,6 +575,87 @@ export class ChatBetaPage implements OnDestroy {
   // ── react sheet ──
   readonly reactOpen = signal(false);
   private reactTarget: ChatMessageDto | null = null;
+
+  // ── message-action sheet (long-press) + inline edit ──
+  readonly actionOpen = signal(false);
+  private actionTarget: ChatMessageDto | null = null;
+  protected readonly actionCanManage = signal(false);
+  readonly editOpen = signal(false);
+  readonly editDraft = signal('');
+  private editTarget: ChatMessageDto | null = null;
+
+  // ── create channel / DM sheet ──
+  readonly createOpen = signal(false);
+  protected readonly createMode = signal<'channel' | 'direct'>('channel');
+  private readonly contacts = signal<ChatContactDto[]>([]);
+  protected readonly mkName = signal('');
+  protected readonly mkTopic = signal('');
+  protected readonly mkPrivate = signal(false);
+  protected readonly mkQuery = signal('');
+  protected readonly mkSelected = signal<Set<number>>(new Set());
+  protected readonly mkBusy = signal(false);
+  protected readonly mkError = signal<string | null>(null);
+
+  // ── @mention autocomplete (over the active channel's members) ──
+  protected readonly mentionOpen = signal(false);
+  protected readonly mentionCandidates = signal<MentionCandidate[]>([]);
+  protected readonly mentionIndex = signal(0);
+  private mentionStart = -1;
+
+  // ── ✨ AI assists ──
+  readonly composeOpen = signal(false);
+  protected readonly composeBusy = signal(false);
+  protected readonly composeError = signal<string | null>(null);
+  protected readonly composePrompt = signal('');
+  protected readonly repliesLoading = signal(false);
+  protected readonly replySuggestions = signal<string[]>([]);
+  protected readonly repliesError = signal<string | null>(null);
+  protected readonly catchUpLoading = signal(false);
+  protected readonly catchUpSummary = signal<string | null>(null);
+  protected readonly catchUpPlain = signal(false);
+  protected readonly catchUpError = signal<string | null>(null);
+
+  // ── older-history paging ──
+  protected readonly loadingOlder = signal(false);
+  private readonly exhausted = signal<Set<number>>(new Set());
+  private preserveFromBottom: number | null = null;
+
+  // ── notification deep link (?c= channel, ?m= message) ──
+  private deepLinkChannel: number | null = null;
+  private pendingScrollToMessage: number | null = null;
+  private resolvingDeepLink = false;
+
+  // ── create-picker derived lists ──
+  private readonly mkCandidates = computed<PickPerson[]>(() => {
+    const me = this.meUserId();
+    const online = this.presenceById();
+    const now = Date.now();
+    return this.contacts()
+      .filter(c => c.userId !== me)
+      .map(c => {
+        const seen = online.get(c.userId);
+        return {
+          userId: c.userId, name: c.name, picture: c.picture,
+          online: seen != null && now - seen < ChatBetaPage.PRESENCE_WINDOW_MS,
+        };
+      })
+      .sort((a, b) => Number(b.online) - Number(a.online) || a.name.localeCompare(b.name));
+  });
+  protected readonly mkPeople = this.mkCandidates;
+  protected readonly mkFilteredPeople = computed<PickPerson[]>(() => {
+    const q = this.mkQuery().trim().toLowerCase();
+    const list = this.mkCandidates();
+    return q ? list.filter(p => p.name.toLowerCase().includes(q)) : list;
+  });
+  protected readonly mkEmptyCopy = computed(() =>
+    this.canManageContacts()
+      ? 'No other teammates available yet.'
+      : 'No contacts yet — ask an admin to add some to your circle.');
+  protected readonly mkCanSubmit = computed(() => {
+    if (this.mkBusy()) return false;
+    if (this.createMode() === 'direct') return this.mkSelected().size === 1;
+    return this.mkName().trim().length > 0;
+  });
 
   // ── thread rows (grouped bubbles + day separators) ──
   protected readonly rows = computed<ThreadRow[]>(() => {
@@ -385,10 +734,31 @@ export class ChatBetaPage implements OnDestroy {
     });
 
     // Auto-scroll the thread to the newest message whenever its row set changes (open, new message, send).
+    // Suppressed while we're anchoring a just-prepended older-history page (preserveFromBottom set).
     effect(() => {
       this.rows();
       this.typingLabel();
-      if (this.activeId() != null) queueMicrotask(() => this.scrollToBottom());
+      if (this.activeId() == null) return;
+      if (this.preserveFromBottom != null) {
+        queueMicrotask(() => this.restoreScrollAfterPrepend());
+      } else {
+        queueMicrotask(() => this.scrollToBottom());
+      }
+    });
+
+    // Honor notification deep links: /beta/chat?c={channelId}&m={messageId}. React to the live
+    // queryParamMap stream (the component isn't recreated when a different notification is clicked).
+    this.route.queryParamMap.pipe(takeUntilDestroyed()).subscribe(params => {
+      const c = Number(params.get('c'));
+      if (!c || Number.isNaN(c)) {
+        this.deepLinkChannel = null;
+        this.pendingScrollToMessage = null;
+        return;
+      }
+      const m = Number(params.get('m'));
+      this.deepLinkChannel = c;
+      this.pendingScrollToMessage = m && !Number.isNaN(m) ? m : null;
+      void this.resolveDeepLink(c);
     });
   }
 
@@ -487,6 +857,9 @@ export class ChatBetaPage implements OnDestroy {
   async openConversation(conv: ChatChannelDto): Promise<void> {
     this.activeId.set(conv.id);
     this.draft = '';
+    this.closeMentions();
+    this.resetAiAssists(); // AI recap / reply chips / compose are per-channel — clear on switch
+    this.preserveFromBottom = null;
     // Load history if we don't already have messages cached for this conversation.
     const cached = this.rt.messages()[conv.id] ?? [];
     if (cached.length === 0) {
@@ -514,11 +887,14 @@ export class ChatBetaPage implements OnDestroy {
     if (id != null && this.typingActive) { this.typingActive = false; void this.rt.stopTyping(id); }
     this.activeId.set(null);
     this.draft = '';
+    this.closeMentions();
+    this.resetAiAssists();
   }
 
   // ── composer ──
   onDraftInput(): void {
     this.autoGrow();
+    this.updateMentionState();
     const id = this.activeId();
     if (id == null) return;
     if (this.draft.trim().length > 0) {
@@ -532,6 +908,17 @@ export class ChatBetaPage implements OnDestroy {
   }
 
   onKeydown(ev: KeyboardEvent): void {
+    // @mention navigation takes precedence while the popup is open.
+    if (this.mentionOpen()) {
+      if (ev.key === 'ArrowDown') { ev.preventDefault(); this.moveMention(1); return; }
+      if (ev.key === 'ArrowUp') { ev.preventDefault(); this.moveMention(-1); return; }
+      if (ev.key === 'Enter' || ev.key === 'Tab') {
+        ev.preventDefault();
+        this.applyMention(this.mentionCandidates()[this.mentionIndex()]);
+        return;
+      }
+      if (ev.key === 'Escape') { ev.preventDefault(); this.closeMentions(); return; }
+    }
     // Enter sends; Shift+Enter inserts a newline (desktop affordance; mobile uses the send button).
     if (ev.key === 'Enter' && !ev.shiftKey) {
       ev.preventDefault();
@@ -544,11 +931,13 @@ export class ChatBetaPage implements OnDestroy {
     const id = this.activeId();
     const body = this.draft.trim();
     if (id == null || !body) return;
+    const mentions = this.extractMentions(body);
     this.draft = '';
+    this.closeMentions();
     this.autoGrow();
     this.flushStopTyping();
     try {
-      await this.rt.sendMessage(id, body);
+      await this.rt.sendMessage(id, body, mentions.length ? mentions : null);
       queueMicrotask(() => this.scrollToBottom());
     } catch {
       this.draft = body; // restore so the user doesn't lose it
@@ -570,11 +959,6 @@ export class ChatBetaPage implements OnDestroy {
   }
 
   // ── reactions ──
-  openReactSheet(msg: ChatMessageDto): void {
-    this.reactTarget = msg;
-    this.reactOpen.set(true);
-  }
-
   pickReaction(emoji: string): void {
     const msg = this.reactTarget;
     this.reactOpen.set(false);
@@ -584,6 +968,423 @@ export class ChatBetaPage implements OnDestroy {
 
   toggleReaction(messageId: number, emoji: string): void {
     void this.rt.toggleReaction(messageId, emoji);
+  }
+
+  // ══════════════════════════════════════════════════════════════════════
+  // Long-press message actions (edit / delete / react), inline edit
+  // ══════════════════════════════════════════════════════════════════════
+
+  /** True when the signed-in user may edit/delete this message (own message, or chat.moderate). */
+  private canManageMessage(m: ChatMessageDto): boolean {
+    const me = this.meUserId();
+    return !m.deleted && (this.canModerate() || (me != null && m.senderUserId === me));
+  }
+
+  /**
+   * The bubble's long-press bubbles a `react` intent. Route it: if the message is mine (or I moderate)
+   * open the ACTION sheet (edit / delete / add reaction); otherwise go straight to the react picker.
+   */
+  openReactSheet(msg: ChatMessageDto): void {
+    if (this.canSendPerm() && this.canManageMessage(msg)) {
+      this.actionTarget = msg;
+      this.actionCanManage.set(true);
+      this.actionOpen.set(true);
+      return;
+    }
+    this.reactTarget = msg;
+    this.reactOpen.set(true);
+  }
+
+  /** From the action sheet: switch to the emoji react picker for the same message. */
+  reactFromAction(): void {
+    const msg = this.actionTarget;
+    this.actionOpen.set(false);
+    if (msg) { this.reactTarget = msg; this.reactOpen.set(true); }
+  }
+
+  startEditFromAction(): void {
+    const msg = this.actionTarget;
+    this.actionOpen.set(false);
+    if (!msg) return;
+    this.editTarget = msg;
+    this.editDraft.set(msg.body ?? '');
+    this.editOpen.set(true);
+  }
+
+  deleteFromAction(): void {
+    const msg = this.actionTarget;
+    this.actionOpen.set(false);
+    this.actionTarget = null;
+    if (!msg) return;
+    this.api.deleteChatMessage(msg.id).subscribe({
+      error: () => this.toasts.show('Couldn’t delete the message', { tone: 'warn' }),
+    });
+  }
+
+  saveEdit(): void {
+    const msg = this.editTarget;
+    if (!msg) { this.editOpen.set(false); return; }
+    const body = this.editDraft().trim();
+    if (!body) { this.editOpen.set(false); this.deleteMessageDirect(msg); return; }
+    if (body === (msg.body ?? '')) { this.editOpen.set(false); this.editTarget = null; return; }
+    this.api.editChatMessage(msg.id, body).subscribe({
+      next: () => { this.editOpen.set(false); this.editTarget = null; },
+      error: () => this.toasts.show('Couldn’t edit the message', { tone: 'warn' }),
+    });
+  }
+
+  private deleteMessageDirect(m: ChatMessageDto): void {
+    this.api.deleteChatMessage(m.id).subscribe({
+      error: () => this.toasts.show('Couldn’t delete the message', { tone: 'warn' }),
+    });
+  }
+
+  // ══════════════════════════════════════════════════════════════════════
+  // Create channel / start DM
+  // ══════════════════════════════════════════════════════════════════════
+
+  openCreate(mode: 'channel' | 'direct'): void {
+    if (!this.canSendPerm()) return;
+    this.createMode.set(mode);
+    this.mkName.set(''); this.mkTopic.set(''); this.mkPrivate.set(false);
+    this.mkQuery.set(''); this.mkSelected.set(new Set());
+    this.mkError.set(null); this.mkBusy.set(false);
+    // Refresh the candidate source (admins → full directory, everyone else → their circle).
+    const source$ = this.canManageContacts() ? this.api.chatDirectory() : this.api.myContacts();
+    source$.pipe(catchError(() => of<ChatContactDto[]>([]))).subscribe(list => this.contacts.set(list));
+    void this.refreshPresence();
+    this.createOpen.set(true);
+  }
+
+  setCreateMode(m: 'channel' | 'direct'): void {
+    if (m === this.createMode()) return;
+    this.createMode.set(m);
+    this.mkSelected.set(new Set()); // selection semantics differ between modes
+    this.mkError.set(null);
+  }
+
+  mkIsSelected(userId: number): boolean {
+    return this.mkSelected().has(userId);
+  }
+
+  mkToggle(userId: number): void {
+    if (this.createMode() === 'direct') {
+      this.mkSelected.set(this.mkIsSelected(userId) ? new Set() : new Set([userId]));
+      return;
+    }
+    const next = new Set(this.mkSelected());
+    next.has(userId) ? next.delete(userId) : next.add(userId);
+    this.mkSelected.set(next);
+  }
+
+  mkInitials(p: PickPerson): string {
+    const parts = (p.name || '').split(/[\s@.]+/).filter(Boolean);
+    return ((parts[0]?.[0] ?? '') + (parts[1]?.[0] ?? '')).toUpperCase() || 'U';
+  }
+
+  submitCreate(): void {
+    if (!this.mkCanSubmit()) return;
+    this.mkBusy.set(true);
+    this.mkError.set(null);
+    const fail = (e: unknown) => {
+      this.mkBusy.set(false);
+      const err = e as { error?: { message?: string } };
+      this.mkError.set(err?.error?.message ?? 'Could not create the conversation. Please try again.');
+    };
+    const opened = (ch: ChatChannelDto) => {
+      this.mkBusy.set(false);
+      this.createOpen.set(false);
+      void this.openConversation(ch);
+    };
+
+    if (this.createMode() === 'direct') {
+      const userId = [...this.mkSelected()][0];
+      this.rt.openDirect(userId).then(opened).catch(fail);
+      return;
+    }
+    const members = [...this.mkSelected()];
+    this.rt
+      .createChannel(this.mkName().trim(), members, {
+        topic: this.mkTopic().trim() || undefined,
+        isPrivate: this.mkPrivate(),
+      })
+      .then(opened).catch(fail);
+  }
+
+  // ══════════════════════════════════════════════════════════════════════
+  // @mention autocomplete
+  // ══════════════════════════════════════════════════════════════════════
+
+  private updateMentionState(): void {
+    const el = this.composerEl()?.nativeElement;
+    const ch = this.active();
+    if (!el || !ch) { this.closeMentions(); return; }
+    const caret = el.selectionStart ?? this.draft.length;
+    const upto = this.draft.slice(0, caret);
+    const match = /(?:^|\s)@([\w.\-]*)$/.exec(upto);
+    if (!match) { this.closeMentions(); return; }
+    this.mentionStart = caret - match[1].length - 1;
+    const token = match[1].toLowerCase();
+    const me = this.meUserId();
+    const candidates = (ch.members ?? [])
+      .filter(m => m.userId !== me)
+      .filter(m => !token || m.name.toLowerCase().includes(token))
+      .slice(0, 6)
+      .map(m => ({ ...m, initials: initialsOf(m.name) }));
+    if (candidates.length === 0) { this.closeMentions(); return; }
+    this.mentionCandidates.set(candidates);
+    this.mentionIndex.set(0);
+    this.mentionOpen.set(true);
+  }
+
+  private moveMention(delta: number): void {
+    const n = this.mentionCandidates().length;
+    if (n === 0) return;
+    this.mentionIndex.update(i => (i + delta + n) % n);
+  }
+
+  applyMention(c: MentionCandidate | undefined): void {
+    const el = this.composerEl()?.nativeElement;
+    if (!c || this.mentionStart < 0) { this.closeMentions(); return; }
+    const caret = el?.selectionStart ?? this.draft.length;
+    const before = this.draft.slice(0, this.mentionStart);
+    const after = this.draft.slice(caret);
+    const token = `@${c.name} `;
+    this.draft = before + token + after;
+    this.closeMentions();
+    queueMicrotask(() => {
+      const node = this.composerEl()?.nativeElement;
+      if (node) {
+        const pos = (before + token).length;
+        node.focus();
+        node.setSelectionRange(pos, pos);
+      }
+    });
+  }
+
+  private closeMentions(): void {
+    this.mentionOpen.set(false);
+    this.mentionCandidates.set([]);
+    this.mentionStart = -1;
+  }
+
+  /** Close the mention popup on composer blur, deferred so a click on a candidate still lands. */
+  closeMentionsSoon(): void {
+    setTimeout(() => this.closeMentions(), 120);
+  }
+
+  /** Resolve "@Name" tokens in the body to mentioned members' AppUser ids (mirrors the desktop contract). */
+  private extractMentions(body: string): number[] {
+    const ch = this.active();
+    if (!ch) return [];
+    const me = this.meUserId();
+    const lower = body.toLowerCase();
+    const ids = new Set<number>();
+    for (const m of ch.members ?? []) {
+      if (m.userId === me || !m.name) continue;
+      const needle = `@${m.name.toLowerCase()}`;
+      let from = 0;
+      while (true) {
+        const at = lower.indexOf(needle, from);
+        if (at < 0) break;
+        const prev = at === 0 ? '' : lower[at - 1];
+        if (at === 0 || /\s/.test(prev)) { ids.add(m.userId); break; }
+        from = at + 1;
+      }
+    }
+    return [...ids];
+  }
+
+  // ══════════════════════════════════════════════════════════════════════
+  // ✨ AI assists — catch-up / suggest-replies / compose. Graceful; never auto-sends.
+  // ══════════════════════════════════════════════════════════════════════
+
+  private resetAiAssists(): void {
+    this.catchUpLoading.set(false); this.catchUpSummary.set(null);
+    this.catchUpPlain.set(false); this.catchUpError.set(null);
+    this.repliesLoading.set(false); this.replySuggestions.set([]); this.repliesError.set(null);
+    this.composeBusy.set(false); this.composeError.set(null); this.composePrompt.set('');
+    this.composeOpen.set(false);
+  }
+
+  catchMeUp(): void {
+    const id = this.activeId();
+    if (id == null || this.catchUpLoading()) return;
+    this.catchUpError.set(null);
+    this.catchUpLoading.set(true);
+    this.api.chatCatchUp(id).subscribe({
+      next: res => {
+        if (this.activeId() !== id) return;
+        this.catchUpSummary.set(res.summary?.trim() || 'Nothing new to catch up on.');
+        this.catchUpPlain.set(!!res.fellBackToPlain);
+        this.catchUpLoading.set(false);
+      },
+      error: () => {
+        if (this.activeId() !== id) return;
+        this.catchUpError.set('Couldn’t reach the recap just now. Please try again in a moment.');
+        this.catchUpLoading.set(false);
+      },
+    });
+  }
+
+  dismissCatchUp(): void {
+    this.catchUpSummary.set(null); this.catchUpPlain.set(false); this.catchUpError.set(null);
+  }
+
+  suggestReplies(): void {
+    const id = this.activeId();
+    if (id == null || !this.canSendPerm() || this.repliesLoading()) return;
+    this.composeOpen.set(false); // let the chips show above the composer
+    this.repliesError.set(null);
+    this.repliesLoading.set(true);
+    this.api.chatSuggestReplies(id).subscribe({
+      next: res => {
+        if (this.activeId() !== id) return;
+        const list = (res.replies ?? []).map(r => r.trim()).filter(Boolean);
+        this.replySuggestions.set(list);
+        if (list.length === 0) this.repliesError.set('No suggestions right now — just type a reply.');
+        this.repliesLoading.set(false);
+      },
+      error: (e: unknown) => {
+        if (this.activeId() !== id) return;
+        this.replySuggestions.set([]);
+        this.repliesError.set(this.aiMessage(e, 'replies'));
+        this.repliesLoading.set(false);
+      },
+    });
+  }
+
+  useReply(text: string): void {
+    if (!this.canSendPerm()) return;
+    this.draft = text;
+    this.replySuggestions.set([]);
+    this.repliesError.set(null);
+    queueMicrotask(() => {
+      const node = this.composerEl()?.nativeElement;
+      if (node) { node.focus(); const end = text.length; node.setSelectionRange(end, end); this.autoGrow(); }
+    });
+  }
+
+  dismissReplies(): void {
+    this.replySuggestions.set([]); this.repliesError.set(null);
+  }
+
+  runDraftFromPrompt(): void {
+    const prompt = this.composePrompt().trim();
+    if (!prompt) { this.composeError.set('Type a prompt to draft from.'); return; }
+    this.compose('draft', { prompt });
+  }
+
+  composeFromDraft(action: Exclude<ChatComposeAction, 'draft'>): void {
+    const currentDraft = this.draft.trim();
+    if (!currentDraft) { this.composeError.set('Type a draft first, then I can refine it.'); return; }
+    this.compose(action, { currentDraft });
+  }
+
+  private compose(action: ChatComposeAction, opts: { prompt?: string; currentDraft?: string }): void {
+    if (!this.canSendPerm() || this.composeBusy()) return;
+    this.composeError.set(null);
+    this.composeBusy.set(true);
+    this.api.chatCompose(action, opts).subscribe({
+      next: res => {
+        const body = res.body?.trim();
+        if (body) {
+          this.draft = body;
+          this.composePrompt.set('');
+          this.composeOpen.set(false);
+          queueMicrotask(() => { this.focusComposerEnd(); this.autoGrow(); });
+        } else {
+          this.composeError.set('Couldn’t compose that just now. Please try again.');
+        }
+        this.composeBusy.set(false);
+      },
+      error: (e: unknown) => {
+        this.composeError.set(this.aiMessage(e, 'compose'));
+        this.composeBusy.set(false);
+      },
+    });
+  }
+
+  private focusComposerEnd(): void {
+    const node = this.composerEl()?.nativeElement;
+    if (!node) return;
+    node.focus();
+    const end = this.draft.length;
+    node.setSelectionRange(end, end);
+  }
+
+  private aiMessage(e: unknown, kind: 'replies' | 'compose'): string {
+    const err = e as { status?: number; error?: { message?: string; detail?: string } };
+    if (err?.status === 503) {
+      return kind === 'replies'
+        ? 'Reply suggestions are unavailable right now — just type a reply.'
+        : 'The compose assist is unavailable right now. You can write your message yourself.';
+    }
+    if (err?.status === 400) return err.error?.message ?? 'Type a message to work from.';
+    return err?.error?.detail ?? err?.error?.message ?? 'Couldn’t do that just now — please try again.';
+  }
+
+  // ══════════════════════════════════════════════════════════════════════
+  // Older-history paging + deep-link resolution
+  // ══════════════════════════════════════════════════════════════════════
+
+  /** Load older messages when the user scrolls near the top of the thread. */
+  onThreadScroll(): void {
+    const el = this.scrollEl()?.nativeElement;
+    const id = this.activeId();
+    if (!el || id == null) return;
+    if (el.scrollTop > 48 || this.loadingOlder() || this.exhausted().has(id)) return;
+    const list = this.rt.messages()[id] ?? [];
+    const oldest = list[0]?.id;
+    if (oldest == null) return;
+    this.loadingOlder.set(true);
+    this.preserveFromBottom = el.scrollHeight - el.scrollTop; // anchor distance-from-bottom
+    this.rt.loadHistory(id, oldest)
+      .then(count => { if (count === 0) this.exhausted.update(s => new Set(s).add(id)); })
+      .catch(() => {
+        this.preserveFromBottom = null;
+        this.toasts.show('Couldn’t load older messages', { tone: 'warn' });
+      })
+      .finally(() => this.loadingOlder.set(false));
+  }
+
+  private restoreScrollAfterPrepend(): void {
+    const el = this.scrollEl()?.nativeElement;
+    if (el && this.preserveFromBottom != null) el.scrollTop = el.scrollHeight - this.preserveFromBottom;
+    this.preserveFromBottom = null;
+  }
+
+  /** Resolve a ?c= notification deep link to an open conversation (refresh once if not yet loaded). */
+  private async resolveDeepLink(channelId: number): Promise<void> {
+    const existing = this.conversations().find(c => c.id === channelId);
+    if (existing) { this.deepLinkChannel = null; void this.openConversation(existing); this.scrollToPending(); return; }
+    if (this.resolvingDeepLink) return;
+    this.resolvingDeepLink = true;
+    try {
+      const list = await this.rt.refreshChannels();
+      if (this.deepLinkChannel !== channelId) return;
+      const found = list.find(c => c.id === channelId);
+      if (found) { this.deepLinkChannel = null; await this.openConversation(found); this.scrollToPending(); }
+    } catch {
+      /* not visible to this user, or a transient error — leave the list pane as-is */
+    } finally {
+      this.resolvingDeepLink = false;
+      const pending = this.deepLinkChannel;
+      if (pending != null && pending !== channelId) void this.resolveDeepLink(pending);
+    }
+  }
+
+  /** Best-effort scroll to a ?m= deep-linked message once the thread has rendered. */
+  private scrollToPending(): void {
+    const target = this.pendingScrollToMessage;
+    if (target == null) return;
+    // Give the rows a couple frames to render, then scroll the matching bubble into view.
+    setTimeout(() => {
+      const el = this.scrollEl()?.nativeElement;
+      const node = el?.querySelector<HTMLElement>(`[data-msg-id="${target}"]`);
+      if (node) node.scrollIntoView({ block: 'center' });
+      this.pendingScrollToMessage = null;
+    }, 200);
   }
 
   // ── scrolling ──

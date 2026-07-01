@@ -16,7 +16,7 @@ import {
 import { BillCard } from './cards/bill-card';
 import { AssignChange } from './rows/bill-item-row';
 import {
-  BillDetailSheet, TitleChange, AddItem, BumpChange,
+  BillDetailSheet, TitleChange, AddItem, SetAmount, EditItem,
 } from './ui/bill-detail-sheet';
 import { NewBillSheet, NewBillResult } from './ui/new-bill-sheet';
 import { ReceiptReviewSheet, ReceiptReviewResult } from './ui/receipt-review-sheet';
@@ -162,11 +162,12 @@ import { ReceiptReviewSheet, ReceiptReviewResult } from './ui/receipt-review-she
       [importing]="importing()" [importDone]="importDone()" [importTotal]="importTotal()"
       (titleChange)="onTitle($event)"
       (addItem)="onAddItem($event)"
+      (editItem)="onEditItem($event)"
       (settleItem)="onSettleItem($event)"
       (deleteItem)="onDeleteItem($event)"
       (assignItem)="onAssignItem($event)"
-      (bumpTax)="onBumpTax($event)"
-      (bumpTip)="onBumpTip($event)"
+      (setTax)="onSetTax($event)"
+      (setTip)="onSetTip($event)"
       (toggleSettled)="settleBill($event)"
       (snap)="uploadReceipt($event)"
       (enableShare)="enableShare($event)"
@@ -435,14 +436,14 @@ export class BillsBetaPage {
     await this.update(c.bill, { title: c.title });
   }
 
-  async onBumpTax(c: BumpChange): Promise<void> {
-    const next = Math.max(0, Math.round(((c.bill.taxAmount ?? 0) + c.dir) * 100) / 100);
-    await this.update(c.bill, { taxAmount: next || null });
+  /** Set the exact tax amount typed in the detail sheet (null clears it). */
+  async onSetTax(c: SetAmount): Promise<void> {
+    await this.update(c.bill, { taxAmount: c.amount });
   }
 
-  async onBumpTip(c: BumpChange): Promise<void> {
-    const next = Math.max(0, Math.round(((c.bill.tipAmount ?? 0) + c.dir) * 100) / 100);
-    await this.update(c.bill, { tipAmount: next || null });
+  /** Set the exact tip amount typed in the detail sheet (null clears it). */
+  async onSetTip(c: SetAmount): Promise<void> {
+    await this.update(c.bill, { tipAmount: c.amount });
   }
 
   /** Mirrors the live page: always resend tax/tip so a null clear stays explicit, merged with `body`. */
@@ -469,6 +470,21 @@ export class BillsBetaPage {
       this.toasts.show('Could not add the item.', { tone: 'warn' });
     } finally {
       this.busy.set(false);
+    }
+  }
+
+  /** Inline-edit an item's name + amount (optimistic patch, then reconcile with the fresh bill). */
+  async onEditItem(c: EditItem): Promise<void> {
+    const { bill } = c;
+    const { item, name, amount } = c.change;
+    const prev = { name: item.name, amount: item.amount };
+    this.patchItem(bill.id, item.id, { name, amount });
+    try {
+      await firstValueFrom(this.api.updateBillItem(bill.id, item.id, { name, amount }));
+      await this.refreshBill(bill.id);
+    } catch {
+      this.patchItem(bill.id, item.id, prev);
+      this.toasts.show('Could not save the item.', { tone: 'warn' });
     }
   }
 

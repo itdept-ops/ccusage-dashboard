@@ -222,6 +222,7 @@
 .mb-day-gro:disabled { opacity: .55; pointer-events: none; }
 .mb-day-gro:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 .mb-day-gro mat-icon { font-size: 18px; width: 18px; height: 18px; }
+.mb-day-h-btns { flex: 0 0 auto; display: inline-flex; align-items: center; gap: 8px; }
 
 // Meals list — each row springs in on a per-index delay.
 .mb-meals { display: flex; flex-direction: column; gap: 10px; }
@@ -263,6 +264,11 @@
 .mb-state-btn:active { transform: scale(.97); }
 .mb-state-btn:focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; }
 .mb-state-btn mat-icon { font-size: 19px; width: 19px; height: 19px; }
+.mb-state-btns { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; }
+.mb-state-btn--ghost {
+  background: var(--bg-sink); color: var(--ink); box-shadow: none;
+  border: 1px solid color-mix(in srgb, var(--accent-a) 40%, var(--hairline));
+}
 
 .mb-mini-spin {
   width: 15px; height: 15px; border-radius: 50%;

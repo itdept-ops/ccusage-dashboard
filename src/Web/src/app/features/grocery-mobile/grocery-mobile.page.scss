@@ -237,17 +237,17 @@
   gap: 8px;
 }
 
-// the tappable row body (also the projected content inside a swipe-row)
+// the row body (a <button> for done rows; a <div> wrapper for open rows with inline controls).
+// Also the projected content inside a swipe-row.
 .gm-row {
   width: 100%;
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 8px;
   min-height: 56px;
-  padding: 12px 16px;
+  padding: 6px 10px 6px 6px;
   border: 1px solid var(--tech-border);
   text-align: left;
-  cursor: pointer;
   background: var(--bg-rise);
   border-radius: var(--r-tile);
   // FiMobile card signature: drop shadow + inset top highlight
@@ -255,16 +255,42 @@
   -webkit-tap-highlight-color: transparent;
   transition: transform 140ms var(--ease-out), background 140ms var(--ease-out), box-shadow 140ms var(--ease-out);
 
-  @media (hover: hover) {
-    &:hover:not(:disabled):not(.is-busy) {
-      transform: translateY(-1px);
-      box-shadow: var(--tech-shadow-raised, var(--lift-2)), inset 0 1px 0 rgba(255, 255, 255, .11);
-    }
-  }
-  &:active { transform: scale(.985); }
-  &:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
   &.is-busy { opacity: .55; }
-  &:disabled { cursor: default; }
+
+  // the inner tap target that checks the item off (fills the row; controls sit beside it)
+  &__tap {
+    flex: 1 1 auto;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 6px 6px 6px 10px;
+    border: 0;
+    background: none;
+    text-align: left;
+    cursor: pointer;
+    color: inherit;
+    -webkit-tap-highlight-color: transparent;
+    &:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: var(--r-tile); }
+    &:active { transform: scale(.99); }
+    &:disabled { cursor: default; }
+  }
+
+  // when the whole row is the tap target (done rows use <button class="gm-row gm-row--done">)
+  &:where(button) {
+    cursor: pointer;
+    padding: 12px 16px;
+    gap: 14px;
+    @media (hover: hover) {
+      &:hover:not(:disabled):not(.is-busy) {
+        transform: translateY(-1px);
+        box-shadow: var(--tech-shadow-raised, var(--lift-2)), inset 0 1px 0 rgba(255, 255, 255, .11);
+      }
+    }
+    &:active { transform: scale(.985); }
+    &:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+    &:disabled { cursor: default; }
+  }
 
   &__box {
     flex: 0 0 auto;
@@ -321,6 +347,73 @@
     color: var(--ink-dim);
     text-decoration: line-through;
     text-decoration-color: color-mix(in srgb, var(--ink-dim) 60%, transparent);
+  }
+}
+
+// ---- inline quantity stepper (−1 · qty · +1) ----
+.gm-step {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+  border-radius: var(--r-pill);
+  background: color-mix(in srgb, var(--accent-b) 9%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent-b) 24%, transparent);
+
+  &__btn {
+    width: 30px;
+    height: 30px;
+    display: grid;
+    place-items: center;
+    border: 0;
+    background: none;
+    cursor: pointer;
+    color: var(--accent-b);
+    border-radius: 50%;
+    -webkit-tap-highlight-color: transparent;
+    transition: background 120ms var(--ease-out), transform 120ms var(--ease-out);
+
+    mat-icon { font-size: 18px; width: 18px; height: 18px; }
+    @media (hover: hover) { &:hover:not(:disabled) { background: color-mix(in srgb, var(--accent-b) 16%, transparent); } }
+    &:active:not(:disabled) { transform: scale(.9); }
+    &:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
+    &:disabled { opacity: .35; cursor: default; }
+  }
+
+  &__n {
+    min-width: 18px;
+    text-align: center;
+    font-size: 14px;
+    font-weight: 800;
+    color: var(--ink);
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+// ---- reorder (move up / down) ----
+.gm-move {
+  flex: 0 0 auto;
+  display: inline-flex;
+  flex-direction: column;
+
+  &__btn {
+    width: 30px;
+    height: 22px;
+    display: grid;
+    place-items: center;
+    border: 0;
+    background: none;
+    cursor: pointer;
+    color: var(--ink-dim);
+    border-radius: 6px;
+    -webkit-tap-highlight-color: transparent;
+    transition: color 120ms var(--ease-out), background 120ms var(--ease-out);
+
+    mat-icon { font-size: 20px; width: 20px; height: 20px; }
+    @media (hover: hover) { &:hover:not(:disabled) { color: var(--accent-b); background: color-mix(in srgb, var(--accent-b) 12%, transparent); } }
+    &:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
+    &:disabled { opacity: .3; cursor: default; }
   }
 }
 
@@ -466,5 +559,194 @@
     &:focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; }
 
     mat-icon { font-size: 24px; width: 24px; height: 24px; }
+  }
+}
+
+// ============================================================================
+// TRIP SHEET — total spent · complete & archive · past trips (in a bottom sheet).
+// ============================================================================
+
+.gm-sheet {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding-top: 4px;
+
+  &__head { display: flex; flex-direction: column; gap: 2px; }
+  &__head--row { flex-direction: row; align-items: center; gap: 8px; }
+
+  &__title {
+    margin: 0;
+    font-family: var(--font-display, var(--font-ui));
+    font-size: 19px;
+    font-weight: 800;
+    letter-spacing: -.01em;
+    color: var(--ink);
+  }
+
+  &__sub { margin: 0; font-size: 13px; color: var(--ink-dim); }
+
+  &__back {
+    flex: 0 0 auto;
+    width: 36px;
+    height: 36px;
+    display: grid;
+    place-items: center;
+    border: 0;
+    background: var(--bg-rise);
+    border-radius: 50%;
+    cursor: pointer;
+    color: var(--ink);
+    -webkit-tap-highlight-color: transparent;
+    mat-icon { font-size: 20px; width: 20px; height: 20px; }
+    &:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+  }
+
+  // the primary "Complete & archive" CTA — reuses the empty-state CTA look
+  &__cta {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: 100%;
+    min-height: 50px;
+    border: 0;
+    cursor: pointer;
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--tech-text-on-accent, var(--ink-on-accent));
+    background: var(--tech-gradient-accent, linear-gradient(135deg, var(--accent-a), var(--accent-b)));
+    border-radius: var(--tech-r-control, var(--r-tile));
+    padding: 0 20px;
+    box-shadow: var(--lift-1);
+    -webkit-tap-highlight-color: transparent;
+    transition: transform 140ms var(--ease-out), opacity 140ms var(--ease-out);
+
+    mat-icon { font-size: 20px; width: 20px; height: 20px; }
+    @media (hover: hover) { &:hover:not(:disabled) { opacity: .9; transform: translateY(-1px); } }
+    &:active:not(:disabled) { transform: scale(.98); }
+    &:disabled { opacity: .45; cursor: default; }
+    &:focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; }
+  }
+
+  // secondary "Past trips" navigation row
+  &__link {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    min-height: 48px;
+    padding: 0 12px;
+    border: 1px solid var(--tech-border);
+    border-radius: var(--r-tile);
+    background: var(--bg-rise);
+    cursor: pointer;
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--ink);
+    -webkit-tap-highlight-color: transparent;
+    transition: background 140ms var(--ease-out);
+
+    mat-icon { font-size: 20px; width: 20px; height: 20px; color: var(--accent-b); }
+    @media (hover: hover) { &:hover { background: color-mix(in srgb, var(--accent-b) 8%, var(--bg-rise)); } }
+    &:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+  }
+
+  &__chev { margin-left: auto; color: var(--ink-dim) !important; }
+}
+
+// total-spent field
+.gm-cost {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+
+  &__lbl {
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    color: var(--ink-dim);
+  }
+
+  &__field {
+    display: flex;
+    align-items: center;
+    height: 50px;
+    padding: 0 14px;
+    background: var(--bg-rise);
+    border: 1px solid var(--glass-edge);
+    border-radius: var(--r-pill);
+    transition: border-color 140ms var(--ease-out), box-shadow 140ms var(--ease-out);
+
+    &:focus-within {
+      border-color: var(--accent-b);
+      box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent-b) 26%, transparent);
+    }
+  }
+
+  &__sign { font-size: 17px; font-weight: 700; color: var(--ink-dim); margin-right: 4px; }
+
+  &__input {
+    flex: 1 1 auto;
+    min-width: 0;
+    height: 100%;
+    border: 0;
+    background: none;
+    outline: none;
+    font-size: 18px;               // ≥16px avoids iOS zoom-on-focus
+    font-weight: 700;
+    color: var(--ink);
+    font-variant-numeric: tabular-nums;
+    &::placeholder { color: var(--ink-faint); font-weight: 500; }
+    &:disabled { opacity: .6; }
+  }
+}
+
+// past-trips list
+.gm-trips { display: flex; flex-direction: column; gap: 8px; }
+
+.gm-trip {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 56px;
+  padding: 10px 12px;
+  border: 1px solid var(--tech-border);
+  border-radius: var(--r-tile);
+  background: var(--bg-rise);
+  box-shadow: var(--tech-shadow-panel, var(--lift-1)), inset 0 1px 0 rgba(255, 255, 255, .07);
+
+  &__info { flex: 1 1 auto; min-width: 0; display: flex; align-items: baseline; gap: 10px; }
+  &__count { font-size: 15px; font-weight: 700; color: var(--ink); }
+  &__cost {
+    font-size: 14px;
+    font-weight: 800;
+    color: var(--accent-b);
+    font-variant-numeric: tabular-nums;
+  }
+
+  &__reopen {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    min-height: 40px;
+    padding: 0 14px;
+    border: 1px solid color-mix(in srgb, var(--accent-b) 40%, transparent);
+    border-radius: var(--r-pill);
+    background: color-mix(in srgb, var(--accent-b) 10%, transparent);
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--accent-b);
+    -webkit-tap-highlight-color: transparent;
+    transition: background 140ms var(--ease-out), transform 140ms var(--ease-out);
+
+    mat-icon { font-size: 17px; width: 17px; height: 17px; }
+    @media (hover: hover) { &:hover:not(:disabled) { background: color-mix(in srgb, var(--accent-b) 18%, transparent); } }
+    &:active:not(:disabled) { transform: scale(.97); }
+    &:disabled { opacity: .5; cursor: default; }
+    &:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
   }
 }

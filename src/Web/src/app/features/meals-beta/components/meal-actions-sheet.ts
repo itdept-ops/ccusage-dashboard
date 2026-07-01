@@ -51,9 +51,22 @@ import { hasIngredients, slotMeta } from '../meals-beta.model';
           }
 
           <div class="ma-actions">
+            @if (canTrack() && m.macroSource !== 'none') {
+              <button type="button" class="ma-btn ma-btn--accent" (click)="track.emit()">
+                <mat-icon aria-hidden="true">restaurant</mat-icon> Add to tracker
+              </button>
+            }
             @if (canGrocery()) {
-              <button type="button" class="ma-btn ma-btn--accent" (click)="grocery.emit()">
+              <button type="button" class="ma-btn ma-btn--ghost" (click)="grocery.emit()">
                 <mat-icon aria-hidden="true">add_shopping_cart</mat-icon> Add to grocery list
+              </button>
+            }
+            <button type="button" class="ma-btn ma-btn--ghost" (click)="edit.emit()">
+              <mat-icon aria-hidden="true">edit</mat-icon> Edit meal
+            </button>
+            @if (canRefine()) {
+              <button type="button" class="ma-btn ma-btn--ghost" (click)="refine.emit()">
+                <mat-icon aria-hidden="true">auto_awesome</mat-icon> Refine with AI
               </button>
             }
             <button type="button" class="ma-btn ma-btn--ghost" (click)="move.emit()">
@@ -137,8 +150,18 @@ export class ForageMealActionsSheet {
   readonly open = signal(false);
   /** The meal whose actions are shown (null when none). */
   readonly meal = input<FamilyMeal | null>(null);
+  /** Whether to offer "Refine with AI" (gated tracker.ai on the page). */
+  readonly canRefine = input<boolean>(false);
+  /** Whether to offer "Add to tracker" (gated tracker.self on the page; also needs macros). */
+  readonly canTrack = input<boolean>(false);
   /** Add this meal's ingredients to the grocery list. */
   readonly grocery = output<void>();
+  /** Edit this meal (slot/title/ingredients/macros). */
+  readonly edit = output<void>();
+  /** Refine this meal with AI (free-text preference → rewrite). */
+  readonly refine = output<void>();
+  /** Log this meal's per-serving macros onto a tracker day. */
+  readonly track = output<void>();
   /** Move this meal to another day of the week (kept in the same slot). */
   readonly move = output<void>();
   /** Remove this meal from the plan. */

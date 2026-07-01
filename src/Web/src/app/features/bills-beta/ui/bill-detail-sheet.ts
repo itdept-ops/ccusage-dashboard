@@ -1,5 +1,5 @@
 import {
-  ChangeDetectionStrategy, Component, computed, input, model, output, signal,
+  ChangeDetectionStrategy, Component, ElementRef, input, model, output, signal, viewChild,
 } from '@angular/core';
 import { CurrencyPipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -8,14 +8,16 @@ import { MatIconModule } from '@angular/material/icon';
 import { BillDto, BillItemDto, ChatContactDto } from '../../../core/models';
 import { BetaBottomSheet } from '../../beta-ui';
 import { PersonTotalCard } from '../cards/person-total-card';
-import { BillItemRow, AssignChange } from '../rows/bill-item-row';
+import { BillItemRow, AssignChange, EditChange } from '../rows/bill-item-row';
 
 /** A title edit committed from the detail sheet. */
 export interface TitleChange { bill: BillDto; title: string; }
 /** Add a new line item to the bill. */
 export interface AddItem { bill: BillDto; name: string; amount: number; }
-/** Bump tax or tip by a $ direction (+1 / -1). */
-export interface BumpChange { bill: BillDto; dir: number; }
+/** Set an exact tax or tip amount (null clears it). */
+export interface SetAmount { bill: BillDto; amount: number | null; }
+/** Edit an existing line item's name + amount. */
+export interface EditItem { bill: BillDto; change: EditChange; }
 
 /**
  * One participant's claim breakdown, derived purely from the bill's loaded item rows (who claimed/was
@@ -40,7 +42,8 @@ interface ClaimLine {
  * Tally BILL-DETAIL sheet — the full per-bill editor, lifted into the kit {@link BetaBottomSheet}. Opening
  * a bill card raises this `full` sheet over the list: an editable title, a slim add-item bar (+ a receipt
  * SNAP button when the caller holds ai.vision), a determinate receipt-import bar, the claim-first item
- * rows ({@link BillItemRow}, swipe to settle/delete + an inline claim strip), tax/tip steppers, the big
+ * rows ({@link BillItemRow}, swipe to settle/delete, an inline claim strip + inline name/amount edit),
+ * tap-to-type exact tax/tip amount fields, the big
  * Clash Display bill total, the horizontal per-person totals rail ({@link PersonTotalCard} + an amber
  * Unclaimed slide), and a SHARE-CLAIM-LINK bar (Get / Share / Copy / Off).
  *
@@ -103,27 +106,42 @@ interface ClaimLine {
                 <app-bill-item-row [item]="it" [contacts]="contacts()"
                                    (settle)="settleItem.emit({ bill: b, item: $event })"
                                    (delete)="deleteItem.emit({ bill: b, item: $event })"
+                                   (edit)="editItem.emit({ bill: b, change: $event })"
                                    (assign)="assignItem.emit({ bill: b, change: $event })" />
               }
             </div>
 
-            <!-- Tax / tip steppers -->
+            <!-- Tax / tip: tap the amount to type an exact value (no more +/-$1 stepping). -->
             <div class="bd__taxtip">
-              <div class="bd__stepper">
-                <span class="bd__stepper-lbl">Tax</span>
-                <span class="bd__stepper-v">{{ (b.taxAmount ?? 0) | currency: 'USD' }}</span>
-                <div class="bd__stepper-btns">
-                  <button type="button" class="bd__stepper-btn" aria-label="Decrease tax" (click)="bumpTax.emit({ bill: b, dir: -1 })">−</button>
-                  <button type="button" class="bd__stepper-btn" aria-label="Increase tax" (click)="bumpTax.emit({ bill: b, dir: 1 })">+</button>
-                </div>
+              <div class="bd__amtfield">
+                <span class="bd__amtfield-lbl">Tax</span>
+                @if (editingTax()) {
+                  <span class="bd__amtfield-cur" aria-hidden="true">$</span>
+                  <input #taxin class="bd__amtfield-in" type="number" inputmode="decimal" min="0" step="0.01"
+                         placeholder="0.00" [ngModel]="draftTax()" (ngModelChange)="draftTax.set($event)"
+                         (blur)="commitTax(b)" (keydown.enter)="commitTax(b)" aria-label="Tax amount" />
+                } @else {
+                  <button type="button" class="bd__amtfield-v" (click)="startTax(b)"
+                          aria-label="Edit tax amount">
+                    {{ (b.taxAmount ?? 0) | currency: 'USD' }}
+                    <mat-icon aria-hidden="true">edit</mat-icon>
+                  </button>
+                }
               </div>
-              <div class="bd__stepper">
-                <span class="bd__stepper-lbl">Tip</span>
-                <span class="bd__stepper-v">{{ (b.tipAmount ?? 0) | currency: 'USD' }}</span>
-                <div class="bd__stepper-btns">
-                  <button type="button" class="bd__stepper-btn" aria-label="Decrease tip" (click)="bumpTip.emit({ bill: b, dir: -1 })">−</button>
-                  <button type="button" class="bd__stepper-btn" aria-label="Increase tip" (click)="bumpTip.emit({ bill: b, dir: 1 })">+</button>
-                </div>
+              <div class="bd__amtfield">
+                <span class="bd__amtfield-lbl">Tip</span>
+                @if (editingTip()) {
+                  <span class="bd__amtfield-cur" aria-hidden="true">$</span>
+                  <input #tipin class="bd__amtfield-in" type="number" inputmode="decimal" min="0" step="0.01"
+                         placeholder="0.00" [ngModel]="draftTip()" (ngModelChange)="draftTip.set($event)"
+                         (blur)="commitTip(b)" (keydown.enter)="commitTip(b)" aria-label="Tip amount" />
+                } @else {
+                  <button type="button" class="bd__amtfield-v" (click)="startTip(b)"
+                          aria-label="Edit tip amount">
+                    {{ (b.tipAmount ?? 0) | currency: 'USD' }}
+                    <mat-icon aria-hidden="true">edit</mat-icon>
+                  </button>
+                }
               </div>
             </div>
 
@@ -257,23 +275,29 @@ interface ClaimLine {
     .bd__items { display: flex; flex-direction: column; gap: 10px; }
 
     .bd__taxtip { display: flex; gap: 10px; }
-    .bd__stepper {
-      flex: 1 1 0; display: flex; align-items: center; justify-content: space-between; gap: 8px;
-      min-height: 54px; padding: 0 8px 0 14px; border-radius: var(--r-tile); background: var(--bg-sink);
+    .bd__amtfield {
+      flex: 1 1 0; display: flex; align-items: center; gap: 6px;
+      min-height: 54px; padding: 0 10px 0 14px; border-radius: var(--r-tile); background: var(--bg-sink);
     }
-    .bd__stepper-lbl { font: 600 13px/1 var(--font-ui); color: var(--ink-dim); }
-    .bd__stepper-v { font: 600 16px/1 var(--font-display); color: var(--ink); min-width: 56px; text-align: right; }
-    .bd__stepper-btns { display: flex; gap: 4px; }
-    .bd__stepper-btn {
-      width: 40px; height: 40px; display: grid; place-items: center;
-      border: 1px solid var(--hairline); border-radius: 10px; background: var(--bg-rise); color: var(--ink);
-      font-size: 18px; cursor: pointer;
-      transition: background 120ms var(--ease-out), transform 100ms var(--ease-spring);
-      -webkit-tap-highlight-color: transparent;
+    .bd__amtfield-lbl { flex: 0 0 auto; font: 600 13px/1 var(--font-ui); color: var(--ink-dim); }
+    .bd__amtfield-cur { flex: 0 0 auto; margin-left: auto; color: var(--ink-dim); font: 600 15px/1 var(--font-display); }
+    .bd__amtfield-in {
+      flex: 1 1 auto; min-width: 0; width: 100%; text-align: right;
+      background: transparent; border: none; outline: none;
+      color: var(--ink); font: 600 16px/1 var(--font-display);
     }
-    .bd__stepper-btn:hover { background: color-mix(in srgb, var(--accent-a) 12%, var(--bg-rise)); }
-    .bd__stepper-btn:active { transform: scale(.93); }
-    .bd__stepper-btn:focus-visible { outline: 2px solid var(--focus, var(--accent-b)); outline-offset: 2px; }
+    .bd__amtfield:focus-within { outline: 2px solid var(--focus, var(--accent-b)); outline-offset: 1px; border-radius: var(--r-tile); }
+    .bd__amtfield-v {
+      flex: 1 1 auto; margin-left: auto; display: inline-flex; align-items: center; justify-content: flex-end; gap: 6px;
+      background: transparent; border: none; cursor: pointer; padding: 8px 0;
+      color: var(--ink); font: 600 16px/1 var(--font-display);
+      -webkit-tap-highlight-color: transparent; touch-action: manipulation;
+      transition: color 120ms var(--ease-out);
+      mat-icon { font-size: 15px; width: 15px; height: 15px; color: var(--ink-dim); }
+    }
+    .bd__amtfield-v:hover { color: var(--accent-b); }
+    .bd__amtfield-v:hover mat-icon { color: var(--accent-b); }
+    .bd__amtfield-v:focus-visible { outline: 2px solid var(--focus, var(--accent-b)); outline-offset: 2px; border-radius: 8px; }
 
     .bd__total { display: flex; align-items: baseline; justify-content: space-between; padding: 4px 4px 0; }
     .bd__total-lbl { font: 700 13px/1 var(--font-ui); color: var(--ink-dim); text-transform: uppercase; letter-spacing: .06em; }
@@ -395,11 +419,12 @@ export class BillDetailSheet {
   readonly closed = output<void>();
   readonly titleChange = output<TitleChange>();
   readonly addItem = output<AddItem>();
+  readonly editItem = output<EditItem>();
   readonly settleItem = output<{ bill: BillDto; item: BillItemDto }>();
   readonly deleteItem = output<{ bill: BillDto; item: BillItemDto }>();
   readonly assignItem = output<{ bill: BillDto; change: AssignChange }>();
-  readonly bumpTax = output<BumpChange>();
-  readonly bumpTip = output<BumpChange>();
+  readonly setTax = output<SetAmount>();
+  readonly setTip = output<SetAmount>();
   readonly toggleSettled = output<BillDto>();
   readonly snap = output<BillDto>();
   readonly enableShare = output<BillDto>();
@@ -409,6 +434,46 @@ export class BillDetailSheet {
 
   protected readonly newName = signal('');
   protected readonly newAmount = signal<number | null>(null);
+
+  // ---- exact tax/tip entry (tap the amount → type an exact value → commit via setTax/setTip) ----
+  protected readonly editingTax = signal(false);
+  protected readonly editingTip = signal(false);
+  protected readonly draftTax = signal<number | null>(null);
+  protected readonly draftTip = signal<number | null>(null);
+  private readonly taxIn = viewChild<ElementRef<HTMLInputElement>>('taxin');
+  private readonly tipIn = viewChild<ElementRef<HTMLInputElement>>('tipin');
+
+  protected startTax(b: BillDto): void {
+    this.draftTax.set(b.taxAmount ?? null);
+    this.editingTax.set(true);
+    queueMicrotask(() => this.taxIn()?.nativeElement.focus());
+  }
+
+  protected startTip(b: BillDto): void {
+    this.draftTip.set(b.tipAmount ?? null);
+    this.editingTip.set(true);
+    queueMicrotask(() => this.tipIn()?.nativeElement.focus());
+  }
+
+  protected commitTax(b: BillDto): void {
+    this.editingTax.set(false);
+    const next = this.clampAmount(this.draftTax());
+    if (next === (b.taxAmount ?? null)) return;
+    this.setTax.emit({ bill: b, amount: next });
+  }
+
+  protected commitTip(b: BillDto): void {
+    this.editingTip.set(false);
+    const next = this.clampAmount(this.draftTip());
+    if (next === (b.tipAmount ?? null)) return;
+    this.setTip.emit({ bill: b, amount: next });
+  }
+
+  /** Normalize a typed amount to a non-negative 2-dp number, or null when blank/zero (an explicit clear). */
+  private clampAmount(v: number | null): number | null {
+    if (v == null || Number.isNaN(v) || v <= 0) return null;
+    return Math.round(v * 100) / 100;
+  }
 
   /** Bill list price = items + tax + tip. */
   protected total(b: BillDto): number {

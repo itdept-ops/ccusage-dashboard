@@ -10,7 +10,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { Api } from '../../core/api';
 import { AuthService } from '../../core/auth';
 import {
-  AccessPolicy, LoginEvent, ManagedUser, PermissionItem, PermissionPreset,
+  AccessPolicy, AuditEntry, ChatContactDto, LoginEvent, ManagedUser, PermissionItem, PermissionPreset,
   PERM, PERM_GROUP_ORDER,
 } from '../../core/models';
 import {
@@ -41,6 +41,19 @@ interface LoginHistory {
   loaded: boolean;
   error: boolean;
   events: LoginEvent[];
+}
+
+/** Lazy-loaded chat-contacts (circle) state for one user's detail. Only shown to contact managers. */
+interface ContactsState {
+  loading: boolean;
+  loaded: boolean;
+  error: boolean;
+  /** That user's current contacts. */
+  contacts: ChatContactDto[];
+  /** Search box for the add-control (filters the directory). */
+  query: string;
+  /** AppUser id currently being added/removed (disables that control + shows progress). */
+  busyUserId: number | null;
 }
 
 /**
@@ -157,13 +170,53 @@ interface LoginHistory {
             </button>
           </div>
 
+          <!-- ─── ROLE FILTER CHIPS (exact role-set match) ─── -->
+          @if (presets().length) {
+            <div class="um-chips um-chips--roles" role="group" aria-label="Filter by role">
+              @for (p of presets(); track p.key) {
+                <button type="button" class="um-chip um-chip--role" [class.is-on]="filterRole() === p.key"
+                        [attr.aria-pressed]="filterRole() === p.key" (click)="toggleFilterRole(p.key)">
+                  <mat-icon aria-hidden="true">badge</mat-icon> {{ p.label }}
+                </button>
+              }
+            </div>
+          }
+
+          <!-- ─── BULK TOOLBAR (canManage) ─── -->
+          @if (canManage() && bulkMode()) {
+            <div class="um-bulkbar" role="toolbar" aria-label="Bulk actions">
+              <button type="button" class="um-bulkbar__sel" (click)="toggleSelectAllVisible()">
+                <mat-icon aria-hidden="true">{{ allVisibleSelected() ? 'check_box' : 'check_box_outline_blank' }}</mat-icon>
+                {{ allVisibleSelected() ? 'None' : 'All' }}
+              </button>
+              <span class="um-bulkbar__count mono-num">{{ bulkCount() }} selected</span>
+              <button type="button" class="um-bulkbar__go" [disabled]="!bulkCount() || bulkRunning()"
+                      (click)="openBulkSheet()">
+                @if (bulkRunning()) { <mat-icon class="um-spin" aria-hidden="true">progress_activity</mat-icon> {{ bulkDone() }}/{{ bulkTotal() }} }
+                @else { <mat-icon aria-hidden="true">bolt</mat-icon> Actions }
+              </button>
+              <button type="button" class="um-bulkbar__x" (click)="exitBulkMode()" aria-label="Exit select mode">
+                <mat-icon aria-hidden="true">close</mat-icon>
+              </button>
+            </div>
+          }
+
           @if (filteredUsers(); as list) {
             @if (list.length) {
               <div class="um-list">
                 @for (u of list; track u.id; let i = $index) {
                   <button type="button" class="um-card um-reveal" [style.--ri]="i"
-                          [class.is-disabled]="!u.isEnabled" (click)="openDetail(u)"
+                          [class.is-disabled]="!u.isEnabled" [class.is-picked]="isSelected(u.id)"
+                          (click)="openDetail(u)"
+                          (pointerdown)="onCardPressStart(u)" (pointerup)="onCardPressEnd()"
+                          (pointerleave)="onCardPressEnd()" (pointercancel)="onCardPressEnd()"
+                          (contextmenu)="$event.preventDefault()"
                           [attr.aria-label]="cardAria(u)">
+                    @if (canManage() && bulkMode()) {
+                      <span class="um-card__check" [class.on]="isSelected(u.id)" aria-hidden="true">
+                        <mat-icon>{{ isSelected(u.id) ? 'check_circle' : 'radio_button_unchecked' }}</mat-icon>
+                      </span>
+                    }
                     <span class="um-card__avatar" [class.off]="!u.isEnabled" aria-hidden="true">{{ userInitial(u) }}</span>
                     <span class="um-card__body">
                       <span class="um-card__name">{{ u.name || 'Unnamed user' }}</span>
@@ -197,6 +250,22 @@ interface LoginHistory {
                 }
               </div>
             }
+          }
+
+          <!-- ─── RECENT CHANGES (audit log) — gated canManage ─── -->
+          @if (canManage() && audit().length) {
+            <section class="um-audit" aria-label="Recent changes">
+              <h2 class="um-audit__title"><mat-icon aria-hidden="true">history</mat-icon> Recent changes</h2>
+              <ul class="um-audit__list">
+                @for (a of audit().slice(0, 20); track a.id) {
+                  <li class="um-audit__row">
+                    <span class="um-audit__when mono-num">{{ a.whenUtc | date: 'MMM d, HH:mm' }}</span>
+                    <span class="um-audit__action">{{ a.action }}</span>
+                    @if (a.detail) { <span class="um-audit__detail">{{ a.detail }}</span> }
+                  </li>
+                }
+              </ul>
+            </section>
           }
         }
       </div>
@@ -362,6 +431,80 @@ interface LoginHistory {
             }
           </div>
 
+          <!-- CHAT CONTACTS (the circle) — admin editor, gated chat.contacts.manage -->
+          @if (canManageContacts()) {
+            <div class="ud__block">
+              <span class="ud__block-title"><mat-icon aria-hidden="true">group</mat-icon> Chat contacts</span>
+              <p class="ud__block-sub">Who this person can message. Changes are mutual.</p>
+              @if (contactsState(u.id); as cs) {
+                @if (cs.loading) {
+                  <div class="ud__logins" aria-hidden="true">
+                    <app-bs-skeleton height="44px" radius="var(--r-tile)" />
+                    <app-bs-skeleton height="44px" radius="var(--r-tile)" />
+                  </div>
+                } @else if (cs.error) {
+                  <p class="ud__logins-empty">Couldn't load contacts.</p>
+                } @else {
+                  @if (cs.contacts.length) {
+                    <ul class="ud__contacts">
+                      @for (c of cs.contacts; track c.userId) {
+                        <li class="ud__contact">
+                          <span class="ud__contact-avatar" aria-hidden="true">{{ contactInitials(c) }}</span>
+                          <span class="ud__contact-name">{{ c.name }}</span>
+                          <button type="button" class="ud__contact-rm" [disabled]="cs.busyUserId === c.userId"
+                                  (click)="removeContact(u, c.userId)" [attr.aria-label]="'Remove ' + c.name">
+                            @if (cs.busyUserId === c.userId) { <mat-icon class="um-spin" aria-hidden="true">progress_activity</mat-icon> }
+                            @else { <mat-icon aria-hidden="true">close</mat-icon> }
+                          </button>
+                        </li>
+                      }
+                    </ul>
+                  } @else {
+                    <p class="ud__logins-empty">No contacts yet.</p>
+                  }
+
+                  <label class="um-search um-search--sm">
+                    <mat-icon class="um-search__ic" aria-hidden="true">person_add</mat-icon>
+                    <input class="um-search__input" type="search" inputmode="search"
+                           [ngModel]="cs.query" (ngModelChange)="setContactsQuery(u.id, $event)"
+                           placeholder="Add a contact by name" autocomplete="off" aria-label="Search to add a contact" />
+                  </label>
+                  @if (addCandidates(u); as cands) {
+                    @if (cands.length) {
+                      <ul class="ud__contacts ud__contacts--add">
+                        @for (c of cands.slice(0, 8); track c.userId) {
+                          <li class="ud__contact">
+                            <span class="ud__contact-avatar" aria-hidden="true">{{ contactInitials(c) }}</span>
+                            <span class="ud__contact-name">{{ c.name }}</span>
+                            <button type="button" class="ud__contact-add" [disabled]="cs.busyUserId === c.userId"
+                                    (click)="addContact(u, c.userId)" [attr.aria-label]="'Add ' + c.name">
+                              @if (cs.busyUserId === c.userId) { <mat-icon class="um-spin" aria-hidden="true">progress_activity</mat-icon> }
+                              @else { <mat-icon aria-hidden="true">add</mat-icon> }
+                            </button>
+                          </li>
+                        }
+                      </ul>
+                    } @else if (cs.query) {
+                      <p class="ud__logins-empty">No one matches "{{ cs.query }}".</p>
+                    }
+                  }
+                }
+              }
+            </div>
+          }
+
+          <!-- DANGER / SESSION ACTIONS — gated canManage -->
+          @if (canManage()) {
+            <div class="ud__danger">
+              <button type="button" class="ud__danger-btn" (click)="forceLogout(u)">
+                <mat-icon aria-hidden="true">logout</mat-icon> Sign out of all sessions
+              </button>
+              <button type="button" class="ud__danger-btn ud__danger-btn--rm" (click)="remove(u)">
+                <mat-icon aria-hidden="true">person_remove</mat-icon> Remove user
+              </button>
+            </div>
+          }
+
           <div class="ud__savebar-spacer" aria-hidden="true"></div>
         </div>
 
@@ -458,9 +601,190 @@ interface LoginHistory {
       }
     </app-bs-sheet>
 
-    <!-- POLICY FAB (only when a policy loaded + list is up) -->
-    @if (!loading() && !errored() && !detailOpen() && !policyOpen() && policy()) {
-      <app-bs-fab icon="policy" label="Access policy" [fixed]="true" (action)="openPolicy()" />
+    <!-- ─────────────── ADD-USER SHEET ─────────────── -->
+    <app-bs-sheet [(open)]="addOpen" detent="full" [dismissable]="!adding()" label="Add user">
+      <div class="up">
+        <div class="up__head">
+          <h3 class="up__title"><mat-icon aria-hidden="true">person_add</mat-icon> Add user</h3>
+          <button type="button" class="up__close" (click)="addOpen.set(false)" aria-label="Close" [disabled]="adding()">
+            <mat-icon aria-hidden="true">close</mat-icon>
+          </button>
+        </div>
+
+        <label class="ud__block">
+          <span class="ud__block-title"><mat-icon aria-hidden="true">mail</mat-icon> Email</span>
+          <input class="um-textfield" type="email" inputmode="email" autocomplete="off"
+                 [ngModel]="newEmail()" (ngModelChange)="newEmail.set($event)"
+                 placeholder="name@example.com" aria-label="New user email" />
+        </label>
+
+        <button type="button" class="ud__enable" [class.is-on]="newEnabled()"
+                role="switch" [attr.aria-checked]="newEnabled()" (click)="newEnabled.set(!newEnabled())">
+          <mat-icon aria-hidden="true">{{ newEnabled() ? 'check_circle' : 'block' }}</mat-icon>
+          <span class="ud__enable-txt">
+            <b>{{ newEnabled() ? 'Enabled' : 'Disabled' }}</b>
+            <i>{{ newEnabled() ? 'They can sign in immediately.' : 'They cannot sign in until enabled.' }}</i>
+          </span>
+          <span class="um-switch" [class.is-on]="newEnabled()" aria-hidden="true"><span class="um-switch__knob"></span></span>
+        </button>
+
+        <div class="ud__block">
+          <span class="ud__block-title"><mat-icon aria-hidden="true">badge</mat-icon> Role preset</span>
+          <p class="ud__block-sub">Seeds the grants below as a starting point.</p>
+          <div class="ud__roles">
+            @for (p of presets(); track p.key) {
+              <button type="button" class="ud__role" [class.is-active]="newRole() === p.key"
+                      (click)="applyRoleToNew(p.key)">{{ p.label }}</button>
+            }
+          </div>
+        </div>
+
+        @for (g of featureGroups(); track g.name) {
+          <div class="up__group">
+            <span class="up__group-name">{{ g.name }}</span>
+            <div class="ud__perms">
+              @for (perm of g.perms; track perm.key) {
+                <button type="button" class="ud__perm" role="switch"
+                        [class.is-on]="newHasPerm(perm.key)" [attr.aria-checked]="newHasPerm(perm.key)"
+                        (click)="toggleNewPerm(perm.key, !newHasPerm(perm.key))">
+                  <span class="ud__perm-body">
+                    <span class="ud__perm-label">{{ perm.label }}</span>
+                    <span class="ud__perm-desc">{{ perm.description }}</span>
+                  </span>
+                  <span class="um-switch um-switch--sm" [class.is-on]="newHasPerm(perm.key)" aria-hidden="true"><span class="um-switch__knob"></span></span>
+                </button>
+              }
+            </div>
+          </div>
+        }
+
+        @for (g of aiGroups(); track g.name) {
+          <div class="ud__ai">
+            <div class="ud__ai-head">
+              <mat-icon aria-hidden="true">auto_awesome</mat-icon>
+              <div class="ud__ai-titles">
+                <span class="ud__ai-title">{{ g.name }}</span>
+                <span class="ud__ai-sub">Token-spending capabilities — grant deliberately.</span>
+              </div>
+            </div>
+            <div class="ud__perms">
+              @for (perm of g.perms; track perm.key) {
+                <button type="button" class="ud__perm ud__perm--ai" role="switch"
+                        [class.is-on]="newHasPerm(perm.key)" [attr.aria-checked]="newHasPerm(perm.key)"
+                        (click)="toggleNewPerm(perm.key, !newHasPerm(perm.key))">
+                  <span class="ud__perm-body">
+                    <span class="ud__perm-label">{{ perm.label }}</span>
+                    <span class="ud__perm-desc">{{ perm.description }}</span>
+                  </span>
+                  <span class="um-switch um-switch--sm um-switch--ai" [class.is-on]="newHasPerm(perm.key)" aria-hidden="true"><span class="um-switch__knob"></span></span>
+                </button>
+              }
+            </div>
+          </div>
+        }
+
+        <div class="ud__savebar-spacer" aria-hidden="true"></div>
+      </div>
+
+      <div class="ud__savebar is-dirty">
+        <span class="ud__savebar-hint">Creates the account</span>
+        <button type="button" class="ud__savebar-btn" [disabled]="adding() || !newEmail().trim()" (click)="addUser()">
+          @if (adding()) { <mat-icon class="um-spin" aria-hidden="true">progress_activity</mat-icon> Adding… }
+          @else { <mat-icon aria-hidden="true">person_add</mat-icon> Add user }
+        </button>
+      </div>
+    </app-bs-sheet>
+
+    <!-- ─────────────── BULK-ACTIONS SHEET ─────────────── -->
+    <app-bs-sheet [(open)]="bulkSheetOpen" detent="full" label="Bulk actions">
+      <div class="up">
+        <div class="up__head">
+          <h3 class="up__title"><mat-icon aria-hidden="true">bolt</mat-icon> {{ bulkCount() }} selected</h3>
+          <button type="button" class="up__close" (click)="bulkSheetOpen.set(false)" aria-label="Close">
+            <mat-icon aria-hidden="true">close</mat-icon>
+          </button>
+        </div>
+
+        <div class="ud__block">
+          <span class="ud__block-title"><mat-icon aria-hidden="true">toggle_on</mat-icon> Account state</span>
+          <div class="ud__roles">
+            <button type="button" class="ud__role" (click)="bulkSetEnabled(true)">
+              <mat-icon aria-hidden="true">check_circle</mat-icon> Enable all
+            </button>
+            <button type="button" class="ud__role" (click)="bulkSetEnabled(false)">
+              <mat-icon aria-hidden="true">block</mat-icon> Disable all
+            </button>
+          </div>
+        </div>
+
+        <div class="ud__block">
+          <span class="ud__block-title"><mat-icon aria-hidden="true">badge</mat-icon> Apply a role</span>
+          <p class="ud__block-sub">Replaces each selected user's permissions with the role.</p>
+          <div class="ud__roles">
+            @for (p of presets(); track p.key) {
+              <button type="button" class="ud__role" (click)="bulkApplyRole(p.key)">{{ p.label }}</button>
+            }
+          </div>
+        </div>
+
+        @for (g of featureGroups(); track g.name) {
+          <div class="up__group">
+            <span class="up__group-name">{{ g.name }}</span>
+            <div class="ud__perms">
+              @for (perm of g.perms; track perm.key) {
+                <div class="ud__bulkperm">
+                  <span class="ud__perm-body">
+                    <span class="ud__perm-label">{{ perm.label }}</span>
+                    <span class="ud__perm-desc">{{ perm.description }}</span>
+                  </span>
+                  <button type="button" class="ud__bulkperm-btn grant" (click)="bulkGrant(perm.key)" aria-label="Grant to selected">
+                    <mat-icon aria-hidden="true">add</mat-icon>
+                  </button>
+                  <button type="button" class="ud__bulkperm-btn revoke" (click)="bulkRevoke(perm.key)" aria-label="Revoke from selected">
+                    <mat-icon aria-hidden="true">remove</mat-icon>
+                  </button>
+                </div>
+              }
+            </div>
+          </div>
+        }
+
+        @for (g of aiGroups(); track g.name) {
+          <div class="ud__ai">
+            <div class="ud__ai-head">
+              <mat-icon aria-hidden="true">auto_awesome</mat-icon>
+              <div class="ud__ai-titles">
+                <span class="ud__ai-title">{{ g.name }}</span>
+                <span class="ud__ai-sub">Token-spending — grants require a confirm.</span>
+              </div>
+            </div>
+            <div class="ud__perms">
+              @for (perm of g.perms; track perm.key) {
+                <div class="ud__bulkperm ud__perm--ai">
+                  <span class="ud__perm-body">
+                    <span class="ud__perm-label">{{ perm.label }}</span>
+                    <span class="ud__perm-desc">{{ perm.description }}</span>
+                  </span>
+                  <button type="button" class="ud__bulkperm-btn grant" (click)="bulkGrant(perm.key)" aria-label="Grant to selected">
+                    <mat-icon aria-hidden="true">add</mat-icon>
+                  </button>
+                  <button type="button" class="ud__bulkperm-btn revoke" (click)="bulkRevoke(perm.key)" aria-label="Revoke from selected">
+                    <mat-icon aria-hidden="true">remove</mat-icon>
+                  </button>
+                </div>
+              }
+            </div>
+          </div>
+        }
+
+        <div class="ud__savebar-spacer" aria-hidden="true"></div>
+      </div>
+    </app-bs-sheet>
+
+    <!-- ADD-USER FAB (canManage; hidden while any sheet or bulk mode is up) -->
+    @if (canManage() && !loading() && !errored() && !detailOpen() && !policyOpen()
+         && !addOpen() && !bulkSheetOpen() && !confirmOpen() && !bulkMode()) {
+      <app-bs-fab icon="person_add" label="Add user" [fixed]="true" (action)="openAddUser()" />
     }
 
     <app-bs-toaster />
@@ -520,6 +844,38 @@ export class UsersMobilePage {
   readonly policy = signal<AccessPolicy | null>(null);
   readonly policyPerms = signal<Set<string>>(new Set());
   readonly savingPolicy = signal(false);
+
+  // ---- admin management gate (mirrors the live page) ----
+  readonly canManage = computed(() => this.auth.hasPermission(PERM.usersManage));
+  readonly canManageContacts = computed(() => this.auth.hasPermission(PERM.chatContactsManage));
+
+  // ---- role filter chip (exact role-set match, or '' for any) ----
+  readonly filterRole = signal('');
+
+  // ---- add user (FAB → sheet) ----
+  readonly addOpen = signal(false);
+  readonly newEmail = signal('');
+  readonly newEnabled = signal(true);
+  readonly newPerms = signal<Set<string>>(new Set([PERM.dashboardView]));
+  readonly adding = signal(false);
+
+  // ---- bulk selection + actions ----
+  /** Whether long-press/checkbox multi-select mode is active. */
+  readonly bulkMode = signal(false);
+  readonly selectedIds = signal<Set<number>>(new Set());
+  readonly bulkRunning = signal(false);
+  readonly bulkDone = signal(0);
+  readonly bulkTotal = signal(0);
+  /** The bulk-actions sheet (apply role / grant / revoke / enable-all / disable-all). */
+  readonly bulkSheetOpen = signal(false);
+
+  // ---- chat contacts (circle) — admin editor in the detail (chat.contacts.manage) ----
+  readonly contacts = signal<Map<number, ContactsState>>(new Map());
+  readonly directory = signal<ChatContactDto[]>([]);
+  private directoryLoaded = false;
+
+  // ---- audit log ("Recent changes") ----
+  readonly audit = signal<AuditEntry[]>([]);
 
   readonly skeletonCells = Array.from({ length: 5 }, (_, i) => i);
 
@@ -605,14 +961,22 @@ export class UsersMobilePage {
   });
   readonly disabledCount = computed(() => this.users().filter((u) => !u.isEnabled).length);
 
-  readonly isFiltering = computed(() => !!this.search().trim() || this.capFilter() !== 'all');
+  readonly isFiltering = computed(
+    () => !!this.search().trim() || this.capFilter() !== 'all' || !!this.filterRole(),
+  );
 
   readonly filteredUsers = computed<ManagedUser[]>(() => {
     const q = this.search().trim().toLowerCase();
     const cap = this.capFilter();
     const ai = this.aiKeys();
+    const role = this.presets().find((p) => p.key === this.filterRole());
+    const roleSet = role ? new Set(role.permissions) : null;
     return this.users().filter((u) => {
       if (q && !(u.name ?? '').toLowerCase().includes(q)) return false;
+      if (roleSet) {
+        if (u.permissions.length !== roleSet.size) return false;
+        if (!u.permissions.every((k) => roleSet.has(k))) return false;
+      }
       switch (cap) {
         case 'ai': return u.permissions.some((k) => ai.has(k));
         case 'enabled': return u.isEnabled;
@@ -620,6 +984,16 @@ export class UsersMobilePage {
       }
       return true;
     });
+  });
+
+  // ─────────────── derived: bulk selection ───────────────
+
+  readonly bulkCount = computed(() => this.selectedIds().size);
+  readonly allVisibleSelected = computed(() => {
+    const vis = this.filteredUsers();
+    if (!vis.length) return false;
+    const sel = this.selectedIds();
+    return vis.every((u) => sel.has(u.id));
   });
 
   // ─────────────── derived: selected + draft ───────────────
@@ -716,6 +1090,7 @@ export class UsersMobilePage {
       this.users.set(users ?? []);
       this.perms.set(perms ?? []);
       this.presets.set(presets ?? []);
+      this.pruneSelection();
       // keep an open detail in sync with the fresh row, or close it if it's gone
       const u = this.selected();
       if (u) {
@@ -723,6 +1098,7 @@ export class UsersMobilePage {
         if (next) this.seedDraft(next); else this.detailOpen.set(false);
       }
       this.loadPolicy();
+      this.loadAudit();
     } catch {
       this.errored.set(true);
     } finally {
@@ -744,6 +1120,23 @@ export class UsersMobilePage {
     });
   }
 
+  private loadAudit(): void {
+    if (!this.canManage()) return;
+    this.api.auditLog().subscribe({ // masked emails — this twin never reveals them
+      next: (a) => this.audit.set(a),
+      error: () => { /* non-critical — the Recent-changes section just hides */ },
+    });
+  }
+
+  /** Drop any bulk-selected ids that no longer exist (e.g. after a reload/delete). */
+  private pruneSelection(): void {
+    const live = new Set(this.users().map((u) => u.id));
+    this.selectedIds.update((s) => {
+      const next = new Set([...s].filter((id) => live.has(id)));
+      return next.size === s.size ? s : next;
+    });
+  }
+
   // ─────────────── list helpers ───────────────
 
   toggleCap(cap: CapFilter): void {
@@ -753,6 +1146,12 @@ export class UsersMobilePage {
   clearFilters(): void {
     this.search.set('');
     this.capFilter.set('all');
+    this.filterRole.set('');
+  }
+
+  /** Toggle the exact-role filter chip (clicking the active one clears it). */
+  toggleFilterRole(key: string): void {
+    this.filterRole.update((r) => (r === key ? '' : key));
   }
 
   userInitial(u: ManagedUser): string {
@@ -812,10 +1211,21 @@ export class UsersMobilePage {
   // ─────────────── DETAIL ───────────────
 
   openDetail(u: ManagedUser): void {
+    // Swallow the click that immediately follows a long-press (which just entered bulk mode + picked u).
+    if (this.suppressNextClick) { this.suppressNextClick = false; return; }
+    // In bulk-select mode, tapping a card toggles its checkbox instead of drilling in.
+    if (this.bulkMode()) {
+      this.toggleSelect(u.id, !this.isSelected(u.id));
+      return;
+    }
     this.selectedId.set(u.id);
     this.seedDraft(u);
     this.detailOpen.set(true);
     if (!this.logins().has(u.id)) this.loadLogins(u.id);
+    if (this.canManageContacts()) {
+      if (!this.contacts().has(u.id)) this.loadContacts(u);
+      this.ensureDirectory();
+    }
   }
 
   private seedDraft(u: ManagedUser): void {
@@ -961,6 +1371,395 @@ export class UsersMobilePage {
         this.toast.show(err.error?.message ?? 'Save failed', { tone: 'warn' });
       },
     });
+  }
+
+  /** Open the sensitive-confirm sheet with a named action button; runs `onConfirm` on accept. */
+  private askConfirm(
+    title: string, lines: string[], confirmLabel: string, danger: boolean, onConfirm: () => void,
+  ): void {
+    this.confirm.set({
+      title, lines, confirmLabel, danger,
+      onConfirm: () => { this.confirmOpen.set(false); onConfirm(); },
+    });
+    this.confirmOpen.set(true);
+  }
+
+  private userLabel(u: ManagedUser): string {
+    return u.name || u.email || `user #${u.id}`;
+  }
+
+  // ─────────────── FORCE SIGN-OUT ───────────────
+
+  /** Force-log a user out of every active session (invalidates their JWT). Non-destructive. */
+  forceLogout(u: ManagedUser): void {
+    this.askConfirm(
+      'Sign out of all sessions?',
+      [
+        `${this.userLabel(u)} will be signed out of every active session.`,
+        'Non-destructive — the account stays enabled and they can sign back in.',
+      ],
+      'Sign out', false,
+      () => {
+        this.api.forceLogout(u.id).subscribe({
+          next: () => {
+            this.loadAudit();
+            this.toast.show(`Signed ${this.userLabel(u)} out`, { tone: 'success', durationMs: 2200 });
+          },
+          error: (err: HttpErrorResponse) =>
+            this.toast.show(err.error?.message ?? 'Could not sign user out', { tone: 'warn' }),
+        });
+      },
+    );
+  }
+
+  // ─────────────── REMOVE USER ───────────────
+
+  remove(u: ManagedUser): void {
+    this.askConfirm(
+      'Remove user?',
+      [`${this.userLabel(u)} will lose access immediately.`, 'This cannot be undone.'],
+      'Remove user', true,
+      () => {
+        this.api.deleteUser(u.id).subscribe({
+          next: () => {
+            this.users.update((list) => list.filter((x) => x.id !== u.id));
+            this.selectedIds.update((s) => {
+              if (!s.has(u.id)) return s;
+              const n = new Set(s); n.delete(u.id); return n;
+            });
+            if (this.selectedId() === u.id) { this.detailOpen.set(false); this.selectedId.set(null); }
+            this.loadAudit();
+            this.toast.show(`Removed ${this.userLabel(u)}`, { tone: 'success', durationMs: 2200 });
+          },
+          error: (err: HttpErrorResponse) =>
+            this.toast.show(err.error?.message ?? 'Delete failed', { tone: 'warn' }),
+        });
+      },
+    );
+  }
+
+  // ─────────────── ADD USER ───────────────
+
+  openAddUser(): void {
+    this.newEmail.set('');
+    this.newEnabled.set(true);
+    this.newPerms.set(new Set([PERM.dashboardView]));
+    this.addOpen.set(true);
+  }
+
+  newHasPerm(key: string): boolean {
+    return this.newPerms().has(key);
+  }
+
+  toggleNewPerm(key: string, checked: boolean): void {
+    this.newPerms.update((s) => {
+      const next = new Set(s);
+      if (checked) next.add(key); else next.delete(key);
+      return next;
+    });
+  }
+
+  /** The role currently reflected by the new-user grant set ('' = custom). */
+  readonly newRole = computed(() => this.matchRole(this.newPerms()));
+
+  applyRoleToNew(roleKey: string): void {
+    const role = this.presets().find((p) => p.key === roleKey);
+    if (!role) return;
+    this.newPerms.set(new Set(role.permissions));
+  }
+
+  addUser(): void {
+    if (this.adding()) return;
+    const email = this.newEmail().trim().toLowerCase();
+    if (!email.includes('@')) {
+      this.toast.show('Enter a valid email address', { tone: 'warn', durationMs: 2500 });
+      return;
+    }
+    this.adding.set(true);
+    this.api.createUser({ email, isEnabled: this.newEnabled(), permissions: [...this.newPerms()] }).subscribe({
+      next: (u) => {
+        this.adding.set(false);
+        this.users.update((list) =>
+          [...list, u].sort((a, b) => (a.name ?? a.email ?? '').localeCompare(b.name ?? b.email ?? '')),
+        );
+        this.addOpen.set(false);
+        this.loadAudit();
+        this.toast.show(`Added ${u.email || 'user'}`, { tone: 'success', durationMs: 2200 });
+      },
+      error: (err: HttpErrorResponse) => {
+        this.adding.set(false);
+        this.toast.show(err.error?.message ?? 'Could not add user', { tone: 'warn' });
+      },
+    });
+  }
+
+  // ─────────────── BULK SELECTION + ACTIONS ───────────────
+
+  isSelected(id: number): boolean {
+    return this.selectedIds().has(id);
+  }
+
+  private pressTimer: ReturnType<typeof setTimeout> | null = null;
+  /** Set true when a long-press fired, so the click that follows the press release is swallowed. */
+  private suppressNextClick = false;
+
+  /** Long-press a card (≈450ms) to enter multi-select mode (canManage only). */
+  onCardPressStart(u: ManagedUser): void {
+    if (!this.canManage() || this.bulkMode()) return;
+    this.onCardPressEnd();
+    this.pressTimer = setTimeout(() => {
+      this.pressTimer = null;
+      this.suppressNextClick = true;
+      this.enterBulkMode(u);
+    }, 450);
+  }
+
+  onCardPressEnd(): void {
+    if (this.pressTimer) { clearTimeout(this.pressTimer); this.pressTimer = null; }
+  }
+
+  enterBulkMode(u?: ManagedUser): void {
+    this.bulkMode.set(true);
+    if (u) this.toggleSelect(u.id, true);
+  }
+
+  exitBulkMode(): void {
+    this.bulkMode.set(false);
+    this.selectedIds.set(new Set());
+  }
+
+  toggleSelect(id: number, checked: boolean): void {
+    this.selectedIds.update((s) => {
+      const next = new Set(s);
+      if (checked) next.add(id); else next.delete(id);
+      return next;
+    });
+  }
+
+  toggleSelectAllVisible(): void {
+    const all = this.allVisibleSelected();
+    const vis = this.filteredUsers().map((u) => u.id);
+    this.selectedIds.update((s) => {
+      const next = new Set(s);
+      for (const id of vis) { if (all) next.delete(id); else next.add(id); }
+      return next;
+    });
+  }
+
+  private selectedUsers(): ManagedUser[] {
+    const sel = this.selectedIds();
+    return this.users().filter((u) => sel.has(u.id));
+  }
+
+  private nameList(users: ManagedUser[], cap = 6): string {
+    const names = users.map((u) => this.userLabel(u));
+    if (names.length <= cap) return names.join(', ');
+    return `${names.slice(0, cap).join(', ')} +${names.length - cap} more`;
+  }
+
+  openBulkSheet(): void {
+    if (!this.bulkCount()) return;
+    this.bulkSheetOpen.set(true);
+  }
+
+  bulkApplyRole(roleKey: string): void {
+    const role = this.presets().find((p) => p.key === roleKey);
+    const targets = this.selectedUsers();
+    if (!role || !targets.length) return;
+    this.bulkSheetOpen.set(false);
+    this.askConfirm(
+      `Apply "${role.label}" to ${targets.length} user(s)?`,
+      [`Replaces each one's permissions with the role, then saves.`, this.nameList(targets)],
+      'Apply role', this.hasAnyAi(role.permissions),
+      () => this.runBulk(targets,
+        (u) => ({ ...this.payload(u), permissions: [...role.permissions] }),
+        `Applied "${role.label}" to`),
+    );
+  }
+
+  bulkGrant(key: string): void {
+    const targets = this.selectedUsers().filter((u) => !u.permissions.includes(key));
+    const label = this.permByKey().get(key)?.label ?? key;
+    if (!targets.length) {
+      this.toast.show(`All selected already have "${label}"`, { tone: 'neutral', durationMs: 2200 });
+      return;
+    }
+    this.bulkSheetOpen.set(false);
+    const run = () => this.runBulk(targets,
+      (u) => ({ ...this.payload(u), permissions: [...new Set([...u.permissions, key])] }),
+      `Granted "${label}" to`);
+    if (this.aiKeys().has(key)) {
+      this.askConfirm(
+        `Grant token-spending "${label}" to ${targets.length} user(s)?`,
+        ['This is an AI capability that spends tokens.', this.nameList(targets)],
+        `Grant ${label}`, true, run);
+    } else {
+      run();
+    }
+  }
+
+  bulkRevoke(key: string): void {
+    const targets = this.selectedUsers().filter((u) => u.permissions.includes(key));
+    const label = this.permByKey().get(key)?.label ?? key;
+    if (!targets.length) {
+      this.toast.show(`No selected user has "${label}"`, { tone: 'neutral', durationMs: 2200 });
+      return;
+    }
+    this.bulkSheetOpen.set(false);
+    this.runBulk(targets,
+      (u) => ({ ...this.payload(u), permissions: u.permissions.filter((k) => k !== key) }),
+      `Revoked "${label}" from`);
+  }
+
+  bulkSetEnabled(enabled: boolean): void {
+    const targets = this.selectedUsers().filter((u) => u.isEnabled !== enabled);
+    if (!targets.length) {
+      this.toast.show(`Selected users are already ${enabled ? 'enabled' : 'disabled'}`,
+        { tone: 'neutral', durationMs: 2200 });
+      return;
+    }
+    this.bulkSheetOpen.set(false);
+    const run = () => this.runBulk(targets,
+      (u) => ({ ...this.payload(u), isEnabled: enabled }),
+      enabled ? 'Enabled' : 'Disabled');
+    if (!enabled) {
+      this.askConfirm(
+        `Disable ${targets.length} user(s)?`,
+        ['They can no longer sign in until re-enabled.', this.nameList(targets)],
+        'Disable', true, run);
+    } else {
+      run();
+    }
+  }
+
+  private payload(u: ManagedUser): { name?: string; isEnabled: boolean; permissions: string[] } {
+    return { name: u.name, isEnabled: u.isEnabled, permissions: u.permissions };
+  }
+
+  /** Run a bulk mutation sequentially via the existing per-user updateUser endpoint. */
+  private runBulk(
+    targets: ManagedUser[],
+    build: (u: ManagedUser) => { name?: string; isEnabled: boolean; permissions: string[] },
+    verb: string,
+  ): void {
+    this.bulkRunning.set(true);
+    this.bulkDone.set(0);
+    this.bulkTotal.set(targets.length);
+    let failures = 0;
+
+    const step = (i: number): void => {
+      if (i >= targets.length) {
+        this.bulkRunning.set(false);
+        this.loadAudit();
+        const s = this.selected();
+        if (s) {
+          const next = this.users().find((x) => x.id === s.id);
+          if (next) this.seedDraft(next);
+        }
+        const ok = targets.length - failures;
+        const msg = failures ? `${verb} ${ok} user(s); ${failures} failed` : `${verb} ${ok} user(s)`;
+        this.toast.show(msg, { tone: failures ? 'warn' : 'success', durationMs: 3000 });
+        this.exitBulkMode();
+        return;
+      }
+      const u = targets[i];
+      this.api.updateUser(u.id, build(u)).subscribe({
+        next: (updated) => {
+          this.users.update((list) => list.map((x) => (x.id === updated.id ? updated : x)));
+          this.bulkDone.set(i + 1);
+          step(i + 1);
+        },
+        error: () => { failures++; this.bulkDone.set(i + 1); step(i + 1); },
+      });
+    };
+    step(0);
+  }
+
+  // ─────────────── CHAT CONTACTS (the circle) — admin editor (chat.contacts.manage) ───────────────
+
+  contactsState(id: number): ContactsState | undefined {
+    return this.contacts().get(id);
+  }
+
+  private setContactsState(id: number, patch: Partial<ContactsState>): void {
+    this.contacts.update((m) => {
+      const prev = m.get(id) ?? {
+        loading: false, loaded: false, error: false, contacts: [], query: '', busyUserId: null,
+      };
+      return new Map(m).set(id, { ...prev, ...patch });
+    });
+  }
+
+  private loadContacts(u: ManagedUser): void {
+    this.setContactsState(u.id, {
+      loading: true, loaded: false, error: false, contacts: [], query: '', busyUserId: null,
+    });
+    this.api.userContacts(u.id).subscribe({
+      next: (contacts) =>
+        this.setContactsState(u.id, { loading: false, loaded: true, error: false, contacts }),
+      error: () =>
+        this.setContactsState(u.id, { loading: false, loaded: true, error: true, contacts: [] }),
+    });
+  }
+
+  private ensureDirectory(): void {
+    if (this.directoryLoaded) return;
+    this.directoryLoaded = true;
+    this.api.chatDirectory().subscribe({
+      next: (dir) => this.directory.set(dir),
+      error: () => { this.directoryLoaded = false; },
+    });
+  }
+
+  setContactsQuery(id: number, q: string): void {
+    this.setContactsState(id, { query: q });
+  }
+
+  /** Directory candidates for the add-control: everyone except the owner + those already in the circle. */
+  addCandidates(u: ManagedUser): ChatContactDto[] {
+    const state = this.contactsState(u.id);
+    const have = new Set((state?.contacts ?? []).map((c) => c.userId));
+    const q = (state?.query ?? '').trim().toLowerCase();
+    return this.directory()
+      .filter((c) => c.userId !== u.id && !have.has(c.userId))
+      .filter((c) => !q || c.name.toLowerCase().includes(q));
+  }
+
+  addContact(u: ManagedUser, contactUserId: number): void {
+    const added = this.directory().find((c) => c.userId === contactUserId);
+    this.setContactsState(u.id, { busyUserId: contactUserId });
+    this.api.addUserContact(u.id, contactUserId).subscribe({
+      next: (contacts) => {
+        this.setContactsState(u.id, { contacts, query: '', busyUserId: null });
+        this.loadAudit();
+        this.toast.show(`Added ${added?.name || 'contact'}`, { tone: 'success', durationMs: 1800 });
+      },
+      error: (err: HttpErrorResponse) => {
+        this.setContactsState(u.id, { busyUserId: null });
+        this.toast.show(err.error?.message ?? 'Could not add contact', { tone: 'warn' });
+      },
+    });
+  }
+
+  removeContact(u: ManagedUser, contactUserId: number): void {
+    const removed = this.contactsState(u.id)?.contacts.find((c) => c.userId === contactUserId);
+    this.setContactsState(u.id, { busyUserId: contactUserId });
+    this.api.removeUserContact(u.id, contactUserId).subscribe({
+      next: (contacts) => {
+        this.setContactsState(u.id, { contacts, busyUserId: null });
+        this.loadAudit();
+        this.toast.show(`Removed ${removed?.name || 'contact'}`, { tone: 'success', durationMs: 1800 });
+      },
+      error: (err: HttpErrorResponse) => {
+        this.setContactsState(u.id, { busyUserId: null });
+        this.toast.show(err.error?.message ?? 'Could not remove contact', { tone: 'warn' });
+      },
+    });
+  }
+
+  contactInitials(c: ChatContactDto): string {
+    const parts = (c.name || '').split(/[\s@.]+/).filter(Boolean);
+    return ((parts[0]?.[0] ?? '') + (parts[1]?.[0] ?? '')).toUpperCase() || 'U';
   }
 
   // ─────────────── ACCESS POLICY ───────────────
