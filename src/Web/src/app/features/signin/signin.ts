@@ -17,6 +17,7 @@ import { AuthService } from '../../core/auth';
 import { ensureGis } from '../../core/gis-loader';
 import { MarketingNav } from '../marketing/marketing-nav';
 import { MarketingFooter } from '../marketing/marketing-footer';
+import { INTRO_SEEN_KEY } from '../intro/intro.page';
 
 declare const google: any;
 
@@ -43,7 +44,23 @@ export class SignIn {
       this.router.navigateByUrl(this.returnUrl());
       return;
     }
+    // First run: an unauthenticated visitor who has never seen the intro carousel is sent there
+    // first. The intro sets the seen-flag then routes back to /login, so this fires at most once.
+    if (this.introUnseen()) {
+      this.router.navigateByUrl('/intro');
+      return;
+    }
     afterNextRender(() => void this.initGoogle());
+  }
+
+  /** True when the first-run intro flag is unset (and storage is readable). */
+  private introUnseen(): boolean {
+    try {
+      return localStorage.getItem(INTRO_SEEN_KEY) !== '1';
+    } catch {
+      // Storage blocked (private mode / hardened settings) — don't loop into the intro; show sign-in.
+      return false;
+    }
   }
 
   private returnUrl(): string {

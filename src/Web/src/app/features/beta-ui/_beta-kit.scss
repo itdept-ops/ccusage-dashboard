@@ -292,11 +292,14 @@ $accents: (
   }
 
   // Stacked sediment card — matte extrusion (no blur), --lift-2, scroll-snap landing.
+  // FiMobile card signature: the resting shadow + a 1px inset top highlight so flat cards read
+  // subtly embossed/glassy (adopted from the template's .card treatment). glass-edge is the hairline
+  // highlight token; harmless where a page overrides --lift-2 to already carry its own inset.
   .bk-card {
     flex: 0 0 auto;
     border-radius: var(--r-card);
     background: var(--bg-rise);
-    box-shadow: var(--lift-2);
+    box-shadow: var(--lift-2), inset 0 1px 0 var(--glass-edge);
     scroll-snap-align: start;
     padding: 16px;
   }

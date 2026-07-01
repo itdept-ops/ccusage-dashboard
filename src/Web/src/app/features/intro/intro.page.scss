@@ -1,0 +1,204 @@
+@use '../marketing/aurora' as aur;
+
+// ════════════════════════════════════════════════════════════════════════════
+//  FIRST-RUN INTRO CAROUSEL — Aurora surface
+//  A full-bleed, always-dark Aurora onboarding screen that flows straight into
+//  the login/sign-in pages. Native CSS scroll-snap carousel (no JS lib). Uses the
+//  marketing var(--aur-*)/(--tech-*) tokens like login/signin. Self-contained.
+// ════════════════════════════════════════════════════════════════════════════
+
+:host {
+  display: block;
+  @include aur.aurora-vars;
+  // Aurora canvas on the HOST so the obsidian + drifting fields cover the whole
+  // viewport (matches login.scss / signin.scss).
+  @include aur.aurora-surface;
+}
+
+.intro {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh;
+  padding:
+    calc(env(safe-area-inset-top, 0px) + 12px)
+    max(16px, env(safe-area-inset-right, 0px))
+    calc(env(safe-area-inset-bottom, 0px) + 20px)
+    max(16px, env(safe-area-inset-left, 0px));
+}
+
+// ───────────────────────── Skip affordance (persistent, top-right) ────────────
+.intro-skip {
+  align-self: flex-end;
+  min-height: 44px;
+  padding: 8px 16px;
+  border: 0;
+  background: transparent;
+  border-radius: 999px;
+  font-family: 'Inter', system-ui, sans-serif;
+  font-size: .95rem;
+  font-weight: 500;
+  letter-spacing: -.005em;
+  color: var(--aur-ink-faint);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: color .2s var(--aur-ease);
+
+  &:hover { color: var(--aur-ink); }
+  &:focus-visible { outline: 2px solid var(--aur-c); outline-offset: 2px; }
+}
+
+// ───────────────────────── The scroll-snap track ──────────────────────────────
+.intro-track {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;              // Firefox
+  &::-webkit-scrollbar { display: none; }   // WebKit
+  &:focus-visible { outline: none; }
+}
+
+.intro-slide {
+  flex: 0 0 100%;
+  width: 100%;
+  scroll-snap-align: center;
+  scroll-snap-stop: always;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 22px;
+  padding: 24px clamp(16px, 6vw, 48px);
+  text-align: center;
+}
+
+// ───────────────────────── Illustration / icon block ──────────────────────────
+.intro-art {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: clamp(128px, 34vw, 168px);
+  height: clamp(128px, 34vw, 168px);
+  border-radius: 32px;
+  background: var(--aur-glass-fill, rgba(255, 255, 255, .035));
+  border: 1px solid color-mix(in srgb, var(--aur-a) 24%, var(--aur-line));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, .07),
+    0 24px 60px -30px rgba(0, 0, 0, .7);
+}
+
+.intro-art-glow {
+  position: absolute;
+  inset: -18%;
+  border-radius: inherit;
+  background: radial-gradient(ellipse at center, color-mix(in srgb, var(--aur-b) 34%, transparent), transparent 68%);
+  filter: blur(38px);
+  pointer-events: none;
+  animation: intro-glow 7s ease-in-out infinite;
+}
+@keyframes intro-glow { 0%, 100% { opacity: 1; } 50% { opacity: .55; } }
+
+.intro-art-icon {
+  position: relative;
+  z-index: 1;
+  width: auto;
+  height: auto;
+  font-size: clamp(56px, 15vw, 74px);
+  line-height: 1;
+  color: transparent;
+  background: var(--aur-grad);
+  -webkit-background-clip: text;
+  background-clip: text;
+
+  @supports not ((-webkit-background-clip: text) or (background-clip: text)) {
+    color: var(--aur-b);
+    background: none;
+  }
+}
+
+// ───────────────────────── Copy ───────────────────────────────────────────────
+.intro-headline {
+  @include aur.aurora-display(h2);
+  max-width: 18ch;
+}
+
+.intro-sub {
+  @include aur.aurora-body(clamp(1rem, 1.6vw, 1.08rem));
+  max-width: 34ch;
+}
+
+// ───────────────────────── Footer: dots + CTA ─────────────────────────────────
+.intro-foot {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 24px;
+  padding-top: 8px;
+}
+
+.intro-dots {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.intro-dot {
+  position: relative;
+  width: 8px;
+  height: 8px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--aur-ink-faint) 55%, transparent);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: width .3s var(--aur-ease), background .3s var(--aur-ease);
+
+  // Keep the visual dot tiny but guarantee a >=44px hit area.
+  &::before {
+    content: '';
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    width: 44px; height: 44px;
+  }
+
+  &.is-on {
+    width: 24px;
+    background: var(--aur-grad);
+  }
+  &:focus-visible { outline: 2px solid var(--aur-c); outline-offset: 4px; }
+}
+
+.intro-cta {
+  @include aur.aurora-cta;
+  min-height: 48px;
+  width: min(100%, 320px);
+  justify-content: center;
+  font-size: 1.02rem;
+  font-weight: 550;
+
+  mat-icon { width: 1.15em; height: 1.15em; font-size: 1.15em; line-height: 1; }
+}
+
+.intro-next {
+  @include aur.aurora-pill;
+  min-height: 44px;
+  justify-content: center;
+
+  mat-icon { width: 1.15em; height: 1.15em; font-size: 1.15em; line-height: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .intro-track { scroll-behavior: auto; }
+  .intro-art-glow { animation: none; }
+  .intro-dot { transition: none; }
+}

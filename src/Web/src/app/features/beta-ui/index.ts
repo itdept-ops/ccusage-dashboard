@@ -17,3 +17,14 @@ export { BetaSectionHeader } from './section-header';
 export { BetaStatTile } from './stat-tile';
 export { BetaSvgRing } from './svg-ring';
 export { BetaEmptyState, BetaErrorState } from './state-block';
+
+// ---- FiMobile-adopted primitives (Wave A) ----
+export { BetaStepper, type StepperSize } from './bs-stepper';
+export { BetaChip, BetaChipGroup, type ChipVariant } from './bs-chip';
+export { BetaTooltip, type TooltipPlacement } from './bs-tooltip';
+export { BetaAccordion, BetaAccordionItem } from './bs-accordion';
+export { BetaGauge } from './bs-gauge';
+export { BetaDonut, type DonutSegment } from './bs-donut';
+export { BetaTimeline, type TimelineItem, type TimelineColumn } from './bs-timeline';
+export { BetaTree, type TreeNode } from './bs-tree';
+export { BetaSuccess } from './bs-success';
