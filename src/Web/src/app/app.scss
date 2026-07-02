@@ -1198,6 +1198,15 @@
   padding: var(--tech-page-gutter, 24px) var(--tech-page-gutter, 24px) 56px;
 }
 
+/* The SPA route-change focus manager (App.focusMainContent, WCAG 2.4.3) programmatically moves focus to
+   this tabindex="-1" landmark on every navigation so AT re-announces the new page. That focus is NOT
+   keyboard-initiated, so the browser's default focus ring here just draws a box around the whole centered
+   content area on every page — suppress it. This landmark is never in the Tab order (tabindex=-1), and
+   interactive elements inside still show their own focus outlines, so keyboard visibility is unaffected. */
+#main-content:focus {
+  outline: none;
+}
+
 /* Pop-out widget windows render edge-to-edge with no page chrome. */
 .content--bare {
   max-width: none;
