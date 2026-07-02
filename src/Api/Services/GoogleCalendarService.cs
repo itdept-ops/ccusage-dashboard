@@ -63,6 +63,10 @@ public sealed class GoogleCalendarService(
     /// items); caps the allocation so a compromised/MITM'd endpoint cannot force an unbounded read.</summary>
     private const int MaxApiResponseBytes = 8 * 1024 * 1024;
 
+    /// <summary>Hard ceiling on a buffered Calendar API error body — we only keep the first 4 KB as a
+    /// diagnostic hint, so cap the read a touch above that and never buffer an attacker-sized error body.</summary>
+    private const int MaxErrorBodyBytes = 8 * 1024;
+
     /// <summary>Whether the OAuth client secret is configured. When false, calendar is "not configured".</summary>
     public bool IsConfigured =>
         !string.IsNullOrWhiteSpace(config["Google:ClientId"])
@@ -591,12 +595,16 @@ public sealed class GoogleCalendarService(
     }
 
     /// <summary>Read up to 4 KB of a failed Calendar API response body (secret-free — it describes the
-    /// calendar request, not the OAuth exchange). Returns null on any read error.</summary>
+    /// calendar request, not the OAuth exchange). Routed through the bounded reader so a hostile/MITM'd
+    /// endpoint cannot force an unbounded allocation by returning an oversized error body. Returns null on
+    /// any read error.</summary>
     private static async Task<string?> SafeReadBodyAsync(HttpResponseMessage res, CancellationToken ct)
     {
         try
         {
-            var s = await res.Content.ReadAsStringAsync(ct);
+            var bytes = await ReadCappedAsync(res, MaxErrorBodyBytes, ct);
+            if (bytes is null) return null;
+            var s = System.Text.Encoding.UTF8.GetString(bytes);
             return s.Length > 4096 ? s[..4096] : s;
         }
         catch { return null; }

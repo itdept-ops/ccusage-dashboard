@@ -3,8 +3,10 @@ import { Injectable, signal } from '@angular/core';
 /**
  * One queued mutation, as snapshotted by the offline interceptor. `body` is the already-serialised
  * JSON (HttpClient hands us the parsed object; we keep it as-is and re-stringify on replay) and
- * `headers` is a flat name→value map of the request's own headers (Authorization is NOT stored —
- * it's re-attached fresh at replay time from the live session, see {@link OfflineQueue.flush}).
+ * `headers` is a flat name→value map of the request's own headers. Auth is NOT carried in a header:
+ * the credential is the HttpOnly auth cookie, sent automatically via credentials:'include' at replay
+ * time, and any captured Authorization header is deliberately stripped so it can't shadow the cookie
+ * (see {@link OfflineQueue.flush}).
  */
 export interface QueuedRequest {
   id: number;

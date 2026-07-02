@@ -180,7 +180,12 @@ public static class IdentityEndpoints
 
             // Re-derive authoritative minutes server-side; the client only chooses the role per signal.
             var signals = await DeriveSignalsAsync(db, households, caller, from, to, fromDate, toDate, ct);
-            var minutesByKey = signals.ToDictionary(s => s.Key, s => s.Minutes, StringComparer.Ordinal);
+            // NET OUT minutes already credited by prior Auto rows for the same signal whose day falls inside
+            // this window: the derived total is a window SUM of the underlying activity, so a shifted/overlapping
+            // re-apply must only credit the INCREMENTAL new minutes — otherwise nudging the window by a day would
+            // re-count the same workouts/chores under a fresh synthetic id. Anything already credited (equal or
+            // more) collapses to < 1 net and is skipped, preserving the "never double-counts" guarantee.
+            var minutesByKey = await NetNewMinutesAsync(db, caller, signals, fromDate, toDate, ct);
 
             var seen = (await db.IdentityTimeEntries.AsNoTracking()
                 .Where(t => t.UserEmail == caller.Email && t.SourceEventId != null)
@@ -197,7 +202,8 @@ public static class IdentityEndpoints
                 if (!minutesByKey.TryGetValue(key, out var minutes) || minutes < 1) { skipped++; continue; }
                 if (!ownedRoleIds.Contains(it.RoleId)) { skipped++; continue; }
                 // One synthetic id per (signal, window-start, window-end) → idempotent re-apply of the SAME
-                // window via the unique index, while distinct windows ending the same day stay distinct.
+                // window via the unique index. Distinct windows stay distinct, but the net-new-minutes math
+                // above already prevents a shifted window from re-crediting the same underlying activity.
                 var sourceId = $"auto:{key}:{fromDate:yyyy-MM-dd}:{toDate:yyyy-MM-dd}";
                 if (seen.Contains(sourceId) || !batchSeen.Add(sourceId)) { skipped++; continue; }
 
@@ -645,6 +651,46 @@ public static class IdentityEndpoints
                 $"{chorePoints} ⭐ completed (≈{MinutesPerChorePoint} min each)",
                 SuggestRole("chore", "home", "parent", "house")));
         return signals;
+    }
+
+    /// <summary>
+    /// Reduce each re-derived signal's window-SUM minutes by what prior Auto rows for the SAME signal already
+    /// credited inside this window, yielding the INCREMENTAL new minutes to apply. Prior Auto rows carry
+    /// <c>SourceEventId</c> "auto:{key}:…" and are stamped on their own window's end day, so an overlapping or
+    /// nudged re-apply nets to ≤ 0 for the already-covered activity and is skipped — this is what actually
+    /// upholds the "never double-counts" guarantee (the synthetic-id unique index alone does not, because a
+    /// shifted window yields a fresh id). Keyed by signal; a signal with no prior credit passes through unchanged.
+    /// </summary>
+    private static async Task<Dictionary<string, int>> NetNewMinutesAsync(
+        UsageDbContext db, CurrentUserAccessor.CurrentUser caller, IReadOnlyList<AutoSignalDto> signals,
+        DateOnly fromDate, DateOnly toDate, CancellationToken ct)
+    {
+        // Sum minutes already credited by Auto rows landing in [fromDate, toDate], grouped by signal key
+        // (the "auto:{key}:…" prefix). One owner-scoped read; small result set.
+        var priorRows = await db.IdentityTimeEntries.AsNoTracking()
+            .Where(t => t.UserEmail == caller.Email
+                && t.Source == IdentityEntrySource.Auto
+                && t.SourceEventId != null
+                && t.Date >= fromDate && t.Date <= toDate)
+            .Select(t => new { t.SourceEventId, t.Minutes })
+            .ToListAsync(ct);
+
+        var creditedByKey = new Dictionary<string, int>(StringComparer.Ordinal);
+        foreach (var row in priorRows)
+        {
+            var id = row.SourceEventId!;
+            if (!id.StartsWith("auto:", StringComparison.Ordinal)) continue;
+            // "auto:{key}:{from}:{to}" — the key is the segment between the first and second ':'.
+            var rest = id.AsSpan(5);
+            var colon = rest.IndexOf(':');
+            var key = colon < 0 ? rest.ToString() : rest[..colon].ToString();
+            creditedByKey[key] = creditedByKey.GetValueOrDefault(key, 0) + row.Minutes;
+        }
+
+        var netByKey = new Dictionary<string, int>(StringComparer.Ordinal);
+        foreach (var s in signals)
+            netByKey[s.Key] = s.Minutes - creditedByKey.GetValueOrDefault(s.Key, 0);
+        return netByKey;
     }
 
     /// <summary>Per-row fallback for /auto/apply when the batch hit a unique violation (a concurrent apply

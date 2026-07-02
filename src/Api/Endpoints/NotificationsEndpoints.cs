@@ -115,7 +115,8 @@ public static class NotificationsEndpoints
 
         me.MapGet("/", async (CurrentUserAccessor accessor, UsageDbContext db, CancellationToken ct) =>
         {
-            var user = (await accessor.GetUserAsync(ct))!;
+            var user = await accessor.GetUserAsync(ct);
+            if (user is null) return Results.Forbid();
             var pref = await db.NotificationPreferences.AsNoTracking()
                 .FirstOrDefaultAsync(p => p.UserEmail == user.Email, ct);
             return Results.Ok(MyDiscord(pref));
@@ -123,7 +124,8 @@ public static class NotificationsEndpoints
 
         me.MapPut("/", async (MyDiscordUpdateRequest req, CurrentUserAccessor accessor, UsageDbContext db, TokenProtector protector, CancellationToken ct) =>
         {
-            var user = (await accessor.GetUserAsync(ct))!;
+            var user = await accessor.GetUserAsync(ct);
+            if (user is null) return Results.Forbid();
             var pref = await db.NotificationPreferences.FirstOrDefaultAsync(p => p.UserEmail == user.Email, ct);
             if (pref is null)
             {
@@ -164,7 +166,8 @@ public static class NotificationsEndpoints
 
         me.MapPost("/test", async (CurrentUserAccessor accessor, UsageDbContext db, TokenProtector protector, DiscordNotifier notifier, CancellationToken ct) =>
         {
-            var user = (await accessor.GetUserAsync(ct))!;
+            var user = await accessor.GetUserAsync(ct);
+            if (user is null) return Results.Forbid();
             var pref = await db.NotificationPreferences.AsNoTracking()
                 .FirstOrDefaultAsync(p => p.UserEmail == user.Email, ct);
             if (pref is null || string.IsNullOrEmpty(pref.DiscordWebhookEnc))
@@ -191,7 +194,8 @@ public static class NotificationsEndpoints
         me.MapPost("/recap", async (
             bool? preview, CurrentUserAccessor accessor, UsageDbContext db, WeeklyRecapComposer recap, CancellationToken ct) =>
         {
-            var user = (await accessor.GetUserAsync(ct))!;
+            var user = await accessor.GetUserAsync(ct);
+            if (user is null) return Results.Forbid();
             var today = await TrackerVisibility.DisplayTzTodayAsync(db, ct);
             var from = today.AddDays(-7);
             var to = today.AddDays(-1);

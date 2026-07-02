@@ -78,7 +78,7 @@ import { DialogA11yDirective } from '../../../core/dialog-a11y.directive';
         <hr class="snav__rule" aria-hidden="true" />
 
         <div class="snav__group">
-          <h3 class="snav__label">Account</h3>
+          <span class="snav__label">Account</span>
           <a class="srow" routerLink="/preferences" (click)="nav.close()">
             <span class="srow__ic"><mat-icon aria-hidden="true">tune</mat-icon></span>
             <span class="srow__label">Settings &amp; preferences</span>

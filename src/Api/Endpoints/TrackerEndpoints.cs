@@ -745,7 +745,7 @@ public static class TrackerEndpoints
             if (!(req.WeightKg >= 1 && req.WeightKg <= 1000))
                 return Results.BadRequest(new { message = "Weight must be between 1 and 1000 kg." });
 
-            var slot = Enum.TryParse<WeightSlot>(req.Slot, ignoreCase: true, out var s) ? s : WeightSlot.Unspecified;
+            var slot = Enum.TryParse<WeightSlot>(req.Slot, ignoreCase: true, out var s) && Enum.IsDefined(s) ? s : WeightSlot.Unspecified;
             var weightKg = Math.Round(req.WeightKg, 2);
 
             var entry = await db.WeightEntries

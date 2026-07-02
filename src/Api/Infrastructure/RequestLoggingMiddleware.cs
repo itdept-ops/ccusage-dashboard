@@ -53,7 +53,11 @@ public sealed class RequestLoggingMiddleware(RequestDelegate next, RequestLogQue
         // Same-user special-category PII (precise location, health, reproductive, finance).
         // "/api/cycle" is kept as a forward-looking guard; the live reproductive-health routes are all
         // under "/api/family/cycle". "/api/vitals" carries blood-pressure/weight (health data).
-        "/api/location", "/api/family/locations", "/api/cycle", "/api/family/cycle",
+        // "/api/chat/location-share" carries precise live GPS position updates (PUT /position + extend/
+        // stop); the create POST at "/api/chat/channels/{id}/location-share" can't be segment-matched
+        // without over-dropping all channel bodies, so it leans on the coordinate value backstop.
+        "/api/location", "/api/family/locations", "/api/chat/location-share",
+        "/api/cycle", "/api/family/cycle",
         "/api/meds", "/api/vitals", "/api/health",
         "/api/family/finance", "/api/bills", "/api/tracker",
         // Free-text journals + household organizers (notes/lists/meals/reminders/timers/polls/quick-add),
@@ -147,8 +151,36 @@ public sealed class RequestLoggingMiddleware(RequestDelegate next, RequestLogQue
         var read = await req.Body.ReadAtLeastAsync(buffer, buffer.Length, throwOnEndOfStream: false);
         req.Body.Position = 0; // rewind so model binding can read it again
 
-        var text = Encoding.UTF8.GetString(buffer, 0, read);
+        // A body larger than the capture window is truncated here. Mirror the response path's
+        // fail-closed handling (CapturingResponseStream.GetCapturedText): a secret whose closing quote
+        // fell just past the window would otherwise be left as a clean partial value that the complete-
+        // quoted-value redaction regexes skip. Drop the trailing incomplete UTF-8 code point and append
+        // a marker so no dangling partial field survives as an unredacted quoted value.
+        var truncated = read == buffer.Length && (req.ContentLength is null || req.ContentLength > read);
+        var text = DecodeCapture(buffer, read, truncated);
         return LogRedaction.Redact(text, req.Path.Value ?? "");
+    }
+
+    // Decode a possibly byte-truncated capture buffer, failing closed on truncation: strip the trailing
+    // incomplete UTF-8 sequence and append a closing-quote/truncation marker. Mirrors the response-path
+    // logic in CapturingResponseStream so a secret straddling the window is never stored as a clean partial.
+    private static string DecodeCapture(byte[] bytes, int length, bool truncated)
+    {
+        if (!truncated) return Encoding.UTF8.GetString(bytes, 0, length);
+
+        var len = length;
+        // Walk back over UTF-8 continuation bytes (10xxxxxx) to the start of the last (possibly
+        // incomplete) code point, then drop it if it is not fully present.
+        var i = len - 1;
+        while (i >= 0 && (bytes[i] & 0xC0) == 0x80) i--;
+        if (i >= 0)
+        {
+            var lead = bytes[i];
+            var expected = lead < 0x80 ? 1 : lead < 0xE0 ? 2 : lead < 0xF0 ? 3 : 4;
+            if (len - i < expected) len = i; // incomplete trailing sequence: drop it
+        }
+
+        return Encoding.UTF8.GetString(bytes, 0, len) + "\"…[truncated]";
     }
 
     private static string? CaptureResponseBody(HttpContext ctx, CapturingResponseStream capture)

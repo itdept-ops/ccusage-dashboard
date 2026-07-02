@@ -35,10 +35,16 @@ public static partial class LogRedaction
     [GeneratedRegex(@"\beyJ[A-Za-z0-9_\-]+\.[A-Za-z0-9_\-]+\.[A-Za-z0-9_\-]+\b")]
     private static partial Regex JwtValueRegex();
 
-    // Precise lat/lng coordinate values (signed decimals with a fractional part) in JSON or pairs,
-    // e.g. "lat":37.421998 / longitude=-122.084 . Whole integers are left alone to avoid over-masking.
+    // Coordinate values in JSON or pairs, e.g. "lat":37.421998 / longitude=-122.084 / "x":37 .
+    // This is defense-in-depth only, NOT a primary control: every coordinate-bearing path must be
+    // excluded from body capture (IsSensitivePath / the middleware denylist). The key list below
+    // covers the common lat/lng aliases plus generic geo field names (x/y/point/coords/geo), and the
+    // value now also matches whole integers (not just decimals) so a coordinate that serializes
+    // without a fraction is still masked. IMPORTANT: any new coordinate serialization (geoJSON
+    // [lng,lat] tuples, geohash strings, renamed fields) is NOT necessarily covered here — validate
+    // it against this regex and prefer adding its path to the capture denylist over widening this.
     [GeneratedRegex(
-        "(?<k>lat|lng|lon|latitude|longitude)(?<sep>\"\\s*:\\s*|\\s*=\\s*)(?<v>-?\\d+\\.\\d+)",
+        "(?<k>lat|lng|lon|latitude|longitude|coords?|geo|point|\\bx|\\by)(?<sep>\"\\s*:\\s*|\\s*=\\s*)(?<v>-?\\d+(?:\\.\\d+)?)",
         RegexOptions.IgnoreCase)]
     private static partial Regex CoordinateValueRegex();
 

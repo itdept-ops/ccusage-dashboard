@@ -242,7 +242,7 @@
                             <mat-icon>add_reaction</mat-icon>
                           </button>
                           <mat-menu #reactMenu="matMenu" class="cx-react-menu" xPosition="before">
-                            <div class="cx-react-picker" aria-label="Pick a reaction">
+                            <div class="cx-react-picker" role="group" aria-label="Pick a reaction">
                               @for (e of reactionEmojis; track e) {
                                 <button type="button" class="cx-react-opt"
                                         [attr.aria-label]="'React with ' + e"

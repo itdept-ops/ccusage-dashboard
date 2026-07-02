@@ -1,5 +1,5 @@
 import {
-  ChangeDetectionStrategy, Component, computed, input, model, output,
+  ChangeDetectionStrategy, Component, computed, ElementRef, input, model, output, viewChildren,
 } from '@angular/core';
 
 /** One segment in the control. `key` is echoed back on selection. */
@@ -36,9 +36,10 @@ export interface Segment {
           [style.width.%]="pillWidth()"
           [style.transform]="'translateX(' + pillX() + '%)'"></span>
     @for (s of segments(); track s.key; let i = $index) {
-      <button type="button" class="bs-seg-btn" role="radio"
+      <button #btn type="button" class="bs-seg-btn" role="radio"
               [class.is-active]="value() === s.key"
               [attr.aria-checked]="value() === s.key"
+              [attr.tabindex]="i === activeIndex() ? 0 : -1"
               [disabled]="disabled()"
               (click)="select(s.key)"
               (keydown)="onKeydown($event, i)">
@@ -100,8 +101,11 @@ export class BetaSegmentedControl {
   /** Fired with the newly selected key. */
   readonly change = output<string>();
 
+  /** The segment buttons, in DOM order — used to move focus with selection (roving tabindex). */
+  private readonly buttons = viewChildren<ElementRef<HTMLButtonElement>>('btn');
+
   /** Index of the active segment (falls back to 0 when value is unset/unknown). */
-  private readonly activeIndex = computed(() => {
+  protected readonly activeIndex = computed(() => {
     const segs = this.segments();
     const i = segs.findIndex(s => s.key === this.value());
     return i < 0 ? 0 : i;
@@ -129,5 +133,7 @@ export class BetaSegmentedControl {
     else return;
     e.preventDefault();
     this.select(segs[next].key);
+    // Follow the ARIA radiogroup pattern: focus moves with selection to the newly-checked segment.
+    this.buttons()[next]?.nativeElement.focus();
   }
 }

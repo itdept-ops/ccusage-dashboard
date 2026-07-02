@@ -80,9 +80,7 @@ public static class HabitEndpoints
                 .OrderBy(h => h.Status).ThenByDescending(h => h.Id)
                 .ToListAsync(ct);
 
-            var dtos = new List<HabitDto>(habits.Count);
-            foreach (var h in habits)
-                dtos.Add(await BuildHabitDtoAsync(db, h, today, persist: true, ct));
+            var dtos = await BuildHabitDtosAsync(db, caller.Email, habits, today, ct);
             return Results.Ok(dtos);
         });
 
@@ -391,6 +389,99 @@ public static class HabitEndpoints
             habit.StartDate.ToString("yyyy-MM-dd"), habit.EndDate?.ToString("yyyy-MM-dd"),
             habit.Status.ToString(), streak, longest, completed,
             ToDayDto(habit, today, todayRow, todayInput));
+    }
+
+    /// <summary>
+    /// The BATCHED counterpart of <see cref="BuildHabitDtoAsync"/> for the hot habit-list render: preload ALL of
+    /// the caller's habit-day rows in ONE HabitId IN (...) window query plus the shared auto-input maps (loaded
+    /// ONCE via <see cref="LoadUserAutoInputsAsync"/>), then score + build every card purely in memory via the
+    /// same <see cref="ScoreHabit"/>/<see cref="ProjectAutoInput"/> primitives — replacing the per-habit
+    /// <see cref="ComputeFullAsync"/> fan-out. The persist:true side effect is honored: changed streak/longest/
+    /// completed are written on tracked rows and flushed with a SINGLE SaveChanges.
+    /// </summary>
+    private static async Task<List<HabitDto>> BuildHabitDtosAsync(
+        UsageDbContext db, string email, IReadOnlyList<Habit> habits, DateOnly today, CancellationToken ct)
+    {
+        var dtos = new List<HabitDto>(habits.Count);
+        if (habits.Count == 0) return dtos;
+
+        var windowStart = today.AddDays(-(CalendarDays - 1));
+        var habitIds = habits.Select(h => h.Id).ToList();
+
+        // ONE HabitDays read for all of the caller's habits in the window.
+        var days = await db.HabitDays.AsNoTracking()
+            .Where(x => habitIds.Contains(x.HabitId) && x.LocalDate >= windowStart && x.LocalDate <= today)
+            .ToListAsync(ct);
+        var daysByHabit = days.GroupBy(d => d.HabitId)
+            .ToDictionary(g => g.Key, g => g.ToDictionary(d => d.LocalDate));
+
+        // The shared auto-input maps, loaded ONCE (independent of habit count).
+        var cache = await LoadUserAutoInputsAsync(db, email, habits, windowStart, today, ct);
+
+        var emptyDays = new Dictionary<DateOnly, HabitDay>();
+        var toPersist = false;
+        foreach (var h in habits)
+        {
+            var rowByDate = daysByHabit.TryGetValue(h.Id, out var m) ? m : emptyDays;
+            var facts = new List<HabitScoring.DayFact>();
+            var completed = 0;
+            var whenStart = MaxDate(h.StartDate, windowStart);
+            for (var d = whenStart; d <= today; d = d.AddDays(1))
+            {
+                rowByDate.TryGetValue(d, out var row);
+                var input = ProjectAutoInput(h, cache, d);
+                var complete = HabitScoring.IsComplete(h, input, row?.Value, row?.Done);
+                if (complete) completed++;
+                facts.Add(new HabitScoring.DayFact(d, complete, row?.Skip ?? false));
+            }
+            var streak = HabitScoring.CadenceStreak(h, facts, today);
+
+            rowByDate.TryGetValue(today, out var todayRow);
+            var todayInput = ProjectAutoInput(h, cache, today);
+
+            if (h.CurrentStreak != streak.CurrentStreak || h.LongestStreak != streak.LongestStreak
+                || h.CompletedCount != completed)
+                toPersist = true;
+
+            dtos.Add(new HabitDto(
+                h.Id, h.Title, h.Cadence.ToString(), h.DaysOfWeekMask,
+                h.TimesPerPeriod, h.PeriodDays, h.TargetValue, h.Unit, h.PartialCredit,
+                h.AutoSource.ToString(), h.MinMinutes, h.Color, h.Icon,
+                h.StartDate.ToString("yyyy-MM-dd"), h.EndDate?.ToString("yyyy-MM-dd"),
+                h.Status.ToString(), streak.CurrentStreak, streak.LongestStreak, completed,
+                ToDayDto(h, today, todayRow, todayInput)));
+
+            // Stash the freshly computed cache on the (no-tracking) instance so the persist pass below can compare.
+            h.CurrentStreak = streak.CurrentStreak;
+            h.LongestStreak = streak.LongestStreak;
+            h.CompletedCount = completed;
+        }
+
+        // Persist the recomputed caches for any habit whose stored values drifted — batched into ONE SaveChanges.
+        if (toPersist)
+        {
+            var tracked = await db.Habits
+                .Where(x => habitIds.Contains(x.Id))
+                .ToListAsync(ct);
+            var freshById = habits.ToDictionary(h => h.Id);
+            var now = DateTime.UtcNow;
+            var dirty = false;
+            foreach (var t in tracked)
+            {
+                if (!freshById.TryGetValue(t.Id, out var fresh)) continue;
+                if (t.CurrentStreak == fresh.CurrentStreak && t.LongestStreak == fresh.LongestStreak
+                    && t.CompletedCount == fresh.CompletedCount)
+                    continue;
+                t.CurrentStreak = fresh.CurrentStreak;
+                t.LongestStreak = fresh.LongestStreak;
+                t.CompletedCount = fresh.CompletedCount;
+                t.UpdatedUtc = now;
+                dirty = true;
+            }
+            if (dirty) await db.SaveChangesAsync(ct);
+        }
+
+        return dtos;
     }
 
     /// <summary>

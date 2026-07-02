@@ -23,11 +23,13 @@ public sealed class PresenceMiddleware(RequestDelegate next, PresenceTracker pre
         {
             if (ctx.User.Identity?.IsAuthenticated == true)
             {
-                // Defense-in-depth: OnTokenValidated already fails disabled accounts at the auth boundary,
-                // but if a disabled user's AppUser was stashed we must never stamp presence for them —
-                // otherwise an offboarded account keeps advertising itself as online (and its shared city).
-                var stampable = !(ctx.Items.TryGetValue(CurrentUserAccessor.LoadedUserKey, out var stashed)
-                    && stashed is AppUser user && !user.IsEnabled);
+                // Only stamp presence for a user OnTokenValidated actually resolved to an enabled account
+                // (it stashes the loaded AppUser under LoadedUserKey for exactly those). A token whose
+                // account was deleted — or disabled — is never stashed, so we skip it here; otherwise an
+                // offboarded/unknown account keeps advertising itself as online (and its shared city) until
+                // its still-valid token expires.
+                var stampable = ctx.Items.TryGetValue(CurrentUserAccessor.LoadedUserKey, out var stashed)
+                    && stashed is AppUser user && user.IsEnabled;
 
                 var email = ctx.User.FindFirstValue("email");
                 if (stampable && !string.IsNullOrWhiteSpace(email))

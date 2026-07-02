@@ -85,8 +85,10 @@ public static class DayRecapEndpoints
             GeminiService gemini, IMemoryCache cache, UsageDbContext db, CancellationToken ct) =>
         {
             var caller = (await me.GetUserAsync(ct))!;
-            var tz = await ResolveTimeZoneAsync(db, ct);
-            var localDate = ResolveDate(date, tz);
+            var tz = await TrackerVisibility.DisplayTzAsync(db, ct);
+            var localDate = TrackerService.TryParseDate(date, out var parsed)
+                ? parsed
+                : DateOnly.FromDateTime(TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, tz));
 
             var snapshot = await BuildDaySnapshotAsync(db, households, caller, localDate, tz, ct);
 
@@ -118,23 +120,6 @@ public static class DayRecapEndpoints
                 snapshot.Timeline, snapshot.Stats, snapshot.Highlights,
                 narrative, snapshot.Domains));
         });
-    }
-
-    /// <summary>The display timezone (UTC when unset/invalid), shared with the tracker's date resolution.</summary>
-    private static async Task<TimeZoneInfo> ResolveTimeZoneAsync(UsageDbContext db, CancellationToken ct)
-    {
-        var id = (await db.AppConfigs.AsNoTracking().FirstOrDefaultAsync(ct))?.DisplayTimeZone;
-        if (string.IsNullOrWhiteSpace(id)) return TimeZoneInfo.Utc;
-        try { return TimeZoneInfo.FindSystemTimeZoneById(id); } catch { return TimeZoneInfo.Utc; }
-    }
-
-    /// <summary>Parse the requested local date (yyyy-MM-dd), defaulting to TODAY in the display timezone.</summary>
-    private static DateOnly ResolveDate(string? date, TimeZoneInfo tz)
-    {
-        if (DateOnly.TryParseExact((date ?? "").Trim(), "yyyy-MM-dd",
-                CultureInfo.InvariantCulture, DateTimeStyles.None, out var parsed))
-            return parsed;
-        return DateOnly.FromDateTime(TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, tz));
     }
 
     /// <summary>The deterministic snapshot the endpoint serves (and pre-formats into <see cref="Facts"/> for

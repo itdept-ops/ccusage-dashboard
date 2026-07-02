@@ -78,6 +78,10 @@ export class TrackerStore {
       this.day.set(day);
     } catch (e: unknown) {
       if (seq !== this.loadSeq) return;
+      // Offline (status 0) is a transport failure, not a server error: an offline-queued mutation
+      // optimistically acks its POST, but this follow-up GET can't reach the server. Don't clear a
+      // good day() or paint a tracker-wide error banner over an action that will replay on reconnect.
+      if (this.isOffline(e)) return;
       this.error.set(this.messageOf(e));
     } finally {
       // Only the latest load clears the spinner; a stale load resolving first must not.
@@ -255,6 +259,11 @@ export class TrackerStore {
   /** Fetch the caller's OWN per-slot weight statistics (averages, latest, morning→evening delta). */
   async weightStats(days = 90): Promise<WeightStatsDto> {
     return firstValueFrom(this.api.weightStats(days));
+  }
+
+  /** True when a failure is a browser-offline transport error (HttpErrorResponse status 0), not a server response. */
+  private isOffline(e: unknown): boolean {
+    return (e as { status?: number })?.status === 0;
   }
 
   private messageOf(e: unknown): string {

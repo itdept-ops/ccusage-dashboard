@@ -126,7 +126,7 @@ const REACTION_EMOJIS: readonly string[] = [
     LiveLocationCard,
   ],
   templateUrl: './chat.html',
-  changeDetection: ChangeDetectionStrategy.Eager,
+  changeDetection: ChangeDetectionStrategy.OnPush,
   styleUrl: './chat.scss',
 })
 export class Chat implements AfterViewChecked, OnDestroy {

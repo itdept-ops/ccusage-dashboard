@@ -5302,6 +5302,16 @@ public sealed class GeminiService(
     private const int MultimodalMaxOutputTokens = 16384;
 
     /// <summary>
+    /// Hard ceiling on a Gemini response body we will buffer into memory before parsing. The Gemini client
+    /// carries a production secret (the x-goog-api-key header) and reads straight into <c>JsonDocument</c>,
+    /// so — like the already-hardened sibling services (GoogleCalendar/WorkoutX/Fitbit/IpGeo) — every read
+    /// is routed through <see cref="ReadCappedAsync"/> to stop a compromised/MITM'd/pathological upstream
+    /// forcing an unbounded allocation. 16 MB sits comfortably above the largest legitimate structured-JSON
+    /// reply (the 16 384-token multimodal path) while still bounding the worst case.
+    /// </summary>
+    private const int MaxResponseBytes = 16 * 1024 * 1024;
+
+    /// <summary>
     /// POST a prompt to <c>:generateContent</c> with structured-JSON output, and return the parsed JSON
     /// object the model produced. Returns null on any non-200 (esp. 429/503), timeout, network error, or a
     /// non-JSON/non-object reply. Identical prompts are cached briefly. Never throws; never logs the key.
@@ -5344,8 +5354,9 @@ public sealed class GeminiService(
                 return null;
             }
 
-            await using var stream = await res.Content.ReadAsStreamAsync(ct);
-            using var doc = await JsonDocument.ParseAsync(stream, cancellationToken: ct);
+            var bytes = await ReadCappedAsync(res, MaxResponseBytes, ct);
+            if (bytes is null) { usage.SetParseFailed(); return null; }
+            using var doc = JsonDocument.Parse(bytes);
             usage.ReadUsageMetadata(doc.RootElement);
 
             var text = ExtractText(doc.RootElement);
@@ -5414,8 +5425,9 @@ public sealed class GeminiService(
                 return null;
             }
 
-            await using var stream = await res.Content.ReadAsStreamAsync(ct);
-            using var doc = await JsonDocument.ParseAsync(stream, cancellationToken: ct);
+            var bytes = await ReadCappedAsync(res, MaxResponseBytes, ct);
+            if (bytes is null) { usage.SetParseFailed(); return null; }
+            using var doc = JsonDocument.Parse(bytes);
             usage.ReadUsageMetadata(doc.RootElement);
 
             var text = ExtractText(doc.RootElement);
@@ -5473,6 +5485,28 @@ public sealed class GeminiService(
         return res!;
     }
 
+    /// <summary>Buffer a response body into memory but abort if it exceeds <paramref name="maxBytes"/>,
+    /// so a compromised/MITM'd/pathological upstream cannot force an arbitrarily large allocation on the
+    /// AI request thread. <c>MaxResponseContentBufferSize</c> does NOT cover this — it is bypassed by
+    /// <c>ReadAsStreamAsync</c> — so the cap must be a manual streamed one. Returns null if the body is
+    /// over the cap or a read error occurs.</summary>
+    private static async Task<byte[]?> ReadCappedAsync(HttpResponseMessage res, int maxBytes, CancellationToken ct)
+    {
+        // If the endpoint advertises a length, reject oversized bodies before reading a single byte.
+        if (res.Content.Headers.ContentLength is long len && len > maxBytes) return null;
+
+        await using var stream = await res.Content.ReadAsStreamAsync(ct);
+        using var buffer = new MemoryStream();
+        var chunk = new byte[8192];
+        int read;
+        while ((read = await stream.ReadAsync(chunk.AsMemory(0, chunk.Length), ct)) > 0)
+        {
+            if (buffer.Length + read > maxBytes) return null;
+            buffer.Write(chunk, 0, read);
+        }
+        return buffer.ToArray();
+    }
+
     private async Task<JsonElement?> GenerateMultimodalJsonAsync(
         string kind, string prompt, IReadOnlyList<(string base64, string mime)> images, CancellationToken ct)
     {
@@ -5502,8 +5536,9 @@ public sealed class GeminiService(
                 return null;
             }
 
-            await using var stream = await res.Content.ReadAsStreamAsync(ct);
-            using var doc = await JsonDocument.ParseAsync(stream, cancellationToken: ct);
+            var bytes = await ReadCappedAsync(res, MaxResponseBytes, ct);
+            if (bytes is null) { usage.SetParseFailed(); return null; }
+            using var doc = JsonDocument.Parse(bytes);
             usage.ReadUsageMetadata(doc.RootElement);
 
             var text = ExtractText(doc.RootElement);

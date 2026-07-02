@@ -66,11 +66,11 @@ interface KindGroup {
             Cross-domain stats from <strong>your</strong> data only — statistical signals, not medical advice.
           </p>
         </div>
-        <div class="iq-head__windows" role="tablist" aria-label="Insight window"
+        <div class="iq-head__windows" role="radiogroup" aria-label="Insight window"
              (keydown)="onWindowKeydown($event)">
           @for (w of windows; track w.value; let i = $index) {
-            <button type="button" class="iq-chip" role="tab" #windowTab
-                    [class.is-on]="window() === w.value" [attr.aria-selected]="window() === w.value"
+            <button type="button" class="iq-chip" role="radio" #windowTab
+                    [class.is-on]="window() === w.value" [attr.aria-checked]="window() === w.value"
                     [tabindex]="window() === w.value ? 0 : -1"
                     [disabled]="loading()" (click)="setWindow(w.value)">{{ w.label }}</button>
           }
@@ -265,7 +265,7 @@ export class InsightsPage {
     this.reload();
   }
 
-  /** Roving-tabindex arrow-key nav across the window tablist (Left/Right/Home/End). */
+  /** Roving-tabindex arrow-key nav across the window radiogroup (Left/Right/Home/End). */
   onWindowKeydown(ev: KeyboardEvent): void {
     const keys = ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End'];
     if (!keys.includes(ev.key)) return;

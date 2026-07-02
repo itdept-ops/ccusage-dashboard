@@ -247,6 +247,16 @@ public static class HardChallengeEndpoints
                 db.HardChallengeDays.Add(row);
             }
             ApplyDayManual(row, req, confessionProvided, confession, now);
+            // Keep ConfessionsUsed in step with the actual transition: +1 on the first-time set, -1 when a
+            // previously-present confession is explicitly cleared (guarded so it never goes below zero). Applied
+            // to the tracked challenge BEFORE the save so the counter and the day row commit atomically — a
+            // mid-request failure can no longer persist the Confession while dropping the counter delta.
+            static void ApplyConfessionDelta(HardChallenge c, bool had, bool provided, string? conf, DateTime ts)
+            {
+                if (!had && conf is not null) { c.ConfessionsUsed += 1; c.UpdatedUtc = ts; }
+                else if (had && provided && conf is null) { c.ConfessionsUsed = Math.Max(0, c.ConfessionsUsed - 1); c.UpdatedUtc = ts; }
+            }
+            ApplyConfessionDelta(challenge, hadConfession, confessionProvided, confession, now);
             try
             {
                 await db.SaveChangesAsync(ct);
@@ -260,6 +270,7 @@ public static class HardChallengeEndpoints
                     .FirstAsync(x => x.UserEmail == caller.Email && x.LocalDate == localDate, ct);
                 hadConfession = row.Confession is not null;
                 ApplyDayManual(row, req, confessionProvided, confession, now);
+                ApplyConfessionDelta(challenge, hadConfession, confessionProvided, confession, now);
                 await db.SaveChangesAsync(ct);
             }
 
@@ -270,21 +281,6 @@ public static class HardChallengeEndpoints
                     .Where(t => t.ChallengeId == challenge.Id)
                     .ToDictionaryAsync(t => t.Key, ct);
                 await UpsertTaskProgressAsync(db, caller.Email, challenge.Id, localDate, req.Tasks, taskByKey, now, ct);
-            }
-
-            // Keep ConfessionsUsed in step with the actual transition: +1 on the first-time set, -1 when a
-            // previously-present confession is explicitly cleared (guarded so it never goes below zero).
-            if (!hadConfession && confession is not null)
-            {
-                challenge.ConfessionsUsed += 1;
-                challenge.UpdatedUtc = now;
-                await db.SaveChangesAsync(ct);
-            }
-            else if (hadConfession && confessionProvided && confession is null)
-            {
-                challenge.ConfessionsUsed = Math.Max(0, challenge.ConfessionsUsed - 1);
-                challenge.UpdatedUtc = now;
-                await db.SaveChangesAsync(ct);
             }
 
             var dto = await BuildDayDtoAsync(db, caller.Email, challenge, localDate, readOnly: false, ct);
@@ -1332,10 +1328,10 @@ public static class HardChallengeEndpoints
         return list;
     }
 
+    // Single source of truth — the SAME yyyy-MM-dd invariant parse the food/fitness tracker and AI features use
+    // (TrackerService.TryParseDate), so any future change to accepted date formats stays uniform across all three.
     private static bool TryParseDate(string? date, out DateOnly result) =>
-        DateOnly.TryParseExact((date ?? "").Trim(), "yyyy-MM-dd",
-            System.Globalization.CultureInfo.InvariantCulture,
-            System.Globalization.DateTimeStyles.None, out result);
+        TrackerService.TryParseDate(date, out result);
 
     private static string? Trunc(string? s, int max) =>
         s is null ? null : (s.Length > max ? s[..max] : s);

@@ -1848,7 +1848,17 @@ public static class FamilyFinanceEndpoints
             }
             catch (DbUpdateException ex) when (IsUniqueViolation(ex))
             {
-                // A concurrent same-day entry won the race — the latest value is in; return the net worth.
+                // A concurrent first-time entry for this (household, account, day) won the insert race; our Add
+                // rolled back. Reload the now-existing snapshot and re-apply THIS caller's value (last-writer-wins),
+                // mirroring the reload+re-apply used by the Cycle/Journal day-log upserts — don't lose the value.
+                db.ChangeTracker.Clear();
+                var winner = await db.FinanceBalanceSnapshots
+                    .FirstAsync(s => s.HouseholdId == household.Id
+                        && s.AccountId == id && s.AsOfDate == asOf, ct);
+                winner.Balance = decimal.Round(balance, 2);
+                winner.Note = note;
+                winner.EnteredByUserId = caller.Id;
+                await db.SaveChangesAsync(ct);
             }
 
             var result = await ComputeNetWorthAsync(db, household.Id, ct);
@@ -2270,7 +2280,11 @@ public static class FamilyFinanceEndpoints
         _ => "expense",
     };
 
-    /// <summary>Parse a "YYYY-MM" month into a [from, toExclusive) date window; false if blank/invalid.</summary>
+    /// <summary>Parse a "YYYY-MM" month into a [from, toExclusive) date window; false if blank/invalid OR outside a
+    /// sane calendar window. The range guard is essential: downstream callers do from.AddMonths(-11) (summary trend)
+    /// and from.AddMonths(-1) (prior-month facts), so an extreme year (e.g. 0001-01) would underflow DateOnly below
+    /// its minimum and throw an unhandled 500. Treating an out-of-range month as unparseable lets every caller fall
+    /// back to its default month instead.</summary>
     private static bool TryParseMonth(string? month, out DateOnly from, out DateOnly toExclusive)
     {
         from = default;
@@ -2279,6 +2293,9 @@ public static class FamilyFinanceEndpoints
         if (!DateTime.TryParseExact(month.Trim(), "yyyy-MM", CultureInfo.InvariantCulture,
                 DateTimeStyles.None, out var dt))
             return false;
+        // Reject years far outside the plausible present so the AddMonths math above stays in DateOnly's range.
+        var nowYear = DateTime.UtcNow.Year;
+        if (dt.Year < nowYear - 30 || dt.Year > nowYear + 2) return false;
         from = new DateOnly(dt.Year, dt.Month, 1);
         toExclusive = from.AddMonths(1);
         return true;

@@ -133,12 +133,6 @@ export class AuthService {
     this.persist(updated);
   }
 
-  /** Valid bearer token, or null if missing/expired. */
-  get token(): string | null {
-    const s = this._session();
-    return s && new Date(s.expiresAtUtc).getTime() > Date.now() ? s.token : null;
-  }
-
   config(): Observable<{ googleClientId: string }> {
     return this.http.get<{ googleClientId: string }>('/api/auth/config');
   }

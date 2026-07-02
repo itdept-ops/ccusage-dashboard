@@ -176,6 +176,10 @@ public sealed class ChatLocationShareService(UsageDbContext db, IHubContext<Chat
     public async Task<List<ChatLocationShareDto>> GetActiveAsync(int channelId, CancellationToken ct = default)
     {
         var now = DateTime.UtcNow;
+        // An archive shuts the conversation down (send/hub/start/update/extend all refuse it) — close the READ
+        // path too, or a member who opens/late-joins the archived conversation is served the sharer's last GPS
+        // pin as a live/active share past the moderator's archive.
+        if (await IsChannelArchivedAsync(channelId, ct)) return new();
         var rows = await db.ChatLocationShares.AsNoTracking()
             .Where(s => s.ChannelId == channelId && !s.Stopped && s.ExpiresUtc > now)
             .OrderByDescending(s => s.StartUtc)

@@ -59,8 +59,10 @@ public sealed class TrackerService
             return new TargetResolution("", false,
                 Results.BadRequest(new { message = "`user` must be a positive user id." }));
 
+        // A DISABLED account is invisible to viewers (same as the from-meal / shared / leaderboard paths):
+        // a disabled id resolves to nobody ⇒ 404, so offboarding cuts off tracker/75-Hard visibility too.
         var targetEmail = await db.Users.AsNoTracking()
-            .Where(u => u.Id == targetId).Select(u => u.Email).FirstOrDefaultAsync(ct);
+            .Where(u => u.Id == targetId && u.IsEnabled).Select(u => u.Email).FirstOrDefaultAsync(ct);
         if (string.IsNullOrEmpty(targetEmail))
             return new TargetResolution("", false, Results.NotFound());
 

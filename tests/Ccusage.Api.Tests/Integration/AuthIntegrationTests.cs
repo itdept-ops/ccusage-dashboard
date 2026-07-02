@@ -402,7 +402,14 @@ public class AuthIntegrationTests(WebAppFactory factory)
         login.Headers.TryGetValues("Set-Cookie", out var setCookies).Should().BeTrue();
         var jwtCookie = setCookies!.FirstOrDefault(c => c.StartsWith("usage_iq_jwt="));
         jwtCookie.Should().NotBeNull("login must set the usage_iq_jwt cookie");
-        jwtCookie!.ToLowerInvariant().Should().Contain("httponly");
+
+        // The cookie's security attributes ARE the CSRF/cookie-theft defense of the cookie refactor, so
+        // pin them: HttpOnly (no JS read) + SameSite=Lax (never sent on cross-site sub-requests). A
+        // regression to SameSite=None would silently reopen the app to CSRF, so assert the negative too.
+        var jwtCookieLower = jwtCookie!.ToLowerInvariant();
+        jwtCookieLower.Should().Contain("httponly");
+        jwtCookieLower.Should().Contain("samesite=lax");
+        jwtCookieLower.Should().NotContain("samesite=none");
 
         // A follow-up request carrying ONLY that cookie (no Authorization header) is authenticated.
         var cookiePair = jwtCookie.Split(';')[0]; // "usage_iq_jwt=<jwt>"
@@ -418,8 +425,53 @@ public class AuthIntegrationTests(WebAppFactory factory)
         var res = await factory.CreateClient().PostAsync("/api/auth/logout", null);
         res.StatusCode.Should().Be(HttpStatusCode.OK);
         res.Headers.TryGetValues("Set-Cookie", out var setCookies).Should().BeTrue();
-        setCookies!.Should().Contain(c => c.StartsWith("usage_iq_jwt=")
-            && (c.Contains("expires=", StringComparison.OrdinalIgnoreCase) || c.Contains("max-age=0", StringComparison.OrdinalIgnoreCase)));
+        var jwtCookie = setCookies!.FirstOrDefault(c => c.StartsWith("usage_iq_jwt="));
+        jwtCookie.Should().NotBeNull("logout must re-set (to clear) the usage_iq_jwt cookie");
+        jwtCookie!.Should().Match(c => c.Contains("expires=", StringComparison.OrdinalIgnoreCase)
+            || c.Contains("max-age=0", StringComparison.OrdinalIgnoreCase));
+
+        // The clearing cookie is emitted with the SAME options, so its security attributes must hold too —
+        // a stray SameSite=None on the delete would still be a shipped cross-site cookie.
+        var jwtCookieLower = jwtCookie.ToLowerInvariant();
+        jwtCookieLower.Should().Contain("httponly");
+        jwtCookieLower.Should().Contain("samesite=lax");
+        jwtCookieLower.Should().NotContain("samesite=none");
+    }
+
+    [Fact]
+    public async Task Bearer_header_wins_over_a_cookie_for_a_different_user()
+    {
+        // The load-bearing precedence: the cookie is consulted ONLY when no Authorization header was sent,
+        // so a Bearer for user A alongside a (valid) cookie minted for user B must authenticate as A. A
+        // reorder that let the cookie shadow the header would be an identity-confusion / privilege-crossing
+        // bug on a PII/health/payments app, so pin it: /api/auth/me must come back as A.
+        var (_, emailA) = await CreateUser();
+        var (_, emailB) = await CreateUser();
+
+        var req = new HttpRequestMessage(HttpMethod.Get, "/api/auth/me");
+        req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", TestJwt.For(emailA));
+        req.Headers.Add("Cookie", $"usage_iq_jwt={TestJwt.For(emailB)}");
+
+        var res = await factory.CreateClient().SendAsync(req);
+        res.StatusCode.Should().Be(HttpStatusCode.OK);
+        (await res.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("email").GetString().Should().Be(emailA);
+    }
+
+    [Fact]
+    public async Task A_garbage_cookie_alongside_a_valid_bearer_still_authenticates_via_the_bearer()
+    {
+        // A stale/undecodable cookie must NEVER be able to knock out a valid Bearer: because the cookie is
+        // only read when the Authorization header is absent, the garbage cookie is ignored entirely and the
+        // request authenticates as the Bearer principal (not 401).
+        var (_, email) = await CreateUser();
+
+        var req = new HttpRequestMessage(HttpMethod.Get, "/api/auth/me");
+        req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", TestJwt.For(email));
+        req.Headers.Add("Cookie", "usage_iq_jwt=not-a-real-jwt.garbage.value");
+
+        var res = await factory.CreateClient().SendAsync(req);
+        res.StatusCode.Should().Be(HttpStatusCode.OK);
+        (await res.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("email").GetString().Should().Be(email);
     }
 
     /// <summary>Sets the global access policy (open sign-up + default permissions) as the admin.</summary>

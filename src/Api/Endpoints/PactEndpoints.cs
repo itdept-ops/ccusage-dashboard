@@ -170,6 +170,8 @@ public static class PactEndpoints
             if (pact is null) return Results.NotFound();
             if (!string.Equals(pact.OwnerEmail, callerEmail, StringComparison.Ordinal))
                 return Results.StatusCode(StatusCodes.Status403Forbidden);
+            if (pact.ArchivedUtc != null)
+                return Results.Conflict(new { message = "This pact has been archived and can no longer be changed." });
 
             var ids = req?.MemberUserIds ?? Array.Empty<int>();
             var invited = await InviteMembersAsync(db, notifier, pact, callerEmail, ids, ct);
@@ -189,6 +191,12 @@ public static class PactEndpoints
             var member = await db.HabitPactMembers
                 .FirstOrDefaultAsync(m => m.HabitPactId == id && m.MemberEmail == callerEmail, ct);
             if (member is null) return Results.NotFound(); // never invited ⇒ existence not revealed
+
+            // An archived pact is retired: a lingering invite can no longer be accepted.
+            var isArchived = await db.HabitPacts.AsNoTracking()
+                .AnyAsync(p => p.Id == id && p.ArchivedUtc != null, ct);
+            if (isArchived)
+                return Results.Conflict(new { message = "This pact is no longer active." });
 
             // Join only transitions a PENDING invite → Active. An already-Active member is idempotent (no-op
             // success). A member who Left (or declined) must NOT be able to silently re-activate — they need a
@@ -229,7 +237,7 @@ public static class PactEndpoints
             var callerEmail = caller.Email.ToLowerInvariant();
 
             var pact = await db.HabitPacts.AsNoTracking().FirstOrDefaultAsync(p => p.Id == id, ct);
-            if (pact is null) return Results.NotFound();
+            if (pact is null || pact.ArchivedUtc != null) return Results.NotFound(); // archived ⇒ retired, treat as gone
 
             // Only an active participant (owner or an Active member) may read progress — 404 otherwise.
             // An invited-but-unjoined (or declined/left) member must not see other participants' counts.

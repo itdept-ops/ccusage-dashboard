@@ -84,7 +84,7 @@ public sealed class ActivityEmitter(IServiceScopeFactory scopeFactory, ILogger<A
             {
                 await db.SaveChangesAsync(ct);
             }
-            catch (DbUpdateException dbEx) when (IsUniqueViolation(dbEx))
+            catch (DbUpdateException dbEx) when (TrackerVisibility.IsUniqueViolation(dbEx))
             {
                 // A concurrent emit for the same de-dupe key ("emit once" crossing) won the race and inserted
                 // the row first, tripping the unique index on ActivityEvents(ActorEmail, Kind, IntValue). Treat
@@ -137,26 +137,5 @@ public sealed class ActivityEmitter(IServiceScopeFactory scopeFactory, ILogger<A
         }
 
         await EmitAsync(actorEmail ?? "", kind, intValue, label, ct);
-    }
-
-    /// <summary>
-    /// True when a <see cref="DbUpdateException"/> was caused by a unique-index violation (the concurrent-
-    /// duplicate race on ActivityEvents(ActorEmail, Kind, IntValue)). Provider-agnostic: it scans the inner-
-    /// exception chain's text for the well-known unique/duplicate-key signatures so no provider-specific package
-    /// is needed. Anything else re-throws to the outer catch and is logged+swallowed as before.
-    /// </summary>
-    private static bool IsUniqueViolation(DbUpdateException ex)
-    {
-        for (Exception? e = ex; e is not null; e = e.InnerException)
-        {
-            var text = e.Message;
-            if (text.Contains("unique", StringComparison.OrdinalIgnoreCase)
-                || text.Contains("duplicate", StringComparison.OrdinalIgnoreCase)
-                || text.Contains("UNIQUE constraint failed", StringComparison.OrdinalIgnoreCase))
-            {
-                return true;
-            }
-        }
-        return false;
     }
 }

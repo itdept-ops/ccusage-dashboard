@@ -58,6 +58,13 @@ public sealed class LogScanner(IngestClient client, FileStateStore state, int ba
     // real transcript; skip it rather than risk materializing it as one giant string (potential OOM).
     private const long MaxFileBytes = 512L * 1024 * 1024;
 
+    // The per-file cap alone does not stop a single newline-free line from being materialized as one
+    // giant string (a ~1 GB LOH allocation, doubled again by JSON parsing) — a residual OOM/DoS from
+    // one crafted/corrupt file. Bound the per-LINE length too: any single line past this is not a
+    // plausible transcript line, so we abort the read (see LineLengthLimitReader) and skip the file.
+    // Keep this in sync with the server's ingest path so the two agree on what they'll accept.
+    private const int MaxLineChars = 8 * 1024 * 1024;
+
     // Cap the recursion depth so a pathological (or link-built) directory tree cannot loop forever.
     private const int MaxDepth = 64;
 
@@ -179,7 +186,12 @@ public sealed class LogScanner(IngestClient client, FileStateStore state, int ba
     private static List<ParsedUsage> ParseFile(ISourceParser parser, string path)
     {
         using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
-        using var reader = new StreamReader(stream);
+        using var inner = new StreamReader(stream);
+        // Cap per-line length so a newline-free blob can't be materialized as one giant string: the
+        // wrapper throws once a single line exceeds MaxLineChars, which the ParseFile caller catches
+        // and turns into a skip-with-warning (same outcome as the oversized-file guard, but for the
+        // single-huge-line case the byte cap misses).
+        using var reader = new LineLengthLimitReader(inner, MaxLineChars);
         // Pass the FULL path so path-aware parsers (Gemini/Antigravity) can derive a stable
         // per-conversation dedup key + file mtime; content-keyed parsers (Claude/Codex) ignore it.
         return parser.Parse(reader, path).ToList();
@@ -237,5 +249,49 @@ public sealed class LogScanner(IngestClient client, FileStateStore state, int ba
             catch { files = Array.Empty<string>(); }
             foreach (var f in files) yield return f;
         }
+    }
+}
+
+/// <summary>
+/// Wraps a <see cref="TextReader"/> and enforces a hard per-line character cap on <see cref="ReadLine"/>.
+/// A single line longer than the cap (e.g. a newline-free corrupt/crafted blob) throws instead of
+/// being materialized as one giant string — the caller treats the throw as "skip this file". Line
+/// terminators follow <see cref="TextReader.ReadLine"/> semantics ('\n', '\r', or "\r\n").
+/// </summary>
+internal sealed class LineLengthLimitReader(TextReader inner, int maxLineChars) : TextReader
+{
+    public override int Read() => inner.Read();
+    public override int Peek() => inner.Peek();
+
+    public override string? ReadLine()
+    {
+        var first = inner.Read();
+        if (first < 0) return null; // EOF
+
+        var sb = new System.Text.StringBuilder();
+        var c = first;
+        while (c >= 0)
+        {
+            if (c == '\n') break;
+            if (c == '\r')
+            {
+                if (inner.Peek() == '\n') inner.Read(); // consume the '\n' of a "\r\n" pair
+                break;
+            }
+
+            if (sb.Length >= maxLineChars)
+                throw new InvalidDataException(
+                    $"log line exceeds the {maxLineChars}-char limit (newline-free or corrupt file)");
+
+            sb.Append((char)c);
+            c = inner.Read();
+        }
+        return sb.ToString();
+    }
+
+    protected override void Dispose(bool disposing)
+    {
+        if (disposing) inner.Dispose();
+        base.Dispose(disposing);
     }
 }

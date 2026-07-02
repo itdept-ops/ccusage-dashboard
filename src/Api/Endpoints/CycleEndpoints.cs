@@ -237,10 +237,27 @@ public static class CycleEndpoints
             var caller = (await me.GetUserAsync(ct))!;
             var profile = await GetOrCreateProfileForUpdateAsync(db, caller, ct);
 
-            if (req.AvgCycleLengthDays is int c) profile.AvgCycleLengthDays = Math.Clamp(c, 15, 60);
-            if (req.AvgPeriodLengthDays is int pd) profile.AvgPeriodLengthDays = Math.Clamp(pd, 1, 14);
-            if (req.OverlayToFamily is bool o) profile.OverlayToFamily = o;
-            await db.SaveChangesAsync(ct);
+            void ApplyEdits(CycleProfile p)
+            {
+                if (req.AvgCycleLengthDays is int c) p.AvgCycleLengthDays = Math.Clamp(c, 15, 60);
+                if (req.AvgPeriodLengthDays is int pd) p.AvgPeriodLengthDays = Math.Clamp(pd, 1, 14);
+                if (req.OverlayToFamily is bool o) p.OverlayToFamily = o;
+            }
+
+            ApplyEdits(profile);
+            try
+            {
+                await db.SaveChangesAsync(ct);
+            }
+            catch (DbUpdateException ex) when (TrackerVisibility.IsUniqueViolation(ex))
+            {
+                // A concurrent first-time PATCH raced our profile insert; reload + re-apply onto the winner.
+                db.ChangeTracker.Clear();
+                profile = await db.CycleProfiles
+                    .FirstAsync(p => p.UserEmail == caller.Email, ct);
+                ApplyEdits(profile);
+                await db.SaveChangesAsync(ct);
+            }
 
             return Results.Ok(ToSettingsDto(profile));
         });

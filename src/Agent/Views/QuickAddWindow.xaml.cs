@@ -60,10 +60,14 @@ public partial class QuickAddWindow : Window
             return;
         }
 
-        // The ingest key is a bearer secret; over plain http to a non-local host it travels in cleartext.
-        // Match the console/PowerShell guard (Reporter/Program.cs): warn — don't refuse — so an http URL still works.
+        // The ingest key is a bearer secret; over plain http to a non-local host it would travel in
+        // cleartext, so QuickAddClient refuses to send it. Mirror that refusal up front with one accurate
+        // message and skip the network attempt (rather than claim a cleartext send that never happens).
         if (Uri.TryCreate(url, UriKind.Absolute, out var parsed) && parsed.Scheme == "http" && !parsed.IsLoopback)
-            _notify("Server URL is http:// to a non-local host — the ingest key is sent in cleartext. Use https.", false);
+        {
+            ShowStatus("Server URL is http:// to a non-local host — quick-add needs https to send your key safely. Use https in Settings.");
+            return;
+        }
 
         SetBusy(true);
         try

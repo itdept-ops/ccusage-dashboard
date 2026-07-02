@@ -43,6 +43,11 @@ public sealed class WeatherService(
     public const string HttpClientName = "openweather";
     private static readonly TimeSpan CacheTtl = TimeSpan.FromMinutes(10);
 
+    // A current-conditions reply is a few KB; cap the read so a compromised/MITM'd/misbehaving upstream
+    // can't stream an unbounded body and OOM the request (MaxResponseContentBufferSize is bypassed by
+    // ReadAsStreamAsync, so the cap must be a manual streamed one — matching the sibling services).
+    private const int MaxResponseBytes = 256 * 1024;
+
     private readonly OpenWeatherOptions _opt = options.Value;
 
     public bool IsConfigured => _opt.IsConfigured;
@@ -76,8 +81,14 @@ public sealed class WeatherService(
                 return null;
             }
 
-            await using var stream = await res.Content.ReadAsStreamAsync(ct);
-            using var doc = await JsonDocument.ParseAsync(stream, cancellationToken: ct);
+            var bytes = await ReadCappedAsync(res, MaxResponseBytes, ct);
+            if (bytes is null)
+            {
+                logger.LogWarning("OpenWeather response exceeded {Max} bytes; rejecting.", MaxResponseBytes);
+                return null;
+            }
+
+            using var doc = JsonDocument.Parse(bytes.AsMemory());
             var root = doc.RootElement;
             if (root.ValueKind != JsonValueKind.Object) return null;
 
@@ -104,6 +115,28 @@ public sealed class WeatherService(
             logger.LogWarning("OpenWeather request failed: {Reason}", ex.Message);
             return null;
         }
+    }
+
+    /// <summary>Reads at most <paramref name="maxBytes"/> from the response body; returns null if the body
+    /// exceeds the cap (rather than allocating the whole thing) or the reported length already does.</summary>
+    private static async Task<byte[]?> ReadCappedAsync(HttpResponseMessage res, int maxBytes, CancellationToken ct)
+    {
+        if (res.Content.Headers.ContentLength is { } len && len > maxBytes) return null;
+
+        await using var stream = await res.Content.ReadAsStreamAsync(ct);
+        var buffer = new byte[maxBytes + 1];
+        var total = 0;
+        int read;
+        while (total < buffer.Length &&
+               (read = await stream.ReadAsync(buffer.AsMemory(total, buffer.Length - total), ct)) > 0)
+        {
+            total += read;
+        }
+        if (total > maxBytes) return null;
+
+        var result = new byte[total];
+        Array.Copy(buffer, result, total);
+        return result;
     }
 
     private static double GetNum(JsonElement el, string prop)

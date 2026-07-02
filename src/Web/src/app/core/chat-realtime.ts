@@ -58,6 +58,14 @@ export class ChatRealtime {
    * plus a "view all" affordance, so trimming the tail loses nothing the bell renders.
    */
   private static readonly MAX_NOTIFICATIONS = 100;
+  /**
+   * Upper bound on the retained per-channel message list. Live arrivals ({@link appendMessage}) append
+   * indefinitely on a long-lived PWA session in a busy channel, growing _messages (and, since the thread
+   * isn't virtualized, the rendered DOM) without limit. Trimming the OLDEST entries once the list exceeds
+   * this cap keeps memory + CD cost flat; loadHistory re-fetches older pages on demand when the user
+   * scrolls back up. Kept generous so an active conversation stays fully cached.
+   */
+  private static readonly MAX_MESSAGES_PER_CHANNEL = 500;
 
   // ---- connection state ----
   private readonly _connection = signal<ChatConnectionState>('disconnected');
@@ -691,7 +699,14 @@ export class ChatRealtime {
     this._messages.update(map => {
       const list = map[msg.channelId] ?? [];
       if (list.some(m => m.id === msg.id)) return map; // dedupe (e.g. own echo)
-      return { ...map, [msg.channelId]: [...list, msg] };
+      // Cap the retained tail so a busy channel on a long-lived session can't grow the cache (and the
+      // un-virtualized thread DOM) without bound; drop the oldest entries once over the cap. Older pages
+      // re-fetch via loadHistory when the user scrolls back up. Mirrors the MAX_NOTIFICATIONS cap above.
+      const next = [...list, msg];
+      const trimmed = next.length > ChatRealtime.MAX_MESSAGES_PER_CHANNEL
+        ? next.slice(next.length - ChatRealtime.MAX_MESSAGES_PER_CHANNEL)
+        : next;
+      return { ...map, [msg.channelId]: trimmed };
     });
   }
 

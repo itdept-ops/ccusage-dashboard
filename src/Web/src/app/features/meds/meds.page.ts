@@ -322,10 +322,10 @@ interface WindowOpt { value: number; label: string; }
       <!-- ─────────── ADD / EDIT MEDICATION SHEET ─────────── -->
       @if (medSheetOpen()) {
         <div class="md-scrim" (click)="closeMedSheet()" aria-hidden="true"></div>
-        <div class="md-sheet" role="dialog" aria-modal="true" aria-label="Medication"
+        <div class="md-sheet" role="dialog" aria-modal="true" aria-labelledby="md-sheet-title"
              dialogA11y (dismiss)="closeMedSheet()">
           <div class="md-sheet__head">
-            <h3 class="md-sheet__title">{{ editingId() ? 'Edit' : 'Add' }} medication</h3>
+            <h3 id="md-sheet-title" class="md-sheet__title">{{ editingId() ? 'Edit' : 'Add' }} medication</h3>
             <button type="button" class="md-icon-btn" (click)="closeMedSheet()" aria-label="Close">
               <mat-icon aria-hidden="true">close</mat-icon>
             </button>

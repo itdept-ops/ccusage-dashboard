@@ -44,7 +44,7 @@ interface PayLink {
         @if (payLinks().length) {
           <div class="ptc__pay">
             @for (p of payLinks(); track p.label) {
-              <a class="ptc__chip" [href]="p.url" target="_blank" rel="noopener"
+              <a class="ptc__chip" [href]="p.url" target="_blank" rel="noopener noreferrer"
                  (click)="$event.stopPropagation()">
                 <mat-icon aria-hidden="true">{{ p.icon }}</mat-icon>{{ p.label }}
               </a>

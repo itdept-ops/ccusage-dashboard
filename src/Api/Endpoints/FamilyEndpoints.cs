@@ -306,8 +306,11 @@ public static class FamilyEndpoints
     }
 
     private static async Task<bool> IsOwnerAsync(UsageDbContext db, int householdId, int userId, CancellationToken ct) =>
-        await db.HouseholdMembers.AsNoTracking()
-            .AnyAsync(m => m.HouseholdId == householdId && m.UserId == userId && m.Role == "owner", ct);
+        // Route through the centralized membership service (single source of truth for role queries)
+        // instead of re-deriving the HouseholdMembers predicate here.
+        string.Equals(
+            await HouseholdMembership.RoleInHouseholdAsync(db, householdId, userId, ct),
+            "owner", StringComparison.Ordinal);
 
     private static IResult Forbidden(string message) =>
         Results.Json(new { message }, statusCode: StatusCodes.Status403Forbidden);

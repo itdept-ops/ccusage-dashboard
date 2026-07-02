@@ -30,6 +30,11 @@ public sealed class ReverseGeocodeService(
 
     private static readonly TimeSpan CacheTtl = TimeSpan.FromDays(30);
 
+    // A coarse reverse-geocode reply is a few KB; cap the read so a compromised/MITM'd/misbehaving upstream
+    // can't stream an unbounded body and OOM the background geo worker (MaxResponseContentBufferSize is
+    // bypassed by ReadAsStreamAsync, so the cap must be a manual streamed one — matching the sibling services).
+    private const int MaxResponseBytes = 256 * 1024;
+
     // Process-wide 1 req/s throttle (Nominatim policy). A single gate serializes outbound calls; the cache
     // absorbs the common case so this rarely actually waits.
     private static readonly SemaphoreSlim Gate = new(1, 1);
@@ -77,8 +82,14 @@ public sealed class ReverseGeocodeService(
                 return null;
             }
 
-            await using var stream = await res.Content.ReadAsStreamAsync(ct);
-            using var doc = await JsonDocument.ParseAsync(stream, cancellationToken: ct);
+            var bytes = await ReadCappedAsync(res, MaxResponseBytes, ct);
+            if (bytes is null)
+            {
+                logger.LogWarning("Nominatim response exceeded {Max} bytes; rejecting.", MaxResponseBytes);
+                return null;
+            }
+
+            using var doc = JsonDocument.Parse(bytes.AsMemory());
             var root = doc.RootElement;
             if (root.ValueKind != JsonValueKind.Object) return null;
 
@@ -103,6 +114,28 @@ public sealed class ReverseGeocodeService(
         {
             Gate.Release();
         }
+    }
+
+    /// <summary>Reads at most <paramref name="maxBytes"/> from the response body; returns null if the body
+    /// exceeds the cap (rather than allocating the whole thing) or the reported length already does.</summary>
+    private static async Task<byte[]?> ReadCappedAsync(HttpResponseMessage res, int maxBytes, CancellationToken ct)
+    {
+        if (res.Content.Headers.ContentLength is > MaxResponseBytes) return null;
+
+        await using var stream = await res.Content.ReadAsStreamAsync(ct);
+        var buffer = new byte[maxBytes + 1];
+        var total = 0;
+        int read;
+        while (total < buffer.Length &&
+               (read = await stream.ReadAsync(buffer.AsMemory(total, buffer.Length - total), ct)) > 0)
+        {
+            total += read;
+        }
+        if (total > maxBytes) return null;
+
+        var result = new byte[total];
+        Array.Copy(buffer, result, total);
+        return result;
     }
 
     private static string? First(JsonElement addr, params string[] props)

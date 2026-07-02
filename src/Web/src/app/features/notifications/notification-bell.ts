@@ -5,6 +5,7 @@ import {
   inject,
   signal,
   ChangeDetectionStrategy,
+  DestroyRef,
 } from '@angular/core';
 import { Router } from '@angular/router';
 
@@ -67,6 +68,9 @@ export class NotificationBell {
   private dialog = inject(MatDialog);
   private snack = inject(MatSnackBar);
 
+  /** Handle for the open-menu heartbeat interval (see {@link onMenuOpened}); undefined when idle. */
+  private tickHandle: ReturnType<typeof setInterval> | undefined;
+
   readonly timeAgo = timeAgo;
 
   /** Recent notifications for the dropdown (newest-first; already deduped by the service). */
@@ -123,6 +127,17 @@ export class NotificationBell {
       if (prefs.surfaceToasts) this.showToast(n);
       if (prefs.surfaceBrowser) this.showBrowserNotification(n);
     });
+
+    // Guarantee the heartbeat interval is torn down if the component is destroyed while the menu is open.
+    inject(DestroyRef).onDestroy(() => this.stopTick());
+  }
+
+  /** Stop the open-menu heartbeat interval if running. */
+  private stopTick(): void {
+    if (this.tickHandle !== undefined) {
+      clearInterval(this.tickHandle);
+      this.tickHandle = undefined;
+    }
   }
 
   /** Material icon for a notification's type. */
@@ -180,6 +195,16 @@ export class NotificationBell {
       panel.setAttribute('role', 'region');
       panel.setAttribute('aria-label', 'Notifications');
     }
+    // Heartbeat: advance `now` every 30s so the relative "time ago" labels don't freeze at open-time.
+    // Runs only while the menu is open — it self-terminates once the panel leaves the DOM on close.
+    this.stopTick();
+    this.tickHandle = setInterval(() => {
+      if (!document.querySelector('.notif-menu.mat-mdc-menu-panel')) {
+        this.stopTick();
+        return;
+      }
+      this.now.set(Date.now());
+    }, 30_000);
   }
 
   // ---- live surfaces ----
@@ -213,9 +238,20 @@ export class NotificationBell {
     }
   }
 
-  /** Navigate to a notification link (an in-app path like /chat?c=..&m=..). No-ops when absent. */
+  /**
+   * A notification link is only trusted when it's a same-origin relative path: it must start with a
+   * single `/` (not `//`, which is protocol-relative) and carry no scheme (`http:`, `javascript:`, …).
+   * Links are composed server-side from event data that can include user-influenced content, so — as in
+   * the signin/login returnUrl handlers — anything else is treated as untrusted and dropped.
+   */
+  private isSafeLink(url: string): boolean {
+    return url.startsWith('/') && !url.startsWith('//') && !/^[a-z][a-z0-9+.-]*:/i.test(url);
+  }
+
+  /** Navigate to a notification link (an in-app path like /chat?c=..&m=..). No-ops when absent/unsafe. */
   private navigate(link: string | undefined): void {
     if (!link) return;
+    if (!this.isSafeLink(link)) return;
     void this.router.navigateByUrl(link);
   }
 }

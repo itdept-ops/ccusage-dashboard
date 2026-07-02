@@ -106,7 +106,7 @@ interface BadgeGroup {
             <h1 class="tr-page-header__title">Achievements</h1>
             <p class="tr-page-header__sub">Your milestone trophy wall</p>
           </div>
-          <a class="tr-page-header__action" routerLink="/tracker-beta"
+          <a class="tr-page-header__action" routerLink="/tracker"
              aria-label="Open tracker">
             <mat-icon aria-hidden="true">fitness_center</mat-icon> Tracker
           </a>
@@ -144,7 +144,7 @@ interface BadgeGroup {
             </p>
 
             @if (!badges().length && !errored()) {
-              <a class="tr-hero__cta" routerLink="/tracker-beta">
+              <a class="tr-hero__cta" routerLink="/tracker">
                 Start earning <mat-icon aria-hidden="true">arrow_forward</mat-icon> Open the tracker
               </a>
             }

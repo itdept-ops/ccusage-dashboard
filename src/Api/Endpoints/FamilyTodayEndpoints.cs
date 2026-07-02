@@ -140,9 +140,10 @@ public static class FamilyTodayEndpoints
         new(h.TimeZone, h.BriefingEnabled, h.BriefingHourLocal, h.WeatherLocation, weatherConfigured,
             h.EventHeadsUpEnabled, h.EventHeadsUpLeadMinutes, canEdit);
 
+    // Routes through the centralized HouseholdMembership role query (the single source of truth) rather than
+    // re-declaring the raw m.Role == "owner" predicate, so the ordinal role comparison lives in one place.
     private static async Task<bool> IsOwnerAsync(UsageDbContext db, int householdId, int userId, CancellationToken ct) =>
-        await db.HouseholdMembers.AsNoTracking()
-            .AnyAsync(m => m.HouseholdId == householdId && m.UserId == userId && m.Role == "owner", ct);
+        await HouseholdMembership.RoleInHouseholdAsync(db, householdId, userId, ct) == "owner";
 
     private static bool IsKnownTimeZone(string id)
     {

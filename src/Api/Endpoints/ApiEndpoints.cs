@@ -20,19 +20,17 @@ public static class ApiEndpoints
         // the process listens even when Postgres is unreachable or migrations haven't completed. Verify DB
         // connectivity (mirrors the "ready"-tagged AddDbContextCheck) and return 503 when it's not reachable
         // so the instance is held back until the database is genuinely ready.
+        //
+        // This endpoint is AllowAnonymous and publicly reachable, so the DB probe is cached for a few seconds:
+        // a flood of anonymous requests collapses to at most one CanConnectAsync per window, preventing an
+        // attacker from churning the Npgsql connection pool by hammering the probe. The HEALTHCHECK interval is
+        // far longer than the window, so real readiness signals are unaffected.
+        var healthCache = new HealthProbeCache(TimeSpan.FromSeconds(5));
         api.MapGet("/health", async (UsageDbContext db, CancellationToken ct) =>
-        {
-            try
-            {
-                if (!await db.Database.CanConnectAsync(ct))
-                    return Results.Json(new { status = "unavailable" }, statusCode: StatusCodes.Status503ServiceUnavailable);
-            }
-            catch
-            {
-                return Results.Json(new { status = "unavailable" }, statusCode: StatusCodes.Status503ServiceUnavailable);
-            }
-            return Results.Ok(new { status = "ok" });
-        }).AllowAnonymous();
+            await healthCache.IsReadyAsync(db, ct)
+                ? Results.Ok(new { status = "ok" })
+                : Results.Json(new { status = "unavailable" }, statusCode: StatusCodes.Status503ServiceUnavailable))
+            .AllowAnonymous();
 
         // ---- Sync ----
         api.MapPost("/sync", async (SyncCoordinator coordinator, CancellationToken ct) =>
@@ -238,5 +236,43 @@ public static class ApiEndpoints
             if (tzChanged) rebucketed = await recompute.RecomputeLocalDatesAsync(dto.DisplayTimeZone, ct);
             return Results.Ok(new { localDatesRebucketed = rebucketed });
         }).RequirePermission(Permissions.SettingsManage);
+    }
+}
+
+/// <summary>
+/// Caches the result of the anonymous /api/health DB readiness probe for a short window so a flood of
+/// public requests collapses to at most one Postgres connection check per window, avoiding connection-pool
+/// amplification. A single in-flight probe is shared across concurrent callers.
+/// </summary>
+internal sealed class HealthProbeCache(TimeSpan window)
+{
+    private readonly SemaphoreSlim _gate = new(1, 1);
+    private DateTime _checkedUtc = DateTime.MinValue;
+    private bool _ready;
+
+    public async Task<bool> IsReadyAsync(UsageDbContext db, CancellationToken ct)
+    {
+        if (DateTime.UtcNow - _checkedUtc < window)
+            return _ready;
+
+        await _gate.WaitAsync(ct);
+        try
+        {
+            // Re-check under the lock: a concurrent caller may have just refreshed the result.
+            if (DateTime.UtcNow - _checkedUtc < window)
+                return _ready;
+
+            bool ready;
+            try { ready = await db.Database.CanConnectAsync(ct); }
+            catch { ready = false; }
+
+            _ready = ready;
+            _checkedUtc = DateTime.UtcNow;
+            return ready;
+        }
+        finally
+        {
+            _gate.Release();
+        }
     }
 }

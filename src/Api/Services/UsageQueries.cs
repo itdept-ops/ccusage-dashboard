@@ -80,7 +80,14 @@ public sealed class UsageQueries(UsageDbContext db)
             return (Minutes: minutes, Sessions: sessions, First: times[0], Last: times[^1]);
         });
 
-        return agg.Select(a =>
+        // The aggregate is uncapped but the sessionization stamps are capped (newest-first). If the cap
+        // was actually hit, the oldest days lost their stamps and would otherwise render real spend with
+        // Sessions=0/ActiveMinutes=0. Drop those days so a day never shows spend with zero sessions;
+        // when the cap isn't hit (the normal case) every day has stamps and nothing is excluded.
+        DateOnly? minRetainedDay = stamps.Count == RowMaterializationCap && byDay.Count > 0
+            ? byDay.Keys.Min() : null;
+
+        return agg.Where(a => minRetainedDay is not { } floor || a.Date >= floor).Select(a =>
         {
             byDay.TryGetValue(a.Date, out var v);
             return new CalendarDayDto
@@ -97,12 +104,9 @@ public sealed class UsageQueries(UsageDbContext db)
         }).OrderBy(d => d.Date).ToList();
     }
 
-    private async Task<TimeZoneInfo> DisplayTzAsync(CancellationToken ct)
-    {
-        var id = (await db.AppConfigs.AsNoTracking().FirstOrDefaultAsync(ct))?.DisplayTimeZone;
-        if (string.IsNullOrWhiteSpace(id)) return TimeZoneInfo.Utc;
-        try { return TimeZoneInfo.FindSystemTimeZoneById(id); } catch { return TimeZoneInfo.Utc; }
-    }
+    // Delegate to the shared resolver so "today" is computed identically everywhere (mirrors the
+    // tracker/AI helpers). Same body as before, just no longer hand-copied.
+    private Task<TimeZoneInfo> DisplayTzAsync(CancellationToken ct) => TrackerVisibility.DisplayTzAsync(db, ct);
 
     /// <summary>Message counts bucketed by (weekday, local hour) — "when do I work with AI".</summary>
     public async Task<List<HeatmapCellDto>> HeatmapAsync(UsageFilterQuery f, CancellationToken ct)
