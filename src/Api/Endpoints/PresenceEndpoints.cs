@@ -45,8 +45,7 @@ public static class PresenceEndpoints
                 var callerUserId = callerEmail is not null && byEmail.TryGetValue(callerEmail, out var self)
                     ? (int?)self.Id : null;
                 var callerHouseholdId = callerUserId is int cid
-                    ? await db.HouseholdMembers.AsNoTracking()
-                        .Where(m => m.UserId == cid).Select(m => (int?)m.HouseholdId).FirstOrDefaultAsync(ct)
+                    ? await HouseholdMembership.HouseholdIdForUserAsync(db, cid, ct)
                     : null;
                 var householdUserIds = callerHouseholdId is int hid
                     ? (await db.HouseholdMembers.AsNoTracking()

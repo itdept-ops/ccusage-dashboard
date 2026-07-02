@@ -114,10 +114,7 @@ public sealed class AgentComposer(
         var caller = await ResolveCallerAsync(email, ct);
         if (caller is null) return null;
 
-        var householdId = await db.HouseholdMembers.AsNoTracking()
-            .Where(m => m.UserId == caller.Id)
-            .Select(m => (int?)m.HouseholdId)
-            .FirstOrDefaultAsync(ct);
+        var householdId = await HouseholdMembership.HouseholdIdForUserAsync(db, caller.Id, ct);
         if (householdId is null) return null;
 
         var household = await db.Households.AsNoTracking()
@@ -229,10 +226,7 @@ public sealed class AgentComposer(
         var caller = await ResolveCallerAsync(email, ct);
         if (caller is null) return null;
 
-        var householdId = await db.HouseholdMembers.AsNoTracking()
-            .Where(m => m.UserId == caller.Id)
-            .Select(m => (int?)m.HouseholdId)
-            .FirstOrDefaultAsync(ct);
+        var householdId = await HouseholdMembership.HouseholdIdForUserAsync(db, caller.Id, ct);
         if (householdId is null) return null;
 
         var monthStart = new DateOnly(localDate.Year, localDate.Month, 1);
@@ -327,10 +321,7 @@ public sealed class AgentComposer(
         var caller = await ResolveCallerAsync(email, ct);
         if (caller is null) return null;
 
-        var householdId = await db.HouseholdMembers.AsNoTracking()
-            .Where(m => m.UserId == caller.Id)
-            .Select(m => (int?)m.HouseholdId)
-            .FirstOrDefaultAsync(ct);
+        var householdId = await HouseholdMembership.HouseholdIdForUserAsync(db, caller.Id, ct);
         if (householdId is null) return null;
 
         // Open items across the household's ACTIVE shopping lists.

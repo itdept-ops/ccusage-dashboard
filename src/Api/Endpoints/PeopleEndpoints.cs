@@ -72,10 +72,7 @@ public static class PeopleEndpoints
                 var householdUserIds = new HashSet<int>();
                 if (hasFamily)
                 {
-                    var householdId = await db.HouseholdMembers.AsNoTracking()
-                        .Where(m => m.UserId == caller.Id)
-                        .Select(m => (int?)m.HouseholdId)
-                        .FirstOrDefaultAsync(ct);
+                    var householdId = await HouseholdMembership.HouseholdIdForUserAsync(db, caller.Id, ct);
 
                     if (householdId is int hid)
                     {

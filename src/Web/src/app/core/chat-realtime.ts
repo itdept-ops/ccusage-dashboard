@@ -19,7 +19,7 @@ const DEFAULT_PREFERENCES: NotificationPreferenceDto = {
   surfaceBrowser: false,
 };
 
-/** SignalR hub endpoint (JWT is appended by the client as ?access_token=...). */
+/** SignalR hub endpoint (authenticated by the HttpOnly auth cookie sent on the same-origin handshake). */
 const HUB_URL = '/api/hubs/chat';
 
 /** Coarse connection state surfaced to the UI for the reconnecting indicator. */
@@ -183,9 +183,10 @@ export class ChatRealtime {
     if (this.connection || !this.auth.isAuthenticated()) return;
 
     const connection = new signalr.HubConnectionBuilder()
-      .withUrl(HUB_URL, {
-        accessTokenFactory: () => this.auth.token ?? '',
-      })
+      // No accessTokenFactory: the JWT now lives in an HttpOnly cookie, so the browser sends it on this
+      // same-origin hub handshake automatically (the API reads it from the cookie for /api/hubs). JS never
+      // touches the token. withCredentials keeps the cookie flowing on the negotiate + socket requests.
+      .withUrl(HUB_URL, { withCredentials: true })
       .withAutomaticReconnect()
       .withHubProtocol(new signalr.JsonHubProtocol())
       .configureLogging(signalr.LogLevel.Warning)

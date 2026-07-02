@@ -26,21 +26,21 @@ const DB_VERSION = 1;
  * The SAME localStorage key the {@link AuthService} persists its session under, and the SAME
  * expiry guard. The queue lives OUTSIDE Angular DI for replay (raw fetch from a window/SW message
  * handler), so it can't inject AuthService without a circular dep through the http interceptor;
- * instead it reads the persisted session directly — identical source of truth as the auth
- * interceptor's `Bearer ${token}`. Kept in lock-step with auth.ts by hand (both are tiny).
+ * instead it reads the persisted session metadata directly to decide WHETHER to flush. The actual
+ * credential is the HttpOnly auth cookie (sent automatically via credentials:'include' on the replay);
+ * JS never sees the token. Kept in lock-step with auth.ts by hand (both are tiny).
  */
 const SESSION_KEY = 'usage_iq_session';
 
-/** Read the current, non-expired bearer token straight off the persisted session (or null). */
-function currentToken(): string | null {
+/** True if a non-expired session is persisted. Auth itself rides the HttpOnly cookie (unreadable here). */
+function sessionActive(): boolean {
   try {
     const raw = localStorage.getItem(SESSION_KEY);
-    if (!raw) return null;
-    const s = JSON.parse(raw) as { token?: string; expiresAtUtc?: string };
-    if (!s?.token || !s.expiresAtUtc) return null;
-    return new Date(s.expiresAtUtc).getTime() > Date.now() ? s.token : null;
+    if (!raw) return false;
+    const s = JSON.parse(raw) as { expiresAtUtc?: string };
+    return !!s?.expiresAtUtc && new Date(s.expiresAtUtc).getTime() > Date.now();
   } catch {
-    return null;
+    return false;
   }
 }
 
@@ -140,19 +140,18 @@ export class OfflineQueue {
       const pending = await this.all();
       if (!pending.length) return;
 
-      // No valid bearer (session expired / logged out / force-logged-out) — do NOT flush: replaying
-      // now would hit the server with no Authorization, get a 401/403, and (below) risk discarding
-      // optimistically-acked writes. Leave everything queued for a later wake once re-authenticated.
-      const token = currentToken();
-      if (!token) return;
+      // Not signed in (session expired / logged out / force-logged-out) — do NOT flush: the auth cookie
+      // is gone, so replaying now would 401/403 and (below) risk discarding optimistically-acked writes.
+      // Leave everything queued for a later wake once re-authenticated.
+      if (!sessionActive()) return;
 
       for (const item of pending) {
         try {
           const headers: Record<string, string> = { ...(item.headers ?? {}) };
-          // Always replay with the FRESH bearer (never the possibly-stale one we snapshotted).
+          // Auth rides the HttpOnly cookie (credentials:'include' below), not a header; strip any stale
+          // Authorization that may have been captured so it can't shadow the cookie.
           delete headers['Authorization'];
           delete headers['authorization'];
-          if (token) headers['Authorization'] = `Bearer ${token}`;
 
           const hasBody = item.body !== undefined && item.body !== null && item.method !== 'GET';
           if (hasBody && !headers['Content-Type'] && !headers['content-type']) {

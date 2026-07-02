@@ -20,16 +20,23 @@ public sealed class CurrentHouseholdAccessor(UsageDbContext db)
     /// </summary>
     public async Task<Household?> GetForCallerAsync(CurrentUserAccessor.CurrentUser caller, CancellationToken ct = default)
     {
-        var householdId = await db.HouseholdMembers.AsNoTracking()
-            .Where(m => m.UserId == caller.Id)
-            .Select(m => (int?)m.HouseholdId)
-            .FirstOrDefaultAsync(ct);
+        var householdId = await HouseholdMembership.HouseholdIdForUserAsync(db, caller.Id, ct);
         if (householdId is null) return null;
 
         return await db.Households.AsNoTracking()
             .Include(h => h.Members)
             .FirstOrDefaultAsync(h => h.Id == householdId.Value, ct);
     }
+
+    /// <summary>Whether <paramref name="userId"/> is a member of <paramref name="householdId"/> (any role).
+    /// Shim over <see cref="HouseholdMembership.IsMemberAsync"/> for the request path.</summary>
+    public Task<bool> IsMemberAsync(int householdId, int userId, CancellationToken ct = default) =>
+        HouseholdMembership.IsMemberAsync(db, householdId, userId, ct);
+
+    /// <summary>The role <paramref name="userId"/> holds in <paramref name="householdId"/> ("owner" | "adult" |
+    /// "child"), or null if not a member. Shim over <see cref="HouseholdMembership.RoleInHouseholdAsync"/>.</summary>
+    public Task<string?> RoleInHouseholdAsync(int householdId, int userId, CancellationToken ct = default) =>
+        HouseholdMembership.RoleInHouseholdAsync(db, householdId, userId, ct);
 
     /// <summary>
     /// The caller's household, auto-creating one if they hold <c>family.use</c> and aren't yet in any

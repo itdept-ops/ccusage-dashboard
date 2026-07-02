@@ -96,7 +96,7 @@ export class AuthService {
       nudgesOptOut: me.nudgesOptOut,
     };
     this._session.set(updated);
-    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(updated)); } catch { /* ignore */ }
+    this.persist(updated);
   }
 
   /**
@@ -119,7 +119,7 @@ export class AuthService {
       nudgesOptOut: p.nudgesOptOut,
     };
     this._session.set(updated);
-    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(updated)); } catch { /* ignore */ }
+    this.persist(updated);
   }
 
   /** Update the stored home-page preference locally after a successful PATCH /api/auth/home. */
@@ -128,7 +128,7 @@ export class AuthService {
     if (!s) return;
     const updated: AuthSession = { ...s, homeRoute: route };
     this._session.set(updated);
-    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(updated)); } catch { /* ignore */ }
+    this.persist(updated);
   }
 
   /** Valid bearer token, or null if missing/expired. */
@@ -144,30 +144,38 @@ export class AuthService {
   loginWithGoogle(idToken: string): Observable<AuthSession> {
     return this.http.post<AuthSession>('/api/auth/google', { idToken }).pipe(
       tap(s => {
+        // The API also set an HttpOnly auth cookie on this response; we keep only the non-secret
+        // session metadata client-side (persist() strips the token before storing).
         this._session.set(s);
-        try { localStorage.setItem(STORAGE_KEY, JSON.stringify(s)); } catch { /* ignore */ }
+        this.persist(s);
       }),
     );
   }
 
   logout(): void {
-    // Best-effort sign-out ping so the server drops us from presence immediately rather than waiting
-    // for our tracker entry to age out. Fire BEFORE clearing the session (we need the token), with
-    // keepalive so it survives the navigation that follows logout. Raw fetch on purpose: injecting
-    // HttpClient here would create a circular dep through the auth interceptor.
-    const token = this.token;
-    if (token) {
-      try {
-        fetch('/api/presence/offline', {
-          method: 'POST',
-          headers: { Authorization: 'Bearer ' + token },
-          keepalive: true,
-        }).catch(() => { /* ignore */ });
-      } catch { /* ignore */ }
-    }
+    // Best-effort, same-origin, keepalive sign-out pings so they survive the navigation that follows.
+    // credentials:'include' sends the HttpOnly auth cookie: /api/auth/logout clears it server-side (JS
+    // can't, by design) and /api/presence/offline drops us from presence immediately. Raw fetch on
+    // purpose: injecting HttpClient here would create a circular dep through the auth interceptor.
+    try {
+      fetch('/api/auth/logout', { method: 'POST', credentials: 'include', keepalive: true }).catch(() => { /* ignore */ });
+    } catch { /* ignore */ }
+    try {
+      fetch('/api/presence/offline', { method: 'POST', credentials: 'include', keepalive: true }).catch(() => { /* ignore */ });
+    } catch { /* ignore */ }
     this._session.set(null);
     try { localStorage.removeItem(STORAGE_KEY); } catch { /* ignore */ }
     try { (window as unknown as { google?: any }).google?.accounts?.id?.disableAutoSelect?.(); } catch { /* ignore */ }
+  }
+
+  /**
+   * Persist the session METADATA (permissions, prefs, expiry, identity) for offline UI gating — but never
+   * the JWT itself. The token lives only in the HttpOnly cookie the API set at login, so a stored copy can
+   * never be read by injected script. isAuthenticated() gates on the persisted expiry; the cookie is the
+   * real credential the server checks.
+   */
+  private persist(s: AuthSession): void {
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...s, token: '' })); } catch { /* ignore */ }
   }
 
   private restore(): AuthSession | null {
@@ -193,7 +201,10 @@ export class AuthService {
   private isValidSession(v: unknown): v is AuthSession {
     if (!v || typeof v !== 'object') return false;
     const s = v as Record<string, unknown>;
-    if (typeof s['token'] !== 'string' || s['token'].length === 0) return false;
+    // NOTE: the token is intentionally NOT required here — it is no longer persisted (it lives in the
+    // HttpOnly cookie). The persisted blob is only UI-gating metadata, still treated as untrusted input:
+    // a tampered far-future expiry + forged permissions array would render permission-gated UI, but every
+    // request is still authorized server-side by the cookie, so a forged blob grants no real access.
     if (typeof s['expiresAtUtc'] !== 'string' || Number.isNaN(new Date(s['expiresAtUtc']).getTime())) return false;
     if (!Array.isArray(s['permissions']) || !s['permissions'].every((p) => typeof p === 'string')) return false;
     return true;

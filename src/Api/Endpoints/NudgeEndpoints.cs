@@ -100,11 +100,8 @@ public static class NudgeEndpoints
     {
         if (await ContactGraph.IsContactAsync(db, caller.Email, targetEmail, ct)) return true;
 
-        // Household co-membership (resolved inline, exactly as PeopleEndpoints does it).
-        var householdId = await db.HouseholdMembers.AsNoTracking()
-            .Where(m => m.UserId == caller.Id)
-            .Select(m => (int?)m.HouseholdId)
-            .FirstOrDefaultAsync(ct);
+        // Household co-membership (resolved via the shared membership graph, exactly as PeopleEndpoints does it).
+        var householdId = await HouseholdMembership.HouseholdIdForUserAsync(db, caller.Id, ct);
         if (householdId is not int hid) return false;
 
         return await db.HouseholdMembers.AsNoTracking()

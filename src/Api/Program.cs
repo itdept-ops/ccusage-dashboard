@@ -312,17 +312,30 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             ValidateLifetime = true,
             ClockSkew = TimeSpan.FromMinutes(2),
         };
-        // Browsers can't set Authorization headers on a WebSocket handshake, so SignalR passes the
-        // JWT as the ?access_token query param. Lift it into the token slot for hub routes only
-        // (never for normal API calls, which must keep using the Authorization header).
+        // Token sources, in precedence order:
+        //  1. Authorization: Bearer header — non-browser clients and the test suite (handled by the
+        //     framework's default extraction when we don't set ctx.Token below).
+        //  2. ?access_token query param on hub routes — the legacy SignalR handshake path (kept working).
+        //  3. The HttpOnly "usage_iq_jwt" cookie — the SPA no longer holds the JWT in JS; the browser sends
+        //     it automatically on same-origin API calls AND on the SignalR handshake. Only consulted when no
+        //     Authorization header was sent, so a Bearer header (tests / API clients) always wins.
         options.Events = new JwtBearerEvents
         {
             OnMessageReceived = ctx =>
             {
-                var token = ctx.Request.Query["access_token"];
                 var path = ctx.HttpContext.Request.Path;
-                if (!string.IsNullOrEmpty(token) && path.StartsWithSegments("/api/hubs"))
-                    ctx.Token = token;
+                var qtoken = ctx.Request.Query["access_token"];
+                if (!string.IsNullOrEmpty(qtoken) && path.StartsWithSegments("/api/hubs"))
+                {
+                    ctx.Token = qtoken;
+                    return Task.CompletedTask;
+                }
+                if (!ctx.Request.Headers.ContainsKey("Authorization")
+                    && ctx.Request.Cookies.TryGetValue(AuthEndpoints.JwtCookieName, out var cookieToken)
+                    && !string.IsNullOrEmpty(cookieToken))
+                {
+                    ctx.Token = cookieToken;
+                }
                 return Task.CompletedTask;
             },
             // Session invalidation (force-logout): the token's "sv" claim must still match the user's

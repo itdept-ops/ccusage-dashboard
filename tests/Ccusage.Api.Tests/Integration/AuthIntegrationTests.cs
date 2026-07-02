@@ -391,6 +391,37 @@ public class AuthIntegrationTests(WebAppFactory factory)
     public async Task Google_login_with_an_invalid_token_is_unauthorized()
         => (await GoogleLogin("invalid")).StatusCode.Should().Be(HttpStatusCode.Unauthorized);
 
+    [Fact]
+    public async Task Login_sets_an_HttpOnly_jwt_cookie_that_authenticates_without_a_bearer_header()
+    {
+        var email = $"cookie-{Guid.NewGuid():N}@test.local";
+        var login = await GoogleLogin($"{email}|sub-{Guid.NewGuid():N}");
+        login.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        // The login response set an HttpOnly usage_iq_jwt cookie (the SPA never stores the JWT in JS).
+        login.Headers.TryGetValues("Set-Cookie", out var setCookies).Should().BeTrue();
+        var jwtCookie = setCookies!.FirstOrDefault(c => c.StartsWith("usage_iq_jwt="));
+        jwtCookie.Should().NotBeNull("login must set the usage_iq_jwt cookie");
+        jwtCookie!.ToLowerInvariant().Should().Contain("httponly");
+
+        // A follow-up request carrying ONLY that cookie (no Authorization header) is authenticated.
+        var cookiePair = jwtCookie.Split(';')[0]; // "usage_iq_jwt=<jwt>"
+        var req = new HttpRequestMessage(HttpMethod.Get, "/api/auth/me");
+        req.Headers.Add("Cookie", cookiePair);
+        var me = await factory.CreateClient().SendAsync(req);
+        me.StatusCode.Should().Be(HttpStatusCode.OK);
+    }
+
+    [Fact]
+    public async Task Logout_clears_the_jwt_cookie()
+    {
+        var res = await factory.CreateClient().PostAsync("/api/auth/logout", null);
+        res.StatusCode.Should().Be(HttpStatusCode.OK);
+        res.Headers.TryGetValues("Set-Cookie", out var setCookies).Should().BeTrue();
+        setCookies!.Should().Contain(c => c.StartsWith("usage_iq_jwt=")
+            && (c.Contains("expires=", StringComparison.OrdinalIgnoreCase) || c.Contains("max-age=0", StringComparison.OrdinalIgnoreCase)));
+    }
+
     /// <summary>Sets the global access policy (open sign-up + default permissions) as the admin.</summary>
     private async Task SetAccessPolicy(bool openSignup, params string[] defaults)
     {

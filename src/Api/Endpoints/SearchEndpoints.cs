@@ -155,10 +155,7 @@ public static class SearchEndpoints
                     && (caller.Permissions.Contains(Permissions.FamilyUse)
                         || caller.Permissions.Contains(Permissions.MealsUse));
                 if (needsHousehold)
-                    householdId = await db.HouseholdMembers.AsNoTracking()
-                        .Where(m => m.UserId == caller.Id)
-                        .Select(m => (int?)m.HouseholdId)
-                        .FirstOrDefaultAsync(ct);
+                    householdId = await HouseholdMembership.HouseholdIdForUserAsync(db, caller.Id, ct);
 
                 if (householdId is int hid)
                 {
@@ -287,10 +284,7 @@ public static class SearchEndpoints
                     if (hasFamily && householdId is null)
                         // Household wasn't resolved above (no household domain wanted / no meals perm path) —
                         // resolve it now for the people union, the same membership way.
-                        householdId = await db.HouseholdMembers.AsNoTracking()
-                            .Where(m => m.UserId == caller.Id)
-                            .Select(m => (int?)m.HouseholdId)
-                            .FirstOrDefaultAsync(ct);
+                        householdId = await HouseholdMembership.HouseholdIdForUserAsync(db, caller.Id, ct);
 
                     if (hasFamily && householdId is int phid)
                     {

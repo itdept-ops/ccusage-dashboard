@@ -768,8 +768,7 @@ public static class FamilyNotesListsEndpoints
             return Results.BadRequest(new { message = "You can only share with one of your contacts." });
 
         // No point sharing to someone who is already a member of the item's household.
-        if (await db.HouseholdMembers.AsNoTracking()
-                .AnyAsync(m => m.HouseholdId == callerHouseholdId && m.UserId == req.UserId, ct))
+        if (await HouseholdMembership.IsMemberAsync(db, callerHouseholdId, req.UserId, ct))
             return Results.BadRequest(new { message = "That person is already in your family." });
 
         var existing = await db.FamilyShares
@@ -842,8 +841,7 @@ public static class FamilyNotesListsEndpoints
     private static async Task<bool> IsItemPersonAsync(
         UsageDbContext db, string itemType, long itemId, int itemHouseholdId, int userId, CancellationToken ct)
     {
-        if (await db.HouseholdMembers.AsNoTracking()
-                .AnyAsync(m => m.HouseholdId == itemHouseholdId && m.UserId == userId, ct))
+        if (await HouseholdMembership.IsMemberAsync(db, itemHouseholdId, userId, ct))
             return true;
         return await db.FamilyShares.AsNoTracking()
             .AnyAsync(s => s.ItemType == itemType && s.ItemId == itemId && s.SharedWithUserId == userId, ct);

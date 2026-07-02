@@ -215,8 +215,7 @@ public static class TrackerEndpoints
             var meal = await db.FamilyMeals.AsNoTracking().FirstOrDefaultAsync(m => m.Id == req.MealId, ct);
             // 404 when the meal doesn't exist OR the caller isn't a member of its household — never leak it.
             if (meal is null) return Results.NotFound();
-            var isMember = await db.HouseholdMembers.AsNoTracking()
-                .AnyAsync(hm => hm.HouseholdId == meal.HouseholdId && hm.UserId == caller.Id, ct);
+            var isMember = await HouseholdMembership.IsMemberAsync(db, meal.HouseholdId, caller.Id, ct);
             if (!isMember) return Results.NotFound();
 
             // Macros must be set (an AI/DB/manual estimate confirmed onto the meal) before it can be logged.
@@ -229,8 +228,7 @@ public static class TrackerEndpoints
             var ownerEmail = caller.Email;
             if (req.TargetUserId is int targetUserId && targetUserId != caller.Id)
             {
-                var targetIsMember = await db.HouseholdMembers.AsNoTracking()
-                    .AnyAsync(hm => hm.HouseholdId == meal.HouseholdId && hm.UserId == targetUserId, ct);
+                var targetIsMember = await HouseholdMembership.IsMemberAsync(db, meal.HouseholdId, targetUserId, ct);
                 if (!targetIsMember) return Results.NotFound();
 
                 var targetEmail = await db.Users.AsNoTracking()

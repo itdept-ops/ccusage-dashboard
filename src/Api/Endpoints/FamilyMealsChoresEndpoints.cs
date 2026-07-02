@@ -1978,20 +1978,16 @@ public static class FamilyMealsChoresEndpoints
         return today.AddDays(-offset);
     }
 
-    private static async Task<bool> IsHouseholdMemberAsync(
+    private static Task<bool> IsHouseholdMemberAsync(
         UsageDbContext db, int householdId, int userId, CancellationToken ct) =>
-        await db.HouseholdMembers.AsNoTracking()
-            .AnyAsync(m => m.HouseholdId == householdId && m.UserId == userId, ct);
+        HouseholdMembership.IsMemberAsync(db, householdId, userId, ct);
 
     // ---- Marketplace role + normalization helpers ----
 
     /// <summary>The caller's role in the household ("owner"|"adult"|"child"), or null if not a member.</summary>
-    private static async Task<string?> RoleInHouseholdAsync(
+    private static Task<string?> RoleInHouseholdAsync(
         UsageDbContext db, int householdId, int userId, CancellationToken ct) =>
-        await db.HouseholdMembers.AsNoTracking()
-            .Where(m => m.HouseholdId == householdId && m.UserId == userId)
-            .Select(m => m.Role)
-            .FirstOrDefaultAsync(ct);
+        HouseholdMembership.RoleInHouseholdAsync(db, householdId, userId, ct);
 
     /// <summary>A child caller (the kid view): role is exactly "child".</summary>
     private static bool IsChild(string? role) => role == "child";

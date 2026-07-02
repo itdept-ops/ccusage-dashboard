@@ -8,6 +8,24 @@ namespace Ccusage.Api.Endpoints;
 
 public static class AuthEndpoints
 {
+    /// <summary>Name of the HttpOnly cookie that carries the app JWT for browser clients.</summary>
+    public const string JwtCookieName = "usage_iq_jwt";
+
+    /// <summary>
+    /// Options for the JWT cookie: HttpOnly (unreadable by JS, so an XSS foothold can't steal the token),
+    /// SameSite=Lax (not sent on cross-site sub-requests, which blocks CSRF on state-changing calls),
+    /// Secure only when the request is https (so plain-http local dev still works), path '/', expiring with
+    /// the token. The same options (minus Expires) are used to Delete the cookie on logout.
+    /// </summary>
+    private static CookieOptions JwtCookieOptions(HttpContext http, DateTime? expiresUtc) => new()
+    {
+        HttpOnly = true,
+        Secure = http.Request.IsHttps,
+        SameSite = SameSiteMode.Lax,
+        Path = "/",
+        Expires = expiresUtc is { } e ? new DateTimeOffset(DateTime.SpecifyKind(e, DateTimeKind.Utc)) : null,
+    };
+
     public static void MapAuthEndpoints(this WebApplication app)
     {
         var auth = app.MapGroup("/api/auth");
@@ -18,12 +36,19 @@ public static class AuthEndpoints
             .AllowAnonymous();
 
         // Public: exchange a Google ID token for an app JWT (allowlist enforced server-side).
-        auth.MapPost("/google", async (GoogleLoginRequest req, GoogleAuthService svc, CancellationToken ct) =>
+        auth.MapPost("/google", async (GoogleLoginRequest req, GoogleAuthService svc, HttpContext http, CancellationToken ct) =>
         {
             if (string.IsNullOrWhiteSpace(req.IdToken))
                 return Results.BadRequest(new { message = "idToken is required" });
 
             var result = await svc.SignInAsync(req.IdToken, ct);
+            if (result.Status == SignInStatus.Ok && result.Auth is not null)
+            {
+                // Set the JWT as an HttpOnly cookie so browser clients never hold it in JS (closes the XSS
+                // token-theft path). The token is ALSO still returned in the body for backward-compat and
+                // non-browser clients, but the SPA now authenticates via this cookie and does not store it.
+                http.Response.Cookies.Append(JwtCookieName, result.Auth.Token, JwtCookieOptions(http, result.Auth.ExpiresAtUtc));
+            }
             return result.Status switch
             {
                 SignInStatus.Ok => Results.Ok(result.Auth),
@@ -33,6 +58,14 @@ public static class AuthEndpoints
                 _ => Results.Unauthorized(),
             };
         }).AllowAnonymous().RequireRateLimiting("auth");
+
+        // Clear the HttpOnly auth cookie (only the server can, by design). Anonymous-ok so a caller whose
+        // token already expired can still fully sign out. The SPA calls this on logout.
+        auth.MapPost("/logout", (HttpContext http) =>
+        {
+            http.Response.Cookies.Delete(JwtCookieName, JwtCookieOptions(http, null));
+            return Results.Ok(new { ok = true });
+        }).AllowAnonymous();
 
         // Authorized: current user + live permissions (re-read from the DB).
         auth.MapGet("/me", async (CurrentUserAccessor accessor, CancellationToken ct) =>
