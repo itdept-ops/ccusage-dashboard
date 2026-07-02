@@ -17,14 +17,22 @@ public static class AuthEndpoints
     /// Secure only when the request is https (so plain-http local dev still works), path '/', expiring with
     /// the token. The same options (minus Expires) are used to Delete the cookie on logout.
     /// </summary>
-    private static CookieOptions JwtCookieOptions(HttpContext http, DateTime? expiresUtc) => new()
+    private static CookieOptions JwtCookieOptions(HttpContext http, DateTime? expiresUtc)
     {
-        HttpOnly = true,
-        Secure = http.Request.IsHttps,
-        SameSite = SameSiteMode.Lax,
-        Path = "/",
-        Expires = expiresUtc is { } e ? new DateTimeOffset(DateTime.SpecifyKind(e, DateTimeKind.Utc)) : null,
-    };
+        // Secure everywhere EXCEPT local http dev. Deriving Secure purely from Request.IsHttps is unsafe
+        // behind the prod proxy chain: nginx/Kestrel see the request over internal http, so IsHttps is false
+        // and the cookie would be set WITHOUT Secure even though the browser reached us over https. Force
+        // Secure in any non-Development environment (the browser hop is always https there via Caddy).
+        var env = http.RequestServices.GetRequiredService<IWebHostEnvironment>();
+        return new CookieOptions
+        {
+            HttpOnly = true,
+            Secure = http.Request.IsHttps || !env.IsDevelopment(),
+            SameSite = SameSiteMode.Lax,
+            Path = "/",
+            Expires = expiresUtc is { } e ? new DateTimeOffset(DateTime.SpecifyKind(e, DateTimeKind.Utc)) : null,
+        };
+    }
 
     public static void MapAuthEndpoints(this WebApplication app)
     {

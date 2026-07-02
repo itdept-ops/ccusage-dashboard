@@ -26,6 +26,14 @@ namespace Ccusage.Api.Migrations
             migrationBuilder.Sql(
                 "SELECT setval(pg_get_serial_sequence('\"ModelPricings\"','Id'), " +
                 "GREATEST((SELECT COALESCE(MAX(\"Id\"), 1) FROM \"ModelPricings\"), 1), true);");
+            // The new partial-unique index below (one OVERALL budget per household, i.e. Category IS NULL)
+            // will ABORT this migration if a household already accumulated duplicate overall budgets — the
+            // exact bug the index exists to prevent. Collapse any existing duplicates first, keeping the
+            // lowest-Id row per household, so the index can be created on a live database.
+            migrationBuilder.Sql(
+                "DELETE FROM \"FinanceBudgets\" a USING \"FinanceBudgets\" b " +
+                "WHERE a.\"Category\" IS NULL AND b.\"Category\" IS NULL " +
+                "AND a.\"HouseholdId\" = b.\"HouseholdId\" AND a.\"Id\" > b.\"Id\";");
 
             migrationBuilder.DropForeignKey(
                 name: "FK_UsageRecords_IngestedFiles_IngestedFileId",
